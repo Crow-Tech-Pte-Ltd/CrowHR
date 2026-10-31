@@ -4,7 +4,7 @@ import { z } from "zod";
 import { clientIp } from "../audit/audit.ts";
 import type { AppContext } from "../context.ts";
 import { sha256Hex } from "../crypto/tokens.ts";
-import { mfaChallenges, sessions, ssoProviders } from "../db/schema/auth.ts";
+import { mfaChallenges, sessions } from "../db/schema/auth.ts";
 import { users } from "../db/schema/users.ts";
 import { AppError } from "../errors.ts";
 import { defineRoute } from "../http/route.ts";
@@ -21,6 +21,7 @@ import {
   verifyPasswordOrDummy,
   verifySecondFactor,
 } from "./credentials.ts";
+import { publicSignInMethods } from "./methods.ts";
 import { completeNativeSignIn } from "./native/complete.ts";
 import { clearSessionCookie, revokeSessionById, startBrowserSession } from "./sessions.ts";
 import { loadSecuritySettings, sessionCookie } from "./settings.ts";
@@ -51,11 +52,7 @@ export const signInResult = z.object({
 
 /** Names of the enabled SSO methods, for the "password sign-in is disabled" message. */
 async function enabledSsoNames(c: AppContext, orgId: string): Promise<string[]> {
-  const rows = await c.var.deps.db
-    .select({ name: ssoProviders.displayName })
-    .from(ssoProviders)
-    .where(and(eq(ssoProviders.orgId, orgId), eq(ssoProviders.enabled, true)));
-  return rows.map((r) => r.name);
+  return (await publicSignInMethods(c.var.deps.db, orgId)).providers.map((p) => p.displayName);
 }
 
 /** Final step shared by password(+MFA) sign-in: browser session, or a native code. */

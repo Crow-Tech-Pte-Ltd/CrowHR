@@ -44,16 +44,16 @@
 
 ## 7. OIDC (Google, Entra, generic)
 
-- [ ] 7.1 packages/core: build `testing/mock-oidc.ts` (in-process IdP with discovery, JWKS, code flow, configurable claims) and verify it with `testing/mock-oidc.test.ts`
-- [ ] 7.2 packages/core: write `auth/oidc-config.http.test.ts` (discovery fetched and issuer checked, secrets encrypted and never echoed, Entra `common` rejected, owner-only, re-auth required, audit) then implement provider CRUD with presets
-- [ ] 7.3 packages/core: write `auth/oidc-flow.http.test.ts` against the mock (PKCE S256, state/nonce, TTL 10 min, state mismatch, bad signature, wrong audience, `hd` and `tid` mismatch → failure with audit reason) then implement start and callback routes
-- [ ] 7.4 packages/core: write `auth/oidc-linking.test.ts` (verified-email first link, unverified email refused, invitation-bound link, `(issuer, sub)` match afterwards, unlink blocked when it is the last method, JIT off by default, JIT domain allow-list) then implement linking
-- [ ] 7.5 packages/core: write `auth/sign-in-methods.http.test.ts` (public methods endpoint lists only enabled + configured, cannot disable password before a successful SSO test, staff refused with method names, owner break-glass audited) then implement method configuration
+- [x] 7.1 packages/core: build `testing/mock-oidc.ts` (in-process IdP with discovery, JWKS, code flow, configurable claims) and verify it with `testing/mock-oidc.test.ts`
+- [x] 7.2 packages/core: write `auth/oidc-config.http.test.ts` (discovery fetched and issuer checked, secrets encrypted and never echoed, Entra `common` rejected, owner-only, re-auth required, audit) then implement provider CRUD with presets
+- [x] 7.3 packages/core: write `auth/oidc-flow.http.test.ts` against the mock (PKCE S256, state/nonce, TTL 10 min, state mismatch, bad signature, wrong audience, `hd` and `tid` mismatch → failure with audit reason) then implement start and callback routes — ID-token signatures are verified (openid-client `enableNonRepudiationChecks`), not just trusted over TLS
+- [x] 7.4 packages/core: write `auth/oidc-linking.test.ts` (verified-email first link, unverified email refused, invitation-bound link, `(issuer, sub)` match afterwards, unlink blocked when it is the last method, JIT off by default, JIT domain allow-list) then implement linking
+- [x] 7.5 packages/core: write `auth/sign-in-methods.http.test.ts` (public methods endpoint lists only enabled + configured, cannot disable password before a successful SSO test, staff refused with method names, owner break-glass audited) then implement method configuration
 
 ## 8. Singpass (milestone M3)
 
-- [ ] 8.1 packages/core: extend the mock IdP with PAR, DPoP and JWE ID tokens; write `auth/singpass.test.ts` (PAR used, `private_key_jwt` assertion valid, DPoP proof bound, encrypted ID token decrypted, link only by invitation or profile) then enable the Singpass preset
-- [ ] 8.2 packages/core: write `auth/jwks.http.test.ts` (public keys only, no private members) then implement RP key generation and the JWKS route
+- [x] 8.1 packages/core: extend the mock IdP with PAR, DPoP and JWE ID tokens; write `auth/singpass.test.ts` (PAR used, `private_key_jwt` assertion valid, DPoP proof bound, encrypted ID token decrypted, link only by invitation or profile) then enable the Singpass preset — tested only against the mock IdP; NOT verified against real Singpass (8.3 open)
+- [x] 8.2 packages/core: write `auth/jwks.http.test.ts` (public keys only, no private members) then implement RP key generation and the JWKS route
 - [ ] 8.3 apps/docs: Singpass relying-party setup guide — verified by review; manual staging sign-in recorded in the guide before this task is ticked
 
 ## 9. Web UI
