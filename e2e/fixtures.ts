@@ -19,6 +19,9 @@ export const E2E = {
     leaveStaff: { email: "nadia@kampongkopi.example", name: "Nadia Rahman", roles: [] },
     leaveDad: { email: "weiming@kampongkopi.example", name: "Tan Wei Ming", roles: [] },
     payroll: { email: "payroll@kampongkopi.example", name: "Lim Jia Hui", roles: ["payroll_admin"] },
+    // Scheduling (WS5b): rostered café crew at HQ reporting to Kai Wen (e2e/seed-schedules.ts).
+    crewA: { email: "nurul@kampongkopi.example", name: "Nurul Huda", roles: [] },
+    crewB: { email: "marcus@kampongkopi.example", name: "Marcus Lim", roles: [] },
   },
   /** Second organisation with every SSO method on (screenshots / multi-org). */
   ssoOrg: {

@@ -110,10 +110,10 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     label: "Schedules",
     to: "/schedules",
     icon: CalendarClock,
-    summary: "Shifts and rosters",
+    summary: "Weekly rosters, my shifts, shift swaps",
     emptyTitle: "No schedules yet",
-    emptyBody: "Shift patterns and weekly rosters will be planned and published to staff here.",
-    keywords: ["roster", "shift", "rota"],
+    emptyBody: "Weekly rosters are built from shift templates and published to staff here.",
+    keywords: ["roster", "shift", "rota", "swap", "my schedule"],
   },
   claims: {
     id: "claims",
@@ -174,8 +174,9 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 /** Employee bottom tab bar on mobile (< 768px). */
-export const EMPLOYEE_TABS: { id: ModuleId; label: string }[] = [
+export const EMPLOYEE_TABS: { id: ModuleId; label: string; to?: string }[] = [
   { id: "home", label: "Home" },
+  { id: "schedules", label: "Shifts", to: "/schedules/me" },
   { id: "leave", label: "Leave" },
   { id: "claims", label: "Claims" },
   { id: "payroll", label: "Payslips" },

@@ -30,8 +30,8 @@
 
 ## 6. Web
 
-- [ ] 6.1 apps/web: Settings → Shift templates
-- [ ] 6.2 apps/web: Schedules week grid (click, keyboard, drag; copy last week; publish with acknowledgement; daily totals; restrained colour tokens; readable at 25 × 7; tablet) and day list at phone width
-- [ ] 6.3 apps/web: My schedule (mobile list of 14 days, unpublished message, swap offers, open shifts, request swap/pickup) and the mobile tab
-- [ ] 6.4 apps/web: attendance clock lists only today's punches (and an open overnight shift), not yesterday's after clocking out
-- [ ] 6.5 e2e: `e2e/schedules.spec.ts` (build next week's roster, publish, employee sees it at 390 px, requests a swap, peer accepts, manager approves in the Inbox) and WS5b screenshots at 1440, 1024 and 390
+- [x] 6.1 apps/web: Settings → Shift templates
+- [x] 6.2 apps/web: Schedules week grid (click, keyboard, drag; copy last week; publish with acknowledgement; daily totals; restrained colour tokens; readable at 25 × 7; tablet) and day list at phone width
+- [x] 6.3 apps/web: My schedule (mobile list of 14 days, unpublished message, swap offers, open shifts, request swap/pickup) and the mobile tab
+- [x] 6.4 apps/web: attendance clock lists only today's punches (and an open overnight shift), not yesterday's after clocking out
+- [x] 6.5 e2e: `e2e/schedules.spec.ts` (build next week's roster, publish, employee sees it at 390 px, requests a swap, peer accepts, manager approves in the Inbox) and WS5b screenshots at 1440, 1024 and 390

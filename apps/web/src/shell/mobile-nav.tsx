@@ -42,14 +42,14 @@ export function BottomTabBar() {
       aria-label="Employee navigation"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/15 bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {EMPLOYEE_TABS.map((tab) => {
           const m = MODULES[tab.id];
           const Icon = m.icon;
           return (
             <li key={tab.id}>
               <Link
-                to={m.to}
+                to={tab.to ?? m.to}
                 activeOptions={{ exact: m.to === "/", includeSearch: false }}
                 className={cn(
                   "focus-ring group relative flex h-14 flex-col items-center justify-center gap-1 font-azeret text-[10px] font-medium text-primary-200",

@@ -15,7 +15,6 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
 import { Route as AppReportsRouteImport } from './routes/_app/reports'
-import { Route as AppSchedulesRouteImport } from './routes/_app/schedules'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ResetTokenRouteImport } from './routes/reset.$token'
 import { Route as SignInIndexRouteImport } from './routes/sign-in.index'
@@ -36,6 +35,8 @@ import { Route as AppPeopleIndexRouteImport } from './routes/_app/people/index'
 import { Route as AppPeopleEmployeeIdRouteImport } from './routes/_app/people/$employeeId'
 import { Route as AppPeopleImportRouteImport } from './routes/_app/people/import'
 import { Route as AppPeopleNewRouteImport } from './routes/_app/people/new'
+import { Route as AppSchedulesIndexRouteImport } from './routes/_app/schedules/index'
+import { Route as AppSchedulesMeRouteImport } from './routes/_app/schedules/me'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsApprovalsRouteImport } from './routes/_app/settings/approvals'
 import { Route as AppSettingsAttendanceRouteImport } from './routes/_app/settings/attendance'
@@ -46,6 +47,7 @@ import { Route as AppSettingsLeaveRouteImport } from './routes/_app/settings/lea
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/settings/notifications'
 import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
+import { Route as AppSettingsShiftTemplatesRouteImport } from './routes/_app/settings/shift-templates'
 import { Route as AppSettingsStructureRouteImport } from './routes/_app/settings/structure'
 import { Route as AppSettingsSystemRouteImport } from './routes/_app/settings/system'
 import { Route as AppMePayslipsIndexRouteImport } from './routes/_app/me/payslips.index'
@@ -80,11 +82,6 @@ const AppInboxRoute = AppInboxRouteImport.update({
 const AppReportsRoute = AppReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSchedulesRoute = AppSchedulesRouteImport.update({
-  id: '/schedules',
-  path: '/schedules',
   getParentRoute: () => AppRoute,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
@@ -187,6 +184,16 @@ const AppPeopleNewRoute = AppPeopleNewRouteImport.update({
   path: '/people/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSchedulesIndexRoute = AppSchedulesIndexRouteImport.update({
+  id: '/schedules/',
+  path: '/schedules/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSchedulesMeRoute = AppSchedulesMeRouteImport.update({
+  id: '/schedules/me',
+  path: '/schedules/me',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
@@ -238,6 +245,12 @@ const AppSettingsSecurityRoute = AppSettingsSecurityRouteImport.update({
   path: '/settings/security',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsShiftTemplatesRoute =
+  AppSettingsShiftTemplatesRouteImport.update({
+    id: '/settings/shift-templates',
+    path: '/settings/shift-templates',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppSettingsStructureRoute = AppSettingsStructureRouteImport.update({
   id: '/settings/structure',
   path: '/settings/structure',
@@ -276,7 +289,6 @@ export interface FileRoutesByFullPath {
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
   '/reports': typeof AppReportsRoute
-  '/schedules': typeof AppSchedulesRoute
   '/invite/$token': typeof InviteTokenRoute
   '/reset/$token': typeof ResetTokenRoute
   '/sign-in/$org': typeof SignInOrgRoute
@@ -292,6 +304,7 @@ export interface FileRoutesByFullPath {
   '/people/$employeeId': typeof AppPeopleEmployeeIdRoute
   '/people/import': typeof AppPeopleImportRoute
   '/people/new': typeof AppPeopleNewRoute
+  '/schedules/me': typeof AppSchedulesMeRoute
   '/settings/approvals': typeof AppSettingsApprovalsRoute
   '/settings/attendance': typeof AppSettingsAttendanceRoute
   '/settings/audit': typeof AppSettingsAuditRoute
@@ -301,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/security': typeof AppSettingsSecurityRoute
+  '/settings/shift-templates': typeof AppSettingsShiftTemplatesRoute
   '/settings/structure': typeof AppSettingsStructureRoute
   '/settings/system': typeof AppSettingsSystemRoute
   '/attendance/': typeof AppAttendanceIndexRoute
@@ -308,6 +322,7 @@ export interface FileRoutesByFullPath {
   '/leave/': typeof AppLeaveIndexRoute
   '/payroll/': typeof AppPayrollIndexRoute
   '/people/': typeof AppPeopleIndexRoute
+  '/schedules/': typeof AppSchedulesIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
   '/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
@@ -319,7 +334,6 @@ export interface FileRoutesByTo {
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
   '/reports': typeof AppReportsRoute
-  '/schedules': typeof AppSchedulesRoute
   '/invite/$token': typeof InviteTokenRoute
   '/reset/$token': typeof ResetTokenRoute
   '/sign-in/$org': typeof SignInOrgRoute
@@ -336,6 +350,7 @@ export interface FileRoutesByTo {
   '/people/$employeeId': typeof AppPeopleEmployeeIdRoute
   '/people/import': typeof AppPeopleImportRoute
   '/people/new': typeof AppPeopleNewRoute
+  '/schedules/me': typeof AppSchedulesMeRoute
   '/settings/approvals': typeof AppSettingsApprovalsRoute
   '/settings/attendance': typeof AppSettingsAttendanceRoute
   '/settings/audit': typeof AppSettingsAuditRoute
@@ -345,6 +360,7 @@ export interface FileRoutesByTo {
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/security': typeof AppSettingsSecurityRoute
+  '/settings/shift-templates': typeof AppSettingsShiftTemplatesRoute
   '/settings/structure': typeof AppSettingsStructureRoute
   '/settings/system': typeof AppSettingsSystemRoute
   '/attendance': typeof AppAttendanceIndexRoute
@@ -352,6 +368,7 @@ export interface FileRoutesByTo {
   '/leave': typeof AppLeaveIndexRoute
   '/payroll': typeof AppPayrollIndexRoute
   '/people': typeof AppPeopleIndexRoute
+  '/schedules': typeof AppSchedulesIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
   '/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
@@ -365,7 +382,6 @@ export interface FileRoutesById {
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/inbox': typeof AppInboxRoute
   '/_app/reports': typeof AppReportsRoute
-  '/_app/schedules': typeof AppSchedulesRoute
   '/invite/$token': typeof InviteTokenRoute
   '/reset/$token': typeof ResetTokenRoute
   '/sign-in/$org': typeof SignInOrgRoute
@@ -382,6 +398,7 @@ export interface FileRoutesById {
   '/_app/people/$employeeId': typeof AppPeopleEmployeeIdRoute
   '/_app/people/import': typeof AppPeopleImportRoute
   '/_app/people/new': typeof AppPeopleNewRoute
+  '/_app/schedules/me': typeof AppSchedulesMeRoute
   '/_app/settings/approvals': typeof AppSettingsApprovalsRoute
   '/_app/settings/attendance': typeof AppSettingsAttendanceRoute
   '/_app/settings/audit': typeof AppSettingsAuditRoute
@@ -391,6 +408,7 @@ export interface FileRoutesById {
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
   '/_app/settings/security': typeof AppSettingsSecurityRoute
+  '/_app/settings/shift-templates': typeof AppSettingsShiftTemplatesRoute
   '/_app/settings/structure': typeof AppSettingsStructureRoute
   '/_app/settings/system': typeof AppSettingsSystemRoute
   '/_app/attendance/': typeof AppAttendanceIndexRoute
@@ -398,6 +416,7 @@ export interface FileRoutesById {
   '/_app/leave/': typeof AppLeaveIndexRoute
   '/_app/payroll/': typeof AppPayrollIndexRoute
   '/_app/people/': typeof AppPeopleIndexRoute
+  '/_app/schedules/': typeof AppSchedulesIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
   '/_app/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
@@ -412,7 +431,6 @@ export interface FileRouteTypes {
     | '/documents'
     | '/inbox'
     | '/reports'
-    | '/schedules'
     | '/invite/$token'
     | '/reset/$token'
     | '/sign-in/$org'
@@ -428,6 +446,7 @@ export interface FileRouteTypes {
     | '/people/$employeeId'
     | '/people/import'
     | '/people/new'
+    | '/schedules/me'
     | '/settings/approvals'
     | '/settings/attendance'
     | '/settings/audit'
@@ -437,6 +456,7 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/security'
+    | '/settings/shift-templates'
     | '/settings/structure'
     | '/settings/system'
     | '/attendance/'
@@ -444,6 +464,7 @@ export interface FileRouteTypes {
     | '/leave/'
     | '/payroll/'
     | '/people/'
+    | '/schedules/'
     | '/settings/'
     | '/me/payslips/$payslipId'
     | '/payroll/runs/$runId'
@@ -455,7 +476,6 @@ export interface FileRouteTypes {
     | '/documents'
     | '/inbox'
     | '/reports'
-    | '/schedules'
     | '/invite/$token'
     | '/reset/$token'
     | '/sign-in/$org'
@@ -472,6 +492,7 @@ export interface FileRouteTypes {
     | '/people/$employeeId'
     | '/people/import'
     | '/people/new'
+    | '/schedules/me'
     | '/settings/approvals'
     | '/settings/attendance'
     | '/settings/audit'
@@ -481,6 +502,7 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/security'
+    | '/settings/shift-templates'
     | '/settings/structure'
     | '/settings/system'
     | '/attendance'
@@ -488,6 +510,7 @@ export interface FileRouteTypes {
     | '/leave'
     | '/payroll'
     | '/people'
+    | '/schedules'
     | '/settings'
     | '/me/payslips/$payslipId'
     | '/payroll/runs/$runId'
@@ -500,7 +523,6 @@ export interface FileRouteTypes {
     | '/_app/documents'
     | '/_app/inbox'
     | '/_app/reports'
-    | '/_app/schedules'
     | '/invite/$token'
     | '/reset/$token'
     | '/sign-in/$org'
@@ -517,6 +539,7 @@ export interface FileRouteTypes {
     | '/_app/people/$employeeId'
     | '/_app/people/import'
     | '/_app/people/new'
+    | '/_app/schedules/me'
     | '/_app/settings/approvals'
     | '/_app/settings/attendance'
     | '/_app/settings/audit'
@@ -526,6 +549,7 @@ export interface FileRouteTypes {
     | '/_app/settings/members'
     | '/_app/settings/notifications'
     | '/_app/settings/security'
+    | '/_app/settings/shift-templates'
     | '/_app/settings/structure'
     | '/_app/settings/system'
     | '/_app/attendance/'
@@ -533,6 +557,7 @@ export interface FileRouteTypes {
     | '/_app/leave/'
     | '/_app/payroll/'
     | '/_app/people/'
+    | '/_app/schedules/'
     | '/_app/settings/'
     | '/_app/me/payslips/$payslipId'
     | '/_app/payroll/runs/$runId'
@@ -591,13 +616,6 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AppReportsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/schedules': {
-      id: '/_app/schedules'
-      path: '/schedules'
-      fullPath: '/schedules'
-      preLoaderRoute: typeof AppSchedulesRouteImport
       parentRoute: typeof AppRoute
     }
     '/invite/$token': {
@@ -740,6 +758,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPeopleNewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/schedules/': {
+      id: '/_app/schedules/'
+      path: '/schedules'
+      fullPath: '/schedules/'
+      preLoaderRoute: typeof AppSchedulesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/schedules/me': {
+      id: '/_app/schedules/me'
+      path: '/schedules/me'
+      fullPath: '/schedules/me'
+      preLoaderRoute: typeof AppSchedulesMeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings/': {
       id: '/_app/settings/'
       path: '/settings'
@@ -810,6 +842,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsSecurityRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings/shift-templates': {
+      id: '/_app/settings/shift-templates'
+      path: '/settings/shift-templates'
+      fullPath: '/settings/shift-templates'
+      preLoaderRoute: typeof AppSettingsShiftTemplatesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings/structure': {
       id: '/_app/settings/structure'
       path: '/settings/structure'
@@ -871,7 +910,6 @@ interface AppRouteChildren {
   AppDocumentsRoute: typeof AppDocumentsRoute
   AppInboxRoute: typeof AppInboxRoute
   AppReportsRoute: typeof AppReportsRoute
-  AppSchedulesRoute: typeof AppSchedulesRoute
   AppIndexRoute: typeof AppIndexRoute
   AppAttendanceSummaryRoute: typeof AppAttendanceSummaryRoute
   AppAttendanceTeamRoute: typeof AppAttendanceTeamRoute
@@ -884,6 +922,7 @@ interface AppRouteChildren {
   AppPeopleEmployeeIdRoute: typeof AppPeopleEmployeeIdRoute
   AppPeopleImportRoute: typeof AppPeopleImportRoute
   AppPeopleNewRoute: typeof AppPeopleNewRoute
+  AppSchedulesMeRoute: typeof AppSchedulesMeRoute
   AppSettingsApprovalsRoute: typeof AppSettingsApprovalsRoute
   AppSettingsAttendanceRoute: typeof AppSettingsAttendanceRoute
   AppSettingsAuditRoute: typeof AppSettingsAuditRoute
@@ -893,6 +932,7 @@ interface AppRouteChildren {
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsNotificationsRoute: typeof AppSettingsNotificationsRoute
   AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
+  AppSettingsShiftTemplatesRoute: typeof AppSettingsShiftTemplatesRoute
   AppSettingsStructureRoute: typeof AppSettingsStructureRoute
   AppSettingsSystemRoute: typeof AppSettingsSystemRoute
   AppAttendanceIndexRoute: typeof AppAttendanceIndexRoute
@@ -900,6 +940,7 @@ interface AppRouteChildren {
   AppLeaveIndexRoute: typeof AppLeaveIndexRoute
   AppPayrollIndexRoute: typeof AppPayrollIndexRoute
   AppPeopleIndexRoute: typeof AppPeopleIndexRoute
+  AppSchedulesIndexRoute: typeof AppSchedulesIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
   AppMePayslipsPayslipIdRoute: typeof AppMePayslipsPayslipIdRoute
   AppPayrollRunsRunIdRoute: typeof AppPayrollRunsRunIdRouteWithChildren
@@ -910,7 +951,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppDocumentsRoute: AppDocumentsRoute,
   AppInboxRoute: AppInboxRoute,
   AppReportsRoute: AppReportsRoute,
-  AppSchedulesRoute: AppSchedulesRoute,
   AppIndexRoute: AppIndexRoute,
   AppAttendanceSummaryRoute: AppAttendanceSummaryRoute,
   AppAttendanceTeamRoute: AppAttendanceTeamRoute,
@@ -923,6 +963,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPeopleEmployeeIdRoute: AppPeopleEmployeeIdRoute,
   AppPeopleImportRoute: AppPeopleImportRoute,
   AppPeopleNewRoute: AppPeopleNewRoute,
+  AppSchedulesMeRoute: AppSchedulesMeRoute,
   AppSettingsApprovalsRoute: AppSettingsApprovalsRoute,
   AppSettingsAttendanceRoute: AppSettingsAttendanceRoute,
   AppSettingsAuditRoute: AppSettingsAuditRoute,
@@ -932,6 +973,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsNotificationsRoute: AppSettingsNotificationsRoute,
   AppSettingsSecurityRoute: AppSettingsSecurityRoute,
+  AppSettingsShiftTemplatesRoute: AppSettingsShiftTemplatesRoute,
   AppSettingsStructureRoute: AppSettingsStructureRoute,
   AppSettingsSystemRoute: AppSettingsSystemRoute,
   AppAttendanceIndexRoute: AppAttendanceIndexRoute,
@@ -939,6 +981,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppLeaveIndexRoute: AppLeaveIndexRoute,
   AppPayrollIndexRoute: AppPayrollIndexRoute,
   AppPeopleIndexRoute: AppPeopleIndexRoute,
+  AppSchedulesIndexRoute: AppSchedulesIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
   AppMePayslipsPayslipIdRoute: AppMePayslipsPayslipIdRoute,
   AppPayrollRunsRunIdRoute: AppPayrollRunsRunIdRouteWithChildren,

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Bell,
   Building2,
+  CalendarClock,
   CalendarDays,
   ChevronRight,
   Clock,
@@ -35,7 +36,8 @@ function SettingsPage() {
       | "/settings/notifications"
       | "/settings/claim-types"
       | "/settings/leave"
-      | "/settings/attendance";
+      | "/settings/attendance"
+      | "/settings/shift-templates";
     title: string;
     body: string;
     icon: LucideIcon;
@@ -96,6 +98,13 @@ function SettingsPage() {
       body: "Clock-in location and network checks, PDPA notice, start time, lateness grace and overtime rounding.",
       icon: Clock,
       show: can(me, "policies:read"),
+    },
+    {
+      to: "/settings/shift-templates",
+      title: "Shift templates",
+      body: "The shifts managers pick from on the roster: times, unpaid break, location and marker.",
+      icon: CalendarClock,
+      show: can(me, "shift_templates:update"),
     },
     {
       to: "/settings/notifications",
