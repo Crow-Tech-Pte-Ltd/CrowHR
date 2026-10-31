@@ -77,3 +77,31 @@ These are `DERIVED_FROM_FORMULA` vectors whose arithmetic both the research and 
 - **Leave module:** paternity leave for stillbirth (2 weeks), extra reimbursable paternity weeks only from 1 Jan 2024, SPL excluded for stillbirth, service and citizenship predicates for ECL, infant care and adoption, the NDR 2026 Singapore-citizen restriction, and part-time leave in hours based on the comparable full-timer's actual hours. Sources are in `research/verification/codex-verification.md`.
 - **Work passes:** the work-pass salary rows use exclusive `effectiveTo` keyed to pass expiry. Normalise them to `[from, to)` when they are encoded.
 - **Platform:** the root `.gitignore` ignores every `data/` directory, so the rule tables live in `src/tables/` rather than `src/data/`. A coverage provider (`@vitest/coverage-v8`) plus a 95% line threshold should be added to the workspace by whoever owns `bun.lock`. `docs/limitations.md` still describes sg-rules as a skeleton.
+
+## CPF calculator check (automated, 31 Oct 2026)
+
+On 31 Oct 2026 the vectors listed under "Vectors that need a human spot-check" and six extra cases were run through CPF Board's public [CPF contribution calculator](https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator) (page "Last updated 03 Aug 2026", includes the January 2027 rates). The runs used headless Playwright (Chromium), one case at a time with a few seconds between them. There was no login, captcha or bot block; the only gate is the Terms of Use checkbox. The calculator takes citizenship status (SC/3rd-year SPR, 1st-year SPR, 2nd-year SPR), birth month and year, contribution rates (G/G, F/G, F/F for SPR years 1–2), contribution month, OW and AW. Engine values come from `computeCpf` with the same inputs (birth date = 15th of the birth month, empty AW history). SPR-04 was skipped because the 2028 rates are not published. The scripts and a screenshot of each result were kept outside the repo.
+
+**Result: 15 of 15 cases match the calculator to the dollar** on total, employee share and employer share. This closes open question 1 for these cases.
+
+| Case | Calculator inputs | What it stresses | Calculator total / employee / employer | Engine total / employee / employer | Match |
+| --- | --- | --- | --- | --- | --- |
+| RD-03 | SC, born 01/1996, Apr 2026, OW $1,001.34 | $370.4958 rounds down (no pre-rounding to cents) | $370 / $200 / $170 | $370 / $200 / $170 | yes |
+| RD-04 | SC, born 01/1959 (65–70), Apr 2026, OW $1,003.00 | $165.495 rounds down | $165 / $75 / $90 | $165 / $75 / $90 | yes |
+| WB-02 | SC, born 01/1996, Mar 2026, OW $50.01 | Start of the employer-only band | $9 / $0 / $9 | $9 / $0 / $9 | yes |
+| WB-04 | SC, born 01/1996, Mar 2026, OW $500.01 | Start of the phase-in band | $85 / $0 / $85 | $85 / $0 / $85 | yes |
+| WB-06 | SC, born 01/1996, Mar 2026, OW $750.00 | Top of the phase-in band; $277.50 rounds up | $278 / $150 / $128 | $278 / $150 / $128 | yes |
+| WB-08 | SC, born 01/1996, Mar 2026, OW $7,999.99 | Employer share = total − employee, so $1 above 17% | $2,960 / $1,599 / $1,361 | $2,960 / $1,599 / $1,361 | yes |
+| WB-13 | SC, born 01/1959 (65–70), Mar 2026, OW $555.55 | Phase-in band with fractional cents | $62 / $12 / $50 | $62 / $12 / $50 | yes |
+| SPR-10 | 1st-year SPR G/G, born 05/1990, Mar 2026, OW $1,700.00 (post-conversion OW only) | Band chosen on the post-conversion OW | $153 / $85 / $68 | $153 / $85 / $68 | yes |
+| PM-01 | SC, born 01/1996, May 2026, OW $1,363.64 | Pro-rated wage | $505 / $272 / $233 | $505 / $272 / $233 | yes |
+| X-01 | SC, born 01/1969 (55–60), Jun 2026, OW $1,025.00 | Total exactly $348.50 → $349; employee $184.50 → $184 | $349 / $184 / $165 | $349 / $184 / $165 | yes |
+| X-02 | SC, born 01/1964 (60–65), Jun 2026, OW $1,002.00 | Total exactly $250.50 → $251; employee $125.25 → $125 | $251 / $125 / $126 | $251 / $125 / $126 | yes |
+| X-03 | SC, born 01/1950 (above 70), Jun 2026, OW $633.33 | Phase-in total $67.49925 → $67 (pre-rounding to cents would give $68); employee $19.9995 → $19 | $67 / $19 / $48 | $67 / $19 / $48 | yes |
+| X-04 | SC, born 01/1996, Dec 2026, OW $4,321.09, AW $2,345.67 | Bonus month: OW + AW with cents, TW $6,666.76 | $2,467 / $1,333 / $1,134 | $2,467 / $1,333 / $1,134 | yes |
+| X-05 | 2nd-year SPR G/G (engine: SPR from 10 Feb 2025), born 01/1996, Jun 2026, OW $612.34 | SPR year-2 G/G phase-in band | $106 / $50 / $56 | $106 / $50 / $56 | yes |
+| X-06 | SC, born 01/1970 (55–60), Feb 2027, OW $1,100.00 | 2027 table (35.5% / 19%); total exactly $390.50 → $391 | $391 / $209 / $182 | $391 / $209 / $182 | yes |
+
+The calculator's working matches the engine's rules. It applies the rate to the exact wage, rounds the total to the nearest dollar (50 cents rounds up), drops the cents from the employee share, and sets the employer share to total − employee ("$2,960.00 − $1,599.00"). In the phase-in band it shows employer-only % × TW plus the coefficient × (TW − $500).
+
+The calculator cannot check three things: it does not ask for the SPR date, so the SPR year and the OW pro-ration in a conversion month remain the caller's inputs. It also assumes the AW ceiling has already been applied, and it takes no year-to-date history.
