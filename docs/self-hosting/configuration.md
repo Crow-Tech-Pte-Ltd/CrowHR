@@ -64,4 +64,13 @@ Compose sets these for the bundled PostgreSQL; you normally leave them alone.
 | `SETUP_GATE` | `true` | Redirect every page to `/setup` until setup is done. Tests only. |
 | `NODE_ENV` | `production` in the image | Outside the image (development) PUBLIC_URL defaults to `http://localhost:8080` and the database to `pglite:./data/pglite`. |
 
-SMTP settings are not part of this change: without email, invitations and password resets show a copyable link.
+## Email
+
+Optional. Without it Crow HR works fully: notifications appear in the app (the bell, top right) and invitations and password resets show a link to copy. Owners see "Email is not configured" in Settings → Notifications.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SMTP_URL` | unset (email off) | `smtps://user:password@smtp.example.sg:465` (TLS from the start) or `smtp://user:password@smtp.example.sg:587` (STARTTLS when offered). URL-encode special characters in the user and password (`@` → `%40`). |
+| `MAIL_FROM` | required with `SMTP_URL` | Sender, e.g. `"Crow HR <hr@example.sg>"`. Use an address your mail provider lets you send from (SPF/DKIM). |
+
+Notification emails go through an outbox: a failed send is retried after 1, 5, 30, 120 and 720 minutes, then marked failed; owners see failures in Settings → Notifications. Emails never contain salary or other amounts, NRIC/FIN, bank or medical details, only a short summary and a link. A wrong `SMTP_URL` or a missing `MAIL_FROM` stops startup with a message saying which one to fix.

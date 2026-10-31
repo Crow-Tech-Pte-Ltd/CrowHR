@@ -11,6 +11,10 @@ export const E2E = {
     mfa: { email: "mfa@kampongkopi.example", name: "Lim Wei Jie", roles: [] },
     revokee: { email: "revokee@kampongkopi.example", name: "Siti Rahmah", roles: [] },
     shots: { email: "farah@kampongkopi.example", name: "Farah Hassan", roles: [] },
+    // Approvals (WS3): a manager and their report, linked to employee records by e2e/seed.ts
+    // (Ahmad and Farah report to Kai Wen).
+    approver: { email: "kaiwen@kampongkopi.example", name: "Wong Kai Wen", roles: [] },
+    requester: { email: "ahmad@kampongkopi.example", name: "Ahmad Ismail", roles: [] },
   },
   /** Second organisation with every SSO method on (screenshots / multi-org). */
   ssoOrg: {
@@ -21,6 +25,9 @@ export const E2E = {
 } as const;
 
 export const SHOTS = process.env.SHOTS_DIR;
+
+/** Home's h1: "Work to do" for approvers and admins, "Hi, <first name>" for everyone else. */
+export const HOME_HEADING = /^(Work to do|Hi, .+)$/;
 
 export async function shot(page: Page, name: string) {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/ws1-${name}.png`, fullPage: true });
@@ -43,5 +50,5 @@ export async function uiSignIn(page: Page, email: string, password: string = E2E
 /** Signs in through the UI and waits until Home has loaded. */
 export async function uiSignInOk(page: Page, email: string, password: string = E2E.password, org?: string) {
   await uiSignIn(page, email, password, org);
-  await page.getByRole("heading", { level: 1, name: "Work to do" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: HOME_HEADING }).waitFor();
 }

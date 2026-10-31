@@ -7,7 +7,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 - **Singpass is not verified against real Singpass.** The FAPI 2.0 flow (PAR, PKCE, `private_key_jwt`, DPoP, encrypted ID tokens) is implemented to the published spec and tested only against the in-process mock IdP (`packages/core/testing/mock-oidc.ts`). Issuer defaults (`https://stg-id.singpass.gov.sg`, `https://id.singpass.gov.sg`) must be checked against the current Singpass docs. Tasks 8.3 (setup guide + manual staging sign-in) is open.
 - **Singpass button is not brand-compliant yet.** Singpass's [button design specification](https://docs.developer.singpass.gov.sg/docs/getting-started/singpass-button-design-specification) (effective 1 Sep 2026) requires the official Singpass logo inside the button. The logo is not published under a licence that allows redistribution in this MIT repository, so it is not bundled; the button renders plain text "Log in with Singpass" (no imitation of the wordmark colouring). `ProviderButton` accepts `singpassLogoSrc` for a deployer-supplied official asset. Do not go live with Singpass without it.
-- **No SMTP mailer.** `deps.mailer` is never set by `apps/server` yet (the notifications workstream owns the outbox). Invitations and password resets therefore always offer a copyable link; "sign-in attempts blocked" and "recovery code used" notifications are not sent (in-app notifications are also not built).
+- **Security emails bypass the outbox.** With `SMTP_URL` set, invitations and password resets are sent directly by the identity code (no retry); without it they offer a copyable link. "Sign-in attempts blocked", "new MFA method" and "recovery code used" notices are not sent yet (neither in-app nor by email).
 - **JIT provisioning does not notify HR**; the `member.jit_provisioned` audit event is the only record.
 - **Common-password list is curated, not a breach corpus**: a few hundred entries plus pattern rules (`packages/core/src/auth/common-passwords.ts`).
 - **Organisation logo** in `GET /api/v1/meta` is always `null` until the company profile exists.
@@ -19,9 +19,20 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **E2E gaps**: the SSO round trip, audit-log filtering/export and device sessions are covered by core integration tests (mock IdP, PGlite), not by Playwright. The idle-timeout message is unit-tested; an e2e with a mocked server clock is not feasible against the real server.
 - **QR code** for authenticator enrolment is generated in the browser (`qrcode` package); nothing is sent to a third party.
 
+## Approvals and notifications (workflows workstream)
+
+- **No module but profile changes submits requests yet.** Leave, claims, OT, timesheets, shift swaps and payroll register their `SubjectAdapter` when they land; until then Settings → Approvals lists those types as "Not in use yet".
+- **Default policies are not stored per org.** Organisations without a saved policy use the built-in defaults at submission (same behaviour as seeding them); they are listed as "Default" in Settings → Approvals until edited.
+- **Payroll-cutoff reminders** are off until the payroll change supplies its `ReminderSource` (task 4.3).
+- **Out-of-office cover** is set from the Inbox (and by HR in Settings → Approvals), not from My profile.
+- **Email templates are fixed in code** (spec non-goal); they carry the organisation name but not its logo yet.
+- **Browser demo tick** is not wired (the demo does not exist); `createManualScheduler` is ready for it (task 5.4).
+- **Inbox speed** is tested with 40 open tasks (< 1 s on PGlite), not benchmarked at 200 employees.
+- **Work-pass reminders read the latest pass per employee**: a renewal must be added as a new pass (with a later expiry) to stop the old pass's reminders.
+
 ## Screens
 
-- **Home** shows fixture data (`apps/web/src/fixtures/`), labelled "Sample data" on screen. Approve/Decline/View all only show a "not connected" toast.
+- **Home** shows real work from `GET /api/v1/inbox`; its payroll card always says "Payroll isn't set up yet" until the payroll module supplies a source.
 - **Command palette** "People" results come from the live directory (people module).
 - **Every module** except People (Payroll, Leave, Attendance, Schedules, Claims, Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
 - **No dark mode.** The landing site's dark tokens were not ported.
@@ -41,9 +52,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 - **Images are not published.** `docker-compose.yml` names `ghcr.io/crow-tech-pte-ltd/crowhr:1` (registry unconfirmed) and builds it from the checkout; publishing needs Daniel's approval. arm64 was verified once locally under QEMU (build, argon2, start against PostgreSQL 17); CI builds amd64 only.
 - **Reverse proxies:** only Caddy is exercised by `e2e/self-host.sh` (HTTP, Caddy container on the compose network). The nginx, Traefik and Cloudflare Tunnel examples in `docs/self-hosting/reverse-proxy.md` have not been run.
-- **Home backup warning:** the "last successful backup older than 48 hours" warning appears on Settings → System and in `crowhr doctor`, but not on Home yet: it needs the workflows `InboxSource` (add-approvals-and-notifications).
-- **Scheduled backups** run on an in-process one-minute timer in `apps/server`, not as a sweep of the workflows `tick` (not built yet). One attempt per day; a failed attempt is retried the next day.
-- **Setup checklist on Home** after the wizard is not shown (organisation setup checklist and Home belong to other workstreams).
+- **Scheduled backups** are checked on the shared in-process scheduler (`apps/server/src/scheduler.ts`, every 60 s with the workflows sweep) but stay in `apps/server`: `pg_dump` is Node-only, so the backup is a host job rather than a core `tick` sweep. One attempt per day; a failed attempt is retried the next day.
 - **Restore restarts the app** by signalling PID 1 inside the container; under `docker compose run` (or outside Docker) it prints "restart the app" instead.
 - **Self-hosting docs** are drafts in `docs/self-hosting/`; the docs site (`apps/docs`) does not exist yet.
 - **Dependency audit**: `bun audit` reports one moderate, dev-only advisory (GHSA-67mh-4wv8-2f99, esbuild ≤ 0.24.2 dev server) via drizzle-kit's `@esbuild-kit` loader. It is never shipped or run as a server. CI fails on high/critical only.
@@ -53,12 +62,10 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 - **No first-run setup yet**, so a fresh server has no organisation or members to sign in with. The people screens are exercised by `packages/core/testing/people-dev-server.ts` (DEV ONLY, 127.0.0.1): the real app with real sessions, seeded with fictional staff, where `/__dev/as/<persona>` creates a session for a seeded member. The people e2e (`e2e/people/`) runs against it.
 - **Invitations sent by an import** go out after the import is confirmed; without SMTP their one-time links are not shown, so HR resends them from Settings → Members (a single hire shows its link).
-- **Workflows stand-ins**: change requests wait in `profile_change_requests` and are decided through `POST /api/v1/people/change-requests/:id/decision`; no approval task, inbox item or notification is created. Checklist and setup-checklist inbox items are exposed by people endpoints, not yet by a workflows `InboxSource`.
+- **Legacy change-request decision endpoint**: `POST /api/v1/people/change-requests/:id/decision` (no screen uses it) still decides directly; it then closes the approval request so no task lingers. `GET /api/v1/people/inbox` duplicates what the Home inbox shows.
 - **Payroll stand-in**: no period is ever finalised, so the retroactive-change guard only triggers in tests, and back-pay notices go nowhere.
-- **The `former` transition** (`runFormerTransitions`) is implemented with identity's `markMembershipFormer`, but nothing calls it until the workflows `tick(now)` sweep exists.
 - **Minimum employment age and default notice** come from `packages/sg-rules` (MOM-cited, rules from 1 Jan 2025): hires under 13 are refused (the Employment Act's family-only industrial undertaking exception is not supported; start dates before 2025 are not checked), and a resignation without a contractual notice period gets the statutory minimum by service. The under-16 conditions (light duties, MOM notification for industrial work, hour limits) are returned as warnings by `checkEmploymentAge` but not shown in the hire flow yet.
 - **Personal-details change requests apply from the approval date only** (no future-dated personal details). Bank changes honour the approver's effective date.
-- **Sole-owner self-approval** of change requests (`self_approved`) belongs to workflows and is NOT IMPLEMENTED; nobody can decide their own request.
 - **Cancelling a scheduled hire or rehire** is not supported; record a termination instead.
 - **Statutory lookups** (CSN payment types, rest-day rule, work pass types) are cited in `packages/core/src/organisation/statutory.ts` and should move to `packages/sg-rules`.
 - **NRIC/bank reveal** (`POST /api/v1/employees/:id/nric/reveal`, `/bank/reveal`) has no web unit test: apps/web has no DOM test environment; it is covered by Playwright (`e2e/people/reveal.people.ts`).

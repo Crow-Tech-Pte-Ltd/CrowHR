@@ -14,24 +14,30 @@ import { employeesModule, peopleModule } from "./employees/routes.ts";
 import { AppError, errorResponse, handleError } from "./errors.ts";
 import { requestContext } from "./http/request-context.ts";
 import { type ApiModule, buildModuleRouter, type RouteGuard } from "./http/route.ts";
+import { tick } from "./jobs/tick.ts";
 import { createMetaModule } from "./meta/routes.ts";
 import { healthRoutes } from "./modules/health/routes.ts";
+import { notificationsModule } from "./notifications/routes.ts";
 import { buildOpenApiDocument, SUPPORTED_API_VERSIONS } from "./openapi/generate.ts";
 import { organisationModule } from "./organisation/routes.ts";
 import { setupModule } from "./setup/routes.ts";
 import { systemModule } from "./system/routes.ts";
+import { approvalsModule, inboxModule } from "./workflows/routes.ts";
 
 /**
  * Every module served under `/api/v1`, in mount order. Adding a module = one line here
  * (see docs/architecture.md "How to add a module"). Keep the list sorted by name.
  */
 export const V1_MODULES: readonly ApiModule[] = [
+  approvalsModule,
   auditModule,
   authModule,
   employeesModule,
+  inboxModule,
   meModule,
   membersModule,
   nativeModule,
+  notificationsModule,
   organisationModule,
   peopleModule,
   securityModule,
@@ -97,7 +103,8 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
     throw new AppError("not_found", `No API endpoint at ${c.req.method} ${c.req.path}.`);
   });
   app.notFound((c) => errorResponse(c, "not_found", "Not found."));
-  return app;
+  // The scheduled sweep (workflows "Scheduled sweep"): hosts call `app.jobs.tick(now)`.
+  return Object.assign(app, { jobs: { tick: (now?: Date) => tick(deps, now ?? deps.clock.now()) } });
 }
 
 export type App = ReturnType<typeof createApp>;

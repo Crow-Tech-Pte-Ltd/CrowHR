@@ -104,15 +104,18 @@ export async function submitChangeRequest(
     display: Record<string, string | null>,
   ) => {
     const id = deps.ids.newId();
-    const { approvalRequestId } = await ports.approvals.submit({
-      orgId: actor.orgId,
-      subjectType: "profile_change",
-      subjectId: id,
-      requesterUserId: actor.userId,
-      routeToRole,
-      summary: `Profile change: ${fieldNames.join(", ")}`,
-    });
     const row = await deps.db.transaction(async (tx) => {
+      const { approvalRequestId } = await ports.approvals.submit(
+        {
+          orgId: actor.orgId,
+          subjectType: "profile_change",
+          subjectId: id,
+          requesterUserId: actor.userId,
+          routeToRole,
+          summary: `Profile change: ${fieldNames.join(", ")}`,
+        },
+        tx,
+      );
       const [inserted] = await tx
         .insert(profileChangeRequests)
         .values({

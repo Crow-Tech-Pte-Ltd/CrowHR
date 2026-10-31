@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { totpAt } from "../packages/core/src/auth/totp.ts";
-import { E2E, uiSignIn } from "./fixtures.ts";
+import { E2E, HOME_HEADING, uiSignIn } from "./fixtures.ts";
 
 test.describe("password sign-in", () => {
   test("shows only the enabled methods and a fix-it message for a wrong password", async ({ page }) => {
@@ -17,7 +17,7 @@ test.describe("password sign-in", () => {
 
   test("signs in with email and password and lands on Home", async ({ page }) => {
     await uiSignIn(page, E2E.members.staff.email);
-    await expect(page.getByRole("heading", { level: 1, name: "Work to do" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: HOME_HEADING })).toBeVisible();
     await page.getByRole("button", { name: "Account menu" }).click();
     await expect(page.getByRole("menu")).toContainText(E2E.members.staff.email);
     await page.getByRole("menuitem", { name: "Sign out" }).click();
@@ -33,7 +33,7 @@ test.describe("password sign-in", () => {
 test.describe("two-step verification", () => {
   test("enrol an authenticator, then sign in with a code", async ({ page }) => {
     await uiSignIn(page, E2E.members.mfa.email);
-    await expect(page.getByRole("heading", { name: "Work to do" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: HOME_HEADING })).toBeVisible();
     await page.goto("/me/sessions");
     await page.getByRole("button", { name: "Set up authenticator app" }).click();
     const secret = (await page.getByTestId("totp-secret").textContent())?.replace(/\s+/g, "") as string;
@@ -52,7 +52,7 @@ test.describe("two-step verification", () => {
     // The enrolment code's time step was used; the next step is still inside the ±1 window.
     await page.getByLabel("Authenticator code").fill(await totpAt(secret, new Date(Date.now() + 30_000)));
     await page.getByRole("button", { name: "Verify and sign in" }).click();
-    await expect(page.getByRole("heading", { name: "Work to do" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: HOME_HEADING })).toBeVisible();
   });
 });
 
@@ -61,10 +61,10 @@ test.describe("my sessions", () => {
     const other = await browser.newContext();
     const op = await other.newPage();
     await uiSignIn(op, E2E.members.hr.email);
-    await expect(op.getByRole("heading", { name: "Work to do" })).toBeVisible();
+    await expect(op.getByRole("heading", { name: HOME_HEADING })).toBeVisible();
 
     await uiSignIn(page, E2E.members.hr.email);
-    await expect(page.getByRole("heading", { name: "Work to do" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: HOME_HEADING })).toBeVisible();
     await page.goto("/me/sessions");
     const table = page.getByTestId("sessions-table");
     await expect(table.getByText("This device")).toBeVisible();

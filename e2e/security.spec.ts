@@ -17,7 +17,7 @@ test.describe("Settings → Security", () => {
     await page.getByRole("button", { name: "Cancel" }).click();
 
     await page.goto("/settings/audit");
-    await expect(page.getByTestId("audit-table")).toContainText("auth.signed_in");
+    await expect(page.getByTestId("audit-table")).toContainText("Signed in");
   });
 
   test("an HR admin cannot open security settings", async ({ page }) => {
