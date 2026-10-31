@@ -7,8 +7,8 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    // `bun run dev` starts apps/server on :3000 alongside Vite.
-    proxy: { "/api": "http://127.0.0.1:3000" },
+    // `bun run dev` starts apps/server on its default port 8080 alongside Vite.
+    proxy: { "/api": "http://127.0.0.1:8080" },
   },
   build: {
     sourcemap: true,

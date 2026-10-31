@@ -1,6 +1,16 @@
 import { createMiddleware } from "hono/factory";
-import type { AppEnv } from "../context.ts";
+import type { AppEnv, ClientInfo } from "../context.ts";
 import type { AppDeps } from "../deps.ts";
+
+function defaultClient(url: string): ClientInfo {
+  return {
+    ip: null,
+    peerIp: null,
+    scheme: url.startsWith("https:") ? "https" : "http",
+    host: null,
+    viaTrustedProxy: false,
+  };
+}
 
 const INCOMING_ID = /^[A-Za-z0-9._-]{8,128}$/;
 
@@ -17,6 +27,7 @@ export function requestContext(deps: AppDeps) {
     c.set("requestId", requestId);
     c.set("logger", deps.logger.child({ requestId }));
     c.set("auth", null);
+    c.set("client", deps.resolveClient?.(c) ?? defaultClient(c.req.url));
     c.set("memo", new Map());
     c.set("authFailure", null);
     c.header("x-request-id", requestId);

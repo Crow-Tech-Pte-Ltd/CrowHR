@@ -53,6 +53,21 @@ export interface AuthContext {
   session: SessionInfo;
 }
 
+/**
+ * Who is on the other end of the connection, computed once per request by the host (the
+ * server applies `TRUSTED_PROXIES` to `X-Forwarded-*`). Core never reads forwarding headers.
+ */
+export interface ClientInfo {
+  /** Client IP for rate limits and audit; null when the host cannot tell (tests, browser demo). */
+  ip: string | null;
+  /** Direct TCP peer (the reverse proxy when there is one). */
+  peerIp: string | null;
+  scheme: "http" | "https";
+  host: string | null;
+  /** True when the peer is a trusted proxy and forwarded headers were honoured. */
+  viaTrustedProxy: boolean;
+}
+
 /** Request-scoped values available as `c.var.*` in every handler. */
 export interface AppVariables {
   deps: AppDeps;
@@ -61,6 +76,8 @@ export interface AppVariables {
   logger: Logger;
   /** Null until the session middleware resolves a valid session or bearer token. */
   auth: AuthContext | null;
+  /** Client IP and scheme as resolved by the host (see `AppDeps.resolveClient`). */
+  client: ClientInfo;
   /** Per-request memo (e.g. the manager's team). Never shared across requests. */
   memo: Map<string, unknown>;
   /** Why a presented credential was not accepted; `requireAuth` answers with this code. */

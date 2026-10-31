@@ -16,6 +16,8 @@ const GLOBAL_TABLES: Record<string, string> = {
   auth_throttle: "security infrastructure keyed by account/IP (design decision 10)",
   secret_key_checks: "install-level CROWHR_SECRET_KEY check value",
   audit_heads: "keyed by org_id itself (primary key)",
+  system_settings: "install-level self-hosting settings (setup code hash, schema version)",
+  backup_runs: "install-level backup history; a backup covers every organisation",
 };
 
 describe("identity schema", () => {

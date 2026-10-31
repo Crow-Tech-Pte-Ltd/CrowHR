@@ -1,0 +1,106 @@
+# Crow HR self-hosting. Install:
+#
+#   cp .env.example .env        # then set PUBLIC_URL in .env
+#   docker compose up -d
+#   docker compose logs app     # shows the one-time setup code; open PUBLIC_URL/setup
+#
+# Upgrade: docker compose pull && docker compose up -d
+# Backup:  docker compose exec app crowhr backup        (also runs nightly at 02:00 SGT)
+# Health:  docker compose ps     /     docker compose exec app crowhr doctor
+#
+# Only the app port is published. Bring your own reverse proxy (Caddy, nginx, Traefik,
+# Cloudflare Tunnel) or none on a LAN: see docs/self-hosting/reverse-proxy.md.
+
+x-crowhr-image: &crowhr-image
+  # NOT PUBLISHED YET: the registry name is unconfirmed and nothing is pushed without approval.
+  # Until then `docker compose up -d` builds this image from the repository checkout.
+  image: ${CROWHR_IMAGE:-ghcr.io/crow-tech-pte-ltd/crowhr:1}
+  build:
+    context: .
+
+services:
+  # One-shot: writes a random database password into the shared secrets volume (first run only).
+  init:
+    <<: *crowhr-image
+    command: ["crowhr", "init-secrets"]
+    environment:
+      DATABASE_PASSWORD_FILE: /run/crowhr-secrets/db_password
+    volumes:
+      - secrets:/run/crowhr-secrets
+    read_only: true
+    restart: "no"
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: crowhr
+      POSTGRES_DB: crowhr
+      POSTGRES_PASSWORD_FILE: /run/crowhr-secrets/db_password
+    volumes:
+      - db:/var/lib/postgresql/data
+      - secrets:/run/crowhr-secrets:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crowhr -d crowhr"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    # No `ports:` on purpose: the database is reachable only from the app.
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    <<: *crowhr-image
+    env_file:
+      # PUBLIC_URL and optional settings. Missing .env: the app exits and says what to set.
+      - path: .env
+        required: false
+    environment:
+      DATABASE_HOST: db
+      DATABASE_USER: crowhr
+      DATABASE_NAME: crowhr
+      DATABASE_PASSWORD_FILE: /run/crowhr-secrets/db_password
+      # Inside the container the app always listens on 8080; change HTTP_PORT for the host side.
+      PORT: "8080"
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-8080}:8080"
+    volumes:
+      - data:/data
+      - backups:/backups
+      - secrets:/run/crowhr-secrets:ro
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 90s
+    restart: unless-stopped
+    # Lets an in-flight backup finish and requests drain on `docker compose down`.
+    stop_grace_period: 30s
+    logging: *logging
+
+volumes:
+  # Uploaded files and the encryption key (secrets/crowhr.key). Back this up.
+  data:
+  # Backup archives (nightly + manual). Copy them off this machine.
+  backups:
+  # PostgreSQL data.
+  db:
+  # Generated database password, shared by init, db and app.
+  secrets:
