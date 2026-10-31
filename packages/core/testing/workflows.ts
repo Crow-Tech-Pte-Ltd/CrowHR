@@ -89,10 +89,10 @@ export function createPeopleDatesDouble(input: { passes?: WorkPassExpiry[]; prob
   const double: PeopleDates & { passes: WorkPassExpiry[]; probations: ProbationEnd[] } = {
     passes,
     probations,
-    async workPassesExpiring(_db, until) {
+    async workPassesExpiring(_db, { until }) {
       return passes.filter((p) => p.expiresOn <= until);
     },
-    async probationsEnding(_db, until) {
+    async probationsEnding(_db, { until }) {
       return probations.filter((p) => p.endsOn <= until);
     },
   };

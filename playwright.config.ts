@@ -37,8 +37,8 @@ export default defineConfig({
       // Serves the built web app (`bun run build` first; `bun run e2e` does both). The seed step
       // creates the fictional organisation and members through the normal schema (no backdoor).
       command: process.env.DATABASE_URL
-        ? "node e2e/seed.ts && node e2e/server.ts"
-        : "rm -rf test-results/e2e-db && node e2e/seed.ts && node e2e/server.ts",
+        ? "node e2e/seed.ts && node apps/server/src/main.ts"
+        : "rm -rf test-results/e2e-db && node e2e/seed.ts && node apps/server/src/main.ts",
       url: `http://127.0.0.1:${PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,

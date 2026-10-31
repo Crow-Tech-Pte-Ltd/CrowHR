@@ -30,6 +30,11 @@
 ## 5. Inbox and UI
 
 - [x] 5.1 packages/core: write `workflows/inbox.test.ts` (union of sources, overdue first then due date then age, only actionable items, role filtering) then implement `GET /api/v1/inbox`
-- [x] 5.2 apps/web: write `e2e/home-inbox.spec.ts` (manager approves a leave inline, rejection requires comment, empty state text, no stat cards) then replace the foundation's fixture Home with the real inbox — leave doesn't exist yet, so the spec uses a test-only request type registered by `e2e/workflow-plugin.ts` (submit → manager on Home → HR in the inbox → requester notified)
+- [x] 5.2 apps/web: write `e2e/home-inbox.spec.ts` (manager approves a leave inline, rejection requires comment, empty state text, no stat cards) then replace the foundation's fixture Home with the real inbox — leave doesn't exist yet, so the spec uses people's real `profile_change` request type (seeded chain manager → HR admin): submit → manager on Home → HR in the inbox → change applied → requester notified
 - [x] 5.3 apps/web: write `e2e/approvals-settings.spec.ts` (create amount-threshold claim policy, set out-of-office delegation, escalation shown as "Escalated") then build Settings → Approvals, notification bell and the delegation form — the delegation form lives in the Inbox ("Out of office") and, for HR, in Settings → Approvals; My profile belongs to the people workstream. Also built: the Inbox page (j/k/a/r/x keys, bulk approve, optimistic updates) and Settings → Notifications
 - [ ] 5.4 packages/demo: write `src/tick.test.ts` (interval tick, demo mailbox lists outbox) then wire the demo scheduler — coordinate with the demo workstream (packages/demo doesn't exist yet; core exports `createManualScheduler` and `tick` for it)
+
+## 6. Integration with people and self-hosting
+
+- [x] 6.1 packages/core: write `workflows/people-integration.test.ts` (line manager from employment records, profile change decided through the engine and applied, bank → payroll_admin, cancel/withdraw both ways, legacy endpoint closes the request, transfer re-routes the manager task, real work-pass/probation/checklist/setup items on Home, `former` transition in `tick`) then wire `approverDirectory`, `peopleDates`, the profile-change `SubjectAdapter`, checklist and setup `InboxSource`s and the former transition
+- [x] 6.2 packages/core: write `workflows/system.test.ts` (owners warned when the last successful backup is older than 48 h; quiet where backups aren't expected) then add the backup `InboxSource`; apps/server runs the nightly backup check on the shared scheduler

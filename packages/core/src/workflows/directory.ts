@@ -4,6 +4,7 @@ import { membershipRoles, memberships } from "../db/schema/access.ts";
 import { users } from "../db/schema/users.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
+import { peopleManagerResolver } from "./people.ts";
 import type { ApproverDirectory, DirectoryMember, ManagerResolver } from "./types.ts";
 
 async function loadMembers(db: Db, orgId: string, where: ReturnType<typeof eq>): Promise<DirectoryMember[]> {
@@ -40,18 +41,16 @@ async function loadMembers(db: Db, orgId: string, where: ReturnType<typeof eq>):
 /**
  * The default directory: members and roles from the identity tables, managers from `managers`.
  *
- * - `managers` omitted: NOT IMPLEMENTED (reporting lines) — nobody has a manager, so `manager`
- *   steps are skipped with `no_manager` and requests fall back to hr_admins. The people module
- *   passes its resolver here at integration.
+ * - `managers` omitted: the people module's reporting lines (employment record in force on the
+ *   date), `peopleManagerResolver`.
  * - `managers` as a record `{ [employeeId]: managerEmployeeId }`: the test/demo double.
  */
 export function createApproverDirectory(
   options: { managers?: ManagerResolver | Record<string, string | null> } = {},
 ): ApproverDirectory {
-  const managers = options.managers;
+  const managers = options.managers ?? peopleManagerResolver;
   return {
     async managerOf(db, orgId, employeeId, onDate) {
-      if (!managers) return null;
       if (typeof (managers as ManagerResolver).managerOf === "function") {
         return (managers as ManagerResolver).managerOf(db, orgId, employeeId, onDate);
       }
@@ -83,8 +82,10 @@ export function createApproverDirectory(
   };
 }
 
-const fallbackDirectory = createApproverDirectory();
+let fallbackDirectory: ApproverDirectory | null = null;
 
 export function approverDirectory(deps: Pick<AppDeps, "approverDirectory">): ApproverDirectory {
+  // Created lazily: people.ts (the default manager resolver) imports the engine, which imports this.
+  fallbackDirectory ??= createApproverDirectory();
   return deps.approverDirectory ?? fallbackDirectory;
 }

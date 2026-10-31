@@ -1058,4 +1058,4 @@ export async function closeEndedDelegations(db: Db, deps: AppDeps, orgId?: strin
 }
 
 export type { Ctx as EngineContext };
-export { createStepTasks, loadSteps, lockRequest, memberName, notifyAssignees, refOf };
+export { createStepTasks, loadSteps, lockRequest, memberName, notifyAssignees, refOf, withdrawLocked };

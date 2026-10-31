@@ -112,6 +112,7 @@ export {
   submitApproval,
   withdrawSubject,
 } from "./workflows/engine.ts";
+export { peopleDates, peopleManagerResolver } from "./workflows/people.ts";
 export { CORE_WORKFLOW_PLUGINS } from "./workflows/registry.ts";
 export type {
   ApproverDirectory,
