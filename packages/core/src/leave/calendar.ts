@@ -246,7 +246,8 @@ function gazetted(t: EmployeeTime, year: number, warn = true): PublicHoliday[] {
     return [...publicHolidays(year)];
   } catch (err) {
     if (err instanceof RulesNotAvailableError) {
-      if (warn) t.warnings.add(`Singapore public holidays for ${year} aren't published yet, so none are excluded for ${year}.`);
+      if (warn)
+        t.warnings.add(`Singapore public holidays for ${year} aren't published yet, so none are excluded for ${year}.`);
       return [];
     }
     throw err;

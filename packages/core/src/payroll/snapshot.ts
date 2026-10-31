@@ -33,7 +33,7 @@ import {
   type PayResult,
   type RunItemInput,
 } from "./engine/types.ts";
-import type { ApprovedOvertime, PayableClaim } from "./ports.ts";
+import type { ApprovedOvertime, PayableClaim, RosterDaysWorked, UnpaidLeaveDay } from "./ports.ts";
 
 /**
  * Gathers each employee's input snapshot for a run from the live records (people module tables,
@@ -216,6 +216,10 @@ export interface SnapshotContext {
   claims: PayableClaim[];
   /** Approved overtime from attendance (OvertimeSource); entered as items with source "attendance". */
   overtime?: ApprovedOvertime[];
+  /** Approved unpaid leave from the leave module, by date (`unpaid_leave` items); a manual item on the same date wins. */
+  unpaidLeave?: UnpaidLeaveDay[];
+  /** Days worked by rostered staff from attendance (`days_worked` items); a manual `days_worked` item wins. */
+  daysWorked?: RosterDaysWorked[];
 }
 
 /** Snapshots for every employee of the run, sorted by employee id. */
@@ -546,6 +550,47 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
         })),
       items: [
         ...itemRows,
+        ...(ctx.unpaidLeave ?? [])
+          .filter((u) => u.employeeId === id && !itemRows.some((i) => i.kind === "unpaid_leave" && i.date === u.date))
+          .sort((a, b) => (a.date === b.date ? (a.sourceId < b.sourceId ? -1 : 1) : a.date < b.date ? -1 : 1))
+          .map(
+            (u): RunItemInput => ({
+              id: `leave:${u.sourceId}`,
+              kind: "unpaid_leave",
+              label: `${u.leaveTypeName} (approved in Leave)`,
+              amountCents: null,
+              wageClass: null,
+              cpfLiable: true,
+              awPayableDate: null,
+              minutes: null,
+              days: u.days,
+              date: u.date,
+              periodStart: null,
+              periodEnd: null,
+              deductionCategory: null,
+              source: "attendance",
+            }),
+          ),
+        ...(ctx.daysWorked ?? [])
+          .filter((d) => d.employeeId === id && !itemRows.some((i) => i.kind === "days_worked"))
+          .map(
+            (d): RunItemInput => ({
+              id: `attendance:${d.sourceId}`,
+              kind: "days_worked",
+              label: "Days worked (from attendance)",
+              amountCents: null,
+              wageClass: null,
+              cpfLiable: true,
+              awPayableDate: null,
+              minutes: null,
+              days: d.daysWorked,
+              date: null,
+              periodStart: d.periodStart,
+              periodEnd: d.periodEnd,
+              deductionCategory: null,
+              source: "attendance",
+            }),
+          ),
         ...(ctx.overtime ?? [])
           .filter((o) => o.employeeId === id)
           .sort((a, b) => (a.sourceId < b.sourceId ? -1 : 1))

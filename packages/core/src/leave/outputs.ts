@@ -6,6 +6,7 @@ import { leaveChildren, leaveRequestDays, leaveRequests, leaveTypes } from "../d
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { displayName } from "../employees/records.ts";
+import type { UnpaidLeaveDay, UnpaidLeaveSource } from "../payroll/ports.ts";
 import { loadEmployeesTime } from "./calendar.ts";
 import { PER_CHILD_CODES } from "./defaults.ts";
 import { entitlementFor } from "./entitlement.ts";
@@ -18,24 +19,8 @@ import { entitlementFor } from "./entitlement.ts";
 // Payroll: unpaid leave per date
 // ---------------------------------------------------------------------------------------------
 
-/** One date of approved unpaid leave. Maps one-to-one onto payroll's `unpaid_leave` run item. */
-export interface UnpaidLeaveDay {
-  /** Stable: the leave request day's id (idempotent import). */
-  sourceId: string;
-  requestId: string;
-  employeeId: string;
-  date: string;
-  /** Multiples of 0.5. */
-  days: number;
-  leaveTypeCode: string;
-  leaveTypeName: string;
-}
-
-/** Port for payroll pro-ration (WS4 wires it into the run's inputs). */
-export interface UnpaidLeaveSource {
-  /** Approved no-pay and unpaid infant care leave dated within [periodStart, periodEnd], by date. */
-  listUnpaid(orgId: string, periodStart: string, periodEnd: string): Promise<UnpaidLeaveDay[]>;
-}
+/** Payroll's port (`payroll/ports.ts`): approved no-pay and unpaid infant care leave by date. */
+export type { UnpaidLeaveDay, UnpaidLeaveSource };
 
 export async function listUnpaidLeave(db: Db, orgId: string, periodStart: string, periodEnd: string) {
   const org = orgScope(db, orgId);

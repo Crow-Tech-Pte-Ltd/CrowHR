@@ -22,7 +22,9 @@
 - [x] 5.1 packages/core: write `attendance/reports.http.test.ts` (summary JSON and CSV; manager team scope) then implement
 - [x] 5.2 packages/core: matrix row `attendance:update` and one org-B row per attendance table in `access/cross-org.test.ts`; both pass
 
+- [x] 5.3 packages/core: write `attendance/days-worked.test.ts` (rostered staff who clock in: worked days + public holidays + paid leave, no-pay excluded; fixed-week and non-clocking staff omitted) then implement `attendanceDaysWorkedSource` for payroll's `days_worked` input
+
 ## 6. Web (apps/web)
 
-- [ ] 6.1 apps/web: clock-in screen with offline queue, My timesheet, Team timesheet with corrections, OT claims, Settings → Attendance
-- [ ] 6.2 e2e: write `e2e/attendance.spec.ts` (clock in offline → queued → back online → replayed once with device and server times) and capture 1440/390 screenshots
+- [x] 6.1 apps/web: clock-in screen with offline queue, My timesheet, Team timesheet with corrections, OT claims, Settings → Attendance
+- [x] 6.2 e2e: write `e2e/attendance.spec.ts` (clock in offline → queued → back online → replayed once with device and server times) and capture 1440/390 screenshots

@@ -5,27 +5,11 @@ import { leaveRequestDays, leaveRequests, leaveTypes } from "../db/schema/leave.
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { datesBetween, dayInfo, loadEmployeesTime, scheduleOn } from "../leave/calendar.ts";
+import type { ApprovedOvertime, DaysWorkedSource, OvertimeSource, RosterDaysWorked } from "../payroll/ports.ts";
 import { timesheets } from "./timesheet.ts";
 
-/**
- * The payroll overtime feed (spec "Payroll overtime feed").
- *
- * `ApprovedOvertime` and `OvertimeSource` mirror `packages/core/src/payroll/ports.ts` on the WS4
- * payroll branch exactly; the integrator wires `attendanceOvertimeSource(deps)` into
- * `payrollPorts` at merge (then these local copies can be replaced by imports).
- */
-export interface ApprovedOvertime {
-  /** Stable id from attendance (idempotent import): the overtime claim id. */
-  sourceId: string;
-  employeeId: string;
-  minutes: number;
-  periodStart: string;
-  periodEnd: string;
-}
-
-export interface OvertimeSource {
-  listApproved(orgId: string, periodStart: string, periodEnd: string): Promise<ApprovedOvertime[]>;
-}
+/** The payroll overtime feed (spec "Payroll overtime feed"): implements `payroll/ports.ts` `OvertimeSource`. */
+export type { ApprovedOvertime, DaysWorkedSource, OvertimeSource, RosterDaysWorked };
 
 /** Approved claims dated within [periodStart, periodEnd], one entry per claim (period = that date). */
 export async function listApprovedOvertime(db: Db, orgId: string, periodStart: string, periodEnd: string) {
@@ -65,20 +49,6 @@ export function attendanceOvertimeSource(deps: Pick<AppDeps, "db">): OvertimeSou
  * NOT IMPLEMENTED: scheduled days (the roster's required days) need the scheduling module (M3), so
  * payroll still asks HR for "Scheduled days".
  */
-export interface RosterDaysWorked {
-  /** Stable per employee and period. */
-  sourceId: string;
-  employeeId: string;
-  /** Multiples of 0.5. */
-  daysWorked: number;
-  periodStart: string;
-  periodEnd: string;
-}
-
-export interface DaysWorkedSource {
-  listDaysWorked(orgId: string, periodStart: string, periodEnd: string): Promise<RosterDaysWorked[]>;
-}
-
 export async function listRosterDaysWorked(db: Db, orgId: string, periodStart: string, periodEnd: string) {
   const org = orgScope(db, orgId);
   const punched = await db

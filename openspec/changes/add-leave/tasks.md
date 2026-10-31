@@ -29,7 +29,9 @@
 - [x] 6.1 packages/core: write `leave/outputs.http.test.ts` (unpaid-leave source per date in half days incl. infant care; payroll-input route payroll:read only; government-paid report GPML split and CSV) then implement
 - [x] 6.2 packages/core: matrix rows `leave:update`, `leave_claims:read` (matrix.http.test.ts) and one org-B row per leave table in `access/cross-org.test.ts`; both pass
 
+- [x] 6.3 packages/core: payroll's ports default to leave's `UnpaidLeaveSource` (and attendance's `OvertimeSource` / `DaysWorkedSource`); `leave/payroll-integration.test.ts` computes a run with approved no-pay leave and OT and no doubles
+
 ## 7. Web (apps/web)
 
-- [ ] 7.1 apps/web: apply-leave sheet (type, dates, sessions, live day count and balance after, MC upload, child picker), My leave with balances, team calendar, Settings → Leave policies and holidays
-- [ ] 7.2 e2e: write `e2e/leave.spec.ts` (apply → manager approves in the Inbox → balance updates → no-pay leave in payroll input) and capture 1440/390 screenshots
+- [x] 7.1 apps/web: apply-leave sheet (type, dates, sessions, live day count and balance after, MC upload, child picker), My leave with balances, team calendar, Settings → Leave policies and holidays
+- [x] 7.2 e2e: write `e2e/leave.spec.ts` (apply → manager approves in the Inbox → balance updates → no-pay leave in payroll input) and capture 1440/390 screenshots
