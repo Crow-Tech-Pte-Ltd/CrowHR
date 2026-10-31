@@ -39,6 +39,26 @@ const SECTION_TITLE: Record<string, string> = {
 };
 const SECTION_ORDER = ["basic", "allowances", "overtime", "pay", "cpf", "shg", "sdl", "fwl", "deductions"];
 
+const RESIDENCY_STATUS_LABEL: Record<string, string> = {
+  SC: "Singapore Citizen",
+  SPR: "Singapore Permanent Resident",
+  FOREIGNER: "Foreigner",
+};
+const SPR_OPTION_LABEL: Record<string, string> = {
+  GG: "graduated employer and employee rates, G/G",
+  FG: "full employer, graduated employee rates, F/G",
+  FF: "full rates, F/F",
+};
+
+/** CPF residency category in words: "SPR1_GG" → "SPR year 1, graduated employer and employee rates, G/G". */
+export function cpfCategoryLabel(code: string): string {
+  if (RESIDENCY_STATUS_LABEL[code]) return RESIDENCY_STATUS_LABEL[code];
+  const m = /^SPR(\d)(?:_(GG|FG|FF))?$/.exec(code);
+  if (!m) return code;
+  if (m[1] === "3") return "SPR year 3 onwards, full rates";
+  return `SPR year ${m[1]}${m[2] ? `, ${SPR_OPTION_LABEL[m[2]]}` : ""}`;
+}
+
 const ITEM_KIND: Record<PayrollItemDto["kind"], string> = {
   bonus: "Bonus",
   commission: "Commission",
@@ -218,7 +238,7 @@ function DrawerBody({ d, runId, editable }: { d: PayrollEmployeeDetailDto; runId
             <>
               <H>CPF at a glance</H>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-ui sm:grid-cols-3">
-                <Fact k="Category" v={r.cpf.residencyCategory} />
+                <Fact k="Category" v={cpfCategoryLabel(r.cpf.residencyCategory)} />
                 <Fact k="Age band" v={r.cpf.ageBandLabel ?? "–"} />
                 <Fact k="Wage band" v={r.cpf.wageBand ?? "–"} />
                 <Fact k="OW subject" v={formatMoney(r.cpf.owSubjectCents)} mono />
@@ -308,8 +328,8 @@ function DrawerBody({ d, runId, editable }: { d: PayrollEmployeeDetailDto; runId
             k="CPF residency"
             v={
               emp.residency.status === "SPR"
-                ? `SPR from ${formatDate(emp.residency.sprDate as string)} (${emp.residency.option ?? "GG"})`
-                : emp.residency.status
+                ? `Singapore Permanent Resident from ${formatDate(emp.residency.sprDate as string)} (${SPR_OPTION_LABEL[emp.residency.option ?? "GG"] ?? emp.residency.option})`
+                : (RESIDENCY_STATUS_LABEL[emp.residency.status] ?? emp.residency.status)
             }
           />
           <Fact k="Joined" v={formatDate(employment.hireDate)} />

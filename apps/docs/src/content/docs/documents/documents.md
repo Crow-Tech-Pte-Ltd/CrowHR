@@ -43,7 +43,7 @@ A document with an expiry date is **valid**, **expiring** (within 30 days) or **
 
 ## Deleting and purging
 
-Deleting is soft: the document disappears from every list except HR's "Deleted" view, and the deletion is audit-logged. An **owner** can then purge a deleted document with a reason: its files are removed from storage, the row keeps only a tombstone, and the audit event records the reason and a hash of the original title.
+Deleting is soft: the document disappears from every list, and the deletion is audit-logged. Owners see deleted documents in **Documents → Deleted**, where they can purge one: give a reason and type the document title to confirm. Purging removes its files from storage and cannot be undone; the row keeps only a tombstone, and the audit event records the reason and a hash of the original title.
 
 ## Retention review
 

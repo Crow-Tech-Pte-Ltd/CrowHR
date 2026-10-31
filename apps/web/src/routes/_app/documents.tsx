@@ -1,6 +1,14 @@
 import {
   Button,
   Card,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  FormField,
+  Input,
   Skeleton,
   StatusPill,
   Table,
@@ -17,8 +25,9 @@ import {
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Download, FilePlus2, Upload } from "lucide-react";
+import { Download, FilePlus2, Trash2, Upload } from "lucide-react";
 import * as React from "react";
+import { useReauth } from "../../auth/reauth.tsx";
 import { can, useMe } from "../../auth/session.ts";
 import { PageHeader } from "../../components/page-header.tsx";
 import { ErrorNote } from "../../components/section.tsx";
@@ -39,9 +48,9 @@ import {
   RequestLetterDialog,
   UploadDialog,
 } from "../../documents/ui.tsx";
-import { apiPost } from "../../lib/api.ts";
+import { ApiError, apiPost } from "../../lib/api.ts";
 
-const TABS = ["mine", "expiring", "acknowledgements", "retention"] as const;
+const TABS = ["mine", "expiring", "acknowledgements", "retention", "deleted"] as const;
 type Tab = (typeof TABS)[number];
 
 export const Route = createFileRoute("/_app/documents")({
@@ -57,6 +66,7 @@ function DocumentsPage() {
   const { open, tab } = Route.useSearch();
   const navigate = Route.useNavigate();
   const isHr = can(me, "documents:update");
+  const isOwner = me.roles.includes("owner");
   const hasEmployee = !!me.employeeId;
   const current: Tab = tab ?? (hasEmployee ? "mine" : "expiring");
   const [upload, setUpload] = React.useState(false);
@@ -107,6 +117,7 @@ function DocumentsPage() {
             <TabsTrigger value="expiring">Expiring</TabsTrigger>
             <TabsTrigger value="acknowledgements">Acknowledgements</TabsTrigger>
             <TabsTrigger value="retention">Retention review</TabsTrigger>
+            {isOwner ? <TabsTrigger value="deleted">Deleted</TabsTrigger> : null}
           </TabsList>
         ) : null}
         <TabsContent value="mine">
@@ -124,6 +135,11 @@ function DocumentsPage() {
             <TabsContent value="retention">
               <Retention />
             </TabsContent>
+            {isOwner ? (
+              <TabsContent value="deleted">
+                <Deleted />
+              </TabsContent>
+            ) : null}
           </>
         ) : null}
       </Tabs>
@@ -400,5 +416,127 @@ function Retention() {
         )}
       </Card>
     </div>
+  );
+}
+
+/** Owners only: deleted documents (hidden, still stored) and the irreversible purge. */
+function Deleted() {
+  const q = useQuery(documentsQuery({ deleted: "true" }));
+  const [purging, setPurging] = React.useState<Doc | null>(null);
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="max-w-3xl text-ui text-primary-300">
+        Deleted documents are hidden from everyone but still stored, with their history in the audit log. Purging
+        removes the files for good. Only owners can purge, and it can't be undone.
+      </p>
+      <Card>
+        {q.isError ? (
+          <ErrorNote error={q.error} retry={() => void q.refetch()} />
+        ) : q.isPending ? (
+          <div className="p-4">
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : !q.data.items.length ? (
+          <DocumentsEmpty title="No deleted documents" description="Documents you delete are kept here until purged." />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table aria-label="Deleted documents">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Document</TableHead>
+                  <TableHead>Employee</TableHead>
+                  <TableHead numeric>Deleted</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {q.data.items.map((d) => (
+                  <TableRow key={d.id} data-testid="deleted-document">
+                    <TableCell>
+                      {d.title} <span className="text-2xs text-primary-300">{d.category.name}</span>
+                    </TableCell>
+                    <TableCell>{d.employeeName}</TableCell>
+                    <TableCell numeric>{d.deletedAt ? sgDay(d.deletedAt) : "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="ghost" onClick={() => setPurging(d)}>
+                        <Trash2 aria-hidden /> Purge
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Card>
+      <PurgeDialog doc={purging} onClose={() => setPurging(null)} />
+    </div>
+  );
+}
+
+function PurgeDialog({ doc, onClose }: { doc: Doc | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const withReauth = useReauth();
+  const [typed, setTyped] = React.useState("");
+  const [reason, setReason] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (doc) {
+      setTyped("");
+      setReason("");
+      setError(null);
+    }
+  }, [doc]);
+  const purge = useMutation({
+    mutationFn: (d: Doc) => withReauth(() => apiPost(`/api/v1/documents/${d.id}/purge`, { reason: reason.trim() })),
+    onSuccess: async () => {
+      toast.success("Document purged");
+      await invalidateDocuments(qc);
+      onClose();
+    },
+    onError: (e) => {
+      if (!(e instanceof ApiError && e.code === "reauth_required")) setError(errorText(e));
+    },
+  });
+  const matches = !!doc && typed.trim() === doc.title.trim();
+  return (
+    <Dialog open={!!doc} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Purge this document?</DialogTitle>
+          <DialogDescription>
+            This permanently removes every version's file. It can't be undone; the audit log keeps only that it
+            happened.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (doc && matches && reason.trim()) purge.mutate(doc);
+          }}
+        >
+          <FormField label="Why purge it?" required hint="For example: uploaded to the wrong employee.">
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />
+          </FormField>
+          <FormField label={`Type the document title to confirm: ${doc?.title ?? ""}`} required>
+            <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" spellCheck={false} />
+          </FormField>
+          {error ? (
+            <p role="alert" className="text-ui text-danger-300">
+              {error}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="destructive" disabled={!matches || !reason.trim() || purge.isPending}>
+              Purge permanently
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

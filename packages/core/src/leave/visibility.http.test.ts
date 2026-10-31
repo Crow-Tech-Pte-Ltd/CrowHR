@@ -114,4 +114,23 @@ describe("leave visibility", () => {
     expect((await other.get(`/api/v1/leave/requests/${ravi?.entries[0]?.requestId}`)).status).toBe(404);
     expect(((await other.get(`/api/v1/leave/calendar?from=2026-11-01&to=2027-03-01`)) as Response).status).toBe(400);
   });
+
+  it("the calendar shows a Sunday holiday on the Monday in lieu, like the apply sheet", async () => {
+    // Deepavali falls on Sunday 8 Nov 2026; Monday 9 Nov is the public holiday.
+    const staff = await w.as("staff");
+    const cal = (await (await staff.get("/api/v1/leave/calendar?from=2026-11-01&to=2026-11-15")).json()) as {
+      holidays: { date: string; name: string }[];
+    };
+    expect(cal.holidays).toEqual([{ date: "2026-11-09", name: "Deepavali (in lieu)" }]);
+    // At the edge of the range the holiday follows the day it is taken.
+    const edge = (await (await staff.get("/api/v1/leave/calendar?from=2026-11-01&to=2026-11-08")).json()) as {
+      holidays: unknown[];
+    };
+    expect(edge.holidays).toEqual([]);
+    // The roster grid and the holiday list keep the gazetted dates.
+    const list = (await (await staff.get("/api/v1/leave/holidays?year=2026")).json()) as {
+      items: { date: string; name: string }[];
+    };
+    expect(list.items.find((h) => h.name === "Deepavali")?.date).toBe("2026-11-08");
+  });
 });

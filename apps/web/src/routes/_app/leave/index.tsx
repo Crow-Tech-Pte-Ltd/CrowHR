@@ -14,6 +14,7 @@ import {
   EmptyState,
   FormField,
   Input,
+  RadioGroup,
   Skeleton,
   StatusPill,
   Table,
@@ -41,7 +42,7 @@ import {
   useLeaveInvalidate,
 } from "../../../leave/api.ts";
 import { ApplySheet } from "../../../leave/apply-sheet.tsx";
-import { CheckRow } from "../../../leave/choice.tsx";
+import { CheckRow, RadioRow } from "../../../leave/choice.tsx";
 import { dateRange, fmt, qty, STATUS_LABEL, STATUS_TONE } from "../../../leave/format.ts";
 import { LeaveNav } from "../../../leave/leave-nav.tsx";
 import { RequestSheet } from "../../../leave/request-sheet.tsx";
@@ -369,8 +370,8 @@ function Children() {
 }
 
 function ChildRow({ c }: { c: Child }) {
-  const date = c.birthDate ?? c.expectedDeliveryDate ?? c.adoptionIntentDate;
-  const what = c.birthDate ? "Born" : c.expectedDeliveryDate ? "Due" : "Adoption intent";
+  const date = c.adoptionIntentDate ?? c.birthDate ?? c.expectedDeliveryDate;
+  const what = c.adoptionIntentDate ? "Adoption from" : c.birthDate ? "Born" : "Due";
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-2.5 text-ui">
       <span className="min-w-0">
@@ -387,17 +388,31 @@ function ChildRow({ c }: { c: Child }) {
 function ChildDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const invalidate = useLeaveInvalidate();
   const [name, setName] = React.useState("");
-  const [born, setBorn] = React.useState(true);
+  const [how, setHow] = React.useState<"born" | "expected" | "adopting">("born");
   const [date, setDate] = React.useState<string | null>(null);
+  const [adoptedBirthDate, setAdoptedBirthDate] = React.useState<string | null>(null);
+  const [stillborn, setStillborn] = React.useState(false);
   const [isCitizen, setCitizen] = React.useState(true);
   const [order, setOrder] = React.useState("1");
   const [married, setMarried] = React.useState(true);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const reset = () => {
+    setName("");
+    setHow("born");
+    setDate(null);
+    setAdoptedBirthDate(null);
+    setStillborn(false);
+    setErrors({});
+  };
   const save = useMutation({
     mutationFn: () =>
       apiPost<Child>("/api/v1/leave/children", {
         name: name.trim(),
-        ...(born ? { birthDate: date } : { expectedDeliveryDate: date }),
+        ...(how === "born"
+          ? { birthDate: date, stillborn }
+          : how === "expected"
+            ? { expectedDeliveryDate: date }
+            : { adoptionIntentDate: date, birthDate: adoptedBirthDate }),
         isCitizen,
         birthOrder: Number(order) || 1,
         marriedToMother: married,
@@ -405,9 +420,7 @@ function ChildDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
     onSuccess: () => {
       invalidate();
       toast.success("Child added. Family leave balances are updated.");
-      setName("");
-      setDate(null);
-      setErrors({});
+      reset();
       onOpenChange(false);
     },
     onError: (err) => setErrors(err instanceof ApiError ? err.fieldErrors : {}),
@@ -429,11 +442,32 @@ function ChildDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
           <FormField label="Name" required error={errors.name} hint='Use "Baby" before the birth.'>
             <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
           </FormField>
-          <CheckRow checked={!born} onChange={(v) => setBorn(!v)}>
-            Not born yet (enter the expected delivery date)
-          </CheckRow>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-300">
+              This child
+            </legend>
+            <RadioGroup
+              value={how}
+              onValueChange={(v) => {
+                setHow(v as typeof how);
+                setStillborn(false);
+              }}
+              className="flex flex-col gap-2"
+            >
+              <RadioRow value="born">Has been born</RadioRow>
+              <RadioRow value="expected">Is expected (not born yet)</RadioRow>
+              <RadioRow value="adopting">Is being adopted</RadioRow>
+            </RadioGroup>
+          </fieldset>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label={born ? "Date of birth" : "Expected delivery"} required error={errors.birthDate}>
+            <FormField
+              label={
+                how === "born" ? "Date of birth" : how === "expected" ? "Expected delivery" : "Formal intent to adopt"
+              }
+              hint={how === "adopting" ? "The date of the formal intent to adopt, as on the MSF records." : undefined}
+              required
+              error={how === "adopting" ? (errors.adoptionIntentDate ?? errors.birthDate) : errors.birthDate}
+            >
               <DatePicker value={date} onChange={setDate} />
             </FormField>
             <FormField label="Child number" hint="1 for your first child." error={errors.birthOrder}>
@@ -445,6 +479,28 @@ function ChildDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
               />
             </FormField>
           </div>
+          {how === "adopting" ? (
+            <FormField
+              label="Child's date of birth (optional)"
+              hint="Adoption leave is for a child below 12 months old at the formal intent to adopt."
+              error={errors.birthDate}
+            >
+              <DatePicker value={adoptedBirthDate} onChange={setAdoptedBirthDate} />
+            </FormField>
+          ) : null}
+          {how === "born" ? (
+            <div className="flex flex-col gap-1">
+              <CheckRow checked={stillborn} onChange={setStillborn}>
+                Our baby was stillborn
+              </CheckRow>
+              {stillborn ? (
+                <p className="pl-6 text-2xs text-primary-300">
+                  We're very sorry for your loss. Recording this keeps the leave you're still entitled to, such as 2
+                  weeks of paternity leave for fathers. It's used only to work out leave.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <CheckRow checked={isCitizen} onChange={setCitizen}>
             Singapore citizen (or will be within 12 months)
           </CheckRow>
