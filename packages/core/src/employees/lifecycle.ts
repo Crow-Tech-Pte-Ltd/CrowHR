@@ -31,7 +31,7 @@ import { normaliseEmail } from "./contact.ts";
 import { addDays, ageOn, displayDate, displayMonth, singaporeToday } from "./dates.ts";
 import { findAsAt, planInsert } from "./effective.ts";
 import { assertIdNumberFree, assertWorkEmailFree, nextEmployeeNumber, phoneOrError, sealIdNumber } from "./person.ts";
-import type { PeoplePorts } from "./ports.ts";
+import type { HireInvite, PeoplePorts } from "./ports.ts";
 import { wouldCreateCycle } from "./reports/reporting-scope.ts";
 import {
   allowanceInput,
@@ -353,7 +353,11 @@ export interface HireOptions {
   tx?: Db;
 }
 
-export async function hire(ctx: LifecycleCtx, raw: unknown, opts: HireOptions = {}): Promise<{ employeeId: string }> {
+export async function hire(
+  ctx: LifecycleCtx,
+  raw: unknown,
+  opts: HireOptions = {},
+): Promise<{ employeeId: string; invite: HireInvite | null }> {
   assertCanWrite(ctx.actor, "employment");
   const input = parseInput(hireInput, raw);
   if (input.compensation && !canWrite(ctx.actor, "compensation")) {
@@ -382,20 +386,23 @@ export async function hire(ctx: LifecycleCtx, raw: unknown, opts: HireOptions = 
   };
   try {
     const employeeId = opts.tx ? await run(opts.tx) : await ctx.deps.db.transaction(run);
-    if (!opts.dryRun) {
-      const email = input.person.workEmail;
-      if (email && input.invite !== false) {
-        await ctx.ports.memberships.inviteForEmployee({
+    let invite: HireInvite | null = null;
+    const email = input.person.workEmail;
+    if (!opts.dryRun && email && input.invite !== false) {
+      // After the hire commits: the invitation is a separate step and never undoes the hire.
+      invite = await ctx.ports.memberships.inviteForEmployee(
+        {
           orgId: ctx.actor.orgId,
           employeeId,
           email: normaliseEmail(email),
-          invitedBy: ctx.actor.userId,
-        });
-      }
+          displayName: input.person.preferredName || input.person.legalName,
+        },
+        ctx.actor.auditCtx,
+      );
     }
-    return { employeeId };
+    return { employeeId, invite };
   } catch (err) {
-    if (err instanceof DryRunRollback) return { employeeId: err.employeeId };
+    if (err instanceof DryRunRollback) return { employeeId: err.employeeId, invite: null };
     if (isUniqueViolation(err, "employees_org_number_unique")) {
       throw fieldError("person.employeeNumber", "This employee number is already used. Leave it empty to auto-number.");
     }

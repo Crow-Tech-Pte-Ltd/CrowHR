@@ -1,8 +1,13 @@
+import { eq, isNull } from "drizzle-orm";
+import { inviteMember } from "../access/invitations.ts";
 import { markMembershipFormer } from "../access/members-routes.ts";
+import { orgScope } from "../access/org-scope.ts";
 import { type AuditContext, type AuditEventInput, recordAudit, systemAuditContext } from "../audit/audit.ts";
 import type { SecretBox } from "../crypto/secret-box.ts";
+import { memberships as membershipsTable } from "../db/schema/access.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
+import { AppError } from "../errors.ts";
 import type { IsoDate } from "./dates.ts";
 
 /**
@@ -14,7 +19,7 @@ import type { IsoDate } from "./dates.ts";
  * | `secretBox` | `deps.secretBox` (identity) | same, with the test key |
  * | `audit` | `recordAudit()` hash-chained log (identity) | `createMemoryAuditSink()` |
  * | `memberships.markFormer` | `markMembershipFormer()` (identity) | memory double |
- * | `memberships.inviteForEmployee` | NOT IMPLEMENTED (needs an exported invite service from identity) | memory double |
+ * | `memberships.inviteForEmployee` | identity's `inviteMember()` (email, or a copyable link without SMTP) | memory double |
  * | `approvals` | local: the request waits for `POST /people/change-requests/:id/decision` (workflows not built) | memory double |
  * | `payroll` | `noPayrollYet` (nothing finalised) | memory double |
  *
@@ -37,14 +42,20 @@ export interface AuditSink {
   record(tx: Db, ctx: AuditContext, event: AuditEventInput): Promise<void>;
 }
 
+/** What happened to the sign-in invitation sent on hire. */
+export interface HireInvite {
+  /** `emailed`; `link` (no SMTP: show `inviteUrl` once to copy); `linked` (already a member: linked to the record); `skipped`. */
+  status: "emailed" | "link" | "linked" | "skipped";
+  inviteUrl: string | null;
+  message: string;
+}
+
 export interface MembershipsPort {
-  /** On hire: invite the employee by work email (copy-link when no mailer). */
-  inviteForEmployee(input: {
-    orgId: string;
-    employeeId: string;
-    email: string;
-    invitedBy: string | null;
-  }): Promise<void>;
+  /** On hire: invite the employee by work email (copy-link when no mailer), linked to their record. */
+  inviteForEmployee(
+    input: { orgId: string; employeeId: string; email: string; displayName: string },
+    ctx: AuditContext,
+  ): Promise<HireInvite>;
   /**
    * Termination took effect: drop roles, mark the membership `former`. Idempotent. Pass `tx` to
    * make the change (and its audit event) part of the caller's transaction.
@@ -123,10 +134,7 @@ export function defaultPeoplePorts(deps: AppDeps): PeoplePorts {
       },
     },
     memberships: {
-      inviteForEmployee: async ({ orgId }) => {
-        // NOT IMPLEMENTED: identity has no exported invite service yet; HR invites from Settings → Members.
-        deps.logger.info("Employee hired; invite them from Settings → Members", { orgId });
-      },
+      inviteForEmployee: (input, ctx) => inviteHiredEmployee(deps, input, ctx),
       markFormer: async ({ orgId, employeeId }, tx) => {
         await markMembershipFormer(deps, tx ?? deps.db, systemAuditContext(orgId, "system", "people.former"), {
           orgId,
@@ -137,6 +145,76 @@ export function defaultPeoplePorts(deps: AppDeps): PeoplePorts {
     approvals: localApprovals,
     payroll: noPayrollYet,
   };
+}
+
+/**
+ * Hire-time invitation through identity's invite service. A hire never fails because of its
+ * invitation: an email that already has a membership is linked to the new record when that
+ * membership has no employee yet, and anything else is reported back as `skipped` with what to do.
+ */
+export async function inviteHiredEmployee(
+  deps: AppDeps,
+  input: { orgId: string; employeeId: string; email: string; displayName: string },
+  ctx: AuditContext,
+): Promise<HireInvite> {
+  try {
+    const result = await inviteMember(deps, ctx, {
+      orgId: input.orgId,
+      email: input.email,
+      displayName: input.displayName,
+      employeeId: input.employeeId,
+      invitedBy: ctx.actorMembershipId,
+    });
+    return result.inviteUrl
+      ? {
+          status: "link",
+          inviteUrl: result.inviteUrl,
+          message: "Email isn't set up, so copy this sign-in link and send it to them. It lasts 7 days.",
+        }
+      : { status: "emailed", inviteUrl: null, message: `We emailed a sign-in invitation to ${input.email}.` };
+  } catch (err) {
+    const existingId = (err as AppError).details as { membershipId?: string } | undefined;
+    if (err instanceof AppError && err.code === "conflict" && existingId?.membershipId) {
+      const membershipId = existingId.membershipId;
+      return deps.db.transaction(async (tx) => {
+        const [linked] = await tx
+          .update(membershipsTable)
+          .set({ employeeId: input.employeeId, updatedAt: deps.clock.now() })
+          .where(
+            orgScope(tx, input.orgId).where(
+              membershipsTable,
+              eq(membershipsTable.id, membershipId),
+              isNull(membershipsTable.employeeId),
+            ),
+          )
+          .returning({ id: membershipsTable.id });
+        if (!linked) {
+          return {
+            status: "skipped" as const,
+            inviteUrl: null,
+            message: `${input.email} already belongs to a member linked to another employee record. Check Settings → Members.`,
+          };
+        }
+        await recordAudit(tx, deps, ctx, {
+          action: "member.employee_linked",
+          targetType: "membership",
+          targetId: membershipId,
+          meta: { employeeId: input.employeeId },
+        });
+        return {
+          status: "linked" as const,
+          inviteUrl: null,
+          message: `${input.email} already has a sign-in; it is now linked to this employee record.`,
+        };
+      });
+    }
+    deps.logger.error("Hire invitation failed", { err, orgId: input.orgId });
+    return {
+      status: "skipped",
+      inviteUrl: null,
+      message: "The employee was added, but the invitation could not be sent. Invite them from Settings → Members.",
+    };
+  }
 }
 
 export function peoplePorts(deps: AppDeps): PeoplePorts {

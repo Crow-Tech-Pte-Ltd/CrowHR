@@ -11,13 +11,11 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **JIT provisioning does not notify HR**; the `member.jit_provisioned` audit event is the only record.
 - **Common-password list is curated, not a breach corpus**: a few hundred entries plus pattern rules (`packages/core/src/auth/common-passwords.ts`).
 - **Organisation logo** in `GET /api/v1/meta` is always `null` until the company profile exists.
-- **NRIC/bank reveal endpoints** are not mounted: `revealSensitive()` (re-auth, 30/hour, audit) exists, and the employees module mounts `POST /employees/:id/nric/reveal` once employee records exist. Same for the change-request flow behind `self_change_requires_approval`.
 - **No email change** endpoint yet (it would be a `recentAuth` action).
 - **Native apps**: the token endpoints exist and are tested; the apps themselves (M4) do not. No browser session is created during a native sign-in at all (stricter than the design's create-then-revoke).
 - **No RLS**: isolation is app-level (`orgScope`) plus composite FKs, as designed.
 - **Org switcher** in the web shell lists only the current organisation (the API supports `POST /api/v1/auth/switch-organisation`).
 - **Admin/employee view** in the web shell is still a client-side preview toggle (user menu or `?view=employee`), not derived from roles. The server enforces roles on every request regardless.
-- **NRIC reveal control** (web) is not built; it needs the employees module's reveal endpoint.
 - **E2E gaps**: the SSO round trip, audit-log filtering/export and device sessions are covered by core integration tests (mock IdP, PGlite), not by Playwright. The idle-timeout message is unit-tested; an e2e with a mocked server clock is not feasible against the real server.
 - **QR code** for authenticator enrolment is generated in the browser (`qrcode` package); nothing is sent to a third party.
 
@@ -49,11 +47,10 @@ may be described as working. Remove an entry only in the change that fixes it.
 ## Organisation and people (add-organisation-and-people)
 
 - **No first-run setup yet**, so a fresh server has no organisation or members to sign in with. The people screens are exercised by `packages/core/testing/people-dev-server.ts` (DEV ONLY, 127.0.0.1): the real app with real sessions, seeded with fictional staff, where `/__dev/as/<persona>` creates a session for a seeded member. The people e2e (`e2e/people/`) runs against it.
-- **Invitation on hire is NOT IMPLEMENTED in production**: identity has no exported invite service, so hiring logs a hint and HR invites from Settings → Members (which accepts `employeeId`). Tests use a double.
+- **Invitations sent by an import** go out after the import is confirmed; without SMTP their one-time links are not shown, so HR resends them from Settings → Members (a single hire shows its link).
 - **Workflows stand-ins**: change requests wait in `profile_change_requests` and are decided through `POST /api/v1/people/change-requests/:id/decision`; no approval task, inbox item or notification is created. Checklist and setup-checklist inbox items are exposed by people endpoints, not yet by a workflows `InboxSource`.
 - **Payroll stand-in**: no period is ever finalised, so the retroactive-change guard only triggers in tests, and back-pay notices go nowhere.
 - **The `former` transition** (`runFormerTransitions`) is implemented with identity's `markMembershipFormer`, but nothing calls it until the workflows `tick(now)` sweep exists.
-- **`memberships.employee_id` has no FK yet**: adding it (design) breaks identity tests that seed memberships with made-up employee IDs. The FK should be added once those tests link real employees.
 - **Minimum employment age and the statutory default notice period are NOT IMPLEMENTED**: `research/sg-regulatory.md` does not cite them. No hire is refused for age; resignations need the contractual notice period.
 - **Personal-details change requests apply from the approval date only** (no future-dated personal details). Bank changes honour the approver's effective date.
 - **Sole-owner self-approval** of change requests (`self_approved`) belongs to workflows and is NOT IMPLEMENTED; nobody can decide their own request.

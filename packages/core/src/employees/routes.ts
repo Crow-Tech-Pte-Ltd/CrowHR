@@ -157,7 +157,20 @@ export const employeesModule = defineModule({
         "Creates the employee, tenure, employment record, optional compensation (payroll roles only), onboarding checklist and sign-in invitation.",
       access: { permission: "employment:create" },
       request: { body: hireInput },
-      responses: { 201: z.object({ employeeId: z.string() }) },
+      responses: {
+        201: z.object({
+          employeeId: z.string(),
+          /** The sign-in invitation (null when there was no work email or `invite: false`). */
+          invite: z
+            .object({
+              status: z.enum(["emailed", "link", "linked", "skipped"]),
+              /** Shown once to copy when email isn't configured. */
+              inviteUrl: z.string().nullable(),
+              message: z.string(),
+            })
+            .nullable(),
+        }),
+      },
       errors: ["conflict", "duplicate_id_number", "reporting_cycle"],
       handler: async ({ c, deps, body }) => {
         const { actor, ports } = actorFrom(c);

@@ -1,9 +1,10 @@
-import { Alert, AlertDescription, AlertTitle, Button, FormField, MoneyInput } from "@crowhr/ui";
+import { Alert, AlertDescription, AlertTitle, Button, FormField, MoneyInput, toast } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, UserPlus } from "lucide-react";
 import * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
+import { LinkDialog } from "../../../settings/members-dialogs.tsx";
 import {
   api,
   directoryQuery,
@@ -58,6 +59,8 @@ function NewEmployeePage() {
   const qc = useQueryClient();
   const [f, setF] = React.useState<Form>(blank);
   const [amount, setAmount] = React.useState<number | null>(null);
+  // Without SMTP the hire returns a one-time sign-in link: show it once, then open the record.
+  const [invite, setInvite] = React.useState<{ employeeId: string; url: string; body: string } | null>(null);
   const set = (k: keyof Form) => (v: string) => setF((s) => ({ ...s, [k]: v }));
   const ref = useQuery(referenceQuery);
   const departments = useQuery(structureQuery("departments"));
@@ -69,7 +72,7 @@ function NewEmployeePage() {
 
   const save = useMutation({
     mutationFn: () =>
-      api<{ employeeId: string }>("POST", "/employees", {
+      api<{ employeeId: string; invite: HireInvite | null }>("POST", "/employees", {
         person: {
           legalName: f.legalName,
           preferredName: orNull(f.preferredName),
@@ -107,8 +110,16 @@ function NewEmployeePage() {
               }
             : null,
       }),
-    onSuccess: async ({ employeeId }) => {
+    onSuccess: async ({ employeeId, invite: sent }) => {
       await invalidatePeople(qc);
+      if (sent?.status === "link" && sent.inviteUrl) {
+        setInvite({ employeeId, url: sent.inviteUrl, body: sent.message });
+        return;
+      }
+      if (sent)
+        toast(sent.status === "skipped" ? "Employee added; no invitation sent" : "Employee added", {
+          description: sent.message,
+        });
       void navigate({ to: "/people/$employeeId", params: { employeeId } });
     },
   });
@@ -411,8 +422,24 @@ function NewEmployeePage() {
           </Button>
         </div>
       </form>
+      <LinkDialog
+        link={invite ? { title: "Send them this sign-in link", body: invite.body, url: invite.url } : null}
+        onOpenChange={(open) => {
+          if (open || !invite) return;
+          const { employeeId } = invite;
+          setInvite(null);
+          void navigate({ to: "/people/$employeeId", params: { employeeId } });
+        }}
+      />
     </>
   );
+}
+
+/** The hire response's `invite` (see POST /api/v1/employees). */
+interface HireInvite {
+  status: "emailed" | "link" | "linked" | "skipped";
+  inviteUrl: string | null;
+  message: string;
 }
 
 function FormSection({
