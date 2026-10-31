@@ -88,32 +88,35 @@ export async function addWorkPass(
   const input = parseInput(workPassInput, raw);
   const sealed = await sealWorkPass(ports, input.passNumber);
   const id = deps.ids.newId();
-  const [row] = await deps.db
-    .insert(workPasses)
-    .values({
-      id,
-      orgId: actor.orgId,
-      employeeId,
-      passType: input.passType,
-      passNumberEnc: sealed.enc,
-      passNumberMasked: sealed.masked,
-      issuedOn: input.issuedOn ?? null,
-      expiresOn: input.expiresOn,
-      notes: input.notes ?? null,
-    })
-    .returning()
-    .catch((err: unknown) => {
-      throw notFoundOnFk(err);
+  const row = await deps.db.transaction(async (tx) => {
+    const [inserted] = await tx
+      .insert(workPasses)
+      .values({
+        id,
+        orgId: actor.orgId,
+        employeeId,
+        passType: input.passType,
+        passNumberEnc: sealed.enc,
+        passNumberMasked: sealed.masked,
+        issuedOn: input.issuedOn ?? null,
+        expiresOn: input.expiresOn,
+        notes: input.notes ?? null,
+      })
+      .returning()
+      .catch((err: unknown) => {
+        throw notFoundOnFk(err);
+      });
+    await recordAudit(tx, ports, actor, {
+      action: "work_pass.created",
+      targetType: "employee",
+      targetId: employeeId,
+      diff: diffOf(null, {
+        passType: input.passType,
+        passNumber: input.passNumber ? "set" : null,
+        expiresOn: input.expiresOn,
+      }),
     });
-  await recordAudit(ports, actor, {
-    action: "work_pass.created",
-    targetType: "employee",
-    targetId: employeeId,
-    diff: diffOf(null, {
-      passType: input.passType,
-      passNumber: input.passNumber ? "set" : null,
-      expiresOn: input.expiresOn,
-    }),
+    return inserted;
   });
   return toPassView(row as WorkPass, singaporeToday(deps.clock.now()));
 }
@@ -152,16 +155,19 @@ export async function updateWorkPass(
       issues: [{ path: "expiresOn", message: "The expiry date must be on or after the issue date." }],
     });
   }
-  const [row] = await deps.db.update(workPasses).set(set).where(eq(workPasses.id, passId)).returning();
   const { passNumberEnc: _e, passNumberMasked: _m, updatedAt: _u, ...visible } = set;
-  await recordAudit(ports, actor, {
-    action: "work_pass.updated",
-    targetType: "employee",
-    targetId: employeeId,
-    diff: {
-      ...diffOf(before as unknown as Record<string, unknown>, visible as Record<string, unknown>),
-      ...(input.passNumber !== undefined ? { passNumber: { changed: true as const } } : {}),
-    },
+  const row = await deps.db.transaction(async (tx) => {
+    const [updated] = await tx.update(workPasses).set(set).where(eq(workPasses.id, passId)).returning();
+    await recordAudit(tx, ports, actor, {
+      action: "work_pass.updated",
+      targetType: "employee",
+      targetId: employeeId,
+      diff: {
+        ...diffOf(before as unknown as Record<string, unknown>, visible as Record<string, unknown>),
+        ...(input.passNumber !== undefined ? { passNumber: { changed: true as const } } : {}),
+      },
+    });
+    return updated;
   });
   return toPassView(row as WorkPass, singaporeToday(deps.clock.now()));
 }

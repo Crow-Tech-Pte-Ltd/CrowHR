@@ -200,6 +200,12 @@ export async function createWorkSchedule(
         days: input.kind === "fixed" ? (input.days as WorkWeek) : null,
         weeklyMinutes: weeklyMinutesOf(input),
       });
+      await recordAudit(tx, ports, actor, {
+        action: "work_schedule.created",
+        targetType: "work_schedule",
+        targetId: id,
+        meta: { name: input.name, kind: input.kind, weeklyMinutes: weeklyMinutesOf(input) },
+      });
     })
     .catch((err: unknown) => {
       if (isUniqueViolation(err)) {
@@ -207,12 +213,6 @@ export async function createWorkSchedule(
       }
       throw err;
     });
-  await recordAudit(ports, actor, {
-    action: "work_schedule.created",
-    targetType: "work_schedule",
-    targetId: id,
-    meta: { name: input.name, kind: input.kind, weeklyMinutes: weeklyMinutesOf(input) },
-  });
   return getView(deps, actor, id);
 }
 
@@ -266,12 +266,12 @@ export async function updateWorkSchedule(
         .set({ name: input.name, updatedAt: deps.clock.now() })
         .where(eq(workSchedules.id, id));
     }
-  });
-  await recordAudit(ports, actor, {
-    action: "work_schedule.versioned",
-    targetType: "work_schedule",
-    targetId: id,
-    meta: { effectiveFrom: input.effectiveFrom, weeklyMinutes: weeklyMinutesOf(input) },
+    await recordAudit(tx, ports, actor, {
+      action: "work_schedule.versioned",
+      targetType: "work_schedule",
+      targetId: id,
+      meta: { effectiveFrom: input.effectiveFrom, weeklyMinutes: weeklyMinutesOf(input) },
+    });
   });
   return getView(deps, actor, id);
 }
@@ -295,8 +295,12 @@ export async function setDefaultWorkSchedule(
       .set({ isDefault: false })
       .where(and(eq(workSchedules.orgId, actor.orgId), ne(workSchedules.id, id)));
     await tx.update(workSchedules).set({ isDefault: true }).where(eq(workSchedules.id, id));
+    await recordAudit(tx, ports, actor, {
+      action: "work_schedule.default_set",
+      targetType: "work_schedule",
+      targetId: id,
+    });
   });
-  await recordAudit(ports, actor, { action: "work_schedule.default_set", targetType: "work_schedule", targetId: id });
   return getView(deps, actor, id);
 }
 

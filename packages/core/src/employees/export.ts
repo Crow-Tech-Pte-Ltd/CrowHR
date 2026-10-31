@@ -257,7 +257,8 @@ export async function exportEmployees(
     out.push(line);
   }
   const headers = columns.map((c) => c.label);
-  await recordAudit(ports, actor, {
+  // A read: nothing to roll back, so the event commits on its own (before the file is returned).
+  await recordAudit(deps.db, ports, actor, {
     action: "employees.exported",
     targetType: "employee_list",
     targetId: actor.orgId,

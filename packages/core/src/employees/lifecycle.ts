@@ -366,23 +366,23 @@ export async function hire(ctx: LifecycleCtx, raw: unknown, opts: HireOptions = 
   const run = async (tx: Db) => {
     const id = await hireInTx(tx, ctx, input);
     if (opts.dryRun) throw new DryRunRollback(id);
+    await recordAudit(tx, ctx.ports, ctx.actor, {
+      action: "employee.hired",
+      targetType: "employee",
+      targetId: id,
+      diff: diffOf(null, {
+        legalName: input.person.legalName,
+        idNumber: "set",
+        hireDate: input.job.hireDate,
+        jobTitle: input.job.jobTitle,
+        ...(input.compensation ? { basicPayCents: input.compensation.amountCents } : {}),
+      }),
+    });
     return id;
   };
   try {
     const employeeId = opts.tx ? await run(opts.tx) : await ctx.deps.db.transaction(run);
     if (!opts.dryRun) {
-      await recordAudit(ctx.ports, ctx.actor, {
-        action: "employee.hired",
-        targetType: "employee",
-        targetId: employeeId,
-        diff: diffOf(null, {
-          legalName: input.person.legalName,
-          idNumber: "set",
-          hireDate: input.job.hireDate,
-          jobTitle: input.job.jobTitle,
-          ...(input.compensation ? { basicPayCents: input.compensation.amountCents } : {}),
-        }),
-      });
       const email = input.person.workEmail;
       if (email && input.invite !== false) {
         await ctx.ports.memberships.inviteForEmployee({
@@ -616,7 +616,7 @@ export async function applyEvent(
     assertNotSelfChange(ctx.actor, "compensation", employeeId);
   }
   if (touchesJob || !touchesPay) assertCanWrite(ctx.actor, "employment");
-  const { eventId, effectiveDate, audit } = await ctx.deps.db.transaction(async (tx) => {
+  const apply = async (tx: Db): Promise<ApplyResult> => {
     await lockEmployee(tx, ctx.actor.orgId, employeeId);
     switch (input.type) {
       case "transfer":
@@ -630,13 +630,17 @@ export async function applyEvent(
       case "rehire":
         return applyRehire(tx, ctx, employeeId, input);
     }
-  });
-  await recordAudit(ctx.ports, ctx.actor, {
-    action: `lifecycle.${input.type}`,
-    targetType: "employee",
-    targetId: employeeId,
-    diff: audit,
-    meta: { eventId, effectiveDate },
+  };
+  const { eventId, effectiveDate } = await ctx.deps.db.transaction(async (tx) => {
+    const result = await apply(tx);
+    await recordAudit(tx, ctx.ports, ctx.actor, {
+      action: `lifecycle.${input.type}`,
+      targetType: "employee",
+      targetId: employeeId,
+      diff: result.audit,
+      meta: { eventId: result.eventId, effectiveDate: result.effectiveDate },
+    });
+    return result;
   });
   return { eventId, status: eventStatus({ effectiveDate, cancelledAt: null }, ctx.today) };
 }
@@ -880,7 +884,6 @@ async function applyRehire(
 
 export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId: string): Promise<void> {
   const { orgId } = ctx.actor;
-  let type: LifecycleEventType | null = null;
   await ctx.deps.db.transaction(async (tx) => {
     await lockEmployee(tx, orgId, employeeId);
     const [e] = await tx
@@ -894,7 +897,6 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
         ),
       );
     if (!e) throw new AppError("not_found", "No such event.");
-    type = e.type;
     const touchesPay =
       e.type === "salary_change" ||
       (
@@ -961,12 +963,12 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
       .update(lifecycleEvents)
       .set({ cancelledAt: ctx.deps.clock.now(), cancelledBy: ctx.actor.userId })
       .where(eq(lifecycleEvents.id, eventId));
-  });
-  await recordAudit(ctx.ports, ctx.actor, {
-    action: "lifecycle.cancelled",
-    targetType: "employee",
-    targetId: employeeId,
-    meta: { eventId, type },
+    await recordAudit(tx, ctx.ports, ctx.actor, {
+      action: "lifecycle.cancelled",
+      targetType: "employee",
+      targetId: employeeId,
+      meta: { eventId, type: e.type },
+    });
   });
 }
 

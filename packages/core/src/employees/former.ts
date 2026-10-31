@@ -28,12 +28,14 @@ export async function runFormerTransitions(
       ),
     );
   for (const t of due) {
-    await memberships.markFormer({
-      orgId: t.orgId,
-      employeeId: t.employeeId,
-      lastWorkingDay: t.lastWorkingDay as string,
+    // One transaction per tenure: the membership change, its audit event and the marker commit together.
+    await deps.db.transaction(async (tx) => {
+      await memberships.markFormer(
+        { orgId: t.orgId, employeeId: t.employeeId, lastWorkingDay: t.lastWorkingDay as string },
+        tx,
+      );
+      await tx.update(tenures).set({ formerTransitionAt: now }).where(sql`${tenures.id} = ${t.id}`);
     });
-    await deps.db.update(tenures).set({ formerTransitionAt: now }).where(sql`${tenures.id} = ${t.id}`);
   }
   return due.length;
 }

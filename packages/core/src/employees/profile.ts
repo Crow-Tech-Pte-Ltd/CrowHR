@@ -106,20 +106,23 @@ export async function applyPersonalPatch(
     visible.idType = idType;
     if (sealed.hmac !== before.idNumberHmac) visible.idNumber = "changed";
   }
-  await deps.db
-    .update(employees)
-    .set(set)
-    .where(and(eq(employees.orgId, actor.orgId), eq(employees.id, employeeId)))
-    .catch((err: unknown) => {
-      if (isUniqueViolation(err)) throw new AppError("conflict", "This ID number is already used by another employee.");
-      throw err;
-    });
   const beforeView = { ...(before as unknown as Record<string, unknown>), idNumber: "unchanged" };
-  await recordAudit(ports, actor, {
-    action: opts.action ?? "employee.updated",
-    targetType: "employee",
-    targetId: employeeId,
-    diff: diffOf(beforeView, visible),
+  await deps.db.transaction(async (tx) => {
+    await tx
+      .update(employees)
+      .set(set)
+      .where(and(eq(employees.orgId, actor.orgId), eq(employees.id, employeeId)))
+      .catch((err: unknown) => {
+        if (isUniqueViolation(err))
+          throw new AppError("conflict", "This ID number is already used by another employee.");
+        throw err;
+      });
+    await recordAudit(tx, ports, actor, {
+      action: opts.action ?? "employee.updated",
+      targetType: "employee",
+      targetId: employeeId,
+      diff: diffOf(beforeView, visible),
+    });
   });
 }
 
@@ -170,12 +173,14 @@ export async function replaceEmergencyContacts(
   if (actor.employeeId !== employeeId) assertCanWrite(actor, "emergency");
   await loadEmployee(deps.db, actor.orgId, employeeId);
   const contacts = parseInput(emergencyContactsInput, raw);
-  await deps.db.transaction((tx) => writeEmergencyContacts(tx, deps, actor.orgId, employeeId, contacts));
-  await recordAudit(ports, actor, {
-    action: "employee.emergency_contacts_updated",
-    targetType: "employee",
-    targetId: employeeId,
-    meta: { count: contacts.length },
+  await deps.db.transaction(async (tx) => {
+    await writeEmergencyContacts(tx, deps, actor.orgId, employeeId, contacts);
+    await recordAudit(tx, ports, actor, {
+      action: "employee.emergency_contacts_updated",
+      targetType: "employee",
+      targetId: employeeId,
+      meta: { count: contacts.length },
+    });
   });
 }
 
@@ -208,16 +213,16 @@ export async function updateOwnProfile(deps: AppDeps, ports: PeoplePorts, actor:
       .where(and(eq(employees.orgId, actor.orgId), eq(employees.id, employeeId)));
     if (patch.emergencyContacts)
       await writeEmergencyContacts(tx, deps, actor.orgId, employeeId, patch.emergencyContacts);
-  });
-  const { updatedAt: _u, ...visible } = set;
-  await recordAudit(ports, actor, {
-    action: "employee.self_updated",
-    targetType: "employee",
-    targetId: employeeId,
-    diff: {
-      ...diffOf(before as unknown as Record<string, unknown>, visible as Record<string, unknown>),
-      ...(patch.emergencyContacts ? { emergencyContacts: { changed: true as const } } : {}),
-    },
+    const { updatedAt: _u, ...visible } = set;
+    await recordAudit(tx, ports, actor, {
+      action: "employee.self_updated",
+      targetType: "employee",
+      targetId: employeeId,
+      diff: {
+        ...diffOf(before as unknown as Record<string, unknown>, visible as Record<string, unknown>),
+        ...(patch.emergencyContacts ? { emergencyContacts: { changed: true as const } } : {}),
+      },
+    });
   });
 }
 
@@ -276,13 +281,13 @@ export async function setBankAccount(
       effectiveFrom: input.effectiveFrom,
       effectiveTo: plan.newEffectiveTo,
     });
-  });
-  await recordAudit(ports, actor, {
-    action: "bank_account.updated",
-    targetType: "employee",
-    targetId: employeeId,
-    diff: { bankCode: { to: input.bankCode }, accountNumber: { changed: true }, holderName: { changed: true } },
-    meta: { effectiveFrom: input.effectiveFrom },
+    await recordAudit(tx, ports, actor, {
+      action: "bank_account.updated",
+      targetType: "employee",
+      targetId: employeeId,
+      diff: { bankCode: { to: input.bankCode }, accountNumber: { changed: true }, holderName: { changed: true } },
+      meta: { effectiveFrom: input.effectiveFrom },
+    });
   });
   return { id, accountMasked: maskTail(sealed.last4) };
 }
@@ -333,18 +338,20 @@ export async function createAllowanceType(deps: AppDeps, ports: PeoplePorts, act
   assertCanWrite(actor, "compensation");
   const input = parseInput(allowanceTypeInput, raw);
   const id = deps.ids.newId();
-  await deps.db
-    .insert(allowanceTypes)
-    .values({ id, orgId: actor.orgId, code: input.code, name: input.name })
-    .catch((err: unknown) => {
-      if (isUniqueViolation(err)) throw new AppError("conflict", "Another allowance type already uses this code.");
-      throw err;
+  await deps.db.transaction(async (tx) => {
+    await tx
+      .insert(allowanceTypes)
+      .values({ id, orgId: actor.orgId, code: input.code, name: input.name })
+      .catch((err: unknown) => {
+        if (isUniqueViolation(err)) throw new AppError("conflict", "Another allowance type already uses this code.");
+        throw err;
+      });
+    await recordAudit(tx, ports, actor, {
+      action: "allowance_type.created",
+      targetType: "allowance_type",
+      targetId: id,
+      meta: input,
     });
-  await recordAudit(ports, actor, {
-    action: "allowance_type.created",
-    targetType: "allowance_type",
-    targetId: id,
-    meta: input,
   });
   return { id, code: input.code, name: input.name, archived: false };
 }

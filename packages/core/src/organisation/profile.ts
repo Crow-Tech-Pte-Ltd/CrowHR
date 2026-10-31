@@ -152,6 +152,13 @@ export async function saveCompanyProfile(
         .update(organisations)
         .set({ name: input.tradingName || input.legalName, uen: input.uen, updatedAt: deps.clock.now() })
         .where(eq(organisations.id, actor.orgId));
+      const { updatedAt: _u, ...after } = values;
+      await recordAudit(tx, ports, actor, {
+        action: before ? "company_profile.updated" : "company_profile.created",
+        targetType: "organisation",
+        targetId: actor.orgId,
+        diff: diffOf(before as Record<string, unknown> | null, after),
+      });
       return saved as CompanyProfile;
     })
     .catch((err: unknown) => {
@@ -162,13 +169,6 @@ export async function saveCompanyProfile(
       }
       throw err;
     });
-  const { updatedAt: _u, ...after } = values;
-  await recordAudit(ports, actor, {
-    action: before ? "company_profile.updated" : "company_profile.created",
-    targetType: "organisation",
-    targetId: actor.orgId,
-    diff: diffOf(before as Record<string, unknown> | null, after),
-  });
   return toView(row);
 }
 
@@ -196,15 +196,17 @@ export async function saveCompanyLogo(
   if (!profile) throw new AppError("conflict", "Save the company profile (legal name and UEN) before adding a logo.");
   const key = `org/${actor.orgId}/company/logo.${ext}`;
   await deps.fileStore.put(key, file.data, { contentType: file.contentType });
-  await deps.db
-    .update(companyProfiles)
-    .set({ logoFileKey: key, logoContentType: file.contentType, updatedAt: deps.clock.now() })
-    .where(eq(companyProfiles.orgId, actor.orgId));
-  await recordAudit(ports, actor, {
-    action: "company_profile.logo_updated",
-    targetType: "organisation",
-    targetId: actor.orgId,
-    meta: { contentType: file.contentType, size: file.data.byteLength },
+  await deps.db.transaction(async (tx) => {
+    await tx
+      .update(companyProfiles)
+      .set({ logoFileKey: key, logoContentType: file.contentType, updatedAt: deps.clock.now() })
+      .where(eq(companyProfiles.orgId, actor.orgId));
+    await recordAudit(tx, ports, actor, {
+      action: "company_profile.logo_updated",
+      targetType: "organisation",
+      targetId: actor.orgId,
+      meta: { contentType: file.contentType, size: file.data.byteLength },
+    });
   });
 }
 
