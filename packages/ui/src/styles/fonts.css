@@ -1,0 +1,8 @@
+/* Self-hosted fonts (no Google Fonts runtime calls; self-hosters may be offline). */
+@import "@fontsource/azeret-mono/latin-400.css";
+@import "@fontsource/azeret-mono/latin-500.css";
+@import "@fontsource/azeret-mono/latin-600.css";
+@import "@fontsource/azeret-mono/latin-700.css";
+@import "@fontsource/ubuntu/latin-400.css";
+@import "@fontsource/ubuntu/latin-500.css";
+@import "@fontsource/ubuntu/latin-700.css";
