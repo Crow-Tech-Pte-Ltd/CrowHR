@@ -102,6 +102,11 @@ export const MATRIX = {
       employee: "assigned",
     },
   },
+  "approval_tasks:reassign": { cells: STAFF_ADMIN, note: "hr_admin may not reassign payroll_run tasks." },
+  // Out-of-office cover for someone else (everyone sets their own)
+  "approval_delegations:manage": { cells: STAFF_ADMIN },
+  // Email delivery status (failed emails, SMTP setup)
+  "notification_delivery:read": { cells: { owner: A } },
   // Rosters and shifts
   "rosters:read": {
     cells: { owner: A, hr_admin: A, manager: T, employee: O },
