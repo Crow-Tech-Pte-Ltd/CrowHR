@@ -25,8 +25,8 @@ may be described as working. Remove an entry only in the change that fixes it.
 ## Screens
 
 - **Home** shows fixture data (`apps/web/src/fixtures/`), labelled "Sample data" on screen. Approve/Decline/View all only show a "not connected" toast.
-- **Command palette** "People" results are fixture names; selecting one shows a toast.
-- **Every module** (People, Payroll, Leave, Attendance, Schedules, Claims, Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
+- **Command palette** "People" results come from the live directory (people module).
+- **Every module** except People (Payroll, Leave, Attendance, Schedules, Claims, Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
 - **No dark mode.** The landing site's dark tokens were not ported.
 
 ## Platform
@@ -37,3 +37,21 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **No `docker-compose.yml`** yet.
 - **Dependency audit**: `bun audit` reports one moderate, dev-only advisory (GHSA-67mh-4wv8-2f99, esbuild ≤ 0.24.2 dev server) via drizzle-kit's `@esbuild-kit` loader. It is never shipped or run as a server. CI fails on high/critical only.
 - **CI has not run**: the workflow exists but nothing has been pushed.
+
+## Organisation and people (add-organisation-and-people)
+
+- **No first-run setup yet**, so a fresh server has no organisation or members to sign in with. The people screens are exercised by `packages/core/testing/people-dev-server.ts` (DEV ONLY, 127.0.0.1): the real app with real sessions, seeded with fictional staff, where `/__dev/as/<persona>` creates a session for a seeded member. The people e2e (`e2e/people/`) runs against it.
+- **Invitation on hire is NOT IMPLEMENTED in production**: identity has no exported invite service, so hiring logs a hint and HR invites from Settings → Members (which accepts `employeeId`). Tests use a double.
+- **Workflows stand-ins**: change requests wait in `profile_change_requests` and are decided through `POST /api/v1/people/change-requests/:id/decision`; no approval task, inbox item or notification is created. Checklist and setup-checklist inbox items are exposed by people endpoints, not yet by a workflows `InboxSource`.
+- **Payroll stand-in**: no period is ever finalised, so the retroactive-change guard only triggers in tests, and back-pay notices go nowhere.
+- **The `former` transition** (`runFormerTransitions`) is implemented with identity's `markMembershipFormer`, but nothing calls it until the workflows `tick(now)` sweep exists.
+- **`memberships.employee_id` has no FK yet**: adding it (design) breaks identity tests that seed memberships with made-up employee IDs. The FK should be added once those tests link real employees.
+- **Minimum employment age and the statutory default notice period are NOT IMPLEMENTED**: `research/sg-regulatory.md` does not cite them. No hire is refused for age; resignations need the contractual notice period.
+- **Personal-details change requests apply from the approval date only** (no future-dated personal details). Bank changes honour the approver's effective date.
+- **Sole-owner self-approval** of change requests (`self_approved`) belongs to workflows and is NOT IMPLEMENTED; nobody can decide their own request.
+- **Cancelling a scheduled hire or rehire** is not supported; record a termination instead.
+- **Audit events are recorded after the domain transaction commits**, not inside it (identity's `recordAudit` supports the transaction; threading it through every people service is follow-up work).
+- **Statutory lookups** (CSN payment types, rest-day rule, work pass types) are cited in `packages/core/src/organisation/statutory.ts` and should move to `packages/sg-rules`.
+- **NRIC/bank reveal** (`POST /api/v1/employees/:id/nric/reveal`, `/bank/reveal`) has no web unit test: apps/web has no DOM test environment; it is covered by Playwright (`e2e/people/reveal.people.ts`).
+- **Company logo** upload has an API only; there is no upload control on the Company screen yet.
+- **Error codes** `duplicate_id_number`, `in_use`, `reporting_cycle` are sent as `409 conflict` with `details.reason` until they are added to `ERROR_STATUS`.
