@@ -17,6 +17,7 @@ import { MODULES, type ModuleId } from "./nav.ts";
 
 const ORDER: ModuleId[] = [
   "home",
+  "inbox",
   "people",
   "payroll",
   "leave",

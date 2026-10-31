@@ -5,6 +5,7 @@ import {
   Clock,
   FileText,
   Home,
+  Inbox,
   type LucideIcon,
   Receipt,
   Settings,
@@ -14,6 +15,7 @@ import {
 
 export type ModuleId =
   | "home"
+  | "inbox"
   | "people"
   | "payroll"
   | "leave"
@@ -48,6 +50,16 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     emptyTitle: "Nothing waiting",
     emptyBody: "Approvals, payroll deadlines and expiring passes appear here.",
     keywords: ["inbox", "dashboard", "approvals"],
+  },
+  inbox: {
+    id: "inbox",
+    label: "Inbox",
+    to: "/inbox",
+    icon: Inbox,
+    summary: "Approve or reject requests",
+    emptyTitle: "Nothing to approve",
+    emptyBody: "Requests that need your decision appear here.",
+    keywords: ["approvals", "approve", "reject", "requests", "tasks", "out of office"],
   },
   people: {
     id: "people",
@@ -154,7 +166,7 @@ export interface NavGroup {
 
 /** Admin sidebar, grouped by the job being done. Settings sits at the bottom. */
 export const NAV_GROUPS: NavGroup[] = [
-  { label: null, items: ["home"] },
+  { label: null, items: ["home", "inbox"] },
   { label: "People", items: ["people", "documents"] },
   { label: "Time", items: ["leave", "attendance", "schedules"] },
   { label: "Pay", items: ["payroll", "claims"] },

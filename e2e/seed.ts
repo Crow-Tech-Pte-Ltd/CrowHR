@@ -41,8 +41,10 @@ if (!existing) {
       displayName: m.name,
       password: E2E.password,
       roles: [...m.roles],
+      employeeId: "employeeId" in m ? m.employeeId : null,
     });
   }
+  await seedApprovals(orgId);
   console.error(`Seeded ${E2E.org.name} with ${Object.keys(E2E.members).length} members.`);
 }
 
@@ -113,3 +115,56 @@ if (!ssoOrg) {
   console.error(`Seeded ${E2E.ssoOrg.name} with every sign-in method.`);
 }
 await database.close();
+
+/**
+ * Approvals (WS3): one equipment request submitted five days ago and still waiting for the
+ * manager, so the server's first tick escalates it to HR ("Escalated" in the inbox).
+ */
+async function seedApprovals(orgId: string) {
+  const members = await db.select().from(schema.memberships);
+  const users = await db.select().from(schema.users);
+  const byEmail = (email: string) => {
+    const u = users.find((x) => x.email === email);
+    const m = members.find((x) => x.userId === u?.id && x.orgId === orgId);
+    if (!m) throw new Error(`seed: no member ${email}`);
+    return m.id;
+  };
+  const day = 86_400_000;
+  const submitted = new Date(Date.now() - 5 * day);
+  const requestId = ids.newId();
+  await db.insert(schema.approvalRequests).values({
+    id: requestId,
+    orgId,
+    subjectType: "e2e_equipment",
+    subjectId: ids.newId(),
+    requesterMembershipId: byEmail(E2E.members.requester.email),
+    requesterEmployeeId: E2E.members.requester.employeeId,
+    policyName: "Default",
+    status: "pending",
+    title: "Barista apron and thermometer",
+    submittedAt: submitted,
+  });
+  await db.insert(schema.approvalSteps).values([
+    {
+      orgId,
+      requestId,
+      position: 1,
+      approverRule: "manager",
+      escalateAfterDays: 3,
+      status: "active",
+      activatedAt: submitted,
+    },
+    { orgId, requestId, position: 2, approverRule: "role:hr_admin", escalateAfterDays: 3, status: "waiting" },
+  ]);
+  await db.insert(schema.approvalTasks).values({
+    id: ids.newId(),
+    orgId,
+    requestId,
+    position: 1,
+    assigneeMembershipId: byEmail(E2E.members.approver.email),
+    origin: "resolved",
+    status: "pending",
+    dueAt: new Date(submitted.getTime() + 3 * day),
+    createdAt: submitted,
+  });
+}

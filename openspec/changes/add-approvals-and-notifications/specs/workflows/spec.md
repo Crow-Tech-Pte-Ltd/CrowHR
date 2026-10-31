@@ -127,3 +127,15 @@ Home SHALL list the current member's actionable items from all sources: open app
 #### Scenario: Employee with nothing to do
 - **WHEN** an employee with no tasks opens Home
 - **THEN** it shows "Nothing waiting for you" plus links to apply for leave and submit a claim
+
+### Requirement: Workflow permissions
+Deciding a task SHALL require the `approval_tasks:decide` permission with scope `assigned` (any member, only for tasks assigned to them). The engine adds these rows to the permission matrix:
+- `approval_tasks:reassign`: owner and hr_admin, all records; hr_admins cannot reassign `payroll_run` tasks.
+- `approval_delegations:manage` (setting out-of-office cover for someone else): owner and hr_admin. Every member may set their own.
+- `notification_delivery:read` (failed emails, SMTP status): owner.
+
+Approval policies use the existing `policies:read` / `policies:update` rows; `payroll_run` policies are owner-only.
+
+#### Scenario: Employee tries to reassign
+- **WHEN** an employee calls the reassign endpoint for a task
+- **THEN** the API answers 403 `forbidden`
