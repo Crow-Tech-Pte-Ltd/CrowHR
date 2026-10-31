@@ -1,0 +1,15 @@
+{
+  "name": "@crowhr/sg-rules",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Singapore statutory rules (CPF, SDL, FWL, leave, overtime). Pure, zero-dependency, effective-dated.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  }
+}
