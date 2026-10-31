@@ -1,0 +1,2354 @@
+{
+  "schemaVersion": 1,
+  "generatedOn": "2026-10-31",
+  "conventions": {
+    "money": "integer cents",
+    "sdlUnits1e4Cent": "per-employee SDL in units of 1/10000 cent (exact); employer total SDL = floor(sum(units)/1_000_000) dollars",
+    "ageBand": "derived from birthDate + wageMonth using the month-after-birthday rule when birthDate given",
+    "owSubjectToCpfCents": "min(owPaid, OW ceiling) unless given explicitly",
+    "awCeilingContext.annualOwSubjectForCeilingCents": "total OW subject to CPF for the year as estimated/actual at this AW payment (CPF AW Step 1/2)",
+    "awCeilingContext.awSubjectYtdBeforeCents": "AW already subjected to CPF earlier in the year by this employer",
+    "wageBand": "chosen on total wages for the month BEFORE AW capping (CPF AW example 16)",
+    "officialPublishedValues": "CPF publishes OW and AW shares separately in its AW examples; total = sum; our expected values must equal the sums"
+  },
+  "cpfVectors": [
+    {
+      "id": "AGE-01",
+      "title": "SC, age 55 and below, OW $3,000 (2026)",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 300000,
+        "awPaidCents": 0,
+        "shgFund": "CDAC"
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 111000,
+        "employeeCpfCents": 60000,
+        "employerCpfCents": 51000,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 100
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-02",
+      "title": "SC, age above 55 to 60, OW $3,000 (2026)",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SC",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 300000,
+        "awPaidCents": 0,
+        "shgFund": "CDAC"
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 102000,
+        "employeeCpfCents": 54000,
+        "employerCpfCents": 48000,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 100
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-03",
+      "title": "SC, age above 60 to 65, OW $3,000 (2026)",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SC",
+        "ageBand": "ABOVE_60_TO_65",
+        "owPaidCents": 300000,
+        "awPaidCents": 0,
+        "shgFund": "CDAC"
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 75000,
+        "employeeCpfCents": 37500,
+        "employerCpfCents": 37500,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 100
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-04",
+      "title": "SC, age above 65 to 70, OW $3,000 (2026)",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SC",
+        "ageBand": "ABOVE_65_TO_70",
+        "owPaidCents": 300000,
+        "awPaidCents": 0,
+        "shgFund": "CDAC"
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 49500,
+        "employeeCpfCents": 22500,
+        "employerCpfCents": 27000,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 100
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-05",
+      "title": "SC, age above 70, OW $3,000 (2026)",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SC",
+        "ageBand": "ABOVE_70",
+        "owPaidCents": 300000,
+        "awPaidCents": 0,
+        "shgFund": "CDAC"
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 37500,
+        "employeeCpfCents": 15000,
+        "employerCpfCents": 22500,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 100
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-01",
+      "title": "SC <=55, TW exactly $50.00 -> nil",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 5000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 5000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 0,
+        "employeeCpfCents": 0,
+        "employerCpfCents": 0,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-02",
+      "title": "SC <=55, TW $50.01 -> employer-only band",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 5001,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 5001,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 900,
+        "employeeCpfCents": 0,
+        "employerCpfCents": 900,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-03",
+      "title": "SC <=55, TW exactly $500.00 -> employer only",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 50000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 50000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 8500,
+        "employeeCpfCents": 0,
+        "employerCpfCents": 8500,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-04",
+      "title": "SC <=55, TW $500.01 -> phase-in band starts",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 50001,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 50001,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 8500,
+        "employeeCpfCents": 0,
+        "employerCpfCents": 8500,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-05",
+      "title": "SC <=55, TW $600 phase-in",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 60000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 60000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 16200,
+        "employeeCpfCents": 6000,
+        "employerCpfCents": 10200,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-06",
+      "title": "SC <=55, TW exactly $750.00 -> top of phase-in",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 75000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 75000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 27800,
+        "employeeCpfCents": 15000,
+        "employerCpfCents": 12800,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-07",
+      "title": "SC <=55, TW $750.01 -> full rate",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 75001,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 75001,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 27800,
+        "employeeCpfCents": 15000,
+        "employerCpfCents": 12800,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-08",
+      "title": "SC <=55, OW $7,999.99 (ceiling - $0.01)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 799999,
+        "awPaidCents": 0,
+        "shgFund": "SINDA"
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 799999,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 296000,
+        "employeeCpfCents": 159900,
+        "employerCpfCents": 136100,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 1200
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-09",
+      "title": "SC <=55, OW exactly $8,000 (ceiling)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 800000,
+        "awPaidCents": 0,
+        "shgFund": "SINDA"
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 296000,
+        "employeeCpfCents": 160000,
+        "employerCpfCents": 136000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 1200
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-10",
+      "title": "SC <=55, OW $8,000.01 (ceiling + $0.01) -> capped",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 800001,
+        "awPaidCents": 0,
+        "shgFund": "SINDA"
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 296000,
+        "employeeCpfCents": 160000,
+        "employerCpfCents": 136000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 1200
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-11",
+      "title": "SC above 55-60, TW $650 phase-in",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 65000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 65000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 18500,
+        "employeeCpfCents": 8100,
+        "employerCpfCents": 10400,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-12",
+      "title": "SC above 60-65, TW $700 phase-in (total x.5 rounds up)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "ABOVE_60_TO_65",
+        "owPaidCents": 70000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 70000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 16300,
+        "employeeCpfCents": 7500,
+        "employerCpfCents": 8800,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-13",
+      "title": "SC above 65-70, TW $555.55 phase-in with fractional cents",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "ABOVE_65_TO_70",
+        "owPaidCents": 55555,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 55555,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 6200,
+        "employeeCpfCents": 1200,
+        "employerCpfCents": 5000,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "WB-14",
+      "title": "SC above 70, TW $300 employer-only (22.5 rounds up to 23)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "ABOVE_70",
+        "owPaidCents": 30000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 30000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 2300,
+        "employeeCpfCents": 0,
+        "employerCpfCents": 2300,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "RD-01",
+      "title": "Cents: TW $1,234.56 (total 456.7872 -> 457; employee 246.912 -> 246)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-04",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 123456,
+        "awPaidCents": 0,
+        "shgFund": "MBMF"
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 123456,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 45700,
+        "employeeCpfCents": 24600,
+        "employerCpfCents": 21100,
+        "sdlUnits1e4Cent": 3086400,
+        "sdlExactDollars": "3.0864",
+        "shgCents": 450
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "RD-02",
+      "title": "Exactly half dollar: TW $1,350 -> total 499.50 rounds UP to 500",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-04",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 135000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 135000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 50000,
+        "employeeCpfCents": 27000,
+        "employerCpfCents": 23000,
+        "sdlUnits1e4Cent": 3375000,
+        "sdlExactDollars": "3.375",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "RD-03",
+      "title": "Sub-cent fraction: TW $1,001.34 -> total 370.4958 rounds DOWN to 370 (do not pre-round to cents)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-04",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 100134,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 100134,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 37000,
+        "employeeCpfCents": 20000,
+        "employerCpfCents": 17000,
+        "sdlUnits1e4Cent": 2503350,
+        "sdlExactDollars": "2.50335",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ],
+      "notes": "If the engine first rounds 370.4958 to 370.50 it would wrongly produce 371. CPF: 'Cents should be dropped for amounts less than 50 cents'. Interpretation: compare the exact amount; flagged in sg-rule-tables.json notes."
+    },
+    {
+      "id": "RD-04",
+      "title": "Sub-cent fraction age 65-70: TW $1,003.00 -> total 165.495 -> 165",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-04",
+        "residency": "SC",
+        "ageBand": "ABOVE_65_TO_70",
+        "owPaidCents": 100300,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 100300,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 16500,
+        "employeeCpfCents": 7500,
+        "employerCpfCents": 9000,
+        "sdlUnits1e4Cent": 2507500,
+        "sdlExactDollars": "2.5075",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ],
+      "notes": "Same exact-rational interpretation as RD-03."
+    },
+    {
+      "id": "SPR-01",
+      "title": "SPR 1st year G/G, <=55, OW $3,000",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SPR",
+        "birthDate": "1990-05-10",
+        "spr": {
+          "sprDate": "2026-01-15",
+          "option": "GG"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 300000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T2",
+        "effectiveResidencyCategory": "SPR1_GG",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 27000,
+        "employeeCpfCents": 15000,
+        "employerCpfCents": 12000,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf",
+        "https://www.cpf.gov.sg/service/article/do-i-need-to-pay-cpf-contributions-for-my-foreign-employee-who-has-recently-obtained-singapore-permanent-residence-status"
+      ]
+    },
+    {
+      "id": "SPR-02",
+      "title": "SPR 2nd year G/G, <=55, OW $3,000 (Feb 2027 = month after 1st anniversary)",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2027-02",
+        "residency": "SPR",
+        "birthDate": "1990-05-10",
+        "spr": {
+          "sprDate": "2026-01-15",
+          "option": "GG"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 300000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2027:T3",
+        "effectiveResidencyCategory": "SPR2_GG",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 72000,
+        "employeeCpfCents": 45000,
+        "employerCpfCents": 27000,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf",
+        "https://www.cpf.gov.sg/service/article/do-i-need-to-pay-cpf-contributions-for-my-foreign-employee-who-has-recently-obtained-singapore-permanent-residence-status"
+      ]
+    },
+    {
+      "id": "SPR-03",
+      "title": "SPR still 1st year in anniversary month (Jan 2027)",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2027-01",
+        "residency": "SPR",
+        "birthDate": "1990-05-10",
+        "spr": {
+          "sprDate": "2026-01-15",
+          "option": "GG"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 300000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2027:T2",
+        "effectiveResidencyCategory": "SPR1_GG",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 27000,
+        "employeeCpfCents": 15000,
+        "employerCpfCents": 12000,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf",
+        "https://www.cpf.gov.sg/service/article/do-i-need-to-pay-cpf-contributions-for-my-foreign-employee-who-has-recently-obtained-singapore-permanent-residence-status"
+      ]
+    },
+    {
+      "id": "SPR-04",
+      "title": "SPR 3rd year from Feb 2028 -> full rates (Table 1). Uses 2027 rates as 2028 rates are not yet published",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2028-02",
+        "residency": "SPR",
+        "birthDate": "1990-05-10",
+        "spr": {
+          "sprDate": "2026-01-15",
+          "option": "GG"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 300000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2027:T1",
+        "effectiveResidencyCategory": "SPR3",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 111000,
+        "employeeCpfCents": 60000,
+        "employerCpfCents": 51000,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 0,
+        "ratesAssumedCarriedForward": true
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf",
+        "https://www.cpf.gov.sg/service/article/do-i-need-to-pay-cpf-contributions-for-my-foreign-employee-who-has-recently-obtained-singapore-permanent-residence-status"
+      ],
+      "notes": "2028 rate tables not yet published as at 2026-10-31; vector assumes 2027 Table 1 still applies. Re-verify when CPF publishes 2028 tables."
+    },
+    {
+      "id": "SPR-05",
+      "title": "SPR 1st year F/G (full employer, graduated employee), <=55, OW $3,000",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SPR",
+        "birthDate": "1990-05-10",
+        "spr": {
+          "sprDate": "2026-01-15",
+          "option": "FG"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 300000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T4",
+        "effectiveResidencyCategory": "SPR1_FG",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 66000,
+        "employeeCpfCents": 15000,
+        "employerCpfCents": 51000,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "SPR-06",
+      "title": "SPR 2nd year F/G, <=55, OW $3,000",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SPR",
+        "birthDate": "1990-05-10",
+        "spr": {
+          "sprDate": "2025-03-02",
+          "option": "FG"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 300000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T5",
+        "effectiveResidencyCategory": "SPR2_FG",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 96000,
+        "employeeCpfCents": 45000,
+        "employerCpfCents": 51000,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "SPR-07",
+      "title": "SPR 1st year G/G, above 65 (born 1958), OW $9,000 capped -> max $680/$400",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SPR",
+        "birthDate": "1958-02-01",
+        "spr": {
+          "sprDate": "2026-02-01",
+          "option": "GG"
+        },
+        "ageBand": "ABOVE_65_TO_70",
+        "owPaidCents": 900000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T2",
+        "effectiveResidencyCategory": "SPR1_GG",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 68000,
+        "employeeCpfCents": 40000,
+        "employerCpfCents": 28000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "SPR-08",
+      "title": "SPR 1st year F/F (joint application approved) -> Table 1",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SPR",
+        "birthDate": "1990-05-10",
+        "spr": {
+          "sprDate": "2026-01-15",
+          "option": "FF"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 300000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SPR1_FF",
+        "owSubjectToCpfCents": 300000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 111000,
+        "employeeCpfCents": 60000,
+        "employerCpfCents": 51000,
+        "sdlUnits1e4Cent": 7500000,
+        "sdlExactDollars": "7.50",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "SPR-09",
+      "title": "SPR 2nd year G/G, <=55, phase-in TW $600",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SPR",
+        "birthDate": "1990-05-10",
+        "spr": {
+          "sprDate": "2025-01-15",
+          "option": "GG"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 60000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T3",
+        "effectiveResidencyCategory": "SPR2_GG",
+        "owSubjectToCpfCents": 60000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 9900,
+        "employeeCpfCents": 4500,
+        "employerCpfCents": 5400,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "SPR-10",
+      "title": "SPR conversion mid-month (15 Mar 2026): only pro-rated OW from SPR date is subject",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SPR",
+        "birthDate": "1990-05-10",
+        "spr": {
+          "sprDate": "2026-03-15",
+          "option": "GG"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 310000,
+        "awPaidCents": 0,
+        "owSubjectToCpfCents": 170000
+      },
+      "expected": {
+        "rateTable": "2026:T2",
+        "effectiveResidencyCategory": "SPR1_GG",
+        "owSubjectToCpfCents": 170000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 15300,
+        "employeeCpfCents": 8500,
+        "employerCpfCents": 6800,
+        "sdlUnits1e4Cent": 7750000,
+        "sdlExactDollars": "7.75",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf",
+        "https://www.cpf.gov.sg/service/article/do-i-need-to-pay-cpf-contributions-for-my-foreign-employee-who-has-recently-obtained-singapore-permanent-residence-status"
+      ],
+      "notes": "Salary $3,100 for March; OW attributable to 15-31 Mar given as $1,700 (pro-ration method is the employer's/MOM's - engine receives owSubjectToCpfCents). Wage band uses the subject OW here because pre-conversion wages are not CPF wages. SDL/SHG use the full $3,100 paid."
+    },
+    {
+      "id": "FOR-01",
+      "title": "Foreigner (EP), OW $5,000, Muslim -> no CPF, SDL max, MBMF",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "FOREIGNER",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 500000,
+        "awPaidCents": 0,
+        "shgFund": "MBMF"
+      },
+      "expected": {
+        "rateTable": null,
+        "effectiveResidencyCategory": "FOREIGNER",
+        "owSubjectToCpfCents": 0,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 0,
+        "employeeCpfCents": 0,
+        "employerCpfCents": 0,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 1950
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/who-should-receive-cpf-contributions",
+        "https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy",
+        "https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"
+      ]
+    },
+    {
+      "id": "AW-01",
+      "title": "Official AW Ex.1 Jan 2026: OW $9,000, AW $12,000, est. AW ceiling $6,000",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-01",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 900000,
+        "awPaidCents": 1200000,
+        "awCeilingContext": {
+          "annualOwSubjectForCeilingCents": 9600000,
+          "awSubjectYtdBeforeCents": 0
+        }
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 600000,
+        "awCeilingCents": 600000,
+        "totalCpfCents": 518000,
+        "employeeCpfCents": 280000,
+        "employerCpfCents": 238000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 136000,
+        "employeeOnOW": 160000,
+        "employerOnAW": 102000,
+        "employeeOnAW": 120000
+      }
+    },
+    {
+      "id": "AW-02",
+      "title": "Official AW Ex.1 Jun 2026: AW $10,000 after ceiling exhausted",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 900000,
+        "awPaidCents": 1000000,
+        "awCeilingContext": {
+          "annualOwSubjectForCeilingCents": 9600000,
+          "awSubjectYtdBeforeCents": 600000
+        }
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 0,
+        "awCeilingCents": 600000,
+        "totalCpfCents": 296000,
+        "employeeCpfCents": 160000,
+        "employerCpfCents": 136000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 136000,
+        "employeeOnOW": 160000,
+        "employerOnAW": 0,
+        "employeeOnAW": 0
+      }
+    },
+    {
+      "id": "AW-03",
+      "title": "Official AW Ex.2 Dec 2026: OW $4,500, AW $55,000, ceiling $48,000, $45,000 already used",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-12",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 450000,
+        "awPaidCents": 5500000,
+        "awCeilingContext": {
+          "annualOwSubjectForCeilingCents": 5400000,
+          "awSubjectYtdBeforeCents": 4500000
+        }
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 450000,
+        "awSubjectToCpfCents": 300000,
+        "awCeilingCents": 4800000,
+        "totalCpfCents": 277500,
+        "employeeCpfCents": 150000,
+        "employerCpfCents": 127500,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 76500,
+        "employeeOnOW": 90000,
+        "employerOnAW": 51000,
+        "employeeOnAW": 60000
+      }
+    },
+    {
+      "id": "AW-04",
+      "title": "Official AW Ex.5 Sep 2026: mid-year joiner (Jun), OW $10,000, AW $50,000, ceiling 102,000-8,000x7",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-09",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 1000000,
+        "awPaidCents": 5000000,
+        "awCeilingContext": {
+          "annualOwSubjectForCeilingCents": 5600000,
+          "awSubjectYtdBeforeCents": 0
+        }
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 4600000,
+        "awCeilingCents": 4600000,
+        "totalCpfCents": 1998000,
+        "employeeCpfCents": 1080000,
+        "employerCpfCents": 918000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 136000,
+        "employeeOnOW": 160000,
+        "employerOnAW": 782000,
+        "employeeOnAW": 920000
+      }
+    },
+    {
+      "id": "AW-05",
+      "title": "Official AW Ex.9 Jan 2026: AW with cents $2,850.60",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-01",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 1000000,
+        "awPaidCents": 285060,
+        "awCeilingContext": {
+          "annualOwSubjectForCeilingCents": 9600000,
+          "awSubjectYtdBeforeCents": 0
+        }
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 285060,
+        "awCeilingCents": 600000,
+        "totalCpfCents": 401500,
+        "employeeCpfCents": 217000,
+        "employerCpfCents": 184500,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 136000,
+        "employeeOnOW": 160000,
+        "employerOnAW": 48500,
+        "employeeOnAW": 57000
+      }
+    },
+    {
+      "id": "AW-06",
+      "title": "Official AW Ex.9 Feb 2026: AW $3,753.82 capped to remaining $3,149.40",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-02",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 1000000,
+        "awPaidCents": 375382,
+        "awCeilingContext": {
+          "annualOwSubjectForCeilingCents": 9600000,
+          "awSubjectYtdBeforeCents": 285060
+        }
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 314940,
+        "awCeilingCents": 600000,
+        "totalCpfCents": 412500,
+        "employeeCpfCents": 222900,
+        "employerCpfCents": 189600,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 136000,
+        "employeeOnOW": 160000,
+        "employerOnAW": 53600,
+        "employeeOnAW": 62900
+      }
+    },
+    {
+      "id": "AW-07",
+      "title": "Official AW Ex.14 Mar 2026: only $49 of AW $24,000.50 subject",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 1000000,
+        "awPaidCents": 2400050,
+        "awCeilingContext": {
+          "annualOwSubjectForCeilingCents": 9600000,
+          "awSubjectYtdBeforeCents": 595100
+        }
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 4900,
+        "awCeilingCents": 600000,
+        "totalCpfCents": 297800,
+        "employeeCpfCents": 160900,
+        "employerCpfCents": 136900,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 136000,
+        "employeeOnOW": 160000,
+        "employerOnAW": 900,
+        "employeeOnAW": 900
+      }
+    },
+    {
+      "id": "AW-08",
+      "title": "Official AW Ex.16 Jul 2026: OW $500 + AW $30,000 (only $100 subject) -> full 37% band because TW before AW capping > $750",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-07",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 50000,
+        "awPaidCents": 3000000,
+        "awCeilingContext": {
+          "annualOwSubjectForCeilingCents": 600000,
+          "awSubjectYtdBeforeCents": 9590000
+        }
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 50000,
+        "awSubjectToCpfCents": 10000,
+        "awCeilingCents": 9600000,
+        "totalCpfCents": 22200,
+        "employeeCpfCents": 12000,
+        "employerCpfCents": 10200,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 8500,
+        "employeeOnOW": 10000,
+        "employerOnAW": 1700,
+        "employeeOnAW": 2000
+      }
+    },
+    {
+      "id": "AW-09",
+      "title": "Official AW Ex.16 Aug 2026: OW $500 + AW $2,000 (none subject) -> employee still pays 20% of $500",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-08",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 50000,
+        "awPaidCents": 200000,
+        "awCeilingContext": {
+          "annualOwSubjectForCeilingCents": 600000,
+          "awSubjectYtdBeforeCents": 9600000
+        }
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 50000,
+        "awSubjectToCpfCents": 0,
+        "awCeilingCents": 9600000,
+        "totalCpfCents": 18500,
+        "employeeCpfCents": 10000,
+        "employerCpfCents": 8500,
+        "sdlUnits1e4Cent": 6250000,
+        "sdlExactDollars": "6.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 8500,
+        "employeeOnOW": 10000,
+        "employerOnAW": 0,
+        "employeeOnAW": 0
+      }
+    },
+    {
+      "id": "AW-10",
+      "title": "Official AW Ex.10 Jul 2026: turned 55 in Jun -> Jul uses above-55-to-60 rates, OW $10,000",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-07",
+        "residency": "SC",
+        "birthDate": "1971-06-20",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 1000000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 272000,
+        "employeeCpfCents": 144000,
+        "employerCpfCents": 128000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE",
+        "https://www.cpf.gov.sg/service/article/when-will-my-employee-s-cpf-contribution-rates-change-when-they-turn-55-60-65-or-70"
+      ],
+      "officialPublishedValues": {
+        "employerOnOW": 128000,
+        "employeeOnOW": 144000
+      }
+    },
+    {
+      "id": "AW-11",
+      "title": "Official AW Ex.7 Jun 2026: leaver, pro-rated OW $1,500; recomputed AW ceiling re-subjects $40,000 of Feb-May AW (corrected)",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 150000,
+        "awPaidCents": 0,
+        "ytdOwSubjectCents": 4000000,
+        "employmentLastMonth": "2026-06",
+        "awHistory": [
+          {
+            "payableMonth": "2026-01",
+            "owCents": 900000,
+            "awPayableCents": 300000,
+            "awSubjectCents": 300000
+          },
+          {
+            "payableMonth": "2026-02",
+            "owCents": 900000,
+            "awPayableCents": 1200000,
+            "awSubjectCents": 300000
+          },
+          {
+            "payableMonth": "2026-03",
+            "owCents": 900000,
+            "awPayableCents": 400000,
+            "awSubjectCents": 0
+          },
+          {
+            "payableMonth": "2026-04",
+            "owCents": 900000,
+            "awPayableCents": 1200000,
+            "awSubjectCents": 0
+          },
+          {
+            "payableMonth": "2026-05",
+            "owCents": 900000,
+            "awPayableCents": 1500000,
+            "awSubjectCents": 0
+          }
+        ]
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 150000,
+        "awSubjectToCpfCents": 0,
+        "awCeilingCents": 6050000,
+        "totalCpfCents": 1535500,
+        "employeeCpfCents": 830000,
+        "employerCpfCents": 705500,
+        "sdlUnits1e4Cent": 3750000,
+        "sdlExactDollars": "3.75",
+        "shgCents": 0,
+        "currentMonth": {
+          "totalCpfCents": 55500,
+          "employeeCpfCents": 30000,
+          "employerCpfCents": 25500
+        },
+        "priorAwShortfall": {
+          "awCents": 4000000,
+          "totalCpfCents": 1480000,
+          "employeeCpfCents": 800000,
+          "employerCpfCents": 680000
+        }
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 25500,
+        "employeeOnOW": 30000,
+        "employerOnAW": 680000,
+        "employeeOnAW": 800000
+      },
+      "notes": "Corrected per codex-verification.md: the $40,000 is a shortfall on AW already paid Feb-May, not new June AW. Official figures: OW 255/300, AW shortfall 6,800/8,000."
+    },
+    {
+      "id": "AGE-T1",
+      "title": "55th birthday 13 Jan 2026: Jan 2026 still '55 and below' (official FAQ example)",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-01",
+        "residency": "SC",
+        "birthDate": "1971-01-13",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 500000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 500000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 185000,
+        "employeeCpfCents": 100000,
+        "employerCpfCents": 85000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/service/article/when-will-my-employee-s-cpf-contribution-rates-change-when-they-turn-55-60-65-or-70",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-T2",
+      "title": "55th birthday 13 Jan 2026: Feb 2026 uses 'above 55 to 60' (official FAQ example)",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-02",
+        "residency": "SC",
+        "birthDate": "1971-01-13",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 500000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 500000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 170000,
+        "employeeCpfCents": 90000,
+        "employerCpfCents": 80000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/service/article/when-will-my-employee-s-cpf-contribution-rates-change-when-they-turn-55-60-65-or-70",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-T3",
+      "title": "60th birthday on 1 Mar 2026: Mar 2026 still above-55-to-60",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "birthDate": "1966-03-01",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 400000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 400000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 136000,
+        "employeeCpfCents": 72000,
+        "employerCpfCents": 64000,
+        "sdlUnits1e4Cent": 10000000,
+        "sdlExactDollars": "10.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/service/article/when-will-my-employee-s-cpf-contribution-rates-change-when-they-turn-55-60-65-or-70",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-T4",
+      "title": "60th birthday on 1 Mar 2026: Apr 2026 above-60-to-65",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-04",
+        "residency": "SC",
+        "birthDate": "1966-03-01",
+        "ageBand": "ABOVE_60_TO_65",
+        "owPaidCents": 400000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 400000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 100000,
+        "employeeCpfCents": 50000,
+        "employerCpfCents": 50000,
+        "sdlUnits1e4Cent": 10000000,
+        "sdlExactDollars": "10.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/service/article/when-will-my-employee-s-cpf-contribution-rates-change-when-they-turn-55-60-65-or-70",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-T5",
+      "title": "65th birthday 31 Oct 2026: Oct 2026 still above-60-to-65",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-10",
+        "residency": "SC",
+        "birthDate": "1961-10-31",
+        "ageBand": "ABOVE_60_TO_65",
+        "owPaidCents": 400000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 400000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 100000,
+        "employeeCpfCents": 50000,
+        "employerCpfCents": 50000,
+        "sdlUnits1e4Cent": 10000000,
+        "sdlExactDollars": "10.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/service/article/when-will-my-employee-s-cpf-contribution-rates-change-when-they-turn-55-60-65-or-70",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-T6",
+      "title": "65th birthday 31 Oct 2026: Nov 2026 above-65-to-70",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-11",
+        "residency": "SC",
+        "birthDate": "1961-10-31",
+        "ageBand": "ABOVE_65_TO_70",
+        "owPaidCents": 400000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 400000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 66000,
+        "employeeCpfCents": 30000,
+        "employerCpfCents": 36000,
+        "sdlUnits1e4Cent": 10000000,
+        "sdlExactDollars": "10.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/service/article/when-will-my-employee-s-cpf-contribution-rates-change-when-they-turn-55-60-65-or-70",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-T7",
+      "title": "70th birthday 15 Dec 2026: Dec 2026 still above-65-to-70",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-12",
+        "residency": "SC",
+        "birthDate": "1956-12-15",
+        "ageBand": "ABOVE_65_TO_70",
+        "owPaidCents": 400000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 400000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 66000,
+        "employeeCpfCents": 30000,
+        "employerCpfCents": 36000,
+        "sdlUnits1e4Cent": 10000000,
+        "sdlExactDollars": "10.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/service/article/when-will-my-employee-s-cpf-contribution-rates-change-when-they-turn-55-60-65-or-70",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+      ]
+    },
+    {
+      "id": "AGE-T8",
+      "title": "70th birthday 15 Dec 2026: Jan 2027 above-70 (2027 table)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2027-01",
+        "residency": "SC",
+        "birthDate": "1956-12-15",
+        "ageBand": "ABOVE_70",
+        "owPaidCents": 400000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2027:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 400000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 50000,
+        "employeeCpfCents": 20000,
+        "employerCpfCents": 30000,
+        "sdlUnits1e4Cent": 10000000,
+        "sdlExactDollars": "10.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/service/article/when-will-my-employee-s-cpf-contribution-rates-change-when-they-turn-55-60-65-or-70",
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf"
+      ]
+    },
+    {
+      "id": "Y27-01",
+      "title": "2027 above 55-60, OW $8,000 -> new max $2,840 / $1,520",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2027-01",
+        "residency": "SC",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 800000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2027:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 284000,
+        "employeeCpfCents": 152000,
+        "employerCpfCents": 132000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf"
+      ]
+    },
+    {
+      "id": "Y27-02",
+      "title": "2027 above 60-65, OW $5,000 -> 26% (13/13)",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2027-03",
+        "residency": "SC",
+        "ageBand": "ABOVE_60_TO_65",
+        "owPaidCents": 500000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2027:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 500000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 130000,
+        "employeeCpfCents": 65000,
+        "employerCpfCents": 65000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf"
+      ]
+    },
+    {
+      "id": "Y27-03",
+      "title": "2027 above 55-60 phase-in TW $600 (16.5% TW + 0.57(TW-500))",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2027-03",
+        "residency": "SC",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 60000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2027:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 60000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 15600,
+        "employeeCpfCents": 5700,
+        "employerCpfCents": 9900,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf"
+      ]
+    },
+    {
+      "id": "Y27-04",
+      "title": "2027 above 60-65 phase-in TW $700 (13% TW + 0.39(TW-500))",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2027-03",
+        "residency": "SC",
+        "ageBand": "ABOVE_60_TO_65",
+        "owPaidCents": 70000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2027:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 70000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 16900,
+        "employeeCpfCents": 7800,
+        "employerCpfCents": 9100,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf"
+      ]
+    },
+    {
+      "id": "Y27-05",
+      "title": "2027 SPR 1st year F/G above 55-60, OW $8,000 -> 21.5% max $1,720 / $400",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "wageMonth": "2027-03",
+        "residency": "SPR",
+        "spr": {
+          "sprDate": "2026-12-01",
+          "option": "FG"
+        },
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 800000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2027:T4",
+        "effectiveResidencyCategory": "SPR1_FG",
+        "owSubjectToCpfCents": 800000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 172000,
+        "employeeCpfCents": 40000,
+        "employerCpfCents": 132000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf"
+      ]
+    },
+    {
+      "id": "Y27-06",
+      "title": "Dec 2026 vs Jan 2027 boundary: wages for Dec 2026 use 2026 table even if paid in Jan 2027 (age 57, OW $5,000)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-12",
+        "residency": "SC",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 500000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 500000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 170000,
+        "employeeCpfCents": 90000,
+        "employerCpfCents": 80000,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf",
+        "https://www.cpf.gov.sg/employer/infohub/news/cpf-related-announcements/new-contribution-rates"
+      ],
+      "notes": "CPF: 'The changes apply to wages earned from 1 January 2027'. OW are attributed to the month of employment. For AW, CPF applies the rate table in force when the AW is paid (see AW examples 11/14) - engine must key AW to payment month."
+    },
+    {
+      "id": "PM-01",
+      "title": "Mid-month joiner: OW pro-rated to $1,363.64",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-05",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 136364,
+        "awPaidCents": 0,
+        "shgFund": "CDAC"
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 136364,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 50500,
+        "employeeCpfCents": 27200,
+        "employerCpfCents": 23300,
+        "sdlUnits1e4Cent": 3409100,
+        "sdlExactDollars": "3.4091",
+        "shgCents": 50
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay",
+        "https://www.cpf.gov.sg/service/sfc/servlet.shepherd/version/download/068IW000003YkZlYAK"
+      ],
+      "notes": "CPF is payable on pro-rated wages earned for the month (CPF 'Mistakes by Employers' item 3). Pro-ration itself follows the MOM incomplete-month formula (see sg-regulatory.md)."
+    },
+    {
+      "id": "PM-02",
+      "title": "Casual part-timer earning $240 in the month (CPF official example: payable because > $50)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "wageMonth": "2026-05",
+        "residency": "SC",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 24000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 24000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 4100,
+        "employeeCpfCents": 0,
+        "employerCpfCents": 4100,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/version/download/068IW000003YkZlYAK"]
+    },
+    {
+      "id": "PM-03",
+      "title": "Leaver in last month: pro-rated OW $2,000 above 55-60 (official AW Ex.13 Nov OW portion)",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "wageMonth": "2026-11",
+        "residency": "SC",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 200000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 200000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 68000,
+        "employeeCpfCents": 36000,
+        "employerCpfCents": 32000,
+        "sdlUnits1e4Cent": 5000000,
+        "sdlExactDollars": "5.00",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"],
+      "officialPublishedValues": {
+        "employerOnOW": 32000,
+        "employeeOnOW": 36000
+      }
+    }
+  ],
+  "sdlVectors": [
+    {
+      "id": "SDL-01",
+      "title": "SDL per employee, total wages $609.50 (official example A, min $2)",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "totalWagesCents": 60950
+      },
+      "expected": {
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00"
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-02",
+      "title": "SDL per employee, total wages $2,000 (official example B)",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "totalWagesCents": 200000
+      },
+      "expected": {
+        "sdlUnits1e4Cent": 5000000,
+        "sdlExactDollars": "5.00"
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-03",
+      "title": "SDL per employee, total wages $4,500 (official example C)",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "totalWagesCents": 450000
+      },
+      "expected": {
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25"
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-04",
+      "title": "SDL per employee, total wages $4,502.03 (official example D, max)",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "totalWagesCents": 450203
+      },
+      "expected": {
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25"
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-05",
+      "title": "SDL per employee, total wages $10,000 (official example E, max)",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "totalWagesCents": 1000000
+      },
+      "expected": {
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25"
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-06",
+      "title": "SDL per employee, total wages $799.99 -> min $2",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "totalWagesCents": 79999
+      },
+      "expected": {
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00"
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-07",
+      "title": "SDL per employee, total wages $800.00 -> 0.25% = $2.00",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "totalWagesCents": 80000
+      },
+      "expected": {
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00"
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-08",
+      "title": "SDL per employee, total wages $800.04 -> $2.0001",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "totalWagesCents": 80004
+      },
+      "expected": {
+        "sdlUnits1e4Cent": 2000100,
+        "sdlExactDollars": "2.0001"
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-09",
+      "title": "SDL per employee, total wages $1,234.56 -> $3.0864",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "totalWagesCents": 123456
+      },
+      "expected": {
+        "sdlUnits1e4Cent": 3086400,
+        "sdlExactDollars": "3.0864"
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-10",
+      "title": "SDL per employee, total wages $4,500.01 -> max $11.25",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "totalWagesCents": 450001
+      },
+      "expected": {
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25"
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-RUN-01",
+      "title": "SDL employer total for official 5-employee example: $40.75 -> rounded down to $40",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "totalWagesCentsPerEmployee": [60950, 200000, 450000, 450203, 1000000]
+      },
+      "expected": {
+        "sdlExactDollars": "40.75",
+        "sdlPayableCents": 4000
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"]
+    },
+    {
+      "id": "SDL-RUN-02",
+      "title": "SDL total for 3 x $1,234.56: 3 x 3.0864 = 9.2592 -> $9 (sum exact, then floor; never round each employee up)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "totalWagesCentsPerEmployee": [123456, 123456, 123456]
+      },
+      "expected": {
+        "sdlExactDollars": "9.2592",
+        "sdlPayableCents": 900
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy"],
+      "notes": "CPF publishes only the total rounding rule (round DOWN to nearest dollar). Per-employee cent rounding is not published; summing exact values is the safe interpretation."
+    }
+  ],
+  "shgVectors": [
+    {
+      "id": "SHG-01",
+      "title": "CDAC at monthly total wages $2000.00",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "CDAC",
+        "totalWagesCents": 200000
+      },
+      "expected": {
+        "shgCents": 50
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-02",
+      "title": "CDAC at monthly total wages $2000.01",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "CDAC",
+        "totalWagesCents": 200001
+      },
+      "expected": {
+        "shgCents": 100
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-03",
+      "title": "CDAC at monthly total wages $3500.01",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "CDAC",
+        "totalWagesCents": 350001
+      },
+      "expected": {
+        "shgCents": 150
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-04",
+      "title": "CDAC at monthly total wages $7500.00",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "CDAC",
+        "totalWagesCents": 750000
+      },
+      "expected": {
+        "shgCents": 200
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-05",
+      "title": "CDAC at monthly total wages $7500.01",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "CDAC",
+        "totalWagesCents": 750001
+      },
+      "expected": {
+        "shgCents": 300
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-06",
+      "title": "ECF at monthly total wages $1000.00",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "ECF",
+        "totalWagesCents": 100000
+      },
+      "expected": {
+        "shgCents": 200
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-07",
+      "title": "ECF at monthly total wages $1000.01",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "ECF",
+        "totalWagesCents": 100001
+      },
+      "expected": {
+        "shgCents": 400
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-08",
+      "title": "ECF at monthly total wages $10000.01",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "ECF",
+        "totalWagesCents": 1000001
+      },
+      "expected": {
+        "shgCents": 2000
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-09",
+      "title": "MBMF at monthly total wages $1000.00",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "MBMF",
+        "totalWagesCents": 100000
+      },
+      "expected": {
+        "shgCents": 300
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-10",
+      "title": "MBMF at monthly total wages $3000.01",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "MBMF",
+        "totalWagesCents": 300001
+      },
+      "expected": {
+        "shgCents": 1500
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-11",
+      "title": "MBMF at monthly total wages $10000.01",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "MBMF",
+        "totalWagesCents": 1000001
+      },
+      "expected": {
+        "shgCents": 2600
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-12",
+      "title": "SINDA at monthly total wages $1000.00",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "SINDA",
+        "totalWagesCents": 100000
+      },
+      "expected": {
+        "shgCents": 100
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-13",
+      "title": "SINDA at monthly total wages $4500.01",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "SINDA",
+        "totalWagesCents": 450001
+      },
+      "expected": {
+        "shgCents": 900
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-14",
+      "title": "SINDA at monthly total wages $15000.00",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "SINDA",
+        "totalWagesCents": 1500000
+      },
+      "expected": {
+        "shgCents": 1800
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-15",
+      "title": "SINDA at monthly total wages $15000.01",
+      "provenance": "OFFICIAL_TABLE",
+      "inputs": {
+        "fund": "SINDA",
+        "totalWagesCents": 1500001
+      },
+      "expected": {
+        "shgCents": 3000
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"]
+    },
+    {
+      "id": "SHG-16",
+      "title": "Muslim employee of Indian race: MBMF + SINDA both deducted (CPF example b), wages $3,500",
+      "provenance": "OFFICIAL_EXAMPLE",
+      "inputs": {
+        "funds": ["MBMF", "SINDA"],
+        "totalWagesCents": 350000
+      },
+      "expected": {
+        "shgCentsByFund": {
+          "MBMF": 1500,
+          "SINDA": 700
+        },
+        "shgCents": 2200
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/service/article/how-do-i-determine-which-self-help-group-shg-my-employee-should-contribute-to",
+        "https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups"
+      ]
+    },
+    {
+      "id": "SHG-17",
+      "title": "Bonus month: SHG band uses total wages incl. AW (OW $4,000 + bonus $8,000 -> CDAC > $7,500 band)",
+      "provenance": "DERIVED_FROM_FORMULA",
+      "inputs": {
+        "fund": "CDAC",
+        "owPaidCents": 400000,
+        "awPaidCents": 800000
+      },
+      "expected": {
+        "shgCents": 300
+      },
+      "sources": [
+        "https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups",
+        "https://www.cdac.org.sg/cdac-funding-info-information-for-employers",
+        "https://www.muis.gov.sg/give-back/mbmf/employer-information/"
+      ],
+      "notes": "CDAC FAQ 17: compute 'based on the gross wages of the employee received in the month'; MUIS: total monthly wage includes bonuses."
+    }
+  ],
+  "crowhrFixtureNotes": [
+    "Copied from research/sg-test-vectors.json (generatedOn 2026-10-31). Two vectors were corrected after the independent verification in research/verification/codex-verification.md; see packages/sg-rules/VERIFICATION.md.",
+    "AW-11: June AW payable is 0. The $40,000 is earlier AW (Feb-May) newly subjected on the last-month recomputation, modelled as inputs.awHistory + ytdOwSubjectCents + employmentLastMonth. expected.total/employee/employer remain the month's CPF including that shortfall; expected.currentMonth and expected.priorAwShortfall split it. SDL is on June wages only ($1,500): $3.75.",
+    "SPR-04: 2028 CPF tables are not published. Expected rate table is 2027:T1 carried forward, with ratesAssumedCarriedForward = true."
+  ]
+}
