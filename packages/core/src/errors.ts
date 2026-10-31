@@ -14,6 +14,8 @@ export const ERROR_STATUS = {
   /** Sign-in failed. Deliberately identical for unknown email, wrong password, locked and suspended. */
   invalid_credentials: 401,
   invalid_mfa_code: 401,
+  /** First-run setup: the one-time setup code from the container logs is wrong. */
+  invalid_setup_code: 401,
   session_expired: 401,
   session_revoked: 401,
   forbidden: 403,
@@ -26,8 +28,14 @@ export const ERROR_STATUS = {
   not_found: 404,
   conflict: 409,
   last_owner: 409,
+  /** No organisation exists yet: finish the setup wizard at /setup first. */
+  setup_required: 409,
   rate_limited: 429,
   internal: 500,
+  /** The feature exists in the API contract but its implementation has not landed yet. */
+  not_implemented: 501,
+  /** Maintenance (restore in progress) or still starting. */
+  service_unavailable: 503,
 } as const satisfies Record<string, ContentfulStatusCode>;
 
 export type ErrorCode = keyof typeof ERROR_STATUS;

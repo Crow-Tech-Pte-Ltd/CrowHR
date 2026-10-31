@@ -18,6 +18,8 @@ import { createMetaModule } from "./meta/routes.ts";
 import { healthRoutes } from "./modules/health/routes.ts";
 import { buildOpenApiDocument, SUPPORTED_API_VERSIONS } from "./openapi/generate.ts";
 import { organisationModule } from "./organisation/routes.ts";
+import { setupModule } from "./setup/routes.ts";
+import { systemModule } from "./system/routes.ts";
 
 /**
  * Every module served under `/api/v1`, in mount order. Adding a module = one line here
@@ -33,6 +35,8 @@ export const V1_MODULES: readonly ApiModule[] = [
   organisationModule,
   peopleModule,
   securityModule,
+  setupModule,
+  systemModule,
 ];
 
 /** Every v1 module including `meta`, whose feature list is derived from the others. */

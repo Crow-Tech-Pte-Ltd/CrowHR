@@ -4,15 +4,22 @@ import {
   createSecretBox,
   createUuidV7Generator,
   type Logger,
-  parseSecretKey,
   systemClock,
 } from "@crowhr/core";
 import { createArgon2Hasher } from "./argon2-hasher.ts";
 import type { ServerConfig } from "./config.ts";
 import type { Database } from "./db.ts";
 import { createDiskFileStore } from "./disk-file-store.ts";
+import { createClientResolver } from "./proxy/client.ts";
+import { createSystemHost } from "./system/host.ts";
 
-export function createServerDeps(config: ServerConfig, database: Database, logger: Logger): AppDeps {
+/** `secretKey` is the resolved CROWHR_SECRET_KEY (environment, key file, or generated on first boot). */
+export function createServerDeps(
+  config: ServerConfig,
+  database: Database,
+  logger: Logger,
+  secretKey: Uint8Array,
+): AppDeps {
   return {
     db: database.db,
     passwordHasher: createArgon2Hasher(),
@@ -20,10 +27,14 @@ export function createServerDeps(config: ServerConfig, database: Database, logge
     clock: systemClock,
     ids: createUuidV7Generator(systemClock),
     logger,
-    secretBox: createSecretBox(parseSecretKey(config.CROWHR_SECRET_KEY)),
+    secretBox: createSecretBox(new Uint8Array(secretKey)),
+    // Cookie security (`Secure`, `__Host-`) and the CSRF origin derive from PUBLIC_URL, never from
+    // request headers, so https works behind a TLS-terminating proxy.
     publicUrl: config.PUBLIC_URL,
     // Manager scope from employment records (people module).
     reportingScope: createReportingScopeResolver(database.db),
+    resolveClient: createClientResolver({ trusted: config.TRUSTED_PROXIES, logger, dataDir: config.DATA_DIR }),
+    systemHost: createSystemHost(config, database.driver),
     // NOT IMPLEMENTED: SMTP mailer (add-approvals-and-notifications owns the outbox). Without it,
     // invitations and password resets offer a copyable link.
   };
