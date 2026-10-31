@@ -6,6 +6,7 @@ import * as React from "react";
 import { apiPost } from "../lib/api.ts";
 import { type NotificationItem, notificationsQuery, unreadQuery } from "../workflows/api.ts";
 import { ageLabel, sgDate } from "../workflows/format.ts";
+import { shellExtensions } from "./extensions.ts";
 
 /** Top-bar bell with the unread count (workflows "In-app notifications"). */
 export function NotificationBell() {
@@ -15,6 +16,7 @@ export function NotificationBell() {
   const unread = useQuery(unreadQuery);
   const list = useQuery({ ...notificationsQuery, enabled: open });
   const count = unread.data?.unread ?? 0;
+  const Footer = shellExtensions.NotificationsFooter;
   const today = sgDate(new Date().toISOString());
   const refresh = () => void qc.invalidateQueries({ queryKey: ["notifications"] });
   const markAll = useMutation({ mutationFn: () => apiPost("/api/v1/notifications/read-all"), onSuccess: refresh });
@@ -100,7 +102,7 @@ export function NotificationBell() {
             ))}
           </ul>
         )}
-        <div className="border-t border-border px-3 py-2">
+        <div className="flex items-center justify-between gap-3 border-t border-border px-3 py-2">
           <Link
             to="/settings/notifications"
             onClick={() => setOpen(false)}
@@ -108,6 +110,7 @@ export function NotificationBell() {
           >
             Notification settings
           </Link>
+          {Footer ? <Footer onNavigate={() => setOpen(false)} /> : null}
         </div>
       </PopoverContent>
     </Popover>

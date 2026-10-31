@@ -22,3 +22,6 @@ blob-report/
 
 # Astro generated types (apps/docs)
 .astro/
+
+# Demo site assembled for Cloudflare Pages (apps/demo/scripts/build-site.ts)
+dist-site/

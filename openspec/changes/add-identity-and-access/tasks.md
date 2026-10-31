@@ -65,5 +65,5 @@
 
 ## 10. Demo substitution
 
-- [ ] 10.1 packages/demo: write `src/demo-hasher.test.ts` (round-trip, `$demo-pbkdf2$` prefix) then implement `DemoPasswordHasher`, demo SecretBox key and the no-op Mailer — coordinate with the demo workstream, which owns this package — PARTIAL: `createDemoPasswordHasher()` is in `packages/core/src/auth/demo-hasher.ts` (tested); the demo SecretBox key and no-op Mailer belong to packages/demo, which does not exist yet
+- [x] 10.1 packages/demo: `DemoPasswordHasher`, demo SecretBox key and the no-op Mailer — `createDemoPasswordHasher()` lives in core (`auth/demo-hasher.ts`, tested) and is injected by `packages/demo/src/deps.ts`; the per-browser SecretBox key and the Demo outbox mailer are in `packages/demo` (WS8b)
 - [x] 10.2 packages/core: write `auth/demo-mode.http.test.ts` (SSO start returns 403 `disabled_in_demo` without outbound fetch; persona list endpoint only in demo mode) then implement the demo flags

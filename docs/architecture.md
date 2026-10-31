@@ -8,7 +8,7 @@ Crow HR is a bun workspace. TypeScript source is the artefact: packages export `
 apps/web ──► packages/ui
    │  (types only) ──► packages/core
 apps/server ──► packages/core ──► (hono, drizzle-orm, zod)
-apps/demo (later) ──► apps/web + packages/core + PGlite in the browser
+apps/demo ──► apps/web + packages/demo (──► packages/core + PGlite, in a Web Worker)
 packages/core ──► packages/sg-rules (later: payroll uses the rule tables)
 packages/sg-rules ──► nothing (pure, zero-dependency)
 ```
@@ -27,18 +27,18 @@ Arrows point at dependencies. Nothing depends on `apps/*`. `packages/ui` knows n
 
 The public demo (hr.crow.sg) runs the **same** web app against the **same** `createApp` inside the browser, backed by PGlite on IndexedDB. If core imported `pg`, `node:fs` or a native argon2 binding, that would be impossible, and the demo would drift into a fake. So core receives everything host-specific through `AppDeps`:
 
-| Dep | Server | Tests | Browser demo (later) |
+| Dep | Server | Tests | Browser demo (`packages/demo`) |
 | --- | --- | --- | --- |
 | `db` (Drizzle `PgDatabase`) | node-postgres pool | in-memory PGlite | PGlite + IndexedDB |
-| `passwordHasher` | argon2id (`@node-rs/argon2`) | fast fake (`testing/`) | WASM or Web Crypto |
-| `fileStore` | local disk | in-memory | in-memory/IndexedDB |
-| `clock` | `systemClock` | `fixedClock(...)` | `systemClock` |
+| `passwordHasher` | argon2id (`@node-rs/argon2`) | fast fake (`testing/`) | PBKDF2 via Web Crypto (`$demo-pbkdf2$`, refused by the server) |
+| `fileStore` | local disk | in-memory | `demo_files` table in the visitor's PGlite |
+| `clock` | `systemClock` | `fixedClock(...)` | system time shifted onto 31 Oct 2026 (the seed's "today") |
 | `ids` | UUIDv7 via Web Crypto | same, fixed clock | same |
 | `logger` | JSON lines to stdout | in-memory capture | console |
 
 Enforced by `packages/core/tsconfig.json` (`lib: DOM + ES2023`, `types: []`, no `@types/node`) and `src/runtime-agnostic.test.ts` (fails on any Node built-in or Node-only package import under `src/`). `packages/core/testing/` is Node-only and lives outside `src/` on purpose.
 
-Migrations: drizzle-kit writes SQL to `packages/core/drizzle/`. The server and tests apply them with Drizzle's filesystem migrator. The demo cannot read the filesystem; it will need to bundle the SQL (e.g. `import.meta.glob("…/drizzle/*.sql", { query: "?raw" })` plus the journal) and call the dialect migrator.
+Migrations: drizzle-kit writes SQL to `packages/core/drizzle/`. The server and tests apply them with Drizzle's filesystem migrator. The demo bundles the same SQL and journal (`packages/demo/src/bundled-migrations.ts`, `import.meta.glob(…, { query: "?raw" })`) and calls the same dialect migrator; a test proves the bundle reads exactly like the filesystem migrator.
 
 ## Request lifecycle
 
@@ -206,3 +206,19 @@ Records that change over time (employment terms, compensation, allowances, bank 
 - Write through `planInsert`: a new version closes the one in force on its start date and, if later versions already exist (future-dated changes), ends where the next one begins, in the same transaction. Two versions may not start on the same date.
 - Non-overlap is enforced in the service (PGlite cannot guarantee `btree_gist` exclusion constraints) and covered by a property test.
 - Read with `asAt(db, table, orgId, employeeId, date)` / `asAtMany(...)` or the `inForceOn(columns, date)` SQL fragment. Status such as "Scheduled" or "Leaving on X" is derived from dates and the injected clock (Asia/Singapore), never stored.
+
+## The public demo (packages/demo, apps/demo)
+
+```
+page (apps/demo boot script + apps/web, unchanged)          Web Worker (packages/demo/src/worker.ts)
+  fetch('/api/…') ── patched ─┐                               PGlite on IndexedDB (idb://crowhr-demo-<version>)
+  <img src="/api/…">, links ──┼─ /demo-sw.js ─► page ─► RPC ─► bridge.ts: cookie jar ─► createApp(deps) (core)
+  banner, outbox, reset ──────┘                               migrations (bundled) + seed on first open
+```
+
+- **One runtime, one tab.** The worker owns the visitor's database and the real `createApp` with browser deps (`packages/demo/src/deps.ts`). The page holds a Web Lock so only one tab opens the database.
+- **Transport.** The page's `fetch` is patched for same-origin `/api/*` only (`client.ts`); the service worker forwards requests a page cannot patch (images, downloads, new tabs) to an open demo tab. Requests and responses cross `postMessage` as plain data with transferred bodies (`protocol.ts`).
+- **Cookies.** `bridge.ts` mounts core behind a tiny Hono wrapper that captures `Set-Cookie` at `c.header`, keeps a cookie jar in the worker and replays it on the next request (shadowing the Request's headers with an unguarded `Headers`, since browsers drop a script-set `Cookie`). Core runs its normal cookie sessions and CSRF checks.
+- **Seed.** `packages/demo/src/seed/`: core's shared `seedPeople` plus three more people, then July–October 2026 through the public API as the person who would act (payroll admin prepares, owner approves, employees claim and apply for leave), with a clock that walks through the history. Payroll numbers come from the real engine.
+- **Versioning and reset.** The IndexedDB name carries a data version (`SEED_VERSION` + a hash of the migrations): a deploy with a new seed or migration starts every visitor fresh and deletes old copies. Reset closes PGlite, deletes the database and seeds again.
+- **Build.** `apps/demo` builds apps/web's entry behind the boot script. A Vite plugin fails the build if server-only code (argon2, node-postgres, nodemailer, apps/server, core's Node test harness, Node built-ins outside PGlite) enters the bundle; PGlite's binaries ship gzip-compressed and are decompressed in the worker.
