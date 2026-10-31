@@ -1,11 +1,12 @@
 import { and, eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   clientAs,
   createTestDb,
   createTestDeps,
   foreignIds,
   seedMember,
+  seedOrg,
   sweepCrossOrg,
   type TestDb,
 } from "../../testing/index.ts";
@@ -13,29 +14,38 @@ import { createPeopleTestApp } from "../../testing/people-http.ts";
 import { verifyChain } from "../audit/audit.ts";
 import { memberships } from "../db/schema/access.ts";
 import { auditEvents } from "../db/schema/audit.ts";
+import type { AppDeps } from "../deps.ts";
 import { organisationModule } from "../organisation/routes.ts";
-import { createPeopleHarness, OWNER } from "../testing/people-harness.ts";
-import { seedPeople } from "../testing/seed-people.ts";
+import { createPeopleHarness, OWNER, type PeopleHarness } from "../testing/people-harness.ts";
+import { type SeededPeople, seedPeople } from "../testing/seed-people.ts";
 import { runFormerTransitions } from "./former.ts";
 import { applyEvent, ctxFor } from "./lifecycle.ts";
-import { defaultPeoplePorts } from "./ports.ts";
+import { defaultPeoplePorts, type PeoplePorts } from "./ports.ts";
 import { employeesModule, peopleModule } from "./routes.ts";
 
+// One seeded database for the whole file: seeding 24 employees is the slow part, and the tests
+// below only add to it (a salary change, a termination) without depending on each other's rows.
 let t: TestDb;
-beforeEach(async () => {
+let deps: AppDeps;
+let h: PeopleHarness;
+let ports: PeoplePorts;
+let seeded: SeededPeople;
+let api: ReturnType<typeof createPeopleTestApp>;
+
+beforeAll(async () => {
   t = await createTestDb();
+  deps = createTestDeps(t.db);
+  h = await createPeopleHarness(deps);
+  // Drop the doubles: the app falls back to deps.secretBox, recordAudit() and markMembershipFormer().
+  delete (h.deps as { people?: unknown }).people;
+  ports = defaultPeoplePorts(deps);
+  seeded = await seedPeople(deps, ports, h.actor(OWNER));
+  api = createPeopleTestApp(deps);
 });
-afterEach(() => t.close());
+afterAll(() => t.close());
 
 describe("with identity's real services (no test doubles)", () => {
   it("records hash-chained audit events with sensitive values hidden", async () => {
-    const deps = createTestDeps(t.db);
-    const h = await createPeopleHarness(deps);
-    // Drop the doubles: the app falls back to deps.secretBox, recordAudit() and markMembershipFormer().
-    delete (h.deps as { people?: unknown }).people;
-    const ports = defaultPeoplePorts(deps);
-    const seeded = await seedPeople(deps, ports, h.actor(OWNER));
-    const api = createPeopleTestApp(deps);
     const pay = api.as(h.orgId, ["payroll_admin"]);
     const res = await pay.post(`/employees/${seeded.employees.fin}/events`, {
       type: "salary_change",
@@ -56,11 +66,6 @@ describe("with identity's real services (no test doubles)", () => {
   });
 
   it("the former transition drops the linked membership's roles", async () => {
-    const deps = createTestDeps(t.db);
-    const h = await createPeopleHarness(deps);
-    delete (h.deps as { people?: unknown }).people;
-    const ports = defaultPeoplePorts(deps);
-    const seeded = await seedPeople(deps, ports, h.actor(OWNER));
     const leaver = seeded.employees.barista2 as string;
     const member = await seedMember(deps, h.orgId, { roles: ["hr_admin"], employeeId: leaver });
     await applyEvent(ctxFor(deps, ports, h.actor(OWNER)), leaver, {
@@ -78,18 +83,16 @@ describe("with identity's real services (no test doubles)", () => {
   });
 
   it("every people route answers 404 for another organisation's records", async () => {
-    const deps = createTestDeps(t.db);
-    const hA = await createPeopleHarness(deps, { orgName: "A Pte. Ltd." });
-    const hB = await createPeopleHarness(deps, { orgName: "B Pte. Ltd." });
-    await seedPeople(deps, hB.ports, hB.actor(OWNER));
-    const api = createPeopleTestApp(deps);
-    const ownerOfA = await clientAs(api.app, deps, await seedMember(deps, hA.orgId, { roles: ["owner"] }));
-    const ids = await foreignIds(t.db, hB.orgId);
-    expect(ids.length).toBeGreaterThan(50);
+    // The seeded organisation is B; A is an empty organisation whose owner goes looking.
+    const orgA = await seedOrg(deps, { name: "A Pte. Ltd." });
+    const ownerOfA = await clientAs(api.app, deps, await seedMember(deps, orgA.id, { roles: ["owner"] }));
+    // One ID from every tenant table covers each kind of record: a route that leaks one row of a table leaks them all.
+    const ids = await foreignIds(t.db, h.orgId, { perTable: 1 });
+    expect(ids.length).toBeGreaterThan(20);
     const result = await sweepCrossOrg({
       app: api.app,
       ownerOfA,
-      idsOfB: ids.slice(0, 60),
+      idsOfB: ids,
       modules: [employeesModule, organisationModule, peopleModule],
     });
     expect(result.untestable).toEqual([]);
