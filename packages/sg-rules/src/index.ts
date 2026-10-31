@@ -16,6 +16,7 @@ export type {
 } from "./country.ts";
 export * from "./cpf/index.ts";
 export * from "./employment-act/leave.ts";
+export * from "./employment-act/notice-and-age.ts";
 export * from "./employment-act/overtime.ts";
 export * from "./employment-act/public-holidays.ts";
 export {
@@ -49,6 +50,13 @@ export type {
 } from "./tables/cpf.ts";
 export { CPF_RATE_TABLES, CPF_RATES_PUBLISHED_UNTIL } from "./tables/cpf.ts";
 export { type Effective, ENGINE_COVERAGE_START, effectiveRangeIssues, RULES_VERIFIED_ON } from "./tables/effective.ts";
+export {
+  MINIMUM_AGE_RULES,
+  type MinimumAgeRule,
+  NOTICE_RULES,
+  type NoticeBand,
+  type NoticeRule,
+} from "./tables/employment-terms.ts";
 export { cpfTableFor, publicHolidaysFor, resolveRules, type SgRuleSet, shgTableFor } from "./tables/index.ts";
 export type { PublicHoliday, PublicHolidayYear } from "./tables/public-holidays.ts";
 export { SDL_EXEMPTIONS, type SdlExemption, type SdlRate } from "./tables/sdl.ts";
