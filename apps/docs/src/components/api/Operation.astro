@@ -1,0 +1,154 @@
+---
+import {
+  childProperties,
+  deref,
+  isPublic,
+  type OpenApiDocument,
+  type OperationEntry,
+  typeLabel,
+} from "../../lib/openapi.ts";
+import SchemaTree from "./SchemaTree.astro";
+
+interface Props {
+  doc: OpenApiDocument;
+  entry: OperationEntry;
+}
+
+const { doc, entry } = Astro.props;
+const { method, path, op, anchor } = entry;
+const params = op.parameters ?? [];
+const body = deref(doc, op.requestBody?.content?.["application/json"]?.schema);
+const responses = Object.entries(op.responses ?? {});
+const success = responses.filter(([status]) => /^[23]/.test(status));
+const errors = responses.filter(([status]) => /^[45]/.test(status));
+const permission = op["x-permission"];
+const recentAuth = op["x-recent-auth"] === true;
+---
+
+<section class="api-op" aria-labelledby={anchor}>
+  <h2 id={anchor} class="api-op__title">
+    <span class={`api-method api-method--${method}`}>{method.toUpperCase()}</span>
+    <code class="api-path">{path}</code>
+  </h2>
+  {op.summary && <p class="api-op__summary">{op.summary}</p>}
+  {op.description && op.description !== op.summary && <p>{op.description}</p>}
+
+  <dl class="api-meta">
+    <div>
+      <dt>Access</dt>
+      <dd>
+        {
+          isPublic(op) ? (
+            "Public (no sign-in)"
+          ) : permission ? (
+            <>
+              Permission <a href={`${import.meta.env.BASE_URL}roles-and-permissions/#${permission.replace(":", "-")}`}><code>{permission}</code></a>
+            </>
+          ) : (
+            "Any signed-in member (own data only)"
+          )
+        }
+      </dd>
+    </div>
+    {
+      recentAuth && (
+        <div>
+          <dt>Re-authentication</dt>
+          <dd>Signed in within the last 10 minutes, otherwise <code>403 reauth_required</code></dd>
+        </div>
+      )
+    }
+    {
+      op.deprecated && (
+        <div>
+          <dt>Status</dt>
+          <dd>Deprecated</dd>
+        </div>
+      )
+    }
+  </dl>
+
+  {
+    params.length > 0 && (
+      <>
+        <h3 class="api-sub">Parameters</h3>
+        <div class="api-table-wrap">
+          <table class="api-table">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">In</th>
+                <th scope="col">Type</th>
+                <th scope="col">Required</th>
+              </tr>
+            </thead>
+            <tbody>
+              {params.map((p) => (
+                <tr>
+                  <td>
+                    <code>{p.name}</code>
+                    {p.description && <div class="field-desc">{p.description}</div>}
+                  </td>
+                  <td>{p.in}</td>
+                  <td>{typeLabel(p.schema)}</td>
+                  <td>{p.required ? "yes" : "no"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    )
+  }
+
+  {
+    body && (
+      <>
+        <h3 class="api-sub">Request body</h3>
+        <p class="field-notes">
+          <code>application/json</code>, {typeLabel(body)}
+          {op.requestBody?.required ? ", required" : ""}
+        </p>
+        {childProperties(body).length > 0 && <SchemaTree schema={body} />}
+      </>
+    )
+  }
+
+  <h3 class="api-sub">Responses</h3>
+  {
+    success.map(([status, res]) => {
+      const schema = deref(doc, res.content?.["application/json"]?.schema);
+      const otherType = res.content && !res.content["application/json"] ? Object.keys(res.content)[0] : undefined;
+      return (
+        <div class="api-response">
+          <p class="api-response__head">
+            <span class="api-status">{status}</span> {res.description}
+            {schema && <span class="field-type"> {typeLabel(schema)}</span>}
+            {otherType && <code> {otherType}</code>}
+          </p>
+          {schema && childProperties(schema).length > 0 && <SchemaTree schema={schema} />}
+        </div>
+      );
+    })
+  }
+  {
+    errors.length > 0 && (
+      <ul class="api-errors" role="list">
+        {errors.map(([status, res]) => {
+          const codes = (res["x-error-codes"] as string[] | undefined) ?? [];
+          return (
+            <li>
+              <span class="api-status api-status--error">{status}</span>{" "}
+              {codes.length > 0 ? codes.map((c, i) => (
+                <>
+                  {i > 0 && ", "}
+                  <code>{c}</code>
+                </>
+              )) : res.description}
+            </li>
+          );
+        })}
+      </ul>
+    )
+  }
+</section>

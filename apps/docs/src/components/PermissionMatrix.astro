@@ -1,0 +1,50 @@
+---
+import { ROLES } from "../../../../packages/core/src/access/matrix.ts";
+/** The permission matrix, rendered at build time from packages/core/src/access/matrix.ts. */
+import { matrixGroups, ROLE_LABELS, SCOPE_LABELS } from "../lib/permissions.ts";
+
+const groups = matrixGroups();
+const count = groups.reduce((n, g) => n + g.rows.length, 0);
+---
+
+<p>
+  {count} permissions in {groups.length} areas. Cells: <strong>All</strong> = every record in the organisation,{" "}
+  <strong>Team</strong> = the member's direct and indirect reports (not themselves), <strong>Own</strong> = their own
+  records, <strong>Assigned</strong> = only items they are the assigned approver for, and a dash = denied.
+</p>
+<div class="crow-matrix-wrap">
+  <table class="crow-matrix">
+    <caption class="sr-only">Permission matrix: scope granted to each role for each permission</caption>
+    <thead>
+      <tr>
+        <th scope="col">Permission</th>
+        {ROLES.map((role) => <th scope="col">{ROLE_LABELS[role]}</th>)}
+      </tr>
+    </thead>
+    {
+      groups.map((group) => (
+        <tbody>
+          <tr>
+            <th scope="rowgroup" colspan={ROLES.length + 1}>
+              {group.label}
+              {group.notBuilt && <span class="crow-pill crow-pill--soon">module not built</span>}
+            </th>
+          </tr>
+          {group.rows.map((row) => (
+            <tr id={row.anchor}>
+              <th scope="row">
+                <code>{row.permission}</code>
+                {row.note && <div class="field-desc">{row.note}</div>}
+              </th>
+              {row.cells.map((cell) => (
+                <td class:list={["cell", cell.scope ? `cell--${cell.scope}` : "cell--none"]}>
+                  {cell.scope ? SCOPE_LABELS[cell.scope] : <span aria-label="denied">—</span>}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      ))
+    }
+  </table>
+</div>

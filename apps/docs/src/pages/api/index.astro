@@ -1,0 +1,77 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import snapshot from "../../../../../packages/core/openapi/v1.snapshot.json";
+import { groupByTag, isPublic, type OpenApiDocument } from "../../lib/openapi.ts";
+
+const doc = snapshot as unknown as OpenApiDocument;
+const groups = groupByTag(doc);
+const total = groups.reduce((n, g) => n + g.operations.length, 0);
+const base = import.meta.env.BASE_URL;
+---
+
+<StarlightPage
+  frontmatter={{
+    title: "API reference",
+    description: `Reference for the Crow HR REST API v1: ${total} endpoints, generated from the committed OpenAPI document.`,
+  }}
+  headings={[
+    { depth: 2, slug: "about-this-reference", text: "About this reference" },
+    { depth: 2, slug: "endpoints-by-area", text: "Endpoints by area" },
+  ]}
+>
+  <h2 id="about-this-reference">About this reference</h2>
+  <p>
+    The web app, integrations and (later) the native apps all use one versioned REST API under <code>/api/v1</code>.
+    These pages are generated at build time from the committed OpenAPI {doc.openapi} snapshot
+    (<code>packages/core/openapi/v1.snapshot.json</code>), which is itself generated from the route declarations in{" "}
+    <code>packages/core</code>. A running server also serves the live document at <code>GET /api/v1/openapi.json</code>.
+  </p>
+  <ul>
+    <li>
+      Within v1, changes are additive only. Breaking changes need <code>/api/v2</code>, and v1 stays for at least 12
+      months after that. See <a href={`${base}developers/api-conventions/`}>API conventions</a>.
+    </li>
+    <li>
+      <strong>Access</strong> names the row of the <a href={`${base}roles-and-permissions/`}>permission matrix</a> the
+      server checks. Records outside your organisation or scope answer <code>404</code>.
+    </li>
+    <li>Money is in integer cents (fields end in <code>Cents</code>). Fields marked <em>sensitive</em> are omitted for readers without access.</li>
+    <li>
+      Browser clients use the session cookie; native apps use <code>Authorization: Bearer</code>. There are no API keys
+      for third-party integrations yet.
+    </li>
+  </ul>
+
+  <h2 id="endpoints-by-area">Endpoints by area</h2>
+  <div class="api-table-wrap">
+    <table class="api-table">
+      <thead>
+        <tr>
+          <th scope="col">Area</th>
+          <th scope="col" class="num">Endpoints</th>
+          <th scope="col" class="num">Public</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          groups.map((g) => (
+            <tr>
+              <td>
+                <a href={`${base}api/${g.slug}/`}>{g.tag}</a>
+              </td>
+              <td class="num">{g.operations.length}</td>
+              <td class="num">{g.operations.filter((o) => isPublic(o.op)).length}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Total</th>
+          <td class="num">{total}</td>
+          <td class="num">{groups.reduce((n, g) => n + g.operations.filter((o) => isPublic(o.op)).length, 0)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</StarlightPage>

@@ -1,0 +1,52 @@
+---
+title: FAQ
+description: Common questions about Crow HR - cost, hosting, data, compliance claims, modules and support.
+---
+
+## Is it really free?
+
+Yes. The code is MIT-licensed. You can run it for your company, change it and redistribute it without paying Crow Tech. Your costs are the server you run it on and your time.
+
+## Is there a hosted version?
+
+No. Crow Tech does not run Crow HR for customers. You host it yourself: on a small cloud server, a machine in your office or anything that runs Docker.
+
+## Does Crow Tech see our data?
+
+No. The app sends nothing to Crow Tech: no analytics, telemetry or crash reports. It only contacts services you configure (your SMTP server, your identity provider).
+
+## Is Crow HR approved by CPF Board, IRAS or MOM?
+
+No. Crow HR is not approved, certified or endorsed by any government agency. Its statutory rules come from cited official sources and are tested against official examples and CPF's online calculator ([how we verify](/docs/payroll/verification/)), but you remain responsible for your payroll and submissions. It is not an IRAS-approved AIS vendor.
+
+## Can it submit CPF, IR8A or salary payments for us?
+
+No. It produces the CPF EZPay file, a generic bank file and IR8A rows, and you upload them in CPF EZPay, your bank and myTax Portal. See [integrations](/docs/integrations/).
+
+## Can we use it for leave, claims or attendance?
+
+Not yet. Those modules are [planned but not built](/docs/status/). Today Crow HR covers people records, approvals, and payroll with manually entered overtime and no-pay leave.
+
+## We are moving from another system mid-year. What do we need?
+
+Import employees and their compensation, then the [year-to-date opening balances](/docs/people/importing/#year-to-date-opening-balances) so the CPF AW ceiling is right for the rest of the year. Run one month in parallel with your old system and compare.
+
+## Can several companies share one install?
+
+Yes. Each legal entity is its own organisation with its own UEN and CSN, and one person can belong to several. The web app's organisation switcher currently shows only the current organisation; the API supports switching.
+
+## Does it work on phones?
+
+The web app works on phone screens, with a bottom tab bar for employees. Native apps are [planned](/docs/coming-soon/mobile-apps/).
+
+## Is there a demo?
+
+Not yet. A [public in-browser demo](/docs/coming-soon/demo/) is planned. Until then, install it locally with the [quick start](/docs/quick-start/).
+
+## Do we need Singpass?
+
+No. Singpass login is optional and requires your company's own Singpass onboarding. It is not tested against real Singpass yet. Email and password, Google Workspace, Microsoft Entra ID and other OpenID Connect providers work without it.
+
+## How do we get support?
+
+Through the project's public issue tracker, on a best-effort basis. There is no paid support contract today. Security issues go through the [security policy](/docs/help/security/), not public issues.

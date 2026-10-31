@@ -1,6 +1,9 @@
-# Self-hosting: backups and restore
+---
+title: Backups and restore
+description: What a Crow HR backup contains, how scheduled and manual backups work, how to copy them off the server and how to restore.
+---
 
-Draft for the docs site. Verified by `e2e/self-host.sh`: backup, delete everything (`docker compose down -v`), fresh install, restore, then the organisation, uploaded files, encryption key and owner sign-in are back.
+Verified by `e2e/self-host.sh`: backup, delete everything (`docker compose down -v`), fresh install, restore, then the organisation, uploaded files, encryption key and owner sign-in are back.
 
 ## What a backup contains
 
@@ -15,7 +18,7 @@ One file in the `backups` volume, `crowhr-backup-<UTC time>[-scheduled|-pre-migr
 
 ## Automatic backups
 
-Daily at `BACKUP_TIME` (default 02:00 Singapore time), keeping the newest `BACKUP_KEEP` (default 14). A backup is also taken before any database upgrade (`BACKUP_BEFORE_MIGRATE`). Results, sizes and failures appear in Settings → System; Home will warn owners when the last successful backup is more than 48 hours old (that Home card arrives with the Home inbox).
+Daily at `BACKUP_TIME` (default 02:00 Singapore time), keeping the newest `BACKUP_KEEP` (default 14). A backup is also taken before any database upgrade (`BACKUP_BEFORE_MIGRATE`). Results, sizes and failures appear in Settings → System; Owners see a warning on Home when the last successful scheduled backup is more than 48 hours old.
 
 ## Manual backup
 
@@ -39,7 +42,7 @@ Nightly copy with rclone (any S3/B2/Drive remote, configured with `rclone config
 30 3 * * * docker run --rm -v crowhr_backups:/backups:ro -v $HOME/.config/rclone:/config/rclone rclone/rclone copy /backups remote:crowhr-backups
 ```
 
-(`crowhr_backups` is `<compose project>_backups`; check with `docker volume ls`.)
+(`crowhr_backups` is `<compose project>_backups`; check with `docker volume ls`. The rclone line is an example and is not part of the tested script.)
 
 ## Restore
 

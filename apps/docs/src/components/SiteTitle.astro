@@ -1,0 +1,43 @@
+---
+/** Crow HR wordmark: "crow" in Azeret Mono plus the kuning HR chip, as in the web app's sidebar. */
+const { siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a href={siteTitleHref} class="crow-title" aria-label="Crow HR docs, home">
+  <span class="crow-title__word" aria-hidden="true">crow</span>
+  <span class="crow-title__chip" aria-hidden="true">HR</span>
+  <span class="crow-title__docs" aria-hidden="true">docs</span>
+</a>
+
+<style>
+  .crow-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-decoration: none;
+    color: var(--sl-color-white);
+    font-family: var(--__sl-font-mono);
+    white-space: nowrap;
+  }
+  .crow-title__word {
+    font-weight: 700;
+    font-size: 1.25rem;
+    letter-spacing: -0.02em;
+  }
+  .crow-title__chip {
+    font-weight: 700;
+    font-size: 0.75rem;
+    line-height: 1;
+    padding: 0.2rem 0.3rem;
+    border: 2px solid var(--crow-ink);
+    border-radius: 0.3rem;
+    background: var(--crow-kuning-200);
+    color: var(--crow-ink);
+  }
+  .crow-title__docs {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--sl-color-gray-3);
+    text-transform: lowercase;
+  }
+</style>

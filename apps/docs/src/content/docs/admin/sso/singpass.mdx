@@ -1,0 +1,59 @@
+---
+title: Singpass login
+description: What Crow HR's Singpass login does, what your company must do to become a Singpass relying party, and how to configure it. Not yet verified against production Singpass.
+---
+
+:::danger[Not verified against real Singpass]
+Crow HR's Singpass login is implemented to Singpass's published FAPI 2.0 login profile and tested only against an in-process mock identity provider. It has **not** been tested against Singpass staging or production. The sign-in button also does not yet meet Singpass's button design specification (see below). Treat this as a starting point for your own staging test, not as a finished integration.
+:::
+
+## What your company has to do first
+
+Singpass login is only available to organisations that Singpass has onboarded as a **relying party**. Crow HR cannot do this for you, and Crow Tech does not hold a Singpass client you can share.
+
+- Your company applies through the [Singpass developer documentation and portal](https://docs.developer.singpass.gov.sg/) and goes through Singpass's own onboarding, review and testing. Eligibility, agreements, fees and timelines are set by Singpass and can change; read their current documentation before you start.
+- You register Crow HR as your application, with the **redirect URI** and **JWKS URL** that Crow HR shows after saving the provider (step 3 below). Both must be reachable by Singpass over HTTPS, so `PUBLIC_URL` must be your final public HTTPS address.
+- Singpass issues you a **client ID** for staging and, after their checks, for production.
+
+## What Crow HR implements
+
+- Pushed authorisation requests (PAR), PKCE, `private_key_jwt` client authentication and DPoP-bound tokens.
+- Decryption of the encrypted ID token with your relying-party key.
+- Keys: Crow HR generates an ES256 signing key and an ECDH-ES encryption key (P-256) and publishes the public halves at the provider's JWKS URL. The API also accepts your own private JWKS instead. Private keys are encrypted at rest.
+- Default issuers `https://stg-id.singpass.gov.sg` (staging) and `https://id.singpass.gov.sg` (production), with an optional override. Check both against Singpass's current documentation.
+- Scope `openid` only. Crow HR stores the Singpass UUID from the subject, never the NRIC. There is no Myinfo data retrieval.
+
+## Configure it
+
+1. In **Settings → Security** choose **Add a method → Singpass**. Choose **Staging**, enter the client ID Singpass issued, and leave the issuer override empty unless Singpass tells you otherwise. Save.
+
+2. Copy the **Redirect URI** (`<PUBLIC_URL>/api/v1/auth/oidc/<provider id>/callback`) and the **JWKS URL** (`<PUBLIC_URL>/api/v1/auth/oidc/<provider id>/jwks.json`) into your Singpass application registration.
+
+3. Run **Test sign-in** against staging with a Singpass test account. Record the result. Settings → Security shows "Tested against a simulated Singpass only" until a real test passes.
+
+4. Only after a successful staging test and Singpass's approval, edit the provider, switch the environment to **Production** with the production client ID, test again, and switch it on.
+
+
+Until the provider has a client ID and keys, the sign-in page shows no Singpass button and Settings → Security shows Singpass as not configured.
+
+## Linking people to Singpass
+
+Singpass accounts are never linked by email or NRIC. A member is linked to their Singpass identity only:
+
+- by choosing the Singpass button on their invitation page; or
+- by signing in another way and linking Singpass in **My sessions → Linked sign-in methods**.
+
+Just-in-time account creation is not available for Singpass.
+
+## The Singpass button
+
+Singpass's [button design specification](https://docs.developer.singpass.gov.sg/docs/getting-started/singpass-button-design-specification) (effective 1 September 2026) requires the official Singpass logo inside the button. That logo is not published under a licence that allows redistribution in an MIT repository, so Crow HR does not bundle it: the button shows the plain text "Log in with Singpass". The web component accepts a deployer-supplied official logo (`singpassLogoSrc`), but there is no setting for it yet. **Do not go live with Singpass until the button meets Singpass's specification.**
+
+## Status
+
+| Item | State |
+| --- | --- |
+| FAPI 2.0 flow against the mock identity provider | Tested (`packages/core/src/auth/singpass.test.ts`, `oidc-flow.http.test.ts`) |
+| Sign-in against Singpass staging | Not done. Recorded here when it is. |
+| Production | Not verified |
+| Official logo in the button | Not bundled |

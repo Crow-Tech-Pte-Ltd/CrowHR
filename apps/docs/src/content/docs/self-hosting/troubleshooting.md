@@ -1,6 +1,9 @@
-# Self-hosting: troubleshooting
+---
+title: Troubleshooting the server
+description: Fixes for Crow HR startup errors, lost setup codes, locked-out owners, proxy problems, backups and disk space.
+---
 
-Draft for the docs site. Start with:
+For problems inside the app (sign-in, SSO, payroll), see [troubleshooting](/docs/help/troubleshooting/). For the server, start with:
 
 ```sh
 docker compose ps                      # is everything up and healthy?
@@ -40,7 +43,7 @@ Add `--org <slug>` when the install has several organisations.
 
 ## Behind a proxy, everyone has the same IP / sign-in limits hit the whole office
 
-The app does not trust your proxy. Logs show `Ignoring X-Forwarded-* headers from <ip>`. Set `TRUSTED_PROXIES=<ip>` (or `private`) in `.env`, `docker compose up -d`, and check Settings → System → This request. See [reverse proxy](reverse-proxy.md).
+The app does not trust your proxy. Logs show `Ignoring X-Forwarded-* headers from <ip>`. Set `TRUSTED_PROXIES=<ip>` (or `private`) in `.env`, `docker compose up -d`, and check Settings → System → This request. See [reverse proxy](/docs/self-hosting/reverse-proxy/).
 
 ## Signed out immediately / cookies not kept
 

@@ -1,0 +1,29 @@
+name: Statutory rule or figure looks wrong
+description: A CPF, SHG, SDL, FWL, Employment Act or IRAS figure that differs from the official source.
+labels: ["statutory"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you: checks against official sources are the most valuable reports we get.
+        Use fictional data only.
+  - type: textarea
+    id: case
+    attributes:
+      label: The case
+      description: Inputs (age or birth month, residency and SPR year, month, OW, AW, schedule…), what Crow HR computed and what you expected.
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Official source
+      description: Link to the CPF, MOM, IRAS or SSG page, PDF or calculator result that supports the expected figure.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
