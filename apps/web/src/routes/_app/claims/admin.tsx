@@ -46,7 +46,6 @@ import {
   errorMessage,
   exportHref,
   fieldErrors,
-  STATUS_LABEL,
   summaryQuery,
 } from "./-lib/api.ts";
 import { ClaimStatusPill } from "./-lib/ui.tsx";
@@ -74,6 +73,13 @@ const TABS = [
   { value: "rejected,withdrawn", label: "Closed" },
   { value: "all", label: "All" },
 ];
+
+const EMPTY_TITLE: Record<string, string> = {
+  submitted: "No claims waiting",
+  approved: "No approved claims to pay",
+  paid: "No paid claims",
+  "rejected,withdrawn": "No rejected or withdrawn claims",
+};
 
 function monthRange(): { from: string; to: string } {
   const now = new Date();
@@ -109,7 +115,7 @@ function ClaimsAdminPage() {
 
   const list = useQuery(
     claimListQuery({
-      status: status || undefined,
+      status: status === "all" ? undefined : status,
       q: search.q,
       claimTypeId: search.type,
       sort: status === "submitted" ? "submittedAt" : "-createdAt",
@@ -425,11 +431,7 @@ function ClaimsAdminPage() {
           <EmptyState
             variant="plain"
             icon={<ReceiptText />}
-            title={
-              status === "submitted"
-                ? "No claims waiting"
-                : `No ${status ? (STATUS_LABEL[status as "paid"] ?? "").toLowerCase() : ""} claims`
-            }
+            title={EMPTY_TITLE[status] ?? "No claims yet"}
             description={
               search.q || search.type
                 ? "Nothing matches these filters."

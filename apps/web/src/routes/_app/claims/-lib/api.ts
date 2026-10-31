@@ -149,7 +149,7 @@ export interface LineDraft {
 export const STATUS_LABEL: Record<ClaimStatus, string> = {
   draft: "Draft",
   submitted: "Waiting for approval",
-  approved: "Approved",
+  approved: "Approved, to be paid",
   rejected: "Rejected",
   withdrawn: "Withdrawn",
   paid: "Paid",
@@ -158,8 +158,8 @@ export const STATUS_LABEL: Record<ClaimStatus, string> = {
 export const STATUS_TONE: Record<ClaimStatus, "neutral" | "info" | "success" | "warning" | "danger"> = {
   draft: "neutral",
   submitted: "warning",
-  approved: "info",
+  approved: "success",
   rejected: "danger",
   withdrawn: "neutral",
-  paid: "success",
+  paid: "neutral",
 };

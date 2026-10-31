@@ -136,6 +136,7 @@ function ClaimTypesPage() {
       id: "payout",
       header: "Paid",
       accessorFn: (t) => (t.defaultPayout === "payroll" ? "With payroll" : "By transfer"),
+      cell: ({ getValue }) => <span className="whitespace-nowrap">{getValue() as string}</span>,
       meta: { headerClassName: "hidden xl:table-cell", cellClassName: "hidden xl:table-cell" },
     },
     {

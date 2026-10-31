@@ -118,7 +118,11 @@ export function ReceiptViewer({
   onIndex: (i: number) => void;
   onClose: () => void;
 }) {
-  const file = index === null ? null : files[index];
+  const current = index === null ? null : (files[index] ?? null);
+  // Keep the last file on screen while the dialog animates closed (no empty frame).
+  const last = React.useRef<ClaimFileDto | null>(null);
+  if (current) last.current = current;
+  const file = current ?? last.current;
   React.useEffect(() => {
     if (index === null) return;
     const onKey = (e: KeyboardEvent) => {
@@ -129,7 +133,7 @@ export function ReceiptViewer({
     return () => window.removeEventListener("keydown", onKey);
   }, [index, files.length, onIndex]);
   return (
-    <Dialog open={file !== null && file !== undefined} onOpenChange={(open) => (open ? null : onClose())}>
+    <Dialog open={current !== null} onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent className="max-w-3xl" data-testid="receipt-viewer">
         {file ? (
           <>
