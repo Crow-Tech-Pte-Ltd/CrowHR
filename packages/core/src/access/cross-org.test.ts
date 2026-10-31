@@ -29,6 +29,7 @@ import {
 import { buildActor } from "../employees/access.ts";
 import { defaultPeoplePorts } from "../employees/ports.ts";
 import { seedClaimsOnePerTable } from "../testing/claims-sweep.ts";
+import { seedDocumentsOnePerTable } from "../testing/documents-sweep.ts";
 import { seedPayrollOnePerTable } from "../testing/payroll-sweep.ts";
 import { seedPeopleOnePerTable } from "../testing/people-sweep.ts";
 import { orgScope } from "./org-scope.ts";
@@ -102,6 +103,8 @@ describe("cross-organisation isolation", () => {
     await seedAttendanceOnePerTable(deps, b.id, employeeB, ownerB.membershipId);
     // Scheduling (WS5b): a template, a published roster with one shift, a publication and a swap.
     await seedSchedulingOnePerTable(deps, b.id, employeeB, ownerB.membershipId);
+    // Documents (WS6): categories, templates, a document with version, view, acknowledgement, request, review.
+    await seedDocumentsOnePerTable(deps, b.id, ownerB.membershipId);
     // Workflows and notifications (one row per table).
     const staffB = await seedMember(deps, b.id, { email: "staff-b@example.sg" });
     const policyId = deps.ids.newId();
@@ -198,7 +201,7 @@ describe("cross-organisation isolation", () => {
     expect(result.untestable).toEqual([]);
     expect(result.failures).toEqual([]);
     expect(result.checked.length).toBeGreaterThan(10);
-  }, 90_000); // Sweeps every routed record of every module (people adds ~20 routes and tables).
+  }, 240_000); // Sweeps every routed record of every module (~26 s alone; documents added ~15 routes and 8 tables, and under a full parallel run it needs headroom).
 
   it("orgScope never returns another organisation's row", async () => {
     const [m] = await deps.db.select().from(memberships).where(orgScope(deps.db, b.id).where(memberships));

@@ -14,7 +14,9 @@ Status as of 31 October 2026. Requirements and task lists live in `openspec/chan
 | Members and roles | Invitations, owner / HR admin / payroll admin roles, derived manager and employee roles, permission matrix enforced on the server | [Roles and permissions](/docs/roles-and-permissions/) |
 | Company and people | Company profile, structure, work schedules, employee records with history, CSV import, export, lifecycle events, work passes, checklists, self-service change requests | [Adding employees](/docs/people/adding-employees/) |
 | Approvals and notifications | Approval policies, delegation, escalation, Home work-to-do list, inbox, in-app and email notifications, reminders | [Approvals](/docs/approvals/approvals/) |
-| Payroll | Monthly, off-cycle and adjustment runs; CPF, SHG, SDL and FWL estimate; review with CPF working; approval; payslips (web and PDF); CPF EZPay file; ISO 20022 bank file; IR8A export | [Running payroll](/docs/payroll/running-payroll/) |
+| Payroll | Monthly, off-cycle and adjustment runs; CPF, SHG, SDL and FWL estimate; review with CPF working; approval; payslips (web and PDF) with a notification on release; CPF EZPay file; ISO 20022 bank file; IR8A export | [Running payroll](/docs/payroll/running-payroll/) |
+| Documents | Per-employee documents in categories with access rules, versions, expiry reminders, soft delete and owner purge; HR letters and KETs from templates; acknowledgements; employment letter requests; retention review flags | [Employee documents](/docs/documents/documents/) |
+| Reports | Headcount, headcount over time, turnover, work pass expiry, leave taken and balances with liability, attendance exceptions, claims, payroll cost; CSV and XLSX export | [Reports](/docs/reports/running-reports/) |
 
 ## Partly done
 
@@ -33,8 +35,6 @@ These modules appear in the app's navigation as empty placeholders. Each has a s
 - [Attendance and overtime](/docs/coming-soon/attendance/)
 - [Claims](/docs/coming-soon/claims/)
 - [Scheduling](/docs/coming-soon/scheduling/)
-- [Documents](/docs/coming-soon/documents/)
-- [Reporting](/docs/coming-soon/reporting/)
 - [Public demo](/docs/coming-soon/demo/)
 - [Mobile apps](/docs/coming-soon/mobile-apps/)
 

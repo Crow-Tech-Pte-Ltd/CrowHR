@@ -1,3 +1,5 @@
+import { zipDirectory } from "../export/zip.ts";
+
 /**
  * File type detection from content (add-claims design decision 3). The client's file name and
  * Content-Type are never trusted: a file is accepted only when its leading bytes carry the
@@ -13,7 +15,17 @@
  * this is defence in depth rather than the only barrier.
  */
 
-export type SniffedType = "application/pdf" | "image/jpeg" | "image/png" | "image/webp" | "image/heic";
+export const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+export const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+export type SniffedType =
+  | "application/pdf"
+  | "image/jpeg"
+  | "image/png"
+  | "image/webp"
+  | "image/heic"
+  | typeof DOCX_MIME
+  | typeof XLSX_MIME;
 
 export const RECEIPT_TYPES: readonly SniffedType[] = [
   "application/pdf",
@@ -29,7 +41,39 @@ export const EXTENSION_FOR: Record<SniffedType, string> = {
   "image/png": "png",
   "image/webp": "webp",
   "image/heic": "heic",
+  [DOCX_MIME]: "docx",
+  [XLSX_MIME]: "xlsx",
 };
+
+/** Documents (add-documents "Document upload and versions"): PDF, JPEG, PNG, WebP, DOCX and XLSX. */
+export const DOCUMENT_TYPES: readonly SniffedType[] = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  DOCX_MIME,
+  XLSX_MIME,
+];
+
+export function isOoxml(type: SniffedType | null): boolean {
+  return type === DOCX_MIME || type === XLSX_MIME;
+}
+
+/**
+ * OOXML check by package structure, not extension: a ZIP (`PK\x03\x04`) whose central directory
+ * holds `[Content_Types].xml` and the main part (`word/document.xml` or `xl/workbook.xml`).
+ * Macro-enabled packages (`vbaProject.bin`, macro sheets, ActiveX) answer `macro` so callers can
+ * refuse them by name. Anything else is null.
+ */
+export function inspectOoxml(bytes: Uint8Array): "docx" | "xlsx" | "macro" | null {
+  if (!startsWith(bytes, [0x50, 0x4b, 0x03, 0x04])) return null;
+  const names = zipDirectory(bytes)?.map((e) => e.name);
+  if (!names?.includes("[Content_Types].xml")) return null;
+  if (names.some((n) => /(^|\/)vbaProject\.bin$|^xl\/macrosheets\/|activeX|vbaData\.xml$/i.test(n))) return "macro";
+  if (names.includes("word/document.xml")) return "docx";
+  if (names.includes("xl/workbook.xml")) return "xlsx";
+  return null;
+}
 
 const HEIF_BRANDS = new Set(["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1"]);
 
@@ -52,14 +96,21 @@ export function sniffType(bytes: Uint8Array): SniffedType | null {
   if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
   if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 12) === "WEBP") return "image/webp";
   if (ascii(bytes, 4, 8) === "ftyp" && HEIF_BRANDS.has(ascii(bytes, 8, 12))) return "image/heic";
+  const ooxml = inspectOoxml(bytes);
+  if (ooxml === "docx") return DOCX_MIME;
+  if (ooxml === "xlsx") return XLSX_MIME;
   return null;
 }
 
 const ACTIVE_MARKERS = /<\s*(script|html|svg|iframe|object|embed|body|\?php)\b|javascript:/i;
 
-/** True when the file also looks like HTML/script or a ZIP archive (see the module comment). */
-export function looksPolyglot(bytes: Uint8Array): boolean {
+/**
+ * True when the file also looks like HTML/script or a ZIP archive (see the module comment). OOXML
+ * files are ZIP packages by design, so for them only the script markers are checked.
+ */
+export function looksPolyglot(bytes: Uint8Array, opts: { zipAllowed?: boolean } = {}): boolean {
   if (ACTIVE_MARKERS.test(ascii(bytes, 0, 1024))) return true;
+  if (opts.zipAllowed) return false;
   // ZIP end of central directory: PK\x05\x06, within the last 64 KiB + 22 bytes.
   const from = Math.max(0, bytes.length - 65_557);
   for (let i = bytes.length - 22; i >= from; i--) {

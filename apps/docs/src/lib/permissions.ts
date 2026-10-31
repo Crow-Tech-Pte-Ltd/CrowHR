@@ -42,14 +42,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
 };
 
 /** Resources whose module is not built yet: the rows exist in the matrix but no endpoint uses them. */
-export const NOT_BUILT_RESOURCES = new Set([
-  "documents",
-  "reports_people",
-  "reports_leave",
-  "reports_attendance",
-  "reports_claims",
-  "reports_payroll_cost",
-]);
+export const NOT_BUILT_RESOURCES = new Set<string>([]);
 
 export const ROLE_LABELS: Record<Role, string> = {
   owner: "Owner",

@@ -12,6 +12,7 @@ import { authenticate } from "./auth/sessions.ts";
 import { claimsModule } from "./claims/routes.ts";
 import type { AppEnv } from "./context.ts";
 import type { AppDeps } from "./deps.ts";
+import { documentsModule } from "./documents/routes.ts";
 import { employeesModule, peopleModule } from "./employees/routes.ts";
 import { AppError, errorResponse, handleError } from "./errors.ts";
 import { requestContext } from "./http/request-context.ts";
@@ -24,6 +25,7 @@ import { notificationsModule } from "./notifications/routes.ts";
 import { buildOpenApiDocument, SUPPORTED_API_VERSIONS } from "./openapi/generate.ts";
 import { organisationModule } from "./organisation/routes.ts";
 import { payrollModule, payslipsModule } from "./payroll/routes.ts";
+import { reportsModule } from "./reporting/routes.ts";
 import { schedulingModule } from "./scheduling/routes.ts";
 import { setupModule } from "./setup/routes.ts";
 import { systemModule } from "./system/routes.ts";
@@ -39,6 +41,7 @@ export const V1_MODULES: readonly ApiModule[] = [
   auditModule,
   authModule,
   claimsModule,
+  documentsModule,
   employeesModule,
   inboxModule,
   leaveModule,
@@ -51,6 +54,7 @@ export const V1_MODULES: readonly ApiModule[] = [
   payslipsModule,
   peopleModule,
   schedulingModule,
+  reportsModule,
   securityModule,
   setupModule,
   systemModule,
