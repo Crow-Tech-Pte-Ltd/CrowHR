@@ -27,11 +27,14 @@ Crow HR does not decide these; it computes from what you enter.
 
 ## Payroll inputs
 
-- **Overtime, hours and no-pay leave are typed in** per run: there is no attendance or leave module yet.
-- **Claims reimbursement is not implemented**: nothing reaches payroll from claims. Pay reimbursements outside Crow HR.
+- **Fed inputs**: approved no-pay and other unpaid leave, approved overtime, rostered staff's days worked and scheduled days, and approved claims reach the run automatically ([items fed from other modules](/docs/payroll/running-payroll/#items-fed-from-other-modules)). **Approved claims are paid by payroll**: to pay one by transfer instead, mark it paid outside payroll under Claims before the run is computed, or it is paid twice. Hours for hourly-paid staff are still typed in.
+- **Fed overtime has no amount**: for employees not covered by Part 4, or paid by the hour, approved overtime from attendance blocks the run and can't be priced on it. Enter their overtime by hand instead.
+- **Rest-day and public-holiday pay** (and the extra day for a holiday on an off day) is not computed from rosters, attendance or leave; enter it on the run. Work on those days reaches payroll only as overtime minutes.
+- **Leave encashment** at year end is recorded in days but not paid; enter it on the run.
+- **Reopening a month that paid claims**: the adjustment run leaves out the original run's claim reimbursements and shows them as overpaid. Check the reimbursement lines before approving an adjustment.
 - **Back pay** from a retroactive change is flagged on the next run (`BACKPAY_OWED`) but not computed; enter the amount as a "Back pay" item.
-- **Staff without a fixed week** (rostered or shift) need "Scheduled days" and "Days worked" items each month; the run blocks without them. A mid-month rate change and SPR graduated-to-full conversion are blocked for these staff.
-- **Not handled**: part-time leave in hours, daily-rated and piece-rated pay.
+- **Staff without a fixed week** (rostered or shift) need scheduled days and days worked for an incomplete month; the run blocks without them. They come from published rosters and attendance when the whole month is covered, otherwise HR enters them. A mid-month rate change and SPR graduated-to-full conversion are blocked for these staff.
+- **Not handled**: daily-rated and piece-rated pay.
 - **Allowance CPF and pro-ration settings** have an API but no screen.
 - **Adjustments do not recompute later months**; CPF's December (or last-month) AW recomputation absorbs the difference, and Crow HR warns when you reopen an earlier month.
 
@@ -72,4 +75,5 @@ The independent review of the payroll choices marked these as **unclear**: the a
 - **No row-level security** in the database: isolation is enforced by the application and composite foreign keys, with a test that every route refuses another organisation's IDs.
 - **The common-password list** is a curated list of a few hundred entries plus patterns, not a breach corpus.
 - **Docker images are not published** and CI has not run on a hosted runner. Of the reverse proxies, only Caddy is tested.
-- **Not built**: [leave](/docs/coming-soon/leave/), [attendance](/docs/coming-soon/attendance/), [claims](/docs/coming-soon/claims/), [scheduling](/docs/coming-soon/scheduling/), the [public demo](/docs/coming-soon/demo/) and the [mobile apps](/docs/coming-soon/mobile-apps/).
+- **Not built**: the [mobile apps](/docs/coming-soon/mobile-apps/). The [in-browser demo](/docs/demo/) is built but not deployed.
+- **Receipts and documents are not virus-scanned**: the scanner hook has no scanner behind it. See [claims](/docs/claims/claims/#receipts).

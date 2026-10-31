@@ -61,7 +61,7 @@ export default defineConfig({
       sidebar: [
         {
           label: "Start here",
-          items: [{ slug: "introduction" }, { slug: "quick-start" }, { slug: "status" }],
+          items: [{ slug: "introduction" }, { slug: "quick-start" }, { slug: "status" }, { slug: "demo" }],
         },
         {
           label: "Self-hosting",
@@ -120,6 +120,11 @@ export default defineConfig({
           ],
         },
         {
+          label: "Time and leave",
+          items: [{ slug: "leave/leave" }, { slug: "attendance/attendance" }, { slug: "scheduling/scheduling" }],
+        },
+        { label: "Claims", items: [{ slug: "claims/claims" }] },
+        {
           label: "Approvals and notifications",
           items: [{ slug: "approvals/approvals" }, { slug: "approvals/notifications" }],
         },
@@ -134,11 +139,6 @@ export default defineConfig({
           label: "Coming soon",
           collapsed: true,
           items: [
-            { slug: "coming-soon/leave", badge: soon },
-            { slug: "coming-soon/attendance", badge: soon },
-            { slug: "coming-soon/claims", badge: soon },
-            { slug: "coming-soon/scheduling", badge: soon },
-            { slug: "coming-soon/demo", badge: soon },
             { slug: "coming-soon/mobile-apps", badge: soon },
           ],
         },

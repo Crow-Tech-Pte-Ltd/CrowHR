@@ -22,14 +22,26 @@ The pay date defaults from [payroll settings](/docs/payroll/settings/).
 
 ## 2. Add the month's items
 
-Basic pay and recurring allowances come from People. Everything else is an item on the run, entered by hand:
+Basic pay and recurring allowances come from People. Some items arrive on their own from the other modules each time the run is computed (see [items fed from other modules](#items-fed-from-other-modules) below); everything else is an item on the run, entered by hand:
 
 - **Earnings**: bonus, commission, back pay, other earnings. Each is ordinary wages (OW) or additional wages (AW); an AW item needs the date it became **due and payable**, inside the run's period (CPF keys the AW ceiling to that date).
 - **Overtime**: minutes worked and the period in which they were worked. For employees covered by Part 4 of the Employment Act, the pay is computed with the statutory rate; for others, enter the contractual amount (the run blocks with `OT_NOT_STATUTORY` until you do).
-- **No-pay leave** in days, **hours** for hourly-paid staff, and **scheduled days / days worked** for staff without a fixed working week.
+- **No-pay leave** in days, **hours** for hourly-paid staff, and **scheduled days / days worked** for staff without a fixed working week, when they are not fed.
 - **Deductions**, each in an Employment Act category (accommodation, amenities, damage or loss, advance, loan, unauthorised absence, court order or tax, co-operative society, written consent and others), plus **CPF AW recovery** for an AW top-up (see [limitations](/docs/payroll/limitations/#cpf)).
 
-There is no leave, attendance or claims data yet: overtime and no-pay leave must be typed in, and expense reimbursements must be paid outside Crow HR for now.
+### Items fed from other modules
+
+When the run is computed, Crow HR adds these items itself, each labelled with where it came from:
+
+| Item | From | Rule |
+| --- | --- | --- |
+| No-pay leave, unpaid infant care leave, unpaid company leave | [Leave](/docs/leave/leave/#how-leave-reaches-payroll) | Approved days in the run's period, in half days. A no-pay leave item you enter for the same date replaces it. |
+| Overtime | [Attendance](/docs/attendance/attendance/#how-approved-overtime-reaches-payroll) | Approved overtime claims for dates in the period. Items you enter are added on top, so don't enter the same hours twice. |
+| Days worked | Attendance | Rostered staff who clock in. An item you enter wins. |
+| Scheduled days | [Published rosters](/docs/scheduling/scheduling/#payroll-scheduled-days) | Only when the whole month is published and the employee was employed all month. An item you enter wins. |
+| Claims reimbursement | [Claims](/docs/claims/claims/#through-payroll) | Approved claims paid with payroll, approved by the end of the month and not yet paid. Shown under "Reimbursements (not wages)": no CPF, not in gross pay. |
+
+Bonus-only off-cycle runs take none of these. Fed overtime carries minutes only: for employees not covered by Part 4, or paid by the hour, the run blocks (`OT_NOT_STATUTORY`, `OT_AMOUNT_REQUIRED`) and the fed item can't be given an amount, so pay their overtime as a manual item instead of approving it in attendance. Something approved after you computed the run makes **Submit for approval** ask you to recompute.
 
 ## 3. Compute and review
 
@@ -68,7 +80,7 @@ After approval:
 - **Release payslips** (unless automatic release is on). Employees then see them under Payslips. See [payslips](/docs/payroll/payslips/).
 - Download the [CPF EZPay file](/docs/payroll/cpf-ezpay-file/) and upload it in CPF EZPay.
 - Download the [bank file](/docs/payroll/bank-file/) (needs a recent sign-in) and upload it to your bank, or pay another way.
-- **Mark paid** once the money has gone out. This locks the run.
+- **Mark paid** once the money has gone out. This locks the run and marks the claims it reimbursed as paid, dated the pay date.
 
 Crow HR does not submit anything to CPF Board, IRAS or your bank itself.
 
