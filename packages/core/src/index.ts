@@ -102,6 +102,7 @@ export {
   setSystemSetting,
 } from "./system/settings.ts";
 export { BACKUP_STALE_HOURS, type SystemStatus } from "./system/status.ts";
+export type * from "./payroll/public-types.ts";
 export { VERSION } from "./version.ts";
 export { createApproverDirectory } from "./workflows/directory.ts";
 export {

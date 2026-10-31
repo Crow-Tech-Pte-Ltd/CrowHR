@@ -326,6 +326,7 @@ export const payslipViewSchema = z.object({
   cpf: z
     .object({
       rateTableId: z.string().nullable(),
+      rateTableLabel: z.string().nullable(),
       ageBand: z.string().nullable(),
       residency: z.string(),
       owSubjectCents: cents,

@@ -23,9 +23,9 @@
 
 ## 4. Payslips and PDF
 
-- [ ] 4.1 Write `payroll/payslip.test.ts` (MOM mandatory items present; release refused naming a missing item; adjustment labelled revision) then implement the payslip view model
-- [ ] 4.2 Add `pdf/` (pdf-lib + fontkit, embedded fonts from `scripts/pdf-fonts.ts`) and write `pdf/payslip-pdf.test.ts` (valid PDF, byte-identical on re-render, text contains net pay) then implement
-- [ ] 4.3 Me → Payslips routes (list, view, PDF) for employees and former members; verified by `payroll/permissions.http.test.ts`
+- [x] 4.1 Write `payroll/payslip.test.ts` (MOM mandatory items present; release refused naming a missing item; adjustment labelled revision) then implement the payslip view model
+- [x] 4.2 Add `pdf/` (pdf-lib + fontkit, embedded fonts from `scripts/pdf-fonts.ts`) and write `pdf/payslip-pdf.test.ts` (valid PDF, byte-identical on re-render, text contains net pay) then implement
+- [x] 4.3 Me → Payslips routes (list, view, PDF) for employees and former members; verified by `payroll/permissions.http.test.ts`
 
 ## 5. Web (apps/web)
 
