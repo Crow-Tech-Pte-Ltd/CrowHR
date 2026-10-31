@@ -2460,9 +2460,11 @@
             }
           },
           "409": {
-            "description": "Error: conflict.",
+            "description": "Error: conflict, duplicate_id_number, reporting_cycle.",
             "x-error-codes": [
-              "conflict"
+              "conflict",
+              "duplicate_id_number",
+              "reporting_cycle"
             ],
             "content": {
               "application/json": {
@@ -4617,9 +4619,10 @@
             }
           },
           "409": {
-            "description": "Error: conflict.",
+            "description": "Error: conflict, duplicate_id_number.",
             "x-error-codes": [
-              "conflict"
+              "conflict",
+              "duplicate_id_number"
             ],
             "content": {
               "application/json": {
@@ -5912,9 +5915,10 @@
             }
           },
           "409": {
-            "description": "Error: conflict.",
+            "description": "Error: conflict, reporting_cycle.",
             "x-error-codes": [
-              "conflict"
+              "conflict",
+              "reporting_cycle"
             ],
             "content": {
               "application/json": {
@@ -13190,7 +13194,7 @@
       "post": {
         "operationId": "organisation.postStructureByKindByIdArchive",
         "summary": "Archive or restore a structure entry",
-        "description": "Archiving an entry used by current employees fails with 409 conflict, reason in_use, and the count.",
+        "description": "Archiving an entry used by current employees fails with 409 in_use, the count and a link to the filtered employee list.",
         "tags": [
           "Organisation"
         ],
@@ -13351,9 +13355,10 @@
             }
           },
           "409": {
-            "description": "Error: conflict.",
+            "description": "Error: conflict, in_use.",
             "x-error-codes": [
-              "conflict"
+              "conflict",
+              "in_use"
             ],
             "content": {
               "application/json": {
@@ -14732,9 +14737,10 @@
             }
           },
           "409": {
-            "description": "Error: conflict.",
+            "description": "Error: conflict, duplicate_id_number.",
             "x-error-codes": [
-              "conflict"
+              "conflict",
+              "duplicate_id_number"
             ],
             "content": {
               "application/json": {

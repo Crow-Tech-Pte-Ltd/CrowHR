@@ -38,10 +38,9 @@ export async function assertIdNumberFree(db: Db, orgId: string, hmac: string, ex
     );
   if (existing) {
     throw new AppError(
-      "conflict",
+      "duplicate_id_number",
       `This ID number already belongs to ${existing.name} (${existing.number}). Rehire this person instead.`,
       {
-        reason: "duplicate_id_number",
         existingEmployeeId: existing.id,
         existingEmployeeNumber: existing.number,
         rehireHref: `/people/${existing.id}?action=rehire`,

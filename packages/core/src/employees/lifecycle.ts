@@ -146,9 +146,8 @@ async function validateJob(
     if (!m) throw fieldError("job.managerEmployeeId", "Choose an existing employee as manager.");
     if (await wouldCreateCycle(tx, orgId, employeeId, job.managerEmployeeId, onDate)) {
       throw new AppError(
-        "conflict",
+        "reporting_cycle",
         "This manager reports, directly or indirectly, to this employee. Choose a manager outside their team.",
-        { reason: "reporting_cycle" },
       );
     }
   }
@@ -400,9 +399,7 @@ export async function hire(ctx: LifecycleCtx, raw: unknown, opts: HireOptions = 
       throw fieldError("person.employeeNumber", "This employee number is already used. Leave it empty to auto-number.");
     }
     if (isUniqueViolation(err, "employees_org_id_hmac_unique")) {
-      throw new AppError("conflict", "This ID number is already used by another employee.", {
-        reason: "duplicate_id_number",
-      });
+      throw new AppError("duplicate_id_number", "This ID number is already used by another employee.");
     }
     throw err;
   }

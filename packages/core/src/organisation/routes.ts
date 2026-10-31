@@ -226,11 +226,11 @@ export const organisationModule = defineModule({
       summary: "Archive or restore a structure entry",
       example: { body: { archived: true } },
       description:
-        "Archiving an entry used by current employees fails with 409 conflict, reason in_use, and the count.",
+        "Archiving an entry used by current employees fails with 409 in_use, the count and a link to the filtered employee list.",
       access: { permission: "org_structure:archive" },
       request: { params: kindIdParam, body: z.object({ archived: z.boolean() }) },
       responses: { 200: structureItem },
-      errors: ["not_found", "conflict"],
+      errors: ["not_found", "conflict", "in_use"],
       handler: async ({ c, deps, params, body }) => {
         const { actor, ports } = actorFrom(c);
         return archiveStructure(deps, ports, actor, params.kind, params.id, body.archived);

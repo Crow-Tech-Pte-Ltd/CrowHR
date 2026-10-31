@@ -28,6 +28,7 @@ import * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
 import {
   api,
+  errorCode,
   errorDetails,
   errorMessage,
   fieldErrors,
@@ -127,10 +128,15 @@ function StructureList({ kind }: { kind: StructureKind }) {
       toast(v.archived ? "Archived" : "Restored");
     },
     onError: (err) => {
-      const d = errorDetails<{ reason?: string; count?: number }>(err);
-      toast(d?.reason === "in_use" ? `In use by ${d.count} employee${d.count === 1 ? "" : "s"}` : "Couldn't archive", {
-        description: errorMessage(err),
-      });
+      const d = errorDetails<{ count?: number }>(err);
+      toast(
+        errorCode(err) === "in_use" && d
+          ? `In use by ${d.count} employee${d.count === 1 ? "" : "s"}`
+          : "Couldn't archive",
+        {
+          description: errorMessage(err),
+        },
+      );
     },
   });
   const errs = fieldErrors(create.error);

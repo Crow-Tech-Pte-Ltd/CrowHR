@@ -57,7 +57,7 @@ Every error uses one envelope:
 
 Clients switch on `code`, never on `message`. The message says what went wrong and how to fix it. Each operation lists its possible codes under `x-error-codes` in the OpenAPI document. Codes are defined in `packages/core/src/errors.ts`; adding a code is additive, and changing a code's status is breaking.
 
-`401` codes: `unauthenticated`, `invalid_credentials`, `invalid_mfa_code`, `session_expired`, `session_revoked`. `403` codes: `forbidden`, `csrf_rejected`, `reauth_required`, `mfa_enrolment_required`, `password_sign_in_disabled`, `self_change_requires_approval`, `disabled_in_demo`. `404 not_found` is also used for records outside the caller's organisation or scope, so existence is never revealed. `409`: `conflict`, `last_owner`. `429 rate_limited` carries `Retry-After`.
+`401` codes: `unauthenticated`, `invalid_credentials`, `invalid_mfa_code`, `session_expired`, `session_revoked`. `403` codes: `forbidden`, `csrf_rejected`, `reauth_required`, `mfa_enrolment_required`, `password_sign_in_disabled`, `self_change_requires_approval`, `disabled_in_demo`. `404 not_found` is also used for records outside the caller's organisation or scope, so existence is never revealed. `409`: `conflict`, `last_owner`, `setup_required`, `duplicate_id_number` (the NRIC/FIN belongs to another employee, including a former one; `details.existingEmployeeId` points at the rehire flow), `in_use` (a structure entry used by current employees; `details.count` and `details.link`), `reporting_cycle` (the chosen manager reports to this employee). `429 rate_limited` carries `Retry-After`.
 
 ## Authentication
 

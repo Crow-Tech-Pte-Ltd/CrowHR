@@ -139,9 +139,9 @@ function errorsFrom(err: unknown, line: number, values: Record<string, string>):
     });
   }
   const column =
-    details?.reason === "duplicate_id_number"
+    err.code === "duplicate_id_number"
       ? "id_number"
-      : details?.reason === "reporting_cycle"
+      : err.code === "reporting_cycle"
         ? "manager_employee_number"
         : details?.reason === "work_email_taken"
           ? "work_email"

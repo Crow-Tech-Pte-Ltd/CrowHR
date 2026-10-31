@@ -114,7 +114,7 @@ export async function applyPersonalPatch(
       .where(and(eq(employees.orgId, actor.orgId), eq(employees.id, employeeId)))
       .catch((err: unknown) => {
         if (isUniqueViolation(err))
-          throw new AppError("conflict", "This ID number is already used by another employee.");
+          throw new AppError("duplicate_id_number", "This ID number is already used by another employee.");
         throw err;
       });
     await recordAudit(tx, ports, actor, {
