@@ -83,6 +83,7 @@ export type { HealthResponse } from "./modules/health/routes.ts";
 export { type EmailPayload, renderEmail } from "./notifications/email-templates.ts";
 export { NOTIFICATION_KINDS, type NotificationKind } from "./notifications/kinds.ts";
 export { type NotifyInput, notify } from "./notifications/notify.ts";
+export type * from "./payroll/public-types.ts";
 export {
   formatSetupCode,
   generateSetupCode,

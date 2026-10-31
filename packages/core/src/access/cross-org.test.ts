@@ -25,6 +25,7 @@ import {
 } from "../db/schema/workflows.ts";
 import { buildActor } from "../employees/access.ts";
 import { defaultPeoplePorts } from "../employees/ports.ts";
+import { seedPayrollOnePerTable } from "../testing/payroll-sweep.ts";
 import { seedPeopleOnePerTable } from "../testing/people-sweep.ts";
 import { orgScope } from "./org-scope.ts";
 
@@ -86,7 +87,9 @@ describe("cross-organisation isolation", () => {
       employeeId: null,
       today: "2026-10-31",
     });
-    await seedPeopleOnePerTable(deps, defaultPeoplePorts(deps), ownerActorB);
+    const employeeB = await seedPeopleOnePerTable(deps, defaultPeoplePorts(deps), ownerActorB);
+    // Payroll module: one row in each of its tables.
+    await seedPayrollOnePerTable(deps, b.id, employeeB);
     // Workflows and notifications (one row per table).
     const staffB = await seedMember(deps, b.id, { email: "staff-b@example.sg" });
     const policyId = deps.ids.newId();

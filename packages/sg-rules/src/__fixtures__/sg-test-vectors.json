@@ -1949,6 +1949,419 @@
         "employerOnOW": 32000,
         "employeeOnOW": 36000
       }
+    },
+    {
+      "id": "CALC-RD-03",
+      "title": "CPF calculator: SC born 01/1996, Apr 2026, OW $1,001.34: exact $370.4958 rounds down",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-04",
+        "residency": "SC",
+        "birthDate": "1996-01-15",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 100134,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 100134,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 37000,
+        "employeeCpfCents": 20000,
+        "employerCpfCents": 17000,
+        "sdlUnits1e4Cent": 2503350,
+        "sdlExactDollars": "2.50335",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $370 / $200 / $170. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-RD-04",
+      "title": "CPF calculator: SC born 01/1959 (65-70), Apr 2026, OW $1,003.00: exact $165.495 rounds down",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-04",
+        "residency": "SC",
+        "birthDate": "1959-01-15",
+        "ageBand": "ABOVE_65_TO_70",
+        "owPaidCents": 100300,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 100300,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 16500,
+        "employeeCpfCents": 7500,
+        "employerCpfCents": 9000,
+        "sdlUnits1e4Cent": 2507500,
+        "sdlExactDollars": "2.5075",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $165 / $75 / $90. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-WB-02",
+      "title": "CPF calculator: SC born 01/1996, Mar 2026, OW $50.01: start of the employer-only band",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "birthDate": "1996-01-15",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 5001,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 5001,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 900,
+        "employeeCpfCents": 0,
+        "employerCpfCents": 900,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $9 / $0 / $9. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-WB-04",
+      "title": "CPF calculator: SC born 01/1996, Mar 2026, OW $500.01: start of the phase-in band",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "birthDate": "1996-01-15",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 50001,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 50001,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 8500,
+        "employeeCpfCents": 0,
+        "employerCpfCents": 8500,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $85 / $0 / $85. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-WB-06",
+      "title": "CPF calculator: SC born 01/1996, Mar 2026, OW $750.00: top of the phase-in band, $277.50 rounds up",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "birthDate": "1996-01-15",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 75000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 75000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 27800,
+        "employeeCpfCents": 15000,
+        "employerCpfCents": 12800,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $278 / $150 / $128. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-WB-08",
+      "title": "CPF calculator: SC born 01/1996, Mar 2026, OW $7,999.99: employer = total - employee",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "birthDate": "1996-01-15",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 799999,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 799999,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 296000,
+        "employeeCpfCents": 159900,
+        "employerCpfCents": 136100,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $2960 / $1599 / $1361. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-WB-13",
+      "title": "CPF calculator: SC born 01/1959 (65-70), Mar 2026, OW $555.55: phase-in with fractional cents",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SC",
+        "birthDate": "1959-01-15",
+        "ageBand": "ABOVE_65_TO_70",
+        "owPaidCents": 55555,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 55555,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 6200,
+        "employeeCpfCents": 1200,
+        "employerCpfCents": 5000,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $62 / $12 / $50. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-SPR-10",
+      "title": "CPF calculator: 1st-year SPR G/G born 05/1990, Mar 2026, OW $1,700.00 (post-conversion OW only)",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-03",
+        "residency": "SPR",
+        "birthDate": "1990-05-15",
+        "spr": {
+          "sprDate": "2026-03-15",
+          "option": "GG"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 170000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T2",
+        "effectiveResidencyCategory": "SPR1_GG",
+        "owSubjectToCpfCents": 170000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 15300,
+        "employeeCpfCents": 8500,
+        "employerCpfCents": 6800,
+        "sdlUnits1e4Cent": 4250000,
+        "sdlExactDollars": "4.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $153 / $85 / $68. Birth date = 15th of the birth month entered in the calculator; empty AW history. The calculator does not ask for the SPR date; the SPR year is the caller's input. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-PM-01",
+      "title": "CPF calculator: SC born 01/1996, May 2026, OW $1,363.64 (pro-rated wage)",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-05",
+        "residency": "SC",
+        "birthDate": "1996-01-15",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 136364,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 136364,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 50500,
+        "employeeCpfCents": 27200,
+        "employerCpfCents": 23300,
+        "sdlUnits1e4Cent": 3409100,
+        "sdlExactDollars": "3.4091",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $505 / $272 / $233. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-X-01",
+      "title": "CPF calculator: SC born 01/1969 (55-60), Jun 2026, OW $1,025.00: total $348.50 rounds up, employee $184.50 down",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SC",
+        "birthDate": "1969-01-15",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 102500,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 102500,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 34900,
+        "employeeCpfCents": 18400,
+        "employerCpfCents": 16500,
+        "sdlUnits1e4Cent": 2562500,
+        "sdlExactDollars": "2.5625",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $349 / $184 / $165. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-X-02",
+      "title": "CPF calculator: SC born 01/1964 (60-65), Jun 2026, OW $1,002.00: total $250.50 rounds up, employee $125.25 down",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SC",
+        "birthDate": "1964-01-15",
+        "ageBand": "ABOVE_60_TO_65",
+        "owPaidCents": 100200,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 100200,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 25100,
+        "employeeCpfCents": 12500,
+        "employerCpfCents": 12600,
+        "sdlUnits1e4Cent": 2505000,
+        "sdlExactDollars": "2.505",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $251 / $125 / $126. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-X-03",
+      "title": "CPF calculator: SC born 01/1950 (above 70), Jun 2026, OW $633.33: phase-in total $67.49925 rounds down",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SC",
+        "birthDate": "1950-01-15",
+        "ageBand": "ABOVE_70",
+        "owPaidCents": 63333,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 63333,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 6700,
+        "employeeCpfCents": 1900,
+        "employerCpfCents": 4800,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $67 / $19 / $48. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-X-04",
+      "title": "CPF calculator: SC born 01/1996, Dec 2026, OW $4,321.09 + AW $2,345.67 (bonus month with cents)",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-12",
+        "residency": "SC",
+        "birthDate": "1996-01-15",
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 432109,
+        "awPaidCents": 234567
+      },
+      "expected": {
+        "rateTable": "2026:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 432109,
+        "awSubjectToCpfCents": 234567,
+        "totalCpfCents": 246700,
+        "employeeCpfCents": 133300,
+        "employerCpfCents": 113400,
+        "sdlUnits1e4Cent": 11250000,
+        "sdlExactDollars": "11.25",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $2467 / $1333 / $1134. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-X-05",
+      "title": "CPF calculator: 2nd-year SPR G/G (SPR from 10 Feb 2025) born 01/1996, Jun 2026, OW $612.34",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2026-06",
+        "residency": "SPR",
+        "birthDate": "1996-01-15",
+        "spr": {
+          "sprDate": "2025-02-10",
+          "option": "GG"
+        },
+        "ageBand": "AGE_55_AND_BELOW",
+        "owPaidCents": 61234,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2026:T3",
+        "effectiveResidencyCategory": "SPR2_GG",
+        "owSubjectToCpfCents": 61234,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 10600,
+        "employeeCpfCents": 5000,
+        "employerCpfCents": 5600,
+        "sdlUnits1e4Cent": 2000000,
+        "sdlExactDollars": "2.00",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $106 / $50 / $56. Birth date = 15th of the birth month entered in the calculator; empty AW history. The calculator does not ask for the SPR date; the SPR year is the caller's input. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
+    },
+    {
+      "id": "CALC-X-06",
+      "title": "CPF calculator: SC born 01/1970 (55-60), Feb 2027, OW $1,100.00: 2027 table, total $390.50 rounds up",
+      "provenance": "OFFICIAL_CALCULATOR",
+      "inputs": {
+        "wageMonth": "2027-02",
+        "residency": "SC",
+        "birthDate": "1970-01-15",
+        "ageBand": "ABOVE_55_TO_60",
+        "owPaidCents": 110000,
+        "awPaidCents": 0
+      },
+      "expected": {
+        "rateTable": "2027:T1",
+        "effectiveResidencyCategory": "SC",
+        "owSubjectToCpfCents": 110000,
+        "awSubjectToCpfCents": 0,
+        "totalCpfCents": 39100,
+        "employeeCpfCents": 20900,
+        "employerCpfCents": 18200,
+        "sdlUnits1e4Cent": 2750000,
+        "sdlExactDollars": "2.75",
+        "shgCents": 0
+      },
+      "sources": ["https://www.cpf.gov.sg/employer/tools-and-services/calculators/cpf-contribution-calculator"],
+      "notes": "Run through CPF Board's public CPF contribution calculator (page last updated 03 Aug 2026) on 31 Oct 2026 by headless Playwright: total / employee / employer $391 / $209 / $182. Birth date = 15th of the birth month entered in the calculator; empty AW history. See packages/sg-rules/VERIFICATION.md \"CPF calculator check\". Only total, employee and employer CPF were checked against the calculator; the SDL fields are formula values."
     }
   ],
   "sdlVectors": [
@@ -2349,6 +2762,7 @@
   "crowhrFixtureNotes": [
     "Copied from research/sg-test-vectors.json (generatedOn 2026-10-31). Two vectors were corrected after the independent verification in research/verification/codex-verification.md; see packages/sg-rules/VERIFICATION.md.",
     "AW-11: June AW payable is 0. The $40,000 is earlier AW (Feb-May) newly subjected on the last-month recomputation, modelled as inputs.awHistory + ytdOwSubjectCents + employmentLastMonth. expected.total/employee/employer remain the month's CPF including that shortfall; expected.currentMonth and expected.priorAwShortfall split it. SDL is on June wages only ($1,500): $3.75.",
-    "SPR-04: 2028 CPF tables are not published. Expected rate table is 2027:T1 carried forward, with ratesAssumedCarriedForward = true."
+    "SPR-04: 2028 CPF tables are not published. Expected rate table is 2027:T1 carried forward, with ratesAssumedCarriedForward = true.",
+    "CALC-*: the 15 cases confirmed in CPF Board's public CPF contribution calculator on 31 Oct 2026 (VERIFICATION.md \"CPF calculator check\"), provenance OFFICIAL_CALCULATOR. Expected total/employee/employer are the calculator's figures; the DERIVED_FROM_FORMULA vectors with the same base ids are kept unchanged."
   ]
 }

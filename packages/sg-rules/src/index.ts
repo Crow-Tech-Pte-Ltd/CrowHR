@@ -28,6 +28,7 @@ export {
   type RateResult,
 } from "./employment-act/rates.ts";
 export * from "./employment-act/salary.ts";
+export * from "./employment-act/salary-payment.ts";
 export { RulesNotAvailableError, SgRulesInputError } from "./errors.ts";
 export * from "./fwl.ts";
 export {
@@ -59,6 +60,8 @@ export {
 } from "./tables/employment-terms.ts";
 export { cpfTableFor, publicHolidaysFor, resolveRules, type SgRuleSet, shgTableFor } from "./tables/index.ts";
 export type { PublicHoliday, PublicHolidayYear } from "./tables/public-holidays.ts";
+export * from "./tables/registrations.ts";
+export * from "./tables/salary-payment.ts";
 export { SDL_EXEMPTIONS, type SdlExemption, type SdlRate } from "./tables/sdl.ts";
 export type { ShgFund, ShgTable } from "./tables/shg.ts";
 export type { Cents, IsoDate, IssueSeverity, RuleIssue, WorkingStep, YearMonth } from "./types.ts";
