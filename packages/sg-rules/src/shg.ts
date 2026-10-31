@@ -32,6 +32,26 @@ export interface ShgDetermination {
   readonly issues: readonly RuleIssue[];
 }
 
+/** "chinese" → "Chinese", "sri_lankan" → "Sri Lankan": a stored race code as words. */
+export function raceLabel(race: string): string {
+  return race
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .toLowerCase()
+    .replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase());
+}
+
+const RESIDENCY_LABEL: Record<ShgResidency, string> = {
+  SC: "Singapore Citizen",
+  SPR: "Singapore Permanent Resident",
+  FOREIGNER: "Foreigner",
+};
+
+/** "SC" → "Singapore Citizen". */
+export function residencyLabel(residency: ShgResidency): string {
+  return RESIDENCY_LABEL[residency];
+}
+
 function raceFund(race: string): ShgFund | null {
   const r = race.trim().toUpperCase();
   if (r === "CHINESE") return "CDAC";
@@ -58,29 +78,31 @@ export function determineShgFunds(input: ShgDeterminationInput): ShgDeterminatio
       });
     }
   } else {
-    const fund = raceFund(first);
+    const fund = raceFund(first.replace(/_/g, " "));
+    const race = raceLabel(first);
+    const residency = residencyLabel(input.residency);
     if (input.race.length > 1) {
       working.push({
         code: "SHG_DOUBLE_BARRELLED",
-        text: `Double-barrelled race ${input.race.join("-")}: the first race listed (${first}) determines the fund.`,
+        text: `Double-barrelled race ${input.race.map(raceLabel).join("-")}: the first race listed (${race}) determines the fund.`,
       });
     }
     if (fund === "SINDA" && (local || input.passType === "EP")) {
       funds.add(fund);
       working.push({
         code: "SHG_RACE_FUND",
-        text: `${first} (Indian descent), ${local ? input.residency : "Employment Pass holder"} → SINDA.`,
+        text: `${race} (Indian descent), ${local ? residency : "Employment Pass holder"} → SINDA.`,
       });
     } else if ((fund === "CDAC" || fund === "ECF") && local) {
       funds.add(fund);
-      working.push({ code: "SHG_RACE_FUND", text: `${first}, ${input.residency} → ${fund}.` });
+      working.push({ code: "SHG_RACE_FUND", text: `${race}, ${residency} → ${fund}.` });
     } else if (fund !== null) {
       working.push({
         code: "SHG_RACE_FUND_NOT_ELIGIBLE",
-        text: `${first}: ${fund} applies only to ${fund === "SINDA" ? "SCs, SPRs and EP holders" : "SCs and SPRs"}.`,
+        text: `${race}: ${fund} applies only to ${fund === "SINDA" ? "Singapore Citizens, Singapore Permanent Residents and Employment Pass holders" : "Singapore Citizens and Singapore Permanent Residents"}.`,
       });
     } else {
-      working.push({ code: "SHG_NO_RACE_FUND", text: `${first}: no race-based SHG fund.` });
+      working.push({ code: "SHG_NO_RACE_FUND", text: `${race}: no race-based SHG fund.` });
     }
   }
   if (input.isMuslim) {

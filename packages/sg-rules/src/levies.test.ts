@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { RulesNotAvailableError } from "./errors.ts";
 import { estimateLevy, FWL_DEDUCTIBLE_FROM_SALARY } from "./fwl.ts";
 import { computeSdl, computeSdlTotal } from "./sdl.ts";
-import { computeShg, determineShgFunds } from "./shg.ts";
+import { computeShg, determineShgFunds, raceLabel, residencyLabel } from "./shg.ts";
 
 describe("SDL", () => {
   it("is zero, not the $2 minimum, when no wages are paid or payable", () => {
@@ -71,6 +71,27 @@ describe("SHG fund determination", () => {
     expect(determineShgFunds({ ...sc, race: ["Indian"], isMuslim: true }).issues.map((i) => i.code)).toEqual([
       "SHG_MULTIPLE_FUNDS",
     ]);
+  });
+});
+
+describe("SHG working text", () => {
+  it("names races and residency in words, not as stored codes", () => {
+    const text = (input: Parameters<typeof determineShgFunds>[0]) =>
+      determineShgFunds(input)
+        .working.map((w) => w.text)
+        .join(" ");
+    expect(text({ residency: "SC", race: ["chinese"], isMuslim: false })).toBe("Chinese, Singapore Citizen → CDAC.");
+    expect(text({ residency: "SPR", race: ["EURASIAN"], isMuslim: false })).toBe(
+      "Eurasian, Singapore Permanent Resident → ECF.",
+    );
+    expect(text({ residency: "SC", race: ["sri_lankan"], isMuslim: false })).toBe(
+      "Sri Lankan (Indian descent), Singapore Citizen → SINDA.",
+    );
+    expect(text({ residency: "SC", race: ["malay", "chinese"], isMuslim: false })).toContain(
+      "Double-barrelled race Malay-Chinese: the first race listed (Malay) determines the fund.",
+    );
+    expect(raceLabel("indian")).toBe("Indian");
+    expect(residencyLabel("FOREIGNER")).toBe("Foreigner");
   });
 });
 
