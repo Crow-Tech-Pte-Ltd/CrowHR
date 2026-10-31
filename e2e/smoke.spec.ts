@@ -1,17 +1,20 @@
 import { expect, test } from "@playwright/test";
+import { HOME_HEADING } from "./fixtures.ts";
 
 test.describe("application shell", () => {
   test.use({ storageState: "test-results/owner.json" });
 
-  test("loads Home with navigation and a visible sample-data notice", async ({ page }) => {
+  test("loads Home with navigation and real (not sample) data", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1, name: "Work to do" })).toBeVisible();
-    await expect(page.getByTestId("sample-data-notice")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: HOME_HEADING })).toBeVisible();
+    await expect(page.getByTestId("home-approvals")).toBeVisible();
+    await expect(page.getByTestId("sample-data-notice")).toHaveCount(0);
     const nav = page.getByRole("complementary", { name: "Main navigation" });
     for (const item of [
       "Home",
+      "Inbox",
       "People",
       "Payroll",
       "Leave",
@@ -30,7 +33,7 @@ test.describe("application shell", () => {
 
   test("command palette jumps to Payroll", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("heading", { name: "Work to do" }).waitFor();
+    await page.getByRole("heading", { name: HOME_HEADING }).waitFor();
     await page.keyboard.press("ControlOrMeta+k");
     const palette = page.getByRole("dialog");
     await expect(palette).toBeVisible();
@@ -70,7 +73,7 @@ test.describe("application shell", () => {
 
   test("keyboard focus is visible in the top bar", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("heading", { name: "Work to do" }).waitFor();
+    await page.getByRole("heading", { name: HOME_HEADING }).waitFor();
     // Skip link, then into the sidebar/top bar.
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: "Skip to content" })).toBeFocused();

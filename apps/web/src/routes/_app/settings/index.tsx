@@ -1,5 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Building2, ChevronRight, KeyRound, type LucideIcon, Network, ScrollText, Server, Users } from "lucide-react";
+import {
+  Bell,
+  Building2,
+  ChevronRight,
+  GitBranch,
+  KeyRound,
+  type LucideIcon,
+  Network,
+  ScrollText,
+  Server,
+  Users,
+} from "lucide-react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 
@@ -15,7 +26,13 @@ export const Route = createFileRoute("/_app/settings/")({
 function SettingsPage() {
   const me = useMe();
   const links: {
-    to: "/settings/security" | "/settings/members" | "/settings/audit" | "/settings/system";
+    to:
+      | "/settings/security"
+      | "/settings/members"
+      | "/settings/audit"
+      | "/settings/system"
+      | "/settings/approvals"
+      | "/settings/notifications";
     title: string;
     body: string;
     icon: LucideIcon;
@@ -48,6 +65,20 @@ function SettingsPage() {
       body: "Version, database, backups, disk space and reverse proxy diagnostics.",
       icon: Server,
       show: me.roles.includes("owner"),
+    },
+    {
+      to: "/settings/approvals",
+      title: "Approvals",
+      body: "Who approves leave, claims and payroll, amount thresholds, escalation and out-of-office cover.",
+      icon: GitBranch,
+      show: can(me, "policies:read"),
+    },
+    {
+      to: "/settings/notifications",
+      title: "Notifications",
+      body: "What is emailed to you, and whether this server can send email.",
+      icon: Bell,
+      show: true,
     },
   ];
   return (
