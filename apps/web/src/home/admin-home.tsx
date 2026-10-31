@@ -31,7 +31,7 @@ import { DecisionButtons, DuePill, OriginBadge, RejectDialog } from "../workflow
 import { ageLabel } from "../workflows/format.ts";
 import { daysBetween, weekday } from "./dates.ts";
 
-const SECTION_SOURCES = new Set(["approvals", "work_passes", "probation", "setup", "backups"]);
+const SECTION_SOURCES = new Set(["approvals", "work_passes", "probation", "setup", "backups", "payroll"]);
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
@@ -48,6 +48,7 @@ export function AdminHome() {
   const other = data?.items.filter((i) => !SECTION_SOURCES.has(i.source)) ?? [];
   const setup = data?.items.filter((i) => i.source === "setup") ?? [];
   const backup = data?.items.find((i) => i.source === "backups") ?? null;
+  const payroll = data?.items.filter((i) => i.source === "payroll") ?? [];
   const sourceStatus = (id: string) => data?.sources.find((s) => s.id === id)?.status ?? "not_set_up";
   const isHr = me.roles.includes("owner") || me.roles.includes("hr_admin");
   const seesPayroll = me.roles.includes("owner") || me.roles.includes("payroll_admin");
@@ -114,7 +115,9 @@ export function AdminHome() {
           {setup.length ? <SetupCard items={setup} /> : null}
           <ApprovalsCard items={approvals} today={data?.today ?? ""} loading={inbox.isPending} />
           {other.length ? <OtherCard items={other} today={data?.today ?? ""} /> : null}
-          {seesPayroll ? <PayrollCard /> : null}
+          {seesPayroll ? (
+            <PayrollCard items={payroll} status={sourceStatus("payroll")} today={data?.today ?? ""} />
+          ) : null}
         </div>
         <div className="flex min-w-0 flex-col gap-6">
           {isHr ? (
@@ -376,21 +379,49 @@ function OtherCard({ items, today }: { items: InboxItem[]; today: string }) {
   );
 }
 
-function PayrollCard() {
+function PayrollCard({ items, status, today }: { items: InboxItem[]; status: string; today: string }) {
   return (
     <Card aria-labelledby="payroll-title" data-testid="home-payroll">
       <CardHeader>
         <CardTitle id="payroll-title">Payroll</CardTitle>
       </CardHeader>
-      <div className="border-t border-border">
-        <EmptyState
-          variant="plain"
-          icon={<Wallet />}
-          title="Payroll isn't set up yet"
-          description="Monthly runs, CPF and payslips will show here with their due dates once the payroll module is installed."
-          note="Not set up yet"
-        />
-      </div>
+      {items.length > 0 ? (
+        <ul className="divide-y divide-border border-t border-border">
+          {items.map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+              <div className="min-w-0">
+                <p className="truncate font-medium leading-5">{item.title}</p>
+                {item.detail ? <p className="truncate text-2xs text-primary-300">{item.detail}</p> : null}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <DuePill dueOn={item.dueOn} today={today} />
+                <Button size="sm" variant="secondary" asChild>
+                  <a href={item.href}>{item.actionLabel}</a>
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="border-t border-border">
+          {status === "not_set_up" ? (
+            <EmptyState
+              variant="plain"
+              icon={<Wallet />}
+              title="Payroll isn't set up yet"
+              description="Set the pay day and CPF details in Payroll settings. Monthly runs and their due dates then show here."
+              note="Not set up yet"
+            />
+          ) : (
+            <EmptyState
+              variant="plain"
+              icon={<Wallet />}
+              title="No payroll due"
+              description="This month's run is done. The next one shows here when it is due."
+            />
+          )}
+        </div>
+      )}
     </Card>
   );
 }

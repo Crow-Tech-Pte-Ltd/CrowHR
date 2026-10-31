@@ -6,38 +6,42 @@ Defines how a payroll run is prepared, computed, reviewed, approved and paid for
 
 ### Requirement: Pay items
 For each employee in a run, pay SHALL be built from these items, all in integer cents:
-- **Basic pay** from the compensation records in force during the period. A monthly-rated employee who works the whole period with no no-pay leave SHALL be paid the monthly amount. Otherwise each compensation segment SHALL be paid by MOM's incomplete-month formula (monthly rate / working days in the month × days worked in the segment), using the employee's work schedule, with no-pay leave days removed from the days worked; the result is rounded half up to the cent. Hourly-rated employees SHALL be paid rate × hours entered for the run.
+- **Basic pay** from the compensation records in force during the period. A monthly-rated employee who works the whole period with no no-pay leave SHALL be paid the monthly amount. Otherwise each compensation segment SHALL be paid by MOM's incomplete-month formula (monthly rate / working days in the month × days worked in the segment), using the employee's work schedule, with no-pay leave days removed from the days worked; for an employee without a fixed week (rostered or shift), the run SHALL require the month's scheduled days and days worked as items and block without them, never assuming a week (EA s 20A); the result is rounded half up to the cent. Hourly-rated employees SHALL be paid rate × hours entered for the run.
 - **Recurring allowances** in force during the period, pro-rated the same way unless the allowance type is set not to pro-rate; CPF-liable as OW unless the allowance type is set as not CPF-liable.
 - **One-off earnings**: bonus, commission, back pay or other, each classified OW or AW. An AW item SHALL carry an AW payable date inside the run's period.
 - **Overtime**, entered manually as minutes worked and the OT period. Statutory OT pay for Part 4 employees SHALL be computed by sg-rules; for other employees an amount SHALL be entered.
 - **Claims reimbursement** read from the claims `ReimbursementSource`, never CPF-liable.
-- **Deductions** with an Employment Act category.
+- **Deductions** with an Employment Act category, and recovery of the employee share of an AW top-up (CPF Act s 7(9)) until 30 June of the following year. Other recovery of employee CPF the employer failed to deduct SHALL be blocked.
 - **Employer-only costs**: CPF employer share, SDL and an FWL estimate (never deducted from pay).
 
 #### Scenario: Mid-month joiner
 - **WHEN** an employee on S$4,000.00 a month on a Monday–Friday schedule joins on 16 Mar 2026 (12 of 22 working days)
 - **THEN** basic pay is S$2,181.82 and CPF is computed on that amount
 
+#### Scenario: Rostered employee without scheduled days
+- **WHEN** an employee with no fixed working week joins mid-month and the run has no "Scheduled days" item
+- **THEN** the run shows a blocking issue asking for the scheduled and worked days
+
 #### Scenario: No-pay leave
 - **WHEN** an employee on S$3,000.00 takes 2 days of no-pay leave in a 22-working-day month
 - **THEN** the payslip shows basic S$3,000.00 and a "No-pay leave (2 days)" deduction of S$272.73
 
 ### Requirement: Employment Act deduction limits
-Deductions SHALL be checked against MOM's limits: damage or loss, accommodation, amenities and services each at most 25% of the period's salary; advances and loans each at most 25% per instalment; and all deductions together at most 50% of the salary payable, excluding absence, advances, loans, overpaid salary and co-operative society payments. Employee CPF counts towards the 50% limit. A breach SHALL be a blocking issue naming the deduction, the limit and the amount over it. The 50% limit SHALL be a warning, not a blocking issue, on an employee's final pay.
+Deductions SHALL be checked against MOM's limits: damage or loss at most 25% of the period's salary; accommodation, amenities and services together at most 25% (EA s 30(2)); advances and loans each at most 25% per instalment; and all deductions together at most 50% of the salary payable, excluding absence, advances, loans, unearned benefits, overpaid salary and co-operative society payments. Employee CPF counts towards the 50% limit. A breach SHALL be a blocking issue naming the deduction, the limit and the amount over it. The 50% limit SHALL be a warning, not a blocking issue, on an employee's final pay.
 
 #### Scenario: Over the 50% limit
 - **WHEN** an employee's deductions subject to the limit total 55% of salary
 - **THEN** the run shows a blocking issue explaining the 50% limit and how much to reduce, and cannot be submitted for review
 
 ### Requirement: Payroll runs and lifecycle
-A run SHALL belong to one organisation and one calendar month period, with a pay date (defaulting from payroll settings). Kinds: `regular` (one active per month), `off_cycle` (`final_pay` for chosen employees, who are then left out of that month's regular run, or `bonus` with only one-off items) and `adjustment`. States: `draft` → `in_review` → `approved` → `paid`. Inputs SHALL be editable only in draft. Submitting for review SHALL require a computation with no blocking issues whose inputs still match the current records; if records changed since computing, submission SHALL fail with 409 telling the user to recompute. A pay date more than 7 days after the period end SHALL be a warning citing MOM's salary payment rule; with overtime in the run, a pay date more than 14 days after the period end SHALL also warn. Every transition SHALL be audit-logged.
+A run SHALL belong to one organisation and one calendar month period, with a pay date (defaulting from payroll settings). Kinds: `regular` (one active per month), `off_cycle` (`final_pay` for chosen employees, who are then left out of that month's regular run, or `bonus` with only one-off items) and `adjustment`. States: `draft` → `in_review` → `approved` → `paid`. Inputs SHALL be editable only in draft. Submitting for review SHALL require a computation with no blocking issues whose inputs still match the current records; if records changed since computing, submission SHALL fail with 409 telling the user to recompute. A pay date more than 7 days after the period end SHALL be a warning citing MOM's salary payment rule; each overtime entry SHALL warn when the pay date is more than 14 days after the end of the salary period in which the overtime was performed (EA s 21(2)). Every transition SHALL be audit-logged.
 
 #### Scenario: Stale inputs
 - **WHEN** a payroll_admin changes an employee's basic pay after the run was computed and then submits it
 - **THEN** submission fails with 409 and the message asks them to recompute the run
 
 ### Requirement: Approval through the approvals engine
-Submitting a run SHALL create a `payroll_run` approval request with the run's net total as `amountCents`. The decision SHALL call the payroll adapter in the same transaction: approval moves the run to `approved`, rejection returns it to `draft` with the comment. Until the workflows engine is wired, an owner or payroll_admin other than the submitter SHALL decide; an owner who submitted MAY decide and the decision SHALL be marked self-approved.
+Submitting a run SHALL create a `payroll_run` approval request with the run's net total as `amountCents`. The workflows engine routes it (default policy: an owner) and calls the payroll adapter in the decision's transaction: approval moves the run to `approved`, rejection returns it to `draft` with the comment, withdrawal returns it to `draft`. An owner who submitted MAY decide and the decision SHALL be marked self-approved. A payroll-cutoff reminder SHALL go to payroll admins 3 days before the cutoff while the month's run is not approved.
 
 #### Scenario: Rejected run
 - **WHEN** the owner rejects a run in review with "Bonus for Ravi is wrong"

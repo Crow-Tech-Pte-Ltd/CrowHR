@@ -442,3 +442,35 @@ export const createRunSchema = z.object({
   offCycleReason: z.enum(["final_pay", "bonus"]).nullable().optional(),
   employeeIds: z.array(z.uuid()).max(500).nullable().optional(),
 });
+
+const ir8aNote = z.object({ code: z.string(), message: z.string() });
+
+export const ir8aPreviewSchema = z.object({
+  year: z.number().int(),
+  yearOfAssessment: z.number().int(),
+  dueOn: isoDate,
+  templateUrl: z.url(),
+  explanatoryNotesUrl: z.url(),
+  parts: z.array(z.object({ part: z.number().int(), records: z.number().int() })),
+  records: z.array(
+    z.object({
+      employeeId: z.uuid(),
+      employeeName: z.string(),
+      idMasked: z.string(),
+      part: z.number().int(),
+      recordNo: z.number().int(),
+      grossSalary: z.number().int().describe("Whole dollars, cents dropped (IRAS income rounding)"),
+      bonus: z.number().int(),
+      allowances: z.number().int(),
+      commission: z.number().int(),
+      employeeCpf: z.number().int().describe("Whole dollars, rounded up (IRAS deduction rounding)"),
+      donations: z.number().int(),
+      mbmf: z.number().int(),
+      commencedOn: isoDate.nullable(),
+      ceasedOn: isoDate.nullable(),
+      notes: z.array(ir8aNote),
+    }),
+  ),
+  excluded: z.array(z.object({ employeeName: z.string(), reason: z.string() })),
+  notes: z.array(ir8aNote),
+});

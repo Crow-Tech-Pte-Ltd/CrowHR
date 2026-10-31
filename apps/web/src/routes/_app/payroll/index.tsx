@@ -30,6 +30,7 @@ import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { directoryQuery } from "../people/-lib/api.ts";
 import { createRun, errorMessage, fieldErrors, monthName, runsQuery, runTitle } from "./-lib/api.ts";
+import { Ir8aPanel } from "./-lib/ir8a.tsx";
 import { PayrollSettingsDialog } from "./-lib/settings-dialog.tsx";
 import { Money, RunStatusPill } from "./-lib/ui.tsx";
 
@@ -216,6 +217,11 @@ function Runs() {
           }
         />
       )}
+      {runs.data?.items.length ? (
+        <Ir8aPanel
+          years={[...new Set(runs.data.items.map((r) => Number(r.month.slice(0, 4))))].sort((x, y) => y - x)}
+        />
+      ) : null}
       <NewRunDialog open={open} onOpenChange={setOpen} />
       <PayrollSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </>

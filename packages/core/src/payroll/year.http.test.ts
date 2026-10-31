@@ -24,7 +24,7 @@ import { OWNER } from "../testing/people-harness.ts";
  */
 
 let t: TestDb;
-let co: SeededCompany<"M">;
+let co: SeededCompany<"M" | "N" | "O">;
 let admin: TestClient;
 let owner: TestClient;
 const api = "/api/v1/payroll";
@@ -39,6 +39,7 @@ type Detail = {
       awCeiling: { basis: string; annualOwSubjectCents: number; annualAwCeilingCents: number } | null;
     };
     issues: { code: string }[];
+    lines: { category: string; code: string; amountCents: number }[];
     working: { code: string; text: string }[];
     stateAfter: {
       owSubjectCents: number;
@@ -55,8 +56,29 @@ beforeAll(async () => {
       name: "Muthu Kumar",
       dob: "1986-02-14",
       residency: "citizen",
+      gender: "male",
       hireDate: "2021-01-04",
       basicCents: 600_000,
+    },
+    // Joins in November (IR8A commencement date, MBMF); O has no sex recorded (left out of the IR8A file).
+    {
+      key: "N",
+      name: "Nur Aisyah",
+      dob: "1999-08-01",
+      residency: "citizen",
+      race: "malay",
+      religion: "islam",
+      gender: "female",
+      hireDate: "2026-11-02",
+      basicCents: 320_000,
+    },
+    {
+      key: "O",
+      name: "Ong Wei Ling",
+      dob: "1995-03-03",
+      residency: "citizen",
+      hireDate: "2026-12-01",
+      basicCents: 300_000,
     },
   ]);
   await applyEvent(ctxFor(co.h.deps, co.h.ports, co.h.actor(OWNER)), co.e.M, {
@@ -153,5 +175,79 @@ describe("a year of payroll for one employee", () => {
       { payableMonth: "2026-03", owCents: 600_000, awPayableCents: 3_000_000, awSubjectCents: 2_400_000 },
       { payableMonth: "2026-12", owCents: 700_000, awPayableCents: 4_000_000, awSubjectCents: 0 },
     ]);
+  });
+});
+
+describe("IR8A for income year 2026 (task 6.3)", () => {
+  type Preview = {
+    yearOfAssessment: number;
+    dueOn: string;
+    parts: { part: number; records: number }[];
+    records: {
+      employeeName: string;
+      idMasked: string;
+      grossSalary: number;
+      bonus: number;
+      employeeCpf: number;
+      donations: number;
+      mbmf: number;
+      commencedOn: string | null;
+      ceasedOn: string | null;
+    }[];
+    excluded: { employeeName: string; reason: string }[];
+    notes: { code: string }[];
+  };
+  /** Muthu's SHG (CDAC) deducted over the year, from his payslips. */
+  const muthuShg = () =>
+    [...details.values()].reduce(
+      (s, d) => s + d.result.lines.filter((l) => l.category === "shg").reduce((x, l) => x + l.amountCents, 0),
+      0,
+    );
+
+  it("previews each employee once in whole dollars: salary 78,000, bonus 70,000, employee CPF 21,600", async () => {
+    const p = await ok<Preview>(await admin.get(`${api}/years/2026/ir8a`));
+    expect([p.yearOfAssessment, p.dueOn, p.parts]).toEqual([2027, "2027-03-01", [{ part: 1, records: 2 }]]);
+    const m = p.records.find((r) => r.employeeName === "Muthu Kumar");
+    // a) 6 × 6,000 + 6 × 7,000; b) 30,000 + 40,000. Employee CPF: 20% × 6,000 × 6 + 20% × 30,000
+    // (March AW) + 20% × 7,000 × 6 (December's AW is above the ceiling) = 21,600.
+    expect(m).toMatchObject({
+      grossSalary: 78_000,
+      bonus: 70_000,
+      employeeCpf: 21_600,
+      donations: Math.ceil(muthuShg() / 100),
+      mbmf: 0,
+      commencedOn: null,
+      ceasedOn: null,
+    });
+    expect(m?.idMasked).not.toMatch(/^[ST]\d{7}[A-Z]$/);
+    // Nur joined on 2 Nov: two months at S$3,200; her SHG is MBMF.
+    const n = p.records.find((r) => r.employeeName === "Nur Aisyah");
+    expect(n).toMatchObject({ grossSalary: 6_400, commencedOn: "2026-11-02", donations: 0 });
+    expect(n?.mbmf).toBeGreaterThan(0);
+    expect(p.excluded).toEqual([
+      expect.objectContaining({ employeeName: "Ong Wei Ling", reason: expect.stringContaining("sex") }),
+    ]);
+    expect(p.notes.map((x) => x.code)).toContain("IR8A_APPENDIX_8A");
+  });
+
+  it("downloads the rows for IRAS's import template (full NRIC)", async () => {
+    const res = await admin.get(`${api}/years/2026/ir8a/file?part=1`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-disposition")).toContain("ir8a-2026-part1-of-1.csv");
+    const rows = (await res.text()).replace(/^﻿/, "").trimEnd().split("\r\n");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]?.startsWith("*Record No.,*ID Type [Choose option],*ID No.,")).toBe(true);
+    const muthu = rows.find((r) => r.includes("Muthu Kumar"))?.split(",") ?? [];
+    expect(muthu).toHaveLength(44);
+    expect(muthu[1]).toBe("NRIC");
+    expect(muthu[2]).toMatch(/^S\d{7}[A-Z]$/);
+    expect(muthu.slice(3, 6)).toEqual(["Muthu Kumar", "Male", "1986-02-14"]);
+    // N bank, O a) gross salary, P b) bonus, Q date of bonus paid (December's pay date).
+    expect(muthu.slice(13, 16)).toEqual(["DBS/POSB", "78000", "70000"]);
+    expect(muthu[16]).toMatch(/^2026-12-\d\d$/);
+    expect(muthu[40]).toBe("21600");
+    expect(decodeURIComponent(res.headers.get("x-crowhr-excluded") ?? "")).toContain("Ong Wei Ling");
+    expect((await admin.get(`${api}/years/2026/ir8a/file?part=2`)).status).toBe(404);
+    expect((await admin.get(`${api}/years/2025/ir8a/file?part=1`)).status).toBe(409);
   });
 });

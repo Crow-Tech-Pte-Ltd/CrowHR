@@ -24,3 +24,15 @@ For a calendar year, a payroll_admin SHALL export each employee's IR8A figures i
 #### Scenario: Year export
 - **WHEN** a payroll_admin exports income year 2026
 - **THEN** each employee with 2026 payslips appears once with gross salary, bonus and employee CPF in whole dollars
+
+#### Scenario: More than 200 employees
+- **WHEN** the year has 201 records
+- **THEN** the export has two parts of 200 and 1 records, record numbers restarting at 1
+
+#### Scenario: Missing mandatory particulars
+- **WHEN** an employee has no recorded sex, or an ID type other than NRIC or FIN
+- **THEN** the employee is left out of the file and listed with the reason
+
+#### Scenario: No direct submission
+- **WHEN** a payroll_admin views the IR8A export
+- **THEN** it says the rows are imported in myTax Portal by the employer, that direct AIS-API submission is not available, and that Appendix 8A is not produced

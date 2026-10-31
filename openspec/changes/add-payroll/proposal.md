@@ -5,11 +5,11 @@ Running payroll is the M1 outcome: an SME must be able to prepare, review, appro
 ## What Changes
 
 - New core module `payroll/` with the pay-item model: basic pay from effective-dated compensation, pro-rated by MOM's incomplete-month formula for joiners, leavers and no-pay leave; recurring allowances; one-off earnings (bonus, commission, back pay, other) classified as OW or AW with an AW payable date; manual overtime; claims reimbursement through `ReimbursementSource`; deductions checked against the Employment Act limits; employer-only costs (CPF employer share, SDL, an FWL estimate).
-- Payroll runs: monthly regular runs and off-cycle runs (final pay, bonus) in states draft → in review → approved → paid. Reopening an approved or paid run creates an adjustment run; original figures are never changed. Approval goes through an approvals-engine port that matches the workflows `SubjectAdapter` (on-approve hook in the same transaction), with a local default until the engine lands.
+- Payroll runs: monthly regular runs and off-cycle runs (final pay, bonus) in states draft → in review → approved → paid. Reopening an approved or paid run creates an adjustment run; original figures are never changed. Approval goes through the workflows engine as a `payroll_run` subject (on-approve hook in the same transaction).
 - Determinism: every employee's input snapshot, rate-table ids, CPF working, YTD and AW-ceiling state are persisted per run, with SHA-256 hashes; recomputing the same inputs gives byte-identical results. Statutory refusals become blocking issues with an explanation.
 - Review UX in `apps/web/_app/payroll`: run overview (issues first, totals, headcount, changes since last month), a dense keyboard-navigable employee table, and a per-employee drawer that shows its working with each rule's effective date and source.
 - Payslips with the MOM itemised-payslip items, released by payroll admins after approval; PDF via a new runtime-agnostic core `pdf/` module (pure JS, self-hosted fonts); Me → Payslips for employees and leavers (read-only).
-- M2 files: CPF EZPay (FTP) submission file per CPF's public spec, a generic ISO 20022 pain.001.001.03 bank payment file, and (if time allows) an IR8A import-template export.
+- M2 files: CPF EZPay (FTP) submission file per CPF's public spec, a generic ISO 20022 pain.001.001.03 bank payment file, and an IR8A export in IRAS's import-template columns (no Appendix 8A, no AIS-API submission).
 - sg-rules: the 15 CPF-calculator-confirmed cases become fixtures with provenance `OFFICIAL_CALCULATOR`.
 
 ## Capabilities
@@ -30,7 +30,7 @@ None. Permission rows `payroll:*` and `payslips:read` already exist in the acces
 - New dependencies in core: `pdf-lib` and `@pdf-lib/fontkit` (pure JS, MIT). Font files (OFL / Ubuntu Font Licence) embedded from `@fontsource`.
 - `apps/web/src/routes/_app/payroll*` and `_app/me/payslips*`.
 - `packages/sg-rules/src/__fixtures__/sg-test-vectors.json` (fixtures only).
-- Interfaces for other workstreams to wire: approvals engine (WS3), `ReimbursementSource` (WS6 claims), `OvertimeSource` (WS5 attendance), people `PayrollPort` (WS2).
+- Interfaces for other workstreams to wire: `ReimbursementSource` (WS6 claims), `OvertimeSource` and scheduled days (WS5 attendance). Wired here: the workflows engine (WS3) and people's `PayrollPort` (WS2).
 
 ## Non-goals
 

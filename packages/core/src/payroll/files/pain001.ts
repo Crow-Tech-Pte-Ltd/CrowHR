@@ -1,9 +1,10 @@
 /**
  * Generic ISO 20022 customer credit transfer initiation, `pain.001.001.03`, for salary payments
- * (category purpose SALA). Research §13: Singapore banks' own bulk-payment formats (DBS IDEAL UFF,
- * OCBC Velocity, UOB Infinity) are not public, so Crow HR produces only this open standard. Some
- * banks accept it directly (e.g. UOB's host-to-host service lists pain.001 V3); every bank has its
- * own rules for optional fields, so the employer must test the file with their bank before first use.
+ * (category purpose SALA). Singapore's corporate-to-bank standard SS611 adopts pain.001.001.03 and
+ * leaves message details to each bank; banks publish their own guides (e.g. ANZ's Singapore MIG
+ * requires SvcLvl URNS for FAST and 11-character BICs). Service level, charge bearer and BIC length
+ * are therefore bank- and rail-profile dependent (payroll-choices.md §7). This writer is generic:
+ * no bank profile is applied, and the employer must test the file with their bank before first use.
  *
  * NOT a bank-specific format; not validated by any bank.
  */
