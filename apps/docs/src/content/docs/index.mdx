@@ -1,0 +1,47 @@
+---
+title: Crow HR documentation
+description: Install, set up and run Crow HR, the free, MIT-licensed, self-hosted HR and payroll platform for Singapore SMEs.
+template: splash
+hero:
+  title: HR and payroll you host yourself
+  tagline: Crow HR is free, MIT-licensed HR and payroll software for Singapore SMEs. It runs on your own server, and your employees' data stays with you.
+  actions:
+    - text: Quick start
+      link: /docs/quick-start/
+      variant: primary
+    - text: What it does today
+      link: /docs/status/
+      variant: secondary
+---
+
+import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+<CardGrid>
+  <Card title="Self-hosted in three steps" icon="rocket">
+    Copy `.env.example` to `.env`, set `PUBLIC_URL`, run `docker compose up -d`. One app container and PostgreSQL 17. No Redis, no queue, no cloud account.
+  </Card>
+  <Card title="Singapore payroll" icon="document">
+    Monthly runs with CPF (OW and AW ceilings, SPR rates), SHG funds, SDL and an FWL estimate; itemised payslips; the CPF EZPay file, a bank file and an IR8A export to upload yourself.
+  </Card>
+  <Card title="Shown working" icon="magnifier">
+    Every CPF figure shows its working, the rate table it used and a link to the source. The statutory engine is tested against CPF's published examples and its online calculator.
+  </Card>
+  <Card title="Your sign-in, your rules" icon="padlock">
+    Email and password with two-step verification, Google Workspace, Microsoft Entra ID, any OpenID Connect provider, and Singpass (needs your own Singpass onboarding).
+  </Card>
+</CardGrid>
+
+## Find your way
+
+<CardGrid>
+  <LinkCard title="Install Crow HR" description="Docker Compose install, reverse proxy, backups and upgrades." href="/docs/self-hosting/install/" />
+  <LinkCard title="Set up your company" description="Setup wizard, company profile, members, roles and sign-in methods." href="/docs/admin/setup-wizard/" />
+  <LinkCard title="Run payroll" description="From a draft run to approved payslips and the files for CPF and your bank." href="/docs/payroll/running-payroll/" />
+  <LinkCard title="Limitations and your judgement" description="What Crow HR does not do, and where you must check the result." href="/docs/payroll/limitations/" />
+  <LinkCard title="API reference" description="Every v1 endpoint, generated from the OpenAPI document." href="/docs/api/" />
+  <LinkCard title="Contribute" description="Architecture, modules, tests and the OpenSpec process." href="/docs/developers/contributing/" />
+</CardGrid>
+
+:::caution[Early software]
+Crow HR is under active development and has not been used for a real company's payroll yet. Leave, attendance, claims and several other modules are [not built yet](/docs/status/). Check every payroll result before you pay or file it. Nothing here is legal or tax advice.
+:::

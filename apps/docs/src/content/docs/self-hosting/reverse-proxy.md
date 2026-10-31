@@ -1,13 +1,26 @@
-# Self-hosting: reverse proxy (or none)
+---
+title: Reverse proxy (or none)
+description: Run Crow HR behind Caddy, nginx, Traefik or Cloudflare Tunnel, or on a LAN without a proxy, and set TRUSTED_PROXIES correctly.
+---
 
-Draft for the docs site. Crow HR serves plain HTTP on one port and works behind any reverse proxy, or with none on a trusted LAN. No proxy is bundled.
+Crow HR serves plain HTTP on one port and works behind any reverse proxy, or with none on a trusted LAN. No proxy is bundled.
 
 Two settings matter:
 
 - `PUBLIC_URL` is what people type, e.g. `https://hr.example.sg`. HTTPS cookies follow from it, so TLS can end at the proxy.
 - `TRUSTED_PROXIES` lists the proxy's address so the app believes its `X-Forwarded-For/-Proto/-Host`. If it is wrong, the app logs `Ignoring X-Forwarded-* headers from 172.18.0.5 … set TRUSTED_PROXIES=172.18.0.5`. **Settings → System → This request** and `crowhr doctor` show what the app sees.
 
-Verification status: the Caddy setup below is exercised by `e2e/self-host.sh` (Caddy container on the compose network, HTTP only: trusted vs untrusted proxy, spoofed `X-Forwarded-For` ignored). The nginx, Traefik and Cloudflare Tunnel examples are standard configurations that have **not** been run against Crow HR yet.
+## Which examples were tested
+
+| Setup | Status | How |
+| --- | --- | --- |
+| No proxy (LAN) | <span class="crow-pill crow-pill--tested">Tested</span> | The default compose install in `e2e/self-host.sh`. |
+| Caddy | <span class="crow-pill crow-pill--tested">Tested</span> | `e2e/self-host.sh` runs a Caddy container on the compose network, over HTTP only: trusted versus untrusted proxy, spoofed `X-Forwarded-For` ignored. Caddy's automatic HTTPS itself was not exercised. |
+| nginx | <span class="crow-pill crow-pill--untested">Not tested</span> | A standard configuration that has not been run against Crow HR yet. |
+| Traefik | <span class="crow-pill crow-pill--untested">Not tested</span> | Same. |
+| Cloudflare Tunnel | <span class="crow-pill crow-pill--untested">Not tested</span> | Same. |
+
+If you run one of the untested setups, please report what worked (or did not) so this table can be updated.
 
 ## No proxy (LAN)
 
@@ -37,7 +50,7 @@ BIND_ADDRESS=127.0.0.1
 
 `Caddyfile`:
 
-```caddy
+```txt
 hr.example.sg {
 	encode zstd gzip
 	reverse_proxy app:8080
@@ -48,7 +61,7 @@ hr.example.sg {
 
 Caddy installed on the host instead of in Docker: `reverse_proxy 127.0.0.1:8080` and `TRUSTED_PROXIES=loopback`. Docker's port forwarding may present host connections as the bridge gateway (e.g. `172.17.0.1`); if Settings → System shows that as the peer, use `TRUSTED_PROXIES=private`.
 
-## nginx (not yet verified)
+## nginx (not tested)
 
 ```nginx
 server {
@@ -77,7 +90,7 @@ server {
 
 `.env`: `PUBLIC_URL=https://hr.example.sg`, `BIND_ADDRESS=127.0.0.1`, `TRUSTED_PROXIES=loopback` (or `private` if the peer shows as the Docker gateway). nginx in a container on the compose network: `proxy_pass http://app:8080;` and `TRUSTED_PROXIES=private`.
 
-## Traefik (not yet verified)
+## Traefik (not tested)
 
 Add labels to the `app` service in `docker-compose.override.yml`, with Traefik on the same Docker network:
 
@@ -94,7 +107,7 @@ services:
 
 `.env`: `PUBLIC_URL=https://hr.example.sg`, `TRUSTED_PROXIES=private`, and stop publishing the app port to the world with `BIND_ADDRESS=127.0.0.1`. Traefik sets `X-Forwarded-*` itself; configure its entrypoint `forwardedHeaders.trustedIPs` only for proxies in front of Traefik.
 
-## Cloudflare Tunnel (not yet verified)
+## Cloudflare Tunnel (not tested)
 
 No open ports needed. Add `cloudflared` to `docker-compose.override.yml`:
 

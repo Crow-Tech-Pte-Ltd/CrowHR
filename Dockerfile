@@ -3,7 +3,7 @@
 # Crow HR: one image for the app, the `crowhr` CLI and the compose `init` step.
 #
 #   docker build -t crowhr:local .
-#   docker buildx build --platform linux/amd64,linux/arm64 -t crowhr:local .   # multi-arch (see docs/self-hosting/upgrades.md)
+#   docker buildx build --platform linux/amd64,linux/arm64 -t crowhr:local .   # multi-arch (see apps/docs/src/content/docs/self-hosting/upgrades.md)
 #
 # Builder: bun installs the workspace and Vite builds the web app. Runtime: Node 24 runs the
 # server's TypeScript directly (type stripping, no transpile step), as a non-root user, with
@@ -21,6 +21,8 @@ WORKDIR /src
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
+# Every workspace manifest must be present for --frozen-lockfile; the docs site is not built here.
+COPY apps/docs/package.json apps/docs/
 COPY packages/core/package.json packages/core/
 COPY packages/sg-rules/package.json packages/sg-rules/
 COPY packages/ui/package.json packages/ui/
@@ -37,6 +39,8 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
+# Every workspace manifest must be present for --frozen-lockfile; the docs site is not built here.
+COPY apps/docs/package.json apps/docs/
 COPY packages/core/package.json packages/core/
 COPY packages/sg-rules/package.json packages/sg-rules/
 COPY packages/ui/package.json packages/ui/

@@ -54,7 +54,7 @@
 
 - [x] 8.1 packages/core: extend the mock IdP with PAR, DPoP and JWE ID tokens; write `auth/singpass.test.ts` (PAR used, `private_key_jwt` assertion valid, DPoP proof bound, encrypted ID token decrypted, link only by invitation or profile) then enable the Singpass preset — tested only against the mock IdP; NOT verified against real Singpass (8.3 open)
 - [x] 8.2 packages/core: write `auth/jwks.http.test.ts` (public keys only, no private members) then implement RP key generation and the JWKS route
-- [ ] 8.3 apps/docs: Singpass relying-party setup guide — verified by review; manual staging sign-in recorded in the guide before this task is ticked
+- [ ] 8.3 apps/docs: Singpass relying-party setup guide — verified by review; manual staging sign-in recorded in the guide before this task is ticked — PARTIAL: guide written (`apps/docs/src/content/docs/admin/sso/singpass.mdx`, onboarding requirements, keys/JWKS, linking, button limitation, "not verified against real Singpass"); the staging sign-in has not been done
 
 ## 9. Web UI
 
