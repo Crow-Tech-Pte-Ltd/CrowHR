@@ -19,15 +19,20 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  globalSetup: "./e2e/global-setup.ts",
   webServer: {
-    // Serves the built web app (`bun run build` first; `bun run e2e` does both).
-    command: "node apps/server/src/main.ts",
+    // Serves the built web app (`bun run build` first; `bun run e2e` does both). The seed step
+    // creates the fictional organisation and members through the normal schema (no backdoor).
+    command: process.env.DATABASE_URL
+      ? "node e2e/seed.ts && node apps/server/src/main.ts"
+      : "rm -rf test-results/e2e-db && node e2e/seed.ts && node apps/server/src/main.ts",
     url: `http://127.0.0.1:${PORT}/api/health`,
     reuseExistingServer: false,
     timeout: 60_000,
     env: {
       // CI points this at a real Postgres service; locally PGlite needs no server.
-      DATABASE_URL: process.env.DATABASE_URL ?? "pglite:memory",
+      DATABASE_URL: process.env.DATABASE_URL ?? "pglite:./test-results/e2e-db",
+      ...(process.env.SHOTS_DIR ? { SHOTS_DIR: process.env.SHOTS_DIR } : {}),
       HOST: "127.0.0.1",
       PORT: String(PORT),
       FILE_STORAGE_DIR: "./test-results/files",

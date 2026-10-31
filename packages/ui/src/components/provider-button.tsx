@@ -16,9 +16,10 @@ import { cn } from "../lib/cn.ts";
  * NOT COMPLIANT YET (Singpass): the specification requires the official
  * Singpass logo inside the button and forbids replacing it with text. The logo
  * is published without a licence that permits redistribution in an MIT repo,
- * so it is NOT bundled; the button renders the wordmark as text until a
- * deployer supplies the official asset via `singpassLogoSrc`. Do not go live
- * with Singpass without it. Tracked in docs/limitations.md.
+ * so it is NOT bundled; the button renders plain text "Log in with Singpass"
+ * (deliberately no imitation of the wordmark's colouring) until a deployer
+ * supplies the official asset via `singpassLogoSrc`. Do not go live with
+ * Singpass without it. Tracked in docs/limitations.md.
  */
 export type IdentityProvider = "google" | "microsoft" | "singpass" | "oidc";
 
@@ -105,9 +106,8 @@ export const ProviderButton = React.forwardRef<HTMLButtonElement, ProviderButton
             {singpassLogoSrc ? (
               <img src={singpassLogoSrc} alt="" className="h-[14px] w-auto translate-y-px" />
             ) : (
-              <span className="font-bold">
-                <span className="text-[#D93841]">Sing</span>pass
-              </span>
+              // Plain text: no imitation of the Singpass wordmark or its colours without the official asset.
+              <span>Singpass</span>
             )}
           </span>
         );

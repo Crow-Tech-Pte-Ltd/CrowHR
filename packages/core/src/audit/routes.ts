@@ -71,7 +71,22 @@ function where(c: AppContext, orgId: string, f: Filters): SQL {
 }
 
 function toOut(r: typeof auditEvents.$inferSelect): z.input<typeof event> {
-  return { ...r, at: r.at.toISOString(), diff: r.diff ?? null, meta: r.meta ?? null };
+  return {
+    id: r.id,
+    seq: r.seq,
+    at: r.at.toISOString(),
+    actorType: r.actorType,
+    actorMembershipId: r.actorMembershipId,
+    actorLabel: r.actorLabel,
+    action: r.action,
+    targetType: r.targetType,
+    targetId: r.targetId,
+    requestId: r.requestId,
+    ip: r.ip,
+    userAgent: r.userAgent,
+    diff: r.diff ?? null,
+    meta: r.meta ?? null,
+  };
 }
 
 function csvCell(v: unknown): string {

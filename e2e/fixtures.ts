@@ -1,0 +1,40 @@
+import type { APIRequestContext, Page } from "@playwright/test";
+
+/** Fictional e2e data (seeded by e2e/seed.ts). */
+export const E2E = {
+  org: { name: "Kampong Kopi Pte. Ltd.", slug: "kampong-kopi" },
+  password: "kopi peng siew dai 2026",
+  members: {
+    owner: { email: "owner@kampongkopi.example", name: "Nur Aisyah", roles: ["owner"] },
+    hr: { email: "hr@kampongkopi.example", name: "Tan Mei Ling", roles: ["hr_admin"] },
+    staff: { email: "staff@kampongkopi.example", name: "Ravi Kumar", roles: [] },
+    mfa: { email: "mfa@kampongkopi.example", name: "Lim Wei Jie", roles: [] },
+    revokee: { email: "revokee@kampongkopi.example", name: "Siti Rahmah", roles: [] },
+  },
+} as const;
+
+export const SHOTS = process.env.SHOTS_DIR;
+
+export async function shot(page: Page, name: string) {
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/ws1-${name}.png`, fullPage: true });
+}
+
+/** Signs in through the API (shares cookies with the page's browser context). */
+export async function apiSignIn(request: APIRequestContext, email: string, password: string = E2E.password) {
+  const res = await request.post("/api/v1/auth/sign-in", { data: { org: E2E.org.slug, email, password } });
+  if (!res.ok()) throw new Error(`sign-in failed for ${email}: ${res.status()} ${await res.text()}`);
+}
+
+/** Signs in through the UI. */
+export async function uiSignIn(page: Page, email: string, password: string = E2E.password) {
+  await page.goto(`/sign-in/${E2E.org.slug}`);
+  await page.getByLabel("Work email").fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+}
+
+/** Signs in through the UI and waits until Home has loaded. */
+export async function uiSignInOk(page: Page, email: string, password: string = E2E.password) {
+  await uiSignIn(page, email, password);
+  await page.getByRole("heading", { level: 1, name: "Work to do" }).waitFor();
+}

@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, KeyRound } from "lucide-react";
+import { ChevronRight, KeyRound, type LucideIcon, ScrollText, Users } from "lucide-react";
+import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 
 const SECTIONS = [
   { title: "Organisation", body: "Company name, UEN, address, CPF submission number." },
-  { title: "Roles and access", body: "Who can see salaries, approve leave and run payroll." },
   { title: "Payroll defaults", body: "Pay dates, rounding, bank files." },
   { title: "Leave policies", body: "Leave types, entitlements, carry-forward." },
 ];
@@ -14,6 +14,36 @@ export const Route = createFileRoute("/_app/settings/")({
 });
 
 function SettingsPage() {
+  const me = useMe();
+  const links: {
+    to: "/settings/security" | "/settings/members" | "/settings/audit";
+    title: string;
+    body: string;
+    icon: LucideIcon;
+    show: boolean;
+  }[] = [
+    {
+      to: "/settings/security",
+      title: "Security",
+      body: "Sign-in methods (email, Google, Microsoft, Singpass, OIDC), two-step verification policy, session timeouts.",
+      icon: KeyRound,
+      show: me.roles.includes("owner"),
+    },
+    {
+      to: "/settings/members",
+      title: "Members and roles",
+      body: "Invite people, grant owner, HR admin and payroll admin roles, suspend access.",
+      icon: Users,
+      show: can(me, "members:read"),
+    },
+    {
+      to: "/settings/audit",
+      title: "Audit log",
+      body: "Every sign-in, permission change and sensitive action.",
+      icon: ScrollText,
+      show: can(me, "audit_log:read"),
+    },
+  ];
   return (
     <>
       <PageHeader title="Settings" description="Organisation, security and module defaults." />
@@ -22,23 +52,33 @@ function SettingsPage() {
           id="security-heading"
           className="mb-2 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200"
         >
-          Security
+          Access and security
         </h2>
-        <Link
-          to="/settings/security/sign-in-methods"
-          className="focus-ring group flex items-center gap-3 rounded-lg border border-border bg-surface-50 px-4 py-3 hover:border-ink/40"
-        >
-          <span className="flex size-8 items-center justify-center rounded-md border border-ink/15 bg-surface-100">
-            <KeyRound className="size-4" aria-hidden />
-          </span>
-          <span className="flex-1">
-            <span className="block font-azeret text-xs font-semibold">Sign-in methods</span>
-            <span className="block text-ui text-primary-300">
-              Email and password, Google, Microsoft, Singpass and other single sign-on.
-            </span>
-          </span>
-          <ChevronRight className="size-4 text-primary-200 group-hover:text-ink" aria-hidden />
-        </Link>
+        <div className="flex flex-col gap-2">
+          {links
+            .filter((l) => l.show)
+            .map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                className="focus-ring group flex items-center gap-3 rounded-lg border border-border bg-surface-50 px-4 py-3 hover:border-ink/40"
+              >
+                <span className="flex size-8 items-center justify-center rounded-md border border-ink/15 bg-surface-100">
+                  <l.icon className="size-4" aria-hidden />
+                </span>
+                <span className="flex-1">
+                  <span className="block font-azeret text-xs font-semibold">{l.title}</span>
+                  <span className="block text-ui text-primary-300">{l.body}</span>
+                </span>
+                <ChevronRight className="size-4 text-primary-200 group-hover:text-ink" aria-hidden />
+              </Link>
+            ))}
+          {links.every((l) => !l.show) ? (
+            <p className="text-ui text-primary-300">
+              Your role doesn't manage access. Your own sign-in settings are under your name, top right.
+            </p>
+          ) : null}
+        </div>
       </section>
       <section aria-labelledby="other-heading">
         <h2
