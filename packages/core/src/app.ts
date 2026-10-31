@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { membersModule } from "./access/members-routes.ts";
+import { attendanceModule } from "./attendance/routes.ts";
 import { auditModule } from "./audit/routes.ts";
 import { csrfProtection } from "./auth/csrf.ts";
 import { AUTH_ROUTE_GUARDS } from "./auth/guards.ts";
@@ -16,6 +17,7 @@ import { AppError, errorResponse, handleError } from "./errors.ts";
 import { requestContext } from "./http/request-context.ts";
 import { type ApiModule, buildModuleRouter, type RouteGuard } from "./http/route.ts";
 import { tick } from "./jobs/tick.ts";
+import { leaveModule } from "./leave/routes.ts";
 import { createMetaModule } from "./meta/routes.ts";
 import { healthRoutes } from "./modules/health/routes.ts";
 import { notificationsModule } from "./notifications/routes.ts";
@@ -32,11 +34,13 @@ import { approvalsModule, inboxModule } from "./workflows/routes.ts";
  */
 export const V1_MODULES: readonly ApiModule[] = [
   approvalsModule,
+  attendanceModule,
   auditModule,
   authModule,
   claimsModule,
   employeesModule,
   inboxModule,
+  leaveModule,
   meModule,
   membersModule,
   nativeModule,

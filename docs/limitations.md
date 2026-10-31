@@ -103,3 +103,26 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **FX sanity warning NOT IMPLEMENTED**: the design's "rate deviates more than 20% from the last rate" warning to approvers is not built; approvers see the original amount, rate and SGD amount.
 - **On-behalf claims**: owners and hr_admins can create claims for an employee through the API (`employeeId`); the web form only files claims for yourself.
 - **Uploaded but unattached receipts** are kept until the uploader deletes them; there is no cleanup sweep.
+
+## Leave (add-leave, WS5)
+
+- **Leave year is the calendar year.** Annual leave is pro-rated by completed months in the first calendar year of service and the year of leaving; later years use the service year reached by 31 Dec. This is an interpretation of MOM's service-year rules for calendar leave years, explained on every balance.
+- **No-pay leave and service**: whether a single unpaid day excludes a whole month is ambiguous in MOM's guidance; the org setting defaults to `whole_month` (a month counts as excluded only when every working day was no-pay leave).
+- **Shift schedules** have no fixed week until rostering (M3) exists, so leave on a shift schedule counts every day except the gazetted holiday date, with a warning on the quote. Parental leave assumes a 5-day week for shift workers.
+- **Part-time leave in hours** rounds to 1 decimal place, matching MOM's examples; the regulation's own rounding could not be read (sg-rules warning `PT_LEAVE_ROUNDING_UNVERIFIED`). The comparable full-timer is the org's default fixed schedule unless Settings names another.
+- **Government-paid leave claims** are not submitted (the MSF portal has no API). The report lists employer-paid and Government-paid days and the claim deadline; amounts are not computed. Shared parental leave weeks are shared between the parents as the employee declares; the other parent's usage is not known.
+- **EA maternity leave** for a non-citizen child approximates "fewer than 2 living children" by birth order.
+- **Encashment** is a ledger entry at year end (days only); paying it is payroll's job and is not wired.
+- **NOT IMPLEMENTED: manager/executive flag.** Part 4 coverage (carry-forward floor) assumes nobody is a manager or executive, because employment records have no such field yet.
+- **Scheduling conflicts**: `LeaveCalendar` is exposed for the scheduling module, but no `ScheduleConflictNotifier` is called when leave is approved (scheduling doesn't exist yet).
+- **The NDR 2026 childcare changes** are recorded in sg-rules with no effective date and are not applied.
+
+## Attendance (WS5)
+
+- **NOT IMPLEMENTED: manager/executive flag.** Statutory (Part 4) OT assumes nobody is a manager or executive, because employment records have no such field yet. Hourly-rated staff are checked against a monthly equivalent (rate × weekly hours × 52 / 12).
+- **Overnight work** is split at 04:00 SGT: an out punch before 04:00 closes the previous day's open shift; anything later starts a new day. Rostered shift bounds arrive with scheduling (M3).
+- **Shift schedules** have no fixed start time, so lateness and early-out are not computed for them; OT is worked minutes beyond a fifth of the weekly hours.
+- **Geolocation accuracy** comes from the browser; up to 50 m of the reported accuracy is credited towards an office radius. Location is spoofable on a rooted device; IP ranges are the stronger control.
+- **Clock skew** is estimated as server time minus the device's send time, so slow networks add their latency to the estimate (default threshold 2 minutes; flags never block).
+- **Rest-day and public-holiday base pay** is not passed to payroll; the OT feed carries OT minutes only, and payroll prices rest-day work from day rates.
+- **Punches older than 7 days** are refused; a manager or HR adds them as corrections.
