@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Browser-compatible on purpose: DOM + ES2023 globals only, no @types/node.
+    // If something in src/ needs a Node type, it does not belong in core.
+    "lib": ["DOM", "ES2023"],
+    "types": []
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}
