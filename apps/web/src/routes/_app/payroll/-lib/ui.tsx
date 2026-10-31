@@ -137,12 +137,14 @@ function SlipRow({
 }) {
   return (
     <tr className="border-b border-border last:border-b-0">
-      <td className="py-2 pr-3 align-top text-ui">{label}</td>
+      <td className="py-2 pr-3 align-top text-ui">
+        {label}
+        {detail ? <span className="block text-2xs text-primary-300 sm:hidden">{detail}</span> : null}
+      </td>
       <td className="hidden py-2 pr-3 align-top text-2xs text-primary-300 sm:table-cell">{detail}</td>
       <td className="num py-2 text-right align-top text-ui">
         {negative && cents !== 0 ? "-" : ""}
         {formatMoney(cents, { symbol: false })}
-        {detail ? <span className="block text-left text-2xs text-primary-300 sm:hidden">{detail}</span> : null}
       </td>
     </tr>
   );
