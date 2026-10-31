@@ -99,6 +99,18 @@ describe("hire", () => {
   });
 });
 
+describe("minimum employment age (Employment Act s 68 via sg-rules)", () => {
+  it("refuses a hire under 13 on the start date and allows 13", async () => {
+    const young = await err(
+      hire(owner(), hirePayload(s, { person: { dob: "2013-11-02" }, job: { hireDate: "2026-11-01" } })),
+    );
+    expect(young.code).toBe("validation_failed");
+    expect(JSON.stringify(young.details)).toContain("at least 13");
+    const ok = await hire(owner(), hirePayload(s, { person: { dob: "2013-11-01" }, job: { hireDate: "2026-11-01" } }));
+    expect(ok.employeeId).toBeTruthy();
+  });
+});
+
 describe("transfer, promotion, salary change", () => {
   let a: string;
   beforeEach(async () => {
@@ -197,6 +209,21 @@ describe("resignation and termination", () => {
     expect(await asAt(t.db, employmentRecords, h.orgId, a, "2026-12-03")).toBeUndefined();
     const items = await t.db.select().from(checklistItems).where(eq(checklistItems.orgId, h.orgId));
     expect(items.some((i) => i.title === "Collect company property" && i.dueOn === "2026-12-02")).toBe(true);
+  });
+
+  it("without a contractual notice period, the Employment Act minimum for the service applies", async () => {
+    // Hired 5 Jan 2026 (hirePayload): under 26 weeks on 3 Mar → 1 day; 26 weeks to 2 years on 3 Nov → 1 week.
+    const early = (await hire(owner(), hirePayload(s))).employeeId;
+    await applyEvent(owner(), early, { type: "resignation", noticeGivenOn: "2026-03-03" });
+    const later = (await hire(owner(), hirePayload(s))).employeeId;
+    await applyEvent(owner(), later, { type: "resignation", noticeGivenOn: "2026-11-03" });
+    const veteran = (await hire(owner(), hirePayload(s, { job: { hireDate: "2025-01-02" } }))).employeeId;
+    await applyEvent(owner(), veteran, { type: "resignation", noticeGivenOn: "2026-11-03", noticeDays: 30 });
+    const tenureOf = async (id: string) => (await t.db.select().from(tenures).where(eq(tenures.employeeId, id)))[0];
+    expect(await tenureOf(early)).toMatchObject({ noticeDays: 1, lastWorkingDay: "2026-03-03" });
+    expect(await tenureOf(later)).toMatchObject({ noticeDays: 7, lastWorkingDay: "2026-11-09" });
+    // A contractual period always wins.
+    expect(await tenureOf(veteran)).toMatchObject({ noticeDays: 30, lastWorkingDay: "2026-12-02" });
   });
 
   it("shortened notice by agreement; cannot extend", async () => {

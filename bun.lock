@@ -62,6 +62,7 @@
       "name": "@crowhr/core",
       "version": "0.0.0",
       "dependencies": {
+        "@crowhr/sg-rules": "workspace:*",
         "drizzle-orm": "^0.45.4",
         "hono": "^4.13.14",
         "openid-client": "^6.8.8",

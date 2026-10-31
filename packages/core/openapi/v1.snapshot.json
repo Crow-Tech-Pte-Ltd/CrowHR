@@ -6291,9 +6291,16 @@
                         "type": "string"
                       },
                       "noticeDays": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 365
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 365
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       },
                       "agreedLastWorkingDay": {
                         "type": [
@@ -6315,8 +6322,7 @@
                     },
                     "required": [
                       "type",
-                      "noticeGivenOn",
-                      "noticeDays"
+                      "noticeGivenOn"
                     ]
                   },
                   {

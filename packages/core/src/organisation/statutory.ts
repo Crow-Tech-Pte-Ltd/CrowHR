@@ -1,15 +1,4 @@
 /**
- * Statutory lookups the organisation and people module needs. AGENTS.md
- * rule 3: every value carries an effective date and a source.
- *
- * These belong in `packages/sg-rules` (roadmap: "sg-rules lookups … the rest
- * are follow-ups for the sg-rules workstream"). They live here, cited, until
- * that workstream owns a home for them; the function signatures are what
- * sg-rules should export so the move is mechanical.
- */
-import type { IsoDate } from "../employees/dates.ts";
-
-/**
  * CPF Submission Number payment types. "The CSN is UEN (or NRIC/FIN) + payment
  * type + serial number, e.g. 234567891APTE01. Payment types are PTE
  * (mandatory), AMS, VCT and MSE."
@@ -56,22 +45,5 @@ export type WorkPassType = (typeof WORK_PASS_TYPES)[number]["code"];
 /** Passes expiring within this many days are surfaced to HR (spec: employees / Work passes). Product rule, not statutory. */
 export const WORK_PASS_REMINDER_DAYS = 90;
 
-/**
- * Minimum employment age on a date.
- * NOT IMPLEMENTED: research/sg-regulatory.md does not cite the Employment Act
- * provisions on children and young persons, so no value is used and no hire is
- * refused for age. Returns null ("no rule available") until sg-rules cites it.
- */
-export function minimumEmploymentAge(_onDate: IsoDate): number | null {
-  return null;
-}
-
-/**
- * Statutory minimum notice period in days when the contract is silent.
- * NOT IMPLEMENTED: the EA s.10 notice table by length of service is not in
- * research/sg-regulatory.md. Callers must supply the contractual notice period;
- * there is no statutory fallback yet.
- */
-export function statutoryNoticeDays(_serviceDays: number, _onDate: IsoDate): number | null {
-  return null;
-}
+// Minimum employment age and the default notice period live in @crowhr/sg-rules
+// (`checkEmploymentAge`, `statutoryMinimumNotice`), cited to MOM.

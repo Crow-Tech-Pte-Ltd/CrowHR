@@ -13,7 +13,7 @@ An employee SHALL have:
 - residency status (`citizen`, `pr` or `foreigner`);
 - race and religion, used for SHG fund derivation, and an SHG opt-out flag with its opt-out date.
 
-NRIC and FIN values SHALL pass the checksum for their prefix: S/T for NRIC, and F/G/M for FIN, including the M series. PR start date SHALL be required when residency is `pr` and rejected otherwise. Date of birth SHALL be before the hire date, and a hire SHALL be refused when the employee is below the minimum employment age that `packages/sg-rules` returns for the hire date (TODO: value and citation from `research/sg-regulatory.md`). An ID number already used by another employee in the organisation SHALL be rejected with 409 `duplicate_id_number`. This includes former employees, and the response points to the rehire flow.
+NRIC and FIN values SHALL pass the checksum for their prefix: S/T for NRIC, and F/G/M for FIN, including the M series. PR start date SHALL be required when residency is `pr` and rejected otherwise. Date of birth SHALL be before the hire date, and a hire SHALL be refused when the employee is below the minimum employment age that `packages/sg-rules` returns for the hire date (13, Employment Act s 68(3) as published by [MOM](https://www.mom.gov.sg/employment-practices/young-persons-and-children); the family-only industrial undertaking exception is not supported). An ID number already used by another employee in the organisation SHALL be rejected with 409 `duplicate_id_number`. This includes former employees, and the response points to the rehire flow.
 
 #### Scenario: Bad NRIC checksum
 - **WHEN** an hr_admin saves NRIC `S1234567A` whose check letter is wrong
@@ -75,7 +75,7 @@ Each change to employment or compensation SHALL be made through a lifecycle even
 - `hire` (creates a tenure, employment record, compensation and membership invitation);
 - `transfer`, `promotion` and `salary_change`;
 - `probation_confirmed`;
-- `resignation` (notice date, notice period in days, computed last working day counting the notice date as day 1, editable when shortened by agreement; the default notice period comes from the employment contract, falling back to the statutory minimum from `packages/sg-rules`, TODO cite);
+- `resignation` (notice date, notice period in days, computed last working day counting the notice date as day 1, editable when shortened by agreement; the default notice period comes from the employment contract, falling back to the statutory minimum from `packages/sg-rules` when the contract states none: 1 day under 26 weeks of service, 1 week under 2 years, 2 weeks under 5 years, 4 weeks from 5 years, per [MOM](https://www.mom.gov.sg/employment-practices/termination-of-employment/termination-with-notice));
 - `termination` (reason: dismissal, retrenchment, contract end, retirement, death, mutual agreement; last working day);
 - `rehire` (new tenure on the same employee, keeping history).
 

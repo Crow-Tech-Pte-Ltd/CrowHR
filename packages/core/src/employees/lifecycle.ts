@@ -1,3 +1,4 @@
+import { checkEmploymentAge, RulesNotAvailableError, statutoryMinimumNotice } from "@crowhr/sg-rules";
 import { asc, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { orgScope } from "../access/org-scope.ts";
@@ -21,14 +22,13 @@ import { workSchedules } from "../db/schema/organisation.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
-import { minimumEmploymentAge } from "../organisation/statutory.ts";
 import { assertSelectable } from "../organisation/structure.ts";
 import { defaultWorkScheduleId } from "../organisation/work-schedules.ts";
 import { type Actor, assertCanWrite, assertNotSelfChange, canWrite } from "./access.ts";
 import { diffOf, recordAudit } from "./audit-helpers.ts";
 import { cancelChecklistsForEvent, instantiateChecklist } from "./checklists.ts";
 import { normaliseEmail } from "./contact.ts";
-import { addDays, ageOn, displayDate, displayMonth, singaporeToday } from "./dates.ts";
+import { addDays, displayDate, displayMonth, singaporeToday } from "./dates.ts";
 import { findAsAt, planInsert } from "./effective.ts";
 import { assertIdNumberFree, assertWorkEmailFree, nextEmployeeNumber, phoneOrError, sealIdNumber } from "./person.ts";
 import type { HireInvite, PeoplePorts } from "./ports.ts";
@@ -426,9 +426,15 @@ async function hireInTx(tx: Db, ctx: LifecycleCtx, input: HireInput): Promise<st
   const p = input.person;
   const hireDate = input.job.hireDate;
   if (p.dob >= hireDate) throw fieldError("person.dob", "The date of birth must be before the start date.");
-  const minAge = minimumEmploymentAge(hireDate);
-  if (minAge !== null && ageOn(p.dob, hireDate) < minAge) {
-    throw fieldError("person.dob", `Employees must be at least ${minAge} on their start date.`);
+  // Employment Act s 68 (sg-rules): nobody under 13 on the start date. The family-only industrial
+  // undertaking exception is not supported. Start dates before the encoded rules (2025) are not
+  // checked: their history is not cited.
+  const age = employmentAgeOn(p.dob, hireDate);
+  if (age && !age.allowed) {
+    throw fieldError(
+      "person.dob",
+      `Employees must be at least ${age.minimumAge} on their start date (Employment Act s 68). Check the date of birth.`,
+    );
   }
   const id = await sealIdNumber(ctx.ports, p.idType, p.idNumber, "person.idNumber");
   await assertIdNumberFree(tx, orgId, id.hmac);
@@ -568,7 +574,11 @@ const probationEvent = z.object({ type: z.literal("probation_confirmed"), effect
 const resignationEvent = z.object({
   type: z.literal("resignation"),
   noticeGivenOn: isoDate,
-  noticeDays: z.number().int().min(0).max(365),
+  /**
+   * The contractual notice period in days. Omit it when the contract states none: the Employment
+   * Act minimum for the length of service applies (1 day, 1 week, 2 weeks or 4 weeks; sg-rules).
+   */
+  noticeDays: z.number().int().min(0).max(365).nullish(),
   /** Earlier last day agreed with the employee (shortened notice). */
   agreedLastWorkingDay: isoDate.nullish(),
   note: z.string().trim().max(500).nullish(),
@@ -596,6 +606,33 @@ export const eventInput = z.discriminatedUnion("type", [
   rehireEvent,
 ]);
 export type EventInput = z.output<typeof eventInput>;
+
+function employmentAgeOn(dob: string, onDate: string) {
+  try {
+    return checkEmploymentAge({ dob, onDate });
+  } catch (err) {
+    if (err instanceof RulesNotAvailableError) return null;
+    throw err;
+  }
+}
+
+/**
+ * Employment Act minimum notice when the contract states none, by service from the start of this
+ * tenure to the notice date (sg-rules `statutoryMinimumNotice`, MOM "Termination with notice").
+ */
+function statutoryNoticeDays(serviceStart: string, noticeGivenOn: string): number {
+  try {
+    return statutoryMinimumNotice({ serviceStart, noticeGivenOn }).noticeDays;
+  } catch (err) {
+    if (err instanceof RulesNotAvailableError) {
+      throw fieldError(
+        "noticeDays",
+        "Enter the notice period from the contract: no statutory default is encoded for that date.",
+      );
+    }
+    throw err;
+  }
+}
 
 /** Last working day, counting the notice date as day 1 (3 Nov + 30 days → 2 Dec). */
 export function lastWorkingDayFor(noticeGivenOn: string, noticeDays: number): string {
@@ -726,8 +763,7 @@ async function applyLeaving(
   employeeId: string,
   input: z.output<typeof resignationEvent> | z.output<typeof terminationEvent>,
 ): Promise<ApplyResult> {
-  const { orgId } = ctx.actor;
-  const { org } = ctx.actor;
+  const { orgId, org } = ctx.actor;
   const tenure = await currentTenure(tx, orgId, employeeId);
   if (!tenure) throw new AppError("conflict", "This person has no employment to end.");
   if (tenure.lastWorkingDay) {
@@ -740,10 +776,16 @@ async function applyLeaving(
   let lastDay: string;
   let noticeGivenOn: string | null = null;
   let noticeDays: number | null = null;
+  let noticeBasis: "contract" | "statutory" | null = null;
+  let computed: string | null = null;
   if (input.type === "resignation") {
     noticeGivenOn = input.noticeGivenOn;
-    noticeDays = input.noticeDays;
-    const computed = lastWorkingDayFor(input.noticeGivenOn, input.noticeDays);
+    if (input.noticeGivenOn < tenure.hireDate) {
+      throw fieldError("noticeGivenOn", "Notice cannot be given before the start date.");
+    }
+    noticeBasis = input.noticeDays == null ? "statutory" : "contract";
+    noticeDays = input.noticeDays ?? statutoryNoticeDays(tenure.hireDate, input.noticeGivenOn);
+    computed = lastWorkingDayFor(input.noticeGivenOn, noticeDays);
     if (input.agreedLastWorkingDay && input.agreedLastWorkingDay > computed) {
       throw fieldError("agreedLastWorkingDay", "An agreed last day can shorten the notice period, not extend it.");
     }
@@ -787,10 +829,10 @@ async function applyLeaving(
     payload: {
       noticeGivenOn,
       noticeDays,
+      noticeBasis,
       reason: input.type === "termination" ? input.reason : "resignation",
       note: input.note ?? null,
-      computedLastWorkingDay:
-        input.type === "resignation" ? lastWorkingDayFor(input.noticeGivenOn, input.noticeDays) : null,
+      computedLastWorkingDay: computed,
     },
   });
   const closed = await closeOpenRecords(tx, orgId, employeeId, endExclusive);
