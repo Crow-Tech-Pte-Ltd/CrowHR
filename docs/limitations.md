@@ -16,7 +16,11 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **No email change** endpoint yet (it would be a `recentAuth` action).
 - **Native apps**: the token endpoints exist and are tested; the apps themselves (M4) do not. No browser session is created during a native sign-in at all (stricter than the design's create-then-revoke).
 - **No RLS**: isolation is app-level (`orgScope`) plus composite FKs, as designed.
-- **Org switcher** in the web shell lists only the current organisation.
+- **Org switcher** in the web shell lists only the current organisation (the API supports `POST /api/v1/auth/switch-organisation`).
+- **Admin/employee view** in the web shell is still a client-side preview toggle (user menu or `?view=employee`), not derived from roles. The server enforces roles on every request regardless.
+- **NRIC reveal control** (web) is not built; it needs the employees module's reveal endpoint.
+- **E2E gaps**: the SSO round trip, audit-log filtering/export and device sessions are covered by core integration tests (mock IdP, PGlite), not by Playwright. The idle-timeout message is unit-tested; an e2e with a mocked server clock is not feasible against the real server.
+- **QR code** for authenticator enrolment is generated in the browser (`qrcode` package); nothing is sent to a third party.
 
 ## Screens
 

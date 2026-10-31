@@ -8,10 +8,12 @@ import {
   DropdownMenuTrigger,
 } from "@crowhr/ui";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
-import { SAMPLE_ORG } from "../fixtures/session.ts";
+import { useMe } from "../auth/session.ts";
 
-/** NOT IMPLEMENTED: placeholder. Organisation membership arrives with auth. */
+/** NOT IMPLEMENTED: switching. Shows the current organisation; listing other memberships comes later. */
 export function OrgSwitcher({ className }: { className?: string }) {
+  const me = useMe();
+  const org = { name: me.organisation.name, slug: me.organisation.slug ?? "" };
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -24,19 +26,19 @@ export function OrgSwitcher({ className }: { className?: string }) {
           aria-hidden
           className="flex size-6 shrink-0 items-center justify-center rounded-[5px] bg-ink font-azeret text-[11px] font-bold text-surface-50"
         >
-          {SAMPLE_ORG.name[0]}
+          {org.name[0]}
         </span>
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-ui font-medium leading-4">{SAMPLE_ORG.name}</span>
-          <span className="num truncate text-[10px] leading-3 text-primary-200">UEN {SAMPLE_ORG.uen}</span>
+          <span className="truncate text-ui font-medium leading-4">{org.name}</span>
+          <span className="num truncate text-[10px] leading-3 text-primary-200">{org.slug}</span>
         </span>
         <ChevronsUpDown className="size-3.5 shrink-0 text-primary-200" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel>Organisations · sample</DropdownMenuLabel>
+        <DropdownMenuLabel>Organisations</DropdownMenuLabel>
         <DropdownMenuItem>
           <Check className="!text-ink" />
-          <span className="truncate">{SAMPLE_ORG.name}</span>
+          <span className="truncate">{org.name}</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled>

@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
-import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAttendanceRouteImport } from './routes/_app/attendance'
 import { Route as AppClaimsRouteImport } from './routes/_app/claims'
@@ -20,16 +19,18 @@ import { Route as AppPayrollRouteImport } from './routes/_app/payroll'
 import { Route as AppPeopleRouteImport } from './routes/_app/people'
 import { Route as AppReportsRouteImport } from './routes/_app/reports'
 import { Route as AppSchedulesRouteImport } from './routes/_app/schedules'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as ResetTokenRouteImport } from './routes/reset.$token'
+import { Route as SignInIndexRouteImport } from './routes/sign-in.index'
+import { Route as SignInOrgRouteImport } from './routes/sign-in.$org'
+import { Route as AppMeSessionsRouteImport } from './routes/_app/me/sessions'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
-import { Route as AppSettingsSecuritySignInMethodsRouteImport } from './routes/_app/settings/security/sign-in-methods'
+import { Route as AppSettingsAuditRouteImport } from './routes/_app/settings/audit'
+import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
+import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignInRoute = SignInRouteImport.update({
-  id: '/sign-in',
-  path: '/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -77,21 +78,54 @@ const AppSchedulesRoute = AppSchedulesRouteImport.update({
   path: '/schedules',
   getParentRoute: () => AppRoute,
 } as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetTokenRoute = ResetTokenRouteImport.update({
+  id: '/reset/$token',
+  path: '/reset/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInIndexRoute = SignInIndexRouteImport.update({
+  id: '/sign-in/',
+  path: '/sign-in/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInOrgRoute = SignInOrgRouteImport.update({
+  id: '/sign-in/$org',
+  path: '/sign-in/$org',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppMeSessionsRoute = AppMeSessionsRouteImport.update({
+  id: '/me/sessions',
+  path: '/me/sessions',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppSettingsSecuritySignInMethodsRoute =
-  AppSettingsSecuritySignInMethodsRouteImport.update({
-    id: '/settings/security/sign-in-methods',
-    path: '/settings/security/sign-in-methods',
-    getParentRoute: () => AppRoute,
-  } as any)
+const AppSettingsAuditRoute = AppSettingsAuditRouteImport.update({
+  id: '/settings/audit',
+  path: '/settings/audit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
+  id: '/settings/members',
+  path: '/settings/members',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsSecurityRoute = AppSettingsSecurityRouteImport.update({
+  id: '/settings/security',
+  path: '/settings/security',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/sign-in': typeof SignInRoute
   '/attendance': typeof AppAttendanceRoute
   '/claims': typeof AppClaimsRoute
   '/documents': typeof AppDocumentsRoute
@@ -100,11 +134,17 @@ export interface FileRoutesByFullPath {
   '/people': typeof AppPeopleRoute
   '/reports': typeof AppReportsRoute
   '/schedules': typeof AppSchedulesRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/reset/$token': typeof ResetTokenRoute
+  '/sign-in/$org': typeof SignInOrgRoute
+  '/sign-in/': typeof SignInIndexRoute
+  '/me/sessions': typeof AppMeSessionsRoute
+  '/settings/audit': typeof AppSettingsAuditRoute
+  '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/': typeof AppSettingsIndexRoute
-  '/settings/security/sign-in-methods': typeof AppSettingsSecuritySignInMethodsRoute
 }
 export interface FileRoutesByTo {
-  '/sign-in': typeof SignInRoute
   '/attendance': typeof AppAttendanceRoute
   '/claims': typeof AppClaimsRoute
   '/documents': typeof AppDocumentsRoute
@@ -113,14 +153,20 @@ export interface FileRoutesByTo {
   '/people': typeof AppPeopleRoute
   '/reports': typeof AppReportsRoute
   '/schedules': typeof AppSchedulesRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/reset/$token': typeof ResetTokenRoute
+  '/sign-in/$org': typeof SignInOrgRoute
   '/': typeof AppIndexRoute
+  '/sign-in': typeof SignInIndexRoute
+  '/me/sessions': typeof AppMeSessionsRoute
+  '/settings/audit': typeof AppSettingsAuditRoute
+  '/settings/members': typeof AppSettingsMembersRoute
+  '/settings/security': typeof AppSettingsSecurityRoute
   '/settings': typeof AppSettingsIndexRoute
-  '/settings/security/sign-in-methods': typeof AppSettingsSecuritySignInMethodsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
-  '/sign-in': typeof SignInRoute
   '/_app/attendance': typeof AppAttendanceRoute
   '/_app/claims': typeof AppClaimsRoute
   '/_app/documents': typeof AppDocumentsRoute
@@ -129,15 +175,21 @@ export interface FileRoutesById {
   '/_app/people': typeof AppPeopleRoute
   '/_app/reports': typeof AppReportsRoute
   '/_app/schedules': typeof AppSchedulesRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/reset/$token': typeof ResetTokenRoute
+  '/sign-in/$org': typeof SignInOrgRoute
   '/_app/': typeof AppIndexRoute
+  '/sign-in/': typeof SignInIndexRoute
+  '/_app/me/sessions': typeof AppMeSessionsRoute
+  '/_app/settings/audit': typeof AppSettingsAuditRoute
+  '/_app/settings/members': typeof AppSettingsMembersRoute
+  '/_app/settings/security': typeof AppSettingsSecurityRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
-  '/_app/settings/security/sign-in-methods': typeof AppSettingsSecuritySignInMethodsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/sign-in'
     | '/attendance'
     | '/claims'
     | '/documents'
@@ -146,11 +198,17 @@ export interface FileRouteTypes {
     | '/people'
     | '/reports'
     | '/schedules'
+    | '/invite/$token'
+    | '/reset/$token'
+    | '/sign-in/$org'
+    | '/sign-in/'
+    | '/me/sessions'
+    | '/settings/audit'
+    | '/settings/members'
+    | '/settings/security'
     | '/settings/'
-    | '/settings/security/sign-in-methods'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/sign-in'
     | '/attendance'
     | '/claims'
     | '/documents'
@@ -159,13 +217,19 @@ export interface FileRouteTypes {
     | '/people'
     | '/reports'
     | '/schedules'
+    | '/invite/$token'
+    | '/reset/$token'
+    | '/sign-in/$org'
     | '/'
+    | '/sign-in'
+    | '/me/sessions'
+    | '/settings/audit'
+    | '/settings/members'
+    | '/settings/security'
     | '/settings'
-    | '/settings/security/sign-in-methods'
   id:
     | '__root__'
     | '/_app'
-    | '/sign-in'
     | '/_app/attendance'
     | '/_app/claims'
     | '/_app/documents'
@@ -174,14 +238,24 @@ export interface FileRouteTypes {
     | '/_app/people'
     | '/_app/reports'
     | '/_app/schedules'
+    | '/invite/$token'
+    | '/reset/$token'
+    | '/sign-in/$org'
     | '/_app/'
+    | '/sign-in/'
+    | '/_app/me/sessions'
+    | '/_app/settings/audit'
+    | '/_app/settings/members'
+    | '/_app/settings/security'
     | '/_app/settings/'
-    | '/_app/settings/security/sign-in-methods'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
-  SignInRoute: typeof SignInRoute
+  InviteTokenRoute: typeof InviteTokenRoute
+  ResetTokenRoute: typeof ResetTokenRoute
+  SignInOrgRoute: typeof SignInOrgRoute
+  SignInIndexRoute: typeof SignInIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -191,13 +265,6 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sign-in': {
-      id: '/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -263,6 +330,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSchedulesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset/$token': {
+      id: '/reset/$token'
+      path: '/reset/$token'
+      fullPath: '/reset/$token'
+      preLoaderRoute: typeof ResetTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in/': {
+      id: '/sign-in/'
+      path: '/sign-in'
+      fullPath: '/sign-in/'
+      preLoaderRoute: typeof SignInIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in/$org': {
+      id: '/sign-in/$org'
+      path: '/sign-in/$org'
+      fullPath: '/sign-in/$org'
+      preLoaderRoute: typeof SignInOrgRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/me/sessions': {
+      id: '/_app/me/sessions'
+      path: '/me/sessions'
+      fullPath: '/me/sessions'
+      preLoaderRoute: typeof AppMeSessionsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings/': {
       id: '/_app/settings/'
       path: '/settings'
@@ -270,11 +372,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/settings/security/sign-in-methods': {
-      id: '/_app/settings/security/sign-in-methods'
-      path: '/settings/security/sign-in-methods'
-      fullPath: '/settings/security/sign-in-methods'
-      preLoaderRoute: typeof AppSettingsSecuritySignInMethodsRouteImport
+    '/_app/settings/audit': {
+      id: '/_app/settings/audit'
+      path: '/settings/audit'
+      fullPath: '/settings/audit'
+      preLoaderRoute: typeof AppSettingsAuditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/members': {
+      id: '/_app/settings/members'
+      path: '/settings/members'
+      fullPath: '/settings/members'
+      preLoaderRoute: typeof AppSettingsMembersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/security': {
+      id: '/_app/settings/security'
+      path: '/settings/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AppSettingsSecurityRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -290,8 +406,11 @@ interface AppRouteChildren {
   AppReportsRoute: typeof AppReportsRoute
   AppSchedulesRoute: typeof AppSchedulesRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppMeSessionsRoute: typeof AppMeSessionsRoute
+  AppSettingsAuditRoute: typeof AppSettingsAuditRoute
+  AppSettingsMembersRoute: typeof AppSettingsMembersRoute
+  AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
-  AppSettingsSecuritySignInMethodsRoute: typeof AppSettingsSecuritySignInMethodsRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -304,15 +423,21 @@ const AppRouteChildren: AppRouteChildren = {
   AppReportsRoute: AppReportsRoute,
   AppSchedulesRoute: AppSchedulesRoute,
   AppIndexRoute: AppIndexRoute,
+  AppMeSessionsRoute: AppMeSessionsRoute,
+  AppSettingsAuditRoute: AppSettingsAuditRoute,
+  AppSettingsMembersRoute: AppSettingsMembersRoute,
+  AppSettingsSecurityRoute: AppSettingsSecurityRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
-  AppSettingsSecuritySignInMethodsRoute: AppSettingsSecuritySignInMethodsRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
-  SignInRoute: SignInRoute,
+  InviteTokenRoute: InviteTokenRoute,
+  ResetTokenRoute: ResetTokenRoute,
+  SignInOrgRoute: SignInOrgRoute,
+  SignInIndexRoute: SignInIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

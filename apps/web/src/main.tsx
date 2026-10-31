@@ -1,14 +1,33 @@
 import "@crowhr/ui/fonts.css";
 import "@crowhr/ui/styles.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { reasonFor } from "./auth/session.ts";
 import { RouteError, RouteNotFound, RoutePending } from "./components/route-states.tsx";
+import { ApiError } from "./lib/api.ts";
 import { routeTree } from "./routeTree.gen.ts";
 
+/** A session that expires or is revoked mid-use sends the user to sign-in with the reason. */
+function onAuthLost(err: unknown) {
+  if (!(err instanceof ApiError) || err.status !== 401) return;
+  if (window.location.pathname.startsWith("/sign-in")) return;
+  const reason = reasonFor(err);
+  queryClient.clear();
+  void router.navigate({ to: "/sign-in", search: reason ? { reason } : {} });
+}
+
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
+  queryCache: new QueryCache({ onError: onAuthLost }),
+  mutationCache: new MutationCache({ onError: onAuthLost }),
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: (count, err) => !(err instanceof ApiError && err.status < 500) && count < 1,
+      refetchOnWindowFocus: false,
+    },
+  },
 });
 
 const router = createRouter({

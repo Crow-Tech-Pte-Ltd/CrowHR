@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("application shell", () => {
+  test.use({ storageState: "test-results/owner.json" });
+
   test("loads Home with navigation and a visible sample-data notice", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
@@ -44,28 +46,6 @@ test.describe("application shell", () => {
     const empty = page.getByTestId("module-empty-state");
     await expect(empty).toBeVisible();
     await expect(empty).toContainText("Leave is not available yet");
-  });
-
-  test("sign-in form sends nothing and says so", async ({ page }) => {
-    const apiCalls: string[] = [];
-    page.on("request", (r) => {
-      if (r.url().includes("/api/") && !r.url().endsWith("/api/health")) apiCalls.push(r.url());
-    });
-    await page.goto("/sign-in");
-    await page.getByLabel("Work email").fill("aisyah@kampongkopi.example");
-    await page.getByLabel("Password").fill("not-a-real-password");
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await expect(page.getByTestId("sign-in-notice")).toContainText("Sign-in isn't available yet");
-    expect(apiCalls).toEqual([]);
-  });
-
-  test("sign-in renders only the enabled methods", async ({ page }) => {
-    await page.goto("/sign-in?methods=password");
-    await expect(page.getByTestId("sso-methods")).toHaveCount(0);
-    await page.goto("/sign-in?methods=all");
-    const sso = page.getByTestId("sso-methods");
-    await expect(sso.getByRole("button")).toHaveCount(4);
-    await expect(sso.getByRole("button", { name: "Log in with Sing-pass" })).toBeVisible();
   });
 
   test("works at 360px without horizontal scrolling", async ({ page }) => {

@@ -58,10 +58,10 @@
 
 ## 9. Web UI
 
-- [ ] 9.1 apps/web: write `e2e/auth.spec.ts` (sign in, wrong password message, MFA enrol and sign in with code, idle timeout message with mocked clock, revoke other session) then build the sign-in, MFA, reset and invitation-acceptance screens
-- [ ] 9.2 apps/web: write `e2e/security-settings.spec.ts` (owner adds a generic OIDC provider against the mock IdP, test sign-in, disable password, staff sees the SSO-only message) then build Settings → Security, Members and My sessions
-- [ ] 9.3 apps/web: write `e2e/audit-log.spec.ts` (filter, export CSV, hr_admin cannot see SSO events) then build the Audit log screen
-- [ ] 9.4 apps/web: write `src/lib/nric-reveal.test.tsx` (masked by default, reveal prompts re-auth, value cleared on navigation) then build the reveal control
+- [x] 9.1 apps/web: write `e2e/auth.spec.ts` (sign in, wrong password message, MFA enrol and sign in with code, idle timeout message with mocked clock, revoke other session) then build the sign-in, MFA, reset and invitation-acceptance screens — e2e: password sign-in, wrong-password message, MFA enrol + code sign-in, revoke other session, admin sign-out-everywhere, invite → accept → sign in; the idle-timeout message is unit-tested (`sign-in/notices.test.ts`) and server-tested with an injected clock, since the e2e server clock cannot be mocked
+- [ ] 9.2 apps/web: write `e2e/security-settings.spec.ts` (owner adds a generic OIDC provider against the mock IdP, test sign-in, disable password, staff sees the SSO-only message) then build Settings → Security, Members and My sessions — PARTIAL: Security (methods, per-provider setup with guidance, test sign-in, MFA policy, timeouts, HTTPS warning), Members and roles, and My sessions are built; e2e covers the settings screens and validation but not the mock-IdP round trip, which is covered by `auth/oidc-flow.http.test.ts`
+- [ ] 9.3 apps/web: write `e2e/audit-log.spec.ts` (filter, export CSV, hr_admin cannot see SSO events) then build the Audit log screen — PARTIAL: Audit log screen built (filters, detail, CSV export); filter/export/hr_admin visibility are covered by `audit/routes.test.ts`, e2e checks rendering only
+- [ ] 9.4 apps/web: write `src/lib/nric-reveal.test.tsx` (masked by default, reveal prompts re-auth, value cleared on navigation) then build the reveal control — NOT STARTED: needs the employees module reveal endpoint
 
 ## 10. Demo substitution
 
