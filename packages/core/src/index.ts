@@ -20,6 +20,12 @@ export { requireRecentAuth } from "./auth/guards.ts";
 export { newResetLinkForCli } from "./auth/owner-recovery.ts";
 export { passwordProblem } from "./auth/password-policy.ts";
 export { revokeUserSessions } from "./auth/sessions.ts";
+export type * from "./claims/public-types.ts";
+export {
+  createClaimsReimbursementSource,
+  type PayableClaim,
+  type ReimbursementSource,
+} from "./claims/reimbursement.ts";
 export type { ClientInfo } from "./context.ts";
 export {
   type AppContext,

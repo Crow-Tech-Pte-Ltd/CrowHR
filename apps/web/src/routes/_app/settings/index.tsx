@@ -7,6 +7,7 @@ import {
   KeyRound,
   type LucideIcon,
   Network,
+  ReceiptText,
   ScrollText,
   Server,
   Users,
@@ -32,7 +33,8 @@ function SettingsPage() {
       | "/settings/audit"
       | "/settings/system"
       | "/settings/approvals"
-      | "/settings/notifications";
+      | "/settings/notifications"
+      | "/settings/claim-types";
     title: string;
     body: string;
     icon: LucideIcon;
@@ -72,6 +74,13 @@ function SettingsPage() {
       body: "Who approves leave, claims and payroll, amount thresholds, escalation and out-of-office cover.",
       icon: GitBranch,
       show: can(me, "policies:read"),
+    },
+    {
+      to: "/settings/claim-types",
+      title: "Claim types",
+      body: "What staff can claim, receipt rules, monthly and yearly caps, and how claims are paid.",
+      icon: ReceiptText,
+      show: can(me, "claim_types:read"),
     },
     {
       to: "/settings/notifications",

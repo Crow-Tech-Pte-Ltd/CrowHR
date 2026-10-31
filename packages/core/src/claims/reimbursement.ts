@@ -159,3 +159,35 @@ export function createClaimsReimbursementSource(deps: AppDeps): ReimbursementSou
     },
   };
 }
+
+/**
+ * What a payroll run for the period ending `periodEnd` would pick up (the HTTP view of
+ * `listPayable` for payroll_admins and owners), with claim numbers and employee names.
+ */
+export async function payableForPeriod(db: Db, orgId: string, periodEnd: string) {
+  const entries = await listPayableClaims(db, orgId, periodEnd);
+  const ids = [...new Set(entries.map((e) => e.claimId))];
+  const rows = ids.length
+    ? await db
+        .select({
+          id: claims.id,
+          claimNumber: claims.claimNumber,
+          approvedOn: claims.approvedOn,
+          payrollRunId: claims.payrollRunId,
+          name: sql<string>`(select coalesce(e.preferred_name, e.legal_name) from employees e where e.org_id = ${claims.orgId} and e.id = ${claims.employeeId})`,
+        })
+        .from(claims)
+        .where(and(eq(claims.orgId, orgId), inArray(claims.id, ids)))
+    : [];
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return entries.map((e) => {
+    const r = byId.get(e.claimId);
+    return {
+      ...e,
+      claimNumber: r?.claimNumber ?? null,
+      employeeName: r?.name ?? "",
+      approvedOn: r?.approvedOn ?? null,
+      reserved: r?.payrollRunId != null,
+    };
+  });
+}

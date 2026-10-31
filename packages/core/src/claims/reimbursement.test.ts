@@ -61,6 +61,31 @@ describe("ReimbursementSource (claims → payroll)", () => {
     expect(await source.listPayable(other.id, "2026-10-31")).toEqual([]);
   });
 
+  it("payroll admins see the period's payable claims over HTTP; others can't", async () => {
+    const a = await approved([line(transport, { amountMinor: 4560 })]);
+    const res = await (await w.as("payroll")).get("/api/v1/claims/payable?periodEnd=2026-10-31");
+    expect(res.status).toBe(200);
+    expect(await json(res)).toEqual({
+      items: [
+        {
+          claimId: a.id,
+          employeeId: w.emp.staff,
+          typeName: "Transport",
+          amountCents: 4560,
+          claimNumber: "C-0001",
+          employeeName: "Ravi Kumar",
+          approvedOn: "2026-10-30",
+          reserved: false,
+        },
+      ],
+      totalCents: 4560,
+    });
+    expect((await (await w.as("hr")).get("/api/v1/claims/payable?periodEnd=2026-10-31")).status).toBe(403);
+    expect(
+      (await json(await (await w.as("payroll")).get("/api/v1/claims/payable?periodEnd=2026-10-29"))).items,
+    ).toEqual([]);
+  });
+
   it("a claim approved after the cutoff rolls to the next run (approval date in SGT)", async () => {
     // 31 Oct 23:30 SGT = 31 Oct 15:30 UTC → still October.
     w.clock.set("2026-10-31T15:30:00.000Z");
