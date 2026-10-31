@@ -33,6 +33,42 @@ QuickHR is the functional benchmark; we do not copy its UI, code, assets or bran
 | Lint/format | Biome; `tsc --noEmit` per package |
 | Self-host | `docker-compose.yml`: `crowhr` app container + `postgres:17-alpine` |
 
+## Authentication (product requirement)
+
+Per-organisation sign-in methods, configured by the org owner in Settings → Security:
+
+- **Email + password** — always available out of the box (argon2id, rate limiting, reset by email, optional TOTP MFA). An owner may disable it for staff once SSO works, but owner break-glass password login always remains.
+- **Google Workspace SSO** (OIDC) — optional restriction to allowed hosted domain(s).
+- **Microsoft Entra ID SSO** (OIDC) — optional restriction to tenant ID.
+- **Singpass login** (OIDC / FAPI 2.0: PKCE, private_key_jwt, DPoP as required by Singpass). Requires each company to onboard as a Singpass relying party — we ship the integration + setup guide, and the UI states clearly when it isn't configured. Never fake it as working.
+- **Generic OIDC** (Okta, Keycloak, Authentik…) comes almost free from the same code — include it.
+
+Rules: one OIDC implementation (`openid-client`, runtime-agnostic) with provider presets, not per-provider hand-rolled flows. Client secrets / private keys are encrypted at rest. SSO identities link to **pre-provisioned users** (invited by HR) by verified email or, for Singpass, by the stored Singpass UUID — no open self-signup by default (optional JIT provisioning limited to allowed domains, off by default). Sign-in page shows only the methods the org has enabled. All sign-in, link/unlink and config changes are audit-logged. In the public demo, SSO buttons are visible but explain they are disabled in demo mode.
+
+## Self-hosting must be dead simple (product requirement)
+
+The audience is an SME with one technical person, not a DevOps team.
+
+- **Install = copy `.env.example` → `.env`, set `PUBLIC_URL`, run `docker compose up -d`.** Nothing else is required. Secrets (session key, encryption key) are generated on first boot into the data volume if not provided.
+- **One app image** (multi-arch amd64 + arm64, published later to GHCR) + `postgres:17-alpine` in the compose file. No Redis, no queues, no extra services. Background jobs run in-process.
+- **Bring your own reverse proxy**: the app serves plain HTTP on one port (default 8080) and works unchanged behind Caddy, nginx, Traefik, Cloudflare Tunnel, or none (LAN). Honour `X-Forwarded-*` only from `TRUSTED_PROXIES`. Ship copy-paste examples for Caddy, nginx, Traefik and Cloudflare Tunnel in docs; don't bundle a proxy.
+- **Migrations run automatically on start** (with a lock); a failed migration stops startup with a clear message and doesn't corrupt data.
+- **First-run setup wizard in the browser** creates the org + owner, guarded by a one-time setup code printed in the container logs.
+- **Backups**: a built-in scheduled `pg_dump` to the backups volume plus `docker compose exec app crowhr backup|restore`. Upgrades: `docker compose pull && docker compose up -d`.
+- SMTP is optional; everything works without email (invites show a copyable link).
+- Errors at startup tell the user exactly which variable is wrong and how to fix it.
+
+## Mobile apps (future milestone M4 — spec only for now)
+
+Native, open source, in this repo: `apps/ios` (SwiftUI) and `apps/android` (Kotlin + Jetpack Compose), following the build/test/publish workflow in `/home/daniel/Gremia/AGENTS.md` (iOS builds on the `s5` Mac over SSH; Android on Linux; privacy/support pages at `crow.sg/apps/crow-hr/{privacy,support}`; apps stay out of crow.sg global nav until launch).
+
+- The app connects **only to the company's own Crow HR server**: the user enters the server URL or scans a QR code from the web app. Crow Tech runs no backend for it.
+- **Zero data collection**: no analytics, no crash-reporting SDKs, no third-party SDKs that phone home. Store privacy labels: "Data Not Collected".
+- Sign-in uses whatever methods that server enables (password, Google, Microsoft, Singpass, OIDC) via the system browser (ASWebAuthenticationSession / Custom Tabs, PKCE). Biometric unlock for the stored session.
+- Scope: employee self-service + manager approvals — payslips, leave, clock-in (offline-tolerant queue, server-validated), claims with camera receipts, schedule, approvals inbox.
+- Consumes the same versioned REST API as the web app; the API must be documented (OpenAPI) and stable enough for mobile clients that lag server versions.
+- Open question: remote push notifications need a Crow-held APNs/FCM key → a relay would collect data. v1 uses in-app inbox + background refresh + local notifications; any relay is a separate, opt-in decision.
+
 ## Layout
 
 ```
