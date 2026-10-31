@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Building2, ChevronRight, KeyRound, type LucideIcon, Network, ScrollText, Users } from "lucide-react";
+import { Building2, ChevronRight, KeyRound, type LucideIcon, Network, ScrollText, Server, Users } from "lucide-react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_app/settings/")({
 function SettingsPage() {
   const me = useMe();
   const links: {
-    to: "/settings/security" | "/settings/members" | "/settings/audit";
+    to: "/settings/security" | "/settings/members" | "/settings/audit" | "/settings/system";
     title: string;
     body: string;
     icon: LucideIcon;
@@ -41,6 +41,13 @@ function SettingsPage() {
       body: "Every sign-in, permission change and sensitive action.",
       icon: ScrollText,
       show: can(me, "audit_log:read"),
+    },
+    {
+      to: "/settings/system",
+      title: "System",
+      body: "Version, database, backups, disk space and reverse proxy diagnostics.",
+      icon: Server,
+      show: me.roles.includes("owner"),
     },
   ];
   return (

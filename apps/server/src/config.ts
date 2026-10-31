@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseSecretKey } from "@crowhr/core";
+import { formatSetupCode, normaliseSetupCode, parseSecretKey, SETUP_CODE_ALPHABET } from "@crowhr/core";
 import { NO_TRUSTED_PROXIES, parseTrustedProxies, type TrustedProxies } from "./proxy/trust.ts";
 
 const defaultWebDist = fileURLToPath(new URL("../../web/dist", import.meta.url));
@@ -39,6 +39,8 @@ export interface ServerConfig {
   WEB_DIST_DIR: string;
   /** Redirect every page to /setup while no organisation exists. Only tests turn this off. */
   SETUP_GATE: boolean;
+  /** Fixed first-run setup code for automated installs; null = a random code on every start. */
+  SETUP_CODE: string | null;
   LOG_LEVEL: LogLevel;
 }
 
@@ -241,6 +243,19 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     );
   }
 
+  let SETUP_CODE: string | null = null;
+  const setupCodeRaw = get("SETUP_CODE");
+  if (setupCodeRaw !== undefined) {
+    const clean = normaliseSetupCode(setupCodeRaw);
+    if (clean.length !== 16 || [...clean].some((ch) => !SETUP_CODE_ALPHABET.includes(ch))) {
+      fail(
+        `SETUP_CODE must be 16 characters from ${SETUP_CODE_ALPHABET} (no look-alikes such as 0/O or 1/I), for example SETUP_CODE=ACDE-FGHJ-KMNP-QRTU. Usually leave it unset: a random code is printed in the log. Set it in .env.`,
+      );
+    } else {
+      SETUP_CODE = formatSetupCode(clean);
+    }
+  }
+
   const logLevel = (get("LOG_LEVEL") ?? "info").toLowerCase();
   if (!["debug", "info", "warn", "error"].includes(logLevel)) {
     fail("LOG_LEVEL must be debug, info, warn or error, for example LOG_LEVEL=info. Set it in .env.");
@@ -269,6 +284,7 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     MIGRATE_LOCK_TIMEOUT_SECONDS: int("MIGRATE_LOCK_TIMEOUT_SECONDS", 300, 1, 3600),
     WEB_DIST_DIR: absolute(get("WEB_DIST_DIR") ?? defaultWebDist),
     SETUP_GATE: bool("SETUP_GATE", true),
+    SETUP_CODE,
     LOG_LEVEL: logLevel as LogLevel,
   };
   if (problems.length) throw new ConfigError(problems);

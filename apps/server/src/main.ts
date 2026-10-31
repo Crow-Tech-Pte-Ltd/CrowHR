@@ -117,9 +117,14 @@ async function main() {
     if (!config.secureCookies) {
       logger.warn("PUBLIC_URL is plain http: session cookies are not marked Secure. Use https outside a trusted LAN.");
     }
-
-    // biome-ignore lint/suspicious/noConsole: the setup banner must be readable plain text in `docker compose logs`.
-    await prepareSetupCode({ db: database.db, publicUrl: config.PUBLIC_URL, logger, print: (t) => console.log(t) });
+    await prepareSetupCode({
+      db: database.db,
+      publicUrl: config.PUBLIC_URL,
+      logger,
+      // Plain text (not JSON) so the banner is readable in `docker compose logs`.
+      print: (t) => process.stdout.write(`${t}\n`),
+      ...(config.SETUP_CODE ? { generate: () => config.SETUP_CODE as string } : {}),
+    });
 
     const maintenance = createMaintenanceProbe(config.DATA_DIR);
     const deps = createServerDeps(config, database, logger, key.bytes);
