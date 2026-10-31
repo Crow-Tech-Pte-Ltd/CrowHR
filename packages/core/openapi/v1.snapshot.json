@@ -18671,6 +18671,16 @@
                                     "minimum": -9007199254740991,
                                     "maximum": 9007199254740991
                                   },
+                                  "cpfEmployeeShareAbsorbedCents": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "cpfAwRecoveredCents": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
                                   "cpfTotalChargedCents": {
                                     "type": "integer",
                                     "minimum": -9007199254740991,
@@ -19052,6 +19062,16 @@
                               "maximum": 9007199254740991
                             },
                             "cpfEmployerCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfEmployeeShareAbsorbedCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfAwRecoveredCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -19583,6 +19603,16 @@
                                   "maximum": 9007199254740991
                                 },
                                 "cpfEmployerCents": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "cpfEmployeeShareAbsorbedCents": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "cpfAwRecoveredCents": {
                                   "type": "integer",
                                   "minimum": -9007199254740991,
                                   "maximum": 9007199254740991
@@ -20347,6 +20377,16 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "cpfEmployeeShareAbsorbedCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfAwRecoveredCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "cpfTotalChargedCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -20931,6 +20971,16 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "cpfEmployeeShareAbsorbedCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfAwRecoveredCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "cpfTotalChargedCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -21309,6 +21359,16 @@
                                   "minimum": -9007199254740991,
                                   "maximum": 9007199254740991
                                 },
+                                "cpfEmployeeShareAbsorbedCents": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "cpfAwRecoveredCents": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
                                 "cpfTotalChargedCents": {
                                   "type": "integer",
                                   "minimum": -9007199254740991,
@@ -21629,6 +21689,11 @@
                                   "minimum": -9007199254740991,
                                   "maximum": 9007199254740991
                                 },
+                                "cpfAwTopUpEmployeeCents": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
                                 "cpfEmployerCents": {
                                   "type": "integer",
                                   "minimum": -9007199254740991,
@@ -21805,35 +21870,108 @@
                                       "minimum": -9007199254740991,
                                       "maximum": 9007199254740991
                                     },
-                                    "periodStart": {
-                                      "anyOf": [
-                                        {
-                                          "type": "string",
-                                          "format": "date",
-                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    "periods": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "label": {
+                                            "type": "string"
+                                          },
+                                          "periodStart": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string",
+                                                "format": "date",
+                                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "periodEnd": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string",
+                                                "format": "date",
+                                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "minutes": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "payCents": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          }
                                         },
-                                        {
-                                          "type": "null"
-                                        }
-                                      ]
-                                    },
-                                    "periodEnd": {
-                                      "anyOf": [
-                                        {
-                                          "type": "string",
-                                          "format": "date",
-                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
-                                        },
-                                        {
-                                          "type": "null"
-                                        }
-                                      ]
+                                        "required": [
+                                          "label",
+                                          "periodStart",
+                                          "periodEnd",
+                                          "minutes",
+                                          "payCents"
+                                        ],
+                                        "additionalProperties": false
+                                      }
                                     }
                                   },
                                   "required": [
                                     "minutes",
-                                    "periodStart",
-                                    "periodEnd"
+                                    "periods"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "awTopUp": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "employeeShareCents": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "recoveredThisRunCents": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "recoveredEarlierCents": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "absorbedCents": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "deadline": {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    }
+                                  },
+                                  "required": [
+                                    "employeeShareCents",
+                                    "recoveredThisRunCents",
+                                    "recoveredEarlierCents",
+                                    "absorbedCents",
+                                    "deadline"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -22079,7 +22217,10 @@
                               "overtime",
                               "unpaid_leave",
                               "hours",
-                              "deduction"
+                              "deduction",
+                              "scheduled_days",
+                              "days_worked",
+                              "cpf_aw_recovery"
                             ]
                           },
                           "label": {
@@ -22191,6 +22332,7 @@
                                   "amenities",
                                   "advance",
                                   "loan",
+                                  "unearned_benefit",
                                   "overpayment",
                                   "cooperative",
                                   "consented",
@@ -22678,7 +22820,10 @@
                       "overtime",
                       "unpaid_leave",
                       "hours",
-                      "deduction"
+                      "deduction",
+                      "scheduled_days",
+                      "days_worked",
+                      "cpf_aw_recovery"
                     ]
                   },
                   "label": {
@@ -22798,6 +22943,7 @@
                           "amenities",
                           "advance",
                           "loan",
+                          "unearned_benefit",
                           "overpayment",
                           "cooperative",
                           "consented",
@@ -22963,7 +23109,10 @@
                       "overtime",
                       "unpaid_leave",
                       "hours",
-                      "deduction"
+                      "deduction",
+                      "scheduled_days",
+                      "days_worked",
+                      "cpf_aw_recovery"
                     ]
                   },
                   "label": {
@@ -23083,6 +23232,7 @@
                           "amenities",
                           "advance",
                           "loan",
+                          "unearned_benefit",
                           "overpayment",
                           "cooperative",
                           "consented",
@@ -23467,6 +23617,16 @@
                               "maximum": 9007199254740991
                             },
                             "cpfEmployerCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfEmployeeShareAbsorbedCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfAwRecoveredCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -23983,40 +24143,66 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
-                            "periodStart": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "date",
-                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            "periods": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "hours": {
+                                    "type": "number"
+                                  },
+                                  "payCents": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "periodStart": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "periodEnd": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "differsFromSalaryPeriod": {
+                                    "type": "boolean"
+                                  }
                                 },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "periodEnd": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "date",
-                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "differsFromSalaryPeriod": {
-                              "type": "boolean"
+                                "required": [
+                                  "label",
+                                  "hours",
+                                  "payCents",
+                                  "periodStart",
+                                  "periodEnd",
+                                  "differsFromSalaryPeriod"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
                             "hours",
                             "payCents",
-                            "periodStart",
-                            "periodEnd",
-                            "differsFromSalaryPeriod"
+                            "periods"
                           ],
                           "additionalProperties": false
                         },
@@ -24636,6 +24822,16 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "cpfEmployeeShareAbsorbedCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfAwRecoveredCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "cpfTotalChargedCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -25091,6 +25287,16 @@
                               "maximum": 9007199254740991
                             },
                             "cpfEmployerCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfEmployeeShareAbsorbedCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfAwRecoveredCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -25576,6 +25782,16 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "cpfEmployeeShareAbsorbedCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfAwRecoveredCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "cpfTotalChargedCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -26031,6 +26247,16 @@
                               "maximum": 9007199254740991
                             },
                             "cpfEmployerCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfEmployeeShareAbsorbedCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "cpfAwRecoveredCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -27075,40 +27301,66 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
-                            "periodStart": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "date",
-                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            "periods": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "hours": {
+                                    "type": "number"
+                                  },
+                                  "payCents": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "periodStart": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "periodEnd": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "differsFromSalaryPeriod": {
+                                    "type": "boolean"
+                                  }
                                 },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "periodEnd": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "date",
-                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "differsFromSalaryPeriod": {
-                              "type": "boolean"
+                                "required": [
+                                  "label",
+                                  "hours",
+                                  "payCents",
+                                  "periodStart",
+                                  "periodEnd",
+                                  "differsFromSalaryPeriod"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
                             "hours",
                             "payCents",
-                            "periodStart",
-                            "periodEnd",
-                            "differsFromSalaryPeriod"
+                            "periods"
                           ],
                           "additionalProperties": false
                         },

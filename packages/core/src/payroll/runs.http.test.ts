@@ -56,7 +56,7 @@ describe("run lifecycle", () => {
     const late = o.issues.find((i) => i.code === "EA_SALARY_PAID_LATE");
     expect(late).toMatchObject({
       severity: "warning",
-      source: "https://www.mom.gov.sg/employment-practices/salary/paying-salary",
+      source: "https://sso.agc.gov.sg/Act/EmA1968?ProvIds=pr21-",
     });
     expect(late?.message).toContain("by 7 Nov 2026");
   });

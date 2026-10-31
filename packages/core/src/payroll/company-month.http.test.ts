@@ -108,10 +108,10 @@ describe("October 2026 payroll for a 12-person company", () => {
       ["EA_DEDUCTION_CATEGORY_CAP", co.e.L],
       ["EA_DEDUCTION_OVERALL_CAP", co.e.L],
     ]);
-    expect(blocking[1]?.message).toContain("S$863.63");
+    expect(blocking[1]?.message).toContain("$863.63");
     // 25% × S$1,727.27 = S$431.81; S$600.00 is S$168.19 over.
-    expect(blocking[0]?.message).toContain("S$431.81");
-    expect(blocking[0]?.message).toContain("S$168.19");
+    expect(blocking[0]?.message).toContain("$431.81");
+    expect(blocking[0]?.message).toContain("$168.19");
     const submit = await admin.post(`${api}/runs/${runId}/submit`);
     expect(submit.status).toBe(409);
     expect((await submit.json()).error.message).toContain("2 blocking issues");

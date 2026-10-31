@@ -48,6 +48,7 @@ export function payInput(overrides: DeepPartial<PayInput> = {}): PayInput {
     cpfStateSource: "test",
     monthBefore: null,
     fwl: null,
+    awRecoveryOpen: [],
     snapshotIssues: [],
   };
   return merge(base, overrides) as PayInput;

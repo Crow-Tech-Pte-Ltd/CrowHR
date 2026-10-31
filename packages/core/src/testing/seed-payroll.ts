@@ -83,6 +83,9 @@ export async function seedPayroll(deps: AppDeps, orgId: string, people: SeededPe
     wageClass: "AW",
     awPayableDate: "2026-10-28",
   });
+  // Rostered barista with 2 days of no-pay leave: the roster figures carry it (EA s 20A).
+  await add(e.barista2, { kind: "scheduled_days", label: "Scheduled days", days: 26 });
+  await add(e.barista2, { kind: "days_worked", label: "Days worked", days: 24 });
   await add(e.barista2, { kind: "unpaid_leave", label: "No-pay leave", days: 2 });
   await add(e.barista1, {
     kind: "deduction",

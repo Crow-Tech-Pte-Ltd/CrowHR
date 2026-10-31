@@ -250,13 +250,14 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
         {slip.allowances.map((a) => (
           <SlipRow key={a.label} label={a.label} detail={a.detail ?? "Allowance"} cents={a.amountCents} />
         ))}
-        {slip.overtime ? (
+        {(slip.overtime?.periods ?? []).map((p) => (
           <SlipRow
-            label="Overtime pay"
-            detail={`${slip.overtime.hours} h worked${slip.overtime.differsFromSalaryPeriod && slip.overtime.periodStart && slip.overtime.periodEnd ? `, ${formatDate(slip.overtime.periodStart)} – ${formatDate(slip.overtime.periodEnd)}` : ""}`}
-            cents={slip.overtime.payCents}
+            key={`${p.label}-${p.periodStart ?? ""}-${p.periodEnd ?? ""}`}
+            label={p.label === "Overtime" ? "Overtime pay" : `Overtime pay: ${p.label}`}
+            detail={`${p.hours} h worked${p.differsFromSalaryPeriod && p.periodStart && p.periodEnd ? `, ${formatDate(p.periodStart)} – ${formatDate(p.periodEnd)}` : ""}`}
+            cents={p.payCents}
           />
-        ) : null}
+        ))}
         {slip.additional.map((a) => (
           <SlipRow key={a.label} label={a.label} detail={a.detail} cents={a.amountCents} />
         ))}

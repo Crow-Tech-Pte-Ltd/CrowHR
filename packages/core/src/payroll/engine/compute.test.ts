@@ -101,6 +101,7 @@ describe("computeEmployeePay", () => {
           chargedByOthers: {
             cpfTotalCents: 148_000,
             cpfEmployeeCents: 80_000,
+            cpfAwTopUpEmployeeCents: 0,
             cpfEmployerCents: 68_000,
             shgCents: { CDAC: 150 },
             sdlUnits1e4Cent: 10_000_000,
@@ -108,6 +109,7 @@ describe("computeEmployeePay", () => {
           chargedByReplaced: {
             cpfTotalCents: 0,
             cpfEmployeeCents: 0,
+            cpfAwTopUpEmployeeCents: 0,
             cpfEmployerCents: 0,
             shgCents: {},
             sdlUnits1e4Cent: 0,
@@ -223,6 +225,7 @@ describe("computeEmployeePay", () => {
           chargedByOthers: {
             cpfTotalCents: 0,
             cpfEmployeeCents: 0,
+            cpfAwTopUpEmployeeCents: 0,
             cpfEmployerCents: 0,
             shgCents: {},
             sdlUnits1e4Cent: 0,
@@ -230,6 +233,7 @@ describe("computeEmployeePay", () => {
           chargedByReplaced: {
             cpfTotalCents: 148_000,
             cpfEmployeeCents: 80_000,
+            cpfAwTopUpEmployeeCents: 0,
             cpfEmployerCents: 68_000,
             shgCents: { CDAC: 150 },
             sdlUnits1e4Cent: 10_000_000,
@@ -245,5 +249,110 @@ describe("computeEmployeePay", () => {
     expect(r.charged.cpfEmployeeCents).toBe(4_000);
     expect(r.totals.netCents).toBe(420_000 - 84_000 - 150);
     expect(r.totals.netPayableCents).toBe(420_000 - 84_000 - 150 - 319_850);
+  });
+
+  it("measures OT lateness from the salary period the OT was performed in (EA s 21(2))", () => {
+    const r = computeEmployeePay(
+      payInput({
+        run: { payDate: "2026-10-30" },
+        items: [
+          item({
+            kind: "overtime",
+            label: "September OT",
+            minutes: 120,
+            amountCents: 6_000,
+            periodStart: "2026-09-01",
+            periodEnd: "2026-09-30",
+          }),
+        ],
+      }),
+    );
+    const late = r.issues.find((i) => i.code === "EA_OT_PAID_LATE");
+    expect(late?.message).toContain("by 14 Oct 2026");
+    expect(r.overtime?.periods).toEqual([
+      { label: "September OT", periodStart: "2026-09-01", periodEnd: "2026-09-30", minutes: 120, payCents: 6_000 },
+    ]);
+    const partial = computeEmployeePay(
+      payInput({ items: [item({ kind: "overtime", minutes: 60, amountCents: 3_000, periodStart: "2026-10-01" })] }),
+    );
+    expect(partial.issues.map((i) => i.code)).toContain("OT_PERIOD_INCOMPLETE");
+  });
+
+  describe("AW top-up after the December AW ceiling reconciliation (CPF Act s 7(9))", () => {
+    // Jan–Nov OW subject 54,000; March AW 36,000 payable, 30,000 subject on the March estimate.
+    // December actual: ceiling 102,000 − 60,000 = 42,000, so 6,000 more March AW is subject:
+    // top-up 37% = 2,220, employee 20% = 1,200, payable with December's contributions.
+    const december = (
+      items: ReturnType<typeof item>[] = [],
+      open: { month: string; openCents: number; deadline: string }[] = [],
+    ) =>
+      computeEmployeePay(
+        payInput({
+          run: { month: "2026-12", periodStart: "2026-12-01", periodEnd: "2026-12-31", payDate: "2026-12-30" },
+          compensation: [{ from: "2020-01-01", to: null, payBasis: "monthly", amountCents: 600_000 }],
+          cpfStateBefore: {
+            owSubjectCents: 5_400_000,
+            awPayments: [
+              { payableMonth: "2026-03", owCents: 600_000, awPayableCents: 3_600_000, awSubjectCents: 3_000_000 },
+            ],
+          },
+          items,
+          awRecoveryOpen: open,
+        }),
+      );
+
+    it("remits the full top-up; without recovery the employer bears the employee share, reported apart from employer CPF", () => {
+      const r = december();
+      expect(r.charged.cpfTotalCents).toBe(222_000 + 222_000);
+      expect(r.charged.cpfEmployeeCents).toBe(120_000 + 120_000);
+      expect(r.charged.cpfAwTopUpEmployeeCents).toBe(120_000);
+      expect(r.totals.cpfEmployeeCents).toBe(120_000);
+      expect(r.totals.cpfEmployerCents).toBe(102_000 + 102_000);
+      expect(r.totals.cpfEmployeeShareAbsorbedCents).toBe(120_000);
+      expect(r.lines.find((l) => l.code === "CPF_EMPLOYEE_SHARE_ABSORBED")?.amountCents).toBe(120_000);
+      expect(r.issues.find((i) => i.code === "CPF_AW_TOPUP_EMPLOYEE_SHARE")?.message).toContain("30 Jun 2027");
+    });
+
+    it("recovers the employee share when asked, within the deadline", () => {
+      const r = december([item({ kind: "cpf_aw_recovery", label: "Recover AW top-up CPF" })]);
+      expect(r.totals.cpfAwRecoveredCents).toBe(120_000);
+      expect(r.totals.cpfEmployeeShareAbsorbedCents).toBe(0);
+      expect(r.charged.cpfTotalCents).toBe(444_000);
+      expect(r.totals.netCents).toBe(600_000 - 120_000 - 120_000 - 200); // CDAC $2 on $6,000
+      expect(r.awTopUp).toMatchObject({
+        employeeShareCents: 120_000,
+        recoveredThisRunCents: 120_000,
+        absorbedCents: 0,
+        deadline: "2027-06-30",
+      });
+    });
+
+    it("blocks recovering more than s 7(9) allows, including lots past their deadline", () => {
+      const r = december(
+        [item({ kind: "cpf_aw_recovery", label: "Recover", amountCents: 170_000 })],
+        [{ month: "2025-12", openCents: 50_000, deadline: "2026-06-30" }],
+      );
+      const issue = r.issues.find((i) => i.code === "CPF_RECOVERY_NOT_PERMITTED");
+      expect(issue?.severity).toBe("blocking");
+      expect(issue?.message).toContain("December 2025 passed that deadline");
+      const ok = december(
+        [item({ kind: "cpf_aw_recovery", label: "Recover", amountCents: 170_000 })],
+        [{ month: "2026-06", openCents: 50_000, deadline: "2027-06-30" }],
+      );
+      expect(ok.awTopUp).toMatchObject({ recoveredThisRunCents: 120_000, recoveredEarlierCents: 50_000 });
+    });
+
+    it("refuses deductions that recover ordinary CPF arrears from later wages", () => {
+      const r = computeEmployeePay(
+        payInput({
+          items: [
+            item({ kind: "deduction", label: "CPF arrears Jan", amountCents: 10_000, deductionCategory: "consented" }),
+          ],
+        }),
+      );
+      expect(r.issues.find((i) => i.code === "CPF_ARREARS_RECOVERY_BLOCKED")?.source).toContain(
+        "recover-the-employee-s-share",
+      );
+    });
   });
 });

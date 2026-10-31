@@ -20,11 +20,11 @@ import { AppError } from "../errors.ts";
 import { submitApproval, withdrawSubject } from "../workflows/engine.ts";
 import { canonicalHash } from "./engine/canonical.ts";
 import { computeEmployeePay } from "./engine/compute.ts";
-import { addDays, dateLabel, dayOfWeek, daysInMonth, maxDate, monthBounds, monthLabel } from "./engine/dates.ts";
+import { dateLabel, dayOfWeek, daysInMonth, maxDate, monthBounds, monthLabel } from "./engine/dates.ts";
 import type { PayInput, PayIssue, PayResult, RunItemKind } from "./engine/types.ts";
 import { missingPayslipItems } from "./payslip.ts";
 import { type ApprovalDecision, payrollPorts } from "./ports.ts";
-import { DEDUCTION_CATEGORIES, type DeductionCategory, MOM_PAYING_SALARY_SOURCE, PAYMENT_DEADLINES } from "./rules.ts";
+import { DEDUCTION_CATEGORIES, type DeductionCategory, EA_S21, EA_S25, salaryDueBy } from "./rules.ts";
 import { buildSnapshots, replacedChain, runEmployeeIds } from "./snapshot.ts";
 
 /** Who is acting (built from the request by the routes; jobs and tests build it directly). */
@@ -379,6 +379,12 @@ function validateItem(run: PayrollRun, input: ItemInput) {
   if ((input.kind === "overtime" || input.kind === "hours") && !(input.minutes && input.minutes > 0)) {
     issues.push({ path: "minutes", message: "Enter the time in minutes, more than 0." });
   }
+  if (
+    (input.kind === "scheduled_days" || input.kind === "days_worked") &&
+    !(input.days !== null && input.days !== undefined && input.days >= 0 && Number.isInteger(input.days * 2))
+  ) {
+    issues.push({ path: "days", message: "Enter the number of days in half days (e.g. 22 or 21.5)." });
+  }
   if (input.kind === "unpaid_leave" && !(input.days && input.days > 0 && Number.isInteger(input.days * 2))) {
     issues.push({ path: "days", message: "Enter the days of no-pay leave in half days (e.g. 1 or 1.5)." });
   }
@@ -585,13 +591,13 @@ async function runLevelIssues(db: Db, run: PayrollRun, headcount: number): Promi
       source: null,
     });
   }
-  const due = addDays(run.periodEnd, PAYMENT_DEADLINES.salaryDaysAfterPeriod);
+  const due = salaryDueBy(run.periodEnd);
   if (run.payDate > due) {
     issues.push({
       code: "EA_SALARY_PAID_LATE",
       severity: "warning",
-      message: `Salary must be paid within ${PAYMENT_DEADLINES.salaryDaysAfterPeriod} days after the salary period ends (by ${dateLabel(due)}). The pay date is ${dateLabel(run.payDate)}.`,
-      source: MOM_PAYING_SALARY_SOURCE,
+      message: `Salary must be paid within 7 days after the salary period ends (by ${dateLabel(due)}; EA s 21, calendar days). The pay date is ${dateLabel(run.payDate)}.`,
+      source: EA_S21,
     });
   }
   const dow = dayOfWeek(run.payDate);
@@ -607,9 +613,9 @@ async function runLevelIssues(db: Db, run: PayrollRun, headcount: number): Promi
   if (dow === 0 || dow === 6 || holiday) {
     issues.push({
       code: "PAY_DATE_NOT_WORKING_DAY",
-      severity: "warning",
-      message: `The pay date ${dateLabel(run.payDate)} is ${holiday ? `a public holiday (${holiday})` : dow === 0 ? "a Sunday" : "a Saturday"}. MOM expects salary to be paid on a working day; bank transfers may land late.`,
-      source: MOM_PAYING_SALARY_SOURCE,
+      severity: "info",
+      message: `The pay date ${dateLabel(run.payDate)} is ${holiday ? `a public holiday (${holiday})` : dow === 0 ? "a Sunday" : "a Saturday"}. Payment into the employee's bank account may be made on any day (EA s 25(2)), but some transfers only credit on the next banking day; cash and cheque must be paid on a working day.`,
+      source: EA_S25,
     });
   }
   const unfinished = await db
@@ -669,6 +675,8 @@ async function totalsFor(db: Db, run: PayrollRun, computed: Computed[], runIssue
     reimbursementsCents: 0,
     cpfEmployeeCents: 0,
     cpfEmployerCents: 0,
+    cpfEmployeeShareAbsorbedCents: 0,
+    cpfAwRecoveredCents: 0,
     cpfTotalChargedCents: 0,
     shgCents: 0,
     shgChargedByFund: {},
@@ -688,6 +696,9 @@ async function totalsFor(db: Db, run: PayrollRun, computed: Computed[], runIssue
     t.cpfEmployeeCents += r.totals.cpfEmployeeCents;
     t.cpfEmployerCents += r.totals.cpfEmployerCents;
     t.cpfTotalChargedCents += r.charged.cpfTotalCents;
+    t.cpfEmployeeShareAbsorbedCents =
+      (t.cpfEmployeeShareAbsorbedCents ?? 0) + (r.totals.cpfEmployeeShareAbsorbedCents ?? 0);
+    t.cpfAwRecoveredCents = (t.cpfAwRecoveredCents ?? 0) + (r.totals.cpfAwRecoveredCents ?? 0);
     t.shgCents += r.totals.shgCents;
     for (const [f, v] of Object.entries(r.charged.shgCents)) {
       t.shgChargedByFund[f] = (t.shgChargedByFund[f] ?? 0) + (v ?? 0);
@@ -736,7 +747,7 @@ async function totalsFor(db: Db, run: PayrollRun, computed: Computed[], runIssue
   }));
   t.sdlMonthCents = computeSdlTotal(units).payableCents;
   t.sdlChargedCents = t.sdlMonthCents - others.reduce((s, o) => s + (o.totals?.sdlChargedCents ?? 0), 0);
-  t.employerCostCents = t.cpfEmployerCents + t.sdlChargedCents + t.fwlCents;
+  t.employerCostCents = t.cpfEmployerCents + (t.cpfEmployeeShareAbsorbedCents ?? 0) + t.sdlChargedCents + t.fwlCents;
   return t;
 }
 

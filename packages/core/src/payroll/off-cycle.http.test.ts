@@ -105,4 +105,23 @@ describe("off-cycle runs", () => {
     });
     expect(res.status).toBe(409);
   });
+
+  it("gives each run of the month its own CPF EZPay advice code, keeps it, and refuses past 99", async () => {
+    const runs = (
+      await p.ok<{ items: { id: string; kind: string; offCycleReason: string | null }[] }>(p.admin.get(`${api}/runs`))
+    ).items;
+    const regular = runs.find((r) => r.kind === "regular")?.id as string;
+    const finalPay = runs.find((r) => r.offCycleReason === "final_pay")?.id as string;
+    const bonus = runs.find((r) => r.offCycleReason === "bonus")?.id as string;
+    await p.ok(p.admin.put(`${api}/settings`, { cpfAdviceCode: "98" }));
+    const advice = async (id: string) => {
+      const res = await p.admin.get(`${api}/runs/${id}/files/cpf-ezpay`);
+      if (res.status !== 200) return `${res.status}`;
+      return /OCT2026(\d\d)\.DTL/.exec(res.headers.get("content-disposition") ?? "")?.[1];
+    };
+    expect(await advice(regular)).toBe("98");
+    expect(await advice(finalPay)).toBe("99");
+    expect(await advice(regular)).toBe("98"); // stable on re-download
+    expect(await advice(bonus)).toBe("409"); // no code left: refused, never a reused 99
+  });
 });

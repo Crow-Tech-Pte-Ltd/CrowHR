@@ -83,6 +83,7 @@ CREATE TABLE "payroll_runs" (
 	"superseded_by_run_id" uuid,
 	"reopen_reason" text,
 	"approval_request_id" text,
+	"cpf_advice_code" text,
 	"submitted_by" uuid,
 	"submitted_at" timestamp with time zone,
 	"decided_by" uuid,

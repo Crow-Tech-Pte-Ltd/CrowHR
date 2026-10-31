@@ -17,16 +17,22 @@ import {
   type WorkingStep,
 } from "@crowhr/sg-rules";
 import {
+  awTopUpRecoveryDeadline,
+  CPF_ACT_S7,
   CPF_MISTAKES_SOURCE,
+  CPF_RECOVERY_FAQ,
   CPF_WAGES_SOURCE,
+  checkDeductions,
   DEDUCTION_CATEGORIES,
-  DEDUCTION_LIMITS,
   type DeductionCategory,
+  EA_S21,
+  MOM_DEDUCTIONS_SOURCE,
   MOM_INCOMPLETE_MONTH_SOURCE,
-  PAYMENT_DEADLINES,
+  MOM_PAYING_SALARY_SOURCE,
+  overtimeDueBy,
+  paymentDeadlines,
 } from "../rules.ts";
 import { addDays, dateLabel, maxDate, monthLabel, sgd } from "./dates.ts";
-import { checkDeductions } from "./deductions.ts";
 import { prorate, roundHalfUp, workingDaysBetween } from "./proration.ts";
 import {
   ENGINE_VERSION,
@@ -43,6 +49,7 @@ import {
 const EMPTY_CHARGED: MonthCharged = {
   cpfTotalCents: 0,
   cpfEmployeeCents: 0,
+  cpfAwTopUpEmployeeCents: 0,
   cpfEmployerCents: 0,
   shgCents: {},
   sdlUnits1e4Cent: 0,
@@ -100,7 +107,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
   rules.push({
     family: "MOM incomplete month",
     id: "monthly gross / working days × days worked",
-    effectiveFrom: PAYMENT_DEADLINES.effectiveFrom,
+    effectiveFrom: "2025-01-01",
     effectiveTo: null,
     source: MOM_INCOMPLETE_MONTH_SOURCE,
   });
@@ -134,11 +141,36 @@ export function computeEmployeePay(input: PayInput): PayResult {
   let overtimeOw = 0;
   let overtimeAw = 0;
   let otMinutes = 0;
-  let otPeriod: { start: string | null; end: string | null } = { start: null, end: null };
+  const otPeriods: NonNullable<PayResult["overtime"]>["periods"] = [];
   for (const item of input.items.filter((i) => i.kind === "overtime")) {
     const minutes = item.minutes ?? 0;
     otMinutes += minutes;
-    if (item.periodStart || item.periodEnd) otPeriod = { start: item.periodStart, end: item.periodEnd };
+    if ((item.periodStart === null) !== (item.periodEnd === null)) {
+      issues.push({
+        code: "OT_PERIOD_INCOMPLETE",
+        severity: "blocking",
+        message: `Overtime "${item.label}": give both the start and the end of the overtime period, or neither when it is the salary period (MOM payslip item 11).`,
+        source: "https://www.mom.gov.sg/employment-practices/salary/itemised-payslips",
+      });
+    }
+    if (minutes <= 0) {
+      issues.push({
+        code: "OT_HOURS_MISSING",
+        severity: "blocking",
+        message: `Overtime "${item.label}": enter the overtime hours; a payslip must show the hours worked with the OT pay.`,
+        source: "https://www.mom.gov.sg/employment-practices/salary/itemised-payslips",
+      });
+    }
+    // EA s 21(2): due 14 days after the salary period in which the OT was performed.
+    const due = overtimeDueBy(item.periodEnd ?? run.periodEnd);
+    if (run.payDate > due) {
+      issues.push({
+        code: "EA_OT_PAID_LATE",
+        severity: "warning",
+        message: `Overtime "${item.label}"${item.periodEnd ? ` (performed to ${dateLabel(item.periodEnd)})` : ""} must be paid within 14 days after the salary period it was worked in, by ${dateLabel(due)}; the pay date is ${dateLabel(run.payDate)}.`,
+        source: EA_S21,
+      });
+    }
     let pay = item.amountCents;
     if (pay === null) {
       if (monthlyBasicAtEnd === null) {
@@ -200,6 +232,13 @@ export function computeEmployeePay(input: PayInput): PayResult {
       });
       overtimeAw += pay;
     } else overtimeOw += pay;
+    otPeriods.push({
+      label: item.label || "Overtime",
+      periodStart: item.periodStart,
+      periodEnd: item.periodEnd,
+      minutes,
+      payCents: pay,
+    });
     lines.push(
       earning(
         `OT_${item.id.slice(-6)}`,
@@ -279,6 +318,15 @@ export function computeEmployeePay(input: PayInput): PayResult {
   const totalWagesCents = owCpf + awCpf;
   const residency = employee.residency;
   if (residency.status === "SPR" && residency.sprDate > run.periodStart && residency.sprDate <= run.periodEnd) {
+    if (employment.pattern === null) {
+      issues.push({
+        code: "CPF_SPR_CONVERSION_ROSTER",
+        severity: "blocking",
+        message: `SPR status starts ${dateLabel(residency.sprDate)} mid-month for a rostered employee: Crow HR cannot split CPF-liable OW by roster days yet. Work out the OW for days from the SPR date and contact CPF Board, or pay the month in an adjustment once it is supported.`,
+        source:
+          "https://www.cpf.gov.sg/service/article/do-i-need-to-pay-cpf-contributions-for-my-foreign-employee-who-has-recently-obtained-singapore-permanent-residence-status",
+      });
+    }
     const pattern = employment.pattern ?? WORK_PATTERNS.FIVE_DAY;
     const winStart = maxDate(run.periodStart, employment.hireDate);
     const winEnd =
@@ -381,20 +429,15 @@ export function computeEmployeePay(input: PayInput): PayResult {
   } catch (err) {
     issues.push(errorIssue(err, "CPF"));
   }
+  // A prior-AW shortfall here is the genuine AW-ceiling reconciliation (CPF AW Steps 1-2), whose
+  // top-up is payable with this month's contributions. Its employee share is statutory employee CPF
+  // that MAY be recovered from wages paid by 30 June of the next year (CPF Act s 7(9), First Schedule
+  // para 4(2)); remittance never depends on recovery.
   const shortfall = cpf?.priorAw.shortfall ?? null;
   const monthCpfTotal = (cpf?.totalCents ?? 0) + (shortfall?.totalCents ?? 0);
-  // The employee share of a prior-AW shortfall is NOT recovered from pay (CPF Act s 7 unverified):
-  // the employer bears it. sg-rules raises CPF_AW_SHORTFALL_EMPLOYEE_RECOVERY via singaporeRules; we say so here.
-  const monthCpfEmployee = cpf?.employeeCents ?? 0;
+  const monthTopUpEmployee = shortfall?.employeeCents ?? 0;
+  const monthCpfEmployee = (cpf?.employeeCents ?? 0) + monthTopUpEmployee;
   const monthCpfEmployer = monthCpfTotal - monthCpfEmployee;
-  if (shortfall && shortfall.employeeCents > 0) {
-    issues.push({
-      code: "CPF_AW_SHORTFALL_EMPLOYER_BEARS",
-      severity: "warning",
-      message: `CPF on earlier AW is now due (${sgd(shortfall.totalCents)}, of which ${sgd(shortfall.employeeCents)} is the employee share). Crow HR does not recover the employee share from this month's pay (the CPF Act s 7 recovery rules are not verified); the employer pays it. Deduct it manually only after checking.`,
-      source: null,
-    });
-  }
 
   // 6. SHG and SDL on all wages of the month.
   let shgFunds: ShgFund[] = [];
@@ -462,11 +505,15 @@ export function computeEmployeePay(input: PayInput): PayResult {
     if (m !== 0 || o !== 0) shgShown[f] = m - o;
     if (m - o - r !== 0) shgCharged[f] = m - o - r;
   }
-  const cpfEmployeeShown = monthCpfEmployee - others.cpfEmployeeCents;
+  // Regular employee CPF shown on this payslip: the month's regular share less what other runs showed.
+  const cpfEmployeeShown =
+    monthCpfEmployee - monthTopUpEmployee - (others.cpfEmployeeCents - others.cpfAwTopUpEmployeeCents);
   const cpfEmployerShown = monthCpfEmployer - others.cpfEmployerCents;
+  const topUpEmployeeShown = monthTopUpEmployee - others.cpfAwTopUpEmployeeCents;
   const charged: MonthCharged = {
     cpfTotalCents: monthCpfTotal - others.cpfTotalCents - replaced.cpfTotalCents,
     cpfEmployeeCents: monthCpfEmployee - others.cpfEmployeeCents - replaced.cpfEmployeeCents,
+    cpfAwTopUpEmployeeCents: monthTopUpEmployee - others.cpfAwTopUpEmployeeCents - replaced.cpfAwTopUpEmployeeCents,
     cpfEmployerCents: monthCpfEmployer - others.cpfEmployerCents - replaced.cpfEmployerCents,
     shgCents: shgCharged,
     sdlUnits1e4Cent: (sdl?.units1e4Cent ?? 0) - others.sdlUnits1e4Cent - replaced.sdlUnits1e4Cent,
@@ -514,11 +561,75 @@ export function computeEmployeePay(input: PayInput): PayResult {
       });
   }
 
+  // AW top-up employee share: recover (s 7(9)) when asked, else the employer bears it.
+  const recoveryItems = input.items.filter((i) => i.kind === "cpf_aw_recovery");
+  const thisShare = Math.max(0, topUpEmployeeShown);
+  const deadline = awTopUpRecoveryDeadline(Number(run.month.slice(0, 4)));
+  const openEarlier = input.awRecoveryOpen.filter((o) => o.deadline >= run.payDate);
+  const expired = input.awRecoveryOpen.filter((o) => o.deadline < run.payDate);
+  const availableEarlier = openEarlier.reduce((s, o) => s + o.openCents, 0);
+  let recoveredThis = 0;
+  let recoveredEarlier = 0;
+  if (recoveryItems.length) {
+    const wanted = recoveryItems.some((i) => i.amountCents === null)
+      ? thisShare + availableEarlier
+      : recoveryItems.reduce((s, i) => s + (i.amountCents ?? 0), 0);
+    if (wanted > thisShare + availableEarlier) {
+      issues.push({
+        code: "CPF_RECOVERY_NOT_PERMITTED",
+        severity: "blocking",
+        message: `Only ${sgd(thisShare + availableEarlier)} of employee CPF on AW top-ups can be recovered from this pay (CPF Act s 7(9): within six months after the end of the year the top-up was payable${expired.length ? `; ${expired.map((e) => monthLabel(e.month)).join(", ")} passed that deadline` : ""}). Reduce the recovery to ${sgd(thisShare + availableEarlier)}. Other CPF arrears from employer error cannot be recovered from later wages.`,
+        source: CPF_ACT_S7,
+      });
+    } else {
+      recoveredThis = Math.min(wanted, thisShare);
+      recoveredEarlier = wanted - recoveredThis;
+    }
+  }
+  const recovered = recoveredThis + recoveredEarlier;
+  const absorbed = thisShare - recoveredThis;
+  if (thisShare > 0 && absorbed > 0) {
+    issues.push({
+      code: "CPF_AW_TOPUP_EMPLOYEE_SHARE",
+      severity: "warning",
+      message: `CPF on earlier AW is due with this month's contributions (AW ceiling reconciliation): ${sgd(shortfall?.totalCents ?? 0)}, of which ${sgd(thisShare)} is the employee share. You may recover it from wages paid by ${dateLabel(deadline)} (CPF Act s 7(9)) with a "Recover AW top-up CPF" item; otherwise the employer bears it. CPF Board is paid in full either way.`,
+      source: CPF_ACT_S7,
+    });
+  }
+  if (recovered > 0) {
+    lines.push({
+      code: "CPF_AW_RECOVERY",
+      kind: "deduction",
+      category: "cpf_employee",
+      label: "Employee CPF on AW top-up (recovered)",
+      amountCents: recovered,
+      wageClass: null,
+      cpfLiable: false,
+      detail: `CPF Act s 7(9), by ${dateLabel(deadline)}`,
+      itemId: recoveryItems[0]?.id ?? null,
+    });
+    rules.push({
+      family: "CPF AW top-up recovery",
+      id: "CPF Act s 7(9)",
+      effectiveFrom: "2025-01-01",
+      effectiveTo: null,
+      source: CPF_ACT_S7,
+    });
+  }
+
   // 7. Other deductions and their Employment Act limits.
   const deductions: { category: DeductionCategory; label: string; amountCents: number }[] = [];
   for (const item of input.items.filter((i) => i.kind === "deduction")) {
     const category = item.deductionCategory ?? "consented";
     const amount = item.amountCents ?? 0;
+    if (/\bcpf\b/i.test(item.label) && category !== "court_order") {
+      issues.push({
+        code: "CPF_ARREARS_RECOVERY_BLOCKED",
+        severity: "blocking",
+        message: `"${item.label}" looks like a recovery of employee CPF. Employee CPF missed by the employer's oversight or a system error cannot be deducted from later wages (CPF Board); only the narrow non-negligent route in CPF Act s 7(6A), with prior payment and the employee's consent or the Board's permission, allows it. Use "Recover AW top-up CPF" for AW-ceiling reconciliations, or remove this deduction.`,
+        source: CPF_RECOVERY_FAQ,
+      });
+    }
     deductions.push({ category, label: item.label, amountCents: amount });
     lines.push({
       code: `DED_${item.id.slice(-6)}`,
@@ -534,22 +645,30 @@ export function computeEmployeePay(input: PayInput): PayResult {
   }
   const otherDeductions = deductions.reduce((s, d) => s + d.amountCents, 0);
   const salary = grossCents;
-  if (deductions.length > 0 || cpfEe > 0) {
+  if (deductions.length > 0 || cpfEe > 0 || recovered > 0) {
     const check = checkDeductions({
-      salaryCents: salary,
+      date: run.periodEnd,
+      salaryCents: Math.max(0, salary),
       deductions,
-      statutoryEmployeeCents: cpfEe + shgShownTotal,
+      statutoryEmployeeCents: cpfEe + recovered + shgShownTotal,
       finalPay: lastWorkingDayInPeriod,
     });
-    issues.push(...check.issues);
-    working.push(...check.working);
+    issues.push(
+      ...check.issues.map((x) => ({
+        code: x.code,
+        severity: x.severity,
+        message: x.message,
+        source: x.source ?? null,
+      })),
+    );
+    working.push(...mapSteps("deductions", check.working));
     if (deductions.length > 0) {
       rules.push({
         family: "EA deduction limits",
-        id: "25% per category, 50% overall",
-        effectiveFrom: DEDUCTION_LIMITS.effectiveFrom,
+        id: "EA s 29, s 30(2), s 32",
+        effectiveFrom: "2025-01-01",
         effectiveTo: null,
-        source: DEDUCTION_LIMITS.source,
+        source: MOM_DEDUCTIONS_SOURCE,
       });
     }
   }
@@ -587,7 +706,20 @@ export function computeEmployeePay(input: PayInput): PayResult {
       amountCents: cpfEmployerShown,
       wageClass: null,
       cpfLiable: false,
-      detail: shortfall ? `includes ${sgd(shortfall.totalCents)} on earlier AW` : null,
+      detail: shortfall ? `includes the employer share of CPF on earlier AW` : null,
+      itemId: null,
+    });
+  }
+  if (absorbed > 0) {
+    lines.push({
+      code: "CPF_EMPLOYEE_SHARE_ABSORBED",
+      kind: "employer",
+      category: "cpf_employer",
+      label: "Employee CPF on AW top-up, borne by employer",
+      amountCents: absorbed,
+      wageClass: null,
+      cpfLiable: false,
+      detail: "not statutory employer CPF",
       itemId: null,
     });
   }
@@ -652,7 +784,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
   }
 
   // 10. Net.
-  const employeeDeductions = cpfEe + shgShownTotal + otherDeductions;
+  const employeeDeductions = cpfEe + recovered + shgShownTotal + otherDeductions;
   const netCents = grossCents + reimbursementsCents - employeeDeductions;
   const netPayableCents = netCents - (before?.netPaidByReplacedCents ?? 0);
   if (netCents < 0) {
@@ -660,7 +792,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
       code: "NET_NEGATIVE",
       severity: "blocking",
       message: `Net pay is ${sgd(netCents)}. Reduce deductions so that net pay is not negative.`,
-      source: DEDUCTION_LIMITS.source,
+      source: MOM_DEDUCTIONS_SOURCE,
     });
   }
   if (run.kind === "adjustment") {
@@ -674,29 +806,18 @@ export function computeEmployeePay(input: PayInput): PayResult {
         code: "ADJUSTMENT_OVERPAID",
         severity: "warning",
         message: `The employee was overpaid ${sgd(-netPayableCents)}. Recover it with an "Overpaid salary recovery" deduction in a later run (outside the 50% limit).`,
-        source: DEDUCTION_LIMITS.source,
+        source: MOM_DEDUCTIONS_SOURCE,
       });
     }
   }
 
   // 11. Payment deadlines for this employee.
-  if (overtimeCents > 0) {
-    const due = addDays(run.periodEnd, PAYMENT_DEADLINES.overtimeDaysAfterPeriod);
-    if (run.payDate > due) {
-      issues.push({
-        code: "EA_OT_PAID_LATE",
-        severity: "warning",
-        message: `Overtime must be paid within ${PAYMENT_DEADLINES.overtimeDaysAfterPeriod} days after the salary period (by ${dateLabel(due)}); the pay date is ${dateLabel(run.payDate)}.`,
-        source: PAYMENT_DEADLINES.source,
-      });
-    }
-  }
   if (lastWorkingDayInPeriod && employment.lastWorkingDay) {
     const lwd = employment.lastWorkingDay;
     const employerTerminates =
       employment.cessationReason === "dismissal" || employment.cessationReason === "retrenchment";
     const due = employerTerminates
-      ? addWorkingDays(lwd, PAYMENT_DEADLINES.finalPayWorkingDaysAfterLastDayWhenEmployerTerminates)
+      ? addWorkingDays(lwd, paymentDeadlines(lwd).finalPayWorkingDaysWhenEmployerTerminates)
       : lwd;
     if (run.payDate > due) {
       issues.push({
@@ -705,12 +826,13 @@ export function computeEmployeePay(input: PayInput): PayResult {
         message: employerTerminates
           ? `Final pay after the employer ends employment is due on the last day (${dateLabel(lwd)}), or within 3 working days if that is not possible (${dateLabel(due)}). The pay date is ${dateLabel(run.payDate)}: use an off-cycle final pay run.`
           : `Final pay is due on the last day of work (${dateLabel(lwd)}) when notice is served; within 7 days if the employee resigned without notice. The pay date is ${dateLabel(run.payDate)}: consider an off-cycle final pay run.`,
-        source: PAYMENT_DEADLINES.source,
+        source: MOM_PAYING_SALARY_SOURCE,
       });
     }
   }
 
-  const employerCost = cpfEmployerShown + Math.floor(Math.max(0, charged.sdlUnits1e4Cent) / 10_000) + fwlCents;
+  const employerCost =
+    cpfEmployerShown + absorbed + Math.floor(Math.max(0, charged.sdlUnits1e4Cent) / 10_000) + fwlCents;
   return {
     engineVersion: ENGINE_VERSION,
     lines,
@@ -732,6 +854,8 @@ export function computeEmployeePay(input: PayInput): PayResult {
       employeeDeductionsCents: employeeDeductions,
       netCents,
       netPayableCents,
+      cpfAwRecoveredCents: recovered,
+      cpfEmployeeShareAbsorbedCents: absorbed,
       sdlUnits1e4Cent: sdl?.units1e4Cent ?? 0,
       fwlCents,
       employerCostCents: employerCost,
@@ -765,9 +889,16 @@ export function computeEmployeePay(input: PayInput): PayResult {
         }
       : null,
     shgFunds,
-    overtime:
-      otMinutes > 0 || overtimeCents > 0
-        ? { minutes: otMinutes, periodStart: otPeriod.start, periodEnd: otPeriod.end }
+    overtime: otMinutes > 0 || overtimeCents > 0 ? { minutes: otMinutes, periods: otPeriods } : null,
+    awTopUp:
+      thisShare > 0 || recoveredEarlier > 0
+        ? {
+            employeeShareCents: thisShare,
+            recoveredThisRunCents: recoveredThis,
+            recoveredEarlierCents: recoveredEarlier,
+            absorbedCents: absorbed,
+            deadline,
+          }
         : null,
     hourly,
     rules: dedupeRules(rules),

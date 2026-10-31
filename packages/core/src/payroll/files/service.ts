@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { recordAudit } from "../../audit/audit.ts";
 import { bankAccounts, employees } from "../../db/schema/employees.ts";
 import { companyProfiles } from "../../db/schema/organisation.ts";
@@ -42,36 +42,7 @@ export async function cpfEzpayFile(deps: AppDeps, actor: PayrollActor, runId: st
   const [profile] = await deps.db.select().from(companyProfiles).where(eq(companyProfiles.orgId, actor.orgId));
   if (!profile?.csn) throw new AppError("conflict", "Add the CPF Submission Number (CSN) in Settings → Company first.");
   const [settings] = await deps.db.select().from(payrollSettings).where(eq(payrollSettings.orgId, actor.orgId));
-  // Each payment advice needs its own advice code: the regular run uses the setting, later runs of
-  // the month the next codes.
-  const monthRuns = await deps.db
-    .select({ id: payrollRuns.id, decidedAt: payrollRuns.decidedAt, kind: payrollRuns.kind })
-    .from(payrollRuns)
-    .where(
-      and(
-        eq(payrollRuns.orgId, actor.orgId),
-        eq(payrollRuns.month, run.month),
-        inArray(payrollRuns.status, ["approved", "paid"]),
-      ),
-    );
-  monthRuns.sort((a, b) =>
-    a.kind === "regular"
-      ? -1
-      : b.kind === "regular"
-        ? 1
-        : (a.decidedAt?.getTime() ?? 0) - (b.decidedAt?.getTime() ?? 0),
-  );
-  const base = Number(settings?.cpfAdviceCode ?? "01");
-  const advice = String(
-    Math.min(
-      99,
-      base +
-        Math.max(
-          0,
-          monthRuns.findIndex((r) => r.id === run.id),
-        ),
-    ),
-  ).padStart(2, "0");
+  const advice = await adviceCodeFor(deps, run, settings?.cpfAdviceCode ?? "01");
 
   const people = await deps.db
     .select({ id: employees.id, enc: employees.idNumberEnc, idType: employees.idType })
@@ -228,4 +199,42 @@ export async function bankPaymentFile(deps: AppDeps, actor: PayrollActor, runId:
     body,
     excluded,
   };
+}
+
+/**
+ * The run's CPF EZPay advice code, allocated once and kept on the run (Crow HR's bookkeeping policy:
+ * the FTP spec allows 01–99 and needs distinct codes for advices in one file, but prescribes no
+ * sequence). The regular run takes the configured code when free; later runs of the month take the
+ * next unused code. Past 99 there is no code left: refuse rather than reuse one.
+ */
+async function adviceCodeFor(
+  deps: AppDeps,
+  run: { id: string; orgId: string; month: string; kind: string; cpfAdviceCode: string | null },
+  base: string,
+): Promise<string> {
+  if (run.cpfAdviceCode) return run.cpfAdviceCode;
+  return deps.db.transaction(async (tx) => {
+    const used = await tx
+      .select({ code: payrollRuns.cpfAdviceCode })
+      .from(payrollRuns)
+      .where(
+        and(eq(payrollRuns.orgId, run.orgId), eq(payrollRuns.month, run.month), isNotNull(payrollRuns.cpfAdviceCode)),
+      );
+    const taken = new Set(used.map((u) => Number(u.code)));
+    let code = Number(base);
+    if (run.kind !== "regular" || taken.has(code)) code = Math.max(Number(base), ...taken) + (taken.size ? 1 : 0);
+    while (taken.has(code)) code++;
+    if (code > 99) {
+      throw new AppError(
+        "conflict",
+        `Every CPF EZPay advice code (01–99) for ${run.month} is used. Submit the remaining amounts in CPF EZPay by hand, or set a lower base advice code in Payroll settings.`,
+      );
+    }
+    const value = String(code).padStart(2, "0");
+    await tx
+      .update(payrollRuns)
+      .set({ cpfAdviceCode: value })
+      .where(and(eq(payrollRuns.orgId, run.orgId), eq(payrollRuns.id, run.id)));
+    return value;
+  });
 }

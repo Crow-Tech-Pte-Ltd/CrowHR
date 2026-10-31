@@ -1,5 +1,5 @@
 import type { CpfAwPayment, CpfResidency, CpfYearToDate, WorkPattern } from "@crowhr/sg-rules";
-import { and, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, ne, or } from "drizzle-orm";
 import {
   allowanceTypes,
   compensationRecords,
@@ -46,6 +46,7 @@ const EFFECTIVE_STATUSES = ["approved", "paid"] as const;
 const ZERO: MonthCharged = {
   cpfTotalCents: 0,
   cpfEmployeeCents: 0,
+  cpfAwTopUpEmployeeCents: 0,
   cpfEmployerCents: 0,
   shgCents: {},
   sdlUnits1e4Cent: 0,
@@ -57,6 +58,7 @@ function addCharged(a: MonthCharged, b: MonthCharged): MonthCharged {
   return {
     cpfTotalCents: a.cpfTotalCents + b.cpfTotalCents,
     cpfEmployeeCents: a.cpfEmployeeCents + b.cpfEmployeeCents,
+    cpfAwTopUpEmployeeCents: a.cpfAwTopUpEmployeeCents + (b.cpfAwTopUpEmployeeCents ?? 0),
     cpfEmployerCents: a.cpfEmployerCents + b.cpfEmployerCents,
     shgCents: shg,
     sdlUnits1e4Cent: a.sdlUnits1e4Cent + b.sdlUnits1e4Cent,
@@ -275,6 +277,23 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
         eq(payrollBackpayNotices.orgId, orgId),
         inArray(payrollBackpayNotices.employeeId, ids),
         isNull(payrollBackpayNotices.resolvedRunId),
+      ),
+    );
+  const topUps = await db
+    .select({ employeeId: payrollPayslips.employeeId, month: payrollRuns.month, result: payrollPayslips.result })
+    .from(payrollPayslips)
+    .innerJoin(
+      payrollRuns,
+      and(eq(payrollRuns.orgId, payrollPayslips.orgId), eq(payrollRuns.id, payrollPayslips.runId)),
+    )
+    .where(
+      and(
+        eq(payrollPayslips.orgId, orgId),
+        inArray(payrollPayslips.employeeId, ids),
+        inArray(payrollRuns.status, ["approved", "paid"]),
+        isNull(payrollRuns.supersededByRunId),
+        gte(payrollRuns.month, `${Number(year) - 1}-01`),
+        ne(payrollRuns.id, run.id),
       ),
     );
   const openings = await db
@@ -556,6 +575,7 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
       cpfStateBefore,
       cpfStateSource,
       monthBefore,
+      awRecoveryOpen: awLots(topUps.filter((u) => u.employeeId === id && u.month <= run.month)),
       fwl:
         settings?.fwlSector && settings.fwlTier
           ? { sector: settings.fwlSector, tier: settings.fwlTier, skill: settings.fwlSkill ?? null }
@@ -564,4 +584,26 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
     });
   }
   return out;
+}
+
+/**
+ * Open AW top-up employee shares (CPF Act s 7(9) recovery lots), oldest first: each run's own share
+ * less what that run recovered, then later recoveries of earlier lots applied first-in, first-out.
+ */
+function awLots(slips: { month: string; result: PayResult }[]): PayInput["awRecoveryOpen"] {
+  const sorted = [...slips].sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : 0));
+  const lots: { month: string; openCents: number; deadline: string }[] = [];
+  for (const s of sorted) {
+    const t = s.result.awTopUp;
+    if (!t) continue;
+    let later = t.recoveredEarlierCents;
+    for (const lot of lots) {
+      const take = Math.min(lot.openCents, later);
+      lot.openCents -= take;
+      later -= take;
+    }
+    const open = t.employeeShareCents - t.recoveredThisRunCents;
+    if (open > 0) lots.push({ month: s.month, openCents: open, deadline: t.deadline });
+  }
+  return lots.filter((l) => l.openCents > 0);
 }

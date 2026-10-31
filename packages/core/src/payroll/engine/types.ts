@@ -20,7 +20,13 @@ export type RunItemKind =
   | "overtime"
   | "unpaid_leave"
   | "hours"
-  | "deduction";
+  | "deduction"
+  /** Rostered staff: working days the roster required in the month (incl. public holidays). */
+  | "scheduled_days"
+  /** Rostered staff: days worked (incl. public holidays and paid leave; excl. no-pay leave). */
+  | "days_worked"
+  /** Recover the employee share of AW top-up CPF (CPF Act s 7(9)); amount null = all recoverable. */
+  | "cpf_aw_recovery";
 
 /** One manual input on a run (or fed from a source port). */
 export interface RunItemInput {
@@ -76,7 +82,10 @@ export interface ReimbursementInput {
 /** Amounts already charged for this employee by earlier runs of the same month. */
 export interface MonthCharged {
   cpfTotalCents: number;
+  /** Statutory employee share, including the employee share of any AW top-up (shortfall). */
   cpfEmployeeCents: number;
+  /** The part of `cpfEmployeeCents` that is the employee share of an AW top-up on earlier AW. */
+  cpfAwTopUpEmployeeCents: number;
   cpfEmployerCents: number;
   shgCents: Partial<Record<ShgFund, number>>;
   sdlUnits1e4Cent: number;
@@ -143,6 +152,11 @@ export interface PayInput {
   cpfStateSource: string;
   monthBefore: MonthBefore | null;
   fwl: { sector: string; tier: string; skill: string | null } | null;
+  /**
+   * Employee shares of AW top-ups charged in earlier runs not yet recovered from pay, oldest first,
+   * with the CPF Act s 7(9) recovery deadline of each.
+   */
+  awRecoveryOpen: { month: string; openCents: number; deadline: string }[];
   /** Problems found while gathering the snapshot (e.g. PR without a start date). */
   snapshotIssues: PayIssue[];
 }
@@ -225,6 +239,10 @@ export interface PayResult {
     netCents: number;
     /** Net to pay now: net, or for an adjustment net − net already paid by the replaced run(s). */
     netPayableCents: number;
+    /** Employee share of AW top-ups recovered from this pay (CPF Act s 7(9)). */
+    cpfAwRecoveredCents: number;
+    /** Employee share of this run's AW top-up the employer bears (not recovered). Not statutory employer CPF. */
+    cpfEmployeeShareAbsorbedCents: number;
     sdlUnits1e4Cent: number;
     fwlCents: number;
     employerCostCents: number;
@@ -264,7 +282,25 @@ export interface PayResult {
     exactEmployee: string;
   } | null;
   shgFunds: ShgFund[];
-  overtime: { minutes: number; periodStart: string | null; periodEnd: string | null } | null;
+  overtime: {
+    minutes: number;
+    /** Each OT entry with its own period (MOM payslip item 11), hours and pay. */
+    periods: {
+      label: string;
+      periodStart: string | null;
+      periodEnd: string | null;
+      minutes: number;
+      payCents: number;
+    }[];
+  } | null;
+  /** AW top-up (prior-AW shortfall) employee share and how it was handled. */
+  awTopUp: {
+    employeeShareCents: number;
+    recoveredThisRunCents: number;
+    recoveredEarlierCents: number;
+    absorbedCents: number;
+    deadline: string;
+  } | null;
   hourly: { rateCents: number; minutes: number } | null;
   rules: RuleRef[];
   working: WorkingLine[];

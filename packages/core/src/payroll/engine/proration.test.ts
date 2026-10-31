@@ -67,10 +67,23 @@ describe("pro-ration (MOM incomplete month)", () => {
     expect(missing.issues.map((i) => [i.code, i.severity])).toEqual([["HOURS_MISSING", "blocking"]]);
   });
 
-  it("warns when a shift schedule forces the 5-day assumption", () => {
-    const r = prorate(payInput({ employment: { pattern: null, hireDate: "2026-10-16" } }));
-    expect(r.issues.map((i) => i.code)).toContain("PRORATION_PATTERN_ASSUMED");
-    expect(r.basicCents).toBe(200_000);
+  it("rostered staff: a full month needs nothing, a part month needs roster days (EA s 20A), never an assumed week", () => {
+    expect(prorate(payInput({ employment: { pattern: null } })).basicCents).toBe(400_000);
+    const missing = prorate(payInput({ employment: { pattern: null, hireDate: "2026-10-16" } }));
+    expect(missing.issues.map((i) => [i.code, i.severity])).toEqual([["SCHEDULED_DAYS_REQUIRED", "blocking"]]);
+    expect(missing.basicCents).toBe(0);
+    // 26 days rostered in October, 12 worked after joining: 4,000 × 12 / 26 = 1,846.153… → 1,846.15.
+    const r = prorate(
+      payInput({
+        employment: { pattern: null, hireDate: "2026-10-16" },
+        items: [item({ kind: "scheduled_days", days: 26 }), item({ kind: "days_worked", days: 12 })],
+      }),
+    );
+    expect(r.issues).toEqual([]);
+    expect(r.basicCents).toBe(184_615);
+    expect(r.lines[0]?.detail).toBe("12 of 26 scheduled days");
+    const npl = prorate(payInput({ employment: { pattern: null }, items: [item({ kind: "unpaid_leave", days: 2 })] }));
+    expect(npl.issues.map((i) => i.code)).toEqual(["SCHEDULED_DAYS_REQUIRED"]);
   });
 
   it("blocks without compensation and outside employment", () => {
