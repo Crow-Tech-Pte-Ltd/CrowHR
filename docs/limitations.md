@@ -41,7 +41,6 @@ may be described as working. Remove an entry only in the change that fixes it.
 ## Organisation and people (add-organisation-and-people)
 
 - **No first-run setup yet**, so a fresh server has no organisation or members to sign in with. The people screens are exercised by `packages/core/testing/people-dev-server.ts` (DEV ONLY, 127.0.0.1): the real app with real sessions, seeded with fictional staff, where `/__dev/as/<persona>` creates a session for a seeded member. The people e2e (`e2e/people/`) runs against it.
-- **Hosts must wire the manager scope**: `apps/server` should set `deps.reportingScope = createReportingScopeResolver(db)`; until then nobody holds the derived `manager` role on the real server.
 - **Invitation on hire is NOT IMPLEMENTED in production**: identity has no exported invite service, so hiring logs a hint and HR invites from Settings → Members (which accepts `employeeId`). Tests use a double.
 - **Workflows stand-ins**: change requests wait in `profile_change_requests` and are decided through `POST /api/v1/people/change-requests/:id/decision`; no approval task, inbox item or notification is created. Checklist and setup-checklist inbox items are exposed by people endpoints, not yet by a workflows `InboxSource`.
 - **Payroll stand-in**: no period is ever finalised, so the retroactive-change guard only triggers in tests, and back-pay notices go nowhere.
@@ -53,5 +52,6 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Cancelling a scheduled hire or rehire** is not supported; record a termination instead.
 - **Audit events are recorded after the domain transaction commits**, not inside it (identity's `recordAudit` supports the transaction; threading it through every people service is follow-up work).
 - **Statutory lookups** (CSN payment types, rest-day rule, work pass types) are cited in `packages/core/src/organisation/statutory.ts` and should move to `packages/sg-rules`.
+- **NRIC/bank reveal** (`POST /api/v1/employees/:id/nric/reveal`, `/bank/reveal`) has no web unit test: apps/web has no DOM test environment; it is covered by Playwright (`e2e/people/reveal.people.ts`).
 - **Company logo** upload has an API only; there is no upload control on the Company screen yet.
 - **Error codes** `duplicate_id_number`, `in_use`, `reporting_cycle` are sent as `409 conflict` with `details.reason` until they are added to `ERROR_STATUS`.

@@ -13,6 +13,9 @@ import { createApp } from "../app.ts";
 import { recordAudit, systemAuditContext } from "../audit/audit.ts";
 import { invitations, memberships } from "../db/schema/access.ts";
 import { sessions, ssoProviders } from "../db/schema/auth.ts";
+import { buildActor } from "../employees/access.ts";
+import { defaultPeoplePorts } from "../employees/ports.ts";
+import { seedPeopleOnePerTable } from "../testing/people-sweep.ts";
 import { orgScope } from "./org-scope.ts";
 
 describe("cross-organisation isolation", () => {
@@ -63,6 +66,17 @@ describe("cross-organisation isolation", () => {
       absoluteExpiresAt: new Date(now.getTime() + 3_600_000),
     });
     await recordAudit(deps.db, deps, systemAuditContext(b.id, "system", "seed"), { action: "x.seed", targetType: "t" });
+    // People module: one row in each of its tables.
+    const ownerActorB = buildActor({
+      db: deps.db,
+      orgId: b.id,
+      userId: ownerB.userId,
+      requestId: null,
+      roles: ["owner"],
+      employeeId: null,
+      today: "2026-10-31",
+    });
+    await seedPeopleOnePerTable(deps, defaultPeoplePorts(deps), ownerActorB);
   });
   afterAll(() => t.close());
 
@@ -74,7 +88,7 @@ describe("cross-organisation isolation", () => {
     expect(result.untestable).toEqual([]);
     expect(result.failures).toEqual([]);
     expect(result.checked.length).toBeGreaterThan(10);
-  });
+  }, 90_000); // Sweeps every routed record of every module (people adds ~20 routes and tables).
 
   it("orgScope never returns another organisation's row", async () => {
     const [m] = await deps.db.select().from(memberships).where(orgScope(deps.db, b.id).where(memberships));

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { revealSensitive } from "../access/nric.ts";
+import { sensitive } from "../access/sensitivity.ts";
 import { AppError } from "../errors.ts";
 import { csvEnum, listQuery } from "../http/list.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
@@ -31,6 +33,8 @@ import { TEMPLATES, templateCsv } from "./import/templates.ts";
 import { applyEvent, cancelEvent, ctxFor, eventInput, hire } from "./lifecycle.ts";
 import {
   adminProfilePatch,
+  bankAccountForPayment,
+  decryptIdNumber,
   replaceEmergencyContacts,
   selfServicePatch,
   setBankAccount,
@@ -277,6 +281,50 @@ export const employeesModule = defineModule({
       handler: async ({ c, deps, params }) => {
         const { actor, ports } = actorFrom(c);
         await cancelEvent(ctxFor(deps, ports, actor), params.id, params.eventId);
+      },
+    }),
+    defineRoute({
+      method: "post",
+      path: "/:id/nric/reveal",
+      summary: "Reveal the full NRIC/FIN once (re-authentication, 30 per hour, audited)",
+      access: { permission: "personal_details:read" },
+      recentAuth: true,
+      request: { params: idParam },
+      responses: { 200: z.object({ value: sensitive(z.string(), "nric") }) },
+      errors: ["not_found", "reauth_required", "rate_limited"],
+      handler: async ({ c, deps, params }) => {
+        const { actor, ports } = actorFrom(c);
+        await assertEmployeeInOrg(deps.db, actor.orgId, params.id);
+        await assertCanRead(actor, "personal", params.id);
+        const value = await revealSensitive(c, {
+          cls: "nric",
+          employeeId: params.id,
+          load: () => decryptIdNumber(deps, ports, actor, params.id),
+        });
+        return { value };
+      },
+    }),
+    defineRoute({
+      method: "post",
+      path: "/:id/bank/reveal",
+      summary: "Reveal the full current bank account number once (re-authentication, 30 per hour, audited)",
+      access: { permission: "bank_details:read" },
+      recentAuth: true,
+      request: { params: idParam },
+      responses: { 200: z.object({ value: sensitive(z.string(), "bank") }) },
+      errors: ["not_found", "reauth_required", "rate_limited"],
+      handler: async ({ c, deps, params }) => {
+        const { actor, ports } = actorFrom(c);
+        await assertEmployeeInOrg(deps.db, actor.orgId, params.id);
+        await assertCanRead(actor, "bank", params.id);
+        const value = await revealSensitive(c, {
+          cls: "bank",
+          employeeId: params.id,
+          load: async () =>
+            (await bankAccountForPayment(deps, ports, actor.orgId, params.id, singaporeToday(deps.clock.now())))
+              ?.accountNumber ?? null,
+        });
+        return { value };
       },
     }),
     defineRoute({
