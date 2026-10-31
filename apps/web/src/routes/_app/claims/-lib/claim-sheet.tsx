@@ -477,7 +477,7 @@ function LineEditor({
             }
           >
             <SelectTrigger id={id("currency")} className="num" aria-label="Currency">
-              <SelectValue />
+              <SelectValue>{l.currency}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {CURRENCIES.map((c) => (

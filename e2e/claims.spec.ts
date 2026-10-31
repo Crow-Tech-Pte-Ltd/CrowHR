@@ -15,7 +15,7 @@ const DESKTOP = { width: 1440, height: 900 };
 const PHONE = { width: 390, height: 844 };
 
 async function shot(page: Page, name: string) {
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/ws6-${name}.png`, fullPage: true });
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/ws6-${name}.png`, fullPage: true, animations: "disabled" });
 }
 
 async function signedIn(browser: Browser, email: string, viewport = DESKTOP): Promise<Page> {
@@ -164,6 +164,7 @@ test("submit a claim with a receipt on a phone → manager approves in the Inbox
   await expect(viewer.getByRole("img", { name: /Receipt IMG_4021/ })).toBeVisible();
   await shot(kaiWen, "receipt-viewer-1440");
   await kaiWen.keyboard.press("Escape");
+  await expect(viewer).toHaveCount(0);
   await shot(kaiWen, "claim-detail-1440");
   await kaiWen.goto("/inbox");
   await task.getByRole("button").first().click();
@@ -173,7 +174,7 @@ test("submit a claim with a receipt on a phone → manager approves in the Inbox
 
   // 3. Approved and in the payroll reimbursement source for this period.
   await ahmad.reload();
-  await expect(ahmad.getByTestId("claim-status").first()).toHaveText("Approved");
+  await expect(ahmad.getByTestId("claim-status").first()).toHaveText("Approved, to be paid");
   const owner = await signedIn(browser, E2E.members.owner.email);
   const payable = await owner.request.get(`/api/v1/claims/payable?periodEnd=${periodEnd()}`);
   expect(payable.status()).toBe(200);
