@@ -76,6 +76,7 @@ export const MODULE_LABEL: Record<string, string> = {
   attendance: "Attendance",
   claims: "Claims",
   payroll: "Payroll",
+  scheduling: "Schedules",
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

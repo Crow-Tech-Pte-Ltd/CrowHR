@@ -170,7 +170,7 @@ The demo is the real web app and the real core API running in the visitor's brow
 - **CSV export** is for editors only; staff see the published roster on screen.
 ## Reports (add-reporting, WS6b)
 
-- **Report set is fixed**: headcount, headcount over time, joiners/leavers/turnover, work-pass expiry, leave taken, leave balances and liability, attendance exceptions, claims summary and payroll cost. No custom builder, saved views or scheduled reports (proposal non-goals).
+- **Report set is fixed**: headcount, headcount over time, joiners/leavers/turnover, work-pass expiry, leave taken, leave balances and liability, attendance exceptions, scheduled hours (published rosters), claims summary and payroll cost. No custom builder, saved views or scheduled reports (proposal non-goals).
 - **Charts** are a single bar chart under the table, drawn from the rows on the current page only, and hidden when a label repeats (e.g. a month split by department). The table is the accessible view.
 - **Exports** are streamed as CSV; XLSX is built in memory from 500-row batches (store-only ZIP, no compression). The runner holds at most 50 000 rows to sort; larger results answer 422 `too_many_rows`.
 - **Payroll cost SDL by department** is an allocation: payroll rounds SDL once for the employer per month, and the report splits that total across departments by SDL-liable wages (largest remainder), so departments add up exactly but a department's SDL is not a statutory figure. FWL is payroll's estimate.

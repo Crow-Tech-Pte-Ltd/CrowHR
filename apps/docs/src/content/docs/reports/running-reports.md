@@ -16,10 +16,11 @@ description: The reports Crow HR ships, who can run each one, the exact formulas
 | Leave taken | Approved leave in a period by leave type, by department and type, or by employee and type | Owner, HR admin; managers for their team |
 | Leave balances and liability | Entitlement, carried forward, taken, pending and available leave as at a date, and the annual leave liability | Owner, HR admin; managers for their team |
 | Lateness, missing punches and overtime | Days worked, hours, late days and minutes, early outs, missing punches, timesheet and approved overtime hours (up to 62 days) | Owner, HR admin; managers for their team |
+| Scheduled hours | Shifts, rest days and paid hours per employee from published rosters (up to 62 days); drafts never count | Owner, HR admin; managers for their team |
 | Claims by type, department or month | Claim amounts and GST by expense date, per status | Owner, HR admin, payroll admin |
 | Payroll cost | Gross pay, employer CPF, SDL, FWL estimate and total employer cost by month and department | Owner, payroll admin |
 
-The permissions come from the server's [permission matrix](/docs/roles-and-permissions/) (`reports_people`, `reports_leave`, `reports_attendance`, `reports_claims`, `reports_payroll_cost`, and `work_pass` for the expiry list). A report you may not run answers `403`; a report from a module that isn't installed answers `404`. Reports never run at "own" scope: an employee's own data is on their own pages.
+The permissions come from the server's [permission matrix](/docs/roles-and-permissions/) (`reports_people`, `reports_leave`, `reports_attendance`, `reports_claims`, `reports_payroll_cost`, `work_pass` for the expiry list, and `rosters` for scheduled hours). A report you may not run answers `403`; a report from a module that isn't installed answers `404`. Reports never run at "own" scope: an employee's own data is on their own pages.
 
 ## Scope and sensitive columns
 
