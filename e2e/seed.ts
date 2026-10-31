@@ -10,6 +10,8 @@ import { openDatabase } from "../apps/server/src/db.ts";
 import { singaporeDate } from "../packages/core/src/access/scope.ts";
 import { systemAuditContext } from "../packages/core/src/audit/audit.ts";
 import { generateRpKeys } from "../packages/core/src/auth/oidc/keys.ts";
+import { buildClaimsActor } from "../packages/core/src/claims/access.ts";
+import { createStarterTypes } from "../packages/core/src/claims/types.ts";
 import { buildActor } from "../packages/core/src/employees/access.ts";
 import { submitChangeRequest } from "../packages/core/src/employees/change-requests.ts";
 import { ctxFor, hire } from "../packages/core/src/employees/lifecycle.ts";
@@ -223,4 +225,27 @@ async function seedApprovals(orgId: string) {
     today,
   });
   await submitChangeRequest(past, defaultPeoplePorts(past), farahActor, { personal: { religion: "islam" } });
+  await seedClaims(orgId, member(E2E.members.owner.email), today);
+}
+
+/**
+ * Claims (WS6): the starter claim types (Transport, Meals, Client entertainment, Medical, Dental,
+ * Phone) and a manager-only approval policy, so a claim goes employee → manager → approved.
+ */
+async function seedClaims(orgId: string, owner: { userId: string; membershipId: string }, today: string) {
+  const actor = buildClaimsActor({
+    db,
+    orgId,
+    userId: owner.userId,
+    requestId: null,
+    roles: ["owner"],
+    employeeId: null,
+    today,
+    membershipId: owner.membershipId,
+  });
+  const claimDeps = createTestDeps(db, { ids, clock: systemClock, passwordHasher: deps.passwordHasher });
+  await createStarterTypes(claimDeps, actor);
+  await replacePolicies(db, claimDeps, systemAuditContext(orgId, "system", "e2e seed"), orgId, "claim", [
+    { name: "Default", condition: null, priority: 0, steps: [{ approverRule: "manager", escalateAfterDays: 3 }] },
+  ]);
 }

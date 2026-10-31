@@ -21,7 +21,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 ## Approvals and notifications (workflows workstream)
 
-- **Only profile changes and payroll runs submit requests yet.** Leave, claims, OT, timesheets and shift swaps register their `SubjectAdapter` when they land; until then Settings → Approvals lists those types as "Not in use yet".
+- **Only profile changes, payroll runs and claims submit requests yet.** Leave, OT, timesheets and shift swaps register their `SubjectAdapter` when they land; until then Settings → Approvals lists those types as "Not in use yet".
 - **Default policies are not stored per org.** Organisations without a saved policy use the built-in defaults at submission (same behaviour as seeding them); they are listed as "Default" in Settings → Approvals until edited.
 - **Payroll-cutoff reminders** (`payroll_cutoff`, 3 days before the cutoff day in payroll settings, or the pay day when none is set) go to active payroll admins until the month's regular run is approved.
 - **Out-of-office cover** is set from the Inbox (and by HR in Settings → Approvals), not from My profile.
@@ -34,7 +34,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 - **Home** shows real work from `GET /api/v1/inbox`; its payroll card lists open runs and the month's run when not started, or "Payroll isn't set up yet" before payroll settings are saved.
 - **Command palette** "People" results come from the live directory (people module).
-- **Every module** except People and Payroll (Leave, Attendance, Schedules, Claims, Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
+- **Every module** except People, Payroll and Claims (Leave, Attendance, Schedules, Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
 - **No dark mode.** The landing site's dark tokens were not ported.
 
 ## Platform
@@ -76,7 +76,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 - **Approvals** go through the workflows engine (`payroll_run` subject, default policy: an owner approves; an owner who submitted may self-approve, which is recorded). There is no payroll-specific decision endpoint.
 - **Overtime, hours and no-pay leave are entered by hand** per run. `OvertimeSource` (attendance) and the leave module are not wired; `manualOvertimeOnly` is the default.
-- **Claims reimbursement is NOT IMPLEMENTED in production**: `noClaimsYet` returns nothing payable until WS6 implements `ReimbursementSource`.
+- **Claims reimbursement** comes from the claims module by default (`createClaimsReimbursementSource`); `noClaimsYet` is now only a test double.
 - **Back pay from people's retroactive changes** is flagged on the next run (`BACKPAY_OWED`) but not computed; the amount is entered as a "Back pay" item, and approving the run closes the notice.
 - **No direct submission** to CPF Board, IRAS or banks: payroll produces the CPF EZPay (FTP) file and a generic ISO 20022 `pain.001.001.03` file for upload. IRAS's AIS API needs an approved software vendor and CorpPass authorisation, so IR8A is exported for manual upload (below).
 - **Bank file is generic**: Singapore's SS611 standard adopts pain.001.001.03 and leaves the details to each bank, and banks publish guides (ANZ's Singapore MIG, for example), so service level (FAST or GIRO), charge bearer and 11-character BICs depend on the bank's profile. The file is not mapped to any bank's guide and has not been tested with any bank; it validates against the official ISO 20022 XSD.
@@ -91,3 +91,15 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Appendix 8A and 8B are NOT IMPLEMENTED**: Crow HR records no benefits-in-kind or share plans, so the export says to fill those sheets by hand.
 - **Allowance CPF and pro-ration treatment** has an API (`/payroll/allowance-settings`) but no screen yet; the default is CPF-liable OW, pro-rated.
 - **Payroll dev server**: like the people screens, payroll e2e and screenshots run against `packages/core/testing/payroll-dev-server.ts` (DEV ONLY, 127.0.0.1).
+
+## Claims (add-claims)
+
+- **Money rule**: foreign lines convert as `roundHalfUp(amountMinor × rateMicros × 100 / (10^exponent × 10^6))` with BigInt, rounded once per line to the cent; the claim total is the sum of rounded lines (`packages/core/src/claims/money.ts`). Rates are manual (no FX feed), at most 6 decimal places.
+- **ClamAV adapter NOT IMPLEMENTED** (task 3.4). The `FileScanner` hook (`deps.fileScanner`) and its `tick` sweep exist and are tested with a fake; without a scanner, receipts are stored as `unscanned` and owners see "scanning is off" in Settings → Claim types. `CLAMAV_HOST` is not read by the server yet.
+- **Polyglot detection is heuristic**: HTML/script/SVG/PHP markers in the first kilobyte and a ZIP end-of-central-directory record near the end are refused. Downloads are always served with the detected type, `nosniff` and a sandbox CSP; PDFs and HEIC as attachments.
+- **HEIC receipts** are accepted and stored but not previewed ("Preview not available. Download to view").
+- **Approval type code**: the workflows engine takes one `typeCode`, so a claim with several types sends its largest type by SGD amount (first on a tie). A `typeCodes` policy condition therefore matches on that type only.
+- **Reports NOT IMPLEMENTED in part** (task 4.1): totals by type/department/employee/month with GST, the line register and the payout register exist (JSON, CSV, XLSX); the per-employee cap-usage report and registration with the `reporting` module (not built yet) are open. Ageing is shown as "N days" on waiting claims in the admin table.
+- **FX sanity warning NOT IMPLEMENTED**: the design's "rate deviates more than 20% from the last rate" warning to approvers is not built; approvers see the original amount, rate and SGD amount.
+- **On-behalf claims**: owners and hr_admins can create claims for an employee through the API (`employeeId`); the web form only files claims for yourself.
+- **Uploaded but unattached receipts** are kept until the uploader deletes them; there is no cleanup sweep.
