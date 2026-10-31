@@ -13,9 +13,6 @@ import { createApp } from "../app.ts";
 import { recordAudit, systemAuditContext } from "../audit/audit.ts";
 import { invitations, memberships } from "../db/schema/access.ts";
 import { sessions, ssoProviders } from "../db/schema/auth.ts";
-import { buildActor } from "../employees/access.ts";
-import { defaultPeoplePorts } from "../employees/ports.ts";
-import { seedPeopleOnePerTable } from "../testing/people-sweep.ts";
 import { emailOutbox, notificationPrefs, notifications, remindersSent } from "../db/schema/notifications.ts";
 import {
   approvalComments,
@@ -26,6 +23,9 @@ import {
   approvalTasks,
   delegations,
 } from "../db/schema/workflows.ts";
+import { buildActor } from "../employees/access.ts";
+import { defaultPeoplePorts } from "../employees/ports.ts";
+import { seedPeopleOnePerTable } from "../testing/people-sweep.ts";
 import { orgScope } from "./org-scope.ts";
 
 describe("cross-organisation isolation", () => {

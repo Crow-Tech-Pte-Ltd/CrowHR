@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { type AppDeps, createApp, VERSION } from "@crowhr/core";
+import { type ApiModule, type AppDeps, createApp, VERSION } from "@crowhr/core";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
@@ -21,6 +21,8 @@ export interface ServerAppOptions {
   setupGate?: SetupGate;
   /** Maintenance flag (restore in progress): everything answers 503. */
   maintenance?: () => MaintenanceInfo | null;
+  /** Extra API modules mounted under /api/v1 (the e2e server adds a test-only request type). */
+  modules?: readonly ApiModule[];
 }
 
 /** Minimal self-contained page for 503s (no external assets: the app may be mid-restore). */
@@ -86,7 +88,7 @@ export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
   );
   if (options.maintenance) app.use("*", maintenanceGuard(options.maintenance));
   if (options.setupGate) app.use("*", setupGateMiddleware(options.setupGate));
-  app.route("/", createApp(deps));
+  app.route("/", createApp(deps, { modules: options.modules ?? [] }));
 
   if (!existsSync(join(webDistDir, "index.html"))) {
     deps.logger.warn("Web app build not found; serving the API only. Run `bun run build`.", { webDistDir });
