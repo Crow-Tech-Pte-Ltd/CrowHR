@@ -31,6 +31,7 @@ export * from "./employment-act/salary.ts";
 export * from "./employment-act/salary-payment.ts";
 export { RulesNotAvailableError, SgRulesInputError } from "./errors.ts";
 export * from "./fwl.ts";
+export * from "./hours/index.ts";
 export {
   type ExactCents,
   exactDollarsText,
