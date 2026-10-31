@@ -9,12 +9,33 @@ import type { Logger } from "./logger.ts";
  */
 export type Role = string;
 
-/** Who is making the request, in which organisation, with which roles. */
+/**
+ * How the session was established. Mirrors the per-organisation sign-in
+ * methods in AGENTS.md ("Authentication"). NOT IMPLEMENTED: no method works
+ * yet; the auth workstream fills these in (one OIDC implementation with
+ * provider presets for Google, Microsoft and Singpass).
+ */
+export type AuthMethod = "password" | "google" | "microsoft" | "singpass" | "oidc";
+
+/** The external identity behind an SSO session. */
+export interface IdentityProviderInfo {
+  /** Org-scoped identity provider configuration id. */
+  providerId: string;
+  /** OIDC `iss` of the provider, e.g. https://accounts.google.com. */
+  issuer: string;
+  /** OIDC `sub` (for Singpass, the stored Singpass UUID). */
+  subject: string;
+}
+
+/** Who is making the request, in which organisation, with which roles, and how they signed in. */
 export interface AuthContext {
   user: { id: string; email: string; displayName: string };
   /** The organisation every tenant query in this request is scoped to. */
   orgId: string;
   roles: readonly Role[];
+  authMethod: AuthMethod;
+  /** Present for SSO sessions; null for email + password. */
+  identity: IdentityProviderInfo | null;
 }
 
 /** Request-scoped values available as `c.var.*` in every handler. */
