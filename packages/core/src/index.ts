@@ -20,6 +20,7 @@ export { requireRecentAuth } from "./auth/guards.ts";
 export { newResetLinkForCli } from "./auth/owner-recovery.ts";
 export { passwordProblem } from "./auth/password-policy.ts";
 export { revokeUserSessions } from "./auth/sessions.ts";
+export type { ClientInfo } from "./context.ts";
 export {
   type AppContext,
   type AppEnv,
@@ -77,4 +78,23 @@ export {
   noopLogger,
 } from "./logger.ts";
 export type { HealthResponse } from "./modules/health/routes.ts";
+export {
+  formatSetupCode,
+  generateSetupCode,
+  hashSetupCode,
+  normaliseSetupCode,
+  SETUP_CODE_ALPHABET,
+} from "./setup/code.ts";
+export { SETUP_CODE_HEADER } from "./setup/routes.ts";
+export { isSetupRequired, storeSetupCode } from "./setup/service.ts";
+export type { DiskUsage, SystemHost, SystemHostInfo } from "./system/host.ts";
+export {
+  deleteSystemSetting,
+  getSystemSetting,
+  lastBackupRuns,
+  type SchemaVersion,
+  SYSTEM_KEYS,
+  setSystemSetting,
+} from "./system/settings.ts";
+export { BACKUP_STALE_HOURS, type SystemStatus } from "./system/status.ts";
 export { VERSION } from "./version.ts";

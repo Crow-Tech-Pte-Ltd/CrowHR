@@ -35,7 +35,10 @@ export default defineConfig({
       ...(process.env.SHOTS_DIR ? { SHOTS_DIR: process.env.SHOTS_DIR } : {}),
       HOST: "127.0.0.1",
       PORT: String(PORT),
+      DATA_DIR: "./test-results/data",
       FILE_STORAGE_DIR: "./test-results/files",
+      // The shell smoke tests run without an organisation; the setup redirect is covered by e2e/setup.spec.ts.
+      SETUP_GATE: "false",
       LOG_LEVEL: "warn",
       PUBLIC_URL: `http://127.0.0.1:${PORT}`,
       // Fixed throwaway key for e2e only.

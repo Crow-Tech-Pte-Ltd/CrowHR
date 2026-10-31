@@ -17,7 +17,14 @@ describe("createTestDb", () => {
       "select table_name from information_schema.tables where table_schema = 'public' order by table_name",
     );
     expect(result.rows.map((r) => r.table_name)).toEqual(
-      expect.arrayContaining(["organisations", "users", "memberships", "audit_events"]),
+      expect.arrayContaining([
+        "organisations",
+        "users",
+        "memberships",
+        "audit_events",
+        "system_settings",
+        "backup_runs",
+      ]),
     );
   });
 

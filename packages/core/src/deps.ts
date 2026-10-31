@@ -1,8 +1,11 @@
+import type { Context } from "hono";
 import type { ReportingScopeResolver } from "./access/scope.ts";
+import type { ClientInfo } from "./context.ts";
 import type { SecretBox } from "./crypto/secret-box.ts";
 import type { Db } from "./db/types.ts";
 import type { FileStore } from "./files/file-store.ts";
 import type { Logger } from "./logger.ts";
+import type { SystemHost } from "./system/host.ts";
 
 /**
  * Hashes and verifies passwords. Server: argon2id. Browser demo: PBKDF2 via Web Crypto with a
@@ -48,6 +51,13 @@ export interface AppDeps {
    * `noReportingLines` (nobody is a manager) when absent.
    */
   reportingScope?: ReportingScopeResolver;
+  /**
+   * Resolves the client IP and scheme for a request. The server applies `TRUSTED_PROXIES`;
+   * without it the client is unknown (`ip: null`) and the scheme comes from the request URL.
+   */
+  resolveClient?: (c: Context) => ClientInfo;
+  /** Host facts for `GET /api/v1/system/status` (disk, backup settings, proxy trust). */
+  systemHost?: SystemHost;
   /**
    * How route responses are checked against their declared schema (see `defineRoute`).
    * `strict` (tests): a field the schema doesn't declare fails the request with 500, so
