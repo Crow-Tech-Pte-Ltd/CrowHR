@@ -14,6 +14,7 @@ import { defineModule, defineRoute } from "../http/route.ts";
 import {
   createRunSchema,
   employeeDetailSchema,
+  ir8aPreviewSchema,
   itemInputSchema,
   overviewSchema,
   type payResultSchema,
@@ -25,6 +26,7 @@ import {
   settingsSchema,
 } from "./api-schemas.ts";
 import { monthLabel } from "./engine/dates.ts";
+import { ir8aFile, ir8aPreview } from "./files/ir8a-service.ts";
 import { bankPaymentFile, cpfEzpayFile, type GeneratedFile } from "./files/service.ts";
 import { buildPayslipView } from "./payslip.ts";
 import { renderPayslipPdf } from "./payslip-pdf.ts";
@@ -134,6 +136,7 @@ export function toItemDto(i: PayrollRunItem) {
 }
 
 const runParams = z.object({ runId: z.uuid() });
+const yearParams = z.object({ year: z.coerce.number().int().min(2000).max(2100) });
 const itemParams = z.object({ runId: z.uuid(), itemId: z.uuid() });
 const exampleItem = {
   employeeId: "0190f3c2-0000-7000-8000-000000000001",
@@ -478,7 +481,7 @@ export const payrollModule = defineModule({
       path: "/runs/:runId/files/bank",
       summary: "Generic ISO 20022 pain.001.001.03 salary credit-transfer file (not a bank-specific format)",
       description:
-        "Open-standard file for banks that accept ISO 20022 pain.001 uploads. DBS, OCBC and UOB bulk formats are not public and are not produced; test the file with your bank before first use. Excluded employees are listed in the x-crowhr-excluded header (URL-encoded JSON).",
+        "Open-standard file for banks that accept ISO 20022 pain.001 uploads. Each bank's message guide (service level, charge bearer, BIC length) is not applied; test the file with your bank before first use. Excluded employees are listed in the x-crowhr-excluded header (URL-encoded JSON).",
       access: { permission: "payroll:read" },
       recentAuth: true,
       request: { params: runParams },
@@ -486,6 +489,32 @@ export const payrollModule = defineModule({
       errors: ["not_found", "conflict", "reauth_required"],
       handler: async ({ c, deps, auth, params }) =>
         fileResponse(await bankPaymentFile(deps, payrollActor(c, auth), params.runId)),
+    }),
+    defineRoute({
+      method: "get",
+      path: "/years/:year/ir8a",
+      summary: "IR8A figures for an income year (whole dollars, masked IDs)",
+      description:
+        "Preview of the IR8A records Crow HR can fill from approved payslips, in the parts (≤ 200 records) the file download produces. Appendix 8A is not produced (no benefits-in-kind are recorded). Direct submission through IRAS's AIS-API is not available.",
+      access: { permission: "payroll:read" },
+      request: { params: yearParams },
+      responses: { 200: ir8aPreviewSchema },
+      errors: ["validation_failed"],
+      handler: async ({ c, deps, auth, params }) => ir8aPreview(deps, payrollActor(c, auth), params.year),
+    }),
+    defineRoute({
+      method: "get",
+      path: "/years/:year/ir8a/file",
+      summary: "IR8A rows for IRAS's IR8A import template (CSV, one part of ≤ 200 records)",
+      description:
+        "Columns A–AR of the IR8A sheet of IRAS's IR8A Import Template (https://go.gov.sg/ir8a-import-template, version 1.0) with its header row: paste the data rows at row 6 of the template and import it in myTax Portal → Employment Income Records. Income is in whole dollars with cents dropped, deductions rounded up. Contains full NRIC/FIN numbers. Excluded employees are listed in the x-crowhr-excluded header (URL-encoded JSON).",
+      access: { permission: "payroll:read" },
+      recentAuth: true,
+      request: { params: yearParams, query: z.object({ part: z.coerce.number().int().min(1).default(1) }) },
+      responses: { 200: { description: "IR8A rows (CSV, UTF-8)", contentType: "text/csv" } },
+      errors: ["not_found", "conflict", "validation_failed", "reauth_required"],
+      handler: async ({ c, deps, auth, params, query }) =>
+        fileResponse(await ir8aFile(deps, payrollActor(c, auth), params.year, query.part)),
     }),
     defineRoute({
       method: "get",

@@ -21,9 +21,9 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 ## Approvals and notifications (workflows workstream)
 
-- **No module but profile changes submits requests yet.** Leave, claims, OT, timesheets, shift swaps and payroll register their `SubjectAdapter` when they land; until then Settings → Approvals lists those types as "Not in use yet".
+- **Only profile changes and payroll runs submit requests yet.** Leave, claims, OT, timesheets and shift swaps register their `SubjectAdapter` when they land; until then Settings → Approvals lists those types as "Not in use yet".
 - **Default policies are not stored per org.** Organisations without a saved policy use the built-in defaults at submission (same behaviour as seeding them); they are listed as "Default" in Settings → Approvals until edited.
-- **Payroll-cutoff reminders** are off until the payroll change supplies its `ReminderSource` (task 4.3).
+- **Payroll-cutoff reminders** (`payroll_cutoff`, 3 days before the cutoff day in payroll settings, or the pay day when none is set) go to active payroll admins until the month's regular run is approved.
 - **Out-of-office cover** is set from the Inbox (and by HR in Settings → Approvals), not from My profile.
 - **Email templates are fixed in code** (spec non-goal); they carry the organisation name but not its logo yet.
 - **Browser demo tick** is not wired (the demo does not exist); `createManualScheduler` is ready for it (task 5.4).
@@ -32,7 +32,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 ## Screens
 
-- **Home** shows real work from `GET /api/v1/inbox`; its payroll card always says "Payroll isn't set up yet" until the payroll module supplies a source.
+- **Home** shows real work from `GET /api/v1/inbox`; its payroll card lists open runs and the month's run when not started, or "Payroll isn't set up yet" before payroll settings are saved.
 - **Command palette** "People" results come from the live directory (people module).
 - **Every module** except People and Payroll (Leave, Attendance, Schedules, Claims, Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
 - **No dark mode.** The landing site's dark tokens were not ported.
@@ -43,7 +43,7 @@ may be described as working. Remove an entry only in the change that fixes it.
   - **CPF rates from 2028** are not published: the 2027 tables are carried forward with warning `CPF_RATES_ASSUMED_CARRIED_FORWARD`.
   - **Low-wage months (TW $50–$750) with AW above the ceiling** are refused (`CPF_LOW_WAGE_CAPPED_AW_UNSUPPORTED`); no official rule exists.
   - **Open CPF questions** (VERIFICATION.md "Open legal and design questions"): delayed AW across years, a known leaving month in the AW-ceiling projection, SPR F/G election timing, mid-month residency changes.
-  - **Not encoded yet**: parental leave (maternity, paternity, shared parental, childcare, infant care, adoption), part-time leave in hours, income tax / IR8A / IR21, CPF late-payment interest, work-pass salary thresholds.
+  - **Not encoded yet**: parental leave (maternity, paternity, shared parental, childcare, infant care, adoption), part-time leave in hours, income tax, IR21, CPF late-payment interest, work-pass salary thresholds.
   - **Overtime rounding** has no MOM rule; the default reproduces MOM's published example ($13.60/h cap for non-workmen).
 - **Browser demo** (`apps/demo`, `packages/demo`) does not exist. Core's migrations are applied with Drizzle's filesystem migrator; the demo will need to bundle the SQL.
 - **PGlite server mode** (`DATABASE_URL=pglite:…`) is for local development and e2e only: single process, no pooling, no backups.
@@ -63,28 +63,31 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **No first-run setup yet**, so a fresh server has no organisation or members to sign in with. The people screens are exercised by `packages/core/testing/people-dev-server.ts` (DEV ONLY, 127.0.0.1): the real app with real sessions, seeded with fictional staff, where `/__dev/as/<persona>` creates a session for a seeded member. The people e2e (`e2e/people/`) runs against it.
 - **Invitations sent by an import** go out after the import is confirmed; without SMTP their one-time links are not shown, so HR resends them from Settings → Members (a single hire shows its link).
 - **Legacy change-request decision endpoint**: `POST /api/v1/people/change-requests/:id/decision` (no screen uses it) still decides directly; it then closes the approval request so no task lingers. `GET /api/v1/people/inbox` duplicates what the Home inbox shows.
-- **Payroll stand-in**: no period is ever finalised, so the retroactive-change guard only triggers in tests, and back-pay notices go nowhere.
+- **Payroll guard**: a compensation change effective in a period with an approved or paid payroll run is refused unless it is marked retroactive; a retroactive change records a back-pay notice that the next run shows as a warning (the amount is entered as a "Back pay" item).
 - **Minimum employment age and default notice** come from `packages/sg-rules` (MOM-cited, rules from 1 Jan 2025): hires under 13 are refused (the Employment Act's family-only industrial undertaking exception is not supported; start dates before 2025 are not checked), and a resignation without a contractual notice period gets the statutory minimum by service. The under-16 conditions (light duties, MOM notification for industrial work, hour limits) are returned as warnings by `checkEmploymentAge` but not shown in the hire flow yet.
 - **Personal-details change requests apply from the approval date only** (no future-dated personal details). Bank changes honour the approver's effective date.
 - **Cancelling a scheduled hire or rehire** is not supported; record a termination instead.
-- **Statutory lookups** (CSN payment types, rest-day rule, work pass types) are cited in `packages/core/src/organisation/statutory.ts` and should move to `packages/sg-rules`.
+- **Statutory lookups** (CSN payment types, rest-day rule, work pass types) live in `packages/sg-rules/src/tables/registrations.ts` with citations; the 90-day work-pass reminder lead is a Crow HR default.
 - **NRIC/bank reveal** (`POST /api/v1/employees/:id/nric/reveal`, `/bank/reveal`) has no web unit test: apps/web has no DOM test environment; it is covered by Playwright (`e2e/people/reveal.people.ts`).
 - **Company logo** upload has an API only; there is no upload control on the Company screen yet.
 - **Error codes** `duplicate_id_number`, `in_use`, `reporting_cycle` are sent as `409 conflict` with `details.reason` until they are added to `ERROR_STATUS`.
 
 ## Payroll (add-payroll)
 
-- **Approvals are local until the workflows engine is wired**: `localPayrollApprovals` stores the request on the run and an owner or payroll admin decides with `POST /api/v1/payroll/runs/:id/decision` (the submitter cannot, except an owner, marked self-approved). No approval task, inbox item or notification is created. WS3 replaces `PayrollApprovals` and registers `payrollRunSubject` (`packages/core/src/payroll/approval.ts`).
+- **Approvals** go through the workflows engine (`payroll_run` subject, default policy: an owner approves; an owner who submitted may self-approve, which is recorded). There is no payroll-specific decision endpoint.
 - **Overtime, hours and no-pay leave are entered by hand** per run. `OvertimeSource` (attendance) and the leave module are not wired; `manualOvertimeOnly` is the default.
 - **Claims reimbursement is NOT IMPLEMENTED in production**: `noClaimsYet` returns nothing payable until WS6 implements `ReimbursementSource`.
-- **People's `PayrollPort`** (`lastFinalisedPeriodEnd`, `notifyBackPay`) still uses `noPayrollYet`; back pay is entered as a "Back pay" item.
-- **No direct submission** to CPF Board, IRAS or banks (no public APIs): payroll produces the CPF EZPay (FTP) file and a generic ISO 20022 `pain.001.001.03` file for upload. The bank file is not a DBS, OCBC or UOB format (not public) and has not been tested with any bank; it validates against the official ISO 20022 XSD.
-- **CPF EZPay file**: SHG for foreigners without an S/T account number is left out (keyed in EZPay by hand); a CPF shortfall on earlier AW is reported in the current month's CPF amount; an adjustment or off-cycle run produces a supplementary file with the next advice code. These choices are not confirmed by CPF Board.
-- **Employee share of a CPF shortfall on earlier AW is not recovered from pay** (CPF Act s 7 not verified); the employer bears it and the run warns.
-- **Employment Act deduction limits and payment deadlines** are cited in `packages/core/src/payroll/rules.ts` and should move to `packages/sg-rules`. Employee CPF counts toward the 50% limit (MOM does not list it as excluded; ambiguous).
-- **Pro-ration** for shift schedules (no fixed week) assumes a Monday–Friday week and warns; part-time leave in hours is not handled.
+- **Back pay from people's retroactive changes** is flagged on the next run (`BACKPAY_OWED`) but not computed; the amount is entered as a "Back pay" item, and approving the run closes the notice.
+- **No direct submission** to CPF Board, IRAS or banks: payroll produces the CPF EZPay (FTP) file and a generic ISO 20022 `pain.001.001.03` file for upload. IRAS's AIS API needs an approved software vendor and CorpPass authorisation, so IR8A is exported for manual upload (below).
+- **Bank file is generic**: Singapore's SS611 standard adopts pain.001.001.03 and leaves the details to each bank, and banks publish guides (ANZ's Singapore MIG, for example), so service level (FAST or GIRO), charge bearer and 11-character BICs depend on the bank's profile. The file is not mapped to any bank's guide and has not been tested with any bank; it validates against the official ISO 20022 XSD.
+- **CPF EZPay file** (not confirmed by CPF Board): SHG for foreigners (MBMF/SINDA/CDAC/ECF for non-SC/PR staff) is written as a summary record only; a CPF top-up on earlier AW is reported in the current month's amount with no new AW in that month's AW column; each run gets its own advice code (the regular run keeps the settings code, others the next free one) and a month past code 99 is refused rather than reusing a code.
+- **AW top-up recovery** (CPF Act s 7(9)): the employee share may be deducted with a "CPF AW recovery" item up to 30 June of the following year; otherwise the employer bears it, shown as "Employee share absorbed" apart from statutory employer CPF. Remittance never waits for recovery. Recovery of other CPF arrears caused by the employer is blocked; the s 7(6A) route (non-negligent error, recovery with consent) and a waiver workflow for leavers' unrecoverable shares are not supported.
+- **Deduction limits** (`packages/sg-rules`): accommodation, amenities and services share one 25% cap (EA s 30(2)); employee CPF and SHG count toward the 50% limit (s 32), which is lifted on final pay. Whether a deduction is one s 27 permits (and has the employee's consent) is HR's responsibility.
+- **Payment deadlines**: salary is checked against 7 days after the period (EA s 21(1)) and each OT entry against 14 days after the salary period in which it was performed (s 21(2)). Interpretation Act s 50 (a deadline on a Sunday or public holiday moves to the next day) is not applied, so a run can be flagged a day early. Paying on a non-working day is allowed (s 25(2)) and only noted.
+- **Pro-ration for staff without a fixed week** (rostered or shift): the run needs "Scheduled days" and "Days worked" items (EA s 20A) and blocks without them; Crow HR does not guess a week. Scheduled days will come from the attendance module later. A mid-month rate change and SPR graduated-to-full conversion are blocked for these staff. Part-time leave in hours, daily-rated and piece-rated pay (payslip units) are not handled.
 - **FWL** is an estimate from org-level sector, tier and skill in payroll settings; MOM's bill is authoritative.
 - **Adjustments do not recompute later months**: a reopened month after later months were finalised warns, and CPF's December (or last-month) AW recomputation absorbs the difference.
-- **IR8A / Appendix 8A export is NOT IMPLEMENTED.**
+- **IR8A** is exported as CSV rows in the column layout of IRAS's IR8A import template (version 1.0), at most 200 records per part, to paste at row 6 of the template's IR8A sheet and import in myTax Portal. Crow HR does not fill or redistribute IRAS's workbook itself (its licence is unconfirmed), and **direct AIS-API submission is not available** (it needs IRAS's approval of the software, Corppass and APEX credentials and whitelisted servers). Filled from approved payslips plus YTD opening balances: basic pay after no-pay leave, overtime, back pay and "other earnings" go to (a), bonuses to (b) dated by their last pay date, allowances to d1, commissions to d2, employee CPF (with AW top-up recoveries) and SHG to the deduction columns. Not filled: residential address (not recorded), director's fees, d3 gratuity/notice pay (other earnings must be moved by hand), d6 excess employer CPF, tax borne by employer, remission or exempt income. Employees with an ID type other than NRIC/FIN or without a recorded sex are left out and listed; IR21-cleared leavers are only flagged. Back pay is reported in the year paid.
+- **Appendix 8A and 8B are NOT IMPLEMENTED**: Crow HR records no benefits-in-kind or share plans, so the export says to fill those sheets by hand.
 - **Allowance CPF and pro-ration treatment** has an API (`/payroll/allowance-settings`) but no screen yet; the default is CPF-liable OW, pro-rated.
 - **Payroll dev server**: like the people screens, payroll e2e and screenshots run against `packages/core/testing/payroll-dev-server.ts` (DEV ONLY, 127.0.0.1).

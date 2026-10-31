@@ -511,8 +511,8 @@ function FilesPanel({ runId }: { runId: string }) {
             <div>
               <p className="text-ui font-medium">Bank payment file (ISO 20022 pain.001)</p>
               <p className="text-2xs text-primary-300">
-                The open ISO 20022 format, not a DBS, OCBC or UOB template (their formats are not public). Test it with
-                your bank before the first payroll.
+                Generic ISO 20022 file. Each bank has its own rules for this format (FAST or GIRO, fees, BIC length),
+                and none is applied yet. Test it with your bank before the first payroll.
               </p>
             </div>
             <Button size="sm" onClick={() => void get(`/payroll/runs/${runId}/files/bank`)}>

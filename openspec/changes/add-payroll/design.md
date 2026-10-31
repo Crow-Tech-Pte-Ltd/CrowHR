@@ -16,11 +16,11 @@ See proposal.md for motivation. Payroll sits on `packages/sg-rules` (pure calcul
 
 3. **Adjustment instead of mutation.** Reopen copies the original run's items into a new `adjustment` run. When approved, the original is marked `superseded_by` (a flag, not a figure change) and later months read state from the adjustment. Net payable on an adjustment payslip = revised net − net already paid by superseded runs.
 
-4. **Approvals port shaped like `SubjectAdapter`.** `payroll/ports.ts` defines `PayrollApprovals.submit(tx, request)` / `withdraw(tx, …)` and exports `payrollRunSubject`, an adapter with `attributes`, `summary`, `onApproved(tx, orgId, runId, decision)`, `onRejected`, `onWithdrawn`, `canRead`. The default `localPayrollApprovals` stores the request id on the run and exposes `POST /payroll/runs/:id/decision`, which calls the adapter inside one transaction. WS3 replaces the port and registers the adapter.
+4. **Approvals through the workflows engine.** `payroll/approval.ts` registers the `payroll_run` `SubjectAdapter` (attributes, summary, `onApproved`/`onRejected`/`onWithdrawn` in the engine's transaction, `canRead`) in `CORE_WORKFLOW_PLUGINS`, with the payroll-cutoff `ReminderSource` and a payroll `InboxSource`. Submit calls `submitApproval`; there is no payroll-specific decision endpoint. People's `PayrollPort` is implemented by `payroll/people-port.ts` (finalised-period guard, back-pay notices) and takes the caller's transaction.
 
 5. **Other ports.** `ReimbursementSource` (as in add-claims design: `listPayable`, `reserve`, `release`, `markPaid`) with `noClaimsYet`; `OvertimeSource.listApproved(orgId, from, to)` with `manualOvertimeOnly` (OT entered as run items). Both are in `payroll/ports.ts` with memory doubles in `src/testing/`.
 
-6. **Cited payroll constants live in `payroll/rules.ts`.** The MOM deduction limits and payment deadlines are not in sg-rules yet and this change may not edit sg-rules beyond fixtures, so they are encoded in core with effective dates and source URLs, flagged for moving to `sg-rules/employment-act` by the sg-rules owner.
+6. **Employment Act payment and deduction rules live in sg-rules.** `sg-rules/employment-act/salary-payment.ts` holds the s 21 deadlines, the s 29/30/32 deduction limits (accommodation and amenities share one cap; employee CPF counts toward 50%) and the CPF Act s 7(9) recovery deadline, with citations; `payroll/rules.ts` re-exports them. Corrections from `research/verification/payroll-choices.md`.
 
 7. **PDF.** `pdf/` wraps `pdf-lib` + `@pdf-lib/fontkit` (pure JS, works in browsers). Fonts (Azeret Mono, Ubuntu; latin subsets from `@fontsource`) are converted from WOFF to TTF by `scripts/pdf-fonts.ts` and committed as a generated base64 module, so no host wiring or file access is needed. Creation dates come from the run, subset names are fixed, so output is byte-stable. *Alternative:* jsPDF (larger, weaker font subsetting) or a hand-written PDF writer (more code to own).
 
@@ -29,10 +29,10 @@ See proposal.md for motivation. Payroll sits on `packages/sg-rules` (pure calcul
 ## Risks / Trade-offs
 
 - [Adjustment after later months are paid] → later months keep their stored YTD state; the run warns and December (or the last month) recomputes the AW ceiling on actual OW.
-- [Shortfall employee share of earlier AW] → not deducted from pay (CPF Act s 7 unverified); the employer pays it and the run warns.
-- [Shift schedules have no fixed week] → pro-ration assumes a 5-day week and warns.
+- [AW top-up employee share] → recoverable from pay until 30 June of the next year (CPF Act s 7(9)) with a recovery item; otherwise the employer bears it, reported apart from statutory employer CPF.
+- [No fixed week] → the run blocks until scheduled and worked days are entered; attendance will supply them later.
 - [FWL needs sector, tier and skill] → org-level defaults in payroll settings; labelled an estimate.
-- [Local approvals before WS3] → routing is "any other owner/payroll_admin"; listed in docs/limitations.md.
+- [IR8A without IRAS's workbook] → rows in the template's column layout to paste at row 6; Appendix 8A not produced; no AIS-API submission.
 
 ## Migration Plan
 

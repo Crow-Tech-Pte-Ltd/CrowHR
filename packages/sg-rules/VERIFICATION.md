@@ -15,7 +15,7 @@ Last updated **31 Oct 2026**. This file records how the numbers in `src/tables/`
 | Working-day calendar | Reproduces all 36 cells of MOM's 2026 incomplete-month table (5, 5.5 and 6-day weeks). |
 | Effective ranges | Every rule family has contiguous `[effectiveFrom, effectiveTo)` rows from the engine coverage start (1 Jan 2025) with an `https` source, no gaps or overlaps (test). |
 
-Coverage of `src/` (excluding tests and fixtures): **98.8% lines**, 96.7% branches. Measured with `@vitest/coverage-v8@5.0.5` installed outside the repo, because adding a coverage provider changes the shared `bun.lock` (see "Handoffs").
+Coverage of `src/` (excluding tests and fixtures): **99.6% lines**, 97.9% branches (`bun run coverage:sg-rules`; `bun run check` fails below 95% lines).
 
 ## Disagreements and resolutions
 
@@ -52,7 +52,8 @@ These are `DERIVED_FROM_FORMULA` vectors whose arithmetic both the research and 
 
 ## Decisions recorded for the payroll design
 
-- **Negative wages are rejected** (`SgRulesInputError`). A backpay reversal or correction recomputes the original month with corrected inputs and diffs the results (`diffCpf`). An overpayment is refunded by CPF on application; recovering an over- or under-deducted employee share from later wages is flagged for review because the CPF Act s 7 recovery rules could not be read.
+- **Negative wages are rejected** (`SgRulesInputError`). A backpay reversal or correction recomputes the original month with corrected inputs and diffs the results (`diffCpf`). An overpayment is refunded by CPF on application.
+- **Recovering an employee share from later wages** (read from the [CPF Act s 7](https://sso.agc.gov.sg/Act/CPFA1953?ProvIds=pr7-) and CPF's [recovery FAQ](https://www.cpf.gov.sg/service/article/can-i-recover-the-employee-s-share-of-cpf-contributions-from-my-employee-s-salary-if-i-failed-to-deduct-it-earlier), per `research/verification/payroll-choices.md`): the only general route is the AW top-up after the year's AW is reconciled, s 7(9), recoverable until 30 June of the following year (`awTopUpRecoveryDeadline`). Arrears from the employer's own failure to deduct may not be recovered (s 7(6) and the FAQ), except under s 7(6A) for a non-negligent error, which payroll does not support.
 - **Retrospective increments** that are decided later are AW of the month paid (CPF FAQ); increments paid late by administrative error are OW of the original months and need a recomputation of those months. The caller classifies; the engine computes.
 - **A prior-AW shortfall is rounded separately** from the month's own contribution, as in CPF example 14. The employee share of a shortfall is emitted as its own line with warning `CPF_AW_SHORTFALL_EMPLOYEE_RECOVERY`.
 - **SHG with total wages ≤ $50** applies the table and warns; SHG with $0 wages is $0.
@@ -70,13 +71,33 @@ These are `DERIVED_FROM_FORMULA` vectors whose arithmetic both the research and 
 8. "Days actually worked" for the incomplete-month formula: whether outpatient sick leave and childcare leave count is the caller's policy.
 9. Annual leave: whether one unpaid day excludes a whole month of service (`excludedMonths` is the caller's decision).
 
+## Employment Act salary payment, deductions and statutory lookups
+
+Moved from `packages/core` (payroll `rules.ts`, organisation `statutory.ts`) on 31 Oct 2026, with the corrections from `research/verification/payroll-choices.md`. Effective from the engine coverage start (1 Jan 2025); the provisions have not changed since the 2019 amendments.
+
+| Rule | Encoded as | Source |
+| --- | --- | --- |
+| Salary within 7 days after the salary period (day the period ends not counted) | `salaryDueBy` | [EA s 21(1)](https://sso.agc.gov.sg/Act/EmA1968?ProvIds=pr21-), [MOM paying salary](https://www.mom.gov.sg/employment-practices/salary/paying-salary) |
+| OT within 14 days after the salary period **in which it was performed** | `overtimeDueBy(otPeriodEnd)` | EA s 21(2) |
+| Employer ends the employment: final pay on the last day, or within 3 working days if not possible | `finalPayWorkingDaysWhenEmployerTerminates` (not checked by payroll yet) | MOM paying salary |
+| Payment on a non-working day is allowed | not a check | EA s 25(2) |
+| Damage or loss ≤ 25% of the period's salary | group `damage_loss` | [EA s 29](https://sso.agc.gov.sg/Act/EmA1968?ProvIds=pr29-), MOM salary deductions |
+| Accommodation, amenities and services **together** ≤ 25% | group `accommodation_amenities` | [EA s 30(2)](https://sso.agc.gov.sg/Act/EmA1968?ProvIds=pr30-) |
+| Advance and loan instalments ≤ 25% each | groups `advance`, `loan` | [MOM salary deductions](https://www.mom.gov.sg/employment-practices/salary/salary-deductions) |
+| All deductions ≤ 50% of salary, except absence, advances, loans, unearned benefits, overpaid salary and co-operative payments (s 27(1)(a), (c), (f), (j) and loans); employee CPF counts; lifted on final pay | `checkDeductions` | [EA s 32](https://sso.agc.gov.sg/Act/EmA1968?ProvIds=pr32-) |
+| CSN payment types PTE, AMS, VCT, MSE | `CSN_PAYMENT_TYPES` | [CPF submission number](https://www.cpf.gov.sg/employer/making-cpf-contributions/applying-for-a-cpf-submission-number) |
+| One rest day per week | `REST_DAYS_PER_WEEK` | [MOM rest days](https://www.mom.gov.sg/employment-practices/hours-of-work-overtime-and-rest-days) |
+| Work pass types | `WORK_PASS_TYPES` (one MOM key-facts page each) | MOM passes and permits |
+
+Not applied, recorded as limitations: Interpretation Act s 50 (a deadline on a Sunday or public holiday moves to the next working day); its interaction with s 21 is unsettled, so the checks may flag one day early.
+
 ## Handoffs to other modules (not implemented here)
 
 - **Tax / IR21:** the notice period is **one calendar month** before cessation, not 30 days ([IRAS](https://www.iras.gov.sg/taxes/individual-income-tax/employers/tax-clearance-for-foreign-spr-employees-%28ir21%29/tax-clearance-for-employees)). The S$21,000 exemption also needs its 183-day scenarios.
 - **CPF submission:** late-payment interest is floored to whole dollars, minimum $5 ([CPF FAQ](https://www.cpf.gov.sg/service/article/how-does-cpf-board-calculate-interest-on-late-payment)).
 - **Leave module:** paternity leave for stillbirth (2 weeks), extra reimbursable paternity weeks only from 1 Jan 2024, SPL excluded for stillbirth, service and citizenship predicates for ECL, infant care and adoption, the NDR 2026 Singapore-citizen restriction, and part-time leave in hours based on the comparable full-timer's actual hours. Sources are in `research/verification/codex-verification.md`.
 - **Work passes:** the work-pass salary rows use exclusive `effectiveTo` keyed to pass expiry. Normalise them to `[from, to)` when they are encoded.
-- **Platform:** the root `.gitignore` ignores every `data/` directory, so the rule tables live in `src/tables/` rather than `src/data/`. A coverage provider (`@vitest/coverage-v8`) plus a 95% line threshold should be added to the workspace by whoever owns `bun.lock`. `docs/limitations.md` still describes sg-rules as a skeleton.
+- **Platform:** the root `.gitignore` ignores every `data/` directory, so the rule tables live in `src/tables/` rather than `src/data/`.
 
 ## CPF calculator check (automated, 31 Oct 2026)
 

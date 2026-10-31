@@ -15,6 +15,15 @@ test("monthly payroll from creation to the employee's payslip PDF", async ({ pag
   await as(page, "payroll", "/payroll");
   await expect(page.getByRole("heading", { level: 1, name: "Payroll" })).toBeVisible();
   await expect(page.getByText("Open run")).toBeVisible();
+
+  // Year end: IR8A rows from the approved September payslips, for IRAS's import template.
+  const ir8a = page.getByTestId("payroll-ir8a");
+  await expect(ir8a).toContainText("Income year 2026 (Year of Assessment 2027)");
+  await expect(ir8a).toContainText("Appendix 8A");
+  const [csv] = await Promise.all([page.waitForEvent("download"), ir8a.getByRole("button", { name: "CSV" }).click()]);
+  expect(csv.suggestedFilename()).toBe("ir8a-2026-part1-of-1.csv");
+  expect(readFileSync(await csv.path(), "utf8")).toContain("*Record No.,*ID Type [Choose option]");
+
   await page.getByRole("button", { name: "New run" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Month", { exact: true }).fill("2026-11");

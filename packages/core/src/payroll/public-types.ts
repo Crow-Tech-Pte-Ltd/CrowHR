@@ -2,6 +2,7 @@
 import type { z } from "zod";
 import type {
   employeeDetailSchema,
+  ir8aPreviewSchema,
   issueSchema,
   itemInputSchema,
   itemSchema,
@@ -27,4 +28,5 @@ export type PayrollItemInput = z.input<typeof itemInputSchema>;
 export type PayslipViewDto = z.infer<typeof payslipViewSchema>;
 export type PayslipSummaryDto = z.infer<typeof payslipSummarySchema>;
 export type PayrollSettingsDto = z.infer<typeof settingsSchema>;
+export type PayrollIr8aPreviewDto = z.infer<typeof ir8aPreviewSchema>;
 export type { DeductionCategory } from "./rules.ts";

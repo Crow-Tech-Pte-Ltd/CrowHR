@@ -39,6 +39,7 @@ export interface Person {
   prStartDate?: string;
   race?: string;
   religion?: string;
+  gender?: "male" | "female";
   hireDate: string;
   basicCents: number;
   pass?: { passType: string; issuedOn: string; expiresOn: string };
@@ -193,6 +194,7 @@ export async function seedCompany<K extends string>(
           sprCpfOption: p.residency === "pr" ? "gg" : null,
           race: p.race ?? "chinese",
           religion: p.religion ?? "buddhism",
+          gender: p.gender ?? null,
           workEmail: `${p.key.toLowerCase()}@kopikaki.example`,
         },
         job: { hireDate: p.hireDate, workScheduleId: structure.scheduleId },

@@ -12,7 +12,7 @@
 ## 3. Schema and runs (packages/core)
 
 - [x] 3.1 Add `db/schema/payroll.ts` (settings, allowance settings, runs, run items, payslips) and generate the migration; verified by `testing/schema.payroll.test.ts` (org_id everywhere, composite FKs)
-- [x] 3.2 Write `payroll/runs.http.test.ts` (create regular run, one per month, compute, edit items only in draft, submit blocked by issues and by stale inputs 409, approve/reject through the local approvals port, release, mark paid, audit rows) then implement the service and routes
+- [x] 3.2 Write `payroll/runs.http.test.ts` (create regular run, one per month, compute, edit items only in draft, submit blocked by issues and by stale inputs 409, approve/reject through the workflows engine (originally a local port), release, mark paid, audit rows) then implement the service and routes
 - [x] 3.3 Write `payroll/ports.test.ts` (memory approvals double drives the adapter in one transaction; reimbursement double reserved/released/marked paid; overtime source feeds items) then implement the ports
 - [x] 3.4 Write `payroll/adjustment.http.test.ts` (reopen paid run → adjustment with copied items; original figures unchanged; approved adjustment supersedes; CPF charged = delta; net payable delta) then implement reopen
 - [x] 3.5 Write `payroll/off-cycle.http.test.ts` (final pay run excludes employee from the regular run; bonus run with AW in the same month recomputes month CPF and charges the difference) then implement off-cycle runs
@@ -38,8 +38,15 @@
 
 - [x] 6.1 Write `payroll/files/cpf-ezpay.test.ts` (golden file, 150-char records, field rules, forbidden characters, E/L/N/O, refusals) then implement the EZPay writer and route
 - [x] 6.2 Write `payroll/files/pain001.test.ts` (well-formed XML, totals, escaping, excluded employees, recent-auth + audit) then implement the bank file and route
-- [ ] 6.3 IR8A import-template export (income rounded down, deductions up, 200-record chunks); verified by `payroll/files/ir8a.test.ts`
+- [x] 6.3 IR8A import-template export (income rounded down, deductions up, 200-record chunks); verified by `payroll/files/ir8a.test.ts`
 
 ## 7. Docs
 
-- [x] 7.1 `docs/limitations.md`: local approvals, manual OT and hours, no direct CPF/IRAS/bank submission, generic bank file, shortfall employee share not recovered, FWL estimate; ports for the lead to wire listed in the payroll module README comment
+- [x] 7.1 `docs/limitations.md` (updated after the workflows wiring and payroll-choices.md): manual OT and hours, no direct CPF/IRAS/bank submission, generic bank file, shortfall employee share not recovered, FWL estimate; ports for the lead to wire listed in the payroll module README comment
+
+## 8. Integration and verification follow-up
+
+- [x] 8.1 Register the `payroll_run` subject, cutoff reminder and inbox source in `CORE_WORKFLOW_PLUGINS`; submit via `submitApproval`; remove the local decision endpoint; verified by `payroll/ports.test.ts`
+- [x] 8.2 Implement people's `PayrollPort` (finalised-period guard, back-pay notices in the caller's transaction); verified by `payroll/ports.test.ts`
+- [x] 8.3 Move EA payment deadlines, deduction limits and statutory lookups to sg-rules with citations; verified by `sg-rules/src/employment-act/salary-payment.test.ts`
+- [x] 8.4 Apply `research/verification/payroll-choices.md`: rostered pro-ration needs scheduled/worked days, OT periods kept per entry, PDF wraps and paginates, AW top-up recovery (s 7(9)) and arrears block, combined accommodation/amenities cap, OT lateness per performed period, stable EZPay advice codes; verified by `engine/*.test.ts`, `payslip.test.ts`, `off-cycle.http.test.ts`
