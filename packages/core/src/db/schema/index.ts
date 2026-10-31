@@ -1,10 +1,12 @@
 // One file per area; re-export everything here. drizzle-kit reads this file.
 export * from "./access.ts";
+export * from "./attendance.ts";
 export * from "./audit.ts";
 export * from "./auth.ts";
 export * from "./claims.ts";
 export * from "./employees.ts";
 export * from "./files.ts";
+export * from "./leave.ts";
 export * from "./notifications.ts";
 export * from "./organisation.ts";
 export * from "./organisations.ts";

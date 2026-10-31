@@ -135,7 +135,7 @@ describe("approvals HTTP", () => {
     const leave = list.types.find((t) => t.subjectType === "leave");
     expect(leave).toMatchObject({ installed: true, canEdit: true });
     expect(leave?.policies[0]).toMatchObject({ builtIn: true, steps: [{ label: "Manager" }, { label: "HR admin" }] });
-    expect(list.types.find((t) => t.subjectType === "overtime")?.installed).toBe(false);
+    expect(list.types.find((t) => t.subjectType === "shift_swap")?.installed).toBe(false);
     expect(list.types.find((t) => t.subjectType === "payroll_run")?.canEdit).toBe(false);
 
     const save = await asHr.put("/api/v1/approvals/policies/claim", {

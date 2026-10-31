@@ -51,7 +51,7 @@ describe("migrations on start (PGlite)", () => {
     const dir = await folder({
       extra: {
         "0041_ok": ["create table ok_table (id int)"],
-        "0042_leave_ledger": ["create table leave_ledger (id int)", "select * from no_such_table"],
+        "0042_leave_ledger": ["create table example_ledger (id int)", "select * from no_such_table"],
       },
     });
     const err = await runMigrations({ db, lock: memoryLock(), migrationsFolder: dir }).catch((e) => e);
@@ -60,7 +60,7 @@ describe("migrations on start (PGlite)", () => {
     expect(err.message).toContain("Nothing from 0042_leave_ledger was applied");
     expect(err.message).toContain("Your data is intact");
     expect(await tableExists(db, "ok_table")).toBe(true);
-    expect(await tableExists(db, "leave_ledger")).toBe(false);
+    expect(await tableExists(db, "example_ledger")).toBe(false);
     expect(await tracked(db)).toBe(readBundledMigrations(dir).length - 1);
   });
 
