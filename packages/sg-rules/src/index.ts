@@ -1,40 +1,56 @@
 /**
  * @crowhr/sg-rules — Singapore statutory rules.
  *
- * NOT IMPLEMENTED: this package is a skeleton. The `CountryRules` interface
- * below is a placeholder that the statutory-rules workstream will replace.
- * It deliberately contains no CPF/SDL/FWL/leave/overtime numbers: every
- * statutory constant added here must carry an effective date and a source URL
- * (AGENTS.md hard rule 3).
- *
- * Constraints for whoever fills this in:
- * - zero runtime dependencies, pure functions only (runs in Node and browser);
- * - money is integer cents (`number`, always a safe integer);
- * - rule tables are effective-dated so historical payroll can be recomputed.
+ * Pure, zero-runtime-dependency calculators over effective-dated, cited rule tables:
+ * CPF, SDL, SHG funds, Employment Act pay helpers, leave entitlements, public holidays and an FWL
+ * cost estimate. Money is integer cents; intermediate values are exact rationals; every rounding is
+ * named and happens where the regulator prescribes. Every result carries a human-readable `working`.
  */
 
-/** ISO 3166-1 alpha-2 country code. */
-export type CountryCode = "SG";
-
-/** An ISO calendar date, `YYYY-MM-DD`. */
-export type IsoDate = string;
-
-/**
- * NOT IMPLEMENTED: placeholder shape for a country's statutory rule set.
- * Only the identity fields exist; calculators (CPF, SDL, FWL, leave, OT)
- * will be added by the sg-rules workstream via an OpenSpec change.
- */
-export interface CountryRules {
-  readonly country: CountryCode;
-  /** Human-readable name of the rule set, e.g. "Singapore". */
-  readonly name: string;
-  /** ISO 4217 currency code used for all amounts (integer minor units). */
-  readonly currency: "SGD";
-}
-
-/** NOT IMPLEMENTED: identity only, no statutory calculators yet. */
-export const singaporeRules: CountryRules = {
-  country: "SG",
-  name: "Singapore",
-  currency: "SGD",
-};
+export type {
+  CountryCode,
+  CountryRules,
+  EmployeeMonthOutcome,
+  EmployerMonthOutcome,
+  StatutoryLine,
+} from "./country.ts";
+export * from "./cpf/index.ts";
+export * from "./employment-act/leave.ts";
+export * from "./employment-act/overtime.ts";
+export * from "./employment-act/public-holidays.ts";
+export {
+  dailyRate,
+  hourlyBasicRate,
+  isPart4Covered,
+  type Part4Input,
+  type Part4Result,
+  type RateResult,
+} from "./employment-act/rates.ts";
+export * from "./employment-act/salary.ts";
+export { RulesNotAvailableError, SgRulesInputError } from "./errors.ts";
+export * from "./fwl.ts";
+export {
+  type ExactCents,
+  exactDollarsText,
+  exactToString,
+  floorToDollar,
+  roundHalfUpToCent,
+  roundHalfUpToDollar,
+} from "./internal/exact.ts";
+export * from "./sdl.ts";
+export * from "./shg.ts";
+export { type SgEmployeeMonthInput, type SgEmployeeMonthOutcome, singaporeRules } from "./singapore.ts";
+export type {
+  CpfAgeBand,
+  CpfAgeRow,
+  CpfRateTable,
+  CpfResidencyCategory,
+  CpfWageBandThresholds,
+} from "./tables/cpf.ts";
+export { CPF_RATE_TABLES, CPF_RATES_PUBLISHED_UNTIL } from "./tables/cpf.ts";
+export { type Effective, ENGINE_COVERAGE_START, effectiveRangeIssues, RULES_VERIFIED_ON } from "./tables/effective.ts";
+export { cpfTableFor, publicHolidaysFor, resolveRules, type SgRuleSet, shgTableFor } from "./tables/index.ts";
+export type { PublicHoliday, PublicHolidayYear } from "./tables/public-holidays.ts";
+export { SDL_EXEMPTIONS, type SdlExemption, type SdlRate } from "./tables/sdl.ts";
+export type { ShgFund, ShgTable } from "./tables/shg.ts";
+export type { Cents, IsoDate, IssueSeverity, RuleIssue, WorkingStep, YearMonth } from "./types.ts";
