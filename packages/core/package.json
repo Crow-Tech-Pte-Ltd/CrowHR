@@ -15,7 +15,9 @@
     "typecheck": "tsc -p . && tsc -p testing",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:check": "drizzle-kit check"
+    "db:check": "drizzle-kit check",
+    "openapi:generate": "node scripts/openapi.ts generate",
+    "openapi:check": "node scripts/openapi.ts check"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",

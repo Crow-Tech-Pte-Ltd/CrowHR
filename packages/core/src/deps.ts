@@ -1,3 +1,4 @@
+import type { ReportingScopeResolver } from "./access/scope.ts";
 import type { Db } from "./db/types.ts";
 import type { FileStore } from "./files/file-store.ts";
 import type { Logger } from "./logger.ts";
@@ -30,6 +31,17 @@ export interface AppDeps {
   clock: Clock;
   ids: IdGenerator;
   logger: Logger;
+  /**
+   * Manager scope (direct + indirect reports). Implemented by the people module; defaults to
+   * `noReportingLines` (nobody is a manager) when absent.
+   */
+  reportingScope?: ReportingScopeResolver;
+  /**
+   * How route responses are checked against their declared schema (see `defineRoute`).
+   * `strict` (tests): a field the schema doesn't declare fails the request with 500, so
+   * undocumented fields are caught. `strip` (default, production): unknown fields are dropped.
+   */
+  responseValidation?: "strict" | "strip";
 }
 
 export const systemClock: Clock = { now: () => new Date() };

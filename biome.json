@@ -10,6 +10,7 @@
       "**",
       "!**/routeTree.gen.ts",
       "!**/drizzle/meta",
+      "!packages/core/openapi",
       "!research",
       "!openspec",
       "!.claude",
