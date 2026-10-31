@@ -2,9 +2,7 @@ import { mkdir } from "node:fs/promises";
 import type { Db } from "@crowhr/core";
 import { schema } from "@crowhr/core";
 import { migrationsFolder } from "@crowhr/core/migrations-folder";
-import { PGlite } from "@electric-sql/pglite";
 import { drizzle as drizzleNodePg } from "drizzle-orm/node-postgres";
-import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
 import pg from "pg";
 import { type AdvisoryLock, runMigrations } from "./migrate/runner.ts";
 
@@ -28,8 +26,11 @@ export interface Database {
  */
 export async function openDatabase(url: string): Promise<Database> {
   if (url.startsWith("pglite:")) {
+    // Loaded only for development URLs, so the production image can leave PGlite (27 MB) out.
+    const { PGlite } = await import("@electric-sql/pglite");
+    const { drizzle: drizzlePglite } = await import("drizzle-orm/pglite");
     const target = url.slice("pglite:".length);
-    let client: PGlite;
+    let client: InstanceType<typeof PGlite>;
     if (target === "memory" || target === "") {
       client = new PGlite();
     } else {

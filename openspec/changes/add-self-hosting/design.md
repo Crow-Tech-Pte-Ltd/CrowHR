@@ -31,6 +31,15 @@ The foundation ships `apps/server` (Node 24, env validation, node-postgres or PG
 
 8. **Setup wizard.** Code generation and hash are in `apps/server/src/setup/`. The form posts to core's `POST /api/v1/setup` with the code in a header. Core validates the code against the stored hash (an injected `SetupGuard`) and creates the org and owner through the identity services in one transaction. A setup-mode middleware redirects all other routes until done.
 
+## Implementation notes (2026-10-31)
+
+- Decision 3: the key check value is the identity module's `secret_key_checks` row (SecretBox `checkValue`), shared rather than duplicated in `system_settings`.
+- Decision 4: the server resolves the client once per request and passes it to core both as `c.var.client` (via `AppDeps.resolveClient`) and as the `x-crowhr-client-ip` header that identity's throttling and audit read; any client-supplied value of that header is discarded.
+- Decision 5: migrations use our own runner (per-migration transactions) over drizzle-kit's tracking table instead of Drizzle's migrator, which wraps all pending migrations in one transaction.
+- Decision 6: archives use `age-encryption` (scrypt recipient) and `tar-stream`. Scheduling is an in-process timer until the workflows `tick` lands.
+- Decision 7: restore stages everything and verifies checksums first, then pipes `pg_restore` SQL into one `psql --single-transaction` (with a drop/recreate of `public` and `drizzle`), swaps the files directory by rename, writes the key, migrates, and signals PID 1 so the container restarts with the restored key. The maintenance flag is a file in the data volume because the database itself is being replaced.
+- Decision 8: setup creates the owner directly through the identity model (no separate `SetupGuard` port is needed once identity exists) and starts a browser session.
+
 ## Risks / Trade-offs
 
 - [Secrets inside backups widen the blast radius of a stolen backup] → `BACKUP_PASSPHRASE` is supported, docs recommend it, and the System page shows "Backups are not encrypted" until it is set.

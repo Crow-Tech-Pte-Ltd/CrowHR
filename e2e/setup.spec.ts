@@ -2,6 +2,13 @@ import { expect, test } from "@playwright/test";
 import { E2E_SETUP_CODE } from "../playwright.config.ts";
 
 /**
+ * e2e/self-host.sh runs this same spec against a real `docker compose` install (selfhost.config.ts),
+ * passing the code it read from `docker compose logs app`.
+ */
+const SETUP_CODE = process.env.SELFHOST_SETUP_CODE ?? E2E_SETUP_CODE;
+const SELFHOST = Boolean(process.env.SELFHOST_SETUP_CODE);
+
+/**
  * First-run setup (self-hosting spec "First-run setup wizard"), against a fresh server with no
  * organisation. Runs as the `setup` project; the steps depend on each other, so run serially.
  */
@@ -29,8 +36,8 @@ test.describe("first-run setup wizard", () => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("/setup");
-    await page.getByLabel("Setup code").fill(E2E_SETUP_CODE.toLowerCase().replace(/-/g, ""));
-    await expect(page.getByLabel("Setup code")).toHaveValue(E2E_SETUP_CODE);
+    await page.getByLabel("Setup code").fill(SETUP_CODE.toLowerCase().replace(/-/g, ""));
+    await expect(page.getByLabel("Setup code")).toHaveValue(SETUP_CODE);
     await page.getByRole("button", { name: "Continue" }).click();
 
     await page.getByLabel("Company's registered name").fill("Kampong Kopi Pte. Ltd.");
@@ -67,7 +74,8 @@ test.describe("first-run setup wizard", () => {
     await expect(page.getByRole("region", { name: "Database" })).toContainText("Connected");
     await expect(page.getByTestId("backup-stale")).toContainText("No successful backup yet");
     await expect(page.getByTestId("backup-unencrypted")).toContainText("Backups are not encrypted");
-    await expect(page.getByTestId("client-ip")).toHaveText("127.0.0.1");
+    // Through Docker's published port the peer is the bridge gateway, not 127.0.0.1.
+    await expect(page.getByTestId("client-ip")).toHaveText(SELFHOST ? /^\d+\.\d+\.\d+\.\d+$/ : "127.0.0.1");
     await expect(page.getByTestId("proxy-trust")).toHaveText("Direct");
     expect(errors).toEqual([]);
   });

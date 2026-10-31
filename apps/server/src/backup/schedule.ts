@@ -45,7 +45,7 @@ export function backupDue(
   return !lastScheduledStart || localTime(lastScheduledStart, timeZone).date !== today.date;
 }
 
-export type TickResult = "ran" | "failed" | "not_due" | "paused" | "busy";
+export type TickResult = "ran" | "failed" | "not_due" | "paused" | "busy" | "nothing_to_back_up";
 
 export interface SchedulerOptions {
   time: { hour: number; minute: number };
@@ -57,6 +57,8 @@ export interface SchedulerOptions {
   run: () => Promise<void>;
   /** True during maintenance (restore): jobs pause. */
   isPaused: () => boolean;
+  /** False until setup has created an organisation: an empty install has nothing to back up. */
+  hasData?: () => Promise<boolean>;
   /** Cross-instance guard (advisory lock); null = another instance is backing up. */
   tryLock?: () => Promise<(() => Promise<void>) | null>;
   logger: Logger;
@@ -74,6 +76,7 @@ export function createBackupScheduler(options: SchedulerOptions) {
     try {
       const last = await options.lastScheduledStart();
       if (!backupDue(options.now(), last, options.time, options.timeZone)) return "not_due";
+      if (options.hasData && !(await options.hasData())) return "nothing_to_back_up";
       if (options.tryLock) {
         release = await options.tryLock();
         if (!release) return "busy";

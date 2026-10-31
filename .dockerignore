@@ -1,0 +1,26 @@
+# Keep the build context small: only sources and manifests go into the image build.
+**/node_modules
+**/dist
+**/.vite
+**/*.tsbuildinfo
+.git
+.github
+.claude
+.agents
+.env
+.env.*
+!.env.example
+data
+apps/server/data
+test-results
+playwright-report
+blob-report
+coverage
+research
+openspec
+docs
+e2e
+deploy
+*.md
+Dockerfile
+docker-compose*.yml

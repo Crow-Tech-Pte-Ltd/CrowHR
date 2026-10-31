@@ -4,7 +4,17 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { createMemoryLogger, createUuidV7Generator, type Db, schema, systemClock } from "@crowhr/core";
+import {
+  createMemoryLogger,
+  createSecretBox,
+  createUuidV7Generator,
+  type Db,
+  getSystemSetting,
+  SECRET_PURPOSES,
+  schema,
+  setSystemSetting,
+  systemClock,
+} from "@crowhr/core";
 import { migrationsFolder } from "@crowhr/core/migrations-folder";
 import { createTestDb, type TestDb } from "@crowhr/core/testing";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -14,7 +24,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createPgAdvisoryLock } from "../db.ts";
 import { createDiskFileStore } from "../disk-file-store.ts";
 import { readBundledMigrations, runMigrations } from "../migrate/runner.ts";
-import { resolveSecretKey } from "../secrets/key.ts";
+import { keyMatchesDatabase, resolveSecretKey } from "../secrets/key.ts";
 import { runBackup } from "./backup.ts";
 import { maintenanceFile } from "./maintenance.ts";
 import { createPgDumper, type DbDumper } from "./pg-tools.ts";
@@ -79,6 +89,9 @@ describe("crowhr restore", () => {
       logger: createMemoryLogger(),
     });
     await source.db.insert(schema.organisations).values({ id: ids.newId(), name: "Kampong Kopi Pte. Ltd." });
+    // An NRIC encrypted the way the identity module stores it (SecretBox, AES-256-GCM).
+    const nric = await createSecretBox(new Uint8Array(resolved.bytes)).encrypt(SECRET_PURPOSES.nric, "S1234567D");
+    await setSystemSetting(source.db, "test.nric", { nric }, new Date());
     await createDiskFileStore(src.filesDir).put(
       "receipts/2026/10/r-001.pdf",
       new TextEncoder().encode("%PDF receipt"),
@@ -139,6 +152,10 @@ describe("crowhr restore", () => {
     });
     expect(resolved).toMatchObject({ source: "file" });
     expect(Buffer.from(resolved.bytes)).toEqual(Buffer.from(key));
+    expect(await keyMatchesDatabase(target.db, resolved.bytes)).toBe(true);
+    const stored = await getSystemSetting<{ nric: string }>(target.db, "test.nric");
+    const box = createSecretBox(new Uint8Array(resolved.bytes));
+    expect(await box.decrypt(SECRET_PURPOSES.nric, stored?.nric ?? "")).toBe("S1234567D");
     expect(JSON.parse(await readFile(maintenanceFile(dst.dataDir), "utf8"))).toMatchObject({ state: "restored" });
   });
 

@@ -108,3 +108,55 @@ jobs:
           name: playwright-traces
           path: test-results/
           retention-days: 7
+
+  self-host:
+    name: Docker image + compose install smoke (self-hosting)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: check
+    services:
+      # Disposable Postgres 17 for the advisory-lock and pg_dump round-trip tests.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: crowhr
+          POSTGRES_PASSWORD: crowhr
+          POSTGRES_DB: crowhr_lock_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U crowhr"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Install PostgreSQL 17 client (pg_dump for the round-trip test)
+        run: |
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: Migration lock and backup/restore against real Postgres
+        env:
+          CROWHR_TEST_POSTGRES_URL: postgres://crowhr:crowhr@localhost:5432/crowhr_lock_test
+        run: bunx vitest run apps/server/src/migrate/migrate.test.ts apps/server/src/backup/restore.test.ts
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+      - name: Build image, docker compose install, setup wizard, backup, restore, Caddy
+        # Builds the image (amd64 only; multi-arch builds wait for publishing approval) and tears
+        # down only its own compose project.
+        run: e2e/self-host.sh
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selfhost-traces
+          path: test-results/selfhost/
+          retention-days: 7
