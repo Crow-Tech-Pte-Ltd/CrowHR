@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { E2E, uiSignIn, uiSignInOk } from "./fixtures.ts";
+import { E2E, HOME_HEADING, uiSignIn, uiSignInOk } from "./fixtures.ts";
 
 test.describe("members", () => {
   test("invite → accept → sign in", async ({ page, browser }) => {
@@ -29,11 +29,11 @@ test.describe("members", () => {
     await p2.getByLabel("Choose a password").fill("sambal stingray by the sea");
     await p2.getByLabel("Type it again").fill("sambal stingray by the sea");
     await p2.getByRole("button", { name: "Accept and sign in" }).click();
-    await expect(p2.getByRole("heading", { name: "Work to do" })).toBeVisible();
+    await expect(p2.getByRole("heading", { name: HOME_HEADING })).toBeVisible();
     await p2.getByRole("button", { name: "Account menu" }).click();
     await p2.getByRole("menuitem", { name: "Sign out" }).click();
     await uiSignIn(p2, email, "sambal stingray by the sea");
-    await expect(p2.getByRole("heading", { name: "Work to do" })).toBeVisible();
+    await expect(p2.getByRole("heading", { name: HOME_HEADING })).toBeVisible();
     await invitee.close();
 
     await page.reload();
@@ -45,7 +45,7 @@ test.describe("members", () => {
     const victim = await browser.newContext();
     const vp = await victim.newPage();
     await uiSignIn(vp, E2E.members.revokee.email);
-    await expect(vp.getByRole("heading", { name: "Work to do" })).toBeVisible();
+    await expect(vp.getByRole("heading", { name: HOME_HEADING })).toBeVisible();
 
     await uiSignInOk(page, E2E.members.owner.email);
     await page.goto("/settings/members");

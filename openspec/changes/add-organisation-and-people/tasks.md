@@ -9,7 +9,7 @@
 - [x] 2.2 packages/core: write `organisation/profile.http.test.ts` (owner/hr_admin write, others read-only, logo size/type, audit) then implement company profile endpoints
 - [x] 2.3 packages/core: write `organisation/structure.http.test.ts` (unique active names, archive in use → 409 with count, archived not selectable) then implement departments, teams, locations, cost centres
 - [x] 2.4 packages/core: write `organisation/work-schedules.test.ts` (weekly minutes sum, exactly one rest day, shift kind, single default, edit creates effective-dated version, as-at lookup) then implement work schedules
-- [ ] 2.5 packages/core: write `organisation/setup-checklist.test.ts` (steps derived from data) then implement the setup-checklist inbox source — DONE: derived steps + `GET /api/v1/organisation/setup-checklist`; OPEN: registering it as a workflows `InboxSource` (WS3) and showing it on Home
+- [x] 2.5 packages/core: write `organisation/setup-checklist.test.ts` (steps derived from data) then implement the setup-checklist inbox source — derived steps + `GET /api/v1/organisation/setup-checklist`; registered as the workflows `setup` InboxSource (`workflows/people.ts`) and shown on Home as "Finish setting up" (WS3 integration)
 
 ## 3. Employee record
 
@@ -26,7 +26,7 @@
 - [x] 4.3 packages/core: write `employees/rehire.test.ts` (same employee ID, new tenure, history kept) then implement rehire
 - [x] 4.4 packages/core: write `employees/compensation.test.ts` (integer cents, safe-integer guard, future-dated raise as-at, retro without flag rejected, retro with flag emits back-pay notice to payroll interface stub) then implement compensation and recurring allowances
 - [x] 4.5 packages/core: write `employees/reporting-scope.test.ts` (direct, indirect, depth cap, as-at today) then implement `ReportingScopeResolver` and plug it into access-control; rerun `access/matrix.http.test.ts` against the real resolver — DONE: resolver (`employees/reports/reporting-scope.ts`) + tests; apps/server wires `deps.reportingScope = createReportingScopeResolver(db)` and `access/matrix.http.test.ts` runs against the real resolver over hired employees
-- [ ] 4.6 packages/core: write `employees/former-transition.test.ts` (membership becomes `former` the day after last working day via `tick`) then wire the lifecycle hook from access-control — DONE: `runFormerTransitions` (idempotent, skips rehires) + tests against the memberships port; OPEN: call it from the workflows `tick(now)` (WS3) and wire identity's real `markFormer`
+- [x] 4.6 packages/core: write `employees/former-transition.test.ts` (membership becomes `former` the day after last working day via `tick`) then wire the lifecycle hook from access-control — `runFormerTransitions` runs as the `membership_former` transition of `tick(now)` with identity's real `markFormer` (tested in `workflows/people-integration.test.ts`)
 
 ## 5. Import and export
 
@@ -42,7 +42,7 @@
 
 ## 7. Web UI
 
-- [ ] 7.1 apps/web: write `e2e/company-setup.spec.ts` (setup checklist on Home, company profile with UEN error message, department, default work schedule) then build Settings → Company, Structure, Work schedules — DONE: Settings → Company (UEN error), Structure (departments etc.), Work schedules; e2e `e2e/people/people.people.ts` covers the UEN error; OPEN: setup checklist on Home (Home is WS3's)
+- [ ] 7.1 apps/web: write `e2e/company-setup.spec.ts` (setup checklist on Home, company profile with UEN error message, department, default work schedule) then build Settings → Company, Structure, Work schedules — DONE: Settings → Company (UEN error), Structure (departments etc.), Work schedules; e2e `e2e/people/people.people.ts` covers the UEN error; setup checklist on Home done by WS3 ("Finish setting up", asserted in `e2e/home-inbox.spec.ts`)
 - [x] 7.2 apps/web: write `e2e/people.spec.ts` (hire wizard, profile tabs, NRIC masked, transfer with future date shows "Scheduled", resignation shows "Leaving on") then build People list and profile (e2e in `e2e/people/people.people.ts` against the dev-only persona server until sign-in lands)
 - [x] 7.3 apps/web: write `e2e/import.spec.ts` (upload file with 2 errors, preview table, fix and re-upload, confirm) then build the import wizard (e2e in `e2e/people/people.people.ts`)
 - [x] 7.4 apps/web: write `e2e/self-service.spec.ts` (employee edits mobile directly, submits bank change, sees "Awaiting approval") then build My profile (e2e in `e2e/people/people.people.ts`)

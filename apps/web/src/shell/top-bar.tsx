@@ -2,6 +2,7 @@ import { Button, Kbd } from "@crowhr/ui";
 import { Link } from "@tanstack/react-router";
 import { Menu, Search } from "lucide-react";
 import { Wordmark } from "../components/wordmark.tsx";
+import { NotificationBell } from "./notification-bell.tsx";
 import { OrgSwitcher } from "./org-switcher.tsx";
 import { UserMenu } from "./user-menu.tsx";
 import { useViewMode } from "./view-mode.tsx";
@@ -41,6 +42,7 @@ export function TopBar({ onOpenPalette, onOpenDrawer }: { onOpenPalette: () => v
         </Button>
       </div>
 
+      <NotificationBell />
       <UserMenu />
     </header>
   );

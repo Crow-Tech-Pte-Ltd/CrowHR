@@ -6,6 +6,7 @@ import type { Db } from "./db/types.ts";
 import type { FileStore } from "./files/file-store.ts";
 import type { Logger } from "./logger.ts";
 import type { SystemHost } from "./system/host.ts";
+import type { ApproverDirectory, PeopleDates, WorkflowPlugin } from "./workflows/types.ts";
 
 /**
  * Hashes and verifies passwords. Server: argon2id. Browser demo: PBKDF2 via Web Crypto with a
@@ -21,7 +22,7 @@ export interface PasswordHasher {
 
 /** Outbound email. Optional: without it, invitations and resets offer a copyable link. */
 export interface Mailer {
-  send(message: { to: string; subject: string; text: string }): Promise<void>;
+  send(message: { to: string; subject: string; text: string; html?: string }): Promise<void>;
 }
 
 /** Source of "now". Inject a fixed clock in tests; never call `new Date()` in services. */
@@ -78,6 +79,15 @@ export interface AppDeps {
   demoMode?: boolean;
   /** Allowed native-app redirect URIs (api-platform). Defaults to the official app schemes. */
   nativeRedirectUris?: readonly string[];
+  /**
+   * Approver lookups for the approval engine (workflows). Defaults to memberships + roles with no
+   * reporting lines (nobody has a manager) until the people module supplies `managerOf`.
+   */
+  approverDirectory?: ApproverDirectory;
+  /** Work pass and probation dates for reminders (people module). Absent: those reminders are off. */
+  peopleDates?: PeopleDates;
+  /** Extra approval subject types, inbox and reminder sources (tests, hosts). Core modules register in workflows/registry.ts. */
+  workflowPlugins?: readonly WorkflowPlugin[];
 }
 
 export const systemClock: Clock = { now: () => new Date() };

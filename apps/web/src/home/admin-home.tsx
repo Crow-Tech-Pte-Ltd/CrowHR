@@ -1,372 +1,479 @@
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Avatar,
   Badge,
   Button,
   Card,
-  CardContent,
   CardHeader,
   CardTitle,
-  type ColumnDef,
-  cn,
-  DataTable,
+  EmptyState,
   formatDate,
-  formatMoney,
-  maskNric,
+  Skeleton,
   StatusPill,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  toast,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@crowhr/ui";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarDays, Check, Clock, Receipt, X } from "lucide-react";
+import { ArrowRight, CalendarClock, CheckCircle2, DatabaseBackup, IdCard, Wallet } from "lucide-react";
+import * as React from "react";
+import { useMe } from "../auth/session.ts";
 import { PageHeader } from "../components/page-header.tsx";
-import { SampleDataNotice } from "../components/sample-data-notice.tsx";
-import {
-  FIXTURE_TODAY,
-  type SampleApproval,
-  sampleApprovals,
-  samplePasses,
-  samplePayrollRun,
-  sampleUpcoming,
-} from "../fixtures/home.ts";
-import { daysBetween, relativeDays, weekday } from "./dates.ts";
+import { ErrorNote } from "../components/section.tsx";
+import { type Inbox, type InboxItem, inboxQuery, useDecide } from "../workflows/api.ts";
+import { DecisionButtons, DuePill, OriginBadge, RejectDialog } from "../workflows/decision-controls.tsx";
+import { ageLabel } from "../workflows/format.ts";
+import { daysBetween, weekday } from "./dates.ts";
 
-const KIND = {
-  leave: { label: "Leave", icon: CalendarDays },
-  claim: { label: "Claim", icon: Receipt },
-  timesheet: { label: "Overtime", icon: Clock },
-} as const;
+const SECTION_SOURCES = new Set(["approvals", "work_passes", "probation", "setup", "backups"]);
 
-function quantity(q: SampleApproval["quantity"]): string {
-  if (q.unit === "cents") return formatMoney(q.value);
-  if (q.unit === "days") return `${q.value.toFixed(1)} d`;
-  return `${(q.value / 100).toFixed(1)} h`;
+function plural(n: number, one: string, many = `${one}s`) {
+  return `${n} ${n === 1 ? one : many}`;
 }
 
-const notConnected = (what: string) =>
-  toast("Sample data", { description: `${what} isn't connected yet. Nothing was changed.` });
-
+/** Admin and manager Home: real work to do from GET /api/v1/inbox. */
 export function AdminHome() {
-  const passesSoon = samplePasses.filter((p) => daysBetween(FIXTURE_TODAY, p.expires) <= 90);
-  const due = daysBetween(FIXTURE_TODAY, samplePayrollRun.payDate);
+  const me = useMe();
+  const inbox = useQuery(inboxQuery);
+  const data = inbox.data;
+  const approvals = data?.items.filter((i) => i.source === "approvals") ?? [];
+  const passes = data?.items.filter((i) => i.source === "work_passes") ?? [];
+  const probation = data?.items.filter((i) => i.source === "probation") ?? [];
+  const other = data?.items.filter((i) => !SECTION_SOURCES.has(i.source)) ?? [];
+  const setup = data?.items.filter((i) => i.source === "setup") ?? [];
+  const backup = data?.items.find((i) => i.source === "backups") ?? null;
+  const sourceStatus = (id: string) => data?.sources.find((s) => s.id === id)?.status ?? "not_set_up";
+  const isHr = me.roles.includes("owner") || me.roles.includes("hr_admin");
+  const seesPayroll = me.roles.includes("owner") || me.roles.includes("payroll_admin");
+  const total = data?.items.length ?? 0;
+
+  const parts = [
+    approvals.length ? plural(approvals.length, "approval") : null,
+    other.length ? plural(other.length, "to-do") : null,
+    setup.length ? plural(setup.length, "setup step") : null,
+    backup ? "backups" : null,
+    passes.length ? plural(passes.length, "work pass", "work passes") : null,
+    probation.length ? plural(probation.length, "probation review") : null,
+  ].filter(Boolean);
+
   return (
     <>
       <PageHeader
         kicker={
-          <span className="num">
-            {weekday(FIXTURE_TODAY)} · {formatDate(FIXTURE_TODAY)}
-          </span>
+          data ? (
+            <span className="num">
+              {weekday(data.today)} · {formatDate(data.today)}
+            </span>
+          ) : (
+            <span className="inline-block h-3" />
+          )
         }
         title="Work to do"
         description={
-          <>
-            <span className="num">{sampleApprovals.length}</span> approvals, <span className="num">1</span> payroll run
-            and <span className="num">{passesSoon.length}</span> work passes need attention.
-          </>
+          inbox.isPending ? (
+            <Skeleton className="h-4 w-64" />
+          ) : total === 0 ? (
+            "Nothing waiting for you."
+          ) : (
+            <>
+              {parts.join(", ")} {total === 1 ? "needs" : "need"} your attention.
+            </>
+          )
         }
       />
-      <div className="mb-6">
-        <SampleDataNotice />
-      </div>
+
+      {inbox.isError ? (
+        <Card className="mb-6">
+          <ErrorNote error={inbox.error} retry={() => void inbox.refetch()} />
+        </Card>
+      ) : null}
+
+      {backup ? (
+        <Alert variant="warning" className="mb-6" data-testid="home-backup-warning">
+          <DatabaseBackup aria-hidden />
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <AlertTitle>{backup.title}</AlertTitle>
+              <AlertDescription>{backup.detail}</AlertDescription>
+            </div>
+            <Button asChild size="sm" variant="secondary">
+              <Link to="/settings/system">{backup.actionLabel}</Link>
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-6">
-          <PayrollRunCard dueInDays={due} />
-          <ApprovalsCard />
+          {setup.length ? <SetupCard items={setup} /> : null}
+          <ApprovalsCard items={approvals} today={data?.today ?? ""} loading={inbox.isPending} />
+          {other.length ? <OtherCard items={other} today={data?.today ?? ""} /> : null}
+          {seesPayroll ? <PayrollCard /> : null}
         </div>
         <div className="flex min-w-0 flex-col gap-6">
-          <PassesCard passes={passesSoon} />
-          <UpcomingCard />
+          {isHr ? (
+            <ReminderCard
+              id="passes"
+              title="Work passes expiring"
+              subtitle="Next 90 days"
+              icon={<IdCard />}
+              items={passes}
+              today={data?.today ?? ""}
+              loading={inbox.isPending}
+              status={sourceStatus("work_passes")}
+              empty="No work passes expire in the next 90 days."
+              notSetUp="Work pass expiry dates come from employee records. They appear here once you add employees in People."
+            />
+          ) : null}
+          {isHr || me.roles.includes("manager") ? (
+            <ReminderCard
+              id="probation"
+              title="Probation ending"
+              subtitle="Next 14 days"
+              icon={<CalendarClock />}
+              items={probation}
+              today={data?.today ?? ""}
+              loading={inbox.isPending}
+              status={sourceStatus("probation")}
+              empty="No probation periods end in the next 14 days."
+              notSetUp="Probation end dates come from employee records. They appear here once you add employees in People."
+            />
+          ) : null}
         </div>
       </div>
     </>
   );
 }
 
-const STEPS = ["Prepare", "Review", "Approve", "Pay"] as const;
+function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: string; loading: boolean }) {
+  const [rejecting, setRejecting] = React.useState<InboxItem | null>(null);
+  const decide = useDecide({ onDone: () => setRejecting(null) });
+  const approve = (item: InboxItem) => item.task && decide.mutate({ taskIds: [item.task.id], decision: "approve" });
 
-function PayrollRunCard({ dueInDays }: { dueInDays: number }) {
-  const run = samplePayrollRun;
-  const current = 1; // "Review"
   return (
-    <Card variant="emphasis" aria-labelledby="payroll-run-title">
-      <div className="flex flex-col gap-5 p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <p className="font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200">
-              Payroll · {run.period}
-            </p>
-            <h2 id="payroll-run-title" className="text-lg font-semibold leading-6">
-              October payroll is waiting for your review
-            </h2>
-          </div>
-          <StatusPill tone={dueInDays <= 7 ? "warning" : "neutral"}>Pay date {relativeDays(dueInDays)}</StatusPill>
-        </div>
-
-        <ol className="grid grid-cols-4 gap-1.5" aria-label="Payroll run progress">
-          {STEPS.map((step, i) => (
-            <li key={step} className="flex flex-col gap-1.5" aria-current={i === current ? "step" : undefined}>
-              <span
-                className={cn(
-                  "h-1.5 rounded-full",
-                  i < current ? "bg-ink" : i === current ? "bg-kuning-300 ring-1 ring-ink" : "bg-surface-200",
-                )}
-              />
-              <span
-                className={cn(
-                  "flex items-center gap-1 font-azeret text-2xs",
-                  i <= current ? "text-ink" : "text-primary-200",
-                  i === current && "font-semibold",
-                )}
-              >
-                {i < current ? <Check className="size-3" aria-label="done" /> : null}
-                {step}
-              </span>
-            </li>
-          ))}
-        </ol>
-
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-4 sm:grid-cols-4">
-          <Fact label="Employees" value={String(run.employees)} />
-          <Fact label="Gross pay" value={formatMoney(run.grossCents)} />
-          <Fact label="Net pay" value={formatMoney(run.netCents)} />
-          <Fact label="Pay date" value={formatDate(run.payDate)} />
-        </dl>
-
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-ui text-primary-300">
-            <span className="num">{run.changesSinceLastRun}</span> changes since September: one new joiner, one
-            resignation, one salary revision.
-          </p>
-          <Button variant="primary" asChild>
-            <Link to="/payroll">
-              Continue review
-              <ArrowRight />
-            </Link>
-          </Button>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <dt className="font-azeret text-[10px] font-medium uppercase tracking-wider text-primary-200">{label}</dt>
-      <dd className="num truncate text-sm font-medium">{value}</dd>
-    </div>
-  );
-}
-
-function ApprovalActions({ approval }: { approval: SampleApproval }) {
-  return (
-    <div className="flex justify-end gap-1">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label={`Decline ${approval.employee}'s request`}
-            onClick={(e) => {
-              e.stopPropagation();
-              notConnected("Declining requests");
-            }}
-          >
-            <X />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Decline</TooltipContent>
-      </Tooltip>
-      <Button
-        size="sm"
-        variant="secondary"
-        onClick={(e) => {
-          e.stopPropagation();
-          notConnected("Approving requests");
-        }}
-      >
-        <Check />
-        Approve
-      </Button>
-    </div>
-  );
-}
-
-const approvalColumns: ColumnDef<SampleApproval, unknown>[] = [
-  {
-    id: "employee",
-    header: "Employee",
-    accessorFn: (a) => a.employee,
-    cell: ({ row }) => (
-      <div className="flex min-w-0 items-center gap-2.5">
-        <Avatar name={row.original.employee} size="sm" />
-        <div className="min-w-0">
-          <p className="truncate font-medium leading-4">{row.original.employee}</p>
-          <p className="truncate text-2xs leading-4 text-primary-200">{row.original.team}</p>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "request",
-    header: "Request",
-    accessorFn: (a) => a.kind,
-    cell: ({ row }) => {
-      const k = KIND[row.original.kind];
-      const Icon = k.icon;
-      return (
-        <div className="flex min-w-0 items-center gap-2">
-          <Icon className="size-4 shrink-0 text-primary-200" aria-hidden />
-          <span className="truncate">
-            <span className="font-medium">{k.label}</span>
-            <span className="text-primary-300"> · {row.original.detail}</span>
-          </span>
-        </div>
-      );
-    },
-  },
-  {
-    id: "submitted",
-    header: "Submitted",
-    accessorFn: (a) => a.submitted,
-    meta: { numeric: true, cellClassName: "text-primary-300" },
-    cell: ({ row }) => relativeDays(daysBetween(FIXTURE_TODAY, row.original.submitted)),
-  },
-  {
-    id: "quantity",
-    header: "Amount",
-    enableSorting: false,
-    meta: { numeric: true },
-    cell: ({ row }) => quantity(row.original.quantity),
-  },
-  {
-    id: "actions",
-    header: () => <span className="sr-only">Actions</span>,
-    enableSorting: false,
-    cell: ({ row }) => <ApprovalActions approval={row.original} />,
-  },
-];
-
-function ApprovalsCard() {
-  return (
-    <Card aria-labelledby="approvals-title">
+    <Card aria-labelledby="approvals-title" data-testid="home-approvals">
       <CardHeader className="items-center">
         <div className="flex items-center gap-2">
           <CardTitle id="approvals-title">Approvals waiting</CardTitle>
-          <Badge variant="ink" className="num">
-            {sampleApprovals.length}
-          </Badge>
+          {items.length ? (
+            <Badge variant="ink" className="num">
+              {items.length}
+            </Badge>
+          ) : null}
         </div>
-        <Button variant="link" size="sm" onClick={() => notConnected("The approvals queue")}>
-          View all
-        </Button>
+        <Link
+          to="/inbox"
+          className="focus-ring inline-flex items-center gap-1 rounded-sm text-ui font-medium text-biru-400 hover:underline"
+        >
+          Open inbox <ArrowRight className="size-3.5" aria-hidden />
+        </Link>
       </CardHeader>
-      <div className="hidden border-t border-border md:block">
-        <DataTable
-          label="Approvals waiting"
-          columns={approvalColumns}
-          data={sampleApprovals}
-          getRowId={(a) => a.id}
-          onRowActivate={(row) => notConnected(`${KIND[row.original.kind].label} details`)}
-        />
-      </div>
-      <ul className="divide-y divide-border border-t border-border md:hidden">
-        {sampleApprovals.map((a) => {
-          const k = KIND[a.kind];
-          return (
-            <li key={a.id} className="flex flex-col gap-2 px-4 py-3">
-              <div className="flex items-start justify-between gap-3">
+      {loading ? (
+        <div className="flex flex-col gap-2 border-t border-border p-4" role="status" aria-label="Loading approvals">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="border-t border-border">
+          <EmptyState
+            variant="plain"
+            icon={<CheckCircle2 />}
+            title="Nothing waiting for you"
+            description="Leave, claims and other requests that need your decision appear here."
+          />
+        </div>
+      ) : (
+        <>
+          <div className="hidden border-t border-border md:block">
+            <Table aria-label="Approvals waiting" className="table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[12rem]">Requester</TableHead>
+                  <TableHead>Request</TableHead>
+                  <TableHead className="w-[8.5rem] text-right">Due</TableHead>
+                  <TableHead className="w-[9.5rem]">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => (
+                  <TableRow key={item.id} data-testid="approval-row">
+                    <TableCell>
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Avatar name={item.concerns ?? "?"} size="sm" />
+                        <p className="truncate font-medium leading-4">{item.concerns}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Link
+                          to="/inbox"
+                          search={{ task: item.task?.id }}
+                          className="focus-ring truncate rounded-sm hover:underline"
+                        >
+                          {item.title}
+                        </Link>
+                      </div>
+                      <p className="truncate text-2xs leading-4 text-primary-200">
+                        {item.detail} · <span className="num">sent {ageLabel(item.createdAt, today)}</span>
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DueOrOrigin item={item} today={today} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <RowAction item={item} onApprove={approve} onReject={setRejecting} pending={decide.isPending} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <ul className="divide-y divide-border border-t border-border md:hidden">
+            {items.map((item) => (
+              <li key={item.id} className="flex flex-col gap-1.5 px-4 py-3" data-testid="approval-row-mobile">
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <Avatar name={a.employee} size="sm" />
-                  <div className="min-w-0">
-                    <p className="truncate font-medium leading-4">{a.employee}</p>
-                    <p className="truncate text-2xs leading-4 text-primary-300">
-                      {k.label} · {a.detail}
-                    </p>
-                  </div>
+                  <Avatar name={item.concerns ?? "?"} size="sm" />
+                  <p className="truncate font-medium leading-4">{item.concerns}</p>
                 </div>
-                <span className="num shrink-0 text-ui">{quantity(a.quantity)}</span>
-              </div>
-              <div className="flex items-center justify-between pl-[34px]">
-                <span className="num text-2xs text-primary-200">
-                  {relativeDays(daysBetween(FIXTURE_TODAY, a.submitted))}
-                </span>
-                <ApprovalActions approval={a} />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                <p className="pl-[34px] text-ui leading-5">
+                  <span className="text-primary-300">{item.detail} · </span>
+                  {item.title}
+                </p>
+                <div className="flex items-center justify-between gap-2 pl-[34px]">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <DueOrOrigin item={item} today={today} />
+                    <span className="num truncate text-2xs text-primary-200">
+                      sent {ageLabel(item.createdAt, today)}
+                    </span>
+                  </span>
+                  <RowAction item={item} onApprove={approve} onReject={setRejecting} pending={decide.isPending} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <RejectDialog
+        open={!!rejecting}
+        onOpenChange={(o) => !o && setRejecting(null)}
+        count={1}
+        who={rejecting?.concerns ?? undefined}
+        pending={decide.isPending}
+        onConfirm={(comment) =>
+          rejecting?.task && decide.mutate({ taskIds: [rejecting.task.id], decision: "reject", comment })
+        }
+      />
     </Card>
   );
 }
 
-function PassesCard({ passes }: { passes: typeof samplePasses }) {
+function RowAction({
+  item,
+  onApprove,
+  onReject,
+  pending,
+}: {
+  item: InboxItem;
+  onApprove: (i: InboxItem) => void;
+  onReject: (i: InboxItem) => void;
+  pending: boolean;
+}) {
+  if (item.task?.inline) {
+    return (
+      <DecisionButtons
+        who={item.concerns ?? "this"}
+        onApprove={() => onApprove(item)}
+        onReject={() => onReject(item)}
+        disabled={pending}
+      />
+    );
+  }
   return (
-    <Card aria-labelledby="passes-title">
+    <Button size="sm" variant="secondary" asChild>
+      <Link to="/inbox" search={{ task: item.task?.id }}>
+        Review
+      </Link>
+    </Button>
+  );
+}
+
+/** The due pill, plus "Escalated" / "Covering" in the same column (escalated tasks have no due date). */
+function DueOrOrigin({ item, today }: { item: InboxItem; today: string }) {
+  return (
+    <span className="inline-flex flex-wrap items-center justify-end gap-1">
+      {item.task && item.task.origin !== "resolved" ? (
+        <OriginBadge origin={item.task.origin} onBehalfOf={item.task.onBehalfOf} />
+      ) : null}
+      <DuePill dueOn={item.dueOn} today={today} short />
+    </span>
+  );
+}
+
+function SetupCard({ items }: { items: InboxItem[] }) {
+  return (
+    <Card aria-labelledby="setup-title" data-testid="home-setup">
       <CardHeader>
         <div>
-          <CardTitle id="passes-title">Work passes expiring</CardTitle>
-          <p className="mt-0.5 text-2xs text-primary-200">Next 90 days</p>
+          <CardTitle id="setup-title">Finish setting up</CardTitle>
+          <p className="mt-0.5 text-2xs text-primary-200">
+            <span className="num">{items.length}</span> {items.length === 1 ? "step" : "steps"} left before your first
+            payroll
+          </p>
         </div>
       </CardHeader>
+      <ol className="divide-y divide-border border-t border-border">
+        {items.map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <div className="min-w-0">
+              <p className="truncate font-medium leading-5">{item.title}</p>
+              {item.detail ? <p className="truncate text-2xs text-primary-300">{item.detail}</p> : null}
+            </div>
+            <Button size="sm" variant="secondary" asChild>
+              <a href={item.href}>{item.actionLabel}</a>
+            </Button>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
+function OtherCard({ items, today }: { items: InboxItem[]; today: string }) {
+  return (
+    <Card aria-labelledby="todo-title">
+      <CardHeader>
+        <CardTitle id="todo-title">Checklists and other to-dos</CardTitle>
+      </CardHeader>
       <ul className="divide-y divide-border border-t border-border">
-        {passes.map((p) => {
-          const days = daysBetween(FIXTURE_TODAY, p.expires);
-          return (
-            <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-              <div className="min-w-0">
-                <p className="truncate font-medium leading-5">{p.employee}</p>
-                <p className="flex items-center gap-1.5 text-2xs text-primary-300">
-                  <span>{p.passType}</span>
-                  <span aria-hidden className="text-primary-100">
-                    ·
-                  </span>
-                  <span className="num" title="FIN, masked">
-                    {maskNric(p.fin)}
-                  </span>
+        {items.map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <div className="min-w-0">
+              <p className="truncate font-medium leading-5">{item.title}</p>
+              {item.concerns || item.detail ? (
+                <p className="truncate text-2xs text-primary-300">
+                  {[item.concerns, item.detail].filter(Boolean).join(" · ")}
                 </p>
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <StatusPill tone={days <= 30 ? "danger" : days <= 60 ? "warning" : "neutral"}>
-                  <span className="num normal-case">{days} days</span>
-                </StatusPill>
-                <span className="num text-2xs text-primary-200">{formatDate(p.expires)}</span>
-              </div>
-            </li>
-          );
-        })}
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <DuePill dueOn={item.dueOn} today={today} />
+              <Button size="sm" variant="secondary" asChild>
+                <a href={item.href}>{item.actionLabel}</a>
+              </Button>
+            </div>
+          </li>
+        ))}
       </ul>
     </Card>
   );
 }
 
-function UpcomingCard() {
+function PayrollCard() {
   return (
-    <Card aria-labelledby="upcoming-title">
+    <Card aria-labelledby="payroll-title" data-testid="home-payroll">
       <CardHeader>
-        <CardTitle id="upcoming-title">Coming up</CardTitle>
+        <CardTitle id="payroll-title">Payroll</CardTitle>
       </CardHeader>
-      <CardContent className="pt-0">
-        <ol className="flex flex-col">
-          {sampleUpcoming.map((u) => (
-            <li
-              key={u.id}
-              className="grid grid-cols-[3.25rem_1fr] gap-3 border-t border-border py-2.5 first:border-t-0"
-            >
-              <span className="num pt-0.5 text-2xs leading-4 text-primary-200">
-                {formatDate(u.date).replace(/ \d{4}$/, "")}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate font-medium leading-5">{u.employee}</span>
-                <span className="block text-2xs text-primary-300">{u.label}</span>
-              </span>
+      <div className="border-t border-border">
+        <EmptyState
+          variant="plain"
+          icon={<Wallet />}
+          title="Payroll isn't set up yet"
+          description="Monthly runs, CPF and payslips will show here with their due dates once the payroll module is installed."
+          note="Not set up yet"
+        />
+      </div>
+    </Card>
+  );
+}
+
+function DaysLeft({ dueOn, today }: { dueOn: string; today: string }) {
+  const days = daysBetween(today, dueOn);
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      <StatusPill tone={days <= 30 ? "danger" : days <= 60 ? "warning" : "neutral"}>
+        <span className="num normal-case">{days === 0 ? "today" : `${days} ${days === 1 ? "day" : "days"}`}</span>
+      </StatusPill>
+      <span className="num text-2xs text-primary-200">{formatDate(dueOn)}</span>
+    </div>
+  );
+}
+
+function ReminderCard({
+  id,
+  title,
+  subtitle,
+  icon,
+  items,
+  today,
+  loading,
+  status,
+  empty,
+  notSetUp,
+}: {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  items: InboxItem[];
+  today: string;
+  loading: boolean;
+  status: Inbox["sources"][number]["status"];
+  empty: string;
+  notSetUp: string;
+}) {
+  return (
+    <Card aria-labelledby={`${id}-title`} data-testid={`home-${id}`}>
+      <CardHeader>
+        <div>
+          <CardTitle id={`${id}-title`}>{title}</CardTitle>
+          <p className="mt-0.5 text-2xs text-primary-200">{subtitle}</p>
+        </div>
+      </CardHeader>
+      {loading ? (
+        <div className="border-t border-border p-4">
+          <Skeleton className="h-8 w-full" />
+        </div>
+      ) : status === "not_set_up" ? (
+        <div className="flex gap-3 border-t border-border px-4 py-4">
+          <span className="mt-0.5 text-primary-200 [&_svg]:size-4" aria-hidden>
+            {icon}
+          </span>
+          <div className="flex flex-col gap-1">
+            <p className="font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300">
+              Not set up yet
+            </p>
+            <p className="text-ui text-primary-300">{notSetUp}</p>
+          </div>
+        </div>
+      ) : items.length === 0 ? (
+        <p className="border-t border-border px-4 py-4 text-ui text-primary-300">{empty}</p>
+      ) : (
+        <ul className="divide-y divide-border border-t border-border">
+          {items.map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+              <div className="min-w-0">
+                <a
+                  href={item.href}
+                  className="focus-ring block truncate rounded-sm font-medium leading-5 hover:underline"
+                >
+                  {item.concerns}
+                </a>
+                <p className="truncate text-2xs text-primary-300">{item.detail ?? item.title}</p>
+              </div>
+              {item.dueOn ? <DaysLeft dueOn={item.dueOn} today={today} /> : null}
             </li>
           ))}
-        </ol>
-      </CardContent>
+        </ul>
+      )}
     </Card>
   );
 }

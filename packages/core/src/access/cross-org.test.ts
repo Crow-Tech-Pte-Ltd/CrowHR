@@ -13,6 +13,16 @@ import { createApp } from "../app.ts";
 import { recordAudit, systemAuditContext } from "../audit/audit.ts";
 import { invitations, memberships } from "../db/schema/access.ts";
 import { sessions, ssoProviders } from "../db/schema/auth.ts";
+import { emailOutbox, notificationPrefs, notifications, remindersSent } from "../db/schema/notifications.ts";
+import {
+  approvalComments,
+  approvalPolicies,
+  approvalPolicySteps,
+  approvalRequests,
+  approvalSteps,
+  approvalTasks,
+  delegations,
+} from "../db/schema/workflows.ts";
 import { buildActor } from "../employees/access.ts";
 import { defaultPeoplePorts } from "../employees/ports.ts";
 import { seedPeopleOnePerTable } from "../testing/people-sweep.ts";
@@ -77,6 +87,91 @@ describe("cross-organisation isolation", () => {
       today: "2026-10-31",
     });
     await seedPeopleOnePerTable(deps, defaultPeoplePorts(deps), ownerActorB);
+    // Workflows and notifications (one row per table).
+    const staffB = await seedMember(deps, b.id, { email: "staff-b@example.sg" });
+    const policyId = deps.ids.newId();
+    await deps.db
+      .insert(approvalPolicies)
+      .values({ id: policyId, orgId: b.id, subjectType: "leave", name: "B", isDefault: true });
+    await deps.db.insert(approvalPolicySteps).values({ orgId: b.id, policyId, position: 1, approverRule: "manager" });
+    const requestId = deps.ids.newId();
+    await deps.db.insert(approvalRequests).values({
+      id: requestId,
+      orgId: b.id,
+      subjectType: "leave",
+      subjectId: deps.ids.newId(),
+      requesterMembershipId: staffB.membershipId,
+      policyName: "B",
+      status: "pending",
+      title: "B leave",
+      submittedAt: now,
+    });
+    await deps.db.insert(approvalSteps).values({
+      orgId: b.id,
+      requestId,
+      position: 1,
+      approverRule: "role:owner",
+      escalateAfterDays: 3,
+      status: "active",
+    });
+    await deps.db.insert(approvalTasks).values({
+      id: deps.ids.newId(),
+      orgId: b.id,
+      requestId,
+      position: 1,
+      assigneeMembershipId: ownerB.membershipId,
+      origin: "resolved",
+      status: "pending",
+      createdAt: now,
+    });
+    await deps.db.insert(approvalComments).values({
+      id: deps.ids.newId(),
+      orgId: b.id,
+      requestId,
+      authorMembershipId: ownerB.membershipId,
+      body: "B",
+      createdAt: now,
+    });
+    await deps.db.insert(delegations).values({
+      id: deps.ids.newId(),
+      orgId: b.id,
+      fromMembershipId: ownerB.membershipId,
+      toMembershipId: staffB.membershipId,
+      startsOn: "2026-10-01",
+      endsOn: "2026-12-31",
+      createdByMembershipId: ownerB.membershipId,
+      createdAt: now,
+    });
+    await deps.db.insert(notifications).values({
+      id: deps.ids.newId(),
+      orgId: b.id,
+      recipientMembershipId: ownerB.membershipId,
+      kind: "task_assigned",
+      category: "approvals",
+      title: "B",
+      link: "/inbox",
+      createdAt: now,
+    });
+    await deps.db.insert(notificationPrefs).values({
+      orgId: b.id,
+      membershipId: ownerB.membershipId,
+      category: "updates",
+      emailEnabled: false,
+      updatedAt: now,
+    });
+    await deps.db.insert(emailOutbox).values({
+      id: deps.ids.newId(),
+      orgId: b.id,
+      toAddress: "owner-b@example.sg",
+      kind: "task_assigned",
+      payload: { headline: "B", linkPath: "/" },
+      status: "failed",
+      nextAttemptAt: now,
+      createdAt: now,
+    });
+    await deps.db
+      .insert(remindersSent)
+      .values({ orgId: b.id, source: "work_pass_expiry", subjectKey: "b", threshold: "d30", sentAt: now });
   });
   afterAll(() => t.close());
 

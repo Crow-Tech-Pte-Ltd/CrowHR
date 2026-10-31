@@ -8,6 +8,7 @@ import { memberships as membershipsTable } from "../db/schema/access.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
+import { workflowsApprovalsPort } from "../workflows/people.ts";
 import type { IsoDate } from "./dates.ts";
 
 /**
@@ -20,7 +21,7 @@ import type { IsoDate } from "./dates.ts";
  * | `audit` | `recordAudit()` hash-chained log (identity) | `createMemoryAuditSink()` |
  * | `memberships.markFormer` | `markMembershipFormer()` (identity) | memory double |
  * | `memberships.inviteForEmployee` | identity's `inviteMember()` (email, or a copyable link without SMTP) | memory double |
- * | `approvals` | local: the request waits for `POST /people/change-requests/:id/decision` (workflows not built) | memory double |
+ * | `approvals` | the workflows engine (`workflowsApprovalsPort`) | memory double |
  * | `payroll` | `noPayrollYet` (nothing finalised) | memory double |
  *
  * `ReportingScopeResolver` is implemented here (`reports/reporting-scope.ts`).
@@ -74,7 +75,8 @@ export interface ApprovalSubmission {
 
 /** Workflows stand-in: submit a subject for approval; the decision calls back into `decideChangeRequest`. */
 export interface ApprovalsPort {
-  submit(input: ApprovalSubmission): Promise<{ approvalRequestId: string | null }>;
+  /** Pass `tx` to submit in the transaction that creates the subject. */
+  submit(input: ApprovalSubmission, tx?: Db): Promise<{ approvalRequestId: string | null }>;
   cancel(orgId: string, approvalRequestId: string): Promise<void>;
 }
 
@@ -142,7 +144,7 @@ export function defaultPeoplePorts(deps: AppDeps): PeoplePorts {
         });
       },
     },
-    approvals: localApprovals,
+    approvals: workflowsApprovalsPort(deps),
     payroll: noPayrollYet,
   };
 }

@@ -24,6 +24,7 @@ import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import { assertSelectable } from "../organisation/structure.ts";
 import { defaultWorkScheduleId } from "../organisation/work-schedules.ts";
+import { onReportingLineChanged } from "../workflows/engine.ts";
 import { type Actor, assertCanWrite, assertNotSelfChange, canWrite } from "./access.ts";
 import { diffOf, recordAudit } from "./audit-helpers.ts";
 import { cancelChecklistsForEvent, instantiateChecklist } from "./checklists.ts";
@@ -675,6 +676,10 @@ export async function applyEvent(
   };
   const { eventId, effectiveDate } = await ctx.deps.db.transaction(async (tx) => {
     const result = await apply(tx);
+    // Workflows: open manager approval tasks follow a new line manager (same transaction).
+    if ((input.type === "transfer" || input.type === "promotion") && "managerEmployeeId" in input.changes) {
+      await onReportingLineChanged(tx, ctx.deps, ctx.actor.auditCtx, { orgId: ctx.actor.orgId, employeeId });
+    }
     await recordAudit(tx, ctx.ports, ctx.actor, {
       action: `lifecycle.${input.type}`,
       targetType: "employee",
@@ -1002,6 +1007,10 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
       await removeEventVersions(tx, orgId, employeeId, eventId);
     }
     await cancelChecklistsForEvent(tx, orgId, eventId);
+    // Workflows: a cancelled transfer may restore the previous line manager.
+    if (e.type === "transfer" || e.type === "promotion") {
+      await onReportingLineChanged(tx, ctx.deps, ctx.actor.auditCtx, { orgId, employeeId });
+    }
     await tx
       .update(lifecycleEvents)
       .set({ cancelledAt: ctx.deps.clock.now(), cancelledBy: ctx.actor.userId })

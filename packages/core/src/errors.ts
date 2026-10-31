@@ -33,6 +33,8 @@ export const ERROR_STATUS = {
   in_use: 409,
   /** The chosen manager reports, directly or indirectly, to this employee. */
   reporting_cycle: 409,
+  /** Approval task already decided (or superseded); details say who decided and when. */
+  already_decided: 409,
   last_owner: 409,
   /** No organisation exists yet: finish the setup wizard at /setup first. */
   setup_required: 409,

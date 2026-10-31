@@ -1,9 +1,12 @@
 import {
   type AppDeps,
+  createApproverDirectory,
   createReportingScopeResolver,
   createSecretBox,
   createUuidV7Generator,
   type Logger,
+  peopleDates,
+  peopleManagerResolver,
   systemClock,
 } from "@crowhr/core";
 import { createArgon2Hasher } from "./argon2-hasher.ts";
@@ -19,6 +22,7 @@ export function createServerDeps(
   database: Database,
   logger: Logger,
   secretKey: Uint8Array,
+  extra: Partial<AppDeps> = {},
 ): AppDeps {
   return {
     db: database.db,
@@ -33,9 +37,13 @@ export function createServerDeps(
     publicUrl: config.PUBLIC_URL,
     // Manager scope from employment records (people module).
     reportingScope: createReportingScopeResolver(database.db),
+    // Approvals: line managers, work-pass expiry and probation dates from the people module.
+    approverDirectory: createApproverDirectory({ managers: peopleManagerResolver }),
+    peopleDates,
     resolveClient: createClientResolver({ trusted: config.TRUSTED_PROXIES, logger, dataDir: config.DATA_DIR }),
     systemHost: createSystemHost(config, database.driver),
-    // NOT IMPLEMENTED: SMTP mailer (add-approvals-and-notifications owns the outbox). Without it,
-    // invitations and password resets offer a copyable link.
+    // `mailer` (SMTP_URL / MAIL_FROM, see mailer.ts) arrives in `extra` when configured; without it,
+    // notifications are in-app only and invitations and password resets offer a copyable link.
+    ...extra,
   };
 }
