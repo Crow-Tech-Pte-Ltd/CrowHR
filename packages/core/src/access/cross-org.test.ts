@@ -25,8 +25,8 @@ import {
 } from "../db/schema/workflows.ts";
 import { buildActor } from "../employees/access.ts";
 import { defaultPeoplePorts } from "../employees/ports.ts";
-import { seedPayrollOnePerTable } from "../testing/payroll-sweep.ts";
 import { seedClaimsOnePerTable } from "../testing/claims-sweep.ts";
+import { seedPayrollOnePerTable } from "../testing/payroll-sweep.ts";
 import { seedPeopleOnePerTable } from "../testing/people-sweep.ts";
 import { orgScope } from "./org-scope.ts";
 

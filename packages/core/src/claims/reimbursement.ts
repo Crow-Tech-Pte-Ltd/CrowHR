@@ -4,13 +4,13 @@ import { claimLines, claims, claimTypes } from "../db/schema/claims.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
+import type { PayableClaim, ReimbursementSource } from "../payroll/ports.ts";
 
 /**
  * Reimbursement through payroll (spec "Reimbursement through payroll", design decision 5).
  *
- * The shape below is payroll's port (`packages/core/src/payroll/ports.ts`, owned by WS4),
- * mirrored here structurally so this branch compiles without payroll; at merge payroll imports
- * `createClaimsReimbursementSource(deps)` as `deps.payroll.reimbursements`.
+ * Implements payroll's port (`payroll/ports.ts`); `payrollPorts(deps)` uses it by default, so the
+ * server, tests and the demo get real claims unless they inject `deps.payroll.reimbursements`.
  *
  * State lives on the claim:
  * - payable = `approved`, payout `payroll`, approved on or before the period end (SGT date of the
@@ -23,20 +23,7 @@ import { AppError } from "../errors.ts";
  *   reserved, so they stay payable for the next run.
  */
 
-export interface PayableClaim {
-  claimId: string;
-  employeeId: string;
-  typeName: string;
-  amountCents: number;
-}
-
-export interface ReimbursementSource {
-  listPayable(orgId: string, periodEnd: string): Promise<PayableClaim[]>;
-  /** Fails if any claim is already reserved by another run or paid. */
-  reserve(tx: Db, orgId: string, runId: string, claimIds: string[]): Promise<void>;
-  release(tx: Db, orgId: string, runId: string): Promise<void>;
-  markPaid(tx: Db, orgId: string, runId: string, paymentDate: string): Promise<void>;
-}
+export type { PayableClaim, ReimbursementSource };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -44,10 +31,9 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
  * Payable claims, one entry per (claim, claim type) so the payslip shows one
  * "Claims reimbursement: <type>" line per type. Entries share the claim ID; `reserve` de-duplicates.
  *
- * Claims already reserved are included: payroll recomputes a draft run by releasing and
- * re-reserving what it lists, and the port carries no run ID. A second concurrent run that lists a
- * claim reserved by the first is refused by `reserve`. Pass `{ runId }` (optional third argument)
- * to leave out claims reserved by other runs instead.
+ * Payroll passes `{ runId }`: claims reserved by other runs are left out, claims reserved by this
+ * run stay listed (a recompute releases and re-reserves them). Without a run ID every payable claim
+ * is listed, and `reserve` refuses any already held by another run.
  */
 export async function listPayableClaims(
   db: Db,
@@ -150,8 +136,7 @@ export async function markClaimsPaidByRun(deps: AppDeps, tx: Db, orgId: string, 
 /** The claims module's `ReimbursementSource` for payroll (`deps.payroll.reimbursements`). */
 export function createClaimsReimbursementSource(deps: AppDeps): ReimbursementSource {
   return {
-    listPayable: (orgId: string, periodEnd: string, opts?: { runId?: string }) =>
-      listPayableClaims(deps.db, orgId, periodEnd, opts),
+    listPayable: (orgId, periodEnd, opts) => listPayableClaims(deps.db, orgId, periodEnd, opts),
     reserve: (tx, orgId, runId, claimIds) => reserveClaims(deps, tx, orgId, runId, claimIds),
     release: (tx, orgId, runId) => releaseClaims(deps, tx, orgId, runId),
     markPaid: async (tx, orgId, runId, paymentDate) => {
