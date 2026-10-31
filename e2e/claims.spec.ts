@@ -257,7 +257,7 @@ test("screens: claims admin, mark paid outside payroll, settings, phone list", a
   const kaiWen = await signedIn(browser, E2E.members.approver.email);
   const taxiClaim = (await (await farah.request.get(`/api/v1/claims/${taxi}`)).json()) as { approvalRequestId: string };
   const tasks = (await (await kaiWen.request.get("/api/v1/approvals/tasks")).json()) as {
-    items: { id: string; requestId: string }[];
+    items: { taskId: string; requestId: string }[];
   };
   const taxiTask = tasks.items.find((t) => t.requestId === taxiClaim.approvalRequestId);
   expect(taxiTask).toBeDefined();

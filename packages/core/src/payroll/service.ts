@@ -541,7 +541,7 @@ async function computeAll(deps: AppDeps, run: PayrollRun): Promise<{ computed: C
   const claims =
     run.kind === "off_cycle" && run.offCycleReason === "bonus"
       ? []
-      : await ports.reimbursements.listPayable(run.orgId, run.periodEnd);
+      : await ports.reimbursements.listPayable(run.orgId, run.periodEnd, { runId: run.id });
   const overtime =
     run.kind === "off_cycle" && run.offCycleReason === "bonus"
       ? []
