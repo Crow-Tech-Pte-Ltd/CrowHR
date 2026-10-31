@@ -14,10 +14,10 @@ Typical users inside the company:
 | Who | What they do in Crow HR |
 | --- | --- |
 | Owner | Sets up the company and sign-in, grants roles, approves payroll runs. |
-| HR admin | Keeps employee records, imports staff, handles lifecycle events and change requests. |
-| Payroll admin | Runs payroll, reviews the CPF working, releases payslips and downloads the statutory files. |
-| Manager | Sees their team, approves requests routed to them. |
-| Employee | Signs in to see their own profile and payslips, and asks for changes to their details. |
+| HR admin | Keeps employee records, imports staff, handles lifecycle events and change requests, sets leave, attendance and claim policies, issues letters and documents. |
+| Payroll admin | Runs payroll, reviews the CPF working, releases payslips, pays claims and downloads the statutory files. |
+| Manager | Sees their team, builds rosters, corrects timesheets, approves leave, overtime, claims and swaps routed to them. |
+| Employee | Signs in to see their own profile, payslips and documents, applies for leave, clocks in, files claims, sees their shifts and asks for changes to their details. |
 
 The exact rights of each role are on the [roles and permissions](/docs/roles-and-permissions/) page.
 
@@ -44,10 +44,15 @@ Crow HR is early software. Built and tested today:
 - company profile, departments, teams, locations, cost centres and work schedules;
 - employee records with effective-dated history, CSV import (including year-to-date opening balances), lifecycle events, work passes and self-service change requests;
 - an approvals engine with policies, delegation and escalation, in-app and email notifications, and a Home page that lists work to do;
-- monthly payroll with CPF, SHG, SDL and an FWL estimate, itemised payslips, the CPF EZPay file, a generic ISO 20022 bank file and an IR8A export;
-- self-hosting with automatic migrations, scheduled encrypted backups and a `crowhr` CLI.
+- [leave](/docs/leave/leave/) with the statutory and Government-paid types, policies, a team calendar and a report of Government-paid leave to claim;
+- [attendance and overtime](/docs/attendance/attendance/): clocking in (also offline), timesheets and overtime claims checked against Part 4 of the Employment Act;
+- [expense claims](/docs/claims/claims/) with receipts, caps and foreign currency, reimbursed through payroll;
+- [shift scheduling](/docs/scheduling/scheduling/) with weekly rosters, hour warnings and shift swaps;
+- monthly payroll with CPF, SHG, SDL and an FWL estimate, fed by approved leave, overtime, rosters and claims, with itemised payslips, the CPF EZPay file, a generic ISO 20022 bank file and an IR8A export;
+- [employee documents](/docs/documents/documents/), HR letters and KETs, and [reports](/docs/reports/running-reports/) with CSV and Excel export;
+- self-hosting with automatic migrations, scheduled backups (encrypted when you set `BACKUP_PASSPHRASE`, which you should) and a `crowhr` CLI.
 
-Leave, attendance, claims, scheduling, the public demo and the mobile apps are planned but not built. The [project status](/docs/status/) page lists what is built and what is not.
+An [in-browser demo](/docs/demo/) is built but not deployed yet, and native mobile apps are planned but not built. The [project status](/docs/status/) page lists what is built and what is not.
 
 ## Not legal advice
 

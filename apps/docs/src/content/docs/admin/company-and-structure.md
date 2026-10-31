@@ -33,9 +33,9 @@ Names are unique among active entries of the same list. Entries are archived, ne
 
 ## Work schedules
 
-Payroll pro-rates salary from the employee's working days, and leave and overtime will need each employee's rest day, so create the default schedule early.
+Payroll pro-rates salary from the employee's working days, and leave and attendance count days and measure lateness and overtime from it, so create the default schedule early.
 
 - A **fixed** schedule sets each weekday to *working* (with contracted hours), *half* (working, fewer hours), *off* or *rest*. It must have exactly one rest day. Weekly contracted hours are the sum of the days.
-- A **shift** schedule takes its days from rosters. Until [scheduling](/docs/coming-soon/scheduling/) exists, payroll asks for the month's scheduled days and days worked for these employees and will not guess a week.
+- A **shift** schedule takes its days from published [rosters](/docs/scheduling/scheduling/). For an incomplete month, payroll needs these employees' scheduled days and days worked: they come from published rosters and attendance when available, otherwise HR enters them on the run. Crow HR does not guess a week.
 
 One schedule is the default for new employees. Editing a schedule creates a new effective-dated version, so earlier months keep the schedule that applied then.
