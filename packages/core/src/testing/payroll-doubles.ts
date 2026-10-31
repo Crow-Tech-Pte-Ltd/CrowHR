@@ -44,7 +44,7 @@ export function createMemoryPayrollApprovals(deps: () => AppDeps): PayrollApprov
     },
     async decide(approvalRequestId, decision) {
       const r = requests.find((x) => x.approvalRequestId === approvalRequestId);
-      if (!r || r.state !== "pending") throw new Error("already decided");
+      if (r?.state !== "pending") throw new Error("already decided");
       const d = deps();
       await d.db.transaction(async (tx) => {
         const ctx = { deps: d, orgId: r.orgId, audit: systemAuditContext(r.orgId, "system", "approvals-double") };

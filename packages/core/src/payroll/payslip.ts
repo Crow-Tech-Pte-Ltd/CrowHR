@@ -1,3 +1,4 @@
+import { CPF_RATE_TABLES } from "@crowhr/sg-rules";
 import type { PayrollPayslip, PayrollRun } from "../db/schema/payroll.ts";
 import { dateLabel } from "./engine/dates.ts";
 import type { PayInput, PayLine, PayResult } from "./engine/types.ts";
@@ -52,6 +53,8 @@ export interface PayslipView {
   employerCpfCents: number;
   cpf: {
     rateTableId: string | null;
+    /** e.g. "CPF Table 1 (2026)". */
+    rateTableLabel: string | null;
     ageBand: string | null;
     residency: string;
     owSubjectCents: number;
@@ -59,6 +62,11 @@ export interface PayslipView {
   } | null;
   shgFunds: string[];
   ytd: { year: string; awSubjectCents: number; owSubjectCents: number };
+}
+
+function tableLabel(id: string | null): string | null {
+  const t = id ? CPF_RATE_TABLES.find((x) => x.id === id) : undefined;
+  return t ? `CPF Table ${t.publishedTableNo} (${t.effectiveFrom.slice(0, 4)})` : null;
 }
 
 const toLine = (l: PayLine): PayslipLine => ({ label: l.label, amountCents: l.amountCents, detail: l.detail });
@@ -140,6 +148,7 @@ export function buildPayslipView(
     cpf: r.cpf
       ? {
           rateTableId: r.cpf.rateTableId,
+          rateTableLabel: tableLabel(r.cpf.rateTableId),
           ageBand: r.cpf.ageBandLabel,
           residency: r.cpf.residencyCategory,
           owSubjectCents: r.cpf.owSubjectCents,

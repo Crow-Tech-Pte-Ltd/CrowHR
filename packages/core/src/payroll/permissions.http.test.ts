@@ -87,6 +87,10 @@ describe("payroll access", () => {
     await p.ok(p.admin.post(`${api}/payroll/runs/${runId}/release`));
     expect((await slips(empA)).items.map((s) => [s.id, s.title])).toEqual([[slipA, "Payslip, October 2026"]]);
     expect((await empA.get(`${api}/payslips/${slipA}`)).status).toBe(200);
+    const pdf = await empA.get(`${api}/payslips/${slipA}/pdf`);
+    expect([pdf.status, pdf.headers.get("content-type")]).toEqual([200, "application/pdf"]);
+    expect(new TextDecoder().decode(new Uint8Array(await pdf.arrayBuffer()).slice(0, 5))).toBe("%PDF-");
+    expect((await empA.get(`${api}/payslips/${slipB}/pdf`)).status).toBe(404);
     // Another employee's payslip is indistinguishable from a missing one.
     expect((await empA.get(`${api}/payslips/${slipB}`)).status).toBe(404);
     // A manager does not see their report's payslip.

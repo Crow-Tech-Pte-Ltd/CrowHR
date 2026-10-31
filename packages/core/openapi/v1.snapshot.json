@@ -24379,6 +24379,12 @@
                                 "null"
                               ]
                             },
+                            "rateTableLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "ageBand": {
                               "type": [
                                 "string",
@@ -24401,6 +24407,7 @@
                           },
                           "required": [
                             "rateTableId",
+                            "rateTableLabel",
                             "ageBand",
                             "residency",
                             "owSubjectCents",
@@ -24475,6 +24482,109 @@
                   "additionalProperties": false
                 }
               }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payroll/runs/{runId}/payslips/{payslipId}/pdf": {
+      "get": {
+        "operationId": "payroll.getRunsByRunIdPayslipsByPayslipIdPdf",
+        "summary": "Download a payslip of a run as PDF (preview before release)",
+        "tags": [
+          "Payroll"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "payroll:read",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "payslipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payslip PDF",
+            "content": {
+              "application/pdf": {}
             }
           },
           "400": {
@@ -27307,6 +27417,12 @@
                                 "null"
                               ]
                             },
+                            "rateTableLabel": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "ageBand": {
                               "type": [
                                 "string",
@@ -27329,6 +27445,7 @@
                           },
                           "required": [
                             "rateTableId",
+                            "rateTableLabel",
                             "ageBand",
                             "residency",
                             "owSubjectCents",
@@ -27403,6 +27520,99 @@
                   "additionalProperties": false
                 }
               }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payslips/{payslipId}/pdf": {
+      "get": {
+        "operationId": "payslips.getByPayslipIdPdf",
+        "summary": "Download one of my released payslips as PDF",
+        "tags": [
+          "Payslips"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "payslips:read",
+        "parameters": [
+          {
+            "name": "payslipId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payslip PDF",
+            "content": {
+              "application/pdf": {}
             }
           },
           "400": {

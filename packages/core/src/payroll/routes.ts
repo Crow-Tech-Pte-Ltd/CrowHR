@@ -26,6 +26,7 @@ import {
 } from "./api-schemas.ts";
 import { monthLabel } from "./engine/dates.ts";
 import { buildPayslipView } from "./payslip.ts";
+import { renderPayslipPdf } from "./payslip-pdf.ts";
 import { employeeDetail, runOverview } from "./review.ts";
 import {
   addItem,
@@ -145,6 +146,22 @@ const exampleItem = {
 export async function payslipFor(c: AppContext, slip: PayrollPayslip, run: PayrollRun) {
   void c;
   return buildPayslipView(slip, run, monthLabel(run.month));
+}
+
+/** PDF of a payslip. Byte-stable: dated by release (or approval, or the pay date for a draft preview). */
+export async function payslipPdfResponse(slip: PayrollPayslip, run: PayrollRun): Promise<Response> {
+  const view = buildPayslipView(slip, run, monthLabel(run.month));
+  const createdAt = run.releasedAt ?? run.decidedAt ?? new Date(`${run.payDate}T00:00:00+08:00`);
+  const bytes = await renderPayslipPdf(view, { createdAt });
+  const name = `payslip-${run.month}-${slip.employeeNumber}${run.kind === "adjustment" ? "-revised" : run.kind === "off_cycle" ? `-${run.offCycleReason}` : ""}.pdf`;
+  return new Response(bytes as BodyInit, {
+    headers: {
+      "content-type": "application/pdf",
+      "content-disposition": `attachment; filename="${name}"`,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    },
+  });
 }
 
 export const payrollModule = defineModule({
@@ -449,6 +466,30 @@ export const payrollModule = defineModule({
         return payslipFor(c, slip, run);
       },
     }),
+    defineRoute({
+      method: "get",
+      path: "/runs/:runId/payslips/:payslipId/pdf",
+      summary: "Download a payslip of a run as PDF (preview before release)",
+      access: { permission: "payroll:read" },
+      request: { params: z.object({ runId: z.uuid(), payslipId: z.uuid() }) },
+      responses: { 200: { description: "Payslip PDF", contentType: "application/pdf" } },
+      errors: ["not_found"],
+      handler: async ({ deps, auth, params }) => {
+        const run = await loadRun(deps.db, auth.orgId, params.runId);
+        const [slip] = await deps.db
+          .select()
+          .from(payrollPayslips)
+          .where(
+            and(
+              eq(payrollPayslips.orgId, auth.orgId),
+              eq(payrollPayslips.runId, run.id),
+              eq(payrollPayslips.id, params.payslipId),
+            ),
+          );
+        if (!slip) throw new AppError("not_found", "That payslip doesn't exist or you can't see it.");
+        return payslipPdfResponse(slip, run);
+      },
+    }),
   ],
 });
 
@@ -509,6 +550,19 @@ export const payslipsModule = defineModule({
       handler: async ({ c, deps, auth, grant, params }) => {
         const { slip, run } = await ownReleasedPayslip(deps.db, auth, params.payslipId, grant.all);
         return payslipFor(c, slip, run);
+      },
+    }),
+    defineRoute({
+      method: "get",
+      path: "/:payslipId/pdf",
+      summary: "Download one of my released payslips as PDF",
+      access: { permission: "payslips:read" },
+      request: { params: z.object({ payslipId: z.uuid() }) },
+      responses: { 200: { description: "Payslip PDF", contentType: "application/pdf" } },
+      errors: ["not_found"],
+      handler: async ({ deps, auth, grant, params }) => {
+        const { slip, run } = await ownReleasedPayslip(deps.db, auth, params.payslipId, grant.all);
+        return payslipPdfResponse(slip, run);
       },
     }),
   ],
