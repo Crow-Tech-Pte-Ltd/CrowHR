@@ -76,6 +76,9 @@ export async function providerConfig(deps: AppDeps, provider: SsoProvider): Prom
     auth,
     fetchOptions(deps, provider.issuer),
   );
+  // openid-client trusts TLS for ID tokens from the token endpoint by default; the spec requires
+  // the signature itself to be verified against the IdP's JWKS.
+  oidc.enableNonRepudiationChecks(config);
   if (preset.idTokenEncrypted && privateJwks) {
     const dec = await importDecryptionKey(privateJwks);
     if (dec)
