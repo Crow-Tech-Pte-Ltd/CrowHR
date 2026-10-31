@@ -9,4 +9,4 @@ export { nricCheckLetter } from "../employees/nric.ts";
 export { defaultPeoplePorts } from "../employees/ports.ts";
 export { setBankAccount } from "../employees/profile.ts";
 export { createStructure } from "../organisation/structure.ts";
-export { SEED_PEOPLE, type SeededPeople, seedPeople } from "./seed-people.ts";
+export { SEED_PEOPLE, type SeededPeople, seedContactName, seedPeople } from "./seed-people.ts";

@@ -39,6 +39,25 @@ function fakeId(prefix: NricPrefix, n: number): string {
   return `${prefix}${digits}${nricCheckLetter(prefix, digits)}`;
 }
 
+/**
+ * Fictional emergency contacts, picked by index. Whole names on purpose: deriving a "family name"
+ * from a legal name is wrong for surname-first Chinese names and for bin/binte/s/o names.
+ */
+export const SEED_CONTACT_NAMES = [
+  "Lim Siew Hong",
+  "Rahman bin Ali",
+  "Muthu s/o Krishnan",
+  "Tan Boon Keng",
+  "Norhayati binte Salleh",
+  "Lakshmi d/o Pillai",
+  "Ong Mei Fong",
+  "Grace Pereira",
+] as const;
+
+export function seedContactName(n: number): string {
+  return SEED_CONTACT_NAMES[n % SEED_CONTACT_NAMES.length] as string;
+}
+
 type Seed = {
   key: string;
   legalName: string;
@@ -726,7 +745,7 @@ export async function seedPeople(deps: AppDeps, ports: PeoplePorts, owner: Actor
         : null,
       emergencyContacts: [
         {
-          name: `${p.legalName.split(" ").slice(-1)[0]} family`,
+          name: seedContactName(n),
           relationship: "Spouse",
           phone: `8${String(2_000_000 + n * 4_441).slice(0, 7)}`,
         },

@@ -181,6 +181,9 @@ function MembersPage() {
                       <span className="flex flex-col">
                         <span className="font-medium">
                           {m.displayName}
+                          {m.preferredName && m.preferredName !== m.displayName ? (
+                            <span className="ml-1 font-normal text-primary-200">· goes by {m.preferredName}</span>
+                          ) : null}
                           {self ? <span className="ml-1 text-2xs text-primary-200">(you)</span> : null}
                         </span>
                         <span className="text-2xs text-primary-200">{m.email}</span>

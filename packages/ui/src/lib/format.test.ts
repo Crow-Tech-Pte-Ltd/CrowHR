@@ -79,5 +79,16 @@ describe("initials", () => {
   it("takes the first two words", () => {
     expect(initials("Tan Mei Ling")).toBe("TM");
     expect(initials("Arjun")).toBe("A");
+    expect(initials("Goh Jun Jie")).toBe("GJ");
+  });
+
+  it("skips patronymic connectors so Malay and Indian names read sensibly", () => {
+    expect(initials("Muhammad Hafiz bin Ismail")).toBe("MH");
+    expect(initials("Siti Nurhaliza binte Abdullah")).toBe("SN");
+    expect(initials("Kumar s/o Rajan")).toBe("KR");
+    expect(initials("Priya D/O Raman")).toBe("PR");
+    expect(initials("Hafiz bin Ismail")).toBe("HI");
+    expect(initials("Lim Ah Kow @ Lim Kok Wah")).toBe("LA");
+    expect(initials("  ")).toBe("");
   });
 });

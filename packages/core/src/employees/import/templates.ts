@@ -35,7 +35,12 @@ export const TEMPLATES: Record<ImportKind, ImportTemplate> = {
     columns: [
       col("employee_number", false, "Leave empty to auto-number (E0001…).", ""),
       col("legal_name", true, "As on the NRIC, FIN card or passport.", "Tan Mei Ling"),
-      col("preferred_name", false, "Name used day to day.", "Mei Ling"),
+      col(
+        "preferred_name",
+        false,
+        "The name they go by, e.g. Hafiz for Muhammad Hafiz bin Ismail. Used in greetings and the directory. Leave empty to use the legal name.",
+        "Mei Ling",
+      ),
       col("id_type", true, "nric, fin or other.", "nric"),
       col("id_number", true, "NRIC/FIN with check letter, or passport number.", "S1234567D"),
       col("date_of_birth", true, "YYYY-MM-DD or DD/MM/YYYY.", "12/04/1990"),
