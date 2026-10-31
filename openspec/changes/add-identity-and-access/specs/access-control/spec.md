@@ -43,6 +43,8 @@ Every API route SHALL be authorised server-side against the matrix below before 
 | Approval tasks | decide | assigned | assigned | assigned | assigned | assigned |
 | Rosters and shifts | read | A | A | — | T | O + published roster of own location |
 | Rosters and shifts | create, update, publish | A | A | — | T | — |
+| Shift templates (add-scheduling) | update | A | A | — | — | — |
+| Shift swaps and open-shift pickup (add-scheduling) | create | — | — | — | — | O (own published shifts) |
 | Documents (non-medical categories) | read | A | A | categories marked payroll-visible | T, categories marked manager-visible (never medical) | O, categories marked employee-visible |
 | Documents | create, update, delete | A | A | — | — | O upload to employee-uploadable categories |
 | Approval policies, notification templates, leave and claim types | read, update | A | A | claim types read | — | — |

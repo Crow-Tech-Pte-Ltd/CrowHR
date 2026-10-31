@@ -33,7 +33,7 @@ import {
   type PayResult,
   type RunItemInput,
 } from "./engine/types.ts";
-import type { ApprovedOvertime, PayableClaim, RosterDaysWorked, UnpaidLeaveDay } from "./ports.ts";
+import type { ApprovedOvertime, PayableClaim, RosterDaysWorked, RosterScheduledDays, UnpaidLeaveDay } from "./ports.ts";
 
 /**
  * Gathers each employee's input snapshot for a run from the live records (people module tables,
@@ -220,6 +220,8 @@ export interface SnapshotContext {
   unpaidLeave?: UnpaidLeaveDay[];
   /** Days worked by rostered staff from attendance (`days_worked` items); a manual `days_worked` item wins. */
   daysWorked?: RosterDaysWorked[];
+  /** Scheduled days from published rosters (`scheduled_days` items); a manual `scheduled_days` item wins. */
+  scheduledDays?: RosterScheduledDays[];
 }
 
 /** Snapshots for every employee of the run, sorted by employee id. */
@@ -584,6 +586,26 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
               awPayableDate: null,
               minutes: null,
               days: d.daysWorked,
+              date: null,
+              periodStart: d.periodStart,
+              periodEnd: d.periodEnd,
+              deductionCategory: null,
+              source: "attendance",
+            }),
+          ),
+        ...(ctx.scheduledDays ?? [])
+          .filter((d) => d.employeeId === id && !itemRows.some((i) => i.kind === "scheduled_days"))
+          .map(
+            (d): RunItemInput => ({
+              id: `scheduling:${d.sourceId}`,
+              kind: "scheduled_days",
+              label: "Scheduled days (from published roster)",
+              amountCents: null,
+              wageClass: null,
+              cpfLiable: true,
+              awPayableDate: null,
+              minutes: null,
+              days: d.scheduledDays,
               date: null,
               periodStart: d.periodStart,
               periodEnd: d.periodEnd,

@@ -549,7 +549,10 @@ async function computeAll(deps: AppDeps, run: PayrollRun): Promise<{ computed: C
   const bonusOnly = run.kind === "off_cycle" && run.offCycleReason === "bonus";
   const unpaidLeave = bonusOnly ? [] : await ports.unpaidLeave.listUnpaid(run.orgId, run.periodStart, run.periodEnd);
   const daysWorked = bonusOnly ? [] : await ports.daysWorked.listDaysWorked(run.orgId, run.periodStart, run.periodEnd);
-  const inputs = await buildSnapshots(deps.db, { run, claims, overtime, unpaidLeave, daysWorked });
+  const scheduledDays = bonusOnly
+    ? []
+    : await ports.scheduledDays.listScheduledDays(run.orgId, run.periodStart, run.periodEnd);
+  const inputs = await buildSnapshots(deps.db, { run, claims, overtime, unpaidLeave, daysWorked, scheduledDays });
   const computed: Computed[] = [];
   for (const input of inputs) {
     const result = computeEmployeePay(input);

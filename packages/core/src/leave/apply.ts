@@ -11,6 +11,7 @@ import type { AppDeps } from "../deps.ts";
 import { displayDate } from "../employees/dates.ts";
 import { AppError } from "../errors.ts";
 import { assertValidFileKey } from "../files/file-store.ts";
+import { attachRosters } from "../scheduling/feeds.ts";
 import { submitApproval } from "../workflows/engine.ts";
 import { type Balance, childrenOf, computeBalance, needsChild } from "./balances.ts";
 import { type CountedDay, countLeave, loadEmployeeTime } from "./calendar.ts";
@@ -90,6 +91,8 @@ export async function quoteLeave(
   if (!type || type.archivedAt)
     throw new AppError("not_found", "That leave type doesn't exist or is no longer offered.");
   const t = await loadEmployeeTime(db, orgId, input.employeeId);
+  // Shift-schedule staff: count only the dates their published roster requires (scheduling feed).
+  await attachRosters(db, orgId, new Map([[t.employeeId, t]]), input.startDate, input.endDate);
   const unit = unitFor(t, type, input.startDate);
   const issues: QuoteIssue[] = [];
   if (!type.halfDays && (input.startSession !== "full" || input.endSession !== "full")) {

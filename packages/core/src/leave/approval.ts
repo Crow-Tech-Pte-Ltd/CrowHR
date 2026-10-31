@@ -5,8 +5,9 @@ import { leaveAttachments, leaveChildren, leaveTypes } from "../db/schema/leave.
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { displayDate } from "../employees/dates.ts";
+import { onLeaveApproved } from "../scheduling/swaps.ts";
 import type { SubjectAdapter, SubjectSummary, WorkflowPlugin } from "../workflows/types.ts";
-import { chargeRequest, loadRequest, restoreRequest, setStatus } from "./actions.ts";
+import { chargeRequest, loadRequest, requestDays, restoreRequest, setStatus } from "./actions.ts";
 import { childrenOf, computeBalance } from "./balances.ts";
 import { loadEmployeeTime } from "./calendar.ts";
 import { leaveYearEndTransition } from "./year-end.ts";
@@ -98,7 +99,17 @@ export function leaveAdapter(deps: AppDeps): SubjectAdapter<Attrs> {
     attributes,
     defaultSteps: [{ approverRule: "manager", escalateAfterDays: 3 }],
     summary: (db, ref) => summaryFor(db, ref.orgId, ref.subjectId, false),
-    onApproved: (db, ref, decision) => chargeRequest(db, deps, ref.orgId, ref.subjectId, decision.decidedAt),
+    async onApproved(db, ref, decision) {
+      await chargeRequest(db, deps, ref.orgId, ref.subjectId, decision.decidedAt);
+      // Scheduling: leave approved after a roster was published tells the roster's editors.
+      const r = await loadRequest(db, ref.orgId, ref.subjectId);
+      const days = await requestDays(db, ref.orgId, ref.subjectId);
+      await onLeaveApproved(db, deps, {
+        orgId: ref.orgId,
+        employeeId: r.employeeId,
+        dates: days.filter((d) => d.hundredths > 0).map((d) => d.date),
+      });
+    },
     onRejected: (db, ref, decision) =>
       setStatus(db, ref.orgId, ref.subjectId, ["pending"], "rejected", decision.decidedAt),
     onWithdrawn: (db, ref) => setStatus(db, ref.orgId, ref.subjectId, ["pending"], "withdrawn", deps.clock.now()),

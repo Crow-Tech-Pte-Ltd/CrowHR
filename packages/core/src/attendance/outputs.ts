@@ -45,9 +45,7 @@ export function attendanceOvertimeSource(deps: Pick<AppDeps, "db">): OvertimeSou
  * "days worked" includes public holidays and paid leave, excludes no-pay leave). Only employees who
  * clock in through attendance in the period are listed: without punches attendance knows nothing,
  * and payroll keeps asking for the figures by hand.
- *
- * NOT IMPLEMENTED: scheduled days (the roster's required days) need the scheduling module (M3), so
- * payroll still asks HR for "Scheduled days".
+ * Scheduled days (the roster's required days) come from scheduling's `ScheduledDaysSource`.
  */
 export async function listRosterDaysWorked(db: Db, orgId: string, periodStart: string, periodEnd: string) {
   const org = orgScope(db, orgId);

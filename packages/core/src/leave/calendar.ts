@@ -46,6 +46,28 @@ export interface EmploymentLite {
   eaCovered: boolean;
   managerEmployeeId: string | null;
   departmentId: string;
+  locationId: string | null;
+}
+
+/** One published roster row (scheduling `published_shifts`) for the employee on a date. */
+export interface RosterEntry {
+  kind: "shift" | "rest";
+  startsAt: Date | null;
+  endsAt: Date | null;
+  breakMinutes: number;
+  /** Paid minutes (0 for a rest day). */
+  minutes: number;
+}
+
+/**
+ * The employee's published roster over a range (attached by `scheduling/feeds.ts` `attachRosters`).
+ * For staff on a `shift` work schedule, a date in a covered week takes its working day from here
+ * (scheduling design decision 7): published roster first, work schedule fallback second.
+ */
+export interface RosterCalendar {
+  /** Mondays of the ISO weeks covered by a published roster for this employee. */
+  weeks: ReadonlySet<string>;
+  days: ReadonlyMap<string, readonly RosterEntry[]>;
 }
 
 export interface EmployeeTime {
@@ -61,6 +83,8 @@ export interface EmployeeTime {
   /** Memo: year → (date → holiday name) for this employee. */
   holidayMemo: Map<number, Map<string, string>>;
   warnings: Set<string>;
+  /** Published roster, when a caller attached one for the dates it reads. */
+  roster?: RosterCalendar;
 }
 
 const within = (r: { effectiveFrom: string; effectiveTo: string | null }, date: string) =>
@@ -120,6 +144,7 @@ export async function loadEmployeesTime(
           eaCovered: r.eaCovered,
           managerEmployeeId: r.managerEmployeeId,
           departmentId: r.departmentId,
+          locationId: r.locationId,
         })),
       schedules,
       orgHolidays: holidays.map((h) => ({ date: h.date, name: h.name })),
@@ -312,6 +337,15 @@ export interface DayInfo {
   minutes: number;
   /** The public holiday applying to the employee on this date, if any. */
   holiday: string | null;
+  /** Shift-schedule staff: the date's working day comes from a published roster. */
+  rostered?: boolean;
+  /** Rostered shift days: the first shift's start, the last shift's end and the rostered breaks. */
+  shift?: { startsAt: Date; endsAt: Date; breakMinutes: number };
+}
+
+/** Monday of the ISO week containing `date`. */
+function weekOf(date: string): string {
+  return addDays(date, -mondayIndex(date));
 }
 
 export function dayInfo(t: EmployeeTime, date: string): DayInfo {
@@ -320,6 +354,38 @@ export function dayInfo(t: EmployeeTime, date: string): DayInfo {
   const holiday = holidaysFor(t, Number(date.slice(0, 4))).get(date) ?? null;
   if (!s) return { date, employed, scheduleKind: null, dayType: null, minutes: 0, holiday };
   if (!s.version.days) {
+    if (t.roster?.weeks.has(weekOf(date))) {
+      const rows = t.roster.days.get(date) ?? [];
+      const shifts = rows.filter((r) => r.kind === "shift" && r.startsAt && r.endsAt);
+      if (shifts.length) {
+        const first = shifts.reduce((a, b) => ((a.startsAt as Date) <= (b.startsAt as Date) ? a : b));
+        const last = shifts.reduce((a, b) => ((a.endsAt as Date) >= (b.endsAt as Date) ? a : b));
+        return {
+          date,
+          employed,
+          scheduleKind: "shift",
+          dayType: "shift",
+          minutes: shifts.reduce((n, r) => n + r.minutes, 0),
+          holiday,
+          rostered: true,
+          shift: {
+            startsAt: first.startsAt as Date,
+            endsAt: last.endsAt as Date,
+            breakMinutes: shifts.reduce((n, r) => n + r.breakMinutes, 0),
+          },
+        };
+      }
+      const rest = rows.some((r) => r.kind === "rest");
+      return {
+        date,
+        employed,
+        scheduleKind: "shift",
+        dayType: rest ? "rest" : "off",
+        minutes: 0,
+        holiday,
+        rostered: true,
+      };
+    }
     return {
       date,
       employed,
@@ -431,11 +497,11 @@ export function countLeave(t: EmployeeTime, input: CountInput): CountResult {
       outside++;
       note = "Not employed on this date";
     } else if (info.dayType === "shift") {
-      shift = true;
+      if (!info.rostered) shift = true;
       if (info.holiday && input.dayCounting === "working_days") note = `Public holiday: ${info.holiday}`;
       else fraction = session === "full" ? 1 : 0.5;
     } else if (info.dayType === "rest" || info.dayType === "off" || info.dayType === null) {
-      note = info.dayType === "rest" ? "Rest day" : "Off day";
+      note = info.dayType === "rest" ? "Rest day" : info.rostered ? "Not rostered" : "Off day";
     } else if (info.holiday && input.dayCounting === "working_days") {
       note = `Public holiday: ${info.holiday}`;
     } else if (info.dayType === "half") {
@@ -467,7 +533,7 @@ export function countLeave(t: EmployeeTime, input: CountInput): CountResult {
   const warnings = [...t.warnings];
   if (shift) {
     warnings.push(
-      "This employee is on a shift schedule, so every day except public holidays is counted. Check the roster and exclude rest days.",
+      "This employee is on a shift schedule and some of these dates have no published roster, so every one of them except public holidays is counted. Publish the roster first, or check and exclude rest days.",
     );
   }
   const totalHundredths = days.reduce((s, d) => s + d.hundredths, 0);

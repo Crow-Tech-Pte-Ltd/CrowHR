@@ -11,6 +11,7 @@ import {
   type TestDb,
 } from "../../testing/index.ts";
 import { seedLeaveOnePerTable } from "../../testing/leave.ts";
+import { seedSchedulingOnePerTable } from "../../testing/scheduling.ts";
 import { createApp } from "../app.ts";
 import { recordAudit, systemAuditContext } from "../audit/audit.ts";
 import { invitations, memberships } from "../db/schema/access.ts";
@@ -99,6 +100,8 @@ describe("cross-organisation isolation", () => {
     await seedLeaveOnePerTable(deps, b.id, employeeB, ownerB.membershipId);
     // Attendance (WS5): one punch and one overtime claim.
     await seedAttendanceOnePerTable(deps, b.id, employeeB, ownerB.membershipId);
+    // Scheduling (WS5b): a template, a published roster with one shift, a publication and a swap.
+    await seedSchedulingOnePerTable(deps, b.id, employeeB, ownerB.membershipId);
     // Workflows and notifications (one row per table).
     const staffB = await seedMember(deps, b.id, { email: "staff-b@example.sg" });
     const policyId = deps.ids.newId();
