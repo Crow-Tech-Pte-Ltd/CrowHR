@@ -162,7 +162,12 @@ async function seedApprovals(orgId: string) {
   const ports = defaultPeoplePorts(now);
   const structure = await seedBasicStructure({ orgId, ports, deps: now, actor: () => owner } as never);
   const hireOne = async (name: string, job: Record<string, unknown> = {}) =>
-    (await hire(ctxFor(now, ports, owner), hirePayload(structure, { person: { legalName: name }, job }))).employeeId;
+    (
+      await hire(
+        ctxFor(now, ports, owner),
+        hirePayload(structure, { person: { legalName: name }, job: { hireDate: day(-10), ...job } }),
+      )
+    ).employeeId;
   const kaiWen = await hireOne(E2E.members.approver.name, { jobTitle: "Outlet Manager" });
   const ahmad = await hireOne(E2E.members.requester.name, {
     jobTitle: "Barista",
