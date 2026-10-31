@@ -7,5 +7,6 @@ export * from "./notifications.ts";
 export * from "./organisation.ts";
 export * from "./organisations.ts";
 export * from "./system.ts";
+export * from "./payroll.ts";
 export * from "./users.ts";
 export * from "./workflows.ts";

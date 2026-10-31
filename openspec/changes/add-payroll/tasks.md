@@ -4,22 +4,22 @@
 
 ## 2. Engine (packages/core/src/payroll/engine)
 
-- [ ] 2.1 Write `engine/proration.test.ts` (mid-month joiner 12/22 → S$2,181.82; leaver; two compensation segments; no-pay leave 2/22 → S$272.73; hourly × hours; shift schedule warning) then implement pro-ration on sg-rules `incompleteMonthSalary`
-- [ ] 2.2 Write `engine/deductions.test.ts` (25% category caps, 50% overall with exclusions, CPF counted, final-pay waiver as warning) then implement `payroll/rules.ts` (cited) and the checks
-- [ ] 2.3 Write `engine/compute.test.ts` (OW/AW classification, AW payable date outside period blocks, OT via sg-rules and contractual amount, reimbursements excluded from wages, month-cumulative CPF/SHG/SDL charged deltas, sg-rules refusal → blocking issue, negative net blocks, pay-date warnings) then implement `computeEmployeePay`
-- [ ] 2.4 Write `engine/canonical.test.ts` (key order independent, byte-identical hash) then implement canonical JSON + SHA-256
+- [x] 2.1 Write `engine/proration.test.ts` (mid-month joiner 12/22 → S$2,181.82; leaver; two compensation segments; no-pay leave 2/22 → S$272.73; hourly × hours; shift schedule warning) then implement pro-ration on sg-rules `incompleteMonthSalary`
+- [x] 2.2 Write `engine/deductions.test.ts` (25% category caps, 50% overall with exclusions, CPF counted, final-pay waiver as warning) then implement `payroll/rules.ts` (cited) and the checks
+- [x] 2.3 Write `engine/compute.test.ts` (OW/AW classification, AW payable date outside period blocks, OT via sg-rules and contractual amount, reimbursements excluded from wages, month-cumulative CPF/SHG/SDL charged deltas, sg-rules refusal → blocking issue, negative net blocks, pay-date warnings) then implement `computeEmployeePay`
+- [x] 2.4 Write `engine/canonical.test.ts` (key order independent, byte-identical hash) then implement canonical JSON + SHA-256
 
 ## 3. Schema and runs (packages/core)
 
-- [ ] 3.1 Add `db/schema/payroll.ts` (settings, allowance settings, runs, run items, payslips) and generate the migration; verified by `testing/schema.payroll.test.ts` (org_id everywhere, composite FKs)
-- [ ] 3.2 Write `payroll/runs.http.test.ts` (create regular run, one per month, compute, edit items only in draft, submit blocked by issues and by stale inputs 409, approve/reject through the local approvals port, release, mark paid, audit rows) then implement the service and routes
-- [ ] 3.3 Write `payroll/ports.test.ts` (memory approvals double drives the adapter in one transaction; reimbursement double reserved/released/marked paid; overtime source feeds items) then implement the ports
-- [ ] 3.4 Write `payroll/adjustment.http.test.ts` (reopen paid run → adjustment with copied items; original figures unchanged; approved adjustment supersedes; CPF charged = delta; net payable delta) then implement reopen
-- [ ] 3.5 Write `payroll/off-cycle.http.test.ts` (final pay run excludes employee from the regular run; bonus run with AW in the same month recomputes month CPF and charges the difference) then implement off-cycle runs
-- [ ] 3.6 Write `payroll/company-month.http.test.ts`: fictional 12-person company, October 2026 (every age band, SPR yr 1/2 G/G, foreigner, mid-month joiner, leaver, bonus hitting the AW ceiling, no-pay leave, OT, deduction cap) with exact cents and determinism
-- [ ] 3.7 Write `payroll/year.http.test.ts`: one employee Jan→Dec 2026 with bonuses in March and December, AW-ceiling state carried run to run and December recomputation
-- [ ] 3.8 Write `payroll/permissions.http.test.ts` (payroll_admin vs hr_admin vs manager vs employee; employees see only their own released payslips; former member read-only) and seed payroll rows in `access/cross-org.test.ts`
-- [ ] 3.9 Change-vs-last-month diff and run overview totals; verified by `payroll/review.test.ts`
+- [x] 3.1 Add `db/schema/payroll.ts` (settings, allowance settings, runs, run items, payslips) and generate the migration; verified by `testing/schema.payroll.test.ts` (org_id everywhere, composite FKs)
+- [x] 3.2 Write `payroll/runs.http.test.ts` (create regular run, one per month, compute, edit items only in draft, submit blocked by issues and by stale inputs 409, approve/reject through the local approvals port, release, mark paid, audit rows) then implement the service and routes
+- [x] 3.3 Write `payroll/ports.test.ts` (memory approvals double drives the adapter in one transaction; reimbursement double reserved/released/marked paid; overtime source feeds items) then implement the ports
+- [x] 3.4 Write `payroll/adjustment.http.test.ts` (reopen paid run → adjustment with copied items; original figures unchanged; approved adjustment supersedes; CPF charged = delta; net payable delta) then implement reopen
+- [x] 3.5 Write `payroll/off-cycle.http.test.ts` (final pay run excludes employee from the regular run; bonus run with AW in the same month recomputes month CPF and charges the difference) then implement off-cycle runs
+- [x] 3.6 Write `payroll/company-month.http.test.ts`: fictional 12-person company, October 2026 (every age band, SPR yr 1/2 G/G, foreigner, mid-month joiner, leaver, bonus hitting the AW ceiling, no-pay leave, OT, deduction cap) with exact cents and determinism
+- [x] 3.7 Write `payroll/year.http.test.ts`: one employee Jan→Dec 2026 with bonuses in March and December, AW-ceiling state carried run to run and December recomputation
+- [x] 3.8 Write `payroll/permissions.http.test.ts` (payroll_admin vs hr_admin vs manager vs employee; employees see only their own released payslips; former member read-only) and seed payroll rows in `access/cross-org.test.ts`
+- [x] 3.9 Change-vs-last-month diff and run overview totals; verified by `payroll/review.test.ts`
 
 ## 4. Payslips and PDF
 
