@@ -1,6 +1,6 @@
 ## 1. Statutory fixtures
 
-- [ ] 1.1 packages/sg-rules: add the 15 CPF-calculator-confirmed cases (VERIFICATION.md "CPF calculator check") to `src/__fixtures__/sg-test-vectors.json` with provenance `OFFICIAL_CALCULATOR`; verified by `vectors.test.ts` passing all of them
+- [x] 1.1 packages/sg-rules: add the 15 CPF-calculator-confirmed cases (VERIFICATION.md "CPF calculator check") to `src/__fixtures__/sg-test-vectors.json` with provenance `OFFICIAL_CALCULATOR`; verified by `vectors.test.ts` passing all of them
 
 ## 2. Engine (packages/core/src/payroll/engine)
 
