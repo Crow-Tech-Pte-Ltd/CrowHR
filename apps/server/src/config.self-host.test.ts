@@ -126,6 +126,16 @@ describe("self-host configuration", () => {
     expect(problems.join("\n")).toMatch(/BACKUP_TIMEZONE "Mars\/Olympus" is not a known time zone/);
   });
 
+  it("accepts a fixed SETUP_CODE for automated installs, normalised", () => {
+    expect(prod({ PUBLIC_URL: "https://hr.acme.sg" }).SETUP_CODE).toBeNull();
+    expect(prod({ PUBLIC_URL: "https://hr.acme.sg", SETUP_CODE: "acdefghjkmnpqrtu" }).SETUP_CODE).toBe(
+      "ACDE-FGHJ-KMNP-QRTU",
+    );
+    expect(problemsOf(() => prod({ PUBLIC_URL: "https://hr.acme.sg", SETUP_CODE: "0000-1111-2222-3333" }))[0]).toMatch(
+      /^SETUP_CODE must be 16 characters/,
+    );
+  });
+
   it("reports all problems in one run", () => {
     const problems = problemsOf(() =>
       loadConfig({
