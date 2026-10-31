@@ -178,7 +178,7 @@ function NewEmployeePage() {
             value={f.preferredName}
             onChange={set("preferredName")}
             error={e("person.preferredName")}
-            hint="Shown in the directory."
+            hint="Optional. The name they go by, e.g. Hafiz for Muhammad Hafiz bin Ismail. Used in greetings and the directory; leave empty to use the legal name."
           />
           <SelectInput
             label="Residency"

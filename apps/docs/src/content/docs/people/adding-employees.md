@@ -31,6 +31,12 @@ Checks that stop a hire:
 
 Employee numbers are generated as `E0001`, `E0002`… unless you enter one.
 
+### Legal and preferred names
+
+The **legal name** is the name on the NRIC, FIN card or passport. It goes on payslips, letters, the CPF file and IR8A. The **preferred name** is optional: the name the person goes by, for example *Hafiz* for Muhammad Hafiz bin Ismail or *Jun Jie* for Goh Jun Jie. Crow HR greets people and lists them in the directory by their preferred name, and uses the full legal name when there is none. It never guesses a "first name" from the legal name, because name order differs between Chinese, Malay, Indian and other names.
+
+HR can change both names from the profile (**Overview → Names → Edit**); employees can change their own preferred name in **My profile**. The CSV import has an optional `preferred_name` column.
+
 ## The employee profile
 
 The profile has tabs for the person, work, pay, history and checklists. Records that change over time (job, pay, allowances, bank account, schedule) are **effective-dated**: each change has a start date, a future date is shown as "Scheduled" and applies on the day, and you can look at what was in force on any past date.

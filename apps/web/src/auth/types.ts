@@ -3,7 +3,8 @@ export type ProviderKind = "google" | "entra" | "singpass" | "oidc";
 export type AssignedRole = "owner" | "hr_admin" | "payroll_admin";
 
 export interface Me {
-  user: { id: string; email: string; displayName: string };
+  /** Greet with `greetingName(user)`: preferred name, else full name. Never split a name into first/last. */
+  user: { id: string; email: string; displayName: string; preferredName: string | null; fullName: string };
   organisation: { id: string; name: string; slug: string | null };
   membershipId: string;
   membershipStatus: "active" | "former";
@@ -57,6 +58,8 @@ export interface Member {
   userId: string;
   email: string;
   displayName: string;
+  /** The linked employee's preferred name, if any. */
+  preferredName: string | null;
   status: "invited" | "active" | "suspended" | "former";
   roles: AssignedRole[];
   employeeId: string | null;

@@ -210,6 +210,7 @@ function EditContactDialog({ e, onClose }: { e: NonNullable<ReturnType<typeof us
             value={preferredName}
             onChange={setPreferredName}
             error={errs.preferredName}
+            hint="The name you go by. Leave empty to be called by your full name."
           />
           <TextInput
             label="Personal email"

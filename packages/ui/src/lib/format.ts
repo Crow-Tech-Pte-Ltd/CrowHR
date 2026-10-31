@@ -103,9 +103,19 @@ export function maskNric(value: string): string {
   return `${v[0]}****${v.slice(5)}`;
 }
 
-/** Initials for avatars: "Tan Mei Ling" → "TM". */
+/** Connectors in Malay and Indian names ("bin", "binte", "s/o", "a/l"…): never an initial. */
+const NAME_CONNECTORS = new Set(["bin", "binte", "binti", "bte", "bt", "s/o", "d/o", "a/l", "a/p", "@"]);
+
+/**
+ * Initials for avatars: the first letters of the first two words, skipping connectors.
+ * "Tan Mei Ling" → "TM", "Goh Jun Jie" → "GJ", "Kumar s/o Rajan" → "KR". Only for avatars;
+ * never derive a "first name" from a full name (greet with the preferred name instead).
+ */
 export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter((p) => p && !NAME_CONNECTORS.has(p.toLowerCase()) && /^\p{L}/u.test(p));
   return parts
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? "")

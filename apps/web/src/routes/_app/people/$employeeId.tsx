@@ -31,6 +31,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRightLeft, Lock, Pencil, UserMinus, Wallet } from "lucide-react";
 import * as React from "react";
+import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { EmployeeDocuments } from "../../../documents/employee-tab.tsx";
 import { ApiError } from "../../../lib/api.ts";
@@ -196,8 +197,26 @@ function address(a: NonNullable<EmployeeDetailDto["personal"]>["address"]) {
 
 function Overview({ e }: { e: EmployeeDetailDto }) {
   const p = e.personal;
+  const me = useMe();
+  const [editingNames, setEditingNames] = React.useState(false);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      <Section
+        title="Names"
+        actions={
+          can(me, "personal_details:update") ? (
+            <Button size="sm" variant="ghost" onClick={() => setEditingNames(true)}>
+              <Pencil aria-hidden /> Edit
+            </Button>
+          ) : null
+        }
+      >
+        <dl>
+          <Field term="Legal name">{e.legalName}</Field>
+          <Field term="Preferred name">{e.preferredName}</Field>
+        </dl>
+        {editingNames ? <NamesDialog e={e} onClose={() => setEditingNames(false)} /> : null}
+      </Section>
       <Section title="Work">
         <dl>
           <Field term="Job title">{e.job?.jobTitle}</Field>
@@ -739,6 +758,69 @@ function PayDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending || amount === null}>
               Save pay
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NamesDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [legalName, setLegalName] = React.useState(e.legalName);
+  const [preferredName, setPreferredName] = React.useState(e.preferredName ?? "");
+  const save = useMutation({
+    mutationFn: () => api("PATCH", `/employees/${e.id}`, { legalName: legalName.trim(), preferredName }),
+    onSuccess: async () => {
+      await invalidatePeople(qc);
+      toast("Names saved");
+      onClose();
+    },
+  });
+  const errs = fieldErrors(save.error);
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit names</DialogTitle>
+          <DialogDescription>
+            The legal name goes on payslips, letters and statutory forms. The preferred name is what they go by.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="grid gap-3"
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            save.mutate();
+          }}
+        >
+          <TextInput
+            label="Legal name"
+            required
+            value={legalName}
+            onChange={setLegalName}
+            error={errs.legalName}
+            hint="As on the NRIC, FIN card or passport."
+          />
+          <TextInput
+            label="Preferred name"
+            value={preferredName}
+            onChange={setPreferredName}
+            error={errs.preferredName}
+            hint="Optional, e.g. Hafiz for Muhammad Hafiz bin Ismail. Leave empty to use the legal name."
+          />
+          {save.isError ? (
+            <p role="alert" className="text-ui text-danger-300">
+              {errorMessage(save.error)}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={save.isPending}>
+              Save
             </Button>
           </DialogFooter>
         </form>

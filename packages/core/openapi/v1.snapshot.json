@@ -35348,12 +35348,23 @@
                         },
                         "displayName": {
                           "type": "string"
+                        },
+                        "preferredName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "fullName": {
+                          "type": "string"
                         }
                       },
                       "required": [
                         "id",
                         "email",
-                        "displayName"
+                        "displayName",
+                        "preferredName",
+                        "fullName"
                       ],
                       "additionalProperties": false
                     },
@@ -36599,6 +36610,12 @@
                           "displayName": {
                             "type": "string"
                           },
+                          "preferredName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -36700,6 +36717,7 @@
                           "userId",
                           "email",
                           "displayName",
+                          "preferredName",
                           "status",
                           "roles",
                           "employeeId",
@@ -36829,6 +36847,12 @@
                         "displayName": {
                           "type": "string"
                         },
+                        "preferredName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -36930,6 +36954,7 @@
                         "userId",
                         "email",
                         "displayName",
+                        "preferredName",
                         "status",
                         "roles",
                         "employeeId",
@@ -37130,6 +37155,12 @@
                     "displayName": {
                       "type": "string"
                     },
+                    "preferredName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -37231,6 +37262,7 @@
                     "userId",
                     "email",
                     "displayName",
+                    "preferredName",
                     "status",
                     "roles",
                     "employeeId",
@@ -37462,6 +37494,12 @@
                         "displayName": {
                           "type": "string"
                         },
+                        "preferredName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -37563,6 +37601,7 @@
                         "userId",
                         "email",
                         "displayName",
+                        "preferredName",
                         "status",
                         "roles",
                         "employeeId",
@@ -37941,6 +37980,12 @@
                     "displayName": {
                       "type": "string"
                     },
+                    "preferredName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -38042,6 +38087,7 @@
                     "userId",
                     "email",
                     "displayName",
+                    "preferredName",
                     "status",
                     "roles",
                     "employeeId",
@@ -38182,6 +38228,12 @@
                     "displayName": {
                       "type": "string"
                     },
+                    "preferredName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -38283,6 +38335,7 @@
                     "userId",
                     "email",
                     "displayName",
+                    "preferredName",
                     "status",
                     "roles",
                     "employeeId",
@@ -38829,6 +38882,12 @@
                     "displayName": {
                       "type": "string"
                     },
+                    "preferredName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -38930,6 +38989,7 @@
                     "userId",
                     "email",
                     "displayName",
+                    "preferredName",
                     "status",
                     "roles",
                     "employeeId",
