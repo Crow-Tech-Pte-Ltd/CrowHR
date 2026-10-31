@@ -3,7 +3,17 @@ title: Approvals
 description: How Crow HR routes requests for approval - policies, steps, fallbacks, delegation, escalation - and where approvers act on them.
 ---
 
-Every request that needs a decision goes through one approval engine. Today two kinds of request use it: **profile changes** (employees' changes to legal, residency, race/religion and bank details) and **payroll runs**. Leave, leave cancellation, claims, overtime, timesheets and shift swaps are listed in **Settings → Approvals** as "Not in use yet": their modules are [not built](/docs/status/).
+Every request that needs a decision goes through one approval engine:
+
+- **profile changes** (employees' changes to legal, residency, race/religion and bank details);
+- **payroll runs**;
+- **leave** and **leave cancellation** ([leave](/docs/leave/leave/#approval));
+- **claims** ([claims](/docs/claims/claims/#approval));
+- **overtime** claims ([attendance](/docs/attendance/attendance/#claiming-it));
+- **shift swaps** and open-shift pickups ([scheduling](/docs/scheduling/scheduling/#swaps-and-open-shifts));
+- employees' **employment letter requests** ([letters](/docs/documents/letters-and-kets/#employment-letter-requests)).
+
+**Settings → Approvals** also lists **Timesheets** as "Not in use yet": timesheet corrections are made directly by managers and HR, without a request.
 
 ## Where approvers decide
 
@@ -33,7 +43,10 @@ Defaults, used until you edit them:
 | --- | --- |
 | Payroll run | Owner |
 | Profile change | Bank details: payroll admin. Other fields: HR admin. |
-| Every other type | Manager, then HR admin |
+| Leave, leave cancellation, overtime | Manager |
+| Shift swap | Manager (escalates after 2 days) |
+| Employment letter request | HR admin |
+| Claims | Manager, then HR admin |
 
 The chain is copied onto each request when it is submitted, so editing a policy does not change requests already in flight.
 

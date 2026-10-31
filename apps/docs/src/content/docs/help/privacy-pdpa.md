@@ -22,6 +22,9 @@ When you self-host Crow HR, **your company** collects, uses and keeps your emplo
 | Bank account | Salary payment | Encrypted at rest, masked to last 4 digits |
 | Pay, allowances, payslips | Payroll | Owners, payroll admins and the employee only |
 | Sign-in data (sessions, IP addresses, user agents) | Security | Audit log, session list |
+| Medical certificates, sick leave and medical claim receipts, medical documents | Leave, claims and records | Only owners, HR admins, the employee and the current approver |
+| Children's names, dates of birth and citizenship | Parental and childcare leave | Leave permissions |
+| Clock-in times, IP address and, if you turn it on, location | Attendance | Employee, their manager and HR; location is off by default and needs a [PDPA notice](/docs/attendance/attendance/#location-and-office-network-optional) |
 
 NRIC numbers: the PDPC's advisory guidelines limit collecting, using and disclosing NRIC numbers to cases required by law or where they are necessary to verify identity to a high degree of fidelity. Employment and CPF, tax and work-pass obligations are such cases. Crow HR masks NRIC/FIN by default and logs every reveal; do not put NRIC numbers anywhere else in the app (notes, free-text fields) or in exports you do not need.
 
@@ -32,7 +35,7 @@ NRIC numbers: the PDPC's advisory guidelines limit collecting, using and disclos
 - **Protection**: run Crow HR over HTTPS, keep two-step verification on for privileged roles, set `BACKUP_PASSPHRASE`, and store backups somewhere access-controlled. Exported CSV, XLSX, bank and IR8A files contain personal data; delete them when done.
 - **Accuracy and correction**: employees can see their own records and update contact details directly, and request corrections to legal and bank details through change requests.
 - **Access requests**: an employee's data is on their profile, payslips and the audit log; owners see all of it (HR admins the profile, payroll admins the pay records) and can export the employee list for a PDPA access request.
-- **Retention**: keep records as long as the law and your purposes need. Crow HR keeps former employees' records and history (rehires depend on it) and does not yet have automatic retention or erasure. Notifications are deleted after 180 days; the audit log is append-only by design.
+- **Retention**: keep records as long as the law and your purposes need. Crow HR keeps former employees' records and history (rehires depend on it) and does not erase anything automatically; the [document retention review](/docs/documents/documents/#retention-review) flags ex-employees' documents for HR to keep or delete. Notifications are deleted after 180 days; the audit log is append-only by design.
 - **Breaches**: if you suspect a data breach, assess it and, where the PDPA requires, notify the PDPC and affected employees within the required time. The audit log (who viewed or changed what, from which IP) helps with the assessment.
 - **Transfers**: if your server or backups are outside Singapore, the PDPA's transfer limitation obligation applies.
 

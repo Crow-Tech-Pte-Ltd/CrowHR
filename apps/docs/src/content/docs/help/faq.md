@@ -25,7 +25,7 @@ No. It produces the CPF EZPay file, a generic bank file and IR8A rows, and you u
 
 ## Can we use it for leave, claims or attendance?
 
-Not yet. Those modules are [planned but not built](/docs/status/). Today Crow HR covers people records, approvals, and payroll with manually entered overtime and no-pay leave.
+Yes. [Leave](/docs/leave/leave/), [attendance and overtime](/docs/attendance/attendance/), [claims](/docs/claims/claims/) and [shift scheduling](/docs/scheduling/scheduling/) are built, and approved no-pay leave, overtime and claims flow into payroll. They are new: see each page's limitations, and check the first runs that use them.
 
 ## We are moving from another system mid-year. What do we need?
 
@@ -41,7 +41,7 @@ The web app works on phone screens, with a bottom tab bar for employees. Native 
 
 ## Is there a demo?
 
-Not yet. A [public in-browser demo](/docs/coming-soon/demo/) is planned. Until then, install it locally with the [quick start](/docs/quick-start/).
+An [in-browser demo](/docs/demo/) is built but not published yet. You can build and open it on your own machine, or install Crow HR with the [quick start](/docs/quick-start/).
 
 ## Do we need Singpass?
 

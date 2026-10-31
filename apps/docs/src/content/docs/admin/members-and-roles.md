@@ -48,7 +48,7 @@ Owners can also clear a member's lockout after failed sign-ins, reset their two-
 
 ## Audit log
 
-Every sign-in, role change, configuration change and change to employee or payroll data is recorded in **Settings → Audit log**, with actor, time, IP address and a field diff (sensitive fields record only that they changed). The log is append-only, protected by a SHA-256 hash chain that `crowhr admin verify-audit` checks, filterable and exportable to CSV.
+Every sign-in, role change, configuration change and change to employee or payroll data is recorded in **Settings → Audit log**, with actor, time, IP address and a field diff (sensitive fields record only that they changed). The log is append-only, with each event linked to the previous one by a SHA-256 hash chain that `crowhr admin verify-audit` checks; it is filterable and exportable to CSV.
 
 - Owners see all events.
 - HR admins see everything except security settings, SSO configuration and payroll events.

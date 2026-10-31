@@ -2,7 +2,7 @@
 
 Free, MIT-licensed HR and payroll for Singapore SMEs that you host yourself. By [Crow Tech Pte. Ltd.](https://crow.sg)
 
-People records, approvals and monthly payroll with CPF, SHG, SDL and an FWL estimate, itemised payslips, and the files you upload to CPF EZPay, your bank and myTax Portal. It runs as one container plus PostgreSQL on your own server, and sends nothing to Crow Tech.
+People records, leave, attendance and overtime, expense claims, shift rosters, documents and HR letters, approvals, reports and monthly payroll with CPF, SHG, SDL and an FWL estimate, itemised payslips, and the files you upload to CPF EZPay, your bank and myTax Portal. It runs as one container plus PostgreSQL on your own server, and sends nothing to Crow Tech.
 
 ![A Crow HR payroll run for a fictional company: blocking issues first, then totals, changes since last month and the employee table](apps/docs/src/assets/screens/payroll-run-overview.webp)
 
@@ -38,12 +38,18 @@ Early and under active development; not yet used for a real company's payroll.
 
 | Built | Not built yet |
 | --- | --- |
-| Self-hosting (compose, setup wizard, migrations, encrypted backups, `crowhr` CLI) | Leave |
-| Sign-in: password + TOTP, Google Workspace, Microsoft Entra ID, generic OIDC; Singpass implemented but not tested against real Singpass | Attendance and overtime capture |
-| Members, roles, server-enforced permission matrix, tamper-evident audit log | Claims |
-| Company, structure, employees, CSV import, lifecycle, work passes, change requests | Scheduling, documents, reporting |
-| Approvals, notifications, Home work-to-do list | Public demo, mobile apps |
-| Payroll: CPF/SHG/SDL/FWL estimate, payslips, CPF EZPay file, ISO 20022 bank file, IR8A export | Direct submission to CPF, IRAS or banks |
+| Self-hosting (compose, setup wizard, migrations, backups, encrypted once you set `BACKUP_PASSPHRASE` (strongly recommended), `crowhr` CLI) | Mobile apps |
+| Sign-in: password + TOTP, Google Workspace, Microsoft Entra ID, generic OIDC; Singpass implemented but not tested against real Singpass | Direct submission to CPF, IRAS or banks |
+| Members, roles, server-enforced permission matrix, append-only audit log with hash chaining | Virus scanning of uploads (a hook only; no scanner ships) |
+| Company, structure, employees, CSV import, lifecycle, work passes, change requests | |
+| Approvals, notifications, Home work-to-do list | |
+| Leave: statutory and Government-paid types, policies, calendar, part-timers in hours, Government-paid leave report, year end | |
+| Attendance: clock in/out with an offline queue, optional location/IP checks, timesheets, overtime claims (Part 4, 72-hour warning) | |
+| Claims: types and caps, receipts, foreign currency, reimbursement through payroll or outside it | |
+| Scheduling: shift templates, weekly rosters, conflicts and hour warnings, publishing, swaps and open shifts | |
+| Payroll: CPF/SHG/SDL/FWL estimate, inputs fed from leave, attendance, rosters and claims, payslips, CPF EZPay file, ISO 20022 bank file, IR8A export | |
+| Documents, HR letters and KETs, acknowledgements; reports with CSV/XLSX export | |
+| In-browser demo (built, not deployed yet) | |
 
 The statutory engine (`packages/sg-rules`) carries cited, effective-dated rules and is checked against CPF's published examples and its online calculator ([verification record](packages/sg-rules/VERIFICATION.md)). Crow HR is not approved or endorsed by CPF Board, IRAS or MOM, and it is not legal or tax advice: check results before you pay or file. Known gaps are listed in [docs/limitations.md](docs/limitations.md).
 

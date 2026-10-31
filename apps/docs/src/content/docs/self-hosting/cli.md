@@ -101,7 +101,7 @@ crowhr admin verify-audit [--org <slug>]
 crowhr admin reset-owner-password --org <slug> --email <email> [--reset-mfa]
 ```
 
-`verify-audit` checks that the audit log's SHA-256 hash chain is intact and reports the first broken link. `reset-owner-password` is the same as `create-reset-link` (with `--reset-mfa`, the same as `reset-owner-mfa`).
+`verify-audit` checks that the audit log's SHA-256 hash chain is intact and reports the first broken link: an altered event or a gap in the sequence. It does not detect events removed from the end of the log. `reset-owner-password` is the same as `create-reset-link` (with `--reset-mfa`, the same as `reset-owner-mfa`).
 
 ### help and version
 

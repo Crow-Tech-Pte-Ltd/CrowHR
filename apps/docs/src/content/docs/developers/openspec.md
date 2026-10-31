@@ -29,9 +29,9 @@ Changing a cell of the permission matrix, the API contract or a statutory rule i
 
 ## Changes today
 
-Built (some with open tasks): `add-foundation`, `add-api-platform`, `add-identity-and-access`, `add-organisation-and-people`, `add-approvals-and-notifications`, `add-self-hosting`, `add-sg-statutory-engine`, `add-payroll`.
+Built (some with open tasks): `add-foundation`, `add-api-platform`, `add-identity-and-access`, `add-organisation-and-people`, `add-approvals-and-notifications`, `add-self-hosting`, `add-sg-statutory-engine`, `add-payroll`, `add-leave`, `add-attendance`, `add-claims`, `add-scheduling`, `add-reporting`, `add-documents`, `add-public-demo` (built, not deployed).
 
-Specified, not built: `add-claims`, `add-scheduling`, `add-documents`, `add-reporting`, `add-mobile-apps`. Leave and attendance are still to be specified. See [project status](/docs/status/).
+Specified, not built: `add-mobile-apps`. See [project status](/docs/status/).
 
 ## Ground rules
 
