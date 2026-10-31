@@ -314,21 +314,24 @@ export function SignInPage({
 
       <aside
         aria-hidden
-        className="relative hidden flex-col justify-between overflow-hidden border-l border-border bg-surface-100 p-10 lg:flex xl:p-14"
+        className="relative hidden flex-col overflow-hidden border-l border-border bg-surface-100 p-10 lg:flex xl:p-14"
       >
         <p className="font-azeret text-2xs font-medium uppercase tracking-wider text-primary-300">
           HR and payroll for Singapore teams
         </p>
-        <div className="max-w-md">
-          <p className="font-azeret text-[28px] font-semibold leading-[1.2] tracking-tight text-ink xl:text-[32px]">
-            Payroll that shows its working.
-          </p>
-          <p className="mt-4 max-w-sm text-sm leading-6 text-primary-300">
-            Built so every CPF, SDL and levy figure can be traced to the rule and the date it came from. Your data stays
-            on your own server.
-          </p>
+        {/* Copy and payslip read as one block, centred in the panel (no stretched gap between them). */}
+        <div className="my-auto flex flex-col gap-10 pt-10">
+          <div className="max-w-md">
+            <p className="font-azeret text-[28px] font-semibold leading-[1.2] tracking-tight text-ink xl:text-[32px]">
+              Payroll that shows its working.
+            </p>
+            <p className="mt-4 max-w-sm text-sm leading-6 text-primary-300">
+              Built so every CPF, SDL and levy figure can be traced to the rule and the date it came from. Your data
+              stays on your own server.
+            </p>
+          </div>
+          <SamplePayslipStrip />
         </div>
-        <SamplePayslipStrip />
       </aside>
 
       <ResetRequestDialog open={resetOpen} onOpenChange={setResetOpen} orgSlug={orgSlug} defaultEmail={email} />
