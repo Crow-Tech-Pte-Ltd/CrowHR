@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { seedAttendanceOnePerTable } from "../../testing/attendance.ts";
 import {
   clientAs,
   createTestDb,
@@ -9,6 +10,7 @@ import {
   sweepCrossOrg,
   type TestDb,
 } from "../../testing/index.ts";
+import { seedLeaveOnePerTable } from "../../testing/leave.ts";
 import { createApp } from "../app.ts";
 import { recordAudit, systemAuditContext } from "../audit/audit.ts";
 import { invitations, memberships } from "../db/schema/access.ts";
@@ -93,6 +95,10 @@ describe("cross-organisation isolation", () => {
     await seedPayrollOnePerTable(deps, b.id, employeeB);
     // Claims module: one row in each of its tables (types, claims, lines, files, counters, settings).
     await seedClaimsOnePerTable(deps, b.id, ownerB.membershipId);
+    // Leave (WS5): one row per leave table.
+    await seedLeaveOnePerTable(deps, b.id, employeeB, ownerB.membershipId);
+    // Attendance (WS5): one punch and one overtime claim.
+    await seedAttendanceOnePerTable(deps, b.id, employeeB, ownerB.membershipId);
     // Workflows and notifications (one row per table).
     const staffB = await seedMember(deps, b.id, { email: "staff-b@example.sg" });
     const policyId = deps.ids.newId();

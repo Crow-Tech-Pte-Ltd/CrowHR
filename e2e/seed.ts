@@ -32,6 +32,7 @@ import { replacePolicies } from "../packages/core/src/workflows/policies.ts";
 import { seedMember } from "../packages/core/testing/fixtures.ts";
 import { createTestDeps } from "../packages/core/testing/index.ts";
 import { E2E } from "./fixtures.ts";
+import { seedLeave } from "./seed-leave.ts";
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is required");
@@ -57,7 +58,8 @@ if (!existing) {
       roles: [...m.roles],
     });
   }
-  await seedApprovals(orgId);
+  const people = await seedApprovals(orgId);
+  await seedLeave(orgId, people);
   console.error(`Seeded ${E2E.org.name} with ${Object.keys(E2E.members).length} members.`);
 }
 
@@ -226,6 +228,7 @@ async function seedApprovals(orgId: string) {
   });
   await submitChangeRequest(past, defaultPeoplePorts(past), farahActor, { personal: { religion: "islam" } });
   await seedClaims(orgId, member(E2E.members.owner.email), today);
+  return { structure, kaiWen, owner, member, deps: now, ports };
 }
 
 /**

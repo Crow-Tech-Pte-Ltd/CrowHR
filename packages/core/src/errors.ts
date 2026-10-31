@@ -36,6 +36,8 @@ export const ERROR_STATUS = {
   /** Approval task already decided (or superseded); details say who decided and when. */
   already_decided: 409,
   last_owner: 409,
+  /** Leave: the dates overlap another open or approved request in the same half-day session. */
+  leave_overlap: 409,
   /** No organisation exists yet: finish the setup wizard at /setup first. */
   setup_required: 409,
   /** Upload larger than the endpoint allows (claim receipts: 10 MB). */
@@ -46,6 +48,16 @@ export const ERROR_STATUS = {
   cap_exceeded: 422,
   /** The employee may not use this claim type (employment type, probation or archived). */
   not_eligible: 422,
+  /** Leave: the balance (after pending requests) does not cover the request. */
+  insufficient_balance: 422,
+  /** Leave policy: an entitlement below the Employment Act or Government-paid leave minimum. */
+  below_statutory: 422,
+  /** Attendance: the punch is outside every office radius (or has no location) and the org blocks it. */
+  outside_location: 422,
+  /** Attendance: the punch comes from a network outside the allowed IP ranges and the org blocks it. */
+  ip_not_allowed: 422,
+  /** Attendance: the punch cannot be recorded (e.g. more than 7 days old, or in the future). */
+  punch_rejected: 422,
   rate_limited: 429,
   internal: 500,
   /** The feature exists in the API contract but its implementation has not landed yet. */

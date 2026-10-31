@@ -123,7 +123,9 @@ describe("tick(now)", () => {
     };
     const report = await tick(broken);
     expect(transitionRuns).toBe(1);
-    expect(report.transitions).toEqual({ membership_former: 1 });
+    // Core modules register their own transitions too (e.g. leave's year end); none did work here.
+    expect(report.transitions).toMatchObject({ membership_former: 1 });
+    expect(Object.values(report.transitions).reduce((a, b) => a + b, 0)).toBe(1);
     expect(report.errors).toEqual([]);
     const [m] = await w.deps.db.select().from(memberships).where(eq(memberships.id, w.m.loner.membershipId));
     expect(m?.status).toBe("former");

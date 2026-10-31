@@ -12,19 +12,23 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
-import { Route as AppAttendanceRouteImport } from './routes/_app/attendance'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
-import { Route as AppLeaveRouteImport } from './routes/_app/leave'
 import { Route as AppReportsRouteImport } from './routes/_app/reports'
 import { Route as AppSchedulesRouteImport } from './routes/_app/schedules'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ResetTokenRouteImport } from './routes/reset.$token'
 import { Route as SignInIndexRouteImport } from './routes/sign-in.index'
 import { Route as SignInOrgRouteImport } from './routes/sign-in.$org'
+import { Route as AppAttendanceIndexRouteImport } from './routes/_app/attendance/index'
+import { Route as AppAttendanceSummaryRouteImport } from './routes/_app/attendance/summary'
+import { Route as AppAttendanceTeamRouteImport } from './routes/_app/attendance/team'
+import { Route as AppAttendanceTimesheetRouteImport } from './routes/_app/attendance/timesheet'
 import { Route as AppClaimsIndexRouteImport } from './routes/_app/claims/index'
 import { Route as AppClaimsClaimIdRouteImport } from './routes/_app/claims/$claimId'
 import { Route as AppClaimsAdminRouteImport } from './routes/_app/claims/admin'
+import { Route as AppLeaveIndexRouteImport } from './routes/_app/leave/index'
+import { Route as AppLeaveTeamRouteImport } from './routes/_app/leave/team'
 import { Route as AppMeProfileRouteImport } from './routes/_app/me/profile'
 import { Route as AppMeSessionsRouteImport } from './routes/_app/me/sessions'
 import { Route as AppPayrollIndexRouteImport } from './routes/_app/payroll/index'
@@ -34,9 +38,11 @@ import { Route as AppPeopleImportRouteImport } from './routes/_app/people/import
 import { Route as AppPeopleNewRouteImport } from './routes/_app/people/new'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsApprovalsRouteImport } from './routes/_app/settings/approvals'
+import { Route as AppSettingsAttendanceRouteImport } from './routes/_app/settings/attendance'
 import { Route as AppSettingsAuditRouteImport } from './routes/_app/settings/audit'
 import { Route as AppSettingsClaimTypesRouteImport } from './routes/_app/settings/claim-types'
 import { Route as AppSettingsCompanyRouteImport } from './routes/_app/settings/company'
+import { Route as AppSettingsLeaveRouteImport } from './routes/_app/settings/leave'
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/settings/notifications'
 import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
@@ -61,11 +67,6 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAttendanceRoute = AppAttendanceRouteImport.update({
-  id: '/attendance',
-  path: '/attendance',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppDocumentsRoute = AppDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
@@ -74,11 +75,6 @@ const AppDocumentsRoute = AppDocumentsRouteImport.update({
 const AppInboxRoute = AppInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppLeaveRoute = AppLeaveRouteImport.update({
-  id: '/leave',
-  path: '/leave',
   getParentRoute: () => AppRoute,
 } as any)
 const AppReportsRoute = AppReportsRouteImport.update({
@@ -111,6 +107,26 @@ const SignInOrgRoute = SignInOrgRouteImport.update({
   path: '/sign-in/$org',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppAttendanceIndexRoute = AppAttendanceIndexRouteImport.update({
+  id: '/attendance/',
+  path: '/attendance/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAttendanceSummaryRoute = AppAttendanceSummaryRouteImport.update({
+  id: '/attendance/summary',
+  path: '/attendance/summary',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAttendanceTeamRoute = AppAttendanceTeamRouteImport.update({
+  id: '/attendance/team',
+  path: '/attendance/team',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAttendanceTimesheetRoute = AppAttendanceTimesheetRouteImport.update({
+  id: '/attendance/timesheet',
+  path: '/attendance/timesheet',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppClaimsIndexRoute = AppClaimsIndexRouteImport.update({
   id: '/claims/',
   path: '/claims/',
@@ -124,6 +140,16 @@ const AppClaimsClaimIdRoute = AppClaimsClaimIdRouteImport.update({
 const AppClaimsAdminRoute = AppClaimsAdminRouteImport.update({
   id: '/claims/admin',
   path: '/claims/admin',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeaveIndexRoute = AppLeaveIndexRouteImport.update({
+  id: '/leave/',
+  path: '/leave/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeaveTeamRoute = AppLeaveTeamRouteImport.update({
+  id: '/leave/team',
+  path: '/leave/team',
   getParentRoute: () => AppRoute,
 } as any)
 const AppMeProfileRoute = AppMeProfileRouteImport.update({
@@ -171,6 +197,11 @@ const AppSettingsApprovalsRoute = AppSettingsApprovalsRouteImport.update({
   path: '/settings/approvals',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsAttendanceRoute = AppSettingsAttendanceRouteImport.update({
+  id: '/settings/attendance',
+  path: '/settings/attendance',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsAuditRoute = AppSettingsAuditRouteImport.update({
   id: '/settings/audit',
   path: '/settings/audit',
@@ -184,6 +215,11 @@ const AppSettingsClaimTypesRoute = AppSettingsClaimTypesRouteImport.update({
 const AppSettingsCompanyRoute = AppSettingsCompanyRouteImport.update({
   id: '/settings/company',
   path: '/settings/company',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsLeaveRoute = AppSettingsLeaveRouteImport.update({
+  id: '/settings/leave',
+  path: '/settings/leave',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsMembersRoute = AppSettingsMembersRouteImport.update({
@@ -237,33 +273,39 @@ const AppPayrollRunsRunIdPayslipsPayslipIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/setup': typeof SetupRoute
-  '/attendance': typeof AppAttendanceRoute
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
-  '/leave': typeof AppLeaveRoute
   '/reports': typeof AppReportsRoute
   '/schedules': typeof AppSchedulesRoute
   '/invite/$token': typeof InviteTokenRoute
   '/reset/$token': typeof ResetTokenRoute
   '/sign-in/$org': typeof SignInOrgRoute
   '/sign-in/': typeof SignInIndexRoute
+  '/attendance/summary': typeof AppAttendanceSummaryRoute
+  '/attendance/team': typeof AppAttendanceTeamRoute
+  '/attendance/timesheet': typeof AppAttendanceTimesheetRoute
   '/claims/$claimId': typeof AppClaimsClaimIdRoute
   '/claims/admin': typeof AppClaimsAdminRoute
+  '/leave/team': typeof AppLeaveTeamRoute
   '/me/profile': typeof AppMeProfileRoute
   '/me/sessions': typeof AppMeSessionsRoute
   '/people/$employeeId': typeof AppPeopleEmployeeIdRoute
   '/people/import': typeof AppPeopleImportRoute
   '/people/new': typeof AppPeopleNewRoute
   '/settings/approvals': typeof AppSettingsApprovalsRoute
+  '/settings/attendance': typeof AppSettingsAttendanceRoute
   '/settings/audit': typeof AppSettingsAuditRoute
   '/settings/claim-types': typeof AppSettingsClaimTypesRoute
   '/settings/company': typeof AppSettingsCompanyRoute
+  '/settings/leave': typeof AppSettingsLeaveRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/structure': typeof AppSettingsStructureRoute
   '/settings/system': typeof AppSettingsSystemRoute
+  '/attendance/': typeof AppAttendanceIndexRoute
   '/claims/': typeof AppClaimsIndexRoute
+  '/leave/': typeof AppLeaveIndexRoute
   '/payroll/': typeof AppPayrollIndexRoute
   '/people/': typeof AppPeopleIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
@@ -274,10 +316,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
-  '/attendance': typeof AppAttendanceRoute
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
-  '/leave': typeof AppLeaveRoute
   '/reports': typeof AppReportsRoute
   '/schedules': typeof AppSchedulesRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -285,23 +325,31 @@ export interface FileRoutesByTo {
   '/sign-in/$org': typeof SignInOrgRoute
   '/': typeof AppIndexRoute
   '/sign-in': typeof SignInIndexRoute
+  '/attendance/summary': typeof AppAttendanceSummaryRoute
+  '/attendance/team': typeof AppAttendanceTeamRoute
+  '/attendance/timesheet': typeof AppAttendanceTimesheetRoute
   '/claims/$claimId': typeof AppClaimsClaimIdRoute
   '/claims/admin': typeof AppClaimsAdminRoute
+  '/leave/team': typeof AppLeaveTeamRoute
   '/me/profile': typeof AppMeProfileRoute
   '/me/sessions': typeof AppMeSessionsRoute
   '/people/$employeeId': typeof AppPeopleEmployeeIdRoute
   '/people/import': typeof AppPeopleImportRoute
   '/people/new': typeof AppPeopleNewRoute
   '/settings/approvals': typeof AppSettingsApprovalsRoute
+  '/settings/attendance': typeof AppSettingsAttendanceRoute
   '/settings/audit': typeof AppSettingsAuditRoute
   '/settings/claim-types': typeof AppSettingsClaimTypesRoute
   '/settings/company': typeof AppSettingsCompanyRoute
+  '/settings/leave': typeof AppSettingsLeaveRoute
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/notifications': typeof AppSettingsNotificationsRoute
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/structure': typeof AppSettingsStructureRoute
   '/settings/system': typeof AppSettingsSystemRoute
+  '/attendance': typeof AppAttendanceIndexRoute
   '/claims': typeof AppClaimsIndexRoute
+  '/leave': typeof AppLeaveIndexRoute
   '/payroll': typeof AppPayrollIndexRoute
   '/people': typeof AppPeopleIndexRoute
   '/settings': typeof AppSettingsIndexRoute
@@ -314,10 +362,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/setup': typeof SetupRoute
-  '/_app/attendance': typeof AppAttendanceRoute
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/inbox': typeof AppInboxRoute
-  '/_app/leave': typeof AppLeaveRoute
   '/_app/reports': typeof AppReportsRoute
   '/_app/schedules': typeof AppSchedulesRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -325,23 +371,31 @@ export interface FileRoutesById {
   '/sign-in/$org': typeof SignInOrgRoute
   '/_app/': typeof AppIndexRoute
   '/sign-in/': typeof SignInIndexRoute
+  '/_app/attendance/summary': typeof AppAttendanceSummaryRoute
+  '/_app/attendance/team': typeof AppAttendanceTeamRoute
+  '/_app/attendance/timesheet': typeof AppAttendanceTimesheetRoute
   '/_app/claims/$claimId': typeof AppClaimsClaimIdRoute
   '/_app/claims/admin': typeof AppClaimsAdminRoute
+  '/_app/leave/team': typeof AppLeaveTeamRoute
   '/_app/me/profile': typeof AppMeProfileRoute
   '/_app/me/sessions': typeof AppMeSessionsRoute
   '/_app/people/$employeeId': typeof AppPeopleEmployeeIdRoute
   '/_app/people/import': typeof AppPeopleImportRoute
   '/_app/people/new': typeof AppPeopleNewRoute
   '/_app/settings/approvals': typeof AppSettingsApprovalsRoute
+  '/_app/settings/attendance': typeof AppSettingsAttendanceRoute
   '/_app/settings/audit': typeof AppSettingsAuditRoute
   '/_app/settings/claim-types': typeof AppSettingsClaimTypesRoute
   '/_app/settings/company': typeof AppSettingsCompanyRoute
+  '/_app/settings/leave': typeof AppSettingsLeaveRoute
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/notifications': typeof AppSettingsNotificationsRoute
   '/_app/settings/security': typeof AppSettingsSecurityRoute
   '/_app/settings/structure': typeof AppSettingsStructureRoute
   '/_app/settings/system': typeof AppSettingsSystemRoute
+  '/_app/attendance/': typeof AppAttendanceIndexRoute
   '/_app/claims/': typeof AppClaimsIndexRoute
+  '/_app/leave/': typeof AppLeaveIndexRoute
   '/_app/payroll/': typeof AppPayrollIndexRoute
   '/_app/people/': typeof AppPeopleIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
@@ -355,33 +409,39 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/setup'
-    | '/attendance'
     | '/documents'
     | '/inbox'
-    | '/leave'
     | '/reports'
     | '/schedules'
     | '/invite/$token'
     | '/reset/$token'
     | '/sign-in/$org'
     | '/sign-in/'
+    | '/attendance/summary'
+    | '/attendance/team'
+    | '/attendance/timesheet'
     | '/claims/$claimId'
     | '/claims/admin'
+    | '/leave/team'
     | '/me/profile'
     | '/me/sessions'
     | '/people/$employeeId'
     | '/people/import'
     | '/people/new'
     | '/settings/approvals'
+    | '/settings/attendance'
     | '/settings/audit'
     | '/settings/claim-types'
     | '/settings/company'
+    | '/settings/leave'
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/security'
     | '/settings/structure'
     | '/settings/system'
+    | '/attendance/'
     | '/claims/'
+    | '/leave/'
     | '/payroll/'
     | '/people/'
     | '/settings/'
@@ -392,10 +452,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/setup'
-    | '/attendance'
     | '/documents'
     | '/inbox'
-    | '/leave'
     | '/reports'
     | '/schedules'
     | '/invite/$token'
@@ -403,23 +461,31 @@ export interface FileRouteTypes {
     | '/sign-in/$org'
     | '/'
     | '/sign-in'
+    | '/attendance/summary'
+    | '/attendance/team'
+    | '/attendance/timesheet'
     | '/claims/$claimId'
     | '/claims/admin'
+    | '/leave/team'
     | '/me/profile'
     | '/me/sessions'
     | '/people/$employeeId'
     | '/people/import'
     | '/people/new'
     | '/settings/approvals'
+    | '/settings/attendance'
     | '/settings/audit'
     | '/settings/claim-types'
     | '/settings/company'
+    | '/settings/leave'
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/security'
     | '/settings/structure'
     | '/settings/system'
+    | '/attendance'
     | '/claims'
+    | '/leave'
     | '/payroll'
     | '/people'
     | '/settings'
@@ -431,10 +497,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/setup'
-    | '/_app/attendance'
     | '/_app/documents'
     | '/_app/inbox'
-    | '/_app/leave'
     | '/_app/reports'
     | '/_app/schedules'
     | '/invite/$token'
@@ -442,23 +506,31 @@ export interface FileRouteTypes {
     | '/sign-in/$org'
     | '/_app/'
     | '/sign-in/'
+    | '/_app/attendance/summary'
+    | '/_app/attendance/team'
+    | '/_app/attendance/timesheet'
     | '/_app/claims/$claimId'
     | '/_app/claims/admin'
+    | '/_app/leave/team'
     | '/_app/me/profile'
     | '/_app/me/sessions'
     | '/_app/people/$employeeId'
     | '/_app/people/import'
     | '/_app/people/new'
     | '/_app/settings/approvals'
+    | '/_app/settings/attendance'
     | '/_app/settings/audit'
     | '/_app/settings/claim-types'
     | '/_app/settings/company'
+    | '/_app/settings/leave'
     | '/_app/settings/members'
     | '/_app/settings/notifications'
     | '/_app/settings/security'
     | '/_app/settings/structure'
     | '/_app/settings/system'
+    | '/_app/attendance/'
     | '/_app/claims/'
+    | '/_app/leave/'
     | '/_app/payroll/'
     | '/_app/people/'
     | '/_app/settings/'
@@ -500,13 +572,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/attendance': {
-      id: '/_app/attendance'
-      path: '/attendance'
-      fullPath: '/attendance'
-      preLoaderRoute: typeof AppAttendanceRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/documents': {
       id: '/_app/documents'
       path: '/documents'
@@ -519,13 +584,6 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof AppInboxRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/leave': {
-      id: '/_app/leave'
-      path: '/leave'
-      fullPath: '/leave'
-      preLoaderRoute: typeof AppLeaveRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/reports': {
@@ -570,6 +628,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignInOrgRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/attendance/': {
+      id: '/_app/attendance/'
+      path: '/attendance'
+      fullPath: '/attendance/'
+      preLoaderRoute: typeof AppAttendanceIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/attendance/summary': {
+      id: '/_app/attendance/summary'
+      path: '/attendance/summary'
+      fullPath: '/attendance/summary'
+      preLoaderRoute: typeof AppAttendanceSummaryRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/attendance/team': {
+      id: '/_app/attendance/team'
+      path: '/attendance/team'
+      fullPath: '/attendance/team'
+      preLoaderRoute: typeof AppAttendanceTeamRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/attendance/timesheet': {
+      id: '/_app/attendance/timesheet'
+      path: '/attendance/timesheet'
+      fullPath: '/attendance/timesheet'
+      preLoaderRoute: typeof AppAttendanceTimesheetRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/claims/': {
       id: '/_app/claims/'
       path: '/claims'
@@ -589,6 +675,20 @@ declare module '@tanstack/react-router' {
       path: '/claims/admin'
       fullPath: '/claims/admin'
       preLoaderRoute: typeof AppClaimsAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/leave/': {
+      id: '/_app/leave/'
+      path: '/leave'
+      fullPath: '/leave/'
+      preLoaderRoute: typeof AppLeaveIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/leave/team': {
+      id: '/_app/leave/team'
+      path: '/leave/team'
+      fullPath: '/leave/team'
+      preLoaderRoute: typeof AppLeaveTeamRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/me/profile': {
@@ -654,6 +754,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsApprovalsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings/attendance': {
+      id: '/_app/settings/attendance'
+      path: '/settings/attendance'
+      fullPath: '/settings/attendance'
+      preLoaderRoute: typeof AppSettingsAttendanceRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings/audit': {
       id: '/_app/settings/audit'
       path: '/settings/audit'
@@ -673,6 +780,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/company'
       fullPath: '/settings/company'
       preLoaderRoute: typeof AppSettingsCompanyRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings/leave': {
+      id: '/_app/settings/leave'
+      path: '/settings/leave'
+      fullPath: '/settings/leave'
+      preLoaderRoute: typeof AppSettingsLeaveRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/settings/members': {
@@ -754,30 +868,36 @@ const AppPayrollRunsRunIdRouteWithChildren =
   AppPayrollRunsRunIdRoute._addFileChildren(AppPayrollRunsRunIdRouteChildren)
 
 interface AppRouteChildren {
-  AppAttendanceRoute: typeof AppAttendanceRoute
   AppDocumentsRoute: typeof AppDocumentsRoute
   AppInboxRoute: typeof AppInboxRoute
-  AppLeaveRoute: typeof AppLeaveRoute
   AppReportsRoute: typeof AppReportsRoute
   AppSchedulesRoute: typeof AppSchedulesRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppAttendanceSummaryRoute: typeof AppAttendanceSummaryRoute
+  AppAttendanceTeamRoute: typeof AppAttendanceTeamRoute
+  AppAttendanceTimesheetRoute: typeof AppAttendanceTimesheetRoute
   AppClaimsClaimIdRoute: typeof AppClaimsClaimIdRoute
   AppClaimsAdminRoute: typeof AppClaimsAdminRoute
+  AppLeaveTeamRoute: typeof AppLeaveTeamRoute
   AppMeProfileRoute: typeof AppMeProfileRoute
   AppMeSessionsRoute: typeof AppMeSessionsRoute
   AppPeopleEmployeeIdRoute: typeof AppPeopleEmployeeIdRoute
   AppPeopleImportRoute: typeof AppPeopleImportRoute
   AppPeopleNewRoute: typeof AppPeopleNewRoute
   AppSettingsApprovalsRoute: typeof AppSettingsApprovalsRoute
+  AppSettingsAttendanceRoute: typeof AppSettingsAttendanceRoute
   AppSettingsAuditRoute: typeof AppSettingsAuditRoute
   AppSettingsClaimTypesRoute: typeof AppSettingsClaimTypesRoute
   AppSettingsCompanyRoute: typeof AppSettingsCompanyRoute
+  AppSettingsLeaveRoute: typeof AppSettingsLeaveRoute
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsNotificationsRoute: typeof AppSettingsNotificationsRoute
   AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
   AppSettingsStructureRoute: typeof AppSettingsStructureRoute
   AppSettingsSystemRoute: typeof AppSettingsSystemRoute
+  AppAttendanceIndexRoute: typeof AppAttendanceIndexRoute
   AppClaimsIndexRoute: typeof AppClaimsIndexRoute
+  AppLeaveIndexRoute: typeof AppLeaveIndexRoute
   AppPayrollIndexRoute: typeof AppPayrollIndexRoute
   AppPeopleIndexRoute: typeof AppPeopleIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
@@ -787,30 +907,36 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAttendanceRoute: AppAttendanceRoute,
   AppDocumentsRoute: AppDocumentsRoute,
   AppInboxRoute: AppInboxRoute,
-  AppLeaveRoute: AppLeaveRoute,
   AppReportsRoute: AppReportsRoute,
   AppSchedulesRoute: AppSchedulesRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAttendanceSummaryRoute: AppAttendanceSummaryRoute,
+  AppAttendanceTeamRoute: AppAttendanceTeamRoute,
+  AppAttendanceTimesheetRoute: AppAttendanceTimesheetRoute,
   AppClaimsClaimIdRoute: AppClaimsClaimIdRoute,
   AppClaimsAdminRoute: AppClaimsAdminRoute,
+  AppLeaveTeamRoute: AppLeaveTeamRoute,
   AppMeProfileRoute: AppMeProfileRoute,
   AppMeSessionsRoute: AppMeSessionsRoute,
   AppPeopleEmployeeIdRoute: AppPeopleEmployeeIdRoute,
   AppPeopleImportRoute: AppPeopleImportRoute,
   AppPeopleNewRoute: AppPeopleNewRoute,
   AppSettingsApprovalsRoute: AppSettingsApprovalsRoute,
+  AppSettingsAttendanceRoute: AppSettingsAttendanceRoute,
   AppSettingsAuditRoute: AppSettingsAuditRoute,
   AppSettingsClaimTypesRoute: AppSettingsClaimTypesRoute,
   AppSettingsCompanyRoute: AppSettingsCompanyRoute,
+  AppSettingsLeaveRoute: AppSettingsLeaveRoute,
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsNotificationsRoute: AppSettingsNotificationsRoute,
   AppSettingsSecurityRoute: AppSettingsSecurityRoute,
   AppSettingsStructureRoute: AppSettingsStructureRoute,
   AppSettingsSystemRoute: AppSettingsSystemRoute,
+  AppAttendanceIndexRoute: AppAttendanceIndexRoute,
   AppClaimsIndexRoute: AppClaimsIndexRoute,
+  AppLeaveIndexRoute: AppLeaveIndexRoute,
   AppPayrollIndexRoute: AppPayrollIndexRoute,
   AppPeopleIndexRoute: AppPeopleIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,

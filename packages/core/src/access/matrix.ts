@@ -88,12 +88,18 @@ export const MATRIX = {
   // Leave, claims, attendance, OT, timesheets
   "leave:read": { cells: TIME_READ },
   "leave:create": { cells: TIME_CREATE, note: "owner and hr_admin create on behalf of employees." },
+  // Leave balance adjustments and direct cancellations (add-leave)
+  "leave:update": { cells: STAFF_ADMIN, note: "Nobody adjusts their own balance." },
+  // Government-paid leave report for manual GPL claims (add-leave)
+  "leave_claims:read": { cells: { owner: A, hr_admin: A, payroll_admin: A } },
   "claims:read": { cells: TIME_READ },
   "claims:create": { cells: TIME_CREATE, note: "owner and hr_admin create on behalf of employees." },
   // Mark approved claims paid outside payroll (add-claims "Payment outside payroll")
   "claims:pay": { cells: PAY_ADMIN },
   "attendance:read": { cells: TIME_READ },
   "attendance:create": { cells: TIME_CREATE, note: "owner and hr_admin create on behalf of employees." },
+  // Timesheet corrections: add or void punches with a reason (add-attendance)
+  "attendance:update": { cells: { owner: A, hr_admin: A, manager: T }, note: "Nobody corrects their own timesheet." },
   // Approval tasks
   "approval_tasks:decide": {
     cells: {

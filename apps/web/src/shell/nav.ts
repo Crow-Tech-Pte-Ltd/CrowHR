@@ -88,10 +88,10 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     label: "Leave",
     to: "/leave",
     icon: CalendarDays,
-    summary: "Requests, balances, entitlements",
+    summary: "Apply for leave, balances, who's away",
     emptyTitle: "No leave requests yet",
     emptyBody:
-      "Leave requests, approvals and balances will be managed here, including annual, sick, childcare and other leave types, with Singapore public holidays built in.",
+      "Apply for annual, sick, childcare and family leave, see your balances, and see who's away. Statutory leave and Singapore public holidays are built in.",
     keywords: ["annual leave", "mc", "sick", "holiday", "time off"],
   },
   attendance: {
@@ -99,10 +99,10 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     label: "Attendance",
     to: "/attendance",
     icon: Clock,
-    summary: "Clock-in, timesheets, overtime",
+    summary: "Clock in and out, timesheets, overtime claims",
     emptyTitle: "No attendance records yet",
     emptyBody:
-      "Clock-ins, timesheets and overtime will be recorded and approved here, and flow into payroll once approved.",
+      "Clock in and out (even offline), see your timesheet and claim overtime. Approved overtime goes to payroll.",
     keywords: ["clock in", "timesheet", "overtime", "ot"],
   },
   schedules: {
