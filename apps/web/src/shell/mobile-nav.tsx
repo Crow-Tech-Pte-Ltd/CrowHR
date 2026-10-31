@@ -56,9 +56,10 @@ export function BottomTabBar() {
                   "data-[status=active]:text-ink",
                 )}
               >
+                {/* Same width and centre line as the pill below, so the two read as one marker. */}
                 <span
                   aria-hidden
-                  className="absolute inset-x-5 top-0 h-[3px] rounded-b-sm bg-transparent group-data-[status=active]:bg-ink"
+                  className="absolute left-1/2 top-0 h-[3px] w-10 -translate-x-1/2 rounded-b-sm bg-transparent group-data-[status=active]:bg-ink"
                 />
                 <span className="flex h-6 w-10 items-center justify-center rounded-full group-data-[status=active]:bg-kuning-200">
                   <Icon className="size-4" aria-hidden />
