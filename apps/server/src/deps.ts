@@ -1,4 +1,11 @@
-import { type AppDeps, createUuidV7Generator, type Logger, systemClock } from "@crowhr/core";
+import {
+  type AppDeps,
+  createSecretBox,
+  createUuidV7Generator,
+  type Logger,
+  parseSecretKey,
+  systemClock,
+} from "@crowhr/core";
 import { createArgon2Hasher } from "./argon2-hasher.ts";
 import type { ServerConfig } from "./config.ts";
 import type { Database } from "./db.ts";
@@ -12,5 +19,9 @@ export function createServerDeps(config: ServerConfig, database: Database, logge
     clock: systemClock,
     ids: createUuidV7Generator(systemClock),
     logger,
+    secretBox: createSecretBox(parseSecretKey(config.CROWHR_SECRET_KEY)),
+    publicUrl: config.PUBLIC_URL,
+    // NOT IMPLEMENTED: SMTP mailer (add-approvals-and-notifications owns the outbox). Without it,
+    // invitations and password resets offer a copyable link.
   };
 }

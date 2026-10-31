@@ -9,6 +9,12 @@ export const organisations = pgTable("organisations", {
   name: text("name").notNull(),
   /** Singapore Unique Entity Number (ACRA). Optional until onboarding asks for it. */
   uen: text("uen").unique(),
+  /**
+   * URL-safe identifier used by `/sign-in/<slug>` and `GET /api/v1/meta?org=<slug>`.
+   * Lower-case letters, digits and hyphens. Nullable only for rows created before it existed;
+   * the setup and organisation services always set it.
+   */
+  slug: text("slug").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

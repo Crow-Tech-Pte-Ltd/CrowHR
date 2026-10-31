@@ -21,7 +21,17 @@ const cacheControl = (value: string) =>
 export function createServerApp(deps: AppDeps, options: { webDistDir: string }) {
   const { webDistDir } = options;
   // Security headers wrap everything, so they must be registered before core's routes.
-  const app = new Hono();
+  const app = new Hono<{ Bindings: { incoming?: { socket?: { remoteAddress?: string } } } }>();
+  // Core reads the client IP (throttling, audit) from x-crowhr-client-ip. Never trust a value the
+  // client sent; set it from the socket. NOT IMPLEMENTED: X-Forwarded-For from TRUSTED_PROXIES
+  // (add-self-hosting owns proxy handling).
+  app.use("*", async (c, next) => {
+    const headers = c.req.raw.headers;
+    headers.delete("x-crowhr-client-ip");
+    const ip = c.env?.incoming?.socket?.remoteAddress;
+    if (ip) headers.set("x-crowhr-client-ip", ip.replace(/^::ffff:/, ""));
+    await next();
+  });
   app.use(
     "*",
     secureHeaders({

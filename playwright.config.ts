@@ -32,6 +32,9 @@ export default defineConfig({
       PORT: String(PORT),
       FILE_STORAGE_DIR: "./test-results/files",
       LOG_LEVEL: "warn",
+      PUBLIC_URL: `http://127.0.0.1:${PORT}`,
+      // Fixed throwaway key for e2e only.
+      CROWHR_SECRET_KEY: "ZTJlLW9ubHktdGhyb3dhd2F5LWtleS0zMi1ieXRlcyE",
     },
   },
 });

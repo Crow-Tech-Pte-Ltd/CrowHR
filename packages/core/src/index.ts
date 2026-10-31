@@ -1,15 +1,57 @@
-export { type App, createApp } from "./app.ts";
+export { authorize, can, type Grant } from "./access/authorize.ts";
+export { ASSIGNED_ROLES, MATRIX, type MatrixRow, PERMISSIONS, type Permission, type Scope } from "./access/matrix.ts";
+export { markMembershipFormer } from "./access/members-routes.ts";
+export { maskBankAccount, maskNric, revealSensitive } from "./access/nric.ts";
+export { type OrgScope, orgScope } from "./access/org-scope.ts";
+export { redact, redactMany, withRedactions } from "./access/redact.ts";
+export { createStaticReportingScope, noReportingLines, type ReportingScopeResolver } from "./access/scope.ts";
+export { assertNotSelfChange, selfApproval } from "./access/self-change.ts";
+export { type SensitivityClass, sensitive } from "./access/sensitivity.ts";
+export { type App, allV1Modules, createApp, V1_MODULES } from "./app.ts";
+export {
+  type AuditContext,
+  auditContext,
+  diffFields,
+  recordAudit,
+  systemAuditContext,
+  verifyChain,
+} from "./audit/audit.ts";
+export { requireRecentAuth } from "./auth/guards.ts";
+export { newResetLinkForCli } from "./auth/owner-recovery.ts";
+export { passwordProblem } from "./auth/password-policy.ts";
+export { revokeUserSessions } from "./auth/sessions.ts";
 export {
   type AppContext,
   type AppEnv,
   type AppVariables,
+  type AssignedRole,
   type AuthContext,
+  type AuthMethod,
   type Role,
   requireAuth,
 } from "./context.ts";
+export {
+  createSecretBox,
+  generateSecretKey,
+  normaliseBankAccount,
+  normaliseNric,
+  parseSecretKey,
+  SECRET_PURPOSES,
+  type SecretBox,
+  SecretBoxError,
+  verifySecretKeyAgainstDb,
+} from "./crypto/secret-box.ts";
 export * as schema from "./db/schema/index.ts";
 export type { Db, Schema } from "./db/types.ts";
-export { type AppDeps, type Clock, fixedClock, type IdGenerator, type PasswordHasher, systemClock } from "./deps.ts";
+export {
+  type AppDeps,
+  type Clock,
+  fixedClock,
+  type IdGenerator,
+  type Mailer,
+  type PasswordHasher,
+  systemClock,
+} from "./deps.ts";
 export { AppError, ERROR_STATUS, type ErrorCode, type ErrorEnvelope } from "./errors.ts";
 export {
   assertValidFileKey,
@@ -19,6 +61,8 @@ export {
   type StoredFileWithData,
 } from "./files/file-store.ts";
 export { createMemoryFileStore } from "./files/memory-file-store.ts";
+export { csvEnum, listQuery, orderByFor, type Page, pageOf, parseSort, toLimitOffset } from "./http/list.ts";
+export { type ApiModule, defineModule, defineRoute, reply } from "./http/route.ts";
 export { friendlyIssueMessage, toValidationIssues, type ValidationIssue, validate } from "./http/validate.ts";
 export { createUuidV7Generator } from "./ids.ts";
 export {

@@ -1,0 +1,127 @@
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createTestDb, createTestDeps, seedMember, seedOrg, type TestDb } from "../../testing/index.ts";
+import { createApp } from "../app.ts";
+import { orgSecuritySettings, ssoProviders } from "../db/schema/auth.ts";
+import { defineModule, defineRoute } from "../http/route.ts";
+
+const leave = defineModule({
+  name: "leave",
+  basePath: "/leave-stub",
+  feature: "leave",
+  routes: [
+    defineRoute({
+      method: "get",
+      path: "/",
+      summary: "x",
+      access: "public",
+      responses: { 204: null },
+      handler: () => undefined,
+    }),
+  ],
+});
+
+describe("GET /api/v1/meta", () => {
+  let t: TestDb;
+  beforeEach(async () => {
+    t = await createTestDb();
+  });
+  afterEach(() => t.close());
+
+  it("is public and includes the only organisation with its enabled methods, no secrets, cacheable", async () => {
+    const deps = createTestDeps(t.db);
+    const org = await seedOrg(deps, { name: "Kampong Kopi", slug: "kampong-kopi" });
+    await seedMember(deps, org.id, { email: "secret-member@example.sg" });
+    const now = deps.clock.now();
+    const enc = await deps.secretBox.encrypt("sso-client-secret", "super-secret-value");
+    await deps.db.insert(ssoProviders).values([
+      {
+        id: deps.ids.newId(),
+        orgId: org.id,
+        kind: "google",
+        displayName: "Google",
+        issuer: "https://accounts.google.com",
+        clientId: "g",
+        clientSecretEnc: enc,
+        enabled: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: deps.ids.newId(),
+        orgId: org.id,
+        kind: "entra",
+        displayName: "Microsoft",
+        issuer: "https://login.microsoftonline.com/t/v2.0",
+        clientId: "e",
+        clientSecretEnc: enc,
+        tenantId: "t",
+        enabled: false,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: deps.ids.newId(),
+        orgId: org.id,
+        kind: "singpass",
+        displayName: "Singpass",
+        issuer: "https://stg-id.singpass.gov.sg",
+        clientId: "s",
+        enabled: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    const res = await createApp(deps, { modules: [leave] }).request("/api/v1/meta");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("public, max-age=60");
+    const text = await res.text();
+    expect(text).not.toContain("super-secret-value");
+    expect(text).not.toContain("secret-member");
+    expect(JSON.parse(text)).toEqual({
+      serverVersion: expect.any(String),
+      apiVersions: ["v1"],
+      features: ["leave"],
+      demo: false,
+      orgSlugRequired: false,
+      organisations: [
+        {
+          slug: "kampong-kopi",
+          displayName: "Kampong Kopi",
+          logoUrl: null,
+          // Entra is disabled; Singpass is enabled but has no RP keys → not configured → hidden.
+          signInMethods: [
+            { kind: "password", displayName: "Email and password" },
+            { kind: "google", displayName: "Google" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("does not list a multi-org install's organisations without a slug", async () => {
+    const deps = createTestDeps(t.db);
+    for (const slug of ["a-co", "b-co", "c-co"]) await seedOrg(deps, { slug });
+    const app = createApp(deps);
+    const body = (await (await app.request("/api/v1/meta")).json()) as {
+      organisations: unknown[];
+      orgSlugRequired: boolean;
+    };
+    expect(body).toMatchObject({ organisations: [], orgSlugRequired: true });
+    const one = (await (await app.request("/api/v1/meta?org=b-co")).json()) as { organisations: { slug: string }[] };
+    expect(one.organisations.map((o) => o.slug)).toEqual(["b-co"]);
+  });
+
+  it("omits password when the organisation disabled it", async () => {
+    const deps = createTestDeps(t.db);
+    const org = await seedOrg(deps, { slug: "sso-only" });
+    const { eq } = await import("drizzle-orm");
+    await deps.db
+      .update(orgSecuritySettings)
+      .set({ passwordEnabled: false })
+      .where(eq(orgSecuritySettings.orgId, org.id));
+    const body = (await (await createApp(deps).request("/api/v1/meta")).json()) as {
+      organisations: { signInMethods: unknown[] }[];
+    };
+    expect(body.organisations[0]?.signInMethods).toEqual([]);
+  });
+});

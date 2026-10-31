@@ -3,18 +3,20 @@
 Everything listed here is stubbed, placeholder or missing. Nothing on this list
 may be described as working. Remove an entry only in the change that fixes it.
 
-## Authentication and access (auth workstream)
+## Authentication and access (identity workstream)
 
-- **No authentication.** There is no session, login, logout or auth middleware. `c.var.auth` is always `null`; `requireAuth` therefore returns 401 for every protected route (fail-closed). `// NOT IMPLEMENTED` in `packages/core/src/context.ts`.
-- **Sign-in page is design only.** `apps/web/src/sign-in/` renders the enabled methods from a fixture (`?methods=all|password|sso`). Submitting the form or pressing a provider button sends nothing and shows "not available yet".
-- **No SSO.** Google Workspace, Microsoft Entra ID, Singpass and generic OIDC are buttons only. `AuthContext.authMethod` / `identity` are typed but never set.
-- **Singpass button is not brand-compliant yet.** Singpass's [button design specification](https://docs.developer.singpass.gov.sg/docs/getting-started/singpass-button-design-specification) (effective 1 Sep 2026) requires the official Singpass logo inside the button. The logo is not published under a licence that allows redistribution in this MIT repository, so it is not bundled; the button renders the name as text. `ProviderButton` accepts `singpassLogoSrc` for a deployer-supplied official asset. Do not go live with Singpass without it.
-- **Settings → Security → Sign-in methods** is an empty-state placeholder with no configuration.
-- **No RBAC.** `Role` is a placeholder `string`; no permission checks exist.
-- **No tenancy helpers yet.** There are no tenant tables, so the org-scoped data-access helpers and cross-org tests do not exist yet. `users` is a global identity table; org memberships arrive with auth.
-- **Org switcher** shows one sample organisation; "Add organisation" is disabled.
-- **Admin/employee view** is a client-side preview toggle (user menu or `?view=employee`), not role-based.
-- **User menu** shows a sample user; "Sign out" just navigates to `/sign-in`.
+- **Singpass is not verified against real Singpass.** The FAPI 2.0 flow (PAR, PKCE, `private_key_jwt`, DPoP, encrypted ID tokens) is implemented to the published spec and tested only against the in-process mock IdP (`packages/core/testing/mock-oidc.ts`). Issuer defaults (`https://stg-id.singpass.gov.sg`, `https://id.singpass.gov.sg`) must be checked against the current Singpass docs. Tasks 8.3 (setup guide + manual staging sign-in) is open.
+- **Singpass button is not brand-compliant yet.** Singpass's [button design specification](https://docs.developer.singpass.gov.sg/docs/getting-started/singpass-button-design-specification) (effective 1 Sep 2026) requires the official Singpass logo inside the button. The logo is not published under a licence that allows redistribution in this MIT repository, so it is not bundled; the button renders plain text "Log in with Singpass" (no imitation of the wordmark colouring). `ProviderButton` accepts `singpassLogoSrc` for a deployer-supplied official asset. Do not go live with Singpass without it.
+- **No SMTP mailer.** `deps.mailer` is never set by `apps/server` yet (the notifications workstream owns the outbox). Invitations and password resets therefore always offer a copyable link; "sign-in attempts blocked" and "recovery code used" notifications are not sent (in-app notifications are also not built).
+- **JIT provisioning does not notify HR**; the `member.jit_provisioned` audit event is the only record.
+- **Common-password list is curated, not a breach corpus**: a few hundred entries plus pattern rules (`packages/core/src/auth/common-passwords.ts`).
+- **Client IP** comes from the socket only. `X-Forwarded-For` from `TRUSTED_PROXIES` is not honoured yet (self-hosting workstream), so behind a reverse proxy every request has the proxy's IP and the per-IP sign-in limit (30/min) applies to everyone together.
+- **Organisation logo** in `GET /api/v1/meta` is always `null` until the company profile exists.
+- **NRIC/bank reveal endpoints** are not mounted: `revealSensitive()` (re-auth, 30/hour, audit) exists, and the employees module mounts `POST /employees/:id/nric/reveal` once employee records exist. Same for the change-request flow behind `self_change_requires_approval`.
+- **No email change** endpoint yet (it would be a `recentAuth` action).
+- **Native apps**: the token endpoints exist and are tested; the apps themselves (M4) do not. No browser session is created during a native sign-in at all (stricter than the design's create-then-revoke).
+- **No RLS**: isolation is app-level (`orgScope`) plus composite FKs, as designed.
+- **Org switcher** in the web shell lists only the current organisation.
 
 ## Screens
 

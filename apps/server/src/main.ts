@@ -1,4 +1,4 @@
-import { createJsonConsoleLogger, VERSION } from "@crowhr/core";
+import { createJsonConsoleLogger, VERSION, verifySecretKeyAgainstDb } from "@crowhr/core";
 import { serve } from "@hono/node-server";
 import { ConfigError, loadConfig } from "./config.ts";
 import { openDatabase } from "./db.ts";
@@ -27,7 +27,18 @@ async function main() {
     logger.info("Database migrations applied");
   }
 
-  const app = createServerApp(createServerDeps(config, database, logger), { webDistDir: config.WEB_DIST_DIR });
+  const deps = createServerDeps(config, database, logger);
+  const keyCheck = await verifySecretKeyAgainstDb(database.db, deps.secretBox);
+  if (!keyCheck.ok) {
+    console.error(keyCheck.message);
+    process.exit(78);
+  }
+  if (keyCheck.firstBoot)
+    logger.info("Stored the CROWHR_SECRET_KEY check value. Back up this key with your database backups.");
+  if (!config.PUBLIC_URL.startsWith("https://")) {
+    logger.warn("PUBLIC_URL is plain http: session cookies are not marked Secure. Use https outside a trusted LAN.");
+  }
+  const app = createServerApp(deps, { webDistDir: config.WEB_DIST_DIR });
   const server = serve({ fetch: app.fetch, hostname: config.HOST, port: config.PORT }, (info) => {
     logger.info("Crow HR listening", { url: `http://${info.address}:${info.port}`, version: VERSION });
   });
