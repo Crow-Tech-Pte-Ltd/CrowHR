@@ -32,7 +32,7 @@
 - [x] 5.1 `_app/payroll` runs list + new run; run overview (issues first, totals, changes); dense review table with keyboard navigation; CPF working drawer; payslip view
 - [x] 5.2 `_app/me/payslips` list + view + download
 - [x] 5.3 Playwright `e2e/payroll/payroll.payroll.ts`: create run → review → approve → payslip visible to employee → download PDF
-- [ ] 5.4 Screenshots (1440 and 390) of overview, review table, CPF drawer, payslip web + PDF and Me → Payslips, reviewed against AGENTS.md design language
+- [x] 5.4 Screenshots (1440 and 390) of overview, review table, CPF drawer, payslip web + PDF and Me → Payslips, reviewed against AGENTS.md design language
 
 ## 6. Statutory files (M2)
 
