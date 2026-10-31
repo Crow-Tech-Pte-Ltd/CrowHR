@@ -11,20 +11,10 @@ export const E2E = {
     mfa: { email: "mfa@kampongkopi.example", name: "Lim Wei Jie", roles: [] },
     revokee: { email: "revokee@kampongkopi.example", name: "Siti Rahmah", roles: [] },
     shots: { email: "farah@kampongkopi.example", name: "Farah Hassan", roles: [] },
-    // Approvals (WS3): a manager and their report. Employee IDs stand in for employee records
-    // until the people module lands; e2e/server.ts wires the reporting line.
-    approver: {
-      email: "kaiwen@kampongkopi.example",
-      name: "Wong Kai Wen",
-      roles: [],
-      employeeId: "00000000-0000-7000-8000-00000000e201",
-    },
-    requester: {
-      email: "ahmad@kampongkopi.example",
-      name: "Ahmad Ismail",
-      roles: [],
-      employeeId: "00000000-0000-7000-8000-00000000e202",
-    },
+    // Approvals (WS3): a manager and their report, linked to employee records by e2e/seed.ts
+    // (Ahmad and Farah report to Kai Wen).
+    approver: { email: "kaiwen@kampongkopi.example", name: "Wong Kai Wen", roles: [] },
+    requester: { email: "ahmad@kampongkopi.example", name: "Ahmad Ismail", roles: [] },
   },
   /** Second organisation with every SSO method on (screenshots / multi-org). */
   ssoOrg: {

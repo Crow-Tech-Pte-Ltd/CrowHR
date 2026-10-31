@@ -131,7 +131,10 @@ describe("Home inbox", () => {
     const get = async (m: (typeof w.m)[keyof typeof w.m]) =>
       (
         (await (await (await clientAs(w.app, w.deps, m)).get("/api/v1/inbox")).json()) as { items: { kind: string }[] }
-      ).items.map((i) => i.kind);
+      ).items
+        .map((i) => i.kind)
+        // Setup steps (this test org has no company profile or employees) are covered elsewhere.
+        .filter((k) => k !== "setup");
     expect((await get(w.m.hr)).sort()).toEqual(["probation_end", "work_pass_expiry"]);
     expect(await get(w.m.manager)).toEqual(["probation_end", "checklist"]);
     expect(await get(w.m.head)).toEqual([]); // not Ravi's direct manager

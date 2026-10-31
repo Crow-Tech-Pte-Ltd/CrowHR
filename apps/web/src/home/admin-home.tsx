@@ -1,4 +1,7 @@
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Avatar,
   Badge,
   Button,
@@ -18,7 +21,7 @@ import {
 } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarClock, CheckCircle2, IdCard, Wallet } from "lucide-react";
+import { ArrowRight, CalendarClock, CheckCircle2, DatabaseBackup, IdCard, Wallet } from "lucide-react";
 import * as React from "react";
 import { useMe } from "../auth/session.ts";
 import { PageHeader } from "../components/page-header.tsx";
@@ -28,7 +31,7 @@ import { DecisionButtons, DuePill, OriginBadge, RejectDialog } from "../workflow
 import { ageLabel } from "../workflows/format.ts";
 import { daysBetween, weekday } from "./dates.ts";
 
-const SECTION_SOURCES = new Set(["approvals", "work_passes", "probation"]);
+const SECTION_SOURCES = new Set(["approvals", "work_passes", "probation", "setup", "backups"]);
 
 function plural(n: number, one: string, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
@@ -43,6 +46,8 @@ export function AdminHome() {
   const passes = data?.items.filter((i) => i.source === "work_passes") ?? [];
   const probation = data?.items.filter((i) => i.source === "probation") ?? [];
   const other = data?.items.filter((i) => !SECTION_SOURCES.has(i.source)) ?? [];
+  const setup = data?.items.filter((i) => i.source === "setup") ?? [];
+  const backup = data?.items.find((i) => i.source === "backups") ?? null;
   const sourceStatus = (id: string) => data?.sources.find((s) => s.id === id)?.status ?? "not_set_up";
   const isHr = me.roles.includes("owner") || me.roles.includes("hr_admin");
   const seesPayroll = me.roles.includes("owner") || me.roles.includes("payroll_admin");
@@ -51,6 +56,8 @@ export function AdminHome() {
   const parts = [
     approvals.length ? plural(approvals.length, "approval") : null,
     other.length ? plural(other.length, "to-do") : null,
+    setup.length ? plural(setup.length, "setup step") : null,
+    backup ? "backups" : null,
     passes.length ? plural(passes.length, "work pass", "work passes") : null,
     probation.length ? plural(probation.length, "probation review") : null,
   ].filter(Boolean);
@@ -87,8 +94,24 @@ export function AdminHome() {
         </Card>
       ) : null}
 
+      {backup ? (
+        <Alert variant="warning" className="mb-6" data-testid="home-backup-warning">
+          <DatabaseBackup aria-hidden />
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <AlertTitle>{backup.title}</AlertTitle>
+              <AlertDescription>{backup.detail}</AlertDescription>
+            </div>
+            <Button asChild size="sm" variant="secondary">
+              <Link to="/settings/system">{backup.actionLabel}</Link>
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-6">
+          {setup.length ? <SetupCard items={setup} /> : null}
           <ApprovalsCard items={approvals} today={data?.today ?? ""} loading={inbox.isPending} />
           {other.length ? <OtherCard items={other} today={data?.today ?? ""} /> : null}
           {seesPayroll ? <PayrollCard /> : null}
@@ -105,7 +128,7 @@ export function AdminHome() {
               loading={inbox.isPending}
               status={sourceStatus("work_passes")}
               empty="No work passes expire in the next 90 days."
-              notSetUp="Work pass expiry dates come from employee records. They appear here once People is set up."
+              notSetUp="Work pass expiry dates come from employee records. They appear here once you add employees in People."
             />
           ) : null}
           {isHr || me.roles.includes("manager") ? (
@@ -119,7 +142,7 @@ export function AdminHome() {
               loading={inbox.isPending}
               status={sourceStatus("probation")}
               empty="No probation periods end in the next 14 days."
-              notSetUp="Probation end dates come from employee records. They appear here once People is set up."
+              notSetUp="Probation end dates come from employee records. They appear here once you add employees in People."
             />
           ) : null}
         </div>
@@ -197,14 +220,13 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
                         >
                           {item.title}
                         </Link>
-                        {item.task ? <OriginBadge origin={item.task.origin} onBehalfOf={item.task.onBehalfOf} /> : null}
                       </div>
                       <p className="truncate text-2xs leading-4 text-primary-200">
                         {item.detail} · <span className="num">sent {ageLabel(item.createdAt, today)}</span>
                       </p>
                     </TableCell>
                     <TableCell className="text-right">
-                      <DuePill dueOn={item.dueOn} today={today} short />
+                      <DueOrOrigin item={item} today={today} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <RowAction item={item} onApprove={approve} onReject={setRejecting} pending={decide.isPending} />
@@ -220,7 +242,6 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
                 <div className="flex min-w-0 items-center gap-2.5">
                   <Avatar name={item.concerns ?? "?"} size="sm" />
                   <p className="truncate font-medium leading-4">{item.concerns}</p>
-                  {item.task ? <OriginBadge origin={item.task.origin} onBehalfOf={item.task.onBehalfOf} /> : null}
                 </div>
                 <p className="pl-[34px] text-ui leading-5">
                   <span className="text-primary-300">{item.detail} · </span>
@@ -228,7 +249,7 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
                 </p>
                 <div className="flex items-center justify-between gap-2 pl-[34px]">
                   <span className="flex min-w-0 items-center gap-2">
-                    <DuePill dueOn={item.dueOn} today={today} short />
+                    <DueOrOrigin item={item} today={today} />
                     <span className="num truncate text-2xs text-primary-200">
                       sent {ageLabel(item.createdAt, today)}
                     </span>
@@ -284,11 +305,52 @@ function RowAction({
   );
 }
 
+/** The due pill, plus "Escalated" / "Covering" in the same column (escalated tasks have no due date). */
+function DueOrOrigin({ item, today }: { item: InboxItem; today: string }) {
+  return (
+    <span className="inline-flex flex-wrap items-center justify-end gap-1">
+      {item.task && item.task.origin !== "resolved" ? (
+        <OriginBadge origin={item.task.origin} onBehalfOf={item.task.onBehalfOf} />
+      ) : null}
+      <DuePill dueOn={item.dueOn} today={today} short />
+    </span>
+  );
+}
+
+function SetupCard({ items }: { items: InboxItem[] }) {
+  return (
+    <Card aria-labelledby="setup-title" data-testid="home-setup">
+      <CardHeader>
+        <div>
+          <CardTitle id="setup-title">Finish setting up</CardTitle>
+          <p className="mt-0.5 text-2xs text-primary-200">
+            <span className="num">{items.length}</span> {items.length === 1 ? "step" : "steps"} left before your first
+            payroll
+          </p>
+        </div>
+      </CardHeader>
+      <ol className="divide-y divide-border border-t border-border">
+        {items.map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <div className="min-w-0">
+              <p className="truncate font-medium leading-5">{item.title}</p>
+              {item.detail ? <p className="truncate text-2xs text-primary-300">{item.detail}</p> : null}
+            </div>
+            <Button size="sm" variant="secondary" asChild>
+              <a href={item.href}>{item.actionLabel}</a>
+            </Button>
+          </li>
+        ))}
+      </ol>
+    </Card>
+  );
+}
+
 function OtherCard({ items, today }: { items: InboxItem[]; today: string }) {
   return (
     <Card aria-labelledby="todo-title">
       <CardHeader>
-        <CardTitle id="todo-title">Other to-dos</CardTitle>
+        <CardTitle id="todo-title">Checklists and other to-dos</CardTitle>
       </CardHeader>
       <ul className="divide-y divide-border border-t border-border">
         {items.map((item) => (

@@ -7,16 +7,28 @@
 
 import { createArgon2Hasher } from "../apps/server/src/argon2-hasher.ts";
 import { openDatabase } from "../apps/server/src/db.ts";
+import { singaporeDate } from "../packages/core/src/access/scope.ts";
+import { systemAuditContext } from "../packages/core/src/audit/audit.ts";
 import { generateRpKeys } from "../packages/core/src/auth/oidc/keys.ts";
+import { buildActor } from "../packages/core/src/employees/access.ts";
+import { submitChangeRequest } from "../packages/core/src/employees/change-requests.ts";
+import { ctxFor, hire } from "../packages/core/src/employees/lifecycle.ts";
+import { defaultPeoplePorts } from "../packages/core/src/employees/ports.ts";
+import { addWorkPass } from "../packages/core/src/employees/work-pass.ts";
 import {
   createSecretBox,
   createUuidV7Generator,
+  fixedClock,
+  orgScope,
   parseSecretKey,
   SECRET_PURPOSES,
   schema,
   systemClock,
 } from "../packages/core/src/index.ts";
+import { hirePayload, seedBasicStructure } from "../packages/core/src/testing/people-harness.ts";
+import { replacePolicies } from "../packages/core/src/workflows/policies.ts";
 import { seedMember } from "../packages/core/testing/fixtures.ts";
+import { createTestDeps } from "../packages/core/testing/index.ts";
 import { E2E } from "./fixtures.ts";
 
 const url = process.env.DATABASE_URL;
@@ -41,7 +53,6 @@ if (!existing) {
       displayName: m.name,
       password: E2E.password,
       roles: [...m.roles],
-      employeeId: "employeeId" in m ? m.employeeId : null,
     });
   }
   await seedApprovals(orgId);
@@ -117,54 +128,94 @@ if (!ssoOrg) {
 await database.close();
 
 /**
- * Approvals (WS3): one equipment request submitted five days ago and still waiting for the
- * manager, so the server's first tick escalates it to HR ("Escalated" in the inbox).
+ * People and approvals (WS3 integration): Kai Wen manages Ahmad and Farah (real employee records,
+ * linked to their memberships); profile changes go manager → HR admin (bank: manager → payroll
+ * admin); Farah's personal-details change was sent five days ago and is still with Kai Wen, so
+ * the server's first sweep escalates it to HR ("Escalated" in the inbox). Farah's S Pass expires
+ * in 40 days and Ahmad's probation ends in 10 (Home cards).
  */
 async function seedApprovals(orgId: string) {
-  const members = await db.select().from(schema.memberships);
+  const key = parseSecretKey(process.env.CROWHR_SECRET_KEY ?? "");
+  const publicUrl = process.env.PUBLIC_URL ?? "http://127.0.0.1:3100";
+  const full = (clock = systemClock) =>
+    createTestDeps(db, { clock, ids, secretBox: createSecretBox(key), publicUrl, passwordHasher: deps.passwordHasher });
+  const now = full();
+  const today = singaporeDate(new Date());
+  const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
   const users = await db.select().from(schema.users);
-  const byEmail = (email: string) => {
+  const members = await db.select().from(schema.memberships);
+  const member = (email: string) => {
     const u = users.find((x) => x.email === email);
     const m = members.find((x) => x.userId === u?.id && x.orgId === orgId);
-    if (!m) throw new Error(`seed: no member ${email}`);
-    return m.id;
+    if (!u || !m) throw new Error(`seed: no member ${email}`);
+    return { userId: u.id, membershipId: m.id };
   };
-  const day = 86_400_000;
-  const submitted = new Date(Date.now() - 5 * day);
-  const requestId = ids.newId();
-  await db.insert(schema.approvalRequests).values({
-    id: requestId,
+  const owner = buildActor({
+    db,
     orgId,
-    subjectType: "e2e_equipment",
-    subjectId: ids.newId(),
-    requesterMembershipId: byEmail(E2E.members.requester.email),
-    requesterEmployeeId: E2E.members.requester.employeeId,
-    policyName: "Default",
-    status: "pending",
-    title: "Barista apron and thermometer",
-    submittedAt: submitted,
+    userId: member(E2E.members.owner.email).userId,
+    requestId: null,
+    roles: ["owner"],
+    employeeId: null,
+    today,
   });
-  await db.insert(schema.approvalSteps).values([
+  const ports = defaultPeoplePorts(now);
+  const structure = await seedBasicStructure({ orgId, ports, deps: now, actor: () => owner } as never);
+  const hireOne = async (name: string, job: Record<string, unknown> = {}) =>
+    (await hire(ctxFor(now, ports, owner), hirePayload(structure, { person: { legalName: name }, job }))).employeeId;
+  const kaiWen = await hireOne(E2E.members.approver.name, { jobTitle: "Outlet Manager" });
+  const ahmad = await hireOne(E2E.members.requester.name, {
+    jobTitle: "Barista",
+    managerEmployeeId: kaiWen,
+    probationEnd: day(10),
+  });
+  const farah = await hireOne(E2E.members.shots.name, { jobTitle: "Barista", managerEmployeeId: kaiWen });
+  const link = async (email: string, employeeId: string) =>
+    db
+      .update(schema.memberships)
+      .set({ employeeId })
+      .where(orgScope(db, orgId).whereId(schema.memberships, member(email).membershipId));
+  await link(E2E.members.approver.email, kaiWen);
+  await link(E2E.members.requester.email, ahmad);
+  await link(E2E.members.shots.email, farah);
+  await addWorkPass(now, ports, buildActor({ ...owner, db, roles: ["hr_admin"], today }), farah, {
+    passType: "S_PASS",
+    passNumber: "G1234567X",
+    issuedOn: "2025-01-02",
+    expiresOn: day(40),
+  });
+
+  await replacePolicies(db, now, systemAuditContext(orgId, "system", "e2e seed"), orgId, "profile_change", [
     {
-      orgId,
-      requestId,
-      position: 1,
-      approverRule: "manager",
-      escalateAfterDays: 3,
-      status: "active",
-      activatedAt: submitted,
+      name: "Default",
+      condition: null,
+      priority: 0,
+      steps: [
+        { approverRule: "manager", escalateAfterDays: 3 },
+        { approverRule: "role:hr_admin", escalateAfterDays: 3 },
+      ],
     },
-    { orgId, requestId, position: 2, approverRule: "role:hr_admin", escalateAfterDays: 3, status: "waiting" },
+    {
+      name: "Bank details",
+      condition: { typeCodes: ["bank"] },
+      priority: 10,
+      steps: [
+        { approverRule: "manager", escalateAfterDays: 3 },
+        { approverRule: "role:payroll_admin", escalateAfterDays: 3 },
+      ],
+    },
   ]);
-  await db.insert(schema.approvalTasks).values({
-    id: ids.newId(),
+
+  // Five days ago: Farah asks to correct her religion; Kai Wen hasn't acted.
+  const past = full(fixedClock(new Date(Date.now() - 5 * 86_400_000)));
+  const farahActor = buildActor({
+    db,
     orgId,
-    requestId,
-    position: 1,
-    assigneeMembershipId: byEmail(E2E.members.approver.email),
-    origin: "resolved",
-    status: "pending",
-    dueAt: new Date(submitted.getTime() + 3 * day),
-    createdAt: submitted,
+    userId: member(E2E.members.shots.email).userId,
+    requestId: null,
+    roles: [],
+    employeeId: farah,
+    today,
   });
+  await submitChangeRequest(past, defaultPeoplePorts(past), farahActor, { personal: { religion: "islam" } });
 }

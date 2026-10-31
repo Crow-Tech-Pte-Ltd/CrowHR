@@ -12,6 +12,8 @@ import { type AppDeps, fixedClock, type PasswordHasher } from "../src/deps.ts";
 import { createMemoryFileStore } from "../src/files/memory-file-store.ts";
 import { createUuidV7Generator } from "../src/ids.ts";
 import { createMemoryLogger } from "../src/logger.ts";
+import { createApproverDirectory } from "../src/workflows/directory.ts";
+import { peopleDates, peopleManagerResolver } from "../src/workflows/people.ts";
 import { migrationsFolder } from "./migrations-folder.ts";
 
 export interface TestDb {
@@ -73,6 +75,9 @@ export function createTestDeps(
     responseValidation: "strict",
     secretBox: createSecretBox(TEST_SECRET_KEY),
     publicUrl: TEST_PUBLIC_URL,
+    // Workflows read real reporting lines and dates from the people tables (tests may override).
+    approverDirectory: createApproverDirectory({ managers: peopleManagerResolver }),
+    peopleDates,
     ...overrides,
     logger,
   };

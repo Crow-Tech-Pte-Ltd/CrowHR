@@ -32,24 +32,23 @@ async function both(page: Page, name: string, prepare?: () => Promise<void>) {
 
 test("WS3 screens", async ({ browser }) => {
   test.setTimeout(120_000);
-  // Requests from people without a manager go straight to HR; Ahmad's go to Kai Wen first.
-  const staff = await signedIn(browser, E2E.members.staff.email);
-  for (const [title, amountCents] of [
-    ["Replacement espresso tamper", 6_850],
-    ["Cold brew tower for Tiong Bahru", 38_900],
-  ] as const) {
-    expect((await staff.request.post("/api/v1/e2e/requests", { data: { title, amountCents } })).status()).toBe(201);
-  }
-  const farah = await signedIn(browser, E2E.members.shots.email);
-  expect(
-    (await farah.request.post("/api/v1/e2e/requests", { data: { title: "Ergonomic stool for the till" } })).status(),
-  ).toBe(201);
+  // Ahmad asks for two changes (with Kai Wen); Kai Wen passes one on to HR.
   const requester = await signedIn(browser, E2E.members.requester.email);
-  expect(
-    (
-      await requester.request.post("/api/v1/e2e/requests", { data: { title: "Knock box", amountCents: 3_200 } })
-    ).status(),
-  ).toBe(201);
+  for (const data of [
+    { personal: { religion: "buddhism" } },
+    { bank: { bankCode: "OCBCSGSG", accountNumber: "5012345678", holderName: "Ahmad Ismail" } },
+  ]) {
+    expect((await requester.request.post("/api/v1/people/me/change-requests", { data })).status()).toBe(201);
+  }
+  const kaiWen = await signedIn(browser, E2E.members.approver.email);
+  const tasks = (await (await kaiWen.request.get("/api/v1/approvals/tasks")).json()) as {
+    items: { taskId: string; title: string }[];
+  };
+  const personal = tasks.items.find((t) => t.title === "Personal details change");
+  if (personal) {
+    await kaiWen.request.post(`/api/v1/approvals/tasks/${personal.taskId}/decision`, { data: { decision: "approve" } });
+  }
+  await kaiWen.context().close();
 
   const hr = await signedIn(browser, E2E.members.hr.email);
   await both(hr, "home-admin", async () => {
@@ -98,5 +97,5 @@ test("WS3 screens", async ({ browser }) => {
     await manager.goto("/");
     await expect(manager.getByTestId("home-approvals")).toBeVisible();
   });
-  for (const p of [staff, farah, requester, hr, owner, manager]) await p.context().close();
+  for (const p of [requester, hr, owner, manager]) await p.context().close();
 });

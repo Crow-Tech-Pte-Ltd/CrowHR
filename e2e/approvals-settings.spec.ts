@@ -49,10 +49,10 @@ test("out-of-office cover and an escalated task", async ({ browser }) => {
   await dialog.getByRole("button", { name: "Close" }).first().click();
   await manager.context().close();
 
-  // The seeded request waited 5 days for the manager: the server's first sweep escalated it to HR.
+  // Farah's seeded change waited 5 days for Kai Wen: the server's first sweep escalated it to HR.
   const hr = await signedIn(browser, E2E.members.hr.email);
   await hr.goto("/inbox");
-  const task = hr.getByTestId("inbox-task").filter({ hasText: "Barista apron and thermometer" });
+  const task = hr.getByTestId("inbox-task").filter({ hasText: E2E.members.shots.name });
   await expect(task).toContainText("Escalated");
   await task.getByRole("button").click();
   await expect(hr.getByTestId("request-panel")).toContainText("Escalated");

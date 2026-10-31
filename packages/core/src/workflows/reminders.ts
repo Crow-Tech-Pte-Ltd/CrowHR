@@ -5,13 +5,14 @@ import type { AppDeps } from "../deps.ts";
 import type { NotificationKind } from "../notifications/kinds.ts";
 import { notify } from "../notifications/notify.ts";
 import { approverDirectory } from "./directory.ts";
+import { hasEmployees, peopleDates as realPeopleDates } from "./people.ts";
 import type { DueReminder, InboxItem, InboxSource, ReminderSource } from "./types.ts";
 
 /**
  * Reminders (spec "Reminders"): work pass expiry 90/60/30/7/0 days before to hr_admins, probation
  * end 14 days before to the manager and hr_admins. The people data comes from `deps.peopleDates`
- * (implemented by the people module); without it these sources are inactive and Home says
- * "not set up yet".
+ * (default: the people module's records); Home says "not set up yet" until the organisation has
+ * employees.
  *
  * Only the most urgent threshold already reached is emitted, so a pass added with 20 days left
  * gets one 30-day reminder, not three at once. `reminders_sent` (unique per source, subject and
@@ -59,9 +60,11 @@ export function workPassReminderSource(deps: AppDeps): ReminderSource {
   return {
     id: "work_pass_expiry",
     async due(db, { today }) {
-      const people = deps.peopleDates;
-      if (!people) return [];
-      const passes = await people.workPassesExpiring(db, addDays(today, Math.max(...WORK_PASS_THRESHOLDS)));
+      const people = deps.peopleDates ?? realPeopleDates;
+      const passes = await people.workPassesExpiring(db, {
+        today,
+        until: addDays(today, Math.max(...WORK_PASS_THRESHOLDS)),
+      });
       const out: DueReminder[] = [];
       for (const p of passes) {
         const threshold = currentThreshold(today, p.expiresOn, WORK_PASS_THRESHOLDS);
@@ -88,9 +91,8 @@ export function probationReminderSource(deps: AppDeps): ReminderSource {
   return {
     id: "probation_end",
     async due(db, { today, now }) {
-      const people = deps.peopleDates;
-      if (!people) return [];
-      const ending = await people.probationsEnding(db, addDays(today, PROBATION_DAYS_BEFORE));
+      const people = deps.peopleDates ?? realPeopleDates;
+      const ending = await people.probationsEnding(db, { today, until: addDays(today, PROBATION_DAYS_BEFORE) });
       const directory = approverDirectory(deps);
       const out: DueReminder[] = [];
       for (const p of ending) {
@@ -158,16 +160,18 @@ export async function sweepReminders(deps: AppDeps, sources: readonly ReminderSo
 
 /** Home items for passes expiring within 90 days (hr_admins/owners) and probations ending within 14 days. */
 export function peopleInboxSources(deps: AppDeps): InboxSource[] {
-  const notSetUp = async () => (deps.peopleDates ? ("ready" as const) : ("not_set_up" as const));
+  const people = deps.peopleDates ?? realPeopleDates;
+  const notSetUp = async (db: Parameters<InboxSource["status"]>[0], ctx: Parameters<InboxSource["status"]>[1]) =>
+    // A host-supplied source (demo, tests) is always set up; the built-in one once there are employees.
+    people !== realPeopleDates || (await hasEmployees(db, ctx.orgId)) ? ("ready" as const) : ("not_set_up" as const);
   return [
     {
       id: "work_passes",
       label: "Work passes expiring",
       status: notSetUp,
       async list(db, ctx) {
-        if (!deps.peopleDates) return [];
         if (!ctx.roles.includes("hr_admin") && !ctx.roles.includes("owner")) return [];
-        const passes = await deps.peopleDates.workPassesExpiring(db, addDays(ctx.today, 90));
+        const passes = await people.workPassesExpiring(db, { today: ctx.today, until: addDays(ctx.today, 90) });
         return passes
           .filter((p) => p.orgId === ctx.orgId)
           .map(
@@ -192,12 +196,11 @@ export function peopleInboxSources(deps: AppDeps): InboxSource[] {
       label: "Probation ending",
       status: notSetUp,
       async list(db, ctx) {
-        if (!deps.peopleDates) return [];
         const hr = ctx.roles.includes("hr_admin") || ctx.roles.includes("owner");
         if (!hr && !ctx.isManager) return [];
-        const ending = (await deps.peopleDates.probationsEnding(db, addDays(ctx.today, PROBATION_DAYS_BEFORE))).filter(
-          (p) => p.orgId === ctx.orgId && daysUntil(ctx.today, p.endsOn) >= 0,
-        );
+        const ending = (
+          await people.probationsEnding(db, { today: ctx.today, until: addDays(ctx.today, PROBATION_DAYS_BEFORE) })
+        ).filter((p) => p.orgId === ctx.orgId && daysUntil(ctx.today, p.endsOn) >= 0);
         const directory = approverDirectory(deps);
         const out: InboxItem[] = [];
         for (const p of ending) {
