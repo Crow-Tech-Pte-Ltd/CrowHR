@@ -65,6 +65,7 @@ describe("reports", () => {
       "attendance.exceptions",
       "claims.summary",
       "payroll.cost",
+      "scheduling.hours",
     ]);
     const hr = (await ids(await w.as("hr"))).map((r) => r.id);
     expect(hr).toContain("people.headcount");
@@ -74,11 +75,12 @@ describe("reports", () => {
       "claims.summary",
       "payroll.cost",
     ]);
-    // Manager catalogue: leave and attendance, team-scoped; no payroll cost or headcount.
+    // Manager catalogue: leave, attendance and scheduled hours, team-scoped; no payroll cost or headcount.
     expect(await ids(await w.as("manager"))).toEqual([
       expect.objectContaining({ id: "leave.taken", scope: "team" }),
       expect.objectContaining({ id: "leave.balances", scope: "team" }),
       expect.objectContaining({ id: "attendance.exceptions", scope: "team" }),
+      expect.objectContaining({ id: "scheduling.hours", scope: "team" }),
     ]);
     expect(await ids(await w.as("staff"))).toEqual([]);
   });

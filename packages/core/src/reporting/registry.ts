@@ -4,6 +4,7 @@ import type { AppDeps } from "../deps.ts";
 import { peopleReportSource } from "../employees/reports/source.ts";
 import { leaveReportSource } from "../leave/reports.ts";
 import { payrollReportSource } from "../payroll/reports.ts";
+import { schedulingReportSource } from "../scheduling/report-source.ts";
 import type { AnyReportDefinition, ReportSource } from "./types.ts";
 
 /**
@@ -17,6 +18,7 @@ export const CORE_REPORT_SOURCES: readonly ReportSource[] = [
   attendanceReportSource,
   claimsReportSource,
   payrollReportSource,
+  schedulingReportSource,
 ];
 
 export type ReportingAppDeps = AppDeps & { reportSources?: readonly ReportSource[] };
