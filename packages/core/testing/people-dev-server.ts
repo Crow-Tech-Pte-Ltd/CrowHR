@@ -1,12 +1,12 @@
 /**
- * DEV/TEST ONLY: a local server with the people modules, an in-memory PGlite
- * seeded with the fictional Kopi Kaki staff, and the built web app.
+ * DEV/TEST ONLY: a local server running the real app (`createApp`: sessions,
+ * CSRF, permission matrix, audit) on an in-memory PGlite seeded with the
+ * fictional Kopi Kaki staff, plus the built web app.
  *
- * NOT IMPLEMENTED (real sign-in): the identity workstream has not landed
- * sessions yet, so this server picks a persona from the `crowhr_dev_persona`
- * cookie (set by visiting `/__dev/as/<persona>`). It binds to 127.0.0.1 only
- * and is never used by apps/server. Used for Playwright e2e and screenshots
- * until real sign-in exists; then the e2e specs move to the real server.
+ * Signing in: there is no first-run setup wizard yet (self-hosting
+ * workstream), so `/__dev/as/<persona>` creates a real session for a seeded
+ * member and sets the real session cookie. That endpoint exists only in this
+ * file; it binds to 127.0.0.1 and is never part of apps/server.
  *
  *   node packages/core/testing/people-dev-server.ts   (PORT, default 3200; WEB_DIST)
  */
@@ -14,70 +14,70 @@ import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { Hono } from "hono";
-import { V1_MODULES } from "../src/app.ts";
-import type { AppEnv, AuthContext } from "../src/context.ts";
+import type { AssignedRole } from "../src/access/matrix.ts";
+import { createApp } from "../src/app.ts";
+import { sessionCookie } from "../src/auth/settings.ts";
+import { newToken, sha256Hex } from "../src/crypto/tokens.ts";
+import { sessions } from "../src/db/schema/auth.ts";
 import { createReportingScopeResolver } from "../src/employees/reports/reporting-scope.ts";
-import { handleError } from "../src/errors.ts";
-import { requestContext } from "../src/http/request-context.ts";
-import { buildModuleRouter } from "../src/http/route.ts";
-import { healthRoutes } from "../src/modules/health/routes.ts";
 import { createPeopleHarness, OWNER } from "../src/testing/people-harness.ts";
 import { seedPeople } from "../src/testing/seed-people.ts";
+import { seedMember } from "./fixtures.ts";
 import { createTestDb, createTestDeps } from "./index.ts";
 
 const PORT = Number(process.env.PORT ?? 3200);
 const WEB_DIST = resolve(process.env.WEB_DIST ?? new URL("../../../apps/web/dist", import.meta.url).pathname);
 
-const PERSONAS: Record<string, { roles: AuthContext["roles"]; employee: string | null; name: string }> = {
-  owner: { roles: ["owner"], employee: null, name: "Owner (no employee record)" },
-  hr: { roles: ["hr_admin", "payroll_admin"], employee: "hr", name: "Nur Aisyah (HR + payroll)" },
-  hronly: { roles: ["hr_admin"], employee: null, name: "HR admin only" },
-  manager: { roles: [], employee: "opsmgr", name: "Rajesh (manager)" },
-  employee: { roles: [], employee: "barista1", name: "Goh Jun Jie (employee)" },
+const PERSONAS: Record<string, { roles: AssignedRole[]; employee: string | null; email: string }> = {
+  owner: { roles: ["owner"], employee: "owner", email: "kahhui@kopikaki.example" },
+  hr: { roles: ["hr_admin", "payroll_admin"], employee: "hr", email: "aisyah@kopikaki.example" },
+  hronly: { roles: ["hr_admin"], employee: null, email: "hr-temp@kopikaki.example" },
+  manager: { roles: [], employee: "opsmgr", email: "rajesh@kopikaki.example" },
+  employee: { roles: [], employee: "barista1", email: "junjie@kopikaki.example" },
 };
 
 async function main() {
   const t = await createTestDb();
-  const base = createTestDeps(t.db, { responseValidation: "strip" });
-  const h = await createPeopleHarness(base, { orgName: "Kopi Kaki Pte. Ltd." });
+  const publicUrl = `http://127.0.0.1:${PORT}`;
+  const base = createTestDeps(t.db, { responseValidation: "strip", publicUrl, clock: { now: () => new Date() } });
+  const h = await createPeopleHarness(base, { orgName: "Kopi Kaki Pte. Ltd.", slug: "kopi-kaki" });
   const seeded = await seedPeople(h.deps, h.ports, h.actor(OWNER));
-  const deps = { ...h.deps, clock: { now: () => new Date() }, reportingScope: createReportingScopeResolver(t.db) };
+  const deps = { ...h.deps, reportingScope: createReportingScopeResolver(t.db) };
+  const members = new Map<string, Awaited<ReturnType<typeof seedMember>>>();
+  for (const [key, p] of Object.entries(PERSONAS)) {
+    members.set(
+      key,
+      await seedMember(deps, h.orgId, {
+        email: p.email,
+        roles: p.roles,
+        employeeId: p.employee ? (seeded.employees[p.employee] ?? null) : null,
+      }),
+    );
+  }
+  const cookieName = sessionCookie(publicUrl).name;
 
-  const app = new Hono<AppEnv>();
-  app.use("*", requestContext(deps));
-  app.get("/__dev/as/:persona", (c) => {
-    const p = c.req.param("persona");
-    if (!PERSONAS[p]) return c.text(`Unknown persona. Use one of: ${Object.keys(PERSONAS).join(", ")}`, 400);
-    c.header("set-cookie", `crowhr_dev_persona=${p}; Path=/; SameSite=Lax; HttpOnly`);
+  const app = new Hono();
+  app.get("/__dev/as/:persona", async (c) => {
+    const m = members.get(c.req.param("persona"));
+    if (!m) return c.text(`Unknown persona. Use one of: ${Object.keys(PERSONAS).join(", ")}`, 400);
+    const token = newToken();
+    const now = new Date();
+    await t.db.insert(sessions).values({
+      id: await sha256Hex(token),
+      orgId: m.orgId,
+      userId: m.userId,
+      membershipId: m.membershipId,
+      authMethod: "password",
+      createdAt: now,
+      lastSeenAt: now,
+      authenticatedAt: now,
+      absoluteExpiresAt: new Date(now.getTime() + 12 * 3600_000),
+      mfaSatisfied: true,
+    });
+    c.header("set-cookie", `${cookieName}=${token}; Path=/; SameSite=Lax; HttpOnly`);
     return c.redirect(c.req.query("to") ?? "/people");
   });
-  app.use("/api/*", async (c, next) => {
-    const cookie = c.req.header("cookie") ?? "";
-    const key = /crowhr_dev_persona=([a-z]+)/.exec(cookie)?.[1] ?? "owner";
-    const p = PERSONAS[key] ?? PERSONAS.owner;
-    if (p) {
-      c.set("auth", {
-        user: {
-          id: `00000000-0000-7000-8000-00000000000${Object.keys(PERSONAS).indexOf(key)}`,
-          email: `${key}@kopikaki.example`,
-          displayName: p.name,
-        },
-        orgId: h.orgId,
-        membershipId: "00000000-0000-7000-8000-0000000000aa",
-        membershipStatus: "active",
-        employeeId: p.employee ? (seeded.employees[p.employee] ?? null) : null,
-        roles: p.roles,
-        authMethod: "password",
-        identity: null,
-        session: { id: "dev", kind: "browser", authenticatedAt: new Date(), mfaSatisfied: true },
-      });
-    }
-    await next();
-  });
-  app.onError(handleError);
-  app.route("/api/health", healthRoutes);
-  app.route("/api/v1", buildModuleRouter(V1_MODULES));
-  app.all("/api/*", (c) => c.json({ error: { code: "not_found", message: "No API endpoint here." } }, 404));
+  app.route("/", createApp(deps));
 
   const TYPES: Record<string, string> = {
     ".html": "text/html; charset=utf-8",
@@ -104,14 +104,18 @@ async function main() {
     const headers = new Headers();
     for (const [k, v] of Object.entries(req.headers)) if (typeof v === "string") headers.set(k, v);
     const body = req.method === "GET" || req.method === "HEAD" ? undefined : Buffer.concat(chunks);
-    const response = await app.fetch(
-      new Request(`http://127.0.0.1:${PORT}${req.url}`, { method: req.method, headers, body }),
-    );
-    res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
+    const response = await app.fetch(new Request(`${publicUrl}${req.url}`, { method: req.method, headers, body }));
+    const out: Record<string, string | string[]> = {};
+    response.headers.forEach((v, k) => {
+      if (k !== "set-cookie") out[k] = v;
+    });
+    const cookies = response.headers.getSetCookie();
+    if (cookies.length) out["set-cookie"] = cookies;
+    res.writeHead(response.status, out);
     res.end(Buffer.from(await response.arrayBuffer()));
   });
   server.listen(PORT, "127.0.0.1", () => {
-    console.warn(`People dev server (DEV ONLY, fake personas) on http://127.0.0.1:${PORT}`);
+    console.warn(`People dev server (DEV ONLY, persona sign-in) on ${publicUrl}`);
   });
   const stop = () => server.close(() => t.close().finally(() => process.exit(0)));
   process.once("SIGINT", stop);

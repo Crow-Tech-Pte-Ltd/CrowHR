@@ -1,5 +1,5 @@
 {
-  "id": "b57bb479-a68e-4d12-9dd2-4889457fd121",
+  "id": "65d03c92-2371-4f59-a4a7-da615cd93fdc",
   "prevId": "cf47b9e4-e6db-41b4-933b-ff4995816d2e",
   "version": "7",
   "dialect": "postgresql",
@@ -297,21 +297,6 @@
             "user_id"
           ],
           "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "memberships_employee_fk": {
-          "name": "memberships_employee_fk",
-          "tableFrom": "memberships",
-          "tableTo": "employees",
-          "columnsFrom": [
-            "org_id",
-            "employee_id"
-          ],
-          "columnsTo": [
-            "org_id",
             "id"
           ],
           "onDelete": "no action",

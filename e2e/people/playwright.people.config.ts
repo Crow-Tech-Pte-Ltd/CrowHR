@@ -4,9 +4,9 @@ const PORT = Number(process.env.PEOPLE_E2E_PORT ?? 3210);
 
 /**
  * People e2e against the DEV-ONLY people server (packages/core/testing/people-dev-server.ts),
- * which fakes sign-in with personas until the identity workstream lands sessions.
+ * which runs the real app and signs personas in with real sessions (there is no setup wizard yet).
  * Run: bun run --cwd apps/web build && bunx playwright test -c e2e/people/playwright.people.config.ts
- * Specs are named *.people.ts so the root config (real server, no sign-in yet) does not pick them up.
+ * Specs are named *.people.ts so the root config (real server, empty database) does not pick them up.
  */
 export default defineConfig({
   testDir: ".",

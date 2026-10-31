@@ -239,7 +239,25 @@ function ImportPage() {
             </Alert>
           ) : null}
           {p.errors.length ? (
-            <Table aria-label="Problems in the file">
+            <ul className="divide-y divide-border rounded-lg border border-border sm:hidden" aria-label="Problems">
+              {p.errors.map((e) => (
+                <li key={`m-${e.row}-${e.column}-${e.message}`} className="flex flex-col gap-0.5 px-3 py-2.5">
+                  <span className="font-azeret text-2xs text-primary-200">
+                    Row <span className="num">{e.row}</span> · {e.column}
+                    {e.value ? (
+                      <>
+                        {" "}
+                        · <span className="num text-ink">{e.value}</span>
+                      </>
+                    ) : null}
+                  </span>
+                  <span className="text-ui">{e.message}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {p.errors.length ? (
+            <Table aria-label="Problems in the file" containerClassName="hidden sm:block">
               <TableHeader>
                 <TableRow>
                   <TableHead numeric className="w-16">

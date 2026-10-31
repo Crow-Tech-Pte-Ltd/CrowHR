@@ -39,7 +39,7 @@ test.describe("people screenshots", () => {
       await page
         .locator("#import-file")
         .setInputFiles({ name: "staff.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
-      await expect(page.getByRole("table", { name: "Problems in the file" })).toBeVisible();
+      await expect(page.getByText(/problems? to fix/)).toBeVisible();
       await page.screenshot({ path: `${DIR}/ws2-import-preview-${suffix}.png`, fullPage: true });
 
       await page.goto("/settings/company");

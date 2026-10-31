@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
 import { check, foreignKey, index, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
-import { employees } from "./employees.ts";
 import { organisations } from "./organisations.ts";
 import { users } from "./users.ts";
 
@@ -28,12 +27,6 @@ export const memberships = pgTable(
     unique("memberships_org_user_unique").on(t.orgId, t.userId),
     unique("memberships_org_id_unique").on(t.orgId, t.id),
     check("memberships_status_check", sql`${t.status} in ('invited', 'active', 'suspended', 'former')`),
-    // Added by add-organisation-and-people: the linked employee must be in the same organisation.
-    foreignKey({
-      name: "memberships_employee_fk",
-      columns: [t.orgId, t.employeeId],
-      foreignColumns: [employees.orgId, employees.id],
-    }),
   ],
 );
 

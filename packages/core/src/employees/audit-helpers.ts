@@ -1,5 +1,5 @@
-import type { Actor } from "./access.ts";
 import type { AuditDiff } from "../audit/audit.ts";
+import type { Actor } from "./access.ts";
 import type { AuditEventInput, PeoplePorts } from "./ports.ts";
 
 /** Fields whose values never enter the audit log (sensitivity classes salary, nric, bank). */

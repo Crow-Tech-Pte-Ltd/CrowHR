@@ -99,7 +99,6 @@ export const organisationModule = defineModule({
   name: "organisation",
   basePath: "/organisation",
   tag: "Organisation",
-  feature: "organisation",
   routes: [
     defineRoute({
       method: "get",
@@ -225,6 +224,7 @@ export const organisationModule = defineModule({
       method: "post",
       path: "/structure/:kind/:id/archive",
       summary: "Archive or restore a structure entry",
+      example: { body: { archived: true } },
       description:
         "Archiving an entry used by current employees fails with 409 conflict, reason in_use, and the count.",
       access: { permission: "org_structure:archive" },
@@ -261,6 +261,7 @@ export const organisationModule = defineModule({
       method: "put",
       path: "/work-schedules/:id",
       summary: "Change a work schedule from a date (new effective-dated version)",
+      example: { body: { effectiveFrom: "2026-12-01", kind: "shift", weeklyMinutes: 2640 } },
       access: { permission: "org_structure:update" },
       request: { params: idParam, body: updateScheduleInput },
       responses: { 200: scheduleSchema },

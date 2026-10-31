@@ -30,17 +30,10 @@ export function createPeopleTestApp(deps: AppDeps) {
   return {
     app,
     /** A signed-in member of `orgId` with these assigned roles, linked to `employeeId`. */
-    as(
-      orgId: string,
-      roles: AssignedRole[],
-      employeeId: string | null = null,
-      status: "active" | "former" = "active",
-    ) {
+    as(orgId: string, roles: AssignedRole[], employeeId: string | null = null, status: "active" | "former" = "active") {
       let client: Promise<TestClient> | null = null;
       const get = () => {
-        client ??= seedMember(withScope, orgId, { roles, employeeId, status }).then((m) =>
-          clientAs(app, withScope, m),
-        );
+        client ??= seedMember(withScope, orgId, { roles, employeeId, status }).then((m) => clientAs(app, withScope, m));
         return client;
       };
       const v1 = (p: string) => `/api/v1${p}`;
