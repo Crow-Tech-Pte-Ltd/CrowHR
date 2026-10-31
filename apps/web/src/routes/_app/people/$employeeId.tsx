@@ -559,7 +559,8 @@ function describeEvent(p: Record<string, unknown>): string {
   if (ch.managerEmployeeId !== undefined) bits.push("manager");
   if (ch.locationId) bits.push("location");
   if (typeof p.reason === "string" && p.reason !== "resignation") bits.push(label(p.reason));
-  if (typeof p.noticeDays === "number") bits.push(`${p.noticeDays} days' notice`);
+  if (typeof p.noticeDays === "number")
+    bits.push(`${p.noticeDays} days' notice${p.noticeBasis === "statutory" ? " (Employment Act minimum)" : ""}`);
   if (typeof p.jobTitle === "string") bits.push(p.jobTitle);
   return bits.length ? ` · ${bits.join(", ")}` : "";
 }
@@ -755,7 +756,7 @@ function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
   const ref = useQuery(referenceQuery);
   const [type, setType] = React.useState("resignation");
   const [noticeOn, setNoticeOn] = React.useState(today());
-  const [noticeDays, setNoticeDays] = React.useState("30");
+  const [noticeDays, setNoticeDays] = React.useState("");
   const [lastDay, setLastDay] = React.useState("");
   const [reason, setReason] = React.useState("retrenchment");
   const save = useMutation({
@@ -764,7 +765,13 @@ function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
         "POST",
         `/employees/${e.id}/events`,
         type === "resignation"
-          ? { type, noticeGivenOn: noticeOn, noticeDays: Number(noticeDays), agreedLastWorkingDay: lastDay || null }
+          ? {
+              type,
+              noticeGivenOn: noticeOn,
+              // Empty: the contract states no notice period, so the Employment Act minimum applies.
+              noticeDays: noticeDays.trim() === "" ? null : Number(noticeDays),
+              agreedLastWorkingDay: lastDay || null,
+            }
           : { type, reason, lastWorkingDay: lastDay },
       ),
     onSuccess: async () => {
@@ -808,13 +815,12 @@ function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
               />
               <TextInput
                 label="Notice period (days)"
-                required
                 mono
                 inputMode="numeric"
                 value={noticeDays}
                 onChange={setNoticeDays}
                 error={errs.noticeDays}
-                hint="From the employment contract."
+                hint="From the employment contract. Leave empty if the contract states none: the Employment Act minimum applies (1 day under 26 weeks of service, 1 week under 2 years, 2 weeks under 5 years, then 4 weeks)."
               />
               <DateInput
                 label="Agreed last day (optional)"

@@ -45,7 +45,7 @@ Interfaces defined ahead of their implementers. Each comes with a test double, s
 | `LeaveCalendar` | scheduling | leave |
 | `PlannedShifts` | scheduling | consumed by attendance |
 | `ReportDefinition` + payroll-cost/leave row contracts | reporting | employees, claims, leave, attendance, payroll |
-| `sg-rules` lookups (rest day, minimum age, notice, CSN payment types, Part IV thresholds, hour limits, KET items) | each consuming change, marked TODO | `add-sg-statutory-engine` covers Part IV and OT; the rest are follow-ups for the sg-rules workstream |
+| `sg-rules` lookups (rest day, minimum age, notice, CSN payment types, Part IV thresholds, hour limits, KET items) | each consuming change, marked TODO | `add-sg-statutory-engine` covers Part IV and OT; minimum age and default notice landed (`employment-act/notice-and-age.ts`, MOM-cited); the rest are follow-ups for the sg-rules workstream |
 
 ## Workstreams and file ownership
 

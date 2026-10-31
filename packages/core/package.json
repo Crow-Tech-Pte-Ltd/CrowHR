@@ -20,6 +20,7 @@
     "openapi:check": "node scripts/openapi.ts check"
   },
   "dependencies": {
+    "@crowhr/sg-rules": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.14",
     "openid-client": "^6.8.8",
