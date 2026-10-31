@@ -1,6 +1,8 @@
+import { attendanceDaysWorkedSource, attendanceOvertimeSource } from "../attendance/outputs.ts";
 import { createClaimsReimbursementSource } from "../claims/reimbursement.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
+import { leaveUnpaidSource } from "../leave/outputs.ts";
 
 /**
  * Collaborators of the payroll module. Each is an interface with a production default and a test
@@ -9,7 +11,9 @@ import type { AppDeps } from "../deps.ts";
  * | Port | Owner (to wire) | Default here | Tests |
  * | --- | --- | --- | --- |
  * | `reimbursements` | WS6 claims (`ReimbursementSource`, add-claims design §5) | `createClaimsReimbursementSource(deps)` (approved claims) | `createMemoryReimbursements()` |
- * | `overtime` | WS5 attendance (approved OT) | `manualOvertimeOnly` (OT entered as run items) | `createMemoryOvertime()` |
+ * | `overtime` | WS5 attendance (approved OT) | `attendanceOvertimeSource` | `createMemoryOvertime()` / `manualOvertimeOnly` |
+ * | `unpaidLeave` | WS5 leave (no-pay, unpaid infant care) | `leaveUnpaidSource` | `noUnpaidLeave` |
+ * | `daysWorked` | WS5 attendance (rostered staff) | `attendanceDaysWorkedSource` | `noDaysWorked` |
  *
  * Approvals go through the workflows engine: `payroll/approval.ts` registers the `payroll_run`
  * subject adapter in `CORE_WORKFLOW_PLUGINS`.
@@ -67,12 +71,50 @@ export interface OvertimeSource {
   listApproved(orgId: string, periodStart: string, periodEnd: string): Promise<ApprovedOvertime[]>;
 }
 
-/** NOT IMPLEMENTED (attendance module): overtime is entered by hand on the run. */
+/** Overtime entered by hand on the run only (tests; hosts without attendance). The default is attendance's approved OT. */
 export const manualOvertimeOnly: OvertimeSource = { listApproved: async () => [] };
+
+/** One date of approved unpaid leave (no-pay, unpaid infant care): an `unpaid_leave` run item. */
+export interface UnpaidLeaveDay {
+  /** Stable: the leave request day's id. */
+  sourceId: string;
+  requestId: string;
+  employeeId: string;
+  date: string;
+  /** Multiples of 0.5. */
+  days: number;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+}
+
+export interface UnpaidLeaveSource {
+  listUnpaid(orgId: string, periodStart: string, periodEnd: string): Promise<UnpaidLeaveDay[]>;
+}
+
+/** Days worked by rostered staff (no fixed week): a `days_worked` run item (EA s 20A). */
+export interface RosterDaysWorked {
+  sourceId: string;
+  employeeId: string;
+  /** Includes public holidays and paid leave; excludes no-pay leave. Multiples of 0.5. */
+  daysWorked: number;
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface DaysWorkedSource {
+  listDaysWorked(orgId: string, periodStart: string, periodEnd: string): Promise<RosterDaysWorked[]>;
+}
+
+export const noUnpaidLeave: UnpaidLeaveSource = { listUnpaid: async () => [] };
+export const noDaysWorked: DaysWorkedSource = { listDaysWorked: async () => [] };
 
 export interface PayrollPorts {
   reimbursements: ReimbursementSource;
   overtime: OvertimeSource;
+  /** WS5 leave: approved unpaid leave per date (pro-ration). */
+  unpaidLeave: UnpaidLeaveSource;
+  /** WS5 attendance: days worked by rostered staff who clock in. Scheduled days still come from HR. */
+  daysWorked: DaysWorkedSource;
 }
 
 export type PayrollAppDeps = AppDeps & { payroll?: Partial<PayrollPorts> };
@@ -81,6 +123,8 @@ export function payrollPorts(deps: AppDeps): PayrollPorts {
   const p = (deps as PayrollAppDeps).payroll ?? {};
   return {
     reimbursements: p.reimbursements ?? createClaimsReimbursementSource(deps),
-    overtime: p.overtime ?? manualOvertimeOnly,
+    overtime: p.overtime ?? attendanceOvertimeSource(deps),
+    unpaidLeave: p.unpaidLeave ?? leaveUnpaidSource(deps),
+    daysWorked: p.daysWorked ?? attendanceDaysWorkedSource(deps),
   };
 }

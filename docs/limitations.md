@@ -113,6 +113,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Government-paid leave claims** are not submitted (the MSF portal has no API). The report lists employer-paid and Government-paid days and the claim deadline; amounts are not computed. Shared parental leave weeks are shared between the parents as the employee declares; the other parent's usage is not known.
 - **EA maternity leave** for a non-citizen child approximates "fewer than 2 living children" by birth order.
 - **Encashment** is a ledger entry at year end (days only); paying it is payroll's job and is not wired.
+- **Payroll inputs**: approved no-pay and unpaid infant care leave and approved OT reach the run automatically (payroll's port defaults). A manual `unpaid_leave` item on the same date, or a manual `days_worked` item, takes precedence over the fed one. Rostered staff's **scheduled days** still have to be entered by HR (NOT IMPLEMENTED until scheduling, M3); attendance supplies only days worked, and only for staff who clock in.
 - **NOT IMPLEMENTED: manager/executive flag.** Part 4 coverage (carry-forward floor) assumes nobody is a manager or executive, because employment records have no such field yet.
 - **Scheduling conflicts**: `LeaveCalendar` is exposed for the scheduling module, but no `ScheduleConflictNotifier` is called when leave is approved (scheduling doesn't exist yet).
 - **The NDR 2026 childcare changes** are recorded in sg-rules with no effective date and are not applied.
