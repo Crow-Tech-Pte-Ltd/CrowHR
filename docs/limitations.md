@@ -138,3 +138,6 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Swaps** stay within one roster. A shift with unpublished edits can't be offered until the roster is published again. Deleting a shift removes its swap requests, and both employees are notified.
 - **Managers roster only their team** (matrix scope T), so a manager can't roster themselves; an owner or hr_admin can.
 - **Open shifts** are picked up through approval only; there is no first-come auto-assignment.
+- **Week grid**: drag moves a shift (no copy-drag); a cell holds several shifts but the keyboard shortcuts act on the first. Below 1400 px the chip drops the template code (it stays in the tooltip and the editor). At phone width the grid becomes a day list.
+- **The approver's link** from a shift-swap task opens My schedule, not the roster week (the workflows link callback has no database access).
+- **CSV export** is for editors only; staff see the published roster on screen.

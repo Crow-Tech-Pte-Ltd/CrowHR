@@ -45,10 +45,10 @@ test.describe("application shell", () => {
   });
 
   test("unbuilt modules show an honest empty state, also on a deep-link reload", async ({ page }) => {
-    await page.goto("/schedules");
+    await page.goto("/reports");
     const empty = page.getByTestId("module-empty-state");
     await expect(empty).toBeVisible();
-    await expect(empty).toContainText("Schedules is not available yet");
+    await expect(empty).toContainText("Reports is not available yet");
   });
 
   test("works at 360px without horizontal scrolling", async ({ page }) => {
