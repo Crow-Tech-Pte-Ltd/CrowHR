@@ -20,6 +20,7 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@crowhr/core": "workspace:*",
     "@tanstack/router-plugin": "^1.168.48",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
