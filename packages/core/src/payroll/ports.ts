@@ -1,3 +1,4 @@
+import { createClaimsReimbursementSource } from "../claims/reimbursement.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 
@@ -7,7 +8,7 @@ import type { AppDeps } from "../deps.ts";
  *
  * | Port | Owner (to wire) | Default here | Tests |
  * | --- | --- | --- | --- |
- * | `reimbursements` | WS6 claims (`ReimbursementSource`, add-claims design §5) | `noClaimsYet` (nothing payable) | `createMemoryReimbursements()` |
+ * | `reimbursements` | WS6 claims (`ReimbursementSource`, add-claims design §5) | `createClaimsReimbursementSource(deps)` (approved claims) | `createMemoryReimbursements()` |
  * | `overtime` | WS5 attendance (approved OT) | `manualOvertimeOnly` (OT entered as run items) | `createMemoryOvertime()` |
  *
  * Approvals go through the workflows engine: `payroll/approval.ts` registers the `payroll_run`
@@ -34,14 +35,18 @@ export interface PayableClaim {
 }
 
 export interface ReimbursementSource {
-  listPayable(orgId: string, periodEnd: string): Promise<PayableClaim[]>;
+  /**
+   * Approved, unpaid claims approved on or before `periodEnd`. With `runId`, claims reserved by
+   * another run are left out (claims reserved by this run stay listed, so a recompute keeps them).
+   */
+  listPayable(orgId: string, periodEnd: string, opts?: { runId?: string }): Promise<PayableClaim[]>;
   /** Fails if any claim is already reserved by another run or paid. */
   reserve(tx: Db, orgId: string, runId: string, claimIds: string[]): Promise<void>;
   release(tx: Db, orgId: string, runId: string): Promise<void>;
   markPaid(tx: Db, orgId: string, runId: string, paymentDate: string): Promise<void>;
 }
 
-/** NOT IMPLEMENTED (claims module): nothing is ever payable, so no reimbursement lines appear. */
+/** Nothing payable: a test double for payroll tests that don't involve claims. */
 export const noClaimsYet: ReimbursementSource = {
   listPayable: async () => [],
   reserve: async () => {},
@@ -75,7 +80,7 @@ export type PayrollAppDeps = AppDeps & { payroll?: Partial<PayrollPorts> };
 export function payrollPorts(deps: AppDeps): PayrollPorts {
   const p = (deps as PayrollAppDeps).payroll ?? {};
   return {
-    reimbursements: p.reimbursements ?? noClaimsYet,
+    reimbursements: p.reimbursements ?? createClaimsReimbursementSource(deps),
     overtime: p.overtime ?? manualOvertimeOnly,
   };
 }

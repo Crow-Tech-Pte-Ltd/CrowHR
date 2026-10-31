@@ -38,6 +38,14 @@ export const ERROR_STATUS = {
   last_owner: 409,
   /** No organisation exists yet: finish the setup wizard at /setup first. */
   setup_required: 409,
+  /** Upload larger than the endpoint allows (claim receipts: 10 MB). */
+  file_too_large: 413,
+  /** Upload content is not one of the accepted file types (checked by signature, not extension). */
+  unsupported_file_type: 415,
+  /** A claim line would take the employee past the claim type's cap; details give cap, used, pending, remaining. */
+  cap_exceeded: 422,
+  /** The employee may not use this claim type (employment type, probation or archived). */
+  not_eligible: 422,
   rate_limited: 429,
   internal: 500,
   /** The feature exists in the API contract but its implementation has not landed yet. */

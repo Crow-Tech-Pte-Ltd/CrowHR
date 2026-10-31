@@ -8,6 +8,7 @@ import { nativeModule } from "./auth/native/routes.ts";
 import { authModule } from "./auth/routes.ts";
 import { securityModule } from "./auth/security-routes.ts";
 import { authenticate } from "./auth/sessions.ts";
+import { claimsModule } from "./claims/routes.ts";
 import type { AppEnv } from "./context.ts";
 import type { AppDeps } from "./deps.ts";
 import { employeesModule, peopleModule } from "./employees/routes.ts";
@@ -33,6 +34,7 @@ export const V1_MODULES: readonly ApiModule[] = [
   approvalsModule,
   auditModule,
   authModule,
+  claimsModule,
   employeesModule,
   inboxModule,
   meModule,
