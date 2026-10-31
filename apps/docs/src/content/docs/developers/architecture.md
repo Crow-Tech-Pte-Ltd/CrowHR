@@ -30,16 +30,16 @@ packages/sg-rules ──► nothing (pure, zero-dependency)
 
 `packages/core` never imports Node built-ins or Node-only packages. Everything host-specific arrives through `AppDeps`:
 
-| Dependency | Server | Tests | Planned browser demo |
+| Dependency | Server | Tests | Browser demo (`packages/demo`) |
 | --- | --- | --- | --- |
 | `db` (Drizzle) | node-postgres pool | in-memory PGlite | PGlite on IndexedDB |
-| `passwordHasher` | argon2id | fast fake | Web Crypto |
-| `fileStore` | local disk | in-memory | in-memory / IndexedDB |
-| `clock` | system clock | fixed or movable clock | system clock |
+| `passwordHasher` | argon2id | fast fake | PBKDF2 via Web Crypto (refused by the server) |
+| `fileStore` | local disk | in-memory | `demo_files` table in the visitor's PGlite |
+| `clock` | system clock | fixed or movable clock | system time shifted onto 31 Oct 2026 (the seed's "today") |
 | `ids` | UUIDv7 via Web Crypto | same, fixed clock | same |
 | `logger` | JSON lines on stdout | in-memory capture | console |
 
-The reason is the planned [public demo](/docs/coming-soon/demo/), which would run the same core in the browser. A test (`src/runtime-agnostic.test.ts`) fails on any Node-only import under `src/`.
+The reason is the [in-browser demo](/docs/demo/), which runs the same core in the browser. A test (`src/runtime-agnostic.test.ts`) fails on any Node-only import under `src/`.
 
 ## Request lifecycle
 

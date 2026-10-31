@@ -26,7 +26,8 @@ The permissions come from the server's [permission matrix](/docs/roles-and-permi
 
 - **Managers** see only their team (their direct and indirect reports) in leave and attendance reports. Totals are computed over the rows you can see, never over the whole company.
 - **Salary columns** (headcount's monthly basic pay, leave liability, every payroll cost amount) need salary access to every employee in the report. An HR admin who is not also a payroll admin gets the report without those columns; the response and the export list them in `redactedColumns` (for example `basicPay`). An HR admin who also holds payroll admin sees them.
-- Viewing a report that shows salary columns is audit-logged (`report.viewed`), and so is every export (`report.exported`, with the parameters, the row count and the columns left out).
+- **Work pass numbers** in the work pass expiry list are an identity field: readers without access to personal details get the list without them, listed in `redactedColumns` the same way.
+- Viewing a report that shows sensitive columns (salary or work pass numbers) is audit-logged (`report.viewed`), and so is every export (`report.exported`, with the parameters, the row count and the columns left out).
 
 ## How the numbers are worked out
 
