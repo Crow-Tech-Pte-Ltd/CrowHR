@@ -19159,6 +19159,9 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "inputsChangedSinceCompute": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -19187,7 +19190,8 @@
                     "totals",
                     "releasedAt",
                     "paidAt",
-                    "createdAt"
+                    "createdAt",
+                    "inputsChangedSinceCompute"
                   ],
                   "additionalProperties": false
                 }
@@ -19686,6 +19690,9 @@
                         },
                         "createdAt": {
                           "type": "string"
+                        },
+                        "inputsChangedSinceCompute": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -19714,7 +19721,8 @@
                         "totals",
                         "releasedAt",
                         "paidAt",
-                        "createdAt"
+                        "createdAt",
+                        "inputsChangedSinceCompute"
                       ],
                       "additionalProperties": false
                     },
@@ -20442,6 +20450,9 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "inputsChangedSinceCompute": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -20470,7 +20481,8 @@
                     "totals",
                     "releasedAt",
                     "paidAt",
-                    "createdAt"
+                    "createdAt",
+                    "inputsChangedSinceCompute"
                   ],
                   "additionalProperties": false
                 }
@@ -21022,6 +21034,9 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "inputsChangedSinceCompute": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -21050,7 +21065,8 @@
                     "totals",
                     "releasedAt",
                     "paidAt",
-                    "createdAt"
+                    "createdAt",
+                    "inputsChangedSinceCompute"
                   ],
                   "additionalProperties": false
                 }
@@ -21478,6 +21494,9 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "inputsChangedSinceCompute": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -21506,7 +21525,8 @@
                     "totals",
                     "releasedAt",
                     "paidAt",
-                    "createdAt"
+                    "createdAt",
+                    "inputsChangedSinceCompute"
                   ],
                   "additionalProperties": false
                 }
@@ -22794,6 +22814,224 @@
         }
       }
     },
+    "/api/v1/payroll/runs/{runId}/files/bank": {
+      "get": {
+        "operationId": "payroll.getRunsByRunIdFilesBank",
+        "summary": "Generic ISO 20022 pain.001.001.03 salary credit-transfer file (not a bank-specific format)",
+        "description": "Open-standard file for banks that accept ISO 20022 pain.001 uploads. DBS, OCBC and UOB bulk formats are not public and are not produced; test the file with your bank before first use. Excluded employees are listed in the x-crowhr-excluded header (URL-encoded JSON).",
+        "tags": [
+          "Payroll"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "payroll:read",
+        "x-recent-auth": true,
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "pain.001.001.03 XML",
+            "content": {
+              "application/xml": {}
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: forbidden, mfa_enrolment_required, reauth_required.",
+            "x-error-codes": [
+              "forbidden",
+              "mfa_enrolment_required",
+              "reauth_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: conflict.",
+            "x-error-codes": [
+              "conflict"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payroll/runs/{runId}/files/cpf-ezpay": {
+      "get": {
+        "operationId": "payroll.getRunsByRunIdFilesCpfEzpay",
+        "summary": "CPF EZPay (FTP) submission file for the amounts this run charged",
+        "description": "Fixed-width file per CPF Board's CPF EZPay (FTP) File Specifications (16 Jan 2025), for upload in CPF EZPay. Employees left out (e.g. SHG for foreigners without a CPF account) are listed in the x-crowhr-excluded header (URL-encoded JSON).",
+        "tags": [
+          "Payroll"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "payroll:read",
+        "x-recent-auth": true,
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CPF EZPay .DTL file",
+            "content": {
+              "text/plain": {}
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: forbidden, mfa_enrolment_required, reauth_required.",
+            "x-error-codes": [
+              "forbidden",
+              "mfa_enrolment_required",
+              "reauth_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: conflict.",
+            "x-error-codes": [
+              "conflict"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/payroll/runs/{runId}/items": {
       "post": {
         "operationId": "payroll.postRunsByRunIdItems",
@@ -23832,6 +24070,9 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "inputsChangedSinceCompute": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -23860,7 +24101,8 @@
                     "totals",
                     "releasedAt",
                     "paidAt",
-                    "createdAt"
+                    "createdAt",
+                    "inputsChangedSinceCompute"
                   ],
                   "additionalProperties": false
                 }
@@ -24993,6 +25235,9 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "inputsChangedSinceCompute": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -25021,7 +25266,8 @@
                     "totals",
                     "releasedAt",
                     "paidAt",
-                    "createdAt"
+                    "createdAt",
+                    "inputsChangedSinceCompute"
                   ],
                   "additionalProperties": false
                 }
@@ -25448,6 +25694,9 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "inputsChangedSinceCompute": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -25476,7 +25725,8 @@
                     "totals",
                     "releasedAt",
                     "paidAt",
-                    "createdAt"
+                    "createdAt",
+                    "inputsChangedSinceCompute"
                   ],
                   "additionalProperties": false
                 }
@@ -25925,6 +26175,9 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "inputsChangedSinceCompute": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -25953,7 +26206,8 @@
                     "totals",
                     "releasedAt",
                     "paidAt",
-                    "createdAt"
+                    "createdAt",
+                    "inputsChangedSinceCompute"
                   ],
                   "additionalProperties": false
                 }
@@ -26380,6 +26634,9 @@
                     },
                     "createdAt": {
                       "type": "string"
+                    },
+                    "inputsChangedSinceCompute": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -26408,7 +26665,8 @@
                     "totals",
                     "releasedAt",
                     "paidAt",
-                    "createdAt"
+                    "createdAt",
+                    "inputsChangedSinceCompute"
                   ],
                   "additionalProperties": false
                 }

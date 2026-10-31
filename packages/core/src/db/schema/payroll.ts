@@ -129,6 +129,8 @@ export const payrollRuns = pgTable(
     decisionComment: text("decision_comment"),
     selfApproved: boolean("self_approved").notNull().default(false),
     computedAt: timestamp("computed_at", { withTimezone: true }),
+    /** Last change to the run's inputs (items, pay date); later than `computed_at` = recompute needed. */
+    inputsChangedAt: timestamp("inputs_changed_at", { withTimezone: true }),
     /** SHA-256 over the employees' input hashes (sorted by employee id). */
     inputHash: text("input_hash"),
     resultHash: text("result_hash"),

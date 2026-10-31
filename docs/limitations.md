@@ -34,7 +34,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 - **Home** shows real work from `GET /api/v1/inbox`; its payroll card always says "Payroll isn't set up yet" until the payroll module supplies a source.
 - **Command palette** "People" results come from the live directory (people module).
-- **Every module** except People (Payroll, Leave, Attendance, Schedules, Claims, Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
+- **Every module** except People and Payroll (Leave, Attendance, Schedules, Claims, Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
 - **No dark mode.** The landing site's dark tokens were not ported.
 
 ## Platform
@@ -70,3 +70,21 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Statutory lookups** (CSN payment types, rest-day rule, work pass types) are cited in `packages/core/src/organisation/statutory.ts` and should move to `packages/sg-rules`.
 - **NRIC/bank reveal** (`POST /api/v1/employees/:id/nric/reveal`, `/bank/reveal`) has no web unit test: apps/web has no DOM test environment; it is covered by Playwright (`e2e/people/reveal.people.ts`).
 - **Company logo** upload has an API only; there is no upload control on the Company screen yet.
+- **Error codes** `duplicate_id_number`, `in_use`, `reporting_cycle` are sent as `409 conflict` with `details.reason` until they are added to `ERROR_STATUS`.
+
+## Payroll (add-payroll)
+
+- **Approvals are local until the workflows engine is wired**: `localPayrollApprovals` stores the request on the run and an owner or payroll admin decides with `POST /api/v1/payroll/runs/:id/decision` (the submitter cannot, except an owner, marked self-approved). No approval task, inbox item or notification is created. WS3 replaces `PayrollApprovals` and registers `payrollRunSubject` (`packages/core/src/payroll/approval.ts`).
+- **Overtime, hours and no-pay leave are entered by hand** per run. `OvertimeSource` (attendance) and the leave module are not wired; `manualOvertimeOnly` is the default.
+- **Claims reimbursement is NOT IMPLEMENTED in production**: `noClaimsYet` returns nothing payable until WS6 implements `ReimbursementSource`.
+- **People's `PayrollPort`** (`lastFinalisedPeriodEnd`, `notifyBackPay`) still uses `noPayrollYet`; back pay is entered as a "Back pay" item.
+- **No direct submission** to CPF Board, IRAS or banks (no public APIs): payroll produces the CPF EZPay (FTP) file and a generic ISO 20022 `pain.001.001.03` file for upload. The bank file is not a DBS, OCBC or UOB format (not public) and has not been tested with any bank; it validates against the official ISO 20022 XSD.
+- **CPF EZPay file**: SHG for foreigners without an S/T account number is left out (keyed in EZPay by hand); a CPF shortfall on earlier AW is reported in the current month's CPF amount; an adjustment or off-cycle run produces a supplementary file with the next advice code. These choices are not confirmed by CPF Board.
+- **Employee share of a CPF shortfall on earlier AW is not recovered from pay** (CPF Act s 7 not verified); the employer bears it and the run warns.
+- **Employment Act deduction limits and payment deadlines** are cited in `packages/core/src/payroll/rules.ts` and should move to `packages/sg-rules`. Employee CPF counts toward the 50% limit (MOM does not list it as excluded; ambiguous).
+- **Pro-ration** for shift schedules (no fixed week) assumes a Monday–Friday week and warns; part-time leave in hours is not handled.
+- **FWL** is an estimate from org-level sector, tier and skill in payroll settings; MOM's bill is authoritative.
+- **Adjustments do not recompute later months**: a reopened month after later months were finalised warns, and CPF's December (or last-month) AW recomputation absorbs the difference.
+- **IR8A / Appendix 8A export is NOT IMPLEMENTED.**
+- **Allowance CPF and pro-ration treatment** has an API (`/payroll/allowance-settings`) but no screen yet; the default is CPF-liable OW, pro-rated.
+- **Payroll dev server**: like the people screens, payroll e2e and screenshots run against `packages/core/testing/payroll-dev-server.ts` (DEV ONLY, 127.0.0.1).

@@ -180,6 +180,24 @@ describe("October 2026 payroll for a 12-person company", () => {
     expect(o.run.totals.cpfTotalChargedCents).toBe(sum("cpfEmployeeCents") + sum("cpfEmployerCents"));
   });
 
+  it("warns where earlier 2026 months are unknown to Crow HR (no opening balance)", async () => {
+    const codes = async (key: CompanyKey) =>
+      (
+        await json<{ result: { issues: { code: string }[] } }>(
+          await admin.get(`${api}/runs/${runId}/employees/${co.e[key]}`),
+          200,
+        )
+      ).result.issues.map((i) => i.code);
+    expect(await codes("A")).toContain("YTD_BEFORE_CROWHR_MISSING");
+    expect(await codes("K")).not.toContain("YTD_BEFORE_CROWHR_MISSING"); // opening balance through September
+    expect(await codes("I")).not.toContain("YTD_BEFORE_CROWHR_MISSING"); // joined in October
+    // The overview lists the same warning for many people once.
+    const o = await overview();
+    const grouped = o.issues.filter((i) => i.code === "YTD_BEFORE_CROWHR_MISSING");
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]?.employeeId).toBeNull();
+  });
+
   it("shows the AW ceiling working for the bonus", async () => {
     const d = await json<{
       result: {
@@ -253,5 +271,47 @@ describe("October 2026 payroll for a 12-person company", () => {
         "payroll.run_paid",
       ]),
     );
+  });
+
+  it("produces the CPF EZPay file and the generic pain.001 bank file", async () => {
+    const cpf = await admin.get(`${api}/runs/${runId}/files/cpf-ezpay`);
+    expect([cpf.status, cpf.status === 200 ? "" : await cpf.clone().text()]).toEqual([200, ""]);
+    expect(cpf.headers.get("content-disposition")).toContain("201912345KPTE01OCT202601.DTL");
+    const lines = (await cpf.text()).split("\r\n").filter(Boolean);
+    for (const l of lines) expect(l).toHaveLength(150);
+    const o = await overview();
+    // CPF summary (01) = all CPF charged; SDL (11) = $96.
+    const summary = (code: string) => lines.find((l) => l[1] === "0" && l.slice(26, 28) === code)?.slice(28, 40);
+    expect(Number(summary("01"))).toBe(o.run.totals.cpfTotalChargedCents);
+    expect(summary("11")).toBe("000000009600");
+    // 11 CPF detail records (everyone but the EP holder) and the joiner/leaver statuses.
+    const cpfDetails = lines.filter((l) => l[1] === "1" && l.slice(26, 28) === "01");
+    expect(cpfDetails).toHaveLength(11);
+    expect(cpfDetails.filter((l) => l[69] === "N").map((l) => l.slice(70, 136).trim())).toEqual(["ISABEL TAN"]);
+    expect(cpfDetails.filter((l) => l[69] === "L").map((l) => l.slice(70, 136).trim())).toEqual(["JASON LIM"]);
+    const excluded = JSON.parse(decodeURIComponent(cpf.headers.get("x-crowhr-excluded") ?? "[]"));
+    expect(excluded).toEqual([{ employeeName: "Harish Iyer", reason: expect.stringContaining("SINDA") }]);
+
+    // Without the company's debit account the bank file is refused with a fix-it message.
+    const refused = await admin.get(`${api}/runs/${runId}/files/bank`);
+    expect([refused.status, (await refused.json()).error.message]).toEqual([
+      409,
+      expect.stringContaining("Payroll settings"),
+    ]);
+    const put = await admin.put(`${api}/settings`, {
+      debitBankBic: "DBSSSGSG",
+      debitAccountNumber: "0720123456",
+      debitAccountName: "Kopi Kaki Pte. Ltd.",
+    });
+    expect((await put.json()).debitAccountMasked).toBe("••••3456");
+    const bank = await admin.get(`${api}/runs/${runId}/files/bank`);
+    expect(bank.status).toBe(200);
+    const xml = await bank.text();
+    expect(xml).toContain('xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03"');
+    expect(xml.match(/<CdtTrfTxInf>/g)).toHaveLength(12);
+    const ctrl = xml.match(/<CtrlSum>([\d.]+)<\/CtrlSum>/)?.[1];
+    const net = o.run.totals.netPayableCents as number;
+    expect(ctrl).toBe(`${Math.floor(net / 100)}.${String(net % 100).padStart(2, "0")}`);
+    expect(xml).toContain("<ReqdExctnDt>2026-10-30</ReqdExctnDt>");
   });
 });

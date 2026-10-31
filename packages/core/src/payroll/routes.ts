@@ -25,6 +25,7 @@ import {
   settingsSchema,
 } from "./api-schemas.ts";
 import { monthLabel } from "./engine/dates.ts";
+import { bankPaymentFile, cpfEzpayFile, type GeneratedFile } from "./files/service.ts";
 import { buildPayslipView } from "./payslip.ts";
 import { renderPayslipPdf } from "./payslip-pdf.ts";
 import { employeeDetail, runOverview } from "./review.ts";
@@ -91,6 +92,7 @@ export function toRunDto(r: PayrollRun): z.input<typeof runSchema> {
     releasedAt: iso(r.releasedAt),
     paidAt: iso(r.paidAt),
     createdAt: r.createdAt.toISOString(),
+    inputsChangedSinceCompute: !!(r.computedAt && r.inputsChangedAt && r.inputsChangedAt > r.computedAt),
   };
 }
 
@@ -146,6 +148,18 @@ const exampleItem = {
 export async function payslipFor(c: AppContext, slip: PayrollPayslip, run: PayrollRun) {
   void c;
   return buildPayslipView(slip, run, monthLabel(run.month));
+}
+
+function fileResponse(f: GeneratedFile): Response {
+  return new Response(f.body, {
+    headers: {
+      "content-type": f.contentType,
+      "content-disposition": `attachment; filename="${f.fileName}"`,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "x-crowhr-excluded": encodeURIComponent(JSON.stringify(f.excluded)),
+    },
+  });
 }
 
 /** PDF of a payslip. Byte-stable: dated by release (or approval, or the pay date for a draft preview). */
@@ -465,6 +479,34 @@ export const payrollModule = defineModule({
         if (!slip) throw new AppError("not_found", "That payslip doesn't exist or you can't see it.");
         return payslipFor(c, slip, run);
       },
+    }),
+    defineRoute({
+      method: "get",
+      path: "/runs/:runId/files/cpf-ezpay",
+      summary: "CPF EZPay (FTP) submission file for the amounts this run charged",
+      description:
+        "Fixed-width file per CPF Board's CPF EZPay (FTP) File Specifications (16 Jan 2025), for upload in CPF EZPay. Employees left out (e.g. SHG for foreigners without a CPF account) are listed in the x-crowhr-excluded header (URL-encoded JSON).",
+      access: { permission: "payroll:read" },
+      recentAuth: true,
+      request: { params: runParams },
+      responses: { 200: { description: "CPF EZPay .DTL file", contentType: "text/plain" } },
+      errors: ["not_found", "conflict", "reauth_required"],
+      handler: async ({ c, deps, auth, params }) =>
+        fileResponse(await cpfEzpayFile(deps, payrollActor(c, auth), params.runId)),
+    }),
+    defineRoute({
+      method: "get",
+      path: "/runs/:runId/files/bank",
+      summary: "Generic ISO 20022 pain.001.001.03 salary credit-transfer file (not a bank-specific format)",
+      description:
+        "Open-standard file for banks that accept ISO 20022 pain.001 uploads. DBS, OCBC and UOB bulk formats are not public and are not produced; test the file with your bank before first use. Excluded employees are listed in the x-crowhr-excluded header (URL-encoded JSON).",
+      access: { permission: "payroll:read" },
+      recentAuth: true,
+      request: { params: runParams },
+      responses: { 200: { description: "pain.001.001.03 XML", contentType: "application/xml" } },
+      errors: ["not_found", "conflict", "reauth_required"],
+      handler: async ({ c, deps, auth, params }) =>
+        fileResponse(await bankPaymentFile(deps, payrollActor(c, auth), params.runId)),
     }),
     defineRoute({
       method: "get",
