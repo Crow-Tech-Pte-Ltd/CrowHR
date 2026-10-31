@@ -1,4 +1,5 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { eq, isNull, sql } from "drizzle-orm";
+import { orgScope } from "../access/org-scope.ts";
 import { employees } from "../db/schema/employees.ts";
 import { companyProfiles, departments, workSchedules } from "../db/schema/organisation.ts";
 import type { Db } from "../db/types.ts";
@@ -22,12 +23,13 @@ export interface SetupChecklist {
  * of a workflows `InboxSource` once that interface lands (WS3).
  */
 export async function setupChecklist(db: Db, orgId: string): Promise<SetupChecklist> {
+  const org = orgScope(db, orgId);
   const [counts] = await db
     .select({
       profile: sql<number>`(select count(*)::int from ${companyProfiles} where ${companyProfiles.orgId} = ${orgId})`,
-      departments: sql<number>`(select count(*)::int from ${departments} where ${and(eq(departments.orgId, orgId), isNull(departments.archivedAt))})`,
-      schedule: sql<number>`(select count(*)::int from ${workSchedules} where ${and(eq(workSchedules.orgId, orgId), eq(workSchedules.isDefault, true))})`,
-      employees: sql<number>`(select count(*)::int from ${employees} where ${eq(employees.orgId, orgId)})`,
+      departments: sql<number>`(select count(*)::int from ${departments} where ${org.where(departments, isNull(departments.archivedAt))})`,
+      schedule: sql<number>`(select count(*)::int from ${workSchedules} where ${org.where(workSchedules, eq(workSchedules.isDefault, true))})`,
+      employees: sql<number>`(select count(*)::int from ${employees} where ${org.where(employees)})`,
     })
     .from(sql`(select 1) as one`);
   const c = counts ?? { profile: 0, departments: 0, schedule: 0, employees: 0 };

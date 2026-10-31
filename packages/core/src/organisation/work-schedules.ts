@@ -1,5 +1,6 @@
-import { and, asc, eq, ne } from "drizzle-orm";
+import { asc, eq, ne } from "drizzle-orm";
 import { z } from "zod";
+import { orgScope } from "../access/org-scope.ts";
 import {
   type WorkDayType,
   type WorkSchedule,
@@ -144,9 +145,9 @@ export async function listWorkSchedules(deps: AppDeps, actor: Actor): Promise<Wo
   const rows = await deps.db
     .select()
     .from(workSchedules)
-    .where(eq(workSchedules.orgId, actor.orgId))
+    .where(actor.org.where(workSchedules))
     .orderBy(asc(workSchedules.name));
-  const versions = await deps.db.select().from(workScheduleVersions).where(eq(workScheduleVersions.orgId, actor.orgId));
+  const versions = await deps.db.select().from(workScheduleVersions).where(actor.org.where(workScheduleVersions));
   const today = singaporeToday(deps.clock.now());
   return rows.map((s) =>
     toView(
@@ -179,10 +180,10 @@ export async function createWorkSchedule(
       const existing = await tx
         .select({ id: workSchedules.id })
         .from(workSchedules)
-        .where(and(eq(workSchedules.orgId, actor.orgId), eq(workSchedules.isDefault, true)));
+        .where(actor.org.where(workSchedules, eq(workSchedules.isDefault, true)));
       const makeDefault = input.isDefault === true || existing.length === 0;
       if (makeDefault && existing.length) {
-        await tx.update(workSchedules).set({ isDefault: false }).where(eq(workSchedules.orgId, actor.orgId));
+        await tx.update(workSchedules).set({ isDefault: false }).where(actor.org.where(workSchedules));
       }
       await tx.insert(workSchedules).values({
         id,
@@ -228,11 +229,7 @@ export async function updateWorkSchedule(
   const input = parseInput(updateScheduleInput, raw);
   assertBody(input);
   await deps.db.transaction(async (tx) => {
-    const [s] = await tx
-      .select()
-      .from(workSchedules)
-      .where(and(eq(workSchedules.orgId, actor.orgId), eq(workSchedules.id, id)))
-      .for("update");
+    const [s] = await tx.select().from(workSchedules).where(actor.org.whereId(workSchedules, id)).for("update");
     if (!s) throw new AppError("not_found", "No such work schedule.");
     if (s.kind !== input.kind) {
       throw new AppError("validation_failed", "A schedule cannot change between fixed and shift. Create a new one.", {
@@ -243,7 +240,7 @@ export async function updateWorkSchedule(
     const versions = await tx
       .select()
       .from(workScheduleVersions)
-      .where(and(eq(workScheduleVersions.orgId, actor.orgId), eq(workScheduleVersions.scheduleId, id)));
+      .where(actor.org.where(workScheduleVersions, eq(workScheduleVersions.scheduleId, id)));
     const plan = planInsert(versions, input.effectiveFrom);
     if (plan.close) {
       await tx
@@ -284,16 +281,13 @@ export async function setDefaultWorkSchedule(
 ): Promise<WorkScheduleView> {
   assertCanWrite(actor, "structure");
   await deps.db.transaction(async (tx) => {
-    const [s] = await tx
-      .select()
-      .from(workSchedules)
-      .where(and(eq(workSchedules.orgId, actor.orgId), eq(workSchedules.id, id)));
+    const [s] = await tx.select().from(workSchedules).where(actor.org.whereId(workSchedules, id));
     if (!s) throw new AppError("not_found", "No such work schedule.");
     if (s.archivedAt) throw new AppError("conflict", "Restore this schedule before making it the default.");
     await tx
       .update(workSchedules)
       .set({ isDefault: false })
-      .where(and(eq(workSchedules.orgId, actor.orgId), ne(workSchedules.id, id)));
+      .where(actor.org.where(workSchedules, ne(workSchedules.id, id)));
     await tx.update(workSchedules).set({ isDefault: true }).where(eq(workSchedules.id, id));
     await recordAudit(tx, ports, actor, {
       action: "work_schedule.default_set",
@@ -311,15 +305,13 @@ export async function workScheduleAsAt(
   scheduleId: string,
   date: string,
 ): Promise<{ kind: "fixed" | "shift"; days: WorkWeek | null; weeklyMinutes: number } | null> {
-  const [s] = await db
-    .select()
-    .from(workSchedules)
-    .where(and(eq(workSchedules.orgId, orgId), eq(workSchedules.id, scheduleId)));
+  const org = orgScope(db, orgId);
+  const [s] = await db.select().from(workSchedules).where(org.whereId(workSchedules, scheduleId));
   if (!s) return null;
   const versions = await db
     .select()
     .from(workScheduleVersions)
-    .where(and(eq(workScheduleVersions.orgId, orgId), eq(workScheduleVersions.scheduleId, scheduleId)));
+    .where(org.where(workScheduleVersions, eq(workScheduleVersions.scheduleId, scheduleId)));
   const v = findAsAt(versions, date);
   return v ? { kind: s.kind, days: v.days, weeklyMinutes: v.weeklyMinutes } : null;
 }
@@ -332,9 +324,10 @@ export function dayTypeOn(days: WorkWeek, date: string): WorkDayType {
 }
 
 export async function defaultWorkScheduleId(db: Db, orgId: string): Promise<string | null> {
+  const org = orgScope(db, orgId);
   const [s] = await db
     .select({ id: workSchedules.id })
     .from(workSchedules)
-    .where(and(eq(workSchedules.orgId, orgId), eq(workSchedules.isDefault, true)));
+    .where(org.where(workSchedules, eq(workSchedules.isDefault, true)));
   return s?.id ?? null;
 }

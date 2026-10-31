@@ -1,5 +1,6 @@
-import { and, asc, desc, eq, gt, inArray, isNull } from "drizzle-orm";
+import { asc, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
+import { orgScope } from "../access/org-scope.ts";
 import {
   allowanceTypes,
   type CompensationRecord,
@@ -102,11 +103,8 @@ export function employmentStatus(tenureRows: readonly Tenure[], today: string): 
 // Validation helpers
 
 async function lockEmployee(tx: Db, orgId: string, employeeId: string) {
-  const [row] = await tx
-    .select()
-    .from(employees)
-    .where(and(eq(employees.orgId, orgId), eq(employees.id, employeeId)))
-    .for("update");
+  const org = orgScope(tx, orgId);
+  const [row] = await tx.select().from(employees).where(org.whereId(employees, employeeId)).for("update");
   if (!row) throw new AppError("not_found", "No such employee.");
   return row;
 }
@@ -118,6 +116,7 @@ async function validateJob(
   job: Partial<JobFields>,
   onDate: string,
 ): Promise<void> {
+  const org = orgScope(tx, orgId);
   if (job.departmentId !== undefined) {
     await assertSelectable(tx, orgId, "departments", job.departmentId, "job.departmentId");
   }
@@ -128,7 +127,7 @@ async function validateJob(
     const [s] = await tx
       .select({ archivedAt: workSchedules.archivedAt })
       .from(workSchedules)
-      .where(and(eq(workSchedules.orgId, orgId), eq(workSchedules.id, job.workScheduleId)));
+      .where(org.whereId(workSchedules, job.workScheduleId));
     if (!s) throw fieldError("job.workScheduleId", "Choose an existing work schedule.");
     if (s.archivedAt) throw fieldError("job.workScheduleId", "That work schedule is archived. Choose an active one.");
   }
@@ -142,7 +141,7 @@ async function validateJob(
     const [m] = await tx
       .select({ id: employees.id })
       .from(employees)
-      .where(and(eq(employees.orgId, orgId), eq(employees.id, job.managerEmployeeId)));
+      .where(org.whereId(employees, job.managerEmployeeId));
     if (!m) throw fieldError("job.managerEmployeeId", "Choose an existing employee as manager.");
     if (await wouldCreateCycle(tx, orgId, employeeId, job.managerEmployeeId, onDate)) {
       throw new AppError(
@@ -155,10 +154,11 @@ async function validateJob(
 
 /** A foreigner needs a pass valid on `date` (spec: employees / Work passes). */
 async function assertPassValidOn(tx: Db, orgId: string, employeeId: string, date: string) {
+  const org = orgScope(tx, orgId);
   const passes = await tx
     .select()
     .from(workPasses)
-    .where(and(eq(workPasses.orgId, orgId), eq(workPasses.employeeId, employeeId)));
+    .where(org.where(workPasses, eq(workPasses.employeeId, employeeId)));
   const ok = passes.some(
     (p) => (!p.issuedOn || p.issuedOn <= date) && p.expiresOn >= date && (!p.cancelledOn || p.cancelledOn > date),
   );
@@ -208,7 +208,7 @@ async function insertEmploymentVersion(
   const existing = await tx
     .select()
     .from(employmentRecords)
-    .where(and(eq(employmentRecords.orgId, ctx.actor.orgId), eq(employmentRecords.employeeId, row.employeeId)));
+    .where(ctx.actor.org.where(employmentRecords, eq(employmentRecords.employeeId, row.employeeId)));
   const plan = planInsert(existing, row.effectiveFrom);
   if (plan.close) {
     await tx
@@ -233,7 +233,7 @@ async function insertCompensationVersion(
   const existing = await tx
     .select()
     .from(compensationRecords)
-    .where(and(eq(compensationRecords.orgId, ctx.actor.orgId), eq(compensationRecords.employeeId, employeeId)));
+    .where(ctx.actor.org.where(compensationRecords, eq(compensationRecords.employeeId, employeeId)));
   // A new tenure has no earlier pay to adjust, so the finalised-period guard does not apply.
   const retro = opts.newTenure ? false : await assertNotFinalised(ctx, effectiveFrom, comp.retroactive);
   const plan = planInsert(existing, effectiveFrom);
@@ -281,14 +281,14 @@ async function insertAllowances(
     const [t] = await tx
       .select({ archivedAt: allowanceTypes.archivedAt })
       .from(allowanceTypes)
-      .where(and(eq(allowanceTypes.orgId, ctx.actor.orgId), eq(allowanceTypes.id, a.allowanceTypeId)));
+      .where(ctx.actor.org.whereId(allowanceTypes, a.allowanceTypeId));
     if (!t || t.archivedAt) throw fieldError("allowances", "Choose an existing, active allowance type.");
     const existing = await tx
       .select()
       .from(recurringAllowances)
       .where(
-        and(
-          eq(recurringAllowances.orgId, ctx.actor.orgId),
+        ctx.actor.org.where(
+          recurringAllowances,
           eq(recurringAllowances.employeeId, employeeId),
           eq(recurringAllowances.allowanceTypeId, a.allowanceTypeId),
         ),
@@ -333,10 +333,11 @@ async function insertEvent(
 }
 
 async function currentTenure(tx: Db, orgId: string, employeeId: string): Promise<Tenure | null> {
+  const org = orgScope(tx, orgId);
   const [t] = await tx
     .select()
     .from(tenures)
-    .where(and(eq(tenures.orgId, orgId), eq(tenures.employeeId, employeeId)))
+    .where(org.where(tenures, eq(tenures.employeeId, employeeId)))
     .orderBy(desc(tenures.hireDate))
     .limit(1);
   return t ?? null;
@@ -655,11 +656,12 @@ async function applyChange(
   input: z.output<typeof changeEvent> | z.output<typeof salaryEvent> | z.output<typeof probationEvent>,
 ): Promise<ApplyResult> {
   const { orgId } = ctx.actor;
+  const { org } = ctx.actor;
   const date = input.effectiveDate;
   const records = await tx
     .select()
     .from(employmentRecords)
-    .where(and(eq(employmentRecords.orgId, orgId), eq(employmentRecords.employeeId, employeeId)));
+    .where(org.where(employmentRecords, eq(employmentRecords.employeeId, employeeId)));
   const base = findAsAt(records, date);
   if (!base) {
     throw fieldError(
@@ -718,6 +720,7 @@ async function applyLeaving(
   input: z.output<typeof resignationEvent> | z.output<typeof terminationEvent>,
 ): Promise<ApplyResult> {
   const { orgId } = ctx.actor;
+  const { org } = ctx.actor;
   const tenure = await currentTenure(tx, orgId, employeeId);
   if (!tenure) throw new AppError("conflict", "This person has no employment to end.");
   if (tenure.lastWorkingDay) {
@@ -754,8 +757,8 @@ async function applyLeaving(
     .select({ effectiveDate: lifecycleEvents.effectiveDate, type: lifecycleEvents.type })
     .from(lifecycleEvents)
     .where(
-      and(
-        eq(lifecycleEvents.orgId, orgId),
+      org.where(
+        lifecycleEvents,
         eq(lifecycleEvents.employeeId, employeeId),
         eq(lifecycleEvents.tenureId, tenure.id),
         gt(lifecycleEvents.effectiveDate, lastDay),
@@ -819,6 +822,7 @@ async function eventPayload(tx: Db, eventId: string): Promise<Record<string, unk
 
 /** Ends open-ended employment, compensation and allowance rows at `endExclusive`; returns their ids for undo. */
 async function closeOpenRecords(tx: Db, orgId: string, employeeId: string, endExclusive: string) {
+  const org = orgScope(tx, orgId);
   const closed = { employment: [] as string[], compensation: [] as string[], allowances: [] as string[] };
   const tables = [
     ["employment", employmentRecords],
@@ -829,7 +833,7 @@ async function closeOpenRecords(tx: Db, orgId: string, employeeId: string, endEx
     const rows = await tx
       .update(table)
       .set({ effectiveTo: endExclusive })
-      .where(and(eq(table.orgId, orgId), eq(table.employeeId, employeeId), isNull(table.effectiveTo)))
+      .where(org.where(table, eq(table.employeeId, employeeId), isNull(table.effectiveTo)))
       .returning({ id: table.id });
     closed[key].push(...rows.map((r) => r.id));
   }
@@ -843,6 +847,7 @@ async function applyRehire(
   input: z.output<typeof rehireEvent>,
 ): Promise<ApplyResult> {
   const { orgId } = ctx.actor;
+  const { org } = ctx.actor;
   const previous = await currentTenure(tx, orgId, employeeId);
   if (!previous?.lastWorkingDay || previous.lastWorkingDay >= input.job.hireDate) {
     throw new AppError(
@@ -859,10 +864,7 @@ async function applyRehire(
       "Your role cannot set pay. Leave compensation empty; a payroll admin adds it later.",
     );
   }
-  const [emp] = await tx
-    .select()
-    .from(employees)
-    .where(and(eq(employees.orgId, orgId), eq(employees.id, employeeId)));
+  const [emp] = await tx.select().from(employees).where(org.whereId(employees, employeeId));
   if (emp?.residencyStatus === "foreigner") await assertPassValidOn(tx, orgId, employeeId, input.job.hireDate);
   const eventId = await startTenure(
     tx,
@@ -881,18 +883,13 @@ async function applyRehire(
 
 export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId: string): Promise<void> {
   const { orgId } = ctx.actor;
+  const { org } = ctx.actor;
   await ctx.deps.db.transaction(async (tx) => {
     await lockEmployee(tx, orgId, employeeId);
     const [e] = await tx
       .select()
       .from(lifecycleEvents)
-      .where(
-        and(
-          eq(lifecycleEvents.orgId, orgId),
-          eq(lifecycleEvents.employeeId, employeeId),
-          eq(lifecycleEvents.id, eventId),
-        ),
-      );
+      .where(org.where(lifecycleEvents, eq(lifecycleEvents.employeeId, employeeId), eq(lifecycleEvents.id, eventId)));
     if (!e) throw new AppError("not_found", "No such event.");
     const touchesPay =
       e.type === "salary_change" ||
@@ -951,7 +948,7 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
           cessationReason: null,
           cessationEventId: null,
         })
-        .where(and(eq(tenures.orgId, orgId), eq(tenures.cessationEventId, eventId)));
+        .where(org.where(tenures, eq(tenures.cessationEventId, eventId)));
     } else {
       await removeEventVersions(tx, orgId, employeeId, eventId);
     }
@@ -971,17 +968,18 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
 
 /** Deletes the versions an event created and re-opens each predecessor (it ended where the removed one began). */
 async function removeEventVersions(tx: Db, orgId: string, employeeId: string, eventId: string) {
+  const org = orgScope(tx, orgId);
   const emp = await tx
     .delete(employmentRecords)
-    .where(and(eq(employmentRecords.orgId, orgId), eq(employmentRecords.eventId, eventId)))
+    .where(org.where(employmentRecords, eq(employmentRecords.eventId, eventId)))
     .returning();
   for (const r of emp) {
     await tx
       .update(employmentRecords)
       .set({ effectiveTo: r.effectiveTo })
       .where(
-        and(
-          eq(employmentRecords.orgId, orgId),
+        org.where(
+          employmentRecords,
           eq(employmentRecords.employeeId, employeeId),
           eq(employmentRecords.effectiveTo, r.effectiveFrom),
         ),
@@ -989,15 +987,15 @@ async function removeEventVersions(tx: Db, orgId: string, employeeId: string, ev
   }
   const comp = await tx
     .delete(compensationRecords)
-    .where(and(eq(compensationRecords.orgId, orgId), eq(compensationRecords.eventId, eventId)))
+    .where(org.where(compensationRecords, eq(compensationRecords.eventId, eventId)))
     .returning();
   for (const r of comp) {
     await tx
       .update(compensationRecords)
       .set({ effectiveTo: r.effectiveTo })
       .where(
-        and(
-          eq(compensationRecords.orgId, orgId),
+        org.where(
+          compensationRecords,
           eq(compensationRecords.employeeId, employeeId),
           eq(compensationRecords.effectiveTo, r.effectiveFrom),
         ),
@@ -1005,15 +1003,15 @@ async function removeEventVersions(tx: Db, orgId: string, employeeId: string, ev
   }
   const allw = await tx
     .delete(recurringAllowances)
-    .where(and(eq(recurringAllowances.orgId, orgId), eq(recurringAllowances.eventId, eventId)))
+    .where(org.where(recurringAllowances, eq(recurringAllowances.eventId, eventId)))
     .returning();
   for (const r of allw) {
     await tx
       .update(recurringAllowances)
       .set({ effectiveTo: r.effectiveTo })
       .where(
-        and(
-          eq(recurringAllowances.orgId, orgId),
+        org.where(
+          recurringAllowances,
           eq(recurringAllowances.employeeId, employeeId),
           eq(recurringAllowances.allowanceTypeId, r.allowanceTypeId),
           eq(recurringAllowances.effectiveTo, r.effectiveFrom),
@@ -1024,10 +1022,11 @@ async function removeEventVersions(tx: Db, orgId: string, employeeId: string, ev
 
 /** Events of one employee, newest first, with derived status. */
 export async function listEvents(db: Db, orgId: string, employeeId: string, today: string) {
+  const org = orgScope(db, orgId);
   const rows = await db
     .select()
     .from(lifecycleEvents)
-    .where(and(eq(lifecycleEvents.orgId, orgId), eq(lifecycleEvents.employeeId, employeeId)))
+    .where(org.where(lifecycleEvents, eq(lifecycleEvents.employeeId, employeeId)))
     .orderBy(desc(lifecycleEvents.effectiveDate), desc(lifecycleEvents.createdAt));
   return rows.map((e) => ({
     id: e.id,
@@ -1040,9 +1039,10 @@ export async function listEvents(db: Db, orgId: string, employeeId: string, toda
 }
 
 export async function tenuresOf(db: Db, orgId: string, employeeId: string) {
+  const org = orgScope(db, orgId);
   return db
     .select()
     .from(tenures)
-    .where(and(eq(tenures.orgId, orgId), eq(tenures.employeeId, employeeId)))
+    .where(org.where(tenures, eq(tenures.employeeId, employeeId)))
     .orderBy(asc(tenures.hireDate));
 }

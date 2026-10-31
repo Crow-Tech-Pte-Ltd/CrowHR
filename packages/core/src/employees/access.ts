@@ -1,4 +1,5 @@
 import { ASSIGNED_ROLES, type AssignedRole, cellFor, type Permission, type Role } from "../access/matrix.ts";
+import { type OrgScope, orgScope } from "../access/org-scope.ts";
 import { singaporeDate, teamOf } from "../access/scope.ts";
 import { type AuditContext, auditContext } from "../audit/audit.ts";
 import { type AppContext, requireAuth } from "../context.ts";
@@ -13,11 +14,19 @@ import { createReportingScopeResolver } from "./reports/reporting-scope.ts";
  * check the coarse permission through `defineRoute({ access })`; services call
  * these helpers so every entry point (HTTP, import, jobs, demo seeding) gets
  * the same per-record and per-section answer.
+ *
+ * Built on identity's primitives, not beside them: tenancy is `actor.org`
+ * (an `orgScope()`), the team comes from `access/scope.ts` `teamOf()` for
+ * HTTP requests (the same per-request memo `authorize()` uses), and cells
+ * come from `cellFor()`. What this layer adds is per-section scope: one
+ * employee record spans several matrix rows (directory, personal, bank…).
  */
 export type { AssignedRole };
 
 export interface Actor {
   orgId: string;
+  /** Org-scoped data access for `orgId`: use it for every people query (`actor.org.where(table, …)`). */
+  org: OrgScope;
   userId: string | null;
   requestId: string | null;
   /** Assigned roles (owner, hr_admin, payroll_admin). Empty for former members. */
@@ -162,6 +171,7 @@ export function buildActor(input: {
   let team: Promise<ReadonlySet<string>> | null = null;
   return {
     orgId: input.orgId,
+    org: orgScope(input.db, input.orgId),
     userId: input.userId,
     requestId: input.requestId,
     roles: new Set(input.roles.filter((r): r is AssignedRole => (ASSIGNED_ROLES as readonly string[]).includes(r))),

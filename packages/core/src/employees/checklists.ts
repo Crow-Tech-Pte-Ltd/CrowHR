@@ -1,5 +1,6 @@
 import { and, asc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
+import { orgScope } from "../access/org-scope.ts";
 import {
   type ChecklistAssigneeRole,
   type ChecklistKind,
@@ -75,12 +76,12 @@ export async function listTemplates(deps: AppDeps, actor: Actor): Promise<Checkl
   const ts = await deps.db
     .select()
     .from(checklistTemplates)
-    .where(eq(checklistTemplates.orgId, actor.orgId))
+    .where(actor.org.where(checklistTemplates))
     .orderBy(asc(checklistTemplates.kind), asc(checklistTemplates.name));
   const items = await deps.db
     .select()
     .from(checklistTemplateItems)
-    .where(eq(checklistTemplateItems.orgId, actor.orgId))
+    .where(actor.org.where(checklistTemplateItems))
     .orderBy(asc(checklistTemplateItems.position));
   return ts
     .filter((t) => !t.archivedAt)
@@ -125,11 +126,12 @@ async function insertTemplate(
   id: string,
   input: z.output<typeof templateInput>,
 ): Promise<void> {
+  const org = orgScope(tx, orgId);
   if (input.isDefault) {
     await tx
       .update(checklistTemplates)
       .set({ isDefault: false })
-      .where(and(eq(checklistTemplates.orgId, orgId), eq(checklistTemplates.kind, input.kind)));
+      .where(org.where(checklistTemplates, eq(checklistTemplates.kind, input.kind)));
   }
   await tx
     .insert(checklistTemplates)
@@ -149,10 +151,11 @@ async function insertTemplate(
 
 /** Creates the default templates for an organisation that has none of that kind. */
 export async function ensureDefaultTemplates(tx: Db, ids: IdGenerator, orgId: string): Promise<void> {
+  const org = orgScope(tx, orgId);
   const existing = await tx
     .select({ kind: checklistTemplates.kind })
     .from(checklistTemplates)
-    .where(eq(checklistTemplates.orgId, orgId));
+    .where(org.where(checklistTemplates));
   for (const t of DEFAULT_TEMPLATES) {
     if (existing.some((e) => e.kind === t.kind)) continue;
     await insertTemplate(tx, ids, orgId, ids.newId(), templateInput.parse(t));
@@ -169,21 +172,18 @@ export async function instantiateChecklist(
   input: { orgId: string; employeeId: string; eventId: string; kind: ChecklistKind; anchorDate: string },
 ): Promise<string | null> {
   await ensureDefaultTemplates(tx, ids, input.orgId);
+  const org = orgScope(tx, input.orgId);
   const [template] = await tx
     .select()
     .from(checklistTemplates)
     .where(
-      and(
-        eq(checklistTemplates.orgId, input.orgId),
-        eq(checklistTemplates.kind, input.kind),
-        eq(checklistTemplates.isDefault, true),
-      ),
+      org.where(checklistTemplates, eq(checklistTemplates.kind, input.kind), eq(checklistTemplates.isDefault, true)),
     );
   if (!template) return null;
   const items = await tx
     .select()
     .from(checklistTemplateItems)
-    .where(and(eq(checklistTemplateItems.orgId, input.orgId), eq(checklistTemplateItems.templateId, template.id)))
+    .where(org.where(checklistTemplateItems, eq(checklistTemplateItems.templateId, template.id)))
     .orderBy(asc(checklistTemplateItems.position));
   const id = ids.newId();
   await tx.insert(checklists).values({
@@ -213,10 +213,11 @@ export async function instantiateChecklist(
 
 /** Cancelling the triggering event cancels its checklist and its open items. */
 export async function cancelChecklistsForEvent(tx: Db, orgId: string, eventId: string): Promise<void> {
+  const org = orgScope(tx, orgId);
   const lists = await tx
     .select({ id: checklists.id })
     .from(checklists)
-    .where(and(eq(checklists.orgId, orgId), eq(checklists.eventId, eventId)));
+    .where(org.where(checklists, eq(checklists.eventId, eventId)));
   if (!lists.length) return;
   const ids = lists.map((l) => l.id);
   await tx.update(checklists).set({ status: "cancelled" }).where(inArray(checklists.id, ids));
@@ -247,15 +248,15 @@ export async function employeeChecklists(deps: AppDeps, actor: Actor, employeeId
   const lists = await deps.db
     .select()
     .from(checklists)
-    .where(and(eq(checklists.orgId, actor.orgId), eq(checklists.employeeId, employeeId)))
+    .where(actor.org.where(checklists, eq(checklists.employeeId, employeeId)))
     .orderBy(asc(checklists.createdAt));
   if (!lists.length) return [];
   const items = await deps.db
     .select()
     .from(checklistItems)
     .where(
-      and(
-        eq(checklistItems.orgId, actor.orgId),
+      actor.org.where(
+        checklistItems,
         inArray(
           checklistItems.checklistId,
           lists.map((l) => l.id),
@@ -311,7 +312,7 @@ export async function updateChecklistItem(
       checklists,
       and(eq(checklists.orgId, checklistItems.orgId), eq(checklists.id, checklistItems.checklistId)),
     )
-    .where(and(eq(checklistItems.orgId, actor.orgId), eq(checklistItems.id, itemId)));
+    .where(actor.org.whereId(checklistItems, itemId));
   if (!row) throw new AppError("not_found", "No such checklist item.");
   await assertCanRead(actor, "checklists", row.employeeId);
   if (!(await holdsAssigneeRole(actor, row.item.assigneeRole, row.employeeId))) {
@@ -370,7 +371,7 @@ export async function checklistInbox(deps: AppDeps, actor: Actor): Promise<Check
       and(eq(checklists.orgId, checklistItems.orgId), eq(checklists.id, checklistItems.checklistId)),
     )
     .innerJoin(employees, and(eq(employees.orgId, checklists.orgId), eq(employees.id, checklists.employeeId)))
-    .where(and(eq(checklistItems.orgId, actor.orgId), eq(checklistItems.status, "open")))
+    .where(actor.org.where(checklistItems, eq(checklistItems.status, "open")))
     .orderBy(asc(checklistItems.dueOn));
   // The team as at today, plus future starters whose upcoming record names the actor as manager.
   const team = new Set(await actor.team());
@@ -379,8 +380,8 @@ export async function checklistInbox(deps: AppDeps, actor: Actor): Promise<Check
       .select({ id: employmentRecords.employeeId })
       .from(employmentRecords)
       .where(
-        and(
-          eq(employmentRecords.orgId, actor.orgId),
+        actor.org.where(
+          employmentRecords,
           eq(employmentRecords.managerEmployeeId, actor.employeeId),
           or(
             isNull(employmentRecords.effectiveTo),

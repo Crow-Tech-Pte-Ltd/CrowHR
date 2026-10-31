@@ -1,5 +1,6 @@
-import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { asc, gt, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
+import { orgScope } from "../access/org-scope.ts";
 import { employmentRecords } from "../db/schema/employees.ts";
 import { costCentres, departments, locations, teams } from "../db/schema/organisation.ts";
 import type { Db } from "../db/types.ts";
@@ -86,15 +87,13 @@ function toItem(kind: StructureKind, row: AnyRow, employeeCount: number): Struct
 
 /** Employees (distinct) whose employment record in force today or later references the entry. */
 async function usageCounts(db: Db, orgId: string, kind: StructureKind, today: string): Promise<Map<string, number>> {
+  const org = orgScope(db, orgId);
   const col = employmentRecords[labels[kind].column] as typeof employmentRecords.departmentId;
   const rows = await db
     .select({ id: col, n: sql<number>`count(distinct ${employmentRecords.employeeId})::int` })
     .from(employmentRecords)
     .where(
-      and(
-        eq(employmentRecords.orgId, orgId),
-        or(isNull(employmentRecords.effectiveTo), gt(employmentRecords.effectiveTo, today)),
-      ),
+      org.where(employmentRecords, or(isNull(employmentRecords.effectiveTo), gt(employmentRecords.effectiveTo, today))),
     )
     .groupBy(col);
   return new Map(rows.filter((r) => r.id).map((r) => [r.id as string, Number(r.n)]));
@@ -102,21 +101,15 @@ async function usageCounts(db: Db, orgId: string, kind: StructureKind, today: st
 
 export async function listStructure(deps: AppDeps, actor: Actor, kind: StructureKind): Promise<StructureItem[]> {
   const table = tables[kind];
-  const rows = (await deps.db
-    .select()
-    .from(table)
-    .where(eq(table.orgId, actor.orgId))
-    .orderBy(asc(table.name))) as AnyRow[];
+  const rows = (await deps.db.select().from(table).where(actor.org.where(table)).orderBy(asc(table.name))) as AnyRow[];
   const counts = await usageCounts(deps.db, actor.orgId, kind, singaporeToday(deps.clock.now()));
   return rows.map((r) => toItem(kind, r, counts.get(r.id) ?? 0));
 }
 
 async function findRow(db: Db, kind: StructureKind, orgId: string, id: string): Promise<AnyRow> {
+  const org = orgScope(db, orgId);
   const table = tables[kind];
-  const [row] = (await db
-    .select()
-    .from(table)
-    .where(and(eq(table.orgId, orgId), eq(table.id, id)))) as AnyRow[];
+  const [row] = (await db.select().from(table).where(org.whereId(table, id))) as AnyRow[];
   if (!row) throw new AppError("not_found", `No such ${labels[kind].one}.`);
   return row;
 }
@@ -136,11 +129,12 @@ function nameTaken(kind: StructureKind, err: unknown): never {
 }
 
 async function assertDepartmentSelectable(db: Db, orgId: string, departmentId: string | null | undefined) {
+  const org = orgScope(db, orgId);
   if (!departmentId) return;
   const [d] = await db
     .select({ archivedAt: departments.archivedAt })
     .from(departments)
-    .where(and(eq(departments.orgId, orgId), eq(departments.id, departmentId)));
+    .where(org.whereId(departments, departmentId));
   if (!d) throw fieldError("departmentId", "Choose an existing department.");
   if (d.archivedAt) throw fieldError("departmentId", "That department is archived. Choose an active one.");
 }
@@ -195,7 +189,7 @@ export async function updateStructure(
       .update(table)
       // biome-ignore lint/suspicious/noExplicitAny: kind-specific update shape validated by `inputs[kind]`.
       .set({ ...input, updatedAt: deps.clock.now() } as any)
-      .where(and(eq(table.orgId, actor.orgId), eq(table.id, id)))
+      .where(actor.org.whereId(table, id))
       .returning()
       .catch((err: unknown) => nameTaken(kind, err))) as AnyRow[];
     await recordAudit(tx, ports, actor, {
@@ -237,7 +231,7 @@ export async function archiveStructure(
     const [updated] = (await tx
       .update(table)
       .set({ archivedAt: archived ? deps.clock.now() : null, updatedAt: deps.clock.now() })
-      .where(and(eq(table.orgId, actor.orgId), eq(table.id, id)))
+      .where(actor.org.whereId(table, id))
       .returning()
       .catch((err: unknown) => nameTaken(kind, err))) as AnyRow[];
     await recordAudit(tx, ports, actor, {
@@ -261,12 +255,12 @@ export async function assertSelectable(
   id: string | null | undefined,
   field: string,
 ): Promise<void> {
+  const org = orgScope(db, orgId);
   if (!id) return;
   const table = tables[kind];
-  const [row] = (await db
-    .select({ archivedAt: table.archivedAt })
-    .from(table)
-    .where(and(eq(table.orgId, orgId), eq(table.id, id)))) as { archivedAt: Date | null }[];
+  const [row] = (await db.select({ archivedAt: table.archivedAt }).from(table).where(org.whereId(table, id))) as {
+    archivedAt: Date | null;
+  }[];
   if (!row) throw fieldError(field, `Choose an existing ${labels[kind].one}.`);
   if (row.archivedAt) throw fieldError(field, `That ${labels[kind].one} is archived. Choose an active one.`);
 }

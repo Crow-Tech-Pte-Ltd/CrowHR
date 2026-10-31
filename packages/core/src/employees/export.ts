@@ -1,4 +1,3 @@
-import { and, eq } from "drizzle-orm";
 import { bankAccounts, compensationRecords, employees, workPasses } from "../db/schema/employees.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
@@ -130,19 +129,14 @@ export async function exportEmployees(
   const ids = new Set(rows.map((r) => r.id));
   const need = new Set(columns.map((c) => c.section));
   const emps = need.has("personal")
-    ? new Map((await deps.db.select().from(employees).where(eq(employees.orgId, actor.orgId))).map((e) => [e.id, e]))
+    ? new Map((await deps.db.select().from(employees).where(actor.org.where(employees))).map((e) => [e.id, e]))
     : new Map();
   const comps = need.has("compensation")
-    ? await deps.db.select().from(compensationRecords).where(eq(compensationRecords.orgId, actor.orgId))
+    ? await deps.db.select().from(compensationRecords).where(actor.org.where(compensationRecords))
     : [];
-  const banks = need.has("bank")
-    ? await deps.db.select().from(bankAccounts).where(eq(bankAccounts.orgId, actor.orgId))
-    : [];
+  const banks = need.has("bank") ? await deps.db.select().from(bankAccounts).where(actor.org.where(bankAccounts)) : [];
   const passes = need.has("work_pass")
-    ? await deps.db
-        .select()
-        .from(workPasses)
-        .where(and(eq(workPasses.orgId, actor.orgId)))
+    ? await deps.db.select().from(workPasses).where(actor.org.where(workPasses))
     : [];
 
   const out: (string | number | null)[][] = [];

@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { type ProfileChangeRequest, profileChangeRequests } from "../db/schema/employees.ts";
 import type { AppDeps } from "../deps.ts";
@@ -180,7 +180,7 @@ export async function ownChangeRequests(deps: AppDeps, actor: Actor): Promise<Ch
   const rows = await deps.db
     .select()
     .from(profileChangeRequests)
-    .where(and(eq(profileChangeRequests.orgId, actor.orgId), eq(profileChangeRequests.employeeId, actor.employeeId)))
+    .where(actor.org.where(profileChangeRequests, eq(profileChangeRequests.employeeId, actor.employeeId)))
     .orderBy(desc(profileChangeRequests.createdAt));
   return rows.map(toView);
 }
@@ -190,7 +190,7 @@ export async function decidableChangeRequests(deps: AppDeps, actor: Actor) {
   const rows = await deps.db
     .select()
     .from(profileChangeRequests)
-    .where(and(eq(profileChangeRequests.orgId, actor.orgId), eq(profileChangeRequests.status, "pending")))
+    .where(actor.org.where(profileChangeRequests, eq(profileChangeRequests.status, "pending")))
     .orderBy(desc(profileChangeRequests.createdAt));
   return rows
     .filter((r) => (actor.roles.has("owner") || actor.roles.has(r.routeToRole)) && r.employeeId !== actor.employeeId)
@@ -220,7 +220,7 @@ export async function decideChangeRequest(
   const [r] = await deps.db
     .select()
     .from(profileChangeRequests)
-    .where(and(eq(profileChangeRequests.orgId, actor.orgId), eq(profileChangeRequests.id, requestId)));
+    .where(actor.org.whereId(profileChangeRequests, requestId));
   if (!r) throw new AppError("not_found", "No such change request.");
   if (!(actor.roles.has("owner") || actor.roles.has(r.routeToRole))) {
     throw new AppError("forbidden", `Only a ${r.routeToRole.replace("_", " ")} can decide this request.`);
@@ -290,7 +290,7 @@ export async function cancelOwnChangeRequest(deps: AppDeps, ports: PeoplePorts, 
   const [r] = await deps.db
     .select()
     .from(profileChangeRequests)
-    .where(and(eq(profileChangeRequests.orgId, actor.orgId), eq(profileChangeRequests.id, requestId)));
+    .where(actor.org.whereId(profileChangeRequests, requestId));
   if (!r || r.employeeId !== actor.employeeId) throw new AppError("not_found", "No such change request.");
   if (r.status !== "pending") throw new AppError("conflict", `This request is already ${r.status}.`);
   if (r.approvalRequestId) await ports.approvals.cancel(actor.orgId, r.approvalRequestId);

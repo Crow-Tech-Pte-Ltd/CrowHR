@@ -1,5 +1,6 @@
 import { and, eq, gt, inArray, isNull, lte, or, type SQL } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
+import { orgScope } from "../access/org-scope.ts";
 import type { Db } from "../db/types.ts";
 import { AppError } from "../errors.ts";
 import type { IsoDate } from "./dates.ts";
@@ -132,10 +133,11 @@ export async function asAt<T extends EffectiveTable>(
   date: IsoDate,
   extra?: SQL,
 ): Promise<T["$inferSelect"] | undefined> {
+  const org = orgScope(db, orgId);
   const rows = await db
     .select()
     .from(table as PgTable)
-    .where(and(eq(table.orgId, orgId), eq(table.employeeId, employeeId), inForceOn(table, date), extra))
+    .where(org.where(table, eq(table.employeeId, employeeId), inForceOn(table, date), extra))
     .limit(1);
   return rows[0] as T["$inferSelect"] | undefined;
 }
@@ -148,13 +150,14 @@ export async function asAtMany<T extends EffectiveTable>(
   employeeIds: readonly string[],
   date: IsoDate,
 ): Promise<Map<string, T["$inferSelect"]>> {
+  const org = orgScope(db, orgId);
   const out = new Map<string, T["$inferSelect"]>();
   if (employeeIds.length === 0) return out;
   const rows = (await db
     .select()
     .from(table as PgTable)
     .where(
-      and(eq(table.orgId, orgId), inArray(table.employeeId, [...employeeIds]), inForceOn(table, date)),
+      org.where(table, inArray(table.employeeId, [...employeeIds]), inForceOn(table, date)),
     )) as (T["$inferSelect"] & { employeeId: string })[];
   for (const row of rows) out.set(row.employeeId, row);
   return out;
