@@ -1,6 +1,7 @@
 import type { AssignedRole } from "../src/access/matrix.ts";
 import { membershipRoles, memberships } from "../src/db/schema/access.ts";
 import { orgSecuritySettings } from "../src/db/schema/auth.ts";
+import { employees } from "../src/db/schema/employees.ts";
 import { organisations } from "../src/db/schema/organisations.ts";
 import { users } from "../src/db/schema/users.ts";
 import type { Db } from "../src/db/types.ts";
@@ -15,12 +16,44 @@ export async function seedOrg(deps: Pick<AppDeps, "db" | "ids">, input: { name?:
   return { id, slug };
 }
 
+/**
+ * Seeds a bare employee record (no employment history) so identity tests can link a membership
+ * to a real employee (`memberships.employee_id` is a composite FK). People tests hire through
+ * the lifecycle service instead. Returns the employee id; existing ids in the org are reused.
+ */
+export async function seedEmployee(
+  deps: Pick<AppDeps, "db" | "ids">,
+  orgId: string,
+  input: { id?: string; legalName?: string } = {},
+): Promise<string> {
+  const id = input.id ?? deps.ids.newId();
+  const tail = id.replace(/-/g, "").slice(-8);
+  await deps.db
+    .insert(employees)
+    .values({
+      id,
+      orgId,
+      employeeNumber: `T-${tail}`,
+      legalName: input.legalName ?? `Test Employee ${tail}`,
+      idType: "nric",
+      // Not real ciphertext: identity tests never reveal these.
+      idNumberEnc: `test:${tail}`,
+      idNumberHmac: `test:${id}`,
+      idNumberMasked: "S****000A",
+      dob: "1990-01-01",
+      residencyStatus: "citizen",
+    })
+    .onConflictDoNothing();
+  return id;
+}
+
 export interface SeedMemberInput {
   email?: string;
   displayName?: string;
   /** Plain password; hashed with deps.passwordHasher. Omit for no password. */
   password?: string;
   roles?: readonly AssignedRole[];
+  /** Links the membership to this employee, seeding a bare record (`seedEmployee`) if the org has none with this id. */
   employeeId?: string | null;
   status?: "invited" | "active" | "suspended" | "former";
   /** When the roles were granted (MFA grace period); defaults to now. */
@@ -51,6 +84,7 @@ export async function seedMember(deps: AppDeps, orgId: string, input: SeedMember
       emailVerifiedAt: deps.clock.now(),
     });
   }
+  if (input.employeeId) await seedEmployee(deps, orgId, { id: input.employeeId });
   const membershipId = deps.ids.newId();
   await db.insert(memberships).values({
     id: membershipId,

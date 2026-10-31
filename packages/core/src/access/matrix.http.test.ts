@@ -5,28 +5,49 @@ import {
   createTestDb,
   createTestDeps,
   seedMember,
-  seedOrg,
   type TestClient,
   type TestDb,
 } from "../../testing/index.ts";
 import { createApp } from "../app.ts";
+import type { AppDeps } from "../deps.ts";
+import { applyEvent, ctxFor, hire } from "../employees/lifecycle.ts";
+import { createReportingScopeResolver } from "../employees/reports/reporting-scope.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
+import {
+  type BasicStructure,
+  createPeopleHarness,
+  hirePayload,
+  OWNER,
+  type PeopleHarness,
+  seedBasicStructure,
+} from "../testing/people-harness.ts";
 import { MATRIX, type Permission, type Role, type Scope } from "./matrix.ts";
-import { createStaticReportingScope } from "./scope.ts";
 
 /**
  * Table-driven permission test (access-control "Matrix enforced per cell"). One stub route per
  * matrix row; every row × role × in-scope/out-of-scope record is asserted. A module adding a
  * row to MATRIX gets it tested here automatically.
+ *
+ * Manager scope comes from the real `ReportingScopeResolver` (people module) over real
+ * employment records: manager ← report ← indirect, plus an unrelated employee and an "other".
  */
-const EMP = {
-  manager: "00000000-0000-7000-8000-00000000000a",
-  report: "00000000-0000-7000-8000-00000000000b",
-  indirect: "00000000-0000-7000-8000-00000000000c",
-  employee: "00000000-0000-7000-8000-00000000000d",
-  other: "00000000-0000-7000-8000-00000000000e",
-};
-const reporting = createStaticReportingScope({ [EMP.manager]: [EMP.report], [EMP.report]: [EMP.indirect] });
+type Who = "manager" | "report" | "indirect" | "employee" | "other";
+const EMP = {} as Record<Who, string>;
+
+/** Hires the five employees with their reporting lines; returns a deps with the real resolver wired. */
+async function seedReportingLines(deps: AppDeps): Promise<{ h: PeopleHarness; s: BasicStructure; deps: AppDeps }> {
+  const h = await createPeopleHarness(deps);
+  const s = await seedBasicStructure(h);
+  const ctx = ctxFor(h.deps, h.ports, h.actor(OWNER));
+  const hireOne = async (managerEmployeeId: string | null = null) =>
+    (await hire(ctx, hirePayload(s, { job: { managerEmployeeId }, compensation: null }))).employeeId;
+  EMP.manager = await hireOne();
+  EMP.report = await hireOne(EMP.manager);
+  EMP.indirect = await hireOne(EMP.report);
+  EMP.employee = await hireOne();
+  EMP.other = await hireOne();
+  return { h, s, deps: { ...h.deps, reportingScope: createReportingScopeResolver(deps.db) } };
+}
 
 const permissions = Object.keys(MATRIX) as Permission[];
 const stub = defineModule({
@@ -56,16 +77,16 @@ const PERSONAS: Record<
   Role,
   {
     roles: ("owner" | "hr_admin" | "payroll_admin")[];
-    employeeId: string | null;
     effective: Role[];
-    self: string | null;
+    /** The persona's own employee record, if linked. */
+    self: Who | null;
   }
 > = {
-  owner: { roles: ["owner"], employeeId: null, effective: ["owner"], self: null },
-  hr_admin: { roles: ["hr_admin"], employeeId: null, effective: ["hr_admin"], self: null },
-  payroll_admin: { roles: ["payroll_admin"], employeeId: null, effective: ["payroll_admin"], self: null },
-  manager: { roles: [], employeeId: EMP.manager, effective: ["manager", "employee"], self: EMP.manager },
-  employee: { roles: [], employeeId: EMP.employee, effective: ["employee"], self: EMP.employee },
+  owner: { roles: ["owner"], effective: ["owner"], self: null },
+  hr_admin: { roles: ["hr_admin"], effective: ["hr_admin"], self: null },
+  payroll_admin: { roles: ["payroll_admin"], effective: ["payroll_admin"], self: null },
+  manager: { roles: [], effective: ["manager", "employee"], self: "manager" },
+  employee: { roles: [], effective: ["employee"], self: "employee" },
 };
 
 function scopesFor(permission: Permission, effective: Role[]): Set<Scope> {
@@ -79,39 +100,36 @@ describe("permission matrix", () => {
   const clients = new Map<Role, TestClient>();
   beforeAll(async () => {
     t = await createTestDb();
-    const deps = createTestDeps(t.db, { reportingScope: reporting });
+    const { h, deps } = await seedReportingLines(createTestDeps(t.db));
     app = createApp(deps, { modules: [stub] });
-    const org = await seedOrg(deps);
     for (const [role, p] of Object.entries(PERSONAS) as [Role, (typeof PERSONAS)[Role]][]) {
-      clients.set(
-        role,
-        await clientAs(app, deps, await seedMember(deps, org.id, { roles: p.roles, employeeId: p.employeeId })),
-      );
+      const employeeId = p.self ? EMP[p.self] : null;
+      clients.set(role, await clientAs(app, deps, await seedMember(deps, h.orgId, { roles: p.roles, employeeId })));
     }
   });
   afterAll(() => t.close());
 
-  const cases: { permission: Permission; role: Role; target: string; label: string; expected: number }[] = [];
+  const cases: { permission: Permission; role: Role; target: Who; label: string; expected: number }[] = [];
   for (const permission of permissions) {
     for (const role of Object.keys(PERSONAS) as Role[]) {
       const p = PERSONAS[role];
       const scopes = scopesFor(permission, p.effective);
       if (scopes.size === 0) {
-        cases.push({ permission, role, target: EMP.other, label: "denied", expected: 403 });
+        cases.push({ permission, role, target: "other", label: "denied", expected: 403 });
         continue;
       }
       if (scopes.has("all")) {
-        cases.push({ permission, role, target: EMP.other, label: "all", expected: 200 });
+        cases.push({ permission, role, target: "other", label: "all", expected: 200 });
         continue;
       }
       if (scopes.has("team")) {
-        cases.push({ permission, role, target: EMP.report, label: "team (direct)", expected: 200 });
-        cases.push({ permission, role, target: EMP.indirect, label: "team (indirect)", expected: 200 });
+        cases.push({ permission, role, target: "report", label: "team (direct)", expected: 200 });
+        cases.push({ permission, role, target: "indirect", label: "team (indirect)", expected: 200 });
       }
       if (scopes.has("own") && p.self) cases.push({ permission, role, target: p.self, label: "own", expected: 200 });
       if (!scopes.has("own") && p.self)
         cases.push({ permission, role, target: p.self, label: "self outside scope", expected: 404 });
-      cases.push({ permission, role, target: EMP.other, label: "out of scope", expected: 404 });
+      cases.push({ permission, role, target: "other", label: "out of scope", expected: 404 });
     }
   }
 
@@ -121,7 +139,9 @@ describe("permission matrix", () => {
   });
 
   it.each(cases)("$permission as $role, $label → $expected", async ({ permission, role, target, expected }) => {
-    const res = await (clients.get(role) as TestClient).get(`/api/v1/stub/${permission.replace(":", "/")}/${target}`);
+    const res = await (clients.get(role) as TestClient).get(
+      `/api/v1/stub/${permission.replace(":", "/")}/${EMP[target]}`,
+    );
     expect(res.status).toBe(expected);
   });
 
@@ -147,16 +167,22 @@ describe("permission matrix", () => {
 });
 
 describe("manager scope follows reporting-line changes on the next request", () => {
-  it("a former report is hidden as soon as the resolver changes", async () => {
+  it("a former report is hidden as soon as their manager changes", async () => {
     const t = await createTestDb();
     try {
-      const lines: Record<string, string[]> = { [EMP.manager]: [EMP.report] };
-      const deps = createTestDeps(t.db, { reportingScope: { teamOf: async (_o, m) => new Set(lines[m] ?? []) } });
+      const { h, deps } = await seedReportingLines(createTestDeps(t.db));
       const app = createApp(deps, { modules: [stub] });
-      const org = await seedOrg(deps);
-      const http = await clientAs(app, deps, await seedMember(deps, org.id, { employeeId: EMP.manager }));
+      const http = await clientAs(app, deps, await seedMember(deps, h.orgId, { employeeId: EMP.manager }));
       expect((await http.get(`/api/v1/stub/employment/read/${EMP.report}`)).status).toBe(200);
-      lines[EMP.manager] = [];
+      // Both reports move to another manager today (31 Oct 2026, the test clock).
+      const ctx = ctxFor(h.deps, h.ports, h.actor(OWNER));
+      for (const who of ["report", "indirect"] as const) {
+        await applyEvent(ctx, EMP[who], {
+          type: "transfer",
+          effectiveDate: "2026-10-31",
+          changes: { managerEmployeeId: EMP.other },
+        });
+      }
       expect((await http.get(`/api/v1/stub/employment/read/${EMP.report}`)).status).toBe(404);
       // No reports left → no manager role → leave:read falls back to own only.
       expect((await http.get(`/api/v1/stub/leave/read/${EMP.report}`)).status).toBe(404);

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, createTestDeps, seedMember, seedOrg, type TestDb } from "../../testing/index.ts";
-import { createApp } from "../app.ts";
+import { allV1Modules, createApp } from "../app.ts";
 import { orgSecuritySettings, ssoProviders } from "../db/schema/auth.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 
@@ -19,6 +19,8 @@ const leave = defineModule({
     }),
   ],
 });
+
+const builtInFeatures = allV1Modules().flatMap((m) => (m.feature ? [m.feature] : []));
 
 describe("GET /api/v1/meta", () => {
   let t: TestDb;
@@ -80,7 +82,8 @@ describe("GET /api/v1/meta", () => {
     expect(JSON.parse(text)).toEqual({
       serverVersion: expect.any(String),
       apiVersions: ["v1"],
-      features: ["leave"],
+      // Built-in modules that declare a feature, plus the stub: modules add theirs as they land.
+      features: [...builtInFeatures, "leave"],
       demo: false,
       orgSlugRequired: false,
       organisations: [
