@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in Crow HR does not work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Security problems go to SECURITY.md, not here.**
+        Please use fictional data only: never paste real NRIC/FIN numbers, salaries, bank details or names.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to Payroll → New payroll run
+        2. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: "`docker compose exec app crowhr --version`, or the git commit."
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Self-hosting / install / backups
+        - Sign-in, SSO, MFA
+        - Members and roles
+        - People
+        - Approvals and notifications
+        - Payroll calculation (CPF, SHG, SDL, FWL)
+        - Payslips or statutory files (EZPay, bank, IR8A)
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and diagnostics
+      description: Relevant lines of `docker compose logs app`, the request ID shown with the error, and `crowhr doctor` output. Remove personal data.
+      render: text
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Reverse proxy, external database, browser, anything unusual.

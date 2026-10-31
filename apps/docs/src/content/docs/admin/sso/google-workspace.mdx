@@ -1,0 +1,44 @@
+---
+title: Google Workspace sign-in
+description: Step-by-step setup of Google Workspace single sign-on (OpenID Connect) for Crow HR, with domain restriction.
+---
+
+Lets staff sign in with their Google Workspace account. You need an owner account in Crow HR, admin access to a Google Cloud project for your Workspace, and `PUBLIC_URL` set to its final address (the redirect URI is built from it).
+
+## What Crow HR does
+
+- OpenID Connect against `https://accounts.google.com` with scopes `openid email profile`, authorisation code flow with PKCE.
+- With **allowed Workspace domains** set, only accounts whose Google `hd` (hosted domain) claim is in the list can sign in; personal Gmail accounts have no `hd` and are refused. With exactly one domain, Google's account chooser is also limited to it.
+- A first sign-in links to the member with the same verified email, or to the member whose invitation link was used.
+
+## Set it up
+
+1. **Google Cloud Console**: choose or create a project for your Workspace. If Google asks you to configure the OAuth consent screen first, choose the **Internal** user type so only your Workspace's users can use it.
+
+2. Open **APIs & Services → Credentials → Create credentials → OAuth client ID**, application type **Web application**. Leave the redirect URIs empty for now. Copy the **client ID** and **client secret**.
+
+3. **Crow HR**: in **Settings → Security** choose **Add a method → Google Workspace**. Paste the client ID and secret, and enter your Workspace domain(s) in **Allowed Workspace domains**, for example `kampongkopi.sg`. Leave **Create accounts on first sign-in** off unless you want [JIT accounts](/docs/admin/sign-in-methods/#creating-accounts-on-first-sign-in-jit). Save (you may be asked for your password again).
+
+4. Copy the **Redirect URI** shown after saving. It looks like `https://hr.example.sg/api/v1/auth/oidc/<provider id>/callback`.
+
+5. **Google Cloud Console**: edit the OAuth client and add that exact URI under **Authorised redirect URIs**. Save. Google can take a few minutes to apply it.
+
+6. **Crow HR**: use **Test sign-in** on the Google row. When it succeeds, switch the method on. The sign-in page now shows the Google button.
+
+
+## Check
+
+- Invite or hire someone with their Workspace email, then have them sign in with Google: they land on Home without setting a password.
+- Someone from another domain is refused; the audit log shows `auth.sso_failed` with reason `hd_mismatch`.
+- Two-step verification for Google sign-ins is Google's job: enforce 2-Step Verification in the Workspace admin console. Crow HR's [MFA policy](/docs/admin/mfa/) applies to password sign-in only.
+
+## Common errors
+
+| Symptom | Cause |
+| --- | --- |
+| Google says `redirect_uri_mismatch` | The URI in Google Cloud does not match the one Crow HR showed exactly (scheme, host, path). Check `PUBLIC_URL`. |
+| "Your account has not been set up" | No member with that email exists. Invite them first, or have them use their invitation link. |
+| Audit reason `hd_mismatch` | The account's domain is not in Allowed Workspace domains (or it is a personal Google account). |
+| Audit reason `email_not_verified` | Google did not assert a verified email; use the invitation link instead. |
+
+Tested against an in-process mock identity provider in Crow HR's test suite; the Google preset uses Google's published OpenID Connect discovery document.

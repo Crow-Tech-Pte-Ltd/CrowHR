@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Self-host smoke test: a real `docker compose` install, following docs/self-hosting/quick-start.md,
+# Self-host smoke test: a real `docker compose` install, following apps/docs/src/content/docs/self-hosting/install.md,
 # in a throwaway compose project. It touches only containers, volumes and the image it creates.
 #
 #   e2e/self-host.sh                 # build the image, run everything, clean up

@@ -1,0 +1,43 @@
+---
+/**
+ * Columns of a CSV import template, rendered at build time from the same `TEMPLATES` object the
+ * server uses to generate the downloadable template and validate uploads, so the docs cannot drift.
+ */
+import { TEMPLATES } from "../../../../packages/core/src/employees/import/templates.ts";
+
+interface Props {
+  kind: keyof typeof TEMPLATES;
+}
+
+const template = TEMPLATES[Astro.props.kind];
+---
+
+<p>
+  Template file <code>{template.fileName}</code> (version {template.version}), {template.columns.length} columns.
+</p>
+<div class="api-table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Column</th>
+        <th scope="col">Required</th>
+        <th scope="col">What to enter</th>
+        <th scope="col">Example</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        template.columns.map((c) => (
+          <tr>
+            <td>
+              <code>{c.name}</code>
+            </td>
+            <td>{c.required ? "yes" : "no"}</td>
+            <td>{c.help}</td>
+            <td>{c.example ? <code>{c.example}</code> : ""}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>

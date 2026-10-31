@@ -1,17 +1,22 @@
-# Self-hosting: quick start
+---
+title: Install with Docker Compose
+description: Install Crow HR on your own server with Docker Compose, finish setup in the browser and take your first backup.
+---
 
-Draft for the docs site (WS8 moves it into `apps/docs`). Verified by `e2e/self-host.sh`, which follows these steps in a throwaway compose project.
+These steps are what `e2e/self-host.sh` runs in a throwaway compose project, so they are tested as written. The short version is on the [quick start](/docs/quick-start/) page.
 
 You need a machine with Docker Engine 24+ and the Compose plugin (`docker compose version`), 2 GB of RAM and a few GB of disk. Crow HR runs as two containers, the app and PostgreSQL 17. There is no Redis and no queue.
 
 ## 1. Get the files
 
 ```sh
-git clone https://github.com/crow-tech-pte-ltd/crowhr.git    # repository name to be confirmed
-cd crowhr
+git clone https://github.com/Crow-Tech-Pte-Ltd/crow-hr.git   # repository URL not confirmed yet
+cd crow-hr
 ```
 
-The image is not published to a registry yet, so the first `docker compose up` builds it from the checkout. That takes a few minutes. Once images are published you will only need `docker-compose.yml` and `.env.example`.
+:::caution[Images are not published yet]
+The registry and image name (`ghcr.io/crow-tech-pte-ltd/crowhr:1` in `docker-compose.yml`) are not confirmed and nothing has been pushed. Until images are published, the first `docker compose up` builds the image from the checkout, which takes a few minutes. Once images are published you will only need `docker-compose.yml` and `.env.example`.
+:::
 
 ## 2. Configure
 
@@ -29,8 +34,10 @@ PUBLIC_URL=http://192.168.1.20:8080       # on your office network, no proxy
 
 Everything else has a working default. Recommended before you store real data:
 
-- `BACKUP_PASSPHRASE`: encrypts backups. Without it, a backup file includes your encryption key in the clear. See [backups](backups.md).
-- `TRUSTED_PROXIES`: set it when you use a reverse proxy. See [reverse proxy](reverse-proxy.md).
+- `BACKUP_PASSPHRASE` encrypts backups. Without it, a backup file includes your encryption key in the clear. See [backups and restore](/docs/self-hosting/backups/).
+- `TRUSTED_PROXIES` is needed when you use a reverse proxy. See [reverse proxy](/docs/self-hosting/reverse-proxy/).
+
+Every variable is listed in the [configuration reference](/docs/self-hosting/configuration/).
 
 ## 3. Start
 
@@ -52,7 +59,7 @@ On first start Crow HR:
 docker compose logs app | grep -A3 'SETUP CODE'
 ```
 
-Open `PUBLIC_URL` (every page redirects to `/setup` until setup is done). Enter the code, your company's registered name, and the owner's name, email and password. You are then signed in as the owner and asked to set up two-step verification. Afterwards `/setup` no longer exists.
+Open `PUBLIC_URL`. Every page redirects to `/setup` until setup is done. Enter the code, your company's registered name, and the owner's name, email and password. You are then signed in as the owner and offered two-step verification. Afterwards `/setup` no longer exists. The [setup wizard](/docs/admin/setup-wizard/) page explains each field.
 
 The code changes on every restart; `docker compose exec app crowhr setup-code` prints a fresh one. Five wrong codes from one address block it for 15 minutes.
 
@@ -81,4 +88,10 @@ docker compose exec app crowhr backup
 
 Only the app's port is published (`HTTP_PORT`, default 8080, on `BIND_ADDRESS`, default all interfaces). PostgreSQL has no host port. The app runs as uid 10001 on a read-only root filesystem.
 
-Next: [configuration reference](configuration.md) · [reverse proxy](reverse-proxy.md) · [backups and restore](backups.md) · [upgrades](upgrades.md) · [troubleshooting](troubleshooting.md)
+## Next
+
+- [Configuration reference](/docs/self-hosting/configuration/)
+- [Reverse proxy](/docs/self-hosting/reverse-proxy/)
+- [Backups and restore](/docs/self-hosting/backups/)
+- [Upgrades](/docs/self-hosting/upgrades/)
+- [Troubleshooting](/docs/self-hosting/troubleshooting/)

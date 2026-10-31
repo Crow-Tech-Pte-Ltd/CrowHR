@@ -51,12 +51,19 @@ may be described as working. Remove an entry only in the change that fixes it.
 ## Self-hosting
 
 - **Images are not published.** `docker-compose.yml` names `ghcr.io/crow-tech-pte-ltd/crowhr:1` (registry unconfirmed) and builds it from the checkout; publishing needs Daniel's approval. arm64 was verified once locally under QEMU (build, argon2, start against PostgreSQL 17); CI builds amd64 only.
-- **Reverse proxies:** only Caddy is exercised by `e2e/self-host.sh` (HTTP, Caddy container on the compose network). The nginx, Traefik and Cloudflare Tunnel examples in `docs/self-hosting/reverse-proxy.md` have not been run.
+- **Reverse proxies:** only Caddy is exercised by `e2e/self-host.sh` (HTTP, Caddy container on the compose network). The nginx, Traefik and Cloudflare Tunnel examples in the docs site's reverse-proxy page (`apps/docs/src/content/docs/self-hosting/reverse-proxy.md`) have not been run.
 - **Scheduled backups** are checked on the shared in-process scheduler (`apps/server/src/scheduler.ts`, every 60 s with the workflows sweep) but stay in `apps/server`: `pg_dump` is Node-only, so the backup is a host job rather than a core `tick` sweep. One attempt per day; a failed attempt is retried the next day.
 - **Restore restarts the app** by signalling PID 1 inside the container; under `docker compose run` (or outside Docker) it prints "restart the app" instead.
-- **Self-hosting docs** are drafts in `docs/self-hosting/`; the docs site (`apps/docs`) does not exist yet.
 - **Dependency audit**: `bun audit` reports one moderate, dev-only advisory (GHSA-67mh-4wv8-2f99, esbuild ≤ 0.24.2 dev server) via drizzle-kit's `@esbuild-kit` loader. It is never shipped or run as a server. CI fails on high/critical only.
 - **CI has not run**: the workflow exists but nothing has been pushed.
+
+## Documentation site (apps/docs)
+
+- **Not deployed.** It builds to static files for `https://hr.crow.sg/docs` (`base: /docs`), but nothing is published, and the repository URL used in install commands (`https://github.com/Crow-Tech-Pte-Ltd/crow-hr`) is a placeholder.
+- **Placeholder contacts**: `security@crow.sg` (SECURITY.md) and `conduct@crow.sg` (CODE_OF_CONDUCT.md) are not confirmed.
+- **Generated, not hand-kept**: the permission matrix and import-template columns are rendered from `packages/core` sources at build time, and the API reference from the OpenAPI snapshot. The configuration and CLI pages are hand-written and checked by `apps/docs/tests/` against the code.
+- **SSO guides** describe the provider consoles from their public documentation; only the mock identity provider has been exercised. The Singpass guide's staging sign-in has not been done (identity task 8.3).
+- **Starlight's `<Steps>` component is not used**: it renders with satteri, whose native binding cannot be resolved from Astro's prerender chunks under bun's isolated `node_modules`.
 
 ## Organisation and people (add-organisation-and-people)
 
@@ -90,4 +97,5 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **IR8A** is exported as CSV rows in the column layout of IRAS's IR8A import template (version 1.0), at most 200 records per part, to paste at row 6 of the template's IR8A sheet and import in myTax Portal. Crow HR does not fill or redistribute IRAS's workbook itself (its licence is unconfirmed), and **direct AIS-API submission is not available** (it needs IRAS's approval of the software, Corppass and APEX credentials and whitelisted servers). Filled from approved payslips plus YTD opening balances: basic pay after no-pay leave, overtime, back pay and "other earnings" go to (a), bonuses to (b) dated by their last pay date, allowances to d1, commissions to d2, employee CPF (with AW top-up recoveries) and SHG to the deduction columns. Not filled: residential address (not recorded), director's fees, d3 gratuity/notice pay (other earnings must be moved by hand), d6 excess employer CPF, tax borne by employer, remission or exempt income. Employees with an ID type other than NRIC/FIN or without a recorded sex are left out and listed; IR21-cleared leavers are only flagged. Back pay is reported in the year paid.
 - **Appendix 8A and 8B are NOT IMPLEMENTED**: Crow HR records no benefits-in-kind or share plans, so the export says to fill those sheets by hand.
 - **Allowance CPF and pro-ration treatment** has an API (`/payroll/allowance-settings`) but no screen yet; the default is CPF-liable OW, pro-rated.
+- **Payslip release notifications** are not sent (found while writing the docs; the `payslip_released` notification kind exists; payroll does not emit it).
 - **Payroll dev server**: like the people screens, payroll e2e and screenshots run against `packages/core/testing/payroll-dev-server.ts` (DEV ONLY, 127.0.0.1).

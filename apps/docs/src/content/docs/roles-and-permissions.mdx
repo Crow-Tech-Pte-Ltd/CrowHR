@@ -1,0 +1,33 @@
+---
+title: Roles and permissions
+description: Crow HR's permission matrix - which role can read or change what, with which scope - generated from the server's source code.
+tableOfContents:
+  maxHeadingLevel: 2
+---
+
+import PermissionMatrix from "../../components/PermissionMatrix.astro";
+
+Crow HR checks every API request on the server against one permission matrix before it reads any data. Hiding a button in the web app is cosmetic; the server decides. The table below is generated from that matrix (`packages/core/src/access/matrix.ts`) when the docs are built, so it is always the version the code enforces.
+
+## Roles
+
+- **Owner**, **HR admin** and **payroll admin** are granted by an owner. One person can hold several.
+- **Manager** applies automatically while the member's employee record has at least one active direct report. Their *team* is everyone whose current reporting chain leads to them, at any depth, but not themselves.
+- **Employee** applies automatically when the member is linked to an employee record.
+
+A member's rights are the union of their roles. See [members and roles](/docs/admin/members-and-roles/) for how roles are granted.
+
+## The matrix
+
+<PermissionMatrix />
+
+## Rules on top of the matrix
+
+- **Records outside your scope look missing.** A record of another organisation, or outside your team or own records, answers `404`, so its existence is never revealed. A permission you do not have at all answers `403`.
+- **Sensitive fields** carry a class: `salary`, `nric`, `bank` or `medical`. You receive a sensitive field only if the matrix gives you its resource (compensation, personal details, bank details). `medical` is further limited to owners, HR admins, the employee and the approver assigned to that item. Fields you may not read are left out and listed in `redactedFields`. Exports apply the same rules.
+- **NRIC/FIN and bank numbers** are masked; revealing one needs a recent sign-in, is limited to 30 per hour and is audited.
+- **Segregation of duties**: nobody changes their own compensation or bank details directly, whatever their role, and nobody decides their own approval request, except an owner when no one else is eligible (recorded as self-approved).
+- **Former members** keep read-only access to their own released payslips and employee-visible documents.
+- **Install-level** information (Settings → System) is visible to owners only.
+
+Rows marked *module not built* belong to modules that do not exist yet (leave, claims, attendance, rosters, documents, reports). They are defined now so the rules are settled before the code is written.

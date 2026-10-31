@@ -53,7 +53,7 @@ export class ConfigError extends Error {
         `Crow HR cannot start: ${problems.length === 1 ? "1 setting needs" : `${problems.length} settings need`} fixing.`,
         ...problems.map((p) => `  - ${p}`),
         "Edit .env (copy .env.example if you have none), then run: docker compose up -d",
-        "Every variable is documented in .env.example and docs/self-hosting/configuration.md.",
+        "Every variable is documented in .env.example and https://hr.crow.sg/docs/self-hosting/configuration/.",
       ].join("\n"),
     );
     this.problems = problems;

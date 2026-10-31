@@ -1,0 +1,45 @@
+---
+title: Microsoft Entra ID sign-in
+description: Step-by-step setup of Microsoft Entra ID (Azure AD) single sign-on for Crow HR, restricted to your tenant.
+---
+
+Lets staff sign in with their Microsoft 365 / Entra ID work account. You need an owner account in Crow HR, rights to register applications in your Entra tenant, and `PUBLIC_URL` set to its final address.
+
+## What Crow HR does
+
+- OpenID Connect against `https://login.microsoftonline.com/<tenant id>/v2.0` with scopes `openid email profile`, authorisation code flow with PKCE.
+- **Single tenant only.** The tenant ID is required, multi-tenant values (`common`, `organizations`, `consumers`) are refused, and any token whose `tid` differs from your tenant is rejected (`tid_mismatch`).
+- An email in a token from your tenant counts as verified, so a first sign-in links to the member with that email. If the ID token has no `email` claim (Entra includes it only for users with an email address), the first sign-in must come from the member's invitation link.
+
+## Set it up
+
+1. **Microsoft Entra admin centre**: open **App registrations → New registration**. Name it (for example "Crow HR") and choose **Accounts in this organizational directory only (single tenant)**. Leave the redirect URI empty for now and register.
+
+2. On the app's **Overview** page copy the **Directory (tenant) ID** and the **Application (client) ID**.
+
+3. Under **Certificates & secrets → Client secrets**, create a secret and copy its **Value** (not the Secret ID). Note its expiry date: sign-in stops working when it expires, and you then paste a new secret into Crow HR.
+
+4. **Crow HR**: in **Settings → Security** choose **Add a method → Microsoft Entra ID**. Paste the tenant ID, client ID and secret. Optionally add allowed email domains (used only to limit [JIT accounts](/docs/admin/sign-in-methods/#creating-accounts-on-first-sign-in-jit)). Save.
+
+5. Copy the **Redirect URI** shown after saving (`https://hr.example.sg/api/v1/auth/oidc/<provider id>/callback`).
+
+6. **Entra**: in the app registration open **Authentication → Add a platform → Web** and paste the redirect URI. Save.
+
+7. **Crow HR**: use **Test sign-in**, then switch the method on.
+
+
+## Check
+
+- A member whose Crow HR email equals their Entra email can sign in with Microsoft.
+- A personal Microsoft account or another tenant's account is refused (`tid_mismatch` in the audit log).
+- Enforce MFA with Entra (security defaults or Conditional Access). Crow HR's [MFA policy](/docs/admin/mfa/) applies to password sign-in only.
+
+## Common errors
+
+| Symptom | Cause |
+| --- | --- |
+| Microsoft error AADSTS50011 (redirect URI mismatch) | The Web platform redirect URI does not exactly match the one Crow HR showed. |
+| Sign-in worked, then stopped months later | The client secret expired. Create a new one and paste it in **Edit**. |
+| "Your account has not been set up" | No member with that email, or the token had no `email` claim. Use the invitation link. |
+
+Tested against an in-process mock identity provider in Crow HR's test suite, not against a live Entra tenant in CI.

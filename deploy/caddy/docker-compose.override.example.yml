@@ -1,6 +1,6 @@
 # OPTIONAL convenience: Caddy in front of Crow HR with automatic HTTPS (Let's Encrypt).
 # Crow HR does not need it; any reverse proxy (or none on a LAN) works. See
-# docs/self-hosting/reverse-proxy.md.
+# apps/docs/src/content/docs/self-hosting/reverse-proxy.md.
 #
 #   cp deploy/caddy/docker-compose.override.example.yml docker-compose.override.yml
 #   cp deploy/caddy/Caddyfile.example Caddyfile          # then put your domain in it
