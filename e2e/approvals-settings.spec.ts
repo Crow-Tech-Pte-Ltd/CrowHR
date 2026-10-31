@@ -14,8 +14,8 @@ test("Settings → Approvals: defaults shown, claims get an amount threshold", a
   const hr = await signedIn(browser, E2E.members.hr.email);
   await hr.goto("/settings/approvals");
   const leave = hr.getByTestId("chain-leave");
+  // Leave's built-in chain is the manager alone (the leave module's adapter default; no manager → HR).
   await expect(leave).toContainText("Manager");
-  await expect(leave).toContainText("HR admin");
   await expect(leave).toContainText("Escalates after 3 days");
   await expect(hr.getByTestId("chain-payroll_run")).toContainText("Only an owner can change this");
 

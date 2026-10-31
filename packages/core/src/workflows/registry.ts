@@ -1,7 +1,9 @@
+import { attendanceWorkflowPlugin } from "../attendance/approval.ts";
 import { claimsWorkflowPlugin } from "../claims/approval.ts";
 import { SUBJECT_TYPE_PATTERN } from "../db/schema/workflows.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
+import { leaveWorkflowPlugin } from "../leave/approval.ts";
 import { payrollWorkflowPlugin } from "../payroll/approval.ts";
 import { approvalsInbox } from "./inbox-approvals.ts";
 import { peopleWorkflowPlugin } from "./people.ts";
@@ -24,6 +26,8 @@ export const CORE_WORKFLOW_PLUGINS: readonly CorePlugin[] = [
   (deps) => systemWorkflowPlugin(deps),
   (deps) => payrollWorkflowPlugin(deps),
   (deps) => claimsWorkflowPlugin(deps),
+  (deps) => leaveWorkflowPlugin(deps),
+  (deps) => attendanceWorkflowPlugin(deps),
 ];
 
 export interface WorkflowRegistry {
@@ -39,24 +43,31 @@ const cache = new WeakMap<object, WorkflowRegistry>();
 function build(deps: AppDeps): WorkflowRegistry {
   const core = CORE_WORKFLOW_PLUGINS.map((p) => (typeof p === "function" ? p(deps) : p));
   const extra = deps.workflowPlugins ?? [];
-  const plugins = [...core, ...extra];
   const subjects = new Map<string, AnySubjectAdapter>();
-  const fromCore = new Set<string>();
-  for (const plugin of plugins) {
-    const isExtra = extra.includes(plugin);
-    for (const adapter of plugin.subjects ?? []) {
-      if (!SUBJECT_TYPE_PATTERN.test(adapter.type)) {
-        throw new Error(`Workflow plugin ${plugin.name}: subject type "${adapter.type}" must be lower snake case.`);
+  // A host or test plugin may replace a core subject type (e.g. the engine's fake `leave` module in
+  // workflows tests); the replaced core plugin's other contributions stay. Within one group a type
+  // registered twice is an error.
+  const replaced = new Set(extra.flatMap((p) => (p.subjects ?? []).map((a) => a.type)));
+  for (const [group, list] of [
+    ["core", core],
+    ["extra", extra],
+  ] as const) {
+    const seen = new Set<string>();
+    for (const plugin of list) {
+      for (const adapter of plugin.subjects ?? []) {
+        if (!SUBJECT_TYPE_PATTERN.test(adapter.type)) {
+          throw new Error(`Workflow plugin ${plugin.name}: subject type "${adapter.type}" must be lower snake case.`);
+        }
+        if (seen.has(adapter.type)) {
+          throw new Error(`Workflow plugin ${plugin.name}: subject type "${adapter.type}" is registered twice.`);
+        }
+        seen.add(adapter.type);
+        if (group === "core" && replaced.has(adapter.type)) continue;
+        subjects.set(adapter.type, adapter);
       }
-      // A host or test plugin (deps.workflowPlugins) may replace a core adapter; anything else is a clash.
-      if (subjects.has(adapter.type) && !(isExtra && fromCore.has(adapter.type))) {
-        throw new Error(`Workflow plugin ${plugin.name}: subject type "${adapter.type}" is registered twice.`);
-      }
-      if (!isExtra) fromCore.add(adapter.type);
-      else fromCore.delete(adapter.type);
-      subjects.set(adapter.type, adapter);
     }
   }
+  const plugins = [...core, ...extra];
   return {
     subjects,
     subject(type) {

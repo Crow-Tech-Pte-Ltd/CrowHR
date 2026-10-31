@@ -2,7 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Bell,
   Building2,
+  CalendarDays,
   ChevronRight,
+  Clock,
   GitBranch,
   KeyRound,
   type LucideIcon,
@@ -15,10 +17,7 @@ import {
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 
-const SECTIONS = [
-  { title: "Payroll defaults", body: "Pay dates, rounding, bank files." },
-  { title: "Leave policies", body: "Leave types, entitlements, carry-forward." },
-];
+const SECTIONS = [{ title: "Payroll defaults", body: "Pay dates, rounding, bank files." }];
 
 export const Route = createFileRoute("/_app/settings/")({
   component: SettingsPage,
@@ -34,7 +33,9 @@ function SettingsPage() {
       | "/settings/system"
       | "/settings/approvals"
       | "/settings/notifications"
-      | "/settings/claim-types";
+      | "/settings/claim-types"
+      | "/settings/leave"
+      | "/settings/attendance";
     title: string;
     body: string;
     icon: LucideIcon;
@@ -81,6 +82,20 @@ function SettingsPage() {
       body: "What staff can claim, receipt rules, monthly and yearly caps, and how claims are paid.",
       icon: ReceiptText,
       show: can(me, "claim_types:read"),
+    },
+    {
+      to: "/settings/leave",
+      title: "Leave",
+      body: "Leave types and entitlements (statutory ones preconfigured), public holidays, and government-paid leave to claim.",
+      icon: CalendarDays,
+      show: can(me, "policies:read") || can(me, "leave_claims:read"),
+    },
+    {
+      to: "/settings/attendance",
+      title: "Attendance",
+      body: "Clock-in location and network checks, PDPA notice, start time, lateness grace and overtime rounding.",
+      icon: Clock,
+      show: can(me, "policies:read"),
     },
     {
       to: "/settings/notifications",
