@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/db/schema/index.ts",
+    "./seed": "./src/testing/seed-api.ts",
     "./testing": "./testing/index.ts",
     "./migrations-folder": "./testing/migrations-folder.ts"
   },

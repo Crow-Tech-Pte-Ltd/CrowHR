@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en-SG">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#FFFFFF" />
+    <meta
+      name="description"
+      content="Try Crow HR, free and open-source HR and payroll for Singapore teams. The demo runs entirely in your browser with a fictional company."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Crow HR demo</title>
+    <style>
+      /* Boot screen: plain CSS so it paints before any script or font loads. */
+      :root { --ink: #0a0a0a; --muted: #666; --line: #dedede; --paper: #fff; --cream: #fdf7e5; --kuning: #fec84b; }
+      html, body { margin: 0; background: var(--paper); color: var(--ink); }
+      #demo-boot {
+        min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px 16px;
+        box-sizing: border-box; font-family: "Ubuntu", ui-sans-serif, system-ui, sans-serif; background: var(--cream);
+      }
+      #demo-boot[hidden] { display: none; }
+      .boot-card {
+        width: 100%; max-width: 420px; box-sizing: border-box; background: var(--paper); border: 2px solid var(--ink);
+        border-radius: 8px; box-shadow: 4px 4px 0 0 var(--ink); padding: 24px;
+      }
+      .boot-mark { display: inline-flex; align-items: center; gap: 6px; font-family: "Azeret Mono", ui-monospace, Menlo, monospace; }
+      .boot-mark b { font-size: 15px; letter-spacing: -0.02em; }
+      .boot-mark i {
+        font-style: normal; font-weight: 700; font-size: 11px; line-height: 1; padding: 1px 4px;
+        border: 2px solid var(--ink); border-radius: 4px; background: var(--kuning);
+      }
+      .boot-mark span { margin-left: 6px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+      .boot-title { margin: 20px 0 4px; font: 600 18px/1.35 "Azeret Mono", ui-monospace, Menlo, monospace; letter-spacing: -0.01em; }
+      .boot-sub { margin: 0 0 18px; font-size: 13px; line-height: 20px; color: #333; }
+      .boot-steps { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 8px; }
+      .boot-steps li {
+        display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 20px; color: var(--muted);
+      }
+      .boot-steps li::before {
+        content: ""; flex: none; width: 10px; height: 10px; box-sizing: border-box; border: 1.5px solid #b3b3b3; border-radius: 2px;
+      }
+      .boot-steps li[data-state="active"] { color: var(--ink); }
+      .boot-steps li[data-state="active"]::before { border-color: var(--ink); background: var(--kuning); animation: boot-pulse 0.9s ease-in-out infinite alternate; }
+      .boot-steps li[data-state="done"] { color: #333; }
+      .boot-steps li[data-state="done"]::before { border-color: var(--ink); background: var(--ink); }
+      .boot-bar { height: 4px; border-radius: 2px; background: #ececee; overflow: hidden; }
+      .boot-bar > div { height: 100%; width: 4%; background: var(--ink); transition: width 0.35s ease; }
+      .boot-foot { margin: 14px 0 0; font: 400 11px/16px "Azeret Mono", ui-monospace, Menlo, monospace; color: var(--muted); }
+      .boot-error { margin: 14px 0 0; padding: 10px 12px; border: 1px solid #c62828; border-radius: 6px; font-size: 13px; line-height: 20px; color: #8a1c1c; background: #fdecec; }
+      .boot-error button, .boot-error a { font: inherit; color: inherit; text-decoration: underline; background: none; border: 0; padding: 0; cursor: pointer; }
+      @keyframes boot-pulse { from { opacity: 1; } to { opacity: 0.45; } }
+      @media (prefers-reduced-motion: reduce) { .boot-steps li[data-state="active"]::before { animation: none; } .boot-bar > div { transition: none; } }
+    </style>
+  </head>
+  <body>
+    <div id="demo-boot" role="status" aria-live="polite" data-testid="demo-loading">
+      <div class="boot-card">
+        <div class="boot-mark"><b>crow</b><i>HR</i><span>Demo</span></div>
+        <h1 class="boot-title">Setting up your demo company</h1>
+        <p class="boot-sub">
+          Kopi Kaki Pte. Ltd. is a fictional café group. Its database runs inside this browser tab, so nothing you
+          enter leaves this device.
+        </p>
+        <ol class="boot-steps" id="demo-boot-steps">
+          <li data-stage="wasm">Starting Postgres in your browser</li>
+          <li data-stage="open">Opening your copy of the demo</li>
+          <li data-stage="seed">Loading four months of payroll history</li>
+          <li data-stage="app">Starting Crow HR</li>
+        </ol>
+        <div class="boot-bar" aria-hidden="true"><div id="demo-boot-bar"></div></div>
+        <p class="boot-foot" id="demo-boot-foot">First visit takes a few seconds. Later visits open instantly.</p>
+        <div id="demo-boot-error" class="boot-error" hidden></div>
+      </div>
+    </div>
+    <div id="demo-banner"></div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
