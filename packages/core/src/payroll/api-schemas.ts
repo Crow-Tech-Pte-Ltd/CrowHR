@@ -354,6 +354,7 @@ export const payslipSummarySchema = z.object({
 
 export const settingsSchema = z.object({
   payDay: z.number().int().nullable(),
+  cutoffDay: z.number().int().nullable(),
   autoRelease: z.boolean(),
   cpfAdviceCode: z.string(),
   fwlSector: z.string().nullable(),
@@ -365,6 +366,13 @@ export const settingsSchema = z.object({
 });
 
 export const settingsInputSchema = z.object({
+  cutoffDay: z
+    .number()
+    .int()
+    .min(1, "The cutoff is a day of the month from 1 to 31.")
+    .max(31, "The cutoff is a day of the month from 1 to 31.")
+    .nullable()
+    .optional(),
   payDay: z
     .number()
     .int()

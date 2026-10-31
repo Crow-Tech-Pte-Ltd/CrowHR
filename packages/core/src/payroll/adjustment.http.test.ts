@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDb, type TestDb } from "../../testing/index.ts";
-import { type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
+import { decideRun, type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
 import { payrollPayslips } from "../db/schema/payroll.ts";
 
 /** Task 3.4: reopening a paid run creates an adjustment; original figures never change. */
@@ -98,7 +98,7 @@ describe("reopen → adjustment", () => {
 
   it("supersedes the original on approval without changing its figures", async () => {
     await p.ok(p.admin.post(`${api}/runs/${adjId}/submit`));
-    await p.ok(p.owner.post(`${api}/runs/${adjId}/decision`, { outcome: "approved" }));
+    await p.ok(decideRun(p.owner, adjId, "approved"));
     const orig = await p.ok<Overview>(p.admin.get(`${api}/runs/${octId}`));
     expect(orig.run.supersededByRunId).toBe(adjId);
     expect(orig.run.status).toBe("paid");

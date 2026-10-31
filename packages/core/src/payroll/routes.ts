@@ -33,7 +33,6 @@ import {
   addItem,
   computeRun,
   createRun,
-  decideRun,
   deleteItem,
   deleteRun,
   getSettings,
@@ -402,26 +401,6 @@ export const payrollModule = defineModule({
       errors: ["not_found", "conflict"],
       handler: async ({ c, deps, auth, params }) =>
         toRunDto(await withdrawRun(deps, payrollActor(c, auth), params.runId)),
-    }),
-    defineRoute({
-      method: "post",
-      path: "/runs/:runId/decision",
-      summary: "Approve or reject a run in review (until the approvals engine is wired)",
-      description:
-        "Local approvals: an owner or payroll admin other than the submitter decides; an owner who submitted may decide and the decision is marked self-approved. When the workflows engine is wired this answers 409 and decisions go through the approvals inbox.",
-      access: { permission: "payroll:finalise" },
-      request: {
-        params: runParams,
-        body: z.object({
-          outcome: z.enum(["approved", "rejected"]),
-          comment: z.string().max(500).nullable().optional(),
-        }),
-      },
-      example: { body: { outcome: "approved" } },
-      responses: { 200: runSchema },
-      errors: ["not_found", "conflict"],
-      handler: async ({ c, deps, auth, params, body }) =>
-        toRunDto(await decideRun(deps, payrollActor(c, auth), params.runId, body)),
     }),
     defineRoute({
       method: "post",

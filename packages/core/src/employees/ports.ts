@@ -8,6 +8,7 @@ import { memberships as membershipsTable } from "../db/schema/access.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
+import { payrollPeoplePort } from "../payroll/people-port.ts";
 import { workflowsApprovalsPort } from "../workflows/people.ts";
 import type { IsoDate } from "./dates.ts";
 
@@ -90,10 +91,13 @@ export interface BackPayNotice {
 }
 
 export interface PayrollPort {
-  /** Last day of the most recent finalised payroll period, or null when none is finalised. */
-  lastFinalisedPeriodEnd(orgId: string): Promise<IsoDate | null>;
+  /**
+   * Last day of the most recent finalised payroll period, or null when none is finalised. Pass the
+   * caller's transaction as `db` when inside one (single-connection drivers would otherwise wait).
+   */
+  lastFinalisedPeriodEnd(orgId: string, db?: Db): Promise<IsoDate | null>;
   /** A retroactive compensation change was recorded; payroll owes a back-pay adjustment. */
-  notifyBackPay(notice: BackPayNotice): Promise<void>;
+  notifyBackPay(notice: BackPayNotice, db?: Db): Promise<void>;
 }
 
 export interface PeoplePorts {
@@ -104,11 +108,7 @@ export interface PeoplePorts {
   payroll: PayrollPort;
 }
 
-/**
- * NOT IMPLEMENTED: payroll has not been built. No period is ever finalised,
- * so the retroactive-change guard never triggers outside tests, and back-pay
- * notices go nowhere.
- */
+/** No payroll: nothing is ever finalised (tests and hosts without payroll). Production uses `payrollPeoplePort`. */
 export const noPayrollYet: PayrollPort = {
   lastFinalisedPeriodEnd: async () => null,
   notifyBackPay: async () => {},
@@ -145,7 +145,7 @@ export function defaultPeoplePorts(deps: AppDeps): PeoplePorts {
       },
     },
     approvals: workflowsApprovalsPort(deps),
-    payroll: noPayrollYet,
+    payroll: payrollPeoplePort(deps),
   };
 }
 

@@ -46,10 +46,35 @@ export async function payrollHttp<K extends string>(
       for (const item of items) await ok(admin.post(`${api}/runs/${run.id}/items`, item), 201);
       await ok(admin.post(`${api}/runs/${run.id}/compute`));
       await ok(admin.post(`${api}/runs/${run.id}/submit`));
-      await ok(owner.post(`${api}/runs/${run.id}/decision`, { outcome: "approved" }));
+      await ok(decideRun(owner, run.id, "approved"));
       if (opts.release) await ok(admin.post(`${api}/runs/${run.id}/release`));
       await ok(admin.post(`${api}/runs/${run.id}/mark-paid`));
       return run.id;
     },
   };
+}
+
+/**
+ * Decides a submitted run through the workflows engine as `client`: finds the client's open task for
+ * the run's approval request and posts the decision. Answers 404 when the client has no such task.
+ */
+export async function decideRun(
+  client: TestClient,
+  runId: string,
+  outcome: "approved" | "rejected",
+  comment?: string,
+): Promise<Response> {
+  const run = (await (await client.get(`/api/v1/payroll/runs/${runId}`)).json()) as {
+    run?: { approvalRequestId: string | null };
+  };
+  const requestId = run.run?.approvalRequestId;
+  const tasks = (await (await client.get("/api/v1/approvals/tasks")).json()) as {
+    items?: { taskId: string; requestId: string }[];
+  };
+  const task = tasks.items?.find((t) => t.requestId === requestId);
+  if (!requestId || !task) return new Response(JSON.stringify({ error: { code: "not_found" } }), { status: 404 });
+  return client.post(`/api/v1/approvals/tasks/${task.taskId}/decision`, {
+    decision: outcome === "approved" ? "approve" : "reject",
+    ...(comment ? { comment } : {}),
+  });
 }

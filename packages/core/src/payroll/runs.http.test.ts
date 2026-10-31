@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDb, type TestDb } from "../../testing/index.ts";
-import { type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
+import { decideRun, type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
 import { applyEvent, ctxFor } from "../employees/lifecycle.ts";
 import { OWNER } from "../testing/people-harness.ts";
 
@@ -67,19 +67,18 @@ describe("run lifecycle", () => {
     await p.ok(p.admin.post(`${api}/runs/${runId}/submit`));
     // In review: inputs are frozen.
     expect((await p.admin.post(`${api}/runs/${runId}/compute`)).status).toBe(409);
-    expect((await p.owner.post(`${api}/runs/${runId}/decision`, { outcome: "rejected" })).status).toBe(400);
-    const r = await p.ok<{ status: string; decisionComment: string }>(
-      p.owner.post(`${api}/runs/${runId}/decision`, { outcome: "rejected", comment: "Pay date should be the 28th" }),
-    );
+    expect((await decideRun(p.owner, runId, "rejected")).status).toBe(400);
+    await p.ok(decideRun(p.owner, runId, "rejected", "Pay date should be the 28th"));
+    const r = (await p.ok<{ run: { status: string; decisionComment: string } }>(p.admin.get(`${api}/runs/${runId}`)))
+      .run;
     expect(r).toMatchObject({ status: "draft", decisionComment: "Pay date should be the 28th" });
   });
 
   it("an owner may approve their own run, marked self-approved; release before approval is refused", async () => {
     await p.ok(p.owner.post(`${api}/runs/${runId}/submit`));
     expect((await p.admin.post(`${api}/runs/${runId}/release`)).status).toBe(409);
-    const r = await p.ok<{ status: string; selfApproved: boolean }>(
-      p.owner.post(`${api}/runs/${runId}/decision`, { outcome: "approved" }),
-    );
+    await p.ok(decideRun(p.owner, runId, "approved"));
+    const r = (await p.ok<{ run: { status: string; selfApproved: boolean } }>(p.admin.get(`${api}/runs/${runId}`))).run;
     expect(r).toMatchObject({ status: "approved", selfApproved: true });
     // Drafts can be deleted; approved runs cannot.
     expect((await p.admin.delete(`${api}/runs/${runId}`)).status).toBe(409);

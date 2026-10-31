@@ -21145,502 +21145,6 @@
         }
       }
     },
-    "/api/v1/payroll/runs/{runId}/decision": {
-      "post": {
-        "operationId": "payroll.postRunsByRunIdDecision",
-        "summary": "Approve or reject a run in review (until the approvals engine is wired)",
-        "description": "Local approvals: an owner or payroll admin other than the submitter decides; an owner who submitted may decide and the decision is marked self-approved. When the workflows engine is wired this answers 409 and decisions go through the approvals inbox.",
-        "tags": [
-          "Payroll"
-        ],
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerToken": []
-          }
-        ],
-        "x-permission": "payroll:finalise",
-        "parameters": [
-          {
-            "name": "runId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    },
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "regular",
-                        "off_cycle",
-                        "adjustment"
-                      ]
-                    },
-                    "offCycleReason": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "enum": [
-                            "final_pay",
-                            "bonus"
-                          ]
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "month": {
-                      "type": "string",
-                      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
-                    },
-                    "periodStart": {
-                      "type": "string",
-                      "format": "date",
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
-                    },
-                    "periodEnd": {
-                      "type": "string",
-                      "format": "date",
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
-                    },
-                    "payDate": {
-                      "type": "string",
-                      "format": "date",
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
-                    },
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "draft",
-                        "in_review",
-                        "approved",
-                        "paid"
-                      ]
-                    },
-                    "employeeIds": {
-                      "anyOf": [
-                        {
-                          "type": "array",
-                          "items": {
-                            "type": "string",
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                          }
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "adjustsRunId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "supersededByRunId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "reopenReason": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "approvalRequestId": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "submittedBy": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "submittedAt": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "decidedBy": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "decidedAt": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "decisionComment": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "selfApproved": {
-                      "type": "boolean"
-                    },
-                    "computedAt": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "inputHash": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "resultHash": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "totals": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "headcount": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "grossCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "netCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "netPayableCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "reimbursementsCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "cpfEmployeeCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "cpfEmployerCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "cpfTotalChargedCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "shgCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "shgChargedByFund": {
-                              "type": "object",
-                              "propertyNames": {
-                                "type": "string"
-                              },
-                              "additionalProperties": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
-                              }
-                            },
-                            "shgDonors": {
-                              "type": "object",
-                              "propertyNames": {
-                                "type": "string"
-                              },
-                              "additionalProperties": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
-                              }
-                            },
-                            "sdlChargedCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "sdlMonthCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "fwlCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "employerCostCents": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "blocking": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "warnings": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": [
-                            "headcount",
-                            "grossCents",
-                            "netCents",
-                            "netPayableCents",
-                            "reimbursementsCents",
-                            "cpfEmployeeCents",
-                            "cpfEmployerCents",
-                            "cpfTotalChargedCents",
-                            "shgCents",
-                            "shgChargedByFund",
-                            "shgDonors",
-                            "sdlChargedCents",
-                            "sdlMonthCents",
-                            "fwlCents",
-                            "employerCostCents",
-                            "blocking",
-                            "warnings"
-                          ],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "releasedAt": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "paidAt": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "createdAt": {
-                      "type": "string"
-                    },
-                    "inputsChangedSinceCompute": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "kind",
-                    "offCycleReason",
-                    "month",
-                    "periodStart",
-                    "periodEnd",
-                    "payDate",
-                    "status",
-                    "employeeIds",
-                    "adjustsRunId",
-                    "supersededByRunId",
-                    "reopenReason",
-                    "approvalRequestId",
-                    "submittedBy",
-                    "submittedAt",
-                    "decidedBy",
-                    "decidedAt",
-                    "decisionComment",
-                    "selfApproved",
-                    "computedAt",
-                    "inputHash",
-                    "resultHash",
-                    "totals",
-                    "releasedAt",
-                    "paidAt",
-                    "createdAt",
-                    "inputsChangedSinceCompute"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Error: validation_failed.",
-            "x-error-codes": [
-              "validation_failed"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Error: session_expired, session_revoked, unauthenticated.",
-            "x-error-codes": [
-              "session_expired",
-              "session_revoked",
-              "unauthenticated"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
-            "x-error-codes": [
-              "csrf_rejected",
-              "forbidden",
-              "mfa_enrolment_required"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Error: not_found.",
-            "x-error-codes": [
-              "not_found"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Error: conflict.",
-            "x-error-codes": [
-              "conflict"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "outcome": {
-                    "type": "string",
-                    "enum": [
-                      "approved",
-                      "rejected"
-                    ]
-                  },
-                  "comment": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "maxLength": 500
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "outcome"
-                ]
-              },
-              "example": {
-                "outcome": "approved"
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/payroll/runs/{runId}/employees/{employeeId}": {
       "get": {
         "operationId": "payroll.getRunsByRunIdEmployeesByEmployeeId",
@@ -26782,6 +26286,18 @@
                         }
                       ]
                     },
+                    "cutoffDay": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "autoRelease": {
                       "type": "boolean"
                     },
@@ -26827,6 +26343,7 @@
                   },
                   "required": [
                     "payDay",
+                    "cutoffDay",
                     "autoRelease",
                     "cpfAdviceCode",
                     "fwlSector",
@@ -26909,6 +26426,18 @@
                         }
                       ]
                     },
+                    "cutoffDay": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "autoRelease": {
                       "type": "boolean"
                     },
@@ -26954,6 +26483,7 @@
                   },
                   "required": [
                     "payDay",
+                    "cutoffDay",
                     "autoRelease",
                     "cpfAdviceCode",
                     "fwlSector",
@@ -27020,6 +26550,18 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "cutoffDay": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 31
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "payDay": {
                     "anyOf": [
                       {

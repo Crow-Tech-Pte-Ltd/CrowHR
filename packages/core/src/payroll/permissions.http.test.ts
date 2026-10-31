@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { clientAs, createTestDb, seedMember, type TestClient, type TestDb } from "../../testing/index.ts";
-import { type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
+import { decideRun, type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
 import { applyEvent, ctxFor } from "../employees/lifecycle.ts";
 import { createReportingScopeResolver } from "../employees/reports/reporting-scope.ts";
 import { OWNER } from "../testing/people-harness.ts";
@@ -69,13 +69,13 @@ describe("payroll access", () => {
       expect((await c.get(`${api}/payroll/runs/${runId}`)).status).toBe(403);
       expect((await c.post(`${api}/payroll/runs/${runId}/compute`)).status).toBe(403);
     }
-    // Only payroll:finalise holders decide.
-    expect((await hr.post(`${api}/payroll/runs/${runId}/decision`, { outcome: "approved" })).status).toBe(403);
+    // Nobody but the assigned approver (an owner) has a task to decide.
+    expect((await decideRun(hr, runId, "approved")).status).toBe(404);
   });
 
   it("employees see nothing before release, then only their own payslip", async () => {
     await p.ok(p.admin.post(`${api}/payroll/runs/${runId}/submit`));
-    await p.ok(p.owner.post(`${api}/payroll/runs/${runId}/decision`, { outcome: "approved" }));
+    await p.ok(decideRun(p.owner, runId, "approved"));
     expect((await slips(empA)).items).toEqual([]);
     const overview = await p.ok<{ rows: { employeeId: string; payslipId: string }[] }>(
       p.admin.get(`${api}/payroll/runs/${runId}`),
