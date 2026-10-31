@@ -11,6 +11,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@crowhr/ui";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -22,6 +25,7 @@ import type { AuditEvent, Page } from "../../../auth/types.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { apiGet } from "../../../lib/api.ts";
+import { ACTION_OPTIONS, actionFilterValue, actionLabel, targetTypeLabel } from "../../../settings/audit-labels.ts";
 
 export const Route = createFileRoute("/_app/settings/audit")({
   component: AuditLogPage,
@@ -68,7 +72,8 @@ function AuditLogPage() {
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setPage(1);
-    setFilters(draft);
+    // The API filters by key; a label picked or typed ("Signed in") is sent as its key.
+    setFilters({ ...draft, action: actionFilterValue(draft.action) });
   };
   const exportParams = new URLSearchParams(params);
   exportParams.delete("page");
@@ -108,9 +113,17 @@ function AuditLogPage() {
           <Input
             value={draft.action}
             onChange={(e) => setDraft({ ...draft, action: e.target.value })}
-            placeholder="auth."
+            placeholder="Signed in, or auth."
+            list="audit-action-options"
           />
         </FormField>
+        <datalist id="audit-action-options">
+          {ACTION_OPTIONS.map((o) => (
+            <option key={o.key} value={o.key}>
+              {o.label}
+            </option>
+          ))}
+        </datalist>
         <FormField label="Target type">
           <Input
             value={draft.targetType}
@@ -172,13 +185,19 @@ function AuditLogPage() {
                     aria-expanded={open === e.id}
                   >
                     <TableCell className="num">{formatDateTime(e.at)}</TableCell>
-                    <TableCell className="font-azeret text-2xs">{e.action}</TableCell>
+                    <TableCell>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>{actionLabel(e.action)}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>{e.action}</TooltipContent>
+                      </Tooltip>
+                    </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {e.actorLabel ?? (e.actorType === "anonymous" ? "Not signed in" : e.actorType)}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell text-2xs text-primary-300">
-                      {e.targetType}
-                      {e.targetId ? ` · ${e.targetId.slice(0, 8)}` : ""}
+                    <TableCell className="hidden lg:table-cell">
+                      <AuditTarget event={e} />
                     </TableCell>
                     <TableCell className="num hidden lg:table-cell">{e.ip ?? "—"}</TableCell>
                   </TableRow>
@@ -187,7 +206,13 @@ function AuditLogPage() {
                       <TableCell colSpan={5} className="bg-surface-100">
                         <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all font-azeret text-2xs">
                           {JSON.stringify(
-                            { seq: e.seq, target: `${e.targetType}:${e.targetId ?? ""}`, diff: e.diff, meta: e.meta },
+                            {
+                              seq: e.seq,
+                              action: e.action,
+                              target: `${e.targetType}:${e.targetId ?? ""}`,
+                              diff: e.diff,
+                              meta: e.meta,
+                            },
                             null,
                             2,
                           )}
@@ -211,5 +236,27 @@ function AuditLogPage() {
         ) : null}
       </div>
     </>
+  );
+}
+
+/** "Tan Mei Ling · Member", or just the type when the target has no name; full id in the tooltip. */
+function AuditTarget({ event: e }: { event: AuditEvent }) {
+  const type = targetTypeLabel(e.targetType);
+  const text = e.targetLabel ? (
+    <span>
+      {e.targetLabel}
+      <span className="text-2xs text-primary-300"> · {type}</span>
+    </span>
+  ) : (
+    <span className="text-primary-300">{type}</span>
+  );
+  if (!e.targetId) return text;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{text}</TooltipTrigger>
+      <TooltipContent className="max-w-none">
+        {e.targetType}:{e.targetId}
+      </TooltipContent>
+    </Tooltip>
   );
 }

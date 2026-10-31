@@ -115,6 +115,8 @@ export interface AuditEvent {
   action: string;
   targetType: string;
   targetId: string | null;
+  /** Member/employee/department name when it still exists; null otherwise. */
+  targetLabel: string | null;
   ip: string | null;
   diff: unknown;
   meta: unknown;
