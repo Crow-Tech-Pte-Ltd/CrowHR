@@ -42,9 +42,11 @@ test("WS3 screens", async ({ browser }) => {
   }
   const kaiWen = await signedIn(browser, E2E.members.approver.email);
   const tasks = (await (await kaiWen.request.get("/api/v1/approvals/tasks")).json()) as {
-    items: { taskId: string; title: string }[];
+    items: { taskId: string; title: string; requester: { name: string } }[];
   };
-  const personal = tasks.items.find((t) => t.title === "Personal details change");
+  const personal = tasks.items.find(
+    (t) => t.title === "Personal details change" && t.requester.name === E2E.members.requester.name,
+  );
   if (personal) {
     await kaiWen.request.post(`/api/v1/approvals/tasks/${personal.taskId}/decision`, { data: { decision: "approve" } });
   }
