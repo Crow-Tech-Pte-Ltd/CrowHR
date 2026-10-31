@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { clientAs, createTestDb, createTestDeps, seedMember, seedOrg, type TestDb } from "../../testing/index.ts";
 import { createApp } from "../app.ts";
+import { employees } from "../db/schema/employees.ts";
+import { departments } from "../db/schema/organisation.ts";
 import { recordAudit, systemAuditContext } from "./audit.ts";
 
 describe("audit log access", () => {
@@ -92,5 +94,86 @@ describe("audit log access", () => {
       total: number;
     };
     expect(exported.total).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("audit log target labels", () => {
+  let t: TestDb;
+  let deps: ReturnType<typeof createTestDeps>;
+  let app: ReturnType<typeof createApp>;
+  beforeAll(async () => {
+    t = await createTestDb();
+    deps = createTestDeps(t.db);
+    app = createApp(deps);
+  });
+  afterAll(() => t.close());
+
+  const seedEmployee = async (orgId: string, legalName: string, preferredName: string | null = null) => {
+    const id = deps.ids.newId();
+    await deps.db.insert(employees).values({
+      id,
+      orgId,
+      employeeNumber: `E-${id.slice(-6)}`,
+      legalName,
+      preferredName,
+      idType: "nric",
+      idNumberEnc: "enc",
+      idNumberHmac: `hmac-${id}`,
+      idNumberMasked: "S****567D",
+      dob: "1990-01-01",
+      residencyStatus: "citizen",
+    });
+    return id;
+  };
+
+  it("names members, employees, departments and the organisation, never another org's records", async () => {
+    const org = await seedOrg(deps, { name: "Kopi Kaki Pte. Ltd." });
+    const other = await seedOrg(deps);
+    const member = await seedMember(deps, org.id, { displayName: "Tan Mei Ling" });
+    const foreignMember = await seedMember(deps, other.id, { displayName: "Someone Else" });
+    const employee = await seedEmployee(org.id, "Muhammad Hafiz bin Rahman", "Hafiz");
+    const plainEmployee = await seedEmployee(org.id, "Lim Wei Jie");
+    const foreignEmployee = await seedEmployee(other.id, "Not Yours");
+    const departmentId = deps.ids.newId();
+    await deps.db.insert(departments).values({ id: departmentId, orgId: org.id, name: "Roastery" });
+
+    const ctx = systemAuditContext(org.id, "system", "seed");
+    const targets: [string, string | null][] = [
+      ["membership", member.membershipId],
+      ["membership", foreignMember.membershipId],
+      ["user", member.userId],
+      ["user", foreignMember.userId],
+      ["employee", employee],
+      ["employee", plainEmployee],
+      ["employee", foreignEmployee],
+      ["department", departmentId],
+      ["organisation", org.id],
+      ["organisation", other.id],
+      ["device_session", deps.ids.newId()],
+      ["employee", "not-a-uuid"],
+      ["audit_log", null],
+    ];
+    for (const [targetType, targetId] of targets)
+      await recordAudit(deps.db, deps, ctx, { action: "x.labelled", targetType, targetId });
+
+    const http = await clientAs(app, deps, await seedMember(deps, org.id, { roles: ["owner"] }));
+    const res = await http.get("/api/v1/audit-events?pageSize=50&sort=at&action=x.labelled");
+    expect(res.status).toBe(200);
+    const items = ((await res.json()) as { items: { targetType: string; targetLabel: string | null }[] }).items;
+    expect(items.map((i) => [i.targetType, i.targetLabel])).toEqual([
+      ["membership", "Tan Mei Ling"],
+      ["membership", null], // another organisation's member is never named
+      ["user", "Tan Mei Ling"],
+      ["user", null], // users are global; only members of this organisation are named
+      ["employee", "Hafiz"],
+      ["employee", "Lim Wei Jie"],
+      ["employee", null],
+      ["department", "Roastery"],
+      ["organisation", "Kopi Kaki Pte. Ltd."],
+      ["organisation", null],
+      ["device_session", null], // no cheap name: the UI falls back to the type
+      ["employee", null], // not a UUID: never sent to the database
+      ["audit_log", null],
+    ]);
   });
 });
