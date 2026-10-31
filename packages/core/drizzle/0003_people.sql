@@ -431,5 +431,4 @@ CREATE UNIQUE INDEX "locations_active_name_unique" ON "locations" USING btree ("
 CREATE UNIQUE INDEX "teams_active_name_unique" ON "teams" USING btree ("org_id",lower("name")) WHERE "teams"."archived_at" is null;--> statement-breakpoint
 CREATE INDEX "work_schedule_versions_lookup" ON "work_schedule_versions" USING btree ("org_id","schedule_id","effective_from");--> statement-breakpoint
 CREATE UNIQUE INDEX "work_schedules_active_name_unique" ON "work_schedules" USING btree ("org_id",lower("name")) WHERE "work_schedules"."archived_at" is null;--> statement-breakpoint
-CREATE UNIQUE INDEX "work_schedules_one_default" ON "work_schedules" USING btree ("org_id") WHERE "work_schedules"."is_default";--> statement-breakpoint
-ALTER TABLE "memberships" ADD CONSTRAINT "memberships_employee_fk" FOREIGN KEY ("org_id","employee_id") REFERENCES "public"."employees"("org_id","id") ON DELETE no action ON UPDATE no action;
+CREATE UNIQUE INDEX "work_schedules_one_default" ON "work_schedules" USING btree ("org_id") WHERE "work_schedules"."is_default";

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, createTestDeps, type TestDb } from "../../../testing/index.ts";
+import { createPeopleTestApp } from "../../../testing/people-http.ts";
 import { employees } from "../../db/schema/employees.ts";
 import { fixedClock } from "../../deps.ts";
 import {
@@ -10,7 +11,6 @@ import {
   type PeopleHarness,
   seedBasicStructure,
 } from "../../testing/people-harness.ts";
-import { createPeopleTestApp } from "../../../testing/people-http.ts";
 import { ytdOpeningBalance } from "./service.ts";
 import { TEMPLATES, templateCsv } from "./templates.ts";
 
@@ -172,11 +172,8 @@ describe("employee import", () => {
     expect((await b.get(`/people/imports/${res.body.jobId}`)).status).toBe(404);
     expect((await b.post(`/people/imports/${res.body.jobId}/commit`)).status).toBe(404);
     expect(
-      (
-        await api
-          .as(h.orgId, [], h.deps.ids.newId())
-          .post("/people/imports/employees/preview", { content: csv([row(1)]) })
-      ).status,
+      (await api.as(h.orgId, ["payroll_admin"]).post("/people/imports/employees/preview", { content: csv([row(1)]) }))
+        .status,
     ).toBe(403);
   });
 

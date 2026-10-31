@@ -111,7 +111,6 @@ export const employeesModule = defineModule({
   name: "employees",
   basePath: "/employees",
   tag: "Employees",
-  feature: "people",
   routes: [
     defineRoute({
       method: "get",
@@ -240,6 +239,7 @@ export const employeesModule = defineModule({
       method: "put",
       path: "/:id/emergency-contacts",
       summary: "Replace emergency contacts (at most 3)",
+      example: { body: { contacts: [{ name: "Tan Ah Kow", relationship: "Father", phone: "91234567" }] } },
       access: { permission: "emergency_contacts:update" },
       request: { params: idParam, body: z.object({ contacts: emergencyContactsInput }) },
       responses: { 204: null },
@@ -253,6 +253,7 @@ export const employeesModule = defineModule({
       method: "post",
       path: "/:id/events",
       summary: "Record a lifecycle event",
+      example: { body: { type: "transfer", effectiveDate: "2026-12-01", changes: { jobTitle: "Senior Barista" } } },
       description:
         "transfer, promotion, salary_change, probation_confirmed, resignation, termination or rehire. Future-dated events are scheduled.",
       access: { permission: "employment:read" },
@@ -313,6 +314,9 @@ export const employeesModule = defineModule({
       method: "post",
       path: "/:id/work-passes",
       summary: "Add a work pass",
+      example: {
+        body: { passType: "S_PASS", passNumber: "G1234567X", issuedOn: "2026-01-02", expiresOn: "2028-01-01" },
+      },
       access: { permission: "work_pass:create" },
       request: { params: idParam, body: workPassInput },
       responses: { 201: workPassSchema },
@@ -339,6 +343,14 @@ export const employeesModule = defineModule({
       method: "post",
       path: "/:id/bank-accounts",
       summary: "Set the bank account from a date (previous one kept as history)",
+      example: {
+        body: {
+          bankCode: "DBSSSGSG",
+          accountNumber: "0123456789",
+          holderName: "Tan Mei Ling",
+          effectiveFrom: "2026-11-01",
+        },
+      },
       access: { permission: "bank_details:update" },
       request: { params: idParam, body: bankAccountInput },
       responses: { 201: z.object({ id: z.string(), accountMasked: z.string() }) },
@@ -442,6 +454,7 @@ export const peopleModule = defineModule({
       method: "post",
       path: "/checklist-items/:itemId",
       summary: "Complete, skip (with reason) or reopen a checklist item",
+      example: { body: { action: "done" } },
       access: "authenticated",
       request: { params: z.object({ itemId: z.uuid() }), body: completeItemInput },
       responses: { 204: null },
@@ -455,6 +468,7 @@ export const peopleModule = defineModule({
       method: "post",
       path: "/change-requests/:requestId/decision",
       summary: "Approve or reject a profile change request",
+      example: { body: { decision: "approve", effectiveFrom: "2026-11-01" } },
       description: "Stands in for the workflows onApproved callback until workflows lands.",
       access: "authenticated",
       request: { params: z.object({ requestId: z.uuid() }), body: decisionInput },
@@ -541,6 +555,7 @@ export const peopleModule = defineModule({
       method: "post",
       path: "/imports/:kind/preview",
       summary: "Upload a CSV and preview the import (nothing is written)",
+      example: { body: { fileName: "staff.csv", content: "legal_name\nTan Mei Ling\n" } },
       access: { permission: "employment:read" },
       request: {
         params: z.object({ kind: importKind }),

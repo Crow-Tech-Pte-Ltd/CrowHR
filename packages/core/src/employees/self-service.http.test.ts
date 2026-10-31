@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, createTestDeps, type TestDb } from "../../testing/index.ts";
+import { createPeopleTestApp } from "../../testing/people-http.ts";
 import {
   type BasicStructure,
   createPeopleHarness,
@@ -9,7 +10,6 @@ import {
   type PeopleHarness,
   seedBasicStructure,
 } from "../testing/people-harness.ts";
-import { createPeopleTestApp } from "../../testing/people-http.ts";
 import { checklistInbox, employeeChecklists } from "./checklists.ts";
 import { applyEvent, ctxFor, hire } from "./lifecycle.ts";
 import { bankAccountForPayment } from "./profile.ts";

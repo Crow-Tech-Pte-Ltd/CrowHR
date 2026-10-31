@@ -37,7 +37,12 @@ export interface AuditSink {
 
 export interface MembershipsPort {
   /** On hire: invite the employee by work email (copy-link when no mailer). */
-  inviteForEmployee(input: { orgId: string; employeeId: string; email: string; invitedBy: string | null }): Promise<void>;
+  inviteForEmployee(input: {
+    orgId: string;
+    employeeId: string;
+    email: string;
+    invitedBy: string | null;
+  }): Promise<void>;
   /** Termination took effect: drop roles, mark the membership `former`. Idempotent. */
   markFormer(input: { orgId: string; employeeId: string; lastWorkingDay: IsoDate }): Promise<void>;
 }

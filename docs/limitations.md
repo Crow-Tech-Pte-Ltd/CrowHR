@@ -40,13 +40,18 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 ## Organisation and people (add-organisation-and-people)
 
-- **Sign-in is not wired for the people screens yet.** The API routes require a session; until identity's session middleware lands, the screens only work against the DEV-ONLY server `packages/core/testing/people-dev-server.ts` (persona cookie, 127.0.0.1 only) used by the people e2e (`e2e/people/`).
-- **Encryption, audit, memberships, approvals and payroll are ports** (`packages/core/src/employees/ports.ts`). Tests and the dev server use doubles (`src/testing/people-doubles.ts`: real AES-GCM with a fixed test key, in-memory audit). A host without `deps.people` gets a 500 "not configured" from people routes (fail closed). Production wiring waits for identity's SecretBox and `audit.record()`.
+- **No first-run setup yet**, so a fresh server has no organisation or members to sign in with. The people screens are exercised by `packages/core/testing/people-dev-server.ts` (DEV ONLY, 127.0.0.1): the real app with real sessions, seeded with fictional staff, where `/__dev/as/<persona>` creates a session for a seeded member. The people e2e (`e2e/people/`) runs against it.
+- **Hosts must wire the manager scope**: `apps/server` should set `deps.reportingScope = createReportingScopeResolver(db)`; until then nobody holds the derived `manager` role on the real server.
+- **Invitation on hire is NOT IMPLEMENTED in production**: identity has no exported invite service, so hiring logs a hint and HR invites from Settings → Members (which accepts `employeeId`). Tests use a double.
+- **Workflows stand-ins**: change requests wait in `profile_change_requests` and are decided through `POST /api/v1/people/change-requests/:id/decision`; no approval task, inbox item or notification is created. Checklist and setup-checklist inbox items are exposed by people endpoints, not yet by a workflows `InboxSource`.
+- **Payroll stand-in**: no period is ever finalised, so the retroactive-change guard only triggers in tests, and back-pay notices go nowhere.
+- **The `former` transition** (`runFormerTransitions`) is implemented with identity's `markMembershipFormer`, but nothing calls it until the workflows `tick(now)` sweep exists.
+- **`memberships.employee_id` has no FK yet**: adding it (design) breaks identity tests that seed memberships with made-up employee IDs. The FK should be added once those tests link real employees.
 - **Minimum employment age and the statutory default notice period are NOT IMPLEMENTED**: `research/sg-regulatory.md` does not cite them. No hire is refused for age; resignations need the contractual notice period.
 - **Personal-details change requests apply from the approval date only** (no future-dated personal details). Bank changes honour the approver's effective date.
 - **Sole-owner self-approval** of change requests (`self_approved`) belongs to workflows and is NOT IMPLEMENTED; nobody can decide their own request.
 - **Cancelling a scheduled hire or rehire** is not supported; record a termination instead.
-- **NRIC/bank reveal** endpoints belong to identity; the unmasked export route relies on identity's `recentAuth` guard, which is not active until identity lands.
+- **Audit events are recorded after the domain transaction commits**, not inside it (identity's `recordAudit` supports the transaction; threading it through every people service is follow-up work).
 - **Statutory lookups** (CSN payment types, rest-day rule, work pass types) are cited in `packages/core/src/organisation/statutory.ts` and should move to `packages/sg-rules`.
 - **Company logo** upload has an API only; there is no upload control on the Company screen yet.
 - **Error codes** `duplicate_id_number`, `in_use`, `reporting_cycle` are sent as `409 conflict` with `details.reason` until they are added to `ERROR_STATUS`.

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, createTestDeps, type TestDb } from "../../testing/index.ts";
-import { createPeopleHarness, hirePayload, type PeopleHarness, seedBasicStructure } from "../testing/people-harness.ts";
 import { createPeopleTestApp } from "../../testing/people-http.ts";
+import { createPeopleHarness, hirePayload, type PeopleHarness, seedBasicStructure } from "../testing/people-harness.ts";
 
 let t: TestDb;
 let h: PeopleHarness;
@@ -100,8 +100,7 @@ describe("structure", () => {
     await hr.post(`/organisation/structure/departments/${a.body.id}/archive`, { archived: true });
     expect((await hr.post("/organisation/structure/departments", { name: "Sales" })).status).toBe(201);
     expect(
-      (await api.as(h.orgId, [], h.deps.ids.newId()).post("/organisation/structure/departments", { name: "Ops" }))
-        .status,
+      (await api.as(h.orgId, ["payroll_admin"]).post("/organisation/structure/departments", { name: "Ops" })).status,
     ).toBe(403);
   });
 

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, createTestDeps, type TestDb } from "../../testing/index.ts";
+import { createPeopleTestApp } from "../../testing/people-http.ts";
 import {
   type BasicStructure,
   createPeopleHarness,
@@ -8,7 +9,6 @@ import {
   type PeopleHarness,
   seedBasicStructure,
 } from "../testing/people-harness.ts";
-import { createPeopleTestApp } from "../../testing/people-http.ts";
 import { bankAccountForPayment } from "./profile.ts";
 
 let t: TestDb;
@@ -276,7 +276,7 @@ describe("work passes", () => {
     );
     const list = await api.as(h.orgId, ["hr_admin"]).get("/employees");
     expect(list.body.items.find((r: { id: string }) => r.id === id).workPassState).toBe("expired");
-    const asEmployee = await api.as(h.orgId, [], h.deps.ids.newId()).get("/employees");
+    const asEmployee = await api.as(h.orgId, [], await hireVia(hirePayload(s))).get("/employees");
     expect(asEmployee.body.items.find((r: { id: string }) => r.id === id).workPassState).toBeNull();
     await api.as(h.orgId, ["hr_admin"]).post(`/employees/${id}/work-passes`, {
       passType: "S_PASS",

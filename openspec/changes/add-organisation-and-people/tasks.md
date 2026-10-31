@@ -21,7 +21,7 @@
 
 ## 4. Employment, compensation, lifecycle
 
-- [x] 4.1 packages/core: write `employees/lifecycle.test.ts` (hire creates tenure + records + invitation; transfer/promotion/salary_change; scheduled vs effective by injected clock; cancel restores prior; reporting cycle → 409; self-manager rejected) then implement `applyEvent`
+- [ ] 4.1 packages/core: write `employees/lifecycle.test.ts` (hire creates tenure + records + invitation; transfer/promotion/salary_change; scheduled vs effective by injected clock; cancel restores prior; reporting cycle → 409; self-manager rejected) then implement `applyEvent` — DONE: applyEvent for every event type, scheduled/effective status, cancel, cycle/self-manager checks (tests pass); OPEN: production invitation on hire (needs an exported invite service from identity; tests use a double)
 - [ ] 4.2 packages/core: write `employees/resignation.test.ts` (last day counts notice date as day 1; shortened by agreement; offboarding checklist created; termination reasons) then implement resignation and termination — default notice from sg-rules stays NOT IMPLEMENTED until cited — DONE: last day, shortening, offboarding checklist, termination reasons (tests pass); OPEN: statutory default notice is `// NOT IMPLEMENTED:` (`statutoryNoticeDays`), not cited in research
 - [x] 4.3 packages/core: write `employees/rehire.test.ts` (same employee ID, new tenure, history kept) then implement rehire
 - [x] 4.4 packages/core: write `employees/compensation.test.ts` (integer cents, safe-integer guard, future-dated raise as-at, retro without flag rejected, retro with flag emits back-pay notice to payroll interface stub) then implement compensation and recurring allowances
