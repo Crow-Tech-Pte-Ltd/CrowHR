@@ -45,6 +45,7 @@ describe("workflows × people", () => {
     boss: SeededMember;
   };
   let structure: Awaited<ReturnType<typeof seedBasicStructure>>;
+  let harness: Awaited<ReturnType<typeof createPeopleHarness>>;
 
   beforeEach(async () => {
     clock.set("2026-10-31T01:00:00.000Z");
@@ -52,6 +53,7 @@ describe("workflows × people", () => {
     // As on the server: manager scope from employment records.
     deps = createTestDeps(t.db, { clock, reportingScope: createReportingScopeResolver(t.db) });
     const h = await createPeopleHarness(deps, { orgName: "Kampong Kopi Pte. Ltd." });
+    harness = h;
     // The real ports (engine-backed approvals, identity's audit), not the memory doubles.
     delete (h.deps as { people?: unknown }).people;
     orgId = h.orgId;
@@ -218,10 +220,7 @@ describe("workflows × people", () => {
       m.manager.membershipId,
     ]);
     const ports = defaultPeoplePorts(deps);
-    const h = await createPeopleHarness(deps);
-    const owner = { ...h.actor(OWNER), orgId };
-    delete (deps as { people?: unknown }).people;
-    await applyEvent(ctxFor(deps, ports, owner), emp.staff, {
+    await applyEvent(ctxFor(deps, ports, harness.actor(OWNER)), emp.staff, {
       type: "transfer",
       effectiveDate: "2026-10-31",
       changes: { managerEmployeeId: emp.boss },
@@ -231,9 +230,7 @@ describe("workflows × people", () => {
 
   it("Home shows real work passes, probation, onboarding checklist items and setup steps", async () => {
     const ports = defaultPeoplePorts(deps);
-    const h = await createPeopleHarness(deps);
-    delete (deps as { people?: unknown }).people;
-    await addWorkPass(deps, ports, { ...h.actor(HR), orgId }, emp.other, {
+    await addWorkPass(deps, ports, harness.actor(HR), emp.other, {
       passType: "S_PASS",
       passNumber: "G1234567X",
       issuedOn: "2025-01-02",
@@ -270,9 +267,7 @@ describe("workflows × people", () => {
 
   it("the sweep runs the former-membership transition", async () => {
     const ports = defaultPeoplePorts(deps);
-    const h = await createPeopleHarness(deps);
-    delete (deps as { people?: unknown }).people;
-    await applyEvent(ctxFor(deps, ports, { ...h.actor(OWNER), orgId }), emp.other, {
+    await applyEvent(ctxFor(deps, ports, harness.actor(OWNER)), emp.other, {
       type: "termination",
       reason: "contract_end",
       lastWorkingDay: "2026-10-31",

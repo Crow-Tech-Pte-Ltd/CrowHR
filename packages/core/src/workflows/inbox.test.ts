@@ -6,6 +6,8 @@ import {
   createWorkflowWorld,
   EMP,
   movableClock,
+  seedMember,
+  seedOrg,
   type WorkflowWorld,
 } from "../../testing/index.ts";
 import { createStaticReportingScope } from "../access/scope.ts";
@@ -153,8 +155,16 @@ describe("Home inbox", () => {
       };
       expect(body.items).toEqual([]);
       expect(body.sources).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: "approvals", status: "ready" })]),
+      );
+      // An organisation without employee records: people-based sources say "not set up yet".
+      const empty = await seedOrg(plain.deps);
+      const owner = await seedMember(plain.deps, empty.id, { roles: ["owner"] });
+      const fresh = (await (await (await clientAs(plain.app, plain.deps, owner)).get("/api/v1/inbox")).json()) as {
+        sources: { id: string; status: string }[];
+      };
+      expect(fresh.sources).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ id: "approvals", status: "ready" }),
           expect.objectContaining({ id: "work_passes", status: "not_set_up" }),
           expect.objectContaining({ id: "probation", status: "not_set_up" }),
         ]),
