@@ -53,7 +53,9 @@ import {
   ErrorPanel,
   Field,
   label,
+  MomCoverageLink,
   PanelSkeleton,
+  Part4Fields,
   Section,
   SelectInput,
   TextInput,
@@ -337,6 +339,15 @@ function JobTab({ e }: { e: EmployeeDetailDto }) {
               {emp.eaCovered ? "Covered" : "Not covered"}
               {emp.isWorkman ? " · workman" : ""}
             </Field>
+            <Field term="Manager or executive">
+              {emp.isManagerOrExecutive ? "Yes" : "No"}
+              <span className="mt-0.5 block text-2xs text-primary-300">
+                {emp.isManagerOrExecutive
+                  ? "Not covered by Part 4 of the Employment Act: no statutory overtime rate, so OT follows the contract."
+                  : "Part 4 (statutory overtime, rest days and hours) applies when basic pay is within MOM's limits."}{" "}
+                <MomCoverageLink />
+              </span>
+            </Field>
             <Field term="Reports">
               {emp.directReports.length ? emp.directReports.map((r) => r.name).join(", ") : "None"}
             </Field>
@@ -591,6 +602,10 @@ function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => voi
   const [departmentId, setDepartmentId] = React.useState(e.job?.department?.id ?? "");
   const [locationId, setLocationId] = React.useState(e.job?.location?.id ?? "");
   const [managerId, setManagerId] = React.useState(e.job?.manager?.id ?? "");
+  const [part4, setPart4] = React.useState({
+    isWorkman: e.employment?.isWorkman ?? false,
+    isManagerOrExecutive: e.employment?.isManagerOrExecutive ?? false,
+  });
   const save = useMutation({
     mutationFn: () => {
       const changes: Record<string, unknown> = {};
@@ -598,6 +613,9 @@ function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => voi
       if (departmentId && departmentId !== e.job?.department?.id) changes.departmentId = departmentId;
       if (locationId && locationId !== e.job?.location?.id) changes.locationId = locationId;
       if (managerId !== (e.job?.manager?.id ?? "")) changes.managerEmployeeId = managerId || null;
+      if (part4.isWorkman !== (e.employment?.isWorkman ?? false)) changes.isWorkman = part4.isWorkman;
+      if (part4.isManagerOrExecutive !== (e.employment?.isManagerOrExecutive ?? false))
+        changes.isManagerOrExecutive = part4.isManagerOrExecutive;
       return api<{ status: string }>("POST", `/employees/${e.id}/events`, { type, effectiveDate: date, changes });
     },
     onSuccess: async (r) => {
@@ -658,6 +676,7 @@ function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => voi
               .filter((p) => p.id !== e.id)
               .map((p) => ({ value: p.id, label: p.name }))}
           />
+          <Part4Fields {...part4} onChange={setPart4} />
           {save.isError ? (
             <p role="alert" className="text-ui text-danger-300">
               {errorMessage(save.error)}

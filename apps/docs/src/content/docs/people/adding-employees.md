@@ -37,6 +37,14 @@ The **legal name** is the name on the NRIC, FIN card or passport. It goes on pay
 
 HR can change both names from the profile (**Overview → Names → Edit**); employees can change their own preferred name in **My profile**. The CSV import has an optional `preferred_name` column.
 
+### Workmen, managers and executives (Employment Act Part 4)
+
+Part 4 of the Employment Act (hours of work, rest days and statutory overtime at 1.5× the hourly basic rate) covers workmen earning up to S$4,500 basic pay a month and other employees earning up to S$2,600. It **never covers managers and executives**, whatever they earn. Tick **Workman** or **Manager or executive** in the Job section when you add someone, or later with **Record change** on the profile. The **Job** tab shows the classification in force.
+
+The duties decide the classification, not the job title: a manager or executive has executive or supervisory duties, such as hiring, appraisals or running a team. See [MOM: who is covered](https://www.mom.gov.sg/employment-practices/employment-act/who-is-covered).
+
+For someone flagged as a manager or executive, attendance records overtime as contractual, payroll asks for the contractual overtime amount (`OT_NOT_STATUTORY`), and the Part 4 carry-forward of unused annual leave does not apply.
+
 ## The employee profile
 
 The profile has tabs for the person, work, pay, history and checklists. Records that change over time (job, pay, allowances, bank account, schedule) are **effective-dated**: each change has a start date, a future date is shown as "Scheduled" and applies on the day, and you can look at what was in force on any past date.

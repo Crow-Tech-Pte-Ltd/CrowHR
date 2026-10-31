@@ -542,6 +542,7 @@ async function startTenure(
     probationEnd: job.probationEnd ?? null,
     eaCovered: job.eaCovered ?? true,
     isWorkman: job.isWorkman ?? false,
+    isManagerOrExecutive: job.isManagerOrExecutive ?? false,
   });
   if (compensation) {
     await insertCompensationVersion(tx, ctx, employeeId, eventId, job.hireDate, compensation, { newTenure: true });

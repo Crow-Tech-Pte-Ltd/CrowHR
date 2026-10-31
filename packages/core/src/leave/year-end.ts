@@ -55,12 +55,11 @@ async function isPart4(db: Db, t: EmployeeTime, date: string): Promise<boolean> 
   const comp = findAsAt(rows, date) ?? rows.at(-1);
   const emp = employmentNear(t, date);
   if (comp?.payBasis !== "monthly" || !emp?.eaCovered) return false;
-  // NOT IMPLEMENTED (people): no manager/executive flag on employment records, so it is assumed false.
   return isPart4Covered({
     date,
     monthlyBasicCents: comp.amountCents,
     isWorkman: emp.isWorkman,
-    isManagerOrExecutive: false,
+    isManagerOrExecutive: emp.isManagerOrExecutive,
   }).covered;
 }
 

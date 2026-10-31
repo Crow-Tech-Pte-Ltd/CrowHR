@@ -43,6 +43,8 @@ export interface EmploymentLite {
   employmentType: "full_time" | "part_time" | "contract" | "intern";
   workScheduleId: string;
   isWorkman: boolean;
+  /** Manager or executive: never Employment Act Part 4. */
+  isManagerOrExecutive: boolean;
   eaCovered: boolean;
   managerEmployeeId: string | null;
   departmentId: string;
@@ -141,6 +143,7 @@ export async function loadEmployeesTime(
           employmentType: r.employmentType,
           workScheduleId: r.workScheduleId,
           isWorkman: r.isWorkman,
+          isManagerOrExecutive: r.isManagerOrExecutive,
           eaCovered: r.eaCovered,
           managerEmployeeId: r.managerEmployeeId,
           departmentId: r.departmentId,

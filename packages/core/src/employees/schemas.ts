@@ -144,6 +144,8 @@ export const jobFields = z.object({
   probationEnd: optDate,
   eaCovered: z.boolean().optional(),
   isWorkman: z.boolean().optional(),
+  /** Manager or executive (never Part 4). */
+  isManagerOrExecutive: z.boolean().optional(),
 });
 export type JobFields = z.output<typeof jobFields>;
 
