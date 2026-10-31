@@ -22,6 +22,13 @@
       "when": 1793443992037,
       "tag": "0002_audit_immutability",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793447039939,
+      "tag": "0003_people",
+      "breakpoints": true
     }
   ]
 }

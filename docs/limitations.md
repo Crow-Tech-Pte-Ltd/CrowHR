@@ -25,8 +25,8 @@ may be described as working. Remove an entry only in the change that fixes it.
 ## Screens
 
 - **Home** shows fixture data (`apps/web/src/fixtures/`), labelled "Sample data" on screen. Approve/Decline/View all only show a "not connected" toast.
-- **Command palette** "People" results are fixture names; selecting one shows a toast.
-- **Every module** (People, Payroll, Leave, Attendance, Schedules, Claims, Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
+- **Command palette** "People" results come from the live directory (people module).
+- **Every module** except People (Payroll, Leave, Attendance, Schedules, Claims, Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
 - **No dark mode.** The landing site's dark tokens were not ported.
 
 ## Platform
@@ -37,3 +37,16 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **No `docker-compose.yml`** yet.
 - **Dependency audit**: `bun audit` reports one moderate, dev-only advisory (GHSA-67mh-4wv8-2f99, esbuild ≤ 0.24.2 dev server) via drizzle-kit's `@esbuild-kit` loader. It is never shipped or run as a server. CI fails on high/critical only.
 - **CI has not run**: the workflow exists but nothing has been pushed.
+
+## Organisation and people (add-organisation-and-people)
+
+- **Sign-in is not wired for the people screens yet.** The API routes require a session; until identity's session middleware lands, the screens only work against the DEV-ONLY server `packages/core/testing/people-dev-server.ts` (persona cookie, 127.0.0.1 only) used by the people e2e (`e2e/people/`).
+- **Encryption, audit, memberships, approvals and payroll are ports** (`packages/core/src/employees/ports.ts`). Tests and the dev server use doubles (`src/testing/people-doubles.ts`: real AES-GCM with a fixed test key, in-memory audit). A host without `deps.people` gets a 500 "not configured" from people routes (fail closed). Production wiring waits for identity's SecretBox and `audit.record()`.
+- **Minimum employment age and the statutory default notice period are NOT IMPLEMENTED**: `research/sg-regulatory.md` does not cite them. No hire is refused for age; resignations need the contractual notice period.
+- **Personal-details change requests apply from the approval date only** (no future-dated personal details). Bank changes honour the approver's effective date.
+- **Sole-owner self-approval** of change requests (`self_approved`) belongs to workflows and is NOT IMPLEMENTED; nobody can decide their own request.
+- **Cancelling a scheduled hire or rehire** is not supported; record a termination instead.
+- **NRIC/bank reveal** endpoints belong to identity; the unmasked export route relies on identity's `recentAuth` guard, which is not active until identity lands.
+- **Statutory lookups** (CSN payment types, rest-day rule, work pass types) are cited in `packages/core/src/organisation/statutory.ts` and should move to `packages/sg-rules`.
+- **Company logo** upload has an API only; there is no upload control on the Company screen yet.
+- **Error codes** `duplicate_id_number`, `in_use`, `reporting_cycle` are sent as `409 conflict` with `details.reason` until they are added to `ERROR_STATUS`.
