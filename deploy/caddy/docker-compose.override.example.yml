@@ -1,0 +1,34 @@
+# OPTIONAL convenience: Caddy in front of Crow HR with automatic HTTPS (Let's Encrypt).
+# Crow HR does not need it; any reverse proxy (or none on a LAN) works. See
+# docs/self-hosting/reverse-proxy.md.
+#
+#   cp deploy/caddy/docker-compose.override.example.yml docker-compose.override.yml
+#   cp deploy/caddy/Caddyfile.example Caddyfile          # then put your domain in it
+#   # in .env:
+#   #   PUBLIC_URL=https://hr.example.sg
+#   #   TRUSTED_PROXIES=private
+#   #   BIND_ADDRESS=127.0.0.1          (only Caddy is reachable from outside)
+#   docker compose up -d
+#
+# Requirements: DNS for the domain points at this machine, and ports 80 and 443 are free and
+# reachable from the internet (Let's Encrypt checks port 80 or 443).
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

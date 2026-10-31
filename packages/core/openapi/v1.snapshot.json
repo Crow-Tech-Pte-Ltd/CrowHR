@@ -19229,6 +19229,741 @@
           }
         }
       }
+    },
+    "/api/v1/setup": {
+      "get": {
+        "operationId": "setup.get",
+        "summary": "First-run setup state",
+        "description": "200 while the install has no organisation; 404 once setup is complete.",
+        "tags": [
+          "Setup"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "required": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "required"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "setup.post",
+        "summary": "Complete first-run setup",
+        "description": "Creates the organisation and its owner in one transaction, invalidates the setup code and signs the owner in (MFA enrolment is offered next). Requires the code in the `x-setup-code` header.",
+        "tags": [
+          "Setup"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "organisationId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "organisationSlug": {
+                      "type": "string"
+                    },
+                    "ownerUserId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "organisationId",
+                    "organisationSlug",
+                    "ownerUserId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: invalid_setup_code.",
+            "x-error-codes": [
+              "invalid_setup_code"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: conflict.",
+            "x-error-codes": [
+              "conflict"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error: rate_limited.",
+            "x-error-codes": [
+              "rate_limited"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organisationName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "ownerName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "ownerEmail": {
+                    "type": "string",
+                    "maxLength": 320
+                  },
+                  "ownerPassword": {
+                    "type": "string",
+                    "maxLength": 1024
+                  }
+                },
+                "required": [
+                  "organisationName",
+                  "ownerName",
+                  "ownerEmail",
+                  "ownerPassword"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/setup/verify": {
+      "post": {
+        "operationId": "setup.postVerify",
+        "summary": "Check the one-time setup code",
+        "description": "Send the code from the server logs in the `x-setup-code` header. Five wrong codes from one IP block it for 15 minutes.",
+        "tags": [
+          "Setup"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No content."
+          },
+          "401": {
+            "description": "Error: invalid_setup_code.",
+            "x-error-codes": [
+              "invalid_setup_code"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error: rate_limited.",
+            "x-error-codes": [
+              "rate_limited"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/status": {
+      "get": {
+        "operationId": "system.getStatus",
+        "summary": "System status for owners",
+        "description": "Version, database and migration state, last backup, disk space, and how this request reached the server (client IP, scheme, trusted proxy). Owners only; read-only.",
+        "tags": [
+          "System"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "string"
+                    },
+                    "time": {
+                      "type": "string"
+                    },
+                    "publicUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "secureCookies": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "database": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "unreachable"
+                          ]
+                        },
+                        "driver": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "postgres",
+                                "pglite"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "serverVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "driver",
+                        "serverVersion"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "tag": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "migratedByVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "migratedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "appliedMigrations": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "bundledMigrations": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "tag",
+                        "migratedByVersion",
+                        "migratedAt",
+                        "appliedMigrations",
+                        "bundledMigrations"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "backups": {
+                      "type": "object",
+                      "properties": {
+                        "last": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "trigger": {
+                                  "type": "string",
+                                  "enum": [
+                                    "manual",
+                                    "scheduled",
+                                    "pre_migrate"
+                                  ]
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "running",
+                                    "succeeded",
+                                    "failed"
+                                  ]
+                                },
+                                "startedAt": {
+                                  "type": "string"
+                                },
+                                "finishedAt": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "fileName": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "sizeBytes": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "encrypted": {
+                                  "type": "boolean"
+                                },
+                                "includesKey": {
+                                  "type": "boolean"
+                                },
+                                "error": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "trigger",
+                                "status",
+                                "startedAt",
+                                "finishedAt",
+                                "fileName",
+                                "sizeBytes",
+                                "encrypted",
+                                "includesKey",
+                                "error"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "lastSuccessful": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "trigger": {
+                                  "type": "string",
+                                  "enum": [
+                                    "manual",
+                                    "scheduled",
+                                    "pre_migrate"
+                                  ]
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "running",
+                                    "succeeded",
+                                    "failed"
+                                  ]
+                                },
+                                "startedAt": {
+                                  "type": "string"
+                                },
+                                "finishedAt": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "fileName": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "sizeBytes": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "encrypted": {
+                                  "type": "boolean"
+                                },
+                                "includesKey": {
+                                  "type": "boolean"
+                                },
+                                "error": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "trigger",
+                                "status",
+                                "startedAt",
+                                "finishedAt",
+                                "fileName",
+                                "sizeBytes",
+                                "encrypted",
+                                "includesKey",
+                                "error"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "encrypted": {
+                          "type": [
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "schedule": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "keep": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "beforeMigrate": {
+                          "type": [
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "directory": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "stale": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "last",
+                        "lastSuccessful",
+                        "encrypted",
+                        "schedule",
+                        "keep",
+                        "beforeMigrate",
+                        "directory",
+                        "stale"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "disk": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "freeBytes": {
+                            "type": "number"
+                          },
+                          "totalBytes": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "label",
+                          "path",
+                          "freeBytes",
+                          "totalBytes"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "request": {
+                      "type": "object",
+                      "properties": {
+                        "clientIp": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "peerIp": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "scheme": {
+                          "type": "string",
+                          "enum": [
+                            "http",
+                            "https"
+                          ]
+                        },
+                        "host": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "viaTrustedProxy": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "clientIp",
+                        "peerIp",
+                        "scheme",
+                        "host",
+                        "viaTrustedProxy"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "trustedProxies": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "time",
+                    "publicUrl",
+                    "secureCookies",
+                    "database",
+                    "schema",
+                    "backups",
+                    "disk",
+                    "request",
+                    "trustedProxies"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

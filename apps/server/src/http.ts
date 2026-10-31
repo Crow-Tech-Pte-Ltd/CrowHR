@@ -1,10 +1,12 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { type AppDeps, createApp } from "@crowhr/core";
+import { type AppDeps, createApp, VERSION } from "@crowhr/core";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { secureHeaders } from "hono/secure-headers";
+import { type MaintenanceInfo, maintenanceMessage } from "./backup/maintenance.ts";
+import { type SetupGate, setupGateMiddleware } from "./setup/gate.ts";
 
 /** Sets cache-control on successful responses produced further down the chain. */
 const cacheControl = (value: string) =>
@@ -13,23 +15,54 @@ const cacheControl = (value: string) =>
     if (c.res.status === 200 && !c.res.headers.has("cache-control")) c.res.headers.set("cache-control", value);
   });
 
+export interface ServerAppOptions {
+  webDistDir: string;
+  /** Redirect to /setup while no organisation exists (omitted in tests that don't need it). */
+  setupGate?: SetupGate;
+  /** Maintenance flag (restore in progress): everything answers 503. */
+  maintenance?: () => MaintenanceInfo | null;
+}
+
+/** Minimal self-contained page for 503s (no external assets: the app may be mid-restore). */
+export function plainPage(title: string, message: string): string {
+  const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => `&#${ch.charCodeAt(0)};`);
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="10"><title>${esc(title)} · Crow HR</title><style>body{font:16px/1.5 system-ui,sans-serif;background:#fafaf7;color:#111;margin:0;display:grid;place-items:center;min-height:100vh}main{max-width:32rem;padding:2rem;border:1px solid #1112}h1{font:600 1rem ui-monospace,monospace;letter-spacing:.05em;text-transform:uppercase}</style></head><body><main><h1>${esc(title)}</h1><p>${esc(message)}</p></main></body></html>`;
+}
+
+function maintenanceGuard(probe: () => MaintenanceInfo | null) {
+  return createMiddleware(async (c, next) => {
+    const info = probe();
+    if (!info) return next();
+    const message = maintenanceMessage(info);
+    c.header("retry-after", "10");
+    c.header("cache-control", "no-store");
+    if (c.req.path === "/api/health") return c.json({ status: "maintenance", version: VERSION, message }, 503);
+    if (c.req.path.startsWith("/api/")) {
+      return c.json({ error: { code: "service_unavailable", message, requestId: "maintenance" } }, 503);
+    }
+    return c.html(plainPage("Maintenance", message), 503);
+  });
+}
+
 /**
  * The full HTTP surface: core's `/api/*` plus the built web app.
  * Non-API GETs that match no file get index.html (SPA fallback), so
  * `/payroll` survives a reload. `/api/*` never falls back: core answers it.
  */
-export function createServerApp(deps: AppDeps, options: { webDistDir: string }) {
+export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
   const { webDistDir } = options;
   // Security headers wrap everything, so they must be registered before core's routes.
   const app = new Hono<{ Bindings: { incoming?: { socket?: { remoteAddress?: string } } } }>();
   // Core reads the client IP (throttling, audit) from x-crowhr-client-ip. Never trust a value the
-  // client sent; set it from the socket. NOT IMPLEMENTED: X-Forwarded-For from TRUSTED_PROXIES
-  // (add-self-hosting owns proxy handling).
+  // client sent: it is always replaced with the IP resolved by `deps.resolveClient` (the socket
+  // peer, or the right-most untrusted X-Forwarded-For hop when the peer is in TRUSTED_PROXIES).
   app.use("*", async (c, next) => {
     const headers = c.req.raw.headers;
     headers.delete("x-crowhr-client-ip");
-    const ip = c.env?.incoming?.socket?.remoteAddress;
-    if (ip) headers.set("x-crowhr-client-ip", ip.replace(/^::ffff:/, ""));
+    const ip = deps.resolveClient
+      ? deps.resolveClient(c as unknown as Parameters<NonNullable<AppDeps["resolveClient"]>>[0]).ip
+      : c.env?.incoming?.socket?.remoteAddress?.replace(/^::ffff:/, "");
+    if (ip) headers.set("x-crowhr-client-ip", ip);
     await next();
   });
   app.use(
@@ -51,6 +84,8 @@ export function createServerApp(deps: AppDeps, options: { webDistDir: string }) 
       referrerPolicy: "strict-origin-when-cross-origin",
     }),
   );
+  if (options.maintenance) app.use("*", maintenanceGuard(options.maintenance));
+  if (options.setupGate) app.use("*", setupGateMiddleware(options.setupGate));
   app.route("/", createApp(deps));
 
   if (!existsSync(join(webDistDir, "index.html"))) {
@@ -63,5 +98,30 @@ export function createServerApp(deps: AppDeps, options: { webDistDir: string }) 
   app.use("/assets/*", serveStatic({ root: webDistDir }));
   app.use("*", cacheControl("no-cache"), serveStatic({ root: webDistDir, index: "index.html" }));
   app.get("*", serveStatic({ root: webDistDir, path: "index.html" }));
+  return app;
+}
+
+/** Served while migrations run: health says `starting`, everything else a 503 page. */
+export function createStartingApp() {
+  const app = new Hono();
+  app.get("/api/health", (c) => {
+    c.header("cache-control", "no-store");
+    return c.json({ status: "starting", version: VERSION }, 503);
+  });
+  app.all("/api/*", (c) =>
+    c.json(
+      {
+        error: {
+          code: "service_unavailable",
+          message: "Crow HR is starting. Try again in a few seconds.",
+          requestId: "starting",
+        },
+      },
+      503,
+    ),
+  );
+  app.all("*", (c) =>
+    c.html(plainPage("Starting", "Crow HR is starting (applying database updates). This page reloads by itself."), 503),
+  );
   return app;
 }

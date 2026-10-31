@@ -1,0 +1,6 @@
+# Replace hr.example.sg with the host name in PUBLIC_URL. Caddy obtains and renews the
+# certificate by itself and sends X-Forwarded-For/-Proto/-Host to the app.
+hr.example.sg {
+	encode zstd gzip
+	reverse_proxy app:8080
+}

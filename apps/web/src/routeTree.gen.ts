@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAttendanceRouteImport } from './routes/_app/attendance'
 import { Route as AppClaimsRouteImport } from './routes/_app/claims'
@@ -34,9 +35,15 @@ import { Route as AppSettingsCompanyRouteImport } from './routes/_app/settings/c
 import { Route as AppSettingsMembersRouteImport } from './routes/_app/settings/members'
 import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
 import { Route as AppSettingsStructureRouteImport } from './routes/_app/settings/structure'
+import { Route as AppSettingsSystemRouteImport } from './routes/_app/settings/system'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -159,9 +166,15 @@ const AppSettingsStructureRoute = AppSettingsStructureRouteImport.update({
   path: '/settings/structure',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsSystemRoute = AppSettingsSystemRouteImport.update({
+  id: '/settings/system',
+  path: '/settings/system',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/setup': typeof SetupRoute
   '/attendance': typeof AppAttendanceRoute
   '/claims': typeof AppClaimsRoute
   '/documents': typeof AppDocumentsRoute
@@ -183,10 +196,12 @@ export interface FileRoutesByFullPath {
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/structure': typeof AppSettingsStructureRoute
+  '/settings/system': typeof AppSettingsSystemRoute
   '/people/': typeof AppPeopleIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/setup': typeof SetupRoute
   '/attendance': typeof AppAttendanceRoute
   '/claims': typeof AppClaimsRoute
   '/documents': typeof AppDocumentsRoute
@@ -209,12 +224,14 @@ export interface FileRoutesByTo {
   '/settings/members': typeof AppSettingsMembersRoute
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/structure': typeof AppSettingsStructureRoute
+  '/settings/system': typeof AppSettingsSystemRoute
   '/people': typeof AppPeopleIndexRoute
   '/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/setup': typeof SetupRoute
   '/_app/attendance': typeof AppAttendanceRoute
   '/_app/claims': typeof AppClaimsRoute
   '/_app/documents': typeof AppDocumentsRoute
@@ -237,6 +254,7 @@ export interface FileRoutesById {
   '/_app/settings/members': typeof AppSettingsMembersRoute
   '/_app/settings/security': typeof AppSettingsSecurityRoute
   '/_app/settings/structure': typeof AppSettingsStructureRoute
+  '/_app/settings/system': typeof AppSettingsSystemRoute
   '/_app/people/': typeof AppPeopleIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
 }
@@ -244,6 +262,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/setup'
     | '/attendance'
     | '/claims'
     | '/documents'
@@ -265,10 +284,12 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/settings/security'
     | '/settings/structure'
+    | '/settings/system'
     | '/people/'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/setup'
     | '/attendance'
     | '/claims'
     | '/documents'
@@ -291,11 +312,13 @@ export interface FileRouteTypes {
     | '/settings/members'
     | '/settings/security'
     | '/settings/structure'
+    | '/settings/system'
     | '/people'
     | '/settings'
   id:
     | '__root__'
     | '/_app'
+    | '/setup'
     | '/_app/attendance'
     | '/_app/claims'
     | '/_app/documents'
@@ -318,12 +341,14 @@ export interface FileRouteTypes {
     | '/_app/settings/members'
     | '/_app/settings/security'
     | '/_app/settings/structure'
+    | '/_app/settings/system'
     | '/_app/people/'
     | '/_app/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  SetupRoute: typeof SetupRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ResetTokenRoute: typeof ResetTokenRoute
   SignInOrgRoute: typeof SignInOrgRoute
@@ -337,6 +362,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -507,6 +539,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsStructureRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings/system': {
+      id: '/_app/settings/system'
+      path: '/settings/system'
+      fullPath: '/settings/system'
+      preLoaderRoute: typeof AppSettingsSystemRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -529,6 +568,7 @@ interface AppRouteChildren {
   AppSettingsMembersRoute: typeof AppSettingsMembersRoute
   AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
   AppSettingsStructureRoute: typeof AppSettingsStructureRoute
+  AppSettingsSystemRoute: typeof AppSettingsSystemRoute
   AppPeopleIndexRoute: typeof AppPeopleIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
@@ -552,6 +592,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsMembersRoute: AppSettingsMembersRoute,
   AppSettingsSecurityRoute: AppSettingsSecurityRoute,
   AppSettingsStructureRoute: AppSettingsStructureRoute,
+  AppSettingsSystemRoute: AppSettingsSystemRoute,
   AppPeopleIndexRoute: AppPeopleIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
@@ -560,6 +601,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  SetupRoute: SetupRoute,
   InviteTokenRoute: InviteTokenRoute,
   ResetTokenRoute: ResetTokenRoute,
   SignInOrgRoute: SignInOrgRoute,
