@@ -90,6 +90,8 @@ export const MATRIX = {
   "leave:create": { cells: TIME_CREATE, note: "owner and hr_admin create on behalf of employees." },
   "claims:read": { cells: TIME_READ },
   "claims:create": { cells: TIME_CREATE, note: "owner and hr_admin create on behalf of employees." },
+  // Mark approved claims paid outside payroll (add-claims "Payment outside payroll")
+  "claims:pay": { cells: PAY_ADMIN },
   "attendance:read": { cells: TIME_READ },
   "attendance:create": { cells: TIME_CREATE, note: "owner and hr_admin create on behalf of employees." },
   // Approval tasks

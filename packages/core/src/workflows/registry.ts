@@ -1,3 +1,4 @@
+import { claimsWorkflowPlugin } from "../claims/approval.ts";
 import { SUBJECT_TYPE_PATTERN } from "../db/schema/workflows.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
@@ -22,6 +23,7 @@ export const CORE_WORKFLOW_PLUGINS: readonly CorePlugin[] = [
   (deps) => peopleWorkflowPlugin(deps),
   (deps) => systemWorkflowPlugin(deps),
   (deps) => payrollWorkflowPlugin(deps),
+  (deps) => claimsWorkflowPlugin(deps),
 ];
 
 export interface WorkflowRegistry {
