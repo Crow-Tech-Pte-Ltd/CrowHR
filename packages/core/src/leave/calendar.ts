@@ -241,12 +241,12 @@ export function workingDaysPerWeekOn(t: EmployeeTime, date: string): number {
   return w > 0 ? w : 5;
 }
 
-function gazetted(t: EmployeeTime, year: number): PublicHoliday[] {
+function gazetted(t: EmployeeTime, year: number, warn = true): PublicHoliday[] {
   try {
     return [...publicHolidays(year)];
   } catch (err) {
     if (err instanceof RulesNotAvailableError) {
-      t.warnings.add(`Singapore public holidays for ${year} aren't published yet, so none are excluded for ${year}.`);
+      if (warn) t.warnings.add(`Singapore public holidays for ${year} aren't published yet, so none are excluded for ${year}.`);
       return [];
     }
     throw err;
@@ -281,7 +281,7 @@ export function holidaysFor(t: EmployeeTime, year: number): Map<string, string> 
   };
   // Look at the previous year too: a holiday on 31 Dec can move into January.
   const all: PublicHoliday[] = [
-    ...gazetted(t, year - 1).filter((h) => h.date >= `${year - 1}-12-25`),
+    ...gazetted(t, year - 1, false).filter((h) => h.date >= `${year - 1}-12-25`),
     ...gazetted(t, year),
     ...t.orgHolidays.filter((h) => h.date >= `${year - 1}-12-25` && h.date <= `${year}-12-31`),
   ];

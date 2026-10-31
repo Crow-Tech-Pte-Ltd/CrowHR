@@ -15,6 +15,10 @@ export const E2E = {
     // (Ahmad and Farah report to Kai Wen).
     approver: { email: "kaiwen@kampongkopi.example", name: "Wong Kai Wen", roles: [] },
     requester: { email: "ahmad@kampongkopi.example", name: "Ahmad Ismail", roles: [] },
+    // Leave (WS5): long-serving staff reporting to Kai Wen, and a payroll admin (e2e/seed.ts).
+    leaveStaff: { email: "nadia@kampongkopi.example", name: "Nadia Rahman", roles: [] },
+    leaveDad: { email: "weiming@kampongkopi.example", name: "Tan Wei Ming", roles: [] },
+    payroll: { email: "payroll@kampongkopi.example", name: "Lim Jia Hui", roles: ["payroll_admin"] },
   },
   /** Second organisation with every SSO method on (screenshots / multi-org). */
   ssoOrg: {

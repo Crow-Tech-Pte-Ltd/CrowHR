@@ -105,5 +105,8 @@ describe("working-day calculator", () => {
     const r = countLeave(t, days("2029-03-05", "2029-03-06"));
     expect(r.totalHundredths).toBe(200);
     expect(r.warnings.join(" ")).toMatch(/2029 aren't published/);
+    // The look-back into the previous year (late-December holidays) never warns.
+    const t2026 = employee({});
+    expect(countLeave(t2026, days("2026-03-05", "2026-03-06")).warnings).toEqual([]);
   });
 });
