@@ -68,6 +68,8 @@ export { csvEnum, listQuery, orderByFor, type Page, pageOf, parseSort, toLimitOf
 export { type ApiModule, defineModule, defineRoute, reply } from "./http/route.ts";
 export { friendlyIssueMessage, toValidationIssues, type ValidationIssue, validate } from "./http/validate.ts";
 export { createUuidV7Generator } from "./ids.ts";
+export { createManualScheduler, type ManualScheduler, type Scheduler } from "./jobs/scheduler.ts";
+export { type TickReport, tick } from "./jobs/tick.ts";
 export {
   createJsonConsoleLogger,
   createMemoryLogger,
@@ -78,6 +80,9 @@ export {
   noopLogger,
 } from "./logger.ts";
 export type { HealthResponse } from "./modules/health/routes.ts";
+export { type EmailPayload, renderEmail } from "./notifications/email-templates.ts";
+export { NOTIFICATION_KINDS, type NotificationKind } from "./notifications/kinds.ts";
+export { type NotifyInput, notify } from "./notifications/notify.ts";
 export {
   formatSetupCode,
   generateSetupCode,
@@ -98,3 +103,33 @@ export {
 } from "./system/settings.ts";
 export { BACKUP_STALE_HOURS, type SystemStatus } from "./system/status.ts";
 export { VERSION } from "./version.ts";
+export { createApproverDirectory } from "./workflows/directory.ts";
+export {
+  decideTask,
+  onReportingLineChanged,
+  type SubmitInput,
+  type SubmitResult,
+  submitApproval,
+  withdrawSubject,
+} from "./workflows/engine.ts";
+export { CORE_WORKFLOW_PLUGINS } from "./workflows/registry.ts";
+export type {
+  ApproverDirectory,
+  ApproverRule,
+  DirectoryMember,
+  DueReminder,
+  FinalDecision,
+  InboxItem,
+  InboxSource,
+  ManagerResolver,
+  PeopleDates,
+  ProbationEnd,
+  ReminderSource,
+  SubjectAdapter,
+  SubjectAttributes,
+  SubjectRef,
+  SubjectSummary,
+  Transition,
+  WorkflowPlugin,
+  WorkPassExpiry,
+} from "./workflows/types.ts";

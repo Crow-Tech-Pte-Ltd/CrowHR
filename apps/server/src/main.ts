@@ -1,4 +1,6 @@
 import {
+  type ApiModule,
+  type AppDeps,
   createJsonConsoleLogger,
   createUuidV7Generator,
   type Logger,
@@ -18,8 +20,10 @@ import { waitForDatabase } from "./db/wait.ts";
 import { type Database, openDatabase } from "./db.ts";
 import { createServerDeps } from "./deps.ts";
 import { createServerApp, createStartingApp } from "./http.ts";
+import { MailerConfigError, mailerFromEnv } from "./mailer.ts";
 import { currentSchemaTag, databaseHasData, planMigrations, readBundledMigrations } from "./migrate/runner.ts";
 import { migrateOnStart } from "./migrate/start.ts";
+import { createIntervalScheduler } from "./scheduler.ts";
 import { readExistingKey } from "./secrets/existing.ts";
 import { resolveSecretKey } from "./secrets/key.ts";
 import { prepareSetupCode } from "./setup/code.ts";
@@ -28,13 +32,30 @@ import { EX_CONFIG, StartupError } from "./startup-error.ts";
 
 type Fetch = (req: Request, env?: unknown) => Response | Promise<Response>;
 
-async function main() {
+export interface StartOptions {
+  /** Extra deps (e.g. workflow plugins); the e2e server registers a test request type this way. */
+  deps?: Partial<AppDeps>;
+  /** Extra API modules mounted under /api/v1. */
+  modules?: readonly ApiModule[];
+}
+
+export async function startServer(options: StartOptions = {}) {
   let config: ServerConfig;
   try {
     config = loadConfig(process.env);
   } catch (err) {
     if (err instanceof ConfigError) {
       console.error(err.message);
+      process.exit(EX_CONFIG);
+    }
+    throw err;
+  }
+  let mailer: ReturnType<typeof mailerFromEnv>;
+  try {
+    mailer = mailerFromEnv(process.env);
+  } catch (err) {
+    if (err instanceof MailerConfigError) {
+      console.error(`Invalid server configuration:\n  - ${err.message}\nSee .env.example for every variable.`);
       process.exit(EX_CONFIG);
     }
     throw err;
@@ -127,16 +148,34 @@ async function main() {
     });
 
     const maintenance = createMaintenanceProbe(config.DATA_DIR);
-    const deps = createServerDeps(config, database, logger, key.bytes);
+    const deps = createServerDeps(config, database, logger, key.bytes, {
+      ...(mailer ? { mailer } : {}),
+      ...options.deps,
+    });
+    if (!mailer) logger.info("Email is not configured (SMTP_URL); notifications are in-app only.");
     const app = createServerApp(deps, {
       webDistDir: config.WEB_DIST_DIR,
       maintenance,
+      modules: options.modules ?? [],
       ...(config.SETUP_GATE ? { setupGate: createSetupGate(database.db) } : {}),
     });
     handler = app.fetch as Fetch;
     logger.info("Crow HR is ready", { publicUrl: config.PUBLIC_URL });
 
-    stopScheduler = startScheduledBackups(config, database, logger, () => maintenance() !== null);
+    // One in-process scheduler (every 60 s, and once now): the workflows sweep (escalations,
+    // reminders, email outbox, transitions) and the nightly backup check. Paused during a restore.
+    const backups = scheduledBackups(config, database, logger, () => maintenance() !== null);
+    const scheduler = createIntervalScheduler({
+      deps,
+      isPaused: () => maintenance() !== null,
+      jobs: backups ? [{ name: "backup", run: () => backups.tick() }] : [],
+    });
+    scheduler.start();
+    stopScheduler = async () => {
+      await scheduler.stop();
+      await backups?.stop();
+      mailer?.close();
+    };
   } catch (err) {
     if (err instanceof StartupError) {
       console.error(`\nCrow HR cannot start.\n${err.message}\n`);
@@ -147,12 +186,8 @@ async function main() {
   }
 }
 
-function startScheduledBackups(
-  config: ServerConfig,
-  database: Database,
-  logger: Logger,
-  isPaused: () => boolean,
-): (() => Promise<void>) | null {
+/** The nightly backup job (not started: the shared scheduler calls its `tick`). */
+function scheduledBackups(config: ServerConfig, database: Database, logger: Logger, isPaused: () => boolean) {
   if (!config.BACKUP_TIME) {
     logger.info("Scheduled backups are off (BACKUP_TIME=off)");
     return null;
@@ -196,11 +231,12 @@ function startScheduledBackups(
       if (deleted.length) logger.info("Deleted old backups", { deleted, keep: config.BACKUP_KEEP });
     },
   });
-  scheduler.start();
-  return () => scheduler.stop();
+  return scheduler;
 }
 
-main().catch((err: unknown) => {
-  console.error("Crow HR failed to start:", err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  startServer().catch((err: unknown) => {
+    console.error("Crow HR failed to start:", err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

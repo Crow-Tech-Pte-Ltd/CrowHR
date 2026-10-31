@@ -19,6 +19,7 @@ export function createServerDeps(
   database: Database,
   logger: Logger,
   secretKey: Uint8Array,
+  extra: Partial<AppDeps> = {},
 ): AppDeps {
   return {
     db: database.db,
@@ -35,7 +36,8 @@ export function createServerDeps(
     reportingScope: createReportingScopeResolver(database.db),
     resolveClient: createClientResolver({ trusted: config.TRUSTED_PROXIES, logger, dataDir: config.DATA_DIR }),
     systemHost: createSystemHost(config, database.driver),
-    // NOT IMPLEMENTED: SMTP mailer (add-approvals-and-notifications owns the outbox). Without it,
-    // invitations and password resets offer a copyable link.
+    // `mailer` (SMTP_URL / MAIL_FROM, see mailer.ts) arrives in `extra` when configured; without it,
+    // notifications are in-app only and invitations and password resets offer a copyable link.
+    ...extra,
   };
 }
