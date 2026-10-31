@@ -18,6 +18,7 @@ export function requestContext(deps: AppDeps) {
     c.set("logger", deps.logger.child({ requestId }));
     c.set("auth", null);
     c.set("memo", new Map());
+    c.set("authFailure", null);
     c.header("x-request-id", requestId);
     await next();
   });

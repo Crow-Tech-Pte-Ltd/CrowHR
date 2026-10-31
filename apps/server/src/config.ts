@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { parseSecretKey } from "@crowhr/core";
 import { z } from "zod";
 
 const defaultWebDist = fileURLToPath(new URL("../../web/dist", import.meta.url));
@@ -25,6 +26,41 @@ const envSchema = z.object({
   WEB_DIST_DIR: z.string().trim().min(1).default(defaultWebDist),
   MIGRATE_ON_START: bool.default(true),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"], { error: "Use debug, info, warn or error." }).default("info"),
+  /**
+   * The address people open Crow HR at, e.g. https://hr.example.sg. Drives the CSRF origin
+   * check, cookie security and SSO redirect URIs. Plain http works for a LAN install.
+   */
+  PUBLIC_URL: z
+    .string({ error: "PUBLIC_URL is required: the address people open Crow HR at, like https://hr.example.sg." })
+    .trim()
+    .refine((v) => /^https?:\/\/[^/\s]+$/.test(v.replace(/\/$/, "")), {
+      error: "Use the origin only, like https://hr.example.sg or http://192.168.1.20:8080 (no path).",
+    })
+    .transform((v) => v.replace(/\/$/, "")),
+  /**
+   * 32 random bytes, base64 or hex. Encrypts NRIC, bank numbers and MFA/SSO secrets. Back it up:
+   * losing it makes that data unreadable. (add-self-hosting generates it on first boot when unset.)
+   */
+  CROWHR_SECRET_KEY: z
+    .string({
+      error:
+        "CROWHR_SECRET_KEY is required. Generate one with `openssl rand -base64 32` and keep a copy with your backups.",
+    })
+    .trim()
+    .refine(
+      (v) => {
+        try {
+          parseSecretKey(v);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      {
+        error:
+          "CROWHR_SECRET_KEY must be 32 random bytes encoded as base64 or hex. Generate one with `openssl rand -base64 32`.",
+      },
+    ),
 });
 
 export type ServerConfig = z.output<typeof envSchema>;

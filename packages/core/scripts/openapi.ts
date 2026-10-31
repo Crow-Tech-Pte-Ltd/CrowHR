@@ -6,13 +6,13 @@
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { V1_MODULES } from "../src/app.ts";
+import { allV1Modules } from "../src/app.ts";
 import { buildOpenApiDocument } from "../src/openapi/generate.ts";
 import { diffOpenApi, formatChanges, type OpenApiLike } from "./openapi-diff.ts";
 
 const dir = fileURLToPath(new URL("../openapi/", import.meta.url));
 const snapshotPath = `${dir}v1.snapshot.json`;
-const generated = `${JSON.stringify(buildOpenApiDocument(V1_MODULES), null, 2)}\n`;
+const generated = `${JSON.stringify(buildOpenApiDocument(allV1Modules()), null, 2)}\n`;
 const mode = process.argv[2];
 
 if (mode === "generate") {

@@ -147,7 +147,12 @@ function operation(module: ApiModule, route: AnyRoute): JsonSchema {
   if (route.request?.body) {
     op.requestBody = {
       required: true,
-      content: { "application/json": { schema: toSchema(route.request.body, "input") } },
+      content: {
+        "application/json": {
+          schema: toSchema(route.request.body, "input"),
+          ...(route.example?.body !== undefined ? { example: route.example.body } : {}),
+        },
+      },
     };
   }
   if (route.deprecated) {

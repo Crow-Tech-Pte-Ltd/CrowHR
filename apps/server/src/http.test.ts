@@ -66,3 +66,18 @@ describe("server HTTP surface", () => {
     expect(res.headers.get("cache-control")).toBe("no-cache");
   });
 });
+
+describe("client IP", () => {
+  it("drops a client-supplied x-crowhr-client-ip header", async () => {
+    const testDb = await createTestDb();
+    try {
+      const deps = createTestDeps(testDb.db);
+      const app = createServerApp(deps, { webDistDir: "/nonexistent" });
+      app.get("/echo-ip", (c) => c.text(c.req.header("x-crowhr-client-ip") ?? "none"));
+      const res = await app.request("/echo-ip", { headers: { "x-crowhr-client-ip": "1.2.3.4" } });
+      expect(await res.text()).toBe("none");
+    } finally {
+      await testDb.close();
+    }
+  });
+});

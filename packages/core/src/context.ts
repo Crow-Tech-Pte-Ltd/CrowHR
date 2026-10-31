@@ -63,6 +63,8 @@ export interface AppVariables {
   auth: AuthContext | null;
   /** Per-request memo (e.g. the manager's team). Never shared across requests. */
   memo: Map<string, unknown>;
+  /** Why a presented credential was not accepted; `requireAuth` answers with this code. */
+  authFailure: "session_expired" | "session_revoked" | null;
 }
 
 export interface AppEnv {
@@ -74,6 +76,13 @@ export type AppContext = Context<AppEnv>;
 /** Returns the caller's auth context or fails with 401. Fail-closed. */
 export function requireAuth(c: AppContext): AuthContext {
   const auth = c.get("auth");
-  if (!auth) throw new AppError("unauthenticated", "Sign in to continue.");
-  return auth;
+  if (auth) return auth;
+  const failure = c.get("authFailure");
+  if (failure === "session_expired") {
+    throw new AppError("session_expired", "You were signed out after a period of inactivity. Sign in again.");
+  }
+  if (failure === "session_revoked") {
+    throw new AppError("session_revoked", "This session was signed out. Sign in again.");
+  }
+  throw new AppError("unauthenticated", "Sign in to continue.");
 }

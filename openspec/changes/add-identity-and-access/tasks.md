@@ -1,46 +1,46 @@
 ## 1. Crypto and schema
 
-- [ ] 1.1 packages/core: write `crypto/secret-box.test.ts` (round-trip, tamper → error, key-id prefix, blind index stable and case-normalised for NRIC) then implement `SecretBox` on Web Crypto and the `deps.secretBox` injection
-- [ ] 1.2 packages/core: write `testing/schema.auth.test.ts` (tables exist, unique constraints, composite FKs reject cross-org rows) then add schema files `auth.ts`, `access.ts`, `audit.ts` and generate the migration
-- [ ] 1.3 apps/server: write `src/config.test.ts` cases for missing/short `CROWHR_SECRET_KEY` and `PUBLIC_URL` (names shared with `add-self-hosting`, which owns key generation) then add them to env validation and inject the SecretBox
+- [x] 1.1 packages/core: write `crypto/secret-box.test.ts` (round-trip, tamper → error, key-id prefix, blind index stable and case-normalised for NRIC) then implement `SecretBox` on Web Crypto and the `deps.secretBox` injection
+- [x] 1.2 packages/core: write `testing/schema.auth.test.ts` (tables exist, unique constraints, composite FKs reject cross-org rows) then add schema files `auth.ts`, `access.ts`, `audit.ts` and generate the migration
+- [x] 1.3 apps/server: write `src/config.test.ts` cases for missing/short `CROWHR_SECRET_KEY` and `PUBLIC_URL` (names shared with `add-self-hosting`, which owns key generation) then add them to env validation and inject the SecretBox — key generation on first boot stays with add-self-hosting; the startup check against `secret_key_checks` is in `apps/server/src/main.ts`
 
 ## 2. Audit log
 
-- [ ] 2.1 packages/core: write `audit/audit.test.ts` (event shape, sensitive-field diff records names only, secrets never present, hash chain links, UPDATE/DELETE rejected by trigger, `verifyChain` finds the first broken row) then implement `audit.record()` and `verifyChain`
-- [ ] 2.2 apps/server: write `src/cli/verify-audit.test.ts` then add `crowhr admin verify-audit`
+- [x] 2.1 packages/core: write `audit/audit.test.ts` (event shape, sensitive-field diff records names only, secrets never present, hash chain links, UPDATE/DELETE rejected by trigger, `verifyChain` finds the first broken row) then implement `audit.record()` and `verifyChain`
+- [x] 2.2 apps/server: write `src/cli/verify-audit.test.ts` then add `crowhr admin verify-audit` — `node apps/server/src/cli/main.ts admin verify-audit` (WS7 wraps it as `crowhr admin`)
 
 ## 3. Access control
 
-- [ ] 3.1 packages/core: write `access/scope.test.ts` against a `ReportingScopeResolver` test double (direct, indirect, cycle terminates, self excluded) then implement effective-role resolution (assigned + implicit employee + derived manager)
-- [ ] 3.2 packages/core: write `access/matrix.http.test.ts` (table-driven: every matrix row × role × in-scope/out-of-scope → expected status) using a stub route per resource, then implement `matrix.ts`, `authorize()` and `scopeFilter()`
-- [ ] 3.3 packages/core: write `access/redact.test.ts` (each sensitivity class per role, medical approver exception, `redactedFields` populated) then implement the response-schema annotation and `redact()`
-- [ ] 3.4 packages/core: write `access/nric.test.ts` (mask format for S/T/F/G/M prefixes, reveal requires re-auth, 31st reveal in an hour → 429, audit event) then implement masking and reveal endpoints for NRIC and bank
-- [ ] 3.5 packages/core: write `access/self-change.test.ts` (own compensation/bank update → 403 `self_change_requires_approval`; sole owner self-approval flagged) then implement the guard
-- [ ] 3.6 packages/core: write `testing/cross-org.ts` helper plus `access/cross-org.test.ts` (every registered route with a foreign-org ID → 404) then implement org-scoped data access helpers; document the helper for other modules in `docs/architecture.md` (note for foundation owner)
+- [x] 3.1 packages/core: write `access/scope.test.ts` against a `ReportingScopeResolver` test double (direct, indirect, cycle terminates, self excluded) then implement effective-role resolution (assigned + implicit employee + derived manager)
+- [x] 3.2 packages/core: write `access/matrix.http.test.ts` (table-driven: every matrix row × role × in-scope/out-of-scope → expected status) using a stub route per resource, then implement `matrix.ts`, `authorize()` and `scopeFilter()`
+- [x] 3.3 packages/core: write `access/redact.test.ts` (each sensitivity class per role, medical approver exception, `redactedFields` populated) then implement the response-schema annotation and `redact()`
+- [ ] 3.4 packages/core: write `access/nric.test.ts` (mask format for S/T/F/G/M prefixes, reveal requires re-auth, 31st reveal in an hour → 429, audit event) then implement masking and reveal endpoints for NRIC and bank — PARTIAL: masking + `revealSensitive()` (re-auth, 30/h, audit) done and tested via a stub route; the employees module mounts the real `POST /employees/:id/nric/reveal` and bank reveal once employee records exist
+- [x] 3.5 packages/core: write `access/self-change.test.ts` (own compensation/bank update → 403 `self_change_requires_approval`; sole owner self-approval flagged) then implement the guard
+- [x] 3.6 packages/core: write `testing/cross-org.ts` helper plus `access/cross-org.test.ts` (every registered route with a foreign-org ID → 404) then implement org-scoped data access helpers; document the helper for other modules in `docs/architecture.md` (note for foundation owner)
 
 ## 4. Password authentication and sessions
 
-- [ ] 4.1 packages/core: write `auth/password-policy.test.ts` (length 12–128, common list, equals-email) then implement the policy with the bundled list
-- [ ] 4.2 apps/server: extend `src/argon2-hasher.test.ts` (parameters, needsRehash, rejects `$demo-pbkdf2$` hashes) then implement rehash detection
-- [ ] 4.3 packages/core: write `auth/sign-in.http.test.ts` (success sets cookie with the right flags, identical failure responses for unknown and wrong, timing-equalising dummy verify called) then implement `POST /api/v1/auth/sign-in` and `POST /api/v1/auth/sign-out`
-- [ ] 4.4 packages/core: write `auth/throttle.test.ts` (10 failures → locked 15 min with injected clock, reset on success, IP 31/min → 429 with Retry-After, owner clears lockout) then implement `auth_throttle`
-- [ ] 4.5 packages/core: write `auth/session.test.ts` (idle and absolute expiry with injected clock, `last_seen_at` throttled to 60 s, rotation on sign-in/MFA/org switch, revoke one/all-others, revoked on password change and suspension) then implement session middleware making `requireAuth` real
-- [ ] 4.6 packages/core: write `auth/csrf.http.test.ts` (cross-origin POST → 403, same-origin OK, `Sec-Fetch-Site: cross-site` → 403, GET unaffected) then implement the middleware
-- [ ] 4.7 packages/core: write `auth/reauth.test.ts` (each sensitive action > 10 min since auth → 403 `reauth_required`) then implement `requireRecentAuth`
-- [ ] 4.8 packages/core: write `auth/reset.http.test.ts` (same 202 for unknown, 60-min expiry, single use, sessions revoked, admin-generated link when no mailer, audit) then implement reset
-- [ ] 4.9 apps/server: write `src/cli/reset-owner-password.test.ts` then implement the CLI command
+- [x] 4.1 packages/core: write `auth/password-policy.test.ts` (length 12–128, common list, equals-email) then implement the policy with the bundled list
+- [x] 4.2 apps/server: extend `src/argon2-hasher.test.ts` (parameters, needsRehash, rejects `$demo-pbkdf2$` hashes) then implement rehash detection
+- [x] 4.3 packages/core: write `auth/sign-in.http.test.ts` (success sets cookie with the right flags, identical failure responses for unknown and wrong, timing-equalising dummy verify called) then implement `POST /api/v1/auth/sign-in` and `POST /api/v1/auth/sign-out`
+- [x] 4.4 packages/core: write `auth/throttle.test.ts` (10 failures → locked 15 min with injected clock, reset on success, IP 31/min → 429 with Retry-After, owner clears lockout) then implement `auth_throttle` — "sign-in attempts blocked" is emailed when a mailer exists; in-app notification NOT IMPLEMENTED (notifications workstream)
+- [x] 4.5 packages/core: write `auth/session.test.ts` (idle and absolute expiry with injected clock, `last_seen_at` throttled to 60 s, rotation on sign-in/MFA/org switch, revoke one/all-others, revoked on password change and suspension) then implement session middleware making `requireAuth` real
+- [x] 4.6 packages/core: write `auth/csrf.http.test.ts` (cross-origin POST → 403, same-origin OK, `Sec-Fetch-Site: cross-site` → 403, GET unaffected) then implement the middleware
+- [x] 4.7 packages/core: write `auth/reauth.test.ts` (each sensitive action > 10 min since auth → 403 `reauth_required`) then implement `requireRecentAuth`
+- [x] 4.8 packages/core: write `auth/reset.http.test.ts` (same 202 for unknown, 60-min expiry, single use, sessions revoked, admin-generated link when no mailer, audit) then implement reset
+- [x] 4.9 apps/server: write `src/cli/reset-owner-password.test.ts` then implement the CLI command — prints a one-time reset link (no password typed into the shell), `--reset-mfa` optional
 
 ## 5. MFA
 
-- [ ] 5.1 packages/core: write `auth/totp.test.ts` with RFC 6238 Appendix B vectors, ±1 step and replay rejection, then implement TOTP on Web Crypto HMAC
-- [ ] 5.2 packages/core: write `auth/mfa.http.test.ts` (enrol requires confirm code, pending-sign-in token 5 min, 5 wrong codes end it, recovery codes 10 × single use, regenerate invalidates, owner resets member MFA) then implement the endpoints
-- [ ] 5.3 packages/core: write `auth/mfa-policy.test.ts` (default roles, 7-day grace from role grant, `mfa_enrolment_required` afterwards, SSO exempt) then implement the policy
+- [x] 5.1 packages/core: write `auth/totp.test.ts` with RFC 6238 Appendix B vectors, ±1 step and replay rejection, then implement TOTP on Web Crypto HMAC
+- [x] 5.2 packages/core: write `auth/mfa.http.test.ts` (enrol requires confirm code, pending-sign-in token 5 min, 5 wrong codes end it, recovery codes 10 × single use, regenerate invalidates, owner resets member MFA) then implement the endpoints
+- [x] 5.3 packages/core: write `auth/mfa-policy.test.ts` (default roles, 7-day grace from role grant, `mfa_enrolment_required` afterwards, SSO exempt) then implement the policy
 
 ## 6. Memberships and invitations
 
-- [ ] 6.1 packages/core: write `access/roles.http.test.ts` (who can grant which role, last-owner 409 on revoke and suspend, takes effect next request) then implement member and role endpoints
-- [ ] 6.2 packages/core: write `auth/invitations.http.test.ts` (7-day expiry, resend replaces token, revoke, accept with password, 409 on existing active email, copy-link without mailer) then implement invitations
-- [ ] 6.3 packages/core: write `access/former.test.ts` (termination → former, roles dropped, own payslips readable, create leave → 403) against a lifecycle-event stub, then implement the transition hook consumed by `add-organisation-and-people`
+- [x] 6.1 packages/core: write `access/roles.http.test.ts` (who can grant which role, last-owner 409 on revoke and suspend, takes effect next request) then implement member and role endpoints
+- [x] 6.2 packages/core: write `auth/invitations.http.test.ts` (7-day expiry, resend replaces token, revoke, accept with password, 409 on existing active email, copy-link without mailer) then implement invitations
+- [x] 6.3 packages/core: write `access/former.test.ts` (termination → former, roles dropped, own payslips readable, create leave → 403) against a lifecycle-event stub, then implement the transition hook consumed by `add-organisation-and-people`
 
 ## 7. OIDC (Google, Entra, generic)
 
@@ -65,5 +65,5 @@
 
 ## 10. Demo substitution
 
-- [ ] 10.1 packages/demo: write `src/demo-hasher.test.ts` (round-trip, `$demo-pbkdf2$` prefix) then implement `DemoPasswordHasher`, demo SecretBox key and the no-op Mailer — coordinate with the demo workstream, which owns this package
-- [ ] 10.2 packages/core: write `auth/demo-mode.http.test.ts` (SSO start returns 403 `disabled_in_demo` without outbound fetch; persona list endpoint only in demo mode) then implement the demo flags
+- [ ] 10.1 packages/demo: write `src/demo-hasher.test.ts` (round-trip, `$demo-pbkdf2$` prefix) then implement `DemoPasswordHasher`, demo SecretBox key and the no-op Mailer — coordinate with the demo workstream, which owns this package — PARTIAL: `createDemoPasswordHasher()` is in `packages/core/src/auth/demo-hasher.ts` (tested); the demo SecretBox key and no-op Mailer belong to packages/demo, which does not exist yet
+- [x] 10.2 packages/core: write `auth/demo-mode.http.test.ts` (SSO start returns 403 `disabled_in_demo` without outbound fetch; persona list endpoint only in demo mode) then implement the demo flags

@@ -59,13 +59,15 @@ HTTP ─► apps/server (secureHeaders) ─► core: requestContext ─► sessi
 
 API conventions (versioning, lists, errors, auth) are in [docs/api.md](api.md).
 
-## Where tenancy and RBAC will be enforced
+## Tenancy, RBAC and audit
 
-Both live in `packages/core`, never in the frontend (hiding UI is cosmetic).
+All of it lives in `packages/core`, never in the frontend (hiding UI is cosmetic).
 
-- **Authentication**: a middleware in core, mounted in `createApp` before module routes, populates `c.var.auth`. `requireAuth(c)` already exists and fails closed (401) while nothing populates it.
-- **Tenancy**: every tenant table has `org_id` (FK → `organisations.id`). Services receive `auth.orgId` and must only query through org-scoped data-access helpers (to be added with the first tenant table) that add `where org_id = $orgId` and set it on insert. Each tenant table gets a test proving cross-org reads/writes fail.
-- **RBAC**: a permission check in core (`can(auth, "payroll:approve")`-style) called from services, not route files, so the same rule applies to every entry point. `Role` is a placeholder `string` until the RBAC change defines the matrix.
+- **Authentication** (`auth/sessions.ts`): `authenticate()` runs on `/api/v1/*` and resolves the `__Host-crowhr_session` cookie (or `crowhr_session` over plain http) or a native `Authorization: Bearer` token into `c.var.auth`. Expired or revoked credentials leave `auth` null and set `authFailure`, so `requireAuth` answers `session_expired` / `session_revoked`. CSRF (`auth/csrf.ts`) rejects cross-origin state changes for cookie requests.
+- **Guards** (`auth/guards.ts`) run for every route after authentication: the MFA-enrolment gate (privileged roles past their 7-day grace) and `recentAuth` (10-minute re-auth).
+- **RBAC** (`access/`): the matrix is data in `access/matrix.ts`; `authorize(c, permission)` returns a `Grant` (scopes `all`/`team`/`own`/`assigned`), 403 when no role grants it. Per-record narrowing uses the grant and answers 404, so out-of-scope records are indistinguishable from missing ones. Manager scope comes from the injected `ReportingScopeResolver` (people module implements it; `createStaticReportingScope` is the test double).
+- **Tenancy** (`access/org-scope.ts`): every tenant table has `org_id` (a schema test fails otherwise), references between tenant tables are composite FKs `(org_id, id)`, and queries go through `orgScope(db, auth)`.
+- **Audit** (`audit/audit.ts`): `recordAudit(tx, deps, auditContext(c), event)` appends to a per-org SHA-256 hash chain inside your transaction; the database rejects UPDATE/DELETE; `verifyChain` finds the first broken link.
 
 ## How to add a module
 
@@ -115,6 +117,44 @@ export const teamsModule = defineModule({
 ```
 
 Then add one line to `V1_MODULES` in `packages/core/src/app.ts` (`teamsModule,`), run `bun run openapi:generate`, and commit the updated snapshot.
+
+### Data access, scope and audit in a handler
+
+```ts
+import { orgScope } from "../access/org-scope.ts";
+import { auditContext, diffFields, recordAudit } from "../audit/audit.ts";
+import { redact, withRedactions } from "../access/redact.ts";
+import { sensitive } from "../access/sensitivity.ts";
+import { assertNotSelfChange } from "../access/self-change.ts";
+
+// Read one record: org filter first, then the caller's scope (404 when out of scope).
+const org = orgScope(deps.db, auth);
+const row = await org.getById(employees, params.id, "employee"); // 404 for other orgs
+await grant.assertEmployee(row.id);                               // 404 outside team/own scope
+return redact(c, employeeOut, toApi(row), { employeeId: row.id }); // drops salary/nric/bank/medical fields
+
+// List: never load out-of-scope rows.
+const rows = await deps.db.select().from(leaveRequests)
+  .where(org.where(leaveRequests, await grant.employeeFilter(leaveRequests.employeeId)));
+
+// Write + audit in one transaction (sensitive fields record names only).
+assertNotSelfChange(c, params.id, "compensation");                // 403 self_change_requires_approval
+await deps.db.transaction(async (tx) => {
+  await tx.update(compensation).set(next).where(org.whereId(compensation, id));
+  await recordAudit(tx, deps, auditContext(c), {
+    action: "compensation.updated", targetType: "employee", targetId: params.id,
+    diff: diffFields(before, next, { sensitive: ["amountCents"] }),
+  });
+});
+```
+
+Response schemas mark sensitive fields with `sensitive(z.number().optional(), "salary")` (always optional, since `redact` may drop them) and wrap the object in `withRedactions(...)`. NRIC/FIN and bank numbers are stored encrypted (`deps.secretBox.encrypt(SECRET_PURPOSES.nric, value)`) with a blind index (`secretBox.blindIndex("nric", normaliseNric(value))`), returned masked (`maskNric`), and revealed only through `revealSensitive(c, …)` from a dedicated `POST …/reveal` route.
+
+### Tests every module adds
+
+- **Cross-org**: nothing to register. `access/cross-org.test.ts` sweeps every non-public v1 route with a path parameter and calls it with org B's IDs as org A's owner, expecting 404. Seed at least one row of each of your tables for org B in that test (one `insert` per table), and give mutating routes an `example: { body }` that passes validation. A route without a record ID in its params may set `crossOrgExempt: "<reason>"`.
+- **Permission matrix**: adding a key to `MATRIX` adds it to `access/matrix.http.test.ts` automatically (one stub route per row, every role, in and out of scope). Changing a cell is a spec change.
+- Use `seedOrg`, `seedMember({ roles, employeeId })`, `clientAs(app, deps, member)` (a signed-in cookie client) and `movableClock` from `@crowhr/core/testing`.
 
 Rules of the road:
 

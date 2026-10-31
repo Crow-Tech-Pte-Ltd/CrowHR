@@ -102,6 +102,14 @@ export interface RouteDefinition<
   recentAuth?: boolean;
   /** Reachable while the member must still enrol in MFA (enrolment and sign-out only). */
   allowDuringMfaEnrolment?: boolean;
+  /**
+   * A valid example request. Shown in the OpenAPI document and used by the cross-org isolation
+   * test (`testing/cross-org.ts`), which needs a body that passes validation to prove a foreign
+   * record answers 404 rather than 400.
+   */
+  example?: { body?: unknown };
+  /** Exclude from the cross-org route sweep, with the reason (e.g. the route takes no record ID). */
+  crossOrgExempt?: string;
   handler: (
     input: HandlerInput<Req, Acc>,
   ) => Promise<BodyOf<Res[DefaultStatus<Res>]> | Reply | Response> | BodyOf<Res[DefaultStatus<Res>]> | Reply | Response;

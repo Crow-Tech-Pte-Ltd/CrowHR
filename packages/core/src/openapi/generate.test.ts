@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createTestDeps } from "../../testing/index.ts";
 import { sensitive } from "../access/sensitivity.ts";
-import { createApp, V1_MODULES } from "../app.ts";
+import { allV1Modules, createApp } from "../app.ts";
 import type { Db } from "../db/types.ts";
 import { listQuery, pageOf } from "../http/list.ts";
 import { defineModule, defineRoute, fullPath } from "../http/route.ts";
@@ -106,8 +106,8 @@ describe("OpenAPI document", () => {
   });
 
   it("covers every built-in v1 route", () => {
-    const built = buildOpenApiDocument(V1_MODULES);
-    for (const module of V1_MODULES) {
+    const built = buildOpenApiDocument(allV1Modules());
+    for (const module of allV1Modules()) {
       for (const route of module.routes) {
         const path = fullPath(module, route).replace(/:([A-Za-z0-9_]+)/g, "{$1}");
         expect(built.paths[path]?.[route.method], `${route.method} ${path}`).toBeDefined();
