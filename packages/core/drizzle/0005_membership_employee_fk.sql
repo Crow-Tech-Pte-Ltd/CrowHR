@@ -1,0 +1,3 @@
+-- Unlink memberships that point at an employee missing from their organisation (none expected), so the FK can be added.
+UPDATE "memberships" SET "employee_id" = NULL WHERE "employee_id" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "employees" e WHERE e."org_id" = "memberships"."org_id" AND e."id" = "memberships"."employee_id");--> statement-breakpoint
+ALTER TABLE "memberships" ADD CONSTRAINT "memberships_employee_fk" FOREIGN KEY ("org_id","employee_id") REFERENCES "public"."employees"("org_id","id") ON DELETE no action ON UPDATE no action;
