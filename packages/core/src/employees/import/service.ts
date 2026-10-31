@@ -63,7 +63,14 @@ function deferredPorts(ports: PeoplePorts) {
     approvals: ports.approvals,
     audit: ports.audit,
     memberships: {
-      inviteForEmployee: async (i) => void queue.push(() => ports.memberships.inviteForEmployee(i)),
+      inviteForEmployee: async (i, ctx) => {
+        queue.push(async () => void (await ports.memberships.inviteForEmployee(i, ctx)));
+        return {
+          status: "skipped",
+          inviteUrl: null,
+          message: "Invitations are sent once the import is confirmed; resend links from Settings → Members.",
+        };
+      },
       markFormer: async (i) => void queue.push(() => ports.memberships.markFormer(i)),
     },
     payroll: {

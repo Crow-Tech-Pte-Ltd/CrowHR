@@ -1,26 +1,25 @@
 import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type AuditContext, auditContext, recordAudit } from "../audit/audit.ts";
-import { audit, emailInput, normaliseEmail } from "../auth/credentials.ts";
+import { audit, emailInput } from "../auth/credentials.ts";
 import { clearMfa, listSessionsFor, revokeOneSession, sessionItem } from "../auth/me-routes.ts";
 import { revokeMembershipSessions, revokeUserSessions } from "../auth/sessions.ts";
-import { DAY } from "../auth/settings.ts";
 import { accountLockedUntil, clearAccountThrottle } from "../auth/throttle.ts";
 import type { AppContext, AuthContext } from "../context.ts";
 import { newToken, sha256Hex } from "../crypto/tokens.ts";
 import { invitations, membershipRoles, memberships } from "../db/schema/access.ts";
 import { passwordResets, sessions } from "../db/schema/auth.ts";
-import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import { csvEnum, listQuery, pageOf, toLimitOffset } from "../http/list.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
+import { deliverInvitation, inviteMember, issueInvitation } from "./invitations.ts";
 import { ASSIGNED_ROLES, type AssignedRole } from "./matrix.ts";
 import { orgScope } from "./org-scope.ts";
 
-export const INVITATION_TTL_MS = 7 * DAY;
+export { INVITATION_TTL_MS } from "./invitations.ts";
 export const RESET_TTL_MS = 60 * 60_000;
 
 const assignedRole = z.enum(["owner", "hr_admin", "payroll_admin"]);
@@ -145,57 +144,6 @@ async function activeOwnerCount(db: Db, orgId: string, excludingMembershipId?: s
 }
 
 const LAST_OWNER_MESSAGE = "An organisation needs at least one active owner. Make someone else an owner first.";
-
-async function inviteUrl(deps: AppDeps, token: string) {
-  return `${deps.publicUrl.replace(/\/$/, "")}/invite/${token}`;
-}
-
-async function issueInvitation(
-  c: AppContext,
-  db: Db,
-  input: { orgId: string; membershipId: string; email: string; invitedBy: string | null },
-) {
-  const { clock, ids } = c.var.deps;
-  const now = clock.now();
-  await db
-    .update(invitations)
-    .set({ revokedAt: now })
-    .where(
-      and(
-        eq(invitations.orgId, input.orgId),
-        eq(invitations.membershipId, input.membershipId),
-        isNull(invitations.acceptedAt),
-        isNull(invitations.revokedAt),
-      ),
-    );
-  const token = newToken();
-  const id = ids.newId();
-  const expiresAt = new Date(now.getTime() + INVITATION_TTL_MS);
-  await db.insert(invitations).values({
-    id,
-    orgId: input.orgId,
-    email: input.email,
-    membershipId: input.membershipId,
-    tokenHash: await sha256Hex(token),
-    expiresAt,
-    invitedBy: input.invitedBy,
-    createdAt: now,
-  });
-  return { id, token, expiresAt };
-}
-
-/** Sends the invitation email, or returns the link for the inviter to copy when there is no mailer. */
-async function deliverInvitation(c: AppContext, email: string, token: string, orgName: string): Promise<string | null> {
-  const deps = c.var.deps;
-  const url = await inviteUrl(deps, token);
-  if (!deps.mailer) return url;
-  await deps.mailer.send({
-    to: email,
-    subject: `You're invited to ${orgName} on Crow HR`,
-    text: `You've been invited to ${orgName} on Crow HR. Accept within 7 days: ${url}`,
-  });
-  return null;
-}
 
 const invitationResult = z.object({
   member,
@@ -343,9 +291,8 @@ export const membersModule = defineModule({
         }),
       },
       responses: { 201: invitationResult },
-      errors: ["conflict"],
+      errors: ["conflict", "not_found"],
       handler: async ({ c, deps, auth, body }) => {
-        const { db, ids, clock } = deps;
         const roles = [...new Set(body.roles)] as AssignedRole[];
         if (roles.length && !auth.roles.includes("owner")) {
           throw new AppError(
@@ -353,62 +300,18 @@ export const membersModule = defineModule({
             "Only an owner can invite someone with a role. Invite them without a role, then ask an owner.",
           );
         }
-        const email = normaliseEmail(body.email);
-        const [org] = await db.select().from(organisations).where(eq(organisations.id, auth.orgId));
-        const result = await db.transaction(async (tx) => {
-          let [user] = await tx.select().from(users).where(eq(users.email, email));
-          if (user) {
-            const [existing] = await tx
-              .select()
-              .from(memberships)
-              .where(and(eq(memberships.orgId, auth.orgId), eq(memberships.userId, user.id)));
-            if (existing?.status === "active")
-              throw new AppError("conflict", `${email} is already a member of this organisation.`);
-            if (existing)
-              throw new AppError(
-                "conflict",
-                `${email} already has a ${existing.status} membership. Resend the invitation or reactivate them instead.`,
-                { membershipId: existing.id },
-              );
-          } else {
-            [user] = await tx
-              .insert(users)
-              .values({ id: ids.newId(), email, displayName: body.displayName })
-              .returning();
-          }
-          if (!user) throw new Error("user insert failed");
-          const membershipId = ids.newId();
-          await tx.insert(memberships).values({
-            id: membershipId,
-            orgId: auth.orgId,
-            userId: user.id,
-            employeeId: body.employeeId ?? null,
-            status: "invited",
-          });
-          for (const role of roles) {
-            await tx
-              .insert(membershipRoles)
-              .values({ orgId: auth.orgId, membershipId, role, grantedBy: auth.membershipId, grantedAt: clock.now() });
-          }
-          const invite = await issueInvitation(c, tx, {
-            orgId: auth.orgId,
-            membershipId,
-            email,
-            invitedBy: auth.membershipId,
-          });
-          await recordAudit(tx, deps, auditContext(c), {
-            action: "member.invited",
-            targetType: "membership",
-            targetId: membershipId,
-            meta: { email, roles },
-          });
-          return { membershipId, invite };
+        const result = await inviteMember(deps, auditContext(c), {
+          orgId: auth.orgId,
+          email: body.email,
+          displayName: body.displayName,
+          roles,
+          employeeId: body.employeeId ?? null,
+          invitedBy: auth.membershipId,
         });
-        const url = await deliverInvitation(c, email, result.invite.token, org?.name ?? "your organisation");
         return {
           member: await getMember(c, auth.orgId, result.membershipId),
-          inviteUrl: url,
-          expiresAt: result.invite.expiresAt.toISOString(),
+          inviteUrl: result.inviteUrl,
+          expiresAt: result.expiresAt.toISOString(),
         };
       },
     }),
@@ -426,15 +329,14 @@ export const membersModule = defineModule({
         assertCanManage(auth, target);
         if (target.status !== "invited")
           throw new AppError("conflict", "This person has already accepted their invitation.");
-        const invite = await issueInvitation(c, deps.db, {
+        const invite = await issueInvitation(deps, deps.db, {
           orgId: auth.orgId,
           membershipId: target.id,
           email: target.email,
           invitedBy: auth.membershipId,
         });
         await audit(c, { action: "member.invitation_resent", targetType: "membership", targetId: target.id });
-        const [org] = await deps.db.select().from(organisations).where(eq(organisations.id, auth.orgId));
-        const url = await deliverInvitation(c, target.email, invite.token, org?.name ?? "your organisation");
+        const url = await deliverInvitation(deps, { orgId: auth.orgId, email: target.email, token: invite.token });
         return {
           member: await getMember(c, auth.orgId, target.id),
           inviteUrl: url,

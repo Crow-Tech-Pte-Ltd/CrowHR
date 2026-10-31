@@ -44,6 +44,7 @@ export function createMemoryMemberships(): MembershipsPort & {
     formers,
     async inviteForEmployee({ orgId, employeeId, email }) {
       invitations.push({ orgId, employeeId, email });
+      return { status: "link", inviteUrl: `https://hr.test/invite/test-${employeeId}`, message: "Copy this link." };
     },
     async markFormer(input) {
       if (!formers.some((f) => f.orgId === input.orgId && f.employeeId === input.employeeId)) formers.push(input);

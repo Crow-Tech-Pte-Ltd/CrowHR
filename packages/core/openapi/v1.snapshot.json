@@ -2414,10 +2414,47 @@
                   "properties": {
                     "employeeId": {
                       "type": "string"
+                    },
+                    "invite": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "emailed",
+                                "link",
+                                "linked",
+                                "skipped"
+                              ]
+                            },
+                            "inviteUrl": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "status",
+                            "inviteUrl",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
-                    "employeeId"
+                    "employeeId",
+                    "invite"
                   ],
                   "additionalProperties": false
                 }
@@ -8902,6 +8939,19 @@
               "csrf_rejected",
               "forbidden",
               "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
             ],
             "content": {
               "application/json": {
