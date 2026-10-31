@@ -81,7 +81,7 @@ docs/          # repo-level docs (architecture, limitations) — user docs live 
 
 ## Commands (root)
 
-`bun install` · `bun run check` (biome + typecheck + unit/integration tests) · `bun run test` · `bun run e2e` · `bun run build`
+`bun install` · `bun run check` (biome + typecheck + unit/integration tests + sg-rules ≥ 95% line coverage + OpenAPI snapshot) · `bun run test` · `bun run e2e` · `bun run build`
 
 ## OpenSpec
 
