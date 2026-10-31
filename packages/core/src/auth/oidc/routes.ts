@@ -1,4 +1,5 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import * as oidc from "openid-client";
 import { z } from "zod";
 import { auditContext, recordAudit } from "../../audit/audit.ts";
@@ -15,11 +16,26 @@ import { normaliseEmail } from "../credentials.ts";
 import { isConfigured } from "../methods.ts";
 import { completeNativeSignIn } from "../native/complete.ts";
 import { startBrowserSession } from "../sessions.ts";
-import { MINUTE } from "../settings.ts";
+import { MINUTE, sessionCookie } from "../settings.ts";
 import { callbackUrl, providerConfig } from "./client.ts";
 import { PRESETS, singpassSubject } from "./presets.ts";
 
 export const OIDC_TRANSACTION_TTL_MS = 10 * MINUTE;
+
+/**
+ * Binds an OIDC transaction to the browser that started it, so a callback URL produced in one
+ * browser can't complete in another (login CSRF / session swapping). SameSite=Lax is sent on the
+ * IdP's top-level redirect back to us.
+ */
+const TX_COOKIE = "crowhr_oidc_tx";
+function txCookieOptions(c: AppContext) {
+  return {
+    path: "/api/v1/auth/oidc",
+    httpOnly: true,
+    sameSite: "Lax" as const,
+    secure: sessionCookie(c.var.deps.publicUrl).secure,
+  };
+}
 
 const AUTH_METHOD: Record<SsoProvider["kind"], AuthMethod> = {
   google: "google",
@@ -150,6 +166,7 @@ export const oidcRoutes = [
         dpop = oidc.getDPoPHandle(config, pair);
       }
       const now = deps.clock.now();
+      setCookie(c, TX_COOKIE, state, { ...txCookieOptions(c), maxAge: OIDC_TRANSACTION_TTL_MS / 1000 });
       await deps.db.insert(oidcTransactions).values({
         stateHash: await sha256Hex(state),
         orgId: provider.orgId,
@@ -202,6 +219,9 @@ export const oidcRoutes = [
       const { db, clock, secretBox } = deps;
       const now = clock.now();
       const stateHash = query.state ? await sha256Hex(query.state) : "";
+      const boundState = getCookie(c, TX_COOKIE);
+      deleteCookie(c, TX_COOKIE, txCookieOptions(c));
+      if (!query.state || boundState !== query.state) return fail(c, provider, "state_mismatch", "sign_in");
       const [tx] = query.state
         ? await db
             .delete(oidcTransactions)
