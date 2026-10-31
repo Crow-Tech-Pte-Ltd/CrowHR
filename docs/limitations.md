@@ -26,7 +26,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Payroll-cutoff reminders** (`payroll_cutoff`, 3 days before the cutoff day in payroll settings, or the pay day when none is set) go to active payroll admins until the month's regular run is approved.
 - **Out-of-office cover** is set from the Inbox (and by HR in Settings → Approvals), not from My profile.
 - **Email templates are fixed in code** (spec non-goal); they carry the organisation name but not its logo yet.
-- **Browser demo tick** is not wired (the demo does not exist); `createManualScheduler` is ready for it (task 5.4).
+- **Browser demo tick** runs every 30 s and on navigation while a demo tab is open (`createManualScheduler` in the demo worker); nothing runs while no demo tab is open, so reminders and escalations catch up on the next visit.
 - **Inbox speed** is tested with 40 open tasks (< 1 s on PGlite), not benchmarked at 200 employees.
 - **Work-pass reminders read the latest pass per employee**: a renewal must be added as a new pass (with a later expiry) to stop the old pass's reminders.
 
@@ -45,7 +45,7 @@ may be described as working. Remove an entry only in the change that fixes it.
   - **Open CPF questions** (VERIFICATION.md "Open legal and design questions"): delayed AW across years, a known leaving month in the AW-ceiling projection, SPR F/G election timing, mid-month residency changes.
   - **Not encoded yet**: parental leave (maternity, paternity, shared parental, childcare, infant care, adoption), part-time leave in hours, income tax, IR21, CPF late-payment interest, work-pass salary thresholds.
   - **Overtime rounding** has no MOM rule; the default reproduces MOM's published example ($13.60/h cap for non-workmen).
-- **Browser demo** (`apps/demo`, `packages/demo`) does not exist. Core's migrations are applied with Drizzle's filesystem migrator; the demo will need to bundle the SQL.
+- **Browser demo**: see "Public demo" below.
 - **PGlite server mode** (`DATABASE_URL=pglite:…`) is for local development and e2e only: single process, no pooling, no backups.
 
 ## Self-hosting
@@ -135,3 +135,22 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Clock skew** is estimated as server time minus the device's send time, so slow networks add their latency to the estimate (default threshold 2 minutes; flags never block).
 - **Rest-day and public-holiday base pay** is not passed to payroll; the OT feed carries OT minutes only, and payroll prices rest-day work from day rates.
 - **Punches older than 7 days** are refused; a manager or HR adds them as corrections.
+
+## Public demo (packages/demo, apps/demo — WS8b)
+
+The demo is the real web app and the real core API running in the visitor's browser (see docs/architecture.md "The public demo"). These behaviours exist only in the demo; the About page (`/about-demo`) lists them for visitors too.
+
+- **Not deployed.** The Cloudflare Pages config, `_headers`, `_redirects` and the site build exist; deploying needs Daniel's approval (docs/deploy-demo.md).
+- **Demo-only sign-in**: one-click personas (`/api/v1/auth/demo/*`, 404 outside demo mode), a shared password `kopi-kaki-demo` for every seeded account, and no MFA requirement (the demo org's `mfa_required_roles` is empty). Google, Microsoft and Singpass are seeded with placeholder client IDs so their buttons show; core refuses to start them in demo mode without any network call.
+- **Email** goes to the "Demo outbox" (a `demo_outbox` table in the visitor's database), shown from the banner and the notifications popover. Nothing is sent.
+- **Password hashing** is PBKDF2 (10,000 rounds, `$demo-pbkdf2$`), which a real server refuses. **Encryption at rest** uses a key generated per browser and stored in the same IndexedDB database as the data it protects (fine for fictional data; never a pattern for real data).
+- **Clock**: the demo company lives on 31 Oct 2026. The demo clock maps the visitor's real time onto that date at the same Singapore time of day, then runs normally; reset re-anchors it. Without this, a visit months later would show October as a stale "current" run.
+- **One tab at a time**: a Web Lock keeps a second tab from opening the same PGlite database (two writers would corrupt it); the second tab offers "Use it here instead".
+- **Durability**: PGlite runs with relaxed durability; the worker writes the database back to IndexedDB after every state-changing request and after each scheduled tick. A tab killed mid-request can lose that one request.
+- **Cookies** never reach the browser's cookie store. Browsers forbid script-set `Cookie` and script-read `Set-Cookie` headers, so the worker keeps a small cookie jar (persisted with the database) and the bridge captures `Set-Cookie` where Hono writes it. Core sees an ordinary cookie session (same CSRF and session code as the server); there is no bearer-token special case.
+- **Non-fetch API requests** (receipt `<img>` previews, PDF/CSV download links, an API URL opened in a new tab) go through a service worker (`/demo-sw.js`) to the open demo tab. Where service workers are unavailable (e.g. some private-browsing modes), those previews and downloads fail; everything else works.
+- **Seed shortcuts**: historical onboarding checklist items (from hires backdated to 2019–2025) are closed by one SQL update at seed time rather than one audited completion each, so the audit log has no entries for them. Everything else (hires, payroll runs, approvals, claims, leave, change requests) goes through the real services or the public API as the person who would do it.
+- **No attendance data is seeded** (no clock-ins); October's overtime is entered by hand on the run. The YTD opening balances for January–June are deliberately not imported, so every run shows the `YTD_BEFORE_CROWHR_MISSING` warning, as it would for a company that moved to Crow HR mid-year.
+- **First load** is about 3.4 s locally (measured: WebAssembly Postgres start and initdb ~1.2 s, migrations ~0.24 s, seeding ~1.7 s; the 3 s target is missed) and needs ~7 MB of downloads (PGlite ~5.5 MB gzip, JS ~1.3 MB); later visits open from IndexedDB in under 1 s.
+- **Docs site under /docs** has a looser CSP than the app (`script-src 'unsafe-inline'` for Starlight's inline scripts); it holds no user data.
+- **Name display**: accounts use legal names, so Home greets "Hi, Goh" (apps/web takes the first word of the display name).

@@ -21,6 +21,7 @@ import { meQuery } from "../auth/session.ts";
 import type { SignInMethods, SignInResult } from "../auth/types.ts";
 import { Wordmark } from "../components/wordmark.tsx";
 import { ApiError, apiPost } from "../lib/api.ts";
+import { DemoPersonaPicker } from "./demo-personas.tsx";
 import type { SignInNotice } from "./notices.ts";
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
@@ -207,6 +208,7 @@ export function SignInPage({
             </form>
           ) : (
             <>
+              {methods.demoMode && !nativeRequestId ? <DemoPersonaPicker /> : null}
               {providers.length ? (
                 <div className="flex flex-col gap-3" data-testid="sso-methods">
                   {providers.map((p) =>
