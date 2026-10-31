@@ -3,6 +3,7 @@ import { createClaimsReimbursementSource } from "../claims/reimbursement.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { leaveUnpaidSource } from "../leave/outputs.ts";
+import { schedulingScheduledDaysSource } from "../scheduling/feeds.ts";
 
 /**
  * Collaborators of the payroll module. Each is an interface with a production default and a test
@@ -14,6 +15,7 @@ import { leaveUnpaidSource } from "../leave/outputs.ts";
  * | `overtime` | WS5 attendance (approved OT) | `attendanceOvertimeSource` | `createMemoryOvertime()` / `manualOvertimeOnly` |
  * | `unpaidLeave` | WS5 leave (no-pay, unpaid infant care) | `leaveUnpaidSource` | `noUnpaidLeave` |
  * | `daysWorked` | WS5 attendance (rostered staff) | `attendanceDaysWorkedSource` | `noDaysWorked` |
+ * | `scheduledDays` | WS5 scheduling (published rosters) | `schedulingScheduledDaysSource` | `noScheduledDays` |
  *
  * Approvals go through the workflows engine: `payroll/approval.ts` registers the `payroll_run`
  * subject adapter in `CORE_WORKFLOW_PLUGINS`.
@@ -105,6 +107,24 @@ export interface DaysWorkedSource {
   listDaysWorked(orgId: string, periodStart: string, periodEnd: string): Promise<RosterDaysWorked[]>;
 }
 
+/**
+ * Scheduled working days of rostered staff (no fixed week) from published rosters: the
+ * denominator of EA s 20A's incomplete-month formula (`scheduled_days` run item).
+ */
+export interface RosterScheduledDays {
+  sourceId: string;
+  employeeId: string;
+  /** Days the roster required, including public holidays and leave days. Whole days. */
+  scheduledDays: number;
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface ScheduledDaysSource {
+  listScheduledDays(orgId: string, periodStart: string, periodEnd: string): Promise<RosterScheduledDays[]>;
+}
+
+export const noScheduledDays: ScheduledDaysSource = { listScheduledDays: async () => [] };
 export const noUnpaidLeave: UnpaidLeaveSource = { listUnpaid: async () => [] };
 export const noDaysWorked: DaysWorkedSource = { listDaysWorked: async () => [] };
 
@@ -113,8 +133,10 @@ export interface PayrollPorts {
   overtime: OvertimeSource;
   /** WS5 leave: approved unpaid leave per date (pro-ration). */
   unpaidLeave: UnpaidLeaveSource;
-  /** WS5 attendance: days worked by rostered staff who clock in. Scheduled days still come from HR. */
+  /** WS5 attendance: days worked by rostered staff who clock in. */
   daysWorked: DaysWorkedSource;
+  /** WS5 scheduling: scheduled days of rostered staff whose period is fully published. A manual item wins. */
+  scheduledDays: ScheduledDaysSource;
 }
 
 export type PayrollAppDeps = AppDeps & { payroll?: Partial<PayrollPorts> };
@@ -126,5 +148,6 @@ export function payrollPorts(deps: AppDeps): PayrollPorts {
     overtime: p.overtime ?? attendanceOvertimeSource(deps),
     unpaidLeave: p.unpaidLeave ?? leaveUnpaidSource(deps),
     daysWorked: p.daysWorked ?? attendanceDaysWorkedSource(deps),
+    scheduledDays: p.scheduledDays ?? schedulingScheduledDaysSource(deps),
   };
 }

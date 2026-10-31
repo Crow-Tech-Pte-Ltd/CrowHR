@@ -216,3 +216,32 @@ describe("attendance punches", () => {
     expect(got).toMatchObject({ defaultStartTime: "09:00", effectivePdpaNotice: DEFAULT_PDPA_NOTICE });
   });
 });
+
+describe("today's punches on the clock screen", () => {
+  it("after midnight, yesterday's closed shift is not today's; an open overnight shift still is", async () => {
+    // Wednesday 11 Nov 2026, 21:00–23:30 SGT, then 00:30 on Thursday.
+    const w = await createLeaveWorld({ now: "2026-11-11T13:00:00.000Z" });
+    try {
+      const staff = await w.as("staff");
+      await punch(staff, "in", "2026-11-11T13:00:00.000Z");
+      w.clock.set("2026-11-11T15:30:00.000Z");
+      expect((await punch(await w.as("staff"), "out", "2026-11-11T15:30:00.000Z")).status).toBe(201);
+      w.clock.set("2026-11-11T16:30:00.000Z"); // 00:30 SGT Thursday
+      const me = async () =>
+        (await (await (await w.as("staff")).get("/api/v1/attendance/me")).json()) as {
+          clockedIn: boolean;
+          today: { workDate: string }[];
+        };
+      expect(await me()).toMatchObject({ clockedIn: false, today: [] });
+      // An overnight shift still open after midnight keeps its punches on the screen.
+      w.clock.set("2026-11-12T13:00:00.000Z"); // 21:00 Thursday
+      await punch(await w.as("staff"), "in", "2026-11-12T13:00:00.000Z");
+      w.clock.set("2026-11-12T17:00:00.000Z"); // 01:00 Friday
+      const open = await me();
+      expect(open.clockedIn).toBe(true);
+      expect(open.today.map((p) => p.workDate)).toEqual(["2026-11-12"]);
+    } finally {
+      await w.close();
+    }
+  });
+});

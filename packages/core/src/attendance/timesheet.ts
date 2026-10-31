@@ -11,6 +11,7 @@ import { leaveRequestDays, leaveRequests, leaveTypes } from "../db/schema/leave.
 import type { Db } from "../db/types.ts";
 import { addDays } from "../employees/dates.ts";
 import { type DayInfo, dayInfo, type EmployeeTime, loadEmployeesTime, scheduleOn } from "../leave/calendar.ts";
+import { attachRosters } from "../scheduling/feeds.ts";
 import { type PunchView, toPunchView } from "./punch.ts";
 import { type AttendanceSettings, loadAttendanceSettings } from "./settings.ts";
 
@@ -54,6 +55,9 @@ export interface DayRecord {
     approvedMinutes: number | null;
   } | null;
 }
+
+/** `HH:MM` (SGT) of an instant. */
+const sgClock = (at: Date) => new Date(at.getTime() + 8 * 3_600_000).toISOString().slice(11, 16);
 
 /** Break deducted from a day whose span (first in → last out) exceeds this. */
 export const BREAK_AFTER_MINUTES = 6 * 60;
@@ -115,18 +119,35 @@ export function computeDay(input: ComputeDayInput): DayRecord {
   if (openIn && !open) missing++;
   const firstIn = active.find((p) => p.kind === "in") ?? null;
   const lastOut = [...active].reverse().find((p) => p.kind === "out") ?? null;
+  // A rostered shift (published roster, scheduling feed): its own break, start and end.
+  const rostered = dayType === "shift" && info.shift ? info.shift : null;
   let breakMinutes = 0;
-  if (firstIn && lastOut && lastOut.recordedAt > firstIn.recordedAt) {
+  if (rostered) {
+    if (worked > 0) breakMinutes = Math.min(rostered.breakMinutes, worked);
+  } else if (firstIn && lastOut && lastOut.recordedAt > firstIn.recordedAt) {
     const span = (lastOut.recordedAt.getTime() - firstIn.recordedAt.getTime()) / MIN;
     if (span > BREAK_AFTER_MINUTES) breakMinutes = Math.min(settings.breakMinutes, worked);
   }
   worked -= breakMinutes;
 
   const fixed = dayType === "working" || dayType === "half";
-  const startText = fixed && scheduled > 0 ? startTimeFor(settings, input.scheduleId) : null;
+  const startText = rostered
+    ? sgClock(rostered.startsAt)
+    : fixed && scheduled > 0
+      ? startTimeFor(settings, input.scheduleId)
+      : null;
   let late = 0;
   let early = 0;
-  if (startText) {
+  if (rostered) {
+    if (firstIn && halfLeave?.session !== "am") {
+      const diff = Math.floor((firstIn.recordedAt.getTime() - rostered.startsAt.getTime()) / MIN);
+      if (diff > settings.lateGraceMinutes) late = diff;
+    }
+    if (lastOut && !open && halfLeave?.session !== "pm") {
+      const diff = Math.floor((rostered.endsAt.getTime() - lastOut.recordedAt.getTime()) / MIN);
+      if (diff > settings.earlyOutGraceMinutes) early = diff;
+    }
+  } else if (startText) {
     const start = new Date(`${date}T${startText}:00+08:00`).getTime();
     if (firstIn && halfLeave?.session !== "am") {
       const diff = Math.floor((firstIn.recordedAt.getTime() - start) / MIN);
@@ -186,6 +207,8 @@ export async function timesheets(
   const org = orgScope(db, orgId);
   const settings = await loadAttendanceSettings(db, orgId);
   const times = await loadEmployeesTime(db, orgId, employeeIds);
+  // Shift-schedule staff: the published roster is the expected schedule (scheduling feed).
+  await attachRosters(db, orgId, times, from, to);
   const ids = [...times.keys()];
   const days = new Map<string, DayRecord[]>();
   if (!ids.length) return { times, days, settings };

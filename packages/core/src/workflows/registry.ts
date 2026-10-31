@@ -5,6 +5,7 @@ import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import { leaveWorkflowPlugin } from "../leave/approval.ts";
 import { payrollWorkflowPlugin } from "../payroll/approval.ts";
+import { schedulingWorkflowPlugin } from "../scheduling/swaps.ts";
 import { approvalsInbox } from "./inbox-approvals.ts";
 import { peopleWorkflowPlugin } from "./people.ts";
 import { peopleInboxSources, peopleReminderSources } from "./reminders.ts";
@@ -28,6 +29,7 @@ export const CORE_WORKFLOW_PLUGINS: readonly CorePlugin[] = [
   (deps) => claimsWorkflowPlugin(deps),
   (deps) => leaveWorkflowPlugin(deps),
   (deps) => attendanceWorkflowPlugin(deps),
+  (deps) => schedulingWorkflowPlugin(deps),
 ];
 
 export interface WorkflowRegistry {
