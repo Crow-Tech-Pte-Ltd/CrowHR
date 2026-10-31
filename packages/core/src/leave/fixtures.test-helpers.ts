@@ -78,6 +78,7 @@ export function employee(input: {
         eaCovered: true,
         managerEmployeeId: null,
         departmentId: "00000000-0000-7000-8000-000000000003",
+        locationId: null,
       },
     ],
     schedules,

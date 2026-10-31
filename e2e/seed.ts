@@ -33,6 +33,7 @@ import { seedMember } from "../packages/core/testing/fixtures.ts";
 import { createTestDeps } from "../packages/core/testing/index.ts";
 import { E2E } from "./fixtures.ts";
 import { seedLeave } from "./seed-leave.ts";
+import { seedSchedules } from "./seed-schedules.ts";
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is required");
@@ -60,6 +61,7 @@ if (!existing) {
   }
   const people = await seedApprovals(orgId);
   await seedLeave(orgId, people);
+  await seedSchedules(orgId, people);
   console.error(`Seeded ${E2E.org.name} with ${Object.keys(E2E.members).length} members.`);
 }
 

@@ -123,6 +123,10 @@ export const MATRIX = {
   "rosters:create": { cells: { owner: A, hr_admin: A, manager: T } },
   "rosters:update": { cells: { owner: A, hr_admin: A, manager: T } },
   "rosters:publish": { cells: { owner: A, hr_admin: A, manager: T } },
+  // Settings → Shift templates (add-scheduling)
+  "shift_templates:update": { cells: STAFF_ADMIN },
+  // Offer a published shift to a colleague or ask for an open shift (add-scheduling)
+  "shift_swaps:create": { cells: { employee: O }, note: "Only for the employee's own published shifts." },
   // Documents
   "documents:read": {
     cells: { owner: A, hr_admin: A, payroll_admin: A, manager: T, employee: O },

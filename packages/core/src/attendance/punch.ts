@@ -314,7 +314,10 @@ export async function punchStatus(db: Db, orgId: string, employeeId: string, now
     .orderBy(desc(attendancePunches.recordedAt))
     .limit(40);
   const last = rows[0] ?? null;
-  const todays = rows.filter((r) => r.workDate === today || (r.workDate === yesterday && last?.workDate === yesterday));
+  // Yesterday's punches belong on today's screen only while that shift is still open (overnight
+  // work); once clocked out, after midnight they are yesterday's.
+  const overnight = last?.kind === "in" && last.workDate === yesterday;
+  const todays = rows.filter((r) => r.workDate === today || (overnight && r.workDate === yesterday));
   return {
     clockedIn: last?.kind === "in" && (last.workDate === today || last.workDate === yesterday),
     lastPunch: last,
