@@ -18,7 +18,7 @@ Arrows point at dependencies. Nothing depends on `apps/*`. `packages/ui` knows n
 | Package | Owns |
 | --- | --- |
 | `packages/core` | Hono app factory `createApp(deps)`, request context, error envelope, validation, services, RBAC (later), Drizzle schema + migrations (`drizzle/`), PGlite test harness (`testing/`) |
-| `packages/sg-rules` | Statutory rule tables and calculators (CPF, SDL, FWL, leave, OT). Currently a placeholder |
+| `packages/sg-rules` | Effective-dated, cited statutory rule tables and calculators (CPF, SDL, SHG, FWL, Employment Act leave, overtime, salary). Verification record in `packages/sg-rules/VERIFICATION.md`; ≥ 95% line coverage enforced by `bun run check` |
 | `packages/ui` | Crow Tech tokens, Tailwind preset, fonts, components, SG formatting (`formatMoney`, `formatDate`, `maskNric`) |
 | `apps/server` | Node host: env config, node-postgres (or PGlite for dev), argon2id, disk file store, security headers, static web app + SPA fallback |
 | `apps/web` | The React app: shell, routes, screens |
