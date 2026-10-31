@@ -1,0 +1,4369 @@
+{
+  "schemaVersion": 1,
+  "jurisdiction": "SG",
+  "asOf": "2026-10-31",
+  "conventions": {
+    "money": "integer cents (SGD)",
+    "rates": "integer basis points (1 bp = 0.01%); phase-in coefficients also in bps (0.6 = 6000)",
+    "dates": "ISO 8601; effectiveTo null = in force / latest published (open-ended)",
+    "effectiveDating": "Select the row whose [effectiveFrom, effectiveTo] contains the wage month (CPF OW) or the AW payment date (CPF AW). effectiveFrom null means the start date was not verified: apply it only if status is 'in_force' (or 'current' in FWL/work-pass rows), i.e. in force since an unverified historic date. Rows with status 'announced' (or effectiveFromUnknown=true together with status 'announced') must NEVER be applied automatically. Rows with status 'scheduled' have an officially published start date and apply automatically from effectiveFrom.",
+    "documentation": "research/sg-regulatory.md"
+  },
+  "cpf": {
+    "owCeiling": [
+      {
+        "effectiveFrom": "2025-01-01",
+        "effectiveTo": "2025-12-31",
+        "monthlyCents": 740000,
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2025_contributionandallocationrates.pdf"
+      },
+      {
+        "effectiveFrom": "2026-01-01",
+        "effectiveTo": null,
+        "monthlyCents": 800000,
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf",
+        "note": "2027 rate tables (published) still state 'OW ceiling of $8,000'."
+      }
+    ],
+    "annualSalaryCeiling": [
+      {
+        "effectiveFrom": "2016-01-01",
+        "effectiveTo": null,
+        "annualCents": 10200000,
+        "source": "https://www.cpf.gov.sg/employer/employer-obligations/what-constitutes-wages-for-cpf-contributions",
+        "note": "AW ceiling = $102,000 - total OW subject to CPF for the calendar year; per employee, per employer, per calendar year. effectiveFrom for $102,000 is from memory (2016) - only the current value is verified."
+      }
+    ],
+    "awCeilingRule": {
+      "formula": "max(0, annualSalaryCeilingCents - totalOwSubjectToCpfForYearCents) - awAlreadySubjectedThisYearCents",
+      "estimation": "At each AW payment use current-year estimated OW (actual OW to date + projected OW for remaining months of expected employment). Recompute with actual OW in the last month of employment or in December (whichever earlier); pay shortfall / apply refund.",
+      "rateForAw": "Rate table and age band in force in the month the AW is paid (shortfalls on earlier AW use the rate of the month that AW was paid).",
+      "source": "https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE"
+    },
+    "wageBandBasis": {
+      "rule": "Wage band (NIL / EMPLOYER_ONLY / PHASE_IN / FULL) is chosen on the employee's total wages for the calendar month BEFORE AW capping (OW+AW paid). Formulas are then applied to wages subject to CPF.",
+      "source": "https://www.cpf.gov.sg/service/sfc/servlet.shepherd/document/download/069IW00000jyH92YAE",
+      "sourceDetail": "AW ceiling examples PDF, example 16 note"
+    },
+    "rounding": {
+      "total": "ROUND_HALF_UP_TO_DOLLAR on the exact (unrounded) amount: drop cents < 50, round up cents >= 50",
+      "employee": "FLOOR_TO_DOLLAR on the exact amount",
+      "employer": "total - employee",
+      "owAndAwSameMonth": "compute total and employee on (OW subject + AW subject) together, then round once",
+      "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf"
+    },
+    "ageBandRule": {
+      "rule": "New rates apply from the first day of the month after the month of the employee's 55th/60th/65th/70th birthday; the birthday month itself still uses the younger band.",
+      "algorithm": "milestoneMonth(N) = (birthYear+N, birthMonth); band index = count of N in [55,60,65,70] with wageMonth > milestoneMonth(N)",
+      "source": "https://www.cpf.gov.sg/service/article/when-will-my-employee-s-cpf-contribution-rates-change-when-they-turn-55-60-65-or-70"
+    },
+    "sprYearRule": {
+      "rule": "Year 1: SPR date to last day of the month of the 1st anniversary. Year 2: 1st day of following month to last day of month of 2nd anniversary. Year 3+: thereafter.",
+      "algorithm": "y1End=(sprYear+1, sprMonth); y2End=(sprYear+2, sprMonth); wageMonth<=y1End -> 1; <=y2End -> 2; else 3",
+      "conversionMonth": "OW: only the pro-rated OW from the SPR date is subject. AW: subject only if paid on/after SPR date.",
+      "source": "https://www.cpf.gov.sg/service/article/do-i-need-to-pay-cpf-contributions-for-my-foreign-employee-who-has-recently-obtained-singapore-permanent-residence-status"
+    },
+    "rateTables": [
+      {
+        "id": "CPF_2025_SC_AND_SPR3",
+        "publishedTableNo": 1,
+        "description": "Singapore Citizens and SPRs from 3rd year; also SPR 1st/2nd year with approved joint full-employer & full-employee (F/F) application",
+        "residencyCategories": [
+          "SC",
+          "SPR3",
+          "SPR1_FF",
+          "SPR2_FF"
+        ],
+        "effectiveFrom": "2025-01-01",
+        "effectiveTo": "2025-12-31",
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2025_contributionandallocationrates.pdf",
+        "note": "Only Table 1 of 2025 is included (for back-dated AW / corrections). Add Tables 2-5 from the same PDF if needed.",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1700,
+                "totalFormula": "17% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1700,
+                "phaseInCoefficientBps": 6000,
+                "totalFormula": "17% (TW) + 0.6 (TW - $500)",
+                "employeeFormula": "0.6 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 3700,
+                "employeeRateBps": 2000,
+                "totalFormula": "[37% (OW)]* + 37% (AW)",
+                "employeeFormula": "[20% (OW)]* + 20% (AW)",
+                "maxTotalOnOwCents": 273800,
+                "maxEmployeeOnOwCents": 148000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1550,
+                "totalFormula": "15.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1550,
+                "phaseInCoefficientBps": 5100,
+                "totalFormula": "15.5% (TW) + 0.51 (TW - $500)",
+                "employeeFormula": "0.51 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 3250,
+                "employeeRateBps": 1700,
+                "totalFormula": "[32.5% (OW)]* + 32.5% (AW)",
+                "employeeFormula": "[17% (OW)]* + 17% (AW)",
+                "maxTotalOnOwCents": 240500,
+                "maxEmployeeOnOwCents": 125800
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1200,
+                "totalFormula": "12% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1200,
+                "phaseInCoefficientBps": 3450,
+                "totalFormula": "12% (TW) + 0.345 (TW - $500)",
+                "employeeFormula": "0.345 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2350,
+                "employeeRateBps": 1150,
+                "totalFormula": "[23.5% (OW)]* + 23.5% (AW)",
+                "employeeFormula": "[11.5% (OW)]* + 11.5% (AW)",
+                "maxTotalOnOwCents": 173900,
+                "maxEmployeeOnOwCents": 85100
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65_TO_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 900,
+                "totalFormula": "9% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 900,
+                "phaseInCoefficientBps": 2250,
+                "totalFormula": "9% (TW) + 0.225 (TW - $500)",
+                "employeeFormula": "0.225 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1650,
+                "employeeRateBps": 750,
+                "totalFormula": "[16.5% (OW)]* + 16.5% (AW)",
+                "employeeFormula": "[7.5% (OW)]* + 7.5% (AW)",
+                "maxTotalOnOwCents": 122100,
+                "maxEmployeeOnOwCents": 55500
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 750,
+                "totalFormula": "7.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 750,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "7.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1250,
+                "employeeRateBps": 500,
+                "totalFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 92500,
+                "maxEmployeeOnOwCents": 37000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "CPF_2026_SC_AND_SPR3",
+        "publishedTableNo": 1,
+        "description": "Singapore Citizens and SPRs from 3rd year; also SPR 1st/2nd year with approved joint full-employer & full-employee (F/F) application",
+        "residencyCategories": [
+          "SC",
+          "SPR3",
+          "SPR1_FF",
+          "SPR2_FF"
+        ],
+        "effectiveFrom": "2026-01-01",
+        "effectiveTo": "2026-12-31",
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1700,
+                "totalFormula": "17% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1700,
+                "phaseInCoefficientBps": 6000,
+                "totalFormula": "17% (TW) + 0.6 (TW - $500)",
+                "employeeFormula": "0.6 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 3700,
+                "employeeRateBps": 2000,
+                "totalFormula": "[37% (OW)]* + 37% (AW)",
+                "employeeFormula": "[20% (OW)]* + 20% (AW)",
+                "maxTotalOnOwCents": 296000,
+                "maxEmployeeOnOwCents": 160000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1600,
+                "totalFormula": "16% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1600,
+                "phaseInCoefficientBps": 5400,
+                "totalFormula": "16% (TW) + 0.54 (TW - $500)",
+                "employeeFormula": "0.54 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 3400,
+                "employeeRateBps": 1800,
+                "totalFormula": "[34% (OW)]* + 34% (AW)",
+                "employeeFormula": "[18% (OW)]* + 18% (AW)",
+                "maxTotalOnOwCents": 272000,
+                "maxEmployeeOnOwCents": 144000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1250,
+                "totalFormula": "12.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1250,
+                "phaseInCoefficientBps": 3750,
+                "totalFormula": "12.5% (TW) + 0.375 (TW - $500)",
+                "employeeFormula": "0.375 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2500,
+                "employeeRateBps": 1250,
+                "totalFormula": "[25% (OW)]* + 25% (AW)",
+                "employeeFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "maxTotalOnOwCents": 200000,
+                "maxEmployeeOnOwCents": 100000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65_TO_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 900,
+                "totalFormula": "9% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 900,
+                "phaseInCoefficientBps": 2250,
+                "totalFormula": "9% (TW) + 0.225 (TW - $500)",
+                "employeeFormula": "0.225 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1650,
+                "employeeRateBps": 750,
+                "totalFormula": "[16.5% (OW)]* + 16.5% (AW)",
+                "employeeFormula": "[7.5% (OW)]* + 7.5% (AW)",
+                "maxTotalOnOwCents": 132000,
+                "maxEmployeeOnOwCents": 60000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 750,
+                "totalFormula": "7.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 750,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "7.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1250,
+                "employeeRateBps": 500,
+                "totalFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 100000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "CPF_2026_SPR1_GG",
+        "publishedTableNo": 2,
+        "description": "SPR 1st year, graduated employer & graduated employee (G/G) - default for 1st year",
+        "residencyCategories": [
+          "SPR1_GG"
+        ],
+        "effectiveFrom": "2026-01-01",
+        "effectiveTo": "2026-12-31",
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 400,
+                "totalFormula": "4% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 400,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "4% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 900,
+                "employeeRateBps": 500,
+                "totalFormula": "[9% (OW)]* + 9% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 72000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 400,
+                "totalFormula": "4% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 400,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "4% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 900,
+                "employeeRateBps": 500,
+                "totalFormula": "[9% (OW)]* + 9% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 72000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "3.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 850,
+                "employeeRateBps": 500,
+                "totalFormula": "[8.5% (OW)]* + 8.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 68000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "3.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 850,
+                "employeeRateBps": 500,
+                "totalFormula": "[8.5% (OW)]* + 8.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 68000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "3.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 850,
+                "employeeRateBps": 500,
+                "totalFormula": "[8.5% (OW)]* + 8.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 68000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "CPF_2026_SPR2_GG",
+        "publishedTableNo": 3,
+        "description": "SPR 2nd year, graduated employer & graduated employee (G/G) - default for 2nd year",
+        "residencyCategories": [
+          "SPR2_GG"
+        ],
+        "effectiveFrom": "2026-01-01",
+        "effectiveTo": "2026-12-31",
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 900,
+                "totalFormula": "9% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 900,
+                "phaseInCoefficientBps": 4500,
+                "totalFormula": "9% (TW) + 0.45 (TW - $500)",
+                "employeeFormula": "0.45 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2400,
+                "employeeRateBps": 1500,
+                "totalFormula": "[24% (OW)]* + 24% (AW)",
+                "employeeFormula": "[15% (OW)]* + 15% (AW)",
+                "maxTotalOnOwCents": 192000,
+                "maxEmployeeOnOwCents": 120000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 600,
+                "totalFormula": "6% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 600,
+                "phaseInCoefficientBps": 3750,
+                "totalFormula": "6% (TW) + 0.375 (TW - $500)",
+                "employeeFormula": "0.375 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1850,
+                "employeeRateBps": 1250,
+                "totalFormula": "[18.5% (OW)]* + 18.5% (AW)",
+                "employeeFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "maxTotalOnOwCents": 148000,
+                "maxEmployeeOnOwCents": 100000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 2250,
+                "totalFormula": "3.5% (TW) + 0.225 (TW - $500)",
+                "employeeFormula": "0.225 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1100,
+                "employeeRateBps": 750,
+                "totalFormula": "[11% (OW)]* + 11% (AW)",
+                "employeeFormula": "[7.5% (OW)]* + 7.5% (AW)",
+                "maxTotalOnOwCents": 88000,
+                "maxEmployeeOnOwCents": 60000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "3.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 850,
+                "employeeRateBps": 500,
+                "totalFormula": "[8.5% (OW)]* + 8.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 68000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "3.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 850,
+                "employeeRateBps": 500,
+                "totalFormula": "[8.5% (OW)]* + 8.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 68000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "CPF_2026_SPR1_FG",
+        "publishedTableNo": 4,
+        "description": "SPR 1st year, full employer & graduated employee (F/G) - requires approved joint application",
+        "residencyCategories": [
+          "SPR1_FG"
+        ],
+        "effectiveFrom": "2026-01-01",
+        "effectiveTo": "2026-12-31",
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1700,
+                "totalFormula": "17% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1700,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "17% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2200,
+                "employeeRateBps": 500,
+                "totalFormula": "[22% (OW)]* + 22% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 176000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1600,
+                "totalFormula": "16% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1600,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "16% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2100,
+                "employeeRateBps": 500,
+                "totalFormula": "[21% (OW)]* + 21% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 168000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1250,
+                "totalFormula": "12.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1250,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "12.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1750,
+                "employeeRateBps": 500,
+                "totalFormula": "[17.5% (OW)]* + 17.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 140000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65_TO_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 900,
+                "totalFormula": "9% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 900,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "9% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1400,
+                "employeeRateBps": 500,
+                "totalFormula": "[14% (OW)]* + 14% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 112000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 750,
+                "totalFormula": "7.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 750,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "7.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1250,
+                "employeeRateBps": 500,
+                "totalFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 100000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "CPF_2026_SPR2_FG",
+        "publishedTableNo": 5,
+        "description": "SPR 2nd year, full employer & graduated employee (F/G) - requires approved joint application",
+        "residencyCategories": [
+          "SPR2_FG"
+        ],
+        "effectiveFrom": "2026-01-01",
+        "effectiveTo": "2026-12-31",
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1700,
+                "totalFormula": "17% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1700,
+                "phaseInCoefficientBps": 4500,
+                "totalFormula": "17% (TW) + 0.45 (TW - $500)",
+                "employeeFormula": "0.45 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 3200,
+                "employeeRateBps": 1500,
+                "totalFormula": "[32% (OW)]* + 32% (AW)",
+                "employeeFormula": "[15% (OW)]* + 15% (AW)",
+                "maxTotalOnOwCents": 256000,
+                "maxEmployeeOnOwCents": 120000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1600,
+                "totalFormula": "16% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1600,
+                "phaseInCoefficientBps": 3750,
+                "totalFormula": "16% (TW) + 0.375 (TW - $500)",
+                "employeeFormula": "0.375 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2850,
+                "employeeRateBps": 1250,
+                "totalFormula": "[28.5% (OW)]* + 28.5% (AW)",
+                "employeeFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "maxTotalOnOwCents": 228000,
+                "maxEmployeeOnOwCents": 100000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1250,
+                "totalFormula": "12.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1250,
+                "phaseInCoefficientBps": 2250,
+                "totalFormula": "12.5% (TW) + 0.225 (TW - $500)",
+                "employeeFormula": "0.225 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2000,
+                "employeeRateBps": 750,
+                "totalFormula": "[20% (OW)]* + 20% (AW)",
+                "employeeFormula": "[7.5% (OW)]* + 7.5% (AW)",
+                "maxTotalOnOwCents": 160000,
+                "maxEmployeeOnOwCents": 60000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65_TO_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 900,
+                "totalFormula": "9% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 900,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "9% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1400,
+                "employeeRateBps": 500,
+                "totalFormula": "[14% (OW)]* + 14% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 112000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 750,
+                "totalFormula": "7.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 750,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "7.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1250,
+                "employeeRateBps": 500,
+                "totalFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 100000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "CPF_2027_SC_AND_SPR3",
+        "publishedTableNo": 1,
+        "description": "Singapore Citizens and SPRs from 3rd year; also SPR 1st/2nd year with approved joint full-employer & full-employee (F/F) application",
+        "residencyCategories": [
+          "SC",
+          "SPR3",
+          "SPR1_FF",
+          "SPR2_FF"
+        ],
+        "effectiveFrom": "2027-01-01",
+        "effectiveTo": null,
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf",
+        "note": "Announced 21 May 2026; applies to wages earned from 1 Jan 2027. effectiveTo null = current/latest published; 2028 tables not yet published.",
+        "announcement": "https://www.cpf.gov.sg/employer/infohub/news/cpf-related-announcements/new-contribution-rates",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1700,
+                "totalFormula": "17% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1700,
+                "phaseInCoefficientBps": 6000,
+                "totalFormula": "17% (TW) + 0.6 (TW - $500)",
+                "employeeFormula": "0.6 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 3700,
+                "employeeRateBps": 2000,
+                "totalFormula": "[37% (OW)]* + 37% (AW)",
+                "employeeFormula": "[20% (OW)]* + 20% (AW)",
+                "maxTotalOnOwCents": 296000,
+                "maxEmployeeOnOwCents": 160000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1650,
+                "totalFormula": "16.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1650,
+                "phaseInCoefficientBps": 5700,
+                "totalFormula": "16.5% (TW) + 0.57 (TW - $500)",
+                "employeeFormula": "0.57 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 3550,
+                "employeeRateBps": 1900,
+                "totalFormula": "[35.5% (OW)]* + 35.5% (AW)",
+                "employeeFormula": "[19% (OW)]* + 19% (AW)",
+                "maxTotalOnOwCents": 284000,
+                "maxEmployeeOnOwCents": 152000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1300,
+                "totalFormula": "13% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1300,
+                "phaseInCoefficientBps": 3900,
+                "totalFormula": "13% (TW) + 0.39 (TW - $500)",
+                "employeeFormula": "0.39 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2600,
+                "employeeRateBps": 1300,
+                "totalFormula": "[26% (OW)]* + 26% (AW)",
+                "employeeFormula": "[13% (OW)]* + 13% (AW)",
+                "maxTotalOnOwCents": 208000,
+                "maxEmployeeOnOwCents": 104000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65_TO_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 900,
+                "totalFormula": "9% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 900,
+                "phaseInCoefficientBps": 2250,
+                "totalFormula": "9% (TW) + 0.225 (TW - $500)",
+                "employeeFormula": "0.225 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1650,
+                "employeeRateBps": 750,
+                "totalFormula": "[16.5% (OW)]* + 16.5% (AW)",
+                "employeeFormula": "[7.5% (OW)]* + 7.5% (AW)",
+                "maxTotalOnOwCents": 132000,
+                "maxEmployeeOnOwCents": 60000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 750,
+                "totalFormula": "7.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 750,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "7.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1250,
+                "employeeRateBps": 500,
+                "totalFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 100000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "CPF_2027_SPR1_GG",
+        "publishedTableNo": 2,
+        "description": "SPR 1st year, graduated employer & graduated employee (G/G) - default for 1st year",
+        "residencyCategories": [
+          "SPR1_GG"
+        ],
+        "effectiveFrom": "2027-01-01",
+        "effectiveTo": null,
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf",
+        "note": "Announced 21 May 2026; applies to wages earned from 1 Jan 2027. effectiveTo null = current/latest published; 2028 tables not yet published.",
+        "announcement": "https://www.cpf.gov.sg/employer/infohub/news/cpf-related-announcements/new-contribution-rates",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 400,
+                "totalFormula": "4% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 400,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "4% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 900,
+                "employeeRateBps": 500,
+                "totalFormula": "[9% (OW)]* + 9% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 72000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 400,
+                "totalFormula": "4% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 400,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "4% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 900,
+                "employeeRateBps": 500,
+                "totalFormula": "[9% (OW)]* + 9% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 72000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "3.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 850,
+                "employeeRateBps": 500,
+                "totalFormula": "[8.5% (OW)]* + 8.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 68000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "3.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 850,
+                "employeeRateBps": 500,
+                "totalFormula": "[8.5% (OW)]* + 8.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 68000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "3.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 850,
+                "employeeRateBps": 500,
+                "totalFormula": "[8.5% (OW)]* + 8.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 68000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "CPF_2027_SPR2_GG",
+        "publishedTableNo": 3,
+        "description": "SPR 2nd year, graduated employer & graduated employee (G/G) - default for 2nd year",
+        "residencyCategories": [
+          "SPR2_GG"
+        ],
+        "effectiveFrom": "2027-01-01",
+        "effectiveTo": null,
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf",
+        "note": "Announced 21 May 2026; applies to wages earned from 1 Jan 2027. effectiveTo null = current/latest published; 2028 tables not yet published.",
+        "announcement": "https://www.cpf.gov.sg/employer/infohub/news/cpf-related-announcements/new-contribution-rates",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 900,
+                "totalFormula": "9% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 900,
+                "phaseInCoefficientBps": 4500,
+                "totalFormula": "9% (TW) + 0.45 (TW - $500)",
+                "employeeFormula": "0.45 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2400,
+                "employeeRateBps": 1500,
+                "totalFormula": "[24% (OW)]* + 24% (AW)",
+                "employeeFormula": "[15% (OW)]* + 15% (AW)",
+                "maxTotalOnOwCents": 192000,
+                "maxEmployeeOnOwCents": 120000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 600,
+                "totalFormula": "6% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 600,
+                "phaseInCoefficientBps": 3750,
+                "totalFormula": "6% (TW) + 0.375 (TW - $500)",
+                "employeeFormula": "0.375 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1850,
+                "employeeRateBps": 1250,
+                "totalFormula": "[18.5% (OW)]* + 18.5% (AW)",
+                "employeeFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "maxTotalOnOwCents": 148000,
+                "maxEmployeeOnOwCents": 100000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 2250,
+                "totalFormula": "3.5% (TW) + 0.225 (TW - $500)",
+                "employeeFormula": "0.225 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1100,
+                "employeeRateBps": 750,
+                "totalFormula": "[11% (OW)]* + 11% (AW)",
+                "employeeFormula": "[7.5% (OW)]* + 7.5% (AW)",
+                "maxTotalOnOwCents": 88000,
+                "maxEmployeeOnOwCents": 60000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "3.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 850,
+                "employeeRateBps": 500,
+                "totalFormula": "[8.5% (OW)]* + 8.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 68000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 350,
+                "totalFormula": "3.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 350,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "3.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 850,
+                "employeeRateBps": 500,
+                "totalFormula": "[8.5% (OW)]* + 8.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 68000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "CPF_2027_SPR1_FG",
+        "publishedTableNo": 4,
+        "description": "SPR 1st year, full employer & graduated employee (F/G) - requires approved joint application",
+        "residencyCategories": [
+          "SPR1_FG"
+        ],
+        "effectiveFrom": "2027-01-01",
+        "effectiveTo": null,
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf",
+        "note": "Announced 21 May 2026; applies to wages earned from 1 Jan 2027. effectiveTo null = current/latest published; 2028 tables not yet published.",
+        "announcement": "https://www.cpf.gov.sg/employer/infohub/news/cpf-related-announcements/new-contribution-rates",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1700,
+                "totalFormula": "17% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1700,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "17% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2200,
+                "employeeRateBps": 500,
+                "totalFormula": "[22% (OW)]* + 22% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 176000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1650,
+                "totalFormula": "16.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1650,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "16.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2150,
+                "employeeRateBps": 500,
+                "totalFormula": "[21.5% (OW)]* + 21.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 172000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1300,
+                "totalFormula": "13% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1300,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "13% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1800,
+                "employeeRateBps": 500,
+                "totalFormula": "[18% (OW)]* + 18% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 144000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65_TO_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 900,
+                "totalFormula": "9% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 900,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "9% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1400,
+                "employeeRateBps": 500,
+                "totalFormula": "[14% (OW)]* + 14% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 112000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 750,
+                "totalFormula": "7.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 750,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "7.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1250,
+                "employeeRateBps": 500,
+                "totalFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 100000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "CPF_2027_SPR2_FG",
+        "publishedTableNo": 5,
+        "description": "SPR 2nd year, full employer & graduated employee (F/G) - requires approved joint application",
+        "residencyCategories": [
+          "SPR2_FG"
+        ],
+        "effectiveFrom": "2027-01-01",
+        "effectiveTo": null,
+        "source": "https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf",
+        "note": "Announced 21 May 2026; applies to wages earned from 1 Jan 2027. effectiveTo null = current/latest published; 2028 tables not yet published.",
+        "announcement": "https://www.cpf.gov.sg/employer/infohub/news/cpf-related-announcements/new-contribution-rates",
+        "ageBands": [
+          {
+            "ageBand": "AGE_55_AND_BELOW",
+            "publishedAgeLabel": "AGE_55_AND_BELOW",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1700,
+                "totalFormula": "17% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1700,
+                "phaseInCoefficientBps": 4500,
+                "totalFormula": "17% (TW) + 0.45 (TW - $500)",
+                "employeeFormula": "0.45 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 3200,
+                "employeeRateBps": 1500,
+                "totalFormula": "[32% (OW)]* + 32% (AW)",
+                "employeeFormula": "[15% (OW)]* + 15% (AW)",
+                "maxTotalOnOwCents": 256000,
+                "maxEmployeeOnOwCents": 120000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_55_TO_60",
+            "publishedAgeLabel": "ABOVE_55_TO_60",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1650,
+                "totalFormula": "16.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1650,
+                "phaseInCoefficientBps": 3750,
+                "totalFormula": "16.5% (TW) + 0.375 (TW - $500)",
+                "employeeFormula": "0.375 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2900,
+                "employeeRateBps": 1250,
+                "totalFormula": "[29% (OW)]* + 29% (AW)",
+                "employeeFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "maxTotalOnOwCents": 232000,
+                "maxEmployeeOnOwCents": 100000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_60_TO_65",
+            "publishedAgeLabel": "ABOVE_60_TO_65",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 1300,
+                "totalFormula": "13% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 1300,
+                "phaseInCoefficientBps": 2250,
+                "totalFormula": "13% (TW) + 0.225 (TW - $500)",
+                "employeeFormula": "0.225 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 2050,
+                "employeeRateBps": 750,
+                "totalFormula": "[20.5% (OW)]* + 20.5% (AW)",
+                "employeeFormula": "[7.5% (OW)]* + 7.5% (AW)",
+                "maxTotalOnOwCents": 164000,
+                "maxEmployeeOnOwCents": 60000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_65_TO_70",
+            "publishedAgeLabel": "ABOVE_65_TO_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 900,
+                "totalFormula": "9% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 900,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "9% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1400,
+                "employeeRateBps": 500,
+                "totalFormula": "[14% (OW)]* + 14% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 112000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          },
+          {
+            "ageBand": "ABOVE_70",
+            "publishedAgeLabel": "ABOVE_70",
+            "wageBands": [
+              {
+                "band": "NIL",
+                "twFromExclusiveCents": null,
+                "twToInclusiveCents": 5000,
+                "totalFormula": "0",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "EMPLOYER_ONLY",
+                "twFromExclusiveCents": 5000,
+                "twToInclusiveCents": 50000,
+                "employerRateBps": 750,
+                "totalFormula": "7.5% (TW)",
+                "employeeFormula": "0"
+              },
+              {
+                "band": "PHASE_IN",
+                "twFromExclusiveCents": 50000,
+                "twToInclusiveCents": 75000,
+                "employerRateBps": 750,
+                "phaseInCoefficientBps": 1500,
+                "totalFormula": "7.5% (TW) + 0.15 (TW - $500)",
+                "employeeFormula": "0.15 (TW - $500)"
+              },
+              {
+                "band": "FULL",
+                "twFromExclusiveCents": 75000,
+                "twToInclusiveCents": null,
+                "totalRateBps": 1250,
+                "employeeRateBps": 500,
+                "totalFormula": "[12.5% (OW)]* + 12.5% (AW)",
+                "employeeFormula": "[5% (OW)]* + 5% (AW)",
+                "maxTotalOnOwCents": 100000,
+                "maxEmployeeOnOwCents": 40000
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "sdl": {
+    "rates": [
+      {
+        "effectiveFrom": "2026-07-01",
+        "effectiveTo": null,
+        "administeredBy": "Skills and Workforce Development Agency (SWDA)",
+        "rateBps": 25,
+        "minPerEmployeeCents": 200,
+        "minAppliesBelowTotalWagesCents": 80000,
+        "maxPerEmployeeCents": 1125,
+        "maxAppliesAboveTotalWagesCents": 450000,
+        "wageBasis": "total wages paid in the calendar month (OW + AW incl. bonus), no CPF ceilings",
+        "rounding": "compute each employee exactly (wageCents*25 in units of 1e-4 cent, clamped to [2_000_000, 11_250_000]); employer total = floor(sum/1_000_000) dollars",
+        "coverage": "all employees rendering services wholly or partly in Singapore incl. foreigners, part-time, casual, temporary; excludes domestic servant/gardener/chauffeur employed by an individual otherwise than for business",
+        "sources": [
+          "https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy",
+          "https://sso.agc.gov.sg/Act/SDLA1979"
+        ],
+        "note": "Same rate/min/max applied before 1 Jul 2026 when administered by SSG; the 2026-07-01 row reflects the agency rename (Act 17 of 2026). Earlier effectiveFrom of the 0.25%/$2/$11.25 parameters not verified.",
+        "status": "in_force"
+      }
+    ]
+  },
+  "shg": {
+    "wageBasis": "total wages paid in the month (OW + AW incl. bonus, uncapped)",
+    "bandRule": "amount for the first band whose upToInclusiveCents >= wages (null = no upper limit)",
+    "funds": [
+      {
+        "fund": "CDAC",
+        "eligible": "Chinese race (first race on NRIC); SC and SPR",
+        "effectiveFrom": null,
+        "effectiveFromUnknown": true,
+        "verifiedCurrentOn": "2026-10-31",
+        "effectiveTo": null,
+        "bands": [
+          {
+            "upToInclusiveCents": 200000,
+            "amountCents": 50
+          },
+          {
+            "upToInclusiveCents": 350000,
+            "amountCents": 100
+          },
+          {
+            "upToInclusiveCents": 500000,
+            "amountCents": 150
+          },
+          {
+            "upToInclusiveCents": 750000,
+            "amountCents": 200
+          },
+          {
+            "upToInclusiveCents": null,
+            "amountCents": 300
+          }
+        ],
+        "cpfPaymentCode": "04",
+        "source": "https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups",
+        "status": "in_force"
+      },
+      {
+        "fund": "ECF",
+        "eligible": "Eurasian race; SC and SPR",
+        "effectiveFrom": null,
+        "effectiveFromUnknown": true,
+        "verifiedCurrentOn": "2026-10-31",
+        "effectiveTo": null,
+        "bands": [
+          {
+            "upToInclusiveCents": 100000,
+            "amountCents": 200
+          },
+          {
+            "upToInclusiveCents": 150000,
+            "amountCents": 400
+          },
+          {
+            "upToInclusiveCents": 250000,
+            "amountCents": 600
+          },
+          {
+            "upToInclusiveCents": 400000,
+            "amountCents": 900
+          },
+          {
+            "upToInclusiveCents": 700000,
+            "amountCents": 1200
+          },
+          {
+            "upToInclusiveCents": 1000000,
+            "amountCents": 1600
+          },
+          {
+            "upToInclusiveCents": null,
+            "amountCents": 2000
+          }
+        ],
+        "cpfPaymentCode": "05",
+        "source": "https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups",
+        "status": "in_force"
+      },
+      {
+        "fund": "MBMF",
+        "eligible": "Muslim (religion); SC, SPR and foreign employees",
+        "effectiveFrom": "2016-06-01",
+        "effectiveTo": null,
+        "bands": [
+          {
+            "upToInclusiveCents": 100000,
+            "amountCents": 300
+          },
+          {
+            "upToInclusiveCents": 200000,
+            "amountCents": 450
+          },
+          {
+            "upToInclusiveCents": 300000,
+            "amountCents": 650
+          },
+          {
+            "upToInclusiveCents": 400000,
+            "amountCents": 1500
+          },
+          {
+            "upToInclusiveCents": 600000,
+            "amountCents": 1950
+          },
+          {
+            "upToInclusiveCents": 800000,
+            "amountCents": 2200
+          },
+          {
+            "upToInclusiveCents": 1000000,
+            "amountCents": 2400
+          },
+          {
+            "upToInclusiveCents": null,
+            "amountCents": 2600
+          }
+        ],
+        "cpfPaymentCode": "02",
+        "source": "https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups",
+        "source2": "https://www.muis.gov.sg/give-back/mbmf/employer-information/",
+        "status": "in_force"
+      },
+      {
+        "fund": "SINDA",
+        "eligible": "Indian descent (incl. listed sub-continent groups); SC, SPR and Employment Pass holders",
+        "effectiveFrom": null,
+        "effectiveFromUnknown": true,
+        "verifiedCurrentOn": "2026-10-31",
+        "effectiveTo": null,
+        "bands": [
+          {
+            "upToInclusiveCents": 100000,
+            "amountCents": 100
+          },
+          {
+            "upToInclusiveCents": 150000,
+            "amountCents": 300
+          },
+          {
+            "upToInclusiveCents": 250000,
+            "amountCents": 500
+          },
+          {
+            "upToInclusiveCents": 450000,
+            "amountCents": 700
+          },
+          {
+            "upToInclusiveCents": 750000,
+            "amountCents": 900
+          },
+          {
+            "upToInclusiveCents": 1000000,
+            "amountCents": 1200
+          },
+          {
+            "upToInclusiveCents": 1500000,
+            "amountCents": 1800
+          },
+          {
+            "upToInclusiveCents": null,
+            "amountCents": 3000
+          }
+        ],
+        "cpfPaymentCode": "03",
+        "source": "https://www.cpf.gov.sg/employer/employer-obligations/contributions-to-self-help-groups",
+        "status": "in_force"
+      }
+    ],
+    "determination": {
+      "race": "race on NRIC; double-barrelled -> first race listed",
+      "religion": "MBMF if Muslim, in addition to race fund",
+      "optOut": "employee submits SHG form; CDAC: employer may stop immediately after form sent (keep copy); MBMF: MUIS certificate (~2 weeks)",
+      "source": "https://www.cpf.gov.sg/service/article/how-do-i-determine-which-self-help-group-shg-my-employee-should-contribute-to"
+    }
+  },
+  "employmentAct": {
+    "part4Coverage": [
+      {
+        "effectiveFrom": "2019-04-01",
+        "effectiveTo": null,
+        "workmanMaxBasicMonthlyCents": 450000,
+        "nonWorkmanMaxBasicMonthlyCents": 260000,
+        "managersExecutivesCovered": false,
+        "basicExcludes": [
+          "overtime",
+          "bonus",
+          "AWS",
+          "productivity incentive",
+          "reimbursements",
+          "all allowances"
+        ],
+        "source": "https://www.mom.gov.sg/employment-practices/employment-act/who-is-covered",
+        "status": "in_force"
+      }
+    ],
+    "overtime": [
+      {
+        "effectiveFrom": "2019-04-01",
+        "effectiveTo": null,
+        "multiplierBps": 15000,
+        "normalHoursPerWeek": 44,
+        "maxOvertimeHoursPerMonth": 72,
+        "maxHoursPerDay": 12,
+        "hourlyBasicRateFormulaMonthly": "(12 * monthlyBasic) / (52 * 44)",
+        "nonWorkmanOtBaseCapMonthlyCents": 260000,
+        "nonWorkmanPublishedHourlyCapCents": 1360,
+        "eligibility": "Part 4 employees only (see part4Coverage)",
+        "payWithinDaysAfterPeriod": 14,
+        "source": "https://www.mom.gov.sg/employment-practices/hours-of-work-overtime-and-rest-days",
+        "note": "MOM publishes $13.60/h but 12*2600/2288 = 13.6364; no rounding rule published. Recommend exact computation, round final OT amount half-up to cent.",
+        "status": "in_force"
+      }
+    ],
+    "salaryPayment": {
+      "maxSalaryPeriodMonths": 1,
+      "payWithinDaysAfterPeriod": 7,
+      "overtimePayWithinDaysAfterPeriod": 14,
+      "source": "https://www.mom.gov.sg/employment-practices/salary/paying-salary"
+    },
+    "deductions": {
+      "maxTotalPctBps": 5000,
+      "capExcludes": [
+        "absence",
+        "advances",
+        "loans",
+        "overpaid salary",
+        "unearned benefits",
+        "co-operative society"
+      ],
+      "capWaivedOnFinalPay": true,
+      "damageOrLossMaxPctOfMonthBps": 2500,
+      "accommodationAmenitiesMaxPctBps": 2500,
+      "advanceInstalmentMaxPctBps": 2500,
+      "advanceMaxMonths": 12,
+      "loanInstalmentMaxPctBps": 2500,
+      "source": "https://www.mom.gov.sg/employment-practices/salary/salary-deductions"
+    },
+    "rates": {
+      "incompleteMonth": "monthlyGross / workingDaysInMonth * daysActuallyWorked",
+      "dailyBasic": "(12 * monthlyBasic) / (52 * daysPerWeek)",
+      "dailyGross": "(12 * monthlyGross) / (52 * daysPerWeek)",
+      "workingDaysInMonth": "excludes rest days and non-working days, includes public holidays",
+      "daysActuallyWorked": "includes public holidays, paid hospitalisation leave and annual leave",
+      "source": "https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary",
+      "workingDays2026Fixture": {
+        "source": "https://www.mom.gov.sg/-/media/mom/documents/employment-practices/incomplete-month.xls",
+        "restDay": "Sunday",
+        "fiveDay": [
+          22,
+          20,
+          22,
+          22,
+          21,
+          22,
+          23,
+          21,
+          22,
+          22,
+          21,
+          23
+        ],
+        "fiveAndHalfDay": [
+          "24.5",
+          "22",
+          "24",
+          "24",
+          "23.5",
+          "24",
+          "25",
+          "23.5",
+          "24",
+          "24.5",
+          "23",
+          "25"
+        ],
+        "sixDay": [
+          27,
+          24,
+          26,
+          26,
+          26,
+          26,
+          27,
+          26,
+          26,
+          27,
+          25,
+          27
+        ]
+      }
+    },
+    "restDayPay": {
+      "unit": "basic daily rate multiples",
+      "employerRequest": {
+        "upToHalfDay": "1",
+        "moreThanHalfDay": "2",
+        "beyondNormalHours": "2 + OT"
+      },
+      "employeeRequest": {
+        "upToHalfDay": "0.5",
+        "moreThanHalfDay": "1",
+        "beyondNormalHours": "1 + OT"
+      },
+      "source": "https://www.mom.gov.sg/employment-practices/hours-of-work-overtime-and-rest-days"
+    },
+    "partTime": {
+      "thresholdHoursPerWeekExclusive": 35,
+      "leaveHoursFormula": "(ptHoursPerYear / ftHoursPerYear) * ftEntitlementDays * ftHoursPerDay",
+      "ftReference": {
+        "hoursPerWeek": 44,
+        "hoursPerDay": 8
+      },
+      "roundingUnverified": "MOM examples consistent with 1 dp half-up on hours",
+      "source": "https://www.mom.gov.sg/employment-practices/part-time-employment/leave"
+    }
+  },
+  "leave": {
+    "annualLeave": [
+      {
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "minServiceMonths": 3,
+        "daysByServiceYear": [
+          {
+            "serviceYear": 1,
+            "days": 7
+          },
+          {
+            "serviceYear": 2,
+            "days": 8
+          },
+          {
+            "serviceYear": 3,
+            "days": 9
+          },
+          {
+            "serviceYear": 4,
+            "days": 10
+          },
+          {
+            "serviceYear": 5,
+            "days": 11
+          },
+          {
+            "serviceYear": 6,
+            "days": 12
+          },
+          {
+            "serviceYear": 7,
+            "days": 13
+          },
+          {
+            "serviceYear": 8,
+            "days": 14,
+            "andAbove": true
+          }
+        ],
+        "proration": "(completedMonths / 12) * entitlement; fraction < 0.5 day -> down, >= 0.5 -> up to 1 day",
+        "part4CarryForwardMonths": 12,
+        "source": "https://www.mom.gov.sg/employment-practices/leave/annual-leave/eligibility-and-entitlement",
+        "status": "in_force",
+        "effectiveFromNote": "start date not verified; current per MOM page updated 17 Apr 2023"
+      }
+    ],
+    "sickLeave": [
+      {
+        "effectiveFrom": null,
+        "effectiveFromNote": "long-standing; current per MOM page updated 12 Jan 2026",
+        "effectiveTo": null,
+        "minServiceMonths": 3,
+        "byCompletedMonths": [
+          {
+            "months": 3,
+            "outpatientDays": 5,
+            "hospitalisationDaysInclOutpatient": 15
+          },
+          {
+            "months": 4,
+            "outpatientDays": 8,
+            "hospitalisationDaysInclOutpatient": 30
+          },
+          {
+            "months": 5,
+            "outpatientDays": 11,
+            "hospitalisationDaysInclOutpatient": 45
+          },
+          {
+            "months": 6,
+            "outpatientDays": 14,
+            "hospitalisationDaysInclOutpatient": 60,
+            "andAbove": true
+          }
+        ],
+        "notifyEmployerWithinHours": 48,
+        "source": "https://www.mom.gov.sg/employment-practices/leave/sick-leave/eligibility-and-entitlement",
+        "status": "in_force"
+      }
+    ],
+    "childcareLeave": [
+      {
+        "scheme": "GPCL",
+        "childCitizen": true,
+        "childAgeBelow": 7,
+        "daysPerYear": 6,
+        "employerPaidDays": "1-3",
+        "governmentReimbursedDays": "4-6",
+        "reimbursementCapPerDayCents": 50000,
+        "lifetimeDaysPerChild": 42,
+        "newHireProrationByCompletedMonths": {
+          "3": 2,
+          "4": 2,
+          "5": 3,
+          "6": 3,
+          "7": 4,
+          "8": 4,
+          "9": 5,
+          "10": 5,
+          "11": 6,
+          "12": 6
+        },
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "source": "https://www.mom.gov.sg/employment-practices/leave/childcare-leave/eligibility-and-entitlement",
+        "status": "in_force"
+      },
+      {
+        "scheme": "ECL",
+        "childCitizen": true,
+        "youngestChildAge": "7-12",
+        "daysPerYear": 2,
+        "reimbursementCapPerDayCents": 50000,
+        "lifetimeDaysPerChild": 12,
+        "prorated": false,
+        "source": "https://www.mom.gov.sg/employment-practices/leave/childcare-leave/eligibility-and-entitlement",
+        "status": "in_force",
+        "effectiveFrom": null,
+        "effectiveTo": null
+      },
+      {
+        "scheme": "EA_CHILDCARE",
+        "childCitizen": false,
+        "childAgeBelow": 7,
+        "daysPerYear": 2,
+        "employerPaid": true,
+        "prorated": false,
+        "source": "https://www.mom.gov.sg/employment-practices/leave/childcare-leave/eligibility-and-entitlement",
+        "status": "in_force",
+        "effectiveFrom": null,
+        "effectiveTo": null
+      },
+      {
+        "scheme": "NDR2026_ANNOUNCED",
+        "effectiveFrom": null,
+        "effectiveFromUnknown": true,
+        "effectiveTo": null,
+        "daysPerYearByNumberOfChildren": {
+          "1": 8,
+          "2": 10,
+          "3+": 12
+        },
+        "childMaxAge": 12,
+        "note": "Announced 23 Aug 2026; implementation date, cap and citizenship rules not published. Do not apply.",
+        "source": "https://www.madeforfamilies.gov.sg/ndr-2026-supporting-families/",
+        "status": "announced"
+      }
+    ],
+    "unpaidInfantCareLeave": [
+      {
+        "effectiveFrom": "2024-01-01",
+        "effectiveTo": null,
+        "daysPerYear": 12,
+        "childAgeBelow": 2,
+        "lifetimeDaysPerChild": 24,
+        "source": "https://www.mom.gov.sg/employment-practices/leave/unpaid-infant-care-leave",
+        "status": "in_force"
+      }
+    ],
+    "maternity": [
+      {
+        "scheme": "GPML",
+        "childCitizen": true,
+        "weeks": 16,
+        "minServiceMonths": 3,
+        "noticeWeeks": 4,
+        "childOrder1and2": {
+          "employerPaysWeeks": "1-8",
+          "governmentReimbursesWeeks": "9-16",
+          "capPer4WeeksCents": 1000000,
+          "capTotalCents": 2000000
+        },
+        "childOrder3plus": {
+          "governmentReimbursesWeeks": "1-16",
+          "capPer4WeeksCents": 1000000,
+          "capTotalCents": 4000000
+        },
+        "flexibleMaxWorkingDays": 48,
+        "claimDeadline": "3 months after last day of leave",
+        "source": "https://www.profamilyleave.msf.gov.sg/schemes/maternity-leave",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "in_force"
+      },
+      {
+        "scheme": "EA_MATERNITY",
+        "childCitizen": false,
+        "weeks": 12,
+        "employerPaidWeeks": 8,
+        "condition": "fewer than 2 living children",
+        "source": "https://www.mom.gov.sg/employment-practices/leave/maternity-leave/eligibility-and-entitlement",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "in_force"
+      }
+    ],
+    "paternity": [
+      {
+        "effectiveFrom": "2025-04-01",
+        "effectiveTo": null,
+        "appliesTo": "child born / EDD / formal intent to adopt on or after effectiveFrom",
+        "weeks": 4,
+        "mandatory": true,
+        "governmentReimbursesWeeks": "1-4",
+        "capPerWeekCents": 250000,
+        "capTotalCents": 1000000,
+        "maxWorkingDaysPerWeek": 6,
+        "defaultWithinWeeksOfBirth": 16,
+        "source": "https://www.mom.gov.sg/employment-practices/leave/paternity-leave",
+        "status": "in_force"
+      },
+      {
+        "effectiveFrom": null,
+        "effectiveTo": "2025-03-31",
+        "weeks": 2,
+        "plusVoluntaryWeeks": 2,
+        "source": "https://www.mom.gov.sg/employment-practices/leave/paternity-leave",
+        "status": "superseded"
+      }
+    ],
+    "sharedParental": [
+      {
+        "effectiveFrom": "2025-04-01",
+        "effectiveTo": "2026-03-31",
+        "weeks": 6,
+        "capPerWeekCents": 250000,
+        "source": "https://www.mom.gov.sg/employment-practices/leave/shared-parental-leave",
+        "status": "superseded"
+      },
+      {
+        "effectiveFrom": "2026-04-01",
+        "effectiveTo": null,
+        "weeks": 10,
+        "capPerWeekCents": 250000,
+        "appliesTo": "child born / EDD / formal intent to adopt on or after effectiveFrom",
+        "source": "https://www.mom.gov.sg/employment-practices/leave/shared-parental-leave",
+        "status": "in_force"
+      }
+    ],
+    "adoption": [
+      {
+        "scheme": "GPAL",
+        "weeks": 12,
+        "childOrder1and2": {
+          "employerPaysWeeks": "1-4",
+          "governmentReimbursesWeeks": "5-12",
+          "capTotalCents": 2000000
+        },
+        "childOrder3plus": {
+          "governmentReimbursesWeeks": "1-12",
+          "capTotalCents": 3000000
+        },
+        "capPer4WeeksCents": 1000000,
+        "source": "https://www.mom.gov.sg/employment-practices/leave/adoption-leave",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "in_force"
+      }
+    ],
+    "nonStatutory": [
+      "compassionate/bereavement",
+      "marriage"
+    ]
+  },
+  "publicHolidays": {
+    "substitution": {
+      "sundayHoliday": "next Monday is a public holiday for employees whose rest day is Sunday (gazetted 'observedOn')",
+      "restDay": "next working day is a paid holiday",
+      "nonWorkingDay": "another day off OR one extra day's gross pay (no automatic Monday for Saturday holidays)",
+      "source": "https://www.mom.gov.sg/faq/public-holidays/is-an-employee-entitled-to-another-day-off-if-a-public-holiday-falls-on-a-rest-day-or-non-working-day"
+    },
+    "years": [
+      {
+        "year": 2026,
+        "effectiveFrom": "2026-01-01",
+        "effectiveTo": "2026-12-31",
+        "sources": [
+          "https://www.mom.gov.sg/employment-practices/public-holidays",
+          "https://www.mom.gov.sg/newsroom/press-releases/2025/0616-public-holidays-for-2026"
+        ],
+        "holidays": [
+          {
+            "date": "2026-01-01",
+            "name": "New Year's Day"
+          },
+          {
+            "date": "2026-02-17",
+            "name": "Chinese New Year"
+          },
+          {
+            "date": "2026-02-18",
+            "name": "Chinese New Year"
+          },
+          {
+            "date": "2026-03-21",
+            "name": "Hari Raya Puasa",
+            "note": "Saturday: no gazetted substitute"
+          },
+          {
+            "date": "2026-04-03",
+            "name": "Good Friday"
+          },
+          {
+            "date": "2026-05-01",
+            "name": "Labour Day"
+          },
+          {
+            "date": "2026-05-27",
+            "name": "Hari Raya Haji"
+          },
+          {
+            "date": "2026-05-31",
+            "name": "Vesak Day",
+            "observedOn": "2026-06-01"
+          },
+          {
+            "date": "2026-08-09",
+            "name": "National Day",
+            "observedOn": "2026-08-10"
+          },
+          {
+            "date": "2026-11-08",
+            "name": "Deepavali",
+            "observedOn": "2026-11-09"
+          },
+          {
+            "date": "2026-12-25",
+            "name": "Christmas Day"
+          }
+        ]
+      },
+      {
+        "year": 2027,
+        "effectiveFrom": "2027-01-01",
+        "effectiveTo": "2027-12-31",
+        "sources": [
+          "https://www.mom.gov.sg/employment-practices/public-holidays",
+          "https://www.mom.gov.sg/newsroom/press-releases/2026/0618-public-holidays-for-2027"
+        ],
+        "announced": "2026-06-18",
+        "holidays": [
+          {
+            "date": "2027-01-01",
+            "name": "New Year's Day"
+          },
+          {
+            "date": "2027-02-06",
+            "name": "Chinese New Year",
+            "note": "Saturday: no gazetted substitute"
+          },
+          {
+            "date": "2027-02-07",
+            "name": "Chinese New Year",
+            "observedOn": "2027-02-08"
+          },
+          {
+            "date": "2027-03-10",
+            "name": "Hari Raya Puasa"
+          },
+          {
+            "date": "2027-03-26",
+            "name": "Good Friday"
+          },
+          {
+            "date": "2027-05-01",
+            "name": "Labour Day",
+            "note": "Saturday: no gazetted substitute"
+          },
+          {
+            "date": "2027-05-17",
+            "name": "Hari Raya Haji"
+          },
+          {
+            "date": "2027-05-20",
+            "name": "Vesak Day"
+          },
+          {
+            "date": "2027-08-09",
+            "name": "National Day"
+          },
+          {
+            "date": "2027-10-28",
+            "name": "Deepavali"
+          },
+          {
+            "date": "2027-12-25",
+            "name": "Christmas Day",
+            "note": "Saturday: no gazetted substitute"
+          }
+        ]
+      }
+    ],
+    "adHoc": "Polling Day (Parliamentary Elections Act s 35) must be addable by admins; last: 2025-05-03 (Sat)"
+  },
+  "foreignWorkerLevy": {
+    "dailyRateFormula": "ceil(monthlyCents*12/365) -- MOM: (Monthly levy rate x 12)/365 rounded up to nearest cent; applies only when the pass holder did not work a full calendar month",
+    "levyLiability": "From pass issuance; WP & S Pass levy charged until 1 day before cancellation (or until expiry). Employer-borne; must not be deducted from salary (EFMA s.25(6)(e), s.22A).",
+    "foreignWorkerLevy": [
+      {
+        "pass": "S_PASS",
+        "sector": "ALL",
+        "tier": "ALL",
+        "skill": null,
+        "monthlyCents": 65000,
+        "dailyCents": 2137,
+        "effectiveFrom": "2025-09-01",
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/s-pass/quota-and-levy/levy-and-quota-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/budget2025/cos-2025-factsheet-on-foreign-workforce-policies.pdf"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "SERVICES",
+        "tier": "TIER_1",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 30000,
+        "dailyCents": 987,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/services-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": "<=10%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "SERVICES",
+        "tier": "TIER_1",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 45000,
+        "dailyCents": 1480,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/services-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": "<=10%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "SERVICES",
+        "tier": "TIER_2",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 40000,
+        "dailyCents": 1316,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/services-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": ">10%-25%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "SERVICES",
+        "tier": "TIER_2",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 60000,
+        "dailyCents": 1973,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/services-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": ">10%-25%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "SERVICES",
+        "tier": "TIER_3",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 60000,
+        "dailyCents": 1973,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/services-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": ">25%-35%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "SERVICES",
+        "tier": "TIER_3",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 80000,
+        "dailyCents": 2631,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/services-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": ">25%-35%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MANUFACTURING",
+        "tier": "TIER_1",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 25000,
+        "dailyCents": 822,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/manufacturing-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": "<=25%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MANUFACTURING",
+        "tier": "TIER_1",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 37000,
+        "dailyCents": 1217,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/manufacturing-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": "<=25%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MANUFACTURING",
+        "tier": "TIER_2",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 35000,
+        "dailyCents": 1151,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/manufacturing-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": ">25%-50%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MANUFACTURING",
+        "tier": "TIER_2",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 47000,
+        "dailyCents": 1546,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/manufacturing-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": ">25%-50%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MANUFACTURING",
+        "tier": "TIER_3",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 55000,
+        "dailyCents": 1809,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/manufacturing-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": ">50%-60%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MANUFACTURING",
+        "tier": "TIER_3",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 65000,
+        "dailyCents": 2137,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/manufacturing-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dependencyRatioBand": ">50%-60%",
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "SERVICES",
+        "tier": "TIER_1_MERGED",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 40000,
+        "dailyCents": 1316,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/services-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dependencyRatioBand": "<=25%",
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "SERVICES",
+        "tier": "TIER_1_MERGED",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 60000,
+        "dailyCents": 1973,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/services-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dependencyRatioBand": "<=25%",
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "SERVICES",
+        "tier": "TIER_2",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 60000,
+        "dailyCents": 1973,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/services-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dependencyRatioBand": "(>25%-35%)",
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "SERVICES",
+        "tier": "TIER_2",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 80000,
+        "dailyCents": 2631,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/services-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dependencyRatioBand": "(>25%-35%)",
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MANUFACTURING",
+        "tier": "TIER_1_MERGED",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 30000,
+        "dailyCents": 987,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/manufacturing-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dependencyRatioBand": "<=50%",
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MANUFACTURING",
+        "tier": "TIER_1_MERGED",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 47000,
+        "dailyCents": 1546,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/manufacturing-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dependencyRatioBand": "<=50%",
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MANUFACTURING",
+        "tier": "TIER_2",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 55000,
+        "dailyCents": 1809,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/manufacturing-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dependencyRatioBand": "(>50%-60%)",
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MANUFACTURING",
+        "tier": "TIER_2",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 65000,
+        "dailyCents": 2137,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/manufacturing-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dependencyRatioBand": "(>50%-60%)",
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "CONSTRUCTION",
+        "tier": "MYS_NAS_PRC",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 30000,
+        "dailyCents": 987,
+        "effectiveFrom": "2024-01-01",
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/construction-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "CONSTRUCTION",
+        "tier": "MYS_NAS_PRC",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 70000,
+        "dailyCents": 2302,
+        "effectiveFrom": "2024-01-01",
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/construction-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "CONSTRUCTION",
+        "tier": "NTS",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 50000,
+        "dailyCents": 1644,
+        "effectiveFrom": "2024-01-01",
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/construction-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "CONSTRUCTION",
+        "tier": "NTS",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 90000,
+        "dailyCents": 2959,
+        "effectiveFrom": "2024-01-01",
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/construction-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "CONSTRUCTION",
+        "tier": "OFFSITE_CONSTRUCTION",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 25000,
+        "dailyCents": 822,
+        "effectiveFrom": "2024-01-01",
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/construction-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "CONSTRUCTION",
+        "tier": "OFFSITE_CONSTRUCTION",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 37000,
+        "dailyCents": 1217,
+        "effectiveFrom": "2024-01-01",
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/construction-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "CONSTRUCTION",
+        "tier": "ANY_SOURCE",
+        "skill": "UNSKILLED_NO_CERTIFICATION",
+        "monthlyCents": 90000,
+        "dailyCents": 2959,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/construction-sector-requirements"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "PROCESS",
+        "tier": "MYS_NAS_PRC",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 20000,
+        "dailyCents": 658,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/process-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "PROCESS",
+        "tier": "MYS_NAS_PRC",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 45000,
+        "dailyCents": 1480,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/process-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "PROCESS",
+        "tier": "MYS_NAS_PRC",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 60000,
+        "dailyCents": 1973,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/process-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "PROCESS",
+        "tier": "NTS",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 30000,
+        "dailyCents": 987,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/process-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "PROCESS",
+        "tier": "NTS",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 65000,
+        "dailyCents": 2137,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/process-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "PROCESS",
+        "tier": "NTS",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 80000,
+        "dailyCents": 2631,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/process-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MARINE_SHIPYARD",
+        "tier": "ALL",
+        "skill": "HIGHER_SKILLED",
+        "monthlyCents": 35000,
+        "dailyCents": 1151,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/marine-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MARINE_SHIPYARD",
+        "tier": "ALL",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 50000,
+        "dailyCents": 1644,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "current",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/marine-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/services-forms/passes/guide_on_comp_of_company_quota_balance.pdf"
+        ],
+        "dateNote": [
+          "effectiveTo: 2028 (date TBA)"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT",
+        "sector": "MARINE_SHIPYARD",
+        "tier": "ALL",
+        "skill": "BASIC_SKILLED",
+        "monthlyCents": 60000,
+        "dailyCents": 1973,
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "status": "announced",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/marine-sector-requirements",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "dateNote": [
+          "effectiveFrom: 2028 (date TBA)"
+        ],
+        "effectiveFromUnknown": true
+      }
+    ],
+    "dependencyRatioCeilings": {
+      "SERVICES": {
+        "drc": "35%",
+        "sPassSubDrc": "10%",
+        "prcSubDrc": "8%"
+      },
+      "MANUFACTURING": {
+        "drc": "60%",
+        "sPassSubDrc": "15%",
+        "prcSubDrc": "25%"
+      },
+      "CONSTRUCTION": {
+        "drc": "83.3%",
+        "sPassSubDrc": "15%",
+        "wpPerLocal": 5
+      },
+      "PROCESS": {
+        "drc": "83.3%",
+        "sPassSubDrc": "15%",
+        "wpPerLocal": 5
+      },
+      "MARINE_SHIPYARD": {
+        "drc": "75%",
+        "sPassSubDrc": "15%",
+        "wpPerLocal": 3
+      },
+      "ntsOccupationListSubDrc": "8%",
+      "sources": [
+        "https://www.mom.gov.sg/passes-and-permits/s-pass/quota-and-levy/levy-and-quota-requirements",
+        "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/construction-sector-requirements",
+        "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/process-sector-requirements",
+        "https://www.mom.gov.sg/passes-and-permits/work-permit-for-foreign-worker/sector-specific-rules/marine-sector-requirements",
+        "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+      ]
+    }
+  },
+  "workPasses": {
+    "workPassQualifyingSalaries": [
+      {
+        "pass": "EP",
+        "sector": "all_except_financial_services",
+        "effectiveFrom": "2025-01-01",
+        "effectiveTo": "2027-01-01",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/employment-pass/eligibility",
+          "https://www.mom.gov.sg/-/media/mom/documents/budget2025/cos-2025-factsheet-on-foreign-workforce-policies.pdf"
+        ],
+        "minMonthlySalaryCentsByAge": {
+          "23": 560000,
+          "24": 583200,
+          "25": 606400,
+          "26": 629500,
+          "27": 652700,
+          "28": 675900,
+          "29": 699100,
+          "30": 722300,
+          "31": 745500,
+          "32": 768600,
+          "33": 791800,
+          "34": 815000,
+          "35": 838200,
+          "36": 861400,
+          "37": 884500,
+          "38": 907700,
+          "39": 930900,
+          "40": 954100,
+          "41": 977300,
+          "42": 1000500,
+          "43": 1023600,
+          "44": 1046800,
+          "45": 1070000
+        },
+        "ageKeyNote": "'23' = age 23 or below; '45' = age 45 or above",
+        "renewalsEffectiveFrom": "2026-01-01",
+        "effectiveFromAppliesTo": "new applications; renewals use renewalsEffectiveFrom",
+        "renewalsEffectiveTo": "2028-01-01",
+        "effectiveToAppliesTo": "new applications; renewals use renewalsEffectiveTo",
+        "status": "current"
+      },
+      {
+        "pass": "EP",
+        "sector": "all_except_financial_services",
+        "effectiveFrom": "2027-01-01",
+        "effectiveTo": null,
+        "status": "scheduled",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/employment-pass/eligibility",
+          "https://www.mom.gov.sg/-/media/mom/documents/budget2025/cos-2025-factsheet-on-foreign-workforce-policies.pdf",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "minMonthlySalaryCentsByAge": {
+          "23": 600000,
+          "24": 625000,
+          "25": 650000,
+          "26": 675000,
+          "27": 700000,
+          "28": 725000,
+          "29": 750000,
+          "30": 775000,
+          "31": 800000,
+          "32": 825000,
+          "33": 850000,
+          "34": 875000,
+          "35": 900000,
+          "36": 925000,
+          "37": 950000,
+          "38": 975000,
+          "39": 1000000,
+          "40": 1025000,
+          "41": 1050000,
+          "42": 1075000,
+          "43": 1100000,
+          "44": 1125000,
+          "45": 1150000
+        },
+        "ageKeyNote": "'23' = age 23 or below; '45' = age 45 or above",
+        "renewalsEffectiveFrom": "2028-01-01",
+        "effectiveFromAppliesTo": "new applications; renewals use renewalsEffectiveFrom"
+      },
+      {
+        "pass": "EP",
+        "sector": "financial_services",
+        "effectiveFrom": "2025-01-01",
+        "effectiveTo": "2027-01-01",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/employment-pass/eligibility",
+          "https://www.mom.gov.sg/-/media/mom/documents/budget2025/cos-2025-factsheet-on-foreign-workforce-policies.pdf"
+        ],
+        "minMonthlySalaryCentsByAge": {
+          "23": 620000,
+          "24": 645500,
+          "25": 670900,
+          "26": 696400,
+          "27": 721800,
+          "28": 747300,
+          "29": 772700,
+          "30": 798200,
+          "31": 823600,
+          "32": 849100,
+          "33": 874500,
+          "34": 900000,
+          "35": 925500,
+          "36": 950900,
+          "37": 976400,
+          "38": 1001800,
+          "39": 1027300,
+          "40": 1052700,
+          "41": 1078200,
+          "42": 1103600,
+          "43": 1129100,
+          "44": 1154500,
+          "45": 1180000
+        },
+        "ageKeyNote": "'23' = age 23 or below; '45' = age 45 or above",
+        "renewalsEffectiveFrom": "2026-01-01",
+        "effectiveFromAppliesTo": "new applications; renewals use renewalsEffectiveFrom",
+        "renewalsEffectiveTo": "2028-01-01",
+        "effectiveToAppliesTo": "new applications; renewals use renewalsEffectiveTo",
+        "status": "current"
+      },
+      {
+        "pass": "EP",
+        "sector": "financial_services",
+        "effectiveFrom": "2027-01-01",
+        "effectiveTo": null,
+        "status": "scheduled",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/employment-pass/eligibility",
+          "https://www.mom.gov.sg/-/media/mom/documents/budget2025/cos-2025-factsheet-on-foreign-workforce-policies.pdf",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "minMonthlySalaryCentsByAge": {
+          "23": 660000,
+          "24": 687700,
+          "25": 715500,
+          "26": 743200,
+          "27": 770900,
+          "28": 798600,
+          "29": 826400,
+          "30": 854100,
+          "31": 881800,
+          "32": 909500,
+          "33": 937300,
+          "34": 965000,
+          "35": 992700,
+          "36": 1020500,
+          "37": 1048200,
+          "38": 1075900,
+          "39": 1103600,
+          "40": 1131400,
+          "41": 1159100,
+          "42": 1186800,
+          "43": 1214500,
+          "44": 1242300,
+          "45": 1270000
+        },
+        "ageKeyNote": "'23' = age 23 or below; '45' = age 45 or above",
+        "renewalsEffectiveFrom": "2028-01-01",
+        "effectiveFromAppliesTo": "new applications; renewals use renewalsEffectiveFrom"
+      },
+      {
+        "pass": "S_PASS",
+        "sector": "all_except_financial_services",
+        "effectiveFrom": "2025-09-01",
+        "effectiveTo": "2027-01-01",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/s-pass/eligibility",
+          "https://www.mom.gov.sg/-/media/mom/documents/budget2025/cos-2025-factsheet-on-foreign-workforce-policies.pdf"
+        ],
+        "minMonthlySalaryCentsByAge": {
+          "23": 330000,
+          "24": 336800,
+          "25": 343600,
+          "26": 350500,
+          "27": 357300,
+          "28": 364100,
+          "29": 370900,
+          "30": 377700,
+          "31": 384500,
+          "32": 391400,
+          "33": 398200,
+          "34": 405000,
+          "35": 411800,
+          "36": 418600,
+          "37": 425500,
+          "38": 432300,
+          "39": 439100,
+          "40": 445900,
+          "41": 452700,
+          "42": 459500,
+          "43": 466400,
+          "44": 473200,
+          "45": 480000
+        },
+        "ageKeyNote": "'23' = age 23 or below; '45' = age 45 or above",
+        "renewalsEffectiveFrom": "2026-09-01",
+        "effectiveFromAppliesTo": "new applications; renewals use renewalsEffectiveFrom",
+        "renewalsEffectiveTo": "2028-01-01",
+        "effectiveToAppliesTo": "new applications; renewals use renewalsEffectiveTo",
+        "status": "current"
+      },
+      {
+        "pass": "S_PASS",
+        "sector": "all_except_financial_services",
+        "effectiveFrom": "2027-01-01",
+        "effectiveTo": null,
+        "status": "scheduled",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/s-pass/eligibility",
+          "https://www.mom.gov.sg/-/media/mom/documents/budget2025/cos-2025-factsheet-on-foreign-workforce-policies.pdf",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "minMonthlySalaryCentsByAge": {
+          "23": 360000,
+          "24": 366800,
+          "25": 373600,
+          "26": 380500,
+          "27": 387300,
+          "28": 394100,
+          "29": 400900,
+          "30": 407700,
+          "31": 414500,
+          "32": 421400,
+          "33": 428200,
+          "34": 435000,
+          "35": 441800,
+          "36": 448600,
+          "37": 455500,
+          "38": 462300,
+          "39": 469100,
+          "40": 475900,
+          "41": 482700,
+          "42": 489500,
+          "43": 496400,
+          "44": 503200,
+          "45": 510000
+        },
+        "ageKeyNote": "'23' = age 23 or below; '45' = age 45 or above",
+        "renewalsEffectiveFrom": "2028-01-01",
+        "effectiveFromAppliesTo": "new applications; renewals use renewalsEffectiveFrom"
+      },
+      {
+        "pass": "S_PASS",
+        "sector": "financial_services",
+        "effectiveFrom": "2025-09-01",
+        "effectiveTo": "2027-01-01",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/s-pass/eligibility",
+          "https://www.mom.gov.sg/-/media/mom/documents/budget2025/cos-2025-factsheet-on-foreign-workforce-policies.pdf"
+        ],
+        "minMonthlySalaryCentsByAge": {
+          "23": 380000,
+          "24": 388400,
+          "25": 396800,
+          "26": 405200,
+          "27": 413600,
+          "28": 422000,
+          "29": 430500,
+          "30": 438900,
+          "31": 447300,
+          "32": 455700,
+          "33": 464100,
+          "34": 472500,
+          "35": 480900,
+          "36": 489300,
+          "37": 497700,
+          "38": 506100,
+          "39": 514500,
+          "40": 523000,
+          "41": 531400,
+          "42": 539800,
+          "43": 548200,
+          "44": 556600,
+          "45": 565000
+        },
+        "ageKeyNote": "'23' = age 23 or below; '45' = age 45 or above",
+        "renewalsEffectiveFrom": "2026-09-01",
+        "effectiveFromAppliesTo": "new applications; renewals use renewalsEffectiveFrom",
+        "renewalsEffectiveTo": "2028-01-01",
+        "effectiveToAppliesTo": "new applications; renewals use renewalsEffectiveTo",
+        "status": "current"
+      },
+      {
+        "pass": "S_PASS",
+        "sector": "financial_services",
+        "effectiveFrom": "2027-01-01",
+        "effectiveTo": null,
+        "status": "scheduled",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/s-pass/eligibility",
+          "https://www.mom.gov.sg/-/media/mom/documents/budget2025/cos-2025-factsheet-on-foreign-workforce-policies.pdf",
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ],
+        "minMonthlySalaryCentsByAge": {
+          "23": 400000,
+          "24": 407500,
+          "25": 415000,
+          "26": 422500,
+          "27": 430000,
+          "28": 437500,
+          "29": 445000,
+          "30": 452500,
+          "31": 460000,
+          "32": 467500,
+          "33": 475000,
+          "34": 482500,
+          "35": 490000,
+          "36": 497500,
+          "37": 505000,
+          "38": 512500,
+          "39": 520000,
+          "40": 527500,
+          "41": 535000,
+          "42": 542500,
+          "43": 550000,
+          "44": 557500,
+          "45": 565000
+        },
+        "ageKeyNote": "'23' = age 23 or below; '45' = age 45 or above",
+        "renewalsEffectiveFrom": "2028-01-01",
+        "effectiveFromAppliesTo": "new applications; renewals use renewalsEffectiveFrom"
+      }
+    ],
+    "otherSalaryThresholds": [
+      {
+        "pass": "PEP",
+        "minFixedMonthlySalaryCents": 2250000,
+        "note": "also must earn fixed salary >= $270,000 per calendar year to keep (>= $144,000 if applied before 2023-09-01)",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/personalised-employment-pass/eligibility"
+        ]
+      },
+      {
+        "pass": "ONE_PASS",
+        "minFixedMonthlySalaryCents": 3000000,
+        "note": "salary track; AI & Tech track from 2027-01-28 allows >= $30,000/month total with fixed >= $22,500",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/overseas-networks-expertise-pass/eligibility"
+        ]
+      },
+      {
+        "pass": "TEP",
+        "minFixedMonthlySalaryCents": 300000,
+        "note": "foreign students may qualify via acceptable institution instead; max 3 months, non-renewable",
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/training-employment-pass/eligibility"
+        ]
+      },
+      {
+        "pass": "EP",
+        "rule": "COMPASS_EXEMPTION_FIXED_MONTHLY_SALARY",
+        "minFixedMonthlySalaryCents": 2250000,
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/employment-pass/eligibility"
+        ]
+      },
+      {
+        "pass": "EP_OR_S_PASS",
+        "rule": "DEPENDANTS_PASS_ELIGIBILITY_FIXED_MONTHLY_SALARY",
+        "minFixedMonthlySalaryCents": 600000,
+        "sources": [
+          "https://www.mom.gov.sg/passes-and-permits/dependants-pass/eligibility"
+        ]
+      },
+      {
+        "pass": "WORK_PERMIT_NTS_OCCUPATION_LIST",
+        "rule": "MIN_FIXED_MONTHLY_SALARY",
+        "minFixedMonthlySalaryCents": 200000,
+        "sources": [
+          "https://www.mom.gov.sg/-/media/mom/documents/press-releases/2026/factsheet-on-foreign-workforce-policies-03032026.pdf"
+        ]
+      },
+      {
+        "pass": "LOCAL_EMPLOYEE",
+        "rule": "LOCAL_QUALIFYING_SALARY_FULL_TIME",
+        "minGrossMonthlyCents": 180000,
+        "halfCountFromCents": 90000,
+        "note": "counts 1 local if >= $1,800; 0.5 if $900-<$1,800; part-time LQS >= $10.50/hr",
+        "sources": [
+          "https://www.mom.gov.sg/employment-practices/progressive-wage-model/local-qualifying-salary"
+        ]
+      }
+    ],
+    "note": "effectiveTo / renewalsEffectiveTo here are the start dates of the next regime (exclusive bound) as given by MOM; renewals are keyed on the pass EXPIRY date."
+  },
+  "cpfSubmission": {
+    "dueDate": "last day of the month; enforcement if unpaid by 14th of following month (or next working day)",
+    "lateInterest": {
+      "ratePerMonthBps": 150,
+      "minimumCents": 500,
+      "dayCountMethod": "SECONDARY: principal x 1.5% x daysLate / daysInMonth"
+    },
+    "fileSpec": "https://www.cpf.gov.sg/content/dam/web/employer/making-cpf-contributions/documents/CPFEZPayFTPSpecifications.pdf",
+    "fileSpecEffectiveFrom": "2025-01-16",
+    "paymentCodes": {
+      "01": "CPF",
+      "02": "MBMF",
+      "03": "SINDA",
+      "04": "CDAC",
+      "05": "ECF",
+      "07": "Penalty interest",
+      "10": "Community Chest (SHARE)",
+      "11": "SDL"
+    },
+    "source": "https://www.cpf.gov.sg/employer/compliance-and-rectifications/enforcement-and-penalties-for-non-compliance"
+  },
+  "tax": {
+    "ir8aDeadline": "1 March following the income year",
+    "aisMandatoryMinEmployees": [
+      {
+        "effectiveFrom": "2021-01-01",
+        "effectiveFromNote": "threshold applies from YA2022 (income year 2021)",
+        "effectiveTo": null,
+        "minEmployees": 5,
+        "source": "https://www.iras.gov.sg/taxes/individual-income-tax/employers/auto-inclusion-scheme-(ais)-for-employment-income/join-the-auto-inclusion-scheme-(ais)-for-employment-income"
+      }
+    ],
+    "ir8sDiscontinuedFromYA": 2026,
+    "ir21FileAtLeastDaysBefore": 30,
+    "ir21ExemptionIncomeBelowCents": 2100000
+  },
+  "notes": [
+    "CPF rounding: total = round half up to dollar on the EXACT amount (drop cents < 50); employee = floor to dollar; employer = total - employee. Do not pre-round to cents (interpretation of CPF wording 'amounts less than 50 cents'; see test vectors RD-03/RD-04; to be confirmed in CPF calculator).",
+    "CPF wage band is chosen on total wages paid in the month before AW capping (CPF AW examples PDF, example 16). Unresolved: pre-cap TW in $500-$750 band only due to non-subject AW - engine should apply formulas to subject TW and warn.",
+    "CPF AW uses the rate table and age band of the month the AW is PAID; when earlier AW is re-subjected after AW-ceiling recomputation, use the rate of the month that AW was paid (AW examples 11, 13, 14). When one month's shortfall mixes rate tables, CPF rounded the combined exact total once (example 14).",
+    "CPF Tables 2 and 3 (SPR G/G) publish 'Above 65' as one band; this file repeats that row for ABOVE_65_TO_70 and ABOVE_70 (publishedAgeLabel = ABOVE_65).",
+    "CPF 2028 tables not yet published (as at 2026-10-31); 2027 rows have effectiveTo null. Re-verify each May.",
+    "SPR F/G and F/F joint-application effective date and reversibility not published; store CPF approval as data.",
+    "Annual Salary Ceiling $102,000 effectiveFrom 2016-01-01 is from memory; only the current value is verified.",
+    "SDL per-employee rounding not published; only the total is rounded down. SWDA exemption FAQ unreachable.",
+    "SHG CDAC/ECF/SINDA table start dates not stated on CPF page (effectiveFromUnknown=true, verifiedCurrentOn=2026-10-31). Whether SHG applies when TW <= $50 is not stated.",
+    "EA OT: MOM publishes $13.60/h cap vs exact 13.6364; no rounding rule. Part-time leave hours rounding unverified (MOM examples fit 1 dp half-up).",
+    "EA 50% deduction cap: CPF employee share not listed as excluded; assume it counts (ambiguous).",
+    "Public holidays: Sunday holidays have an observedOn Monday for Sunday-rest-day employees; Saturday holidays have no substitute (non-working-day rule). Polling Day is ad hoc.",
+    "NDR 2026 childcare/parental-leave changes announced without effective date; present with effectiveFrom null + effectiveFromUnknown=true; must not be applied automatically.",
+    "Foreign Worker Levy rows: MOM bill is authoritative; Crow HR estimates only and must never deduct levy from salary (EFMA s 25(6)(e), s 22A). 2028 changes announced without date.",
+    "Statute text on sso.agc.gov.sg could not be fetched in full (403 / lazy-load); statutory points are sourced from CPF/MOM/IRAS/PDPC guidance.",
+    "Work-pass research unverified items: Exact 2028 implementation date for WP levy changes (MOM: 'details in due course'); Day-count convention for part months (MOM publishes daily rate but not an inclusive/exclusive rule beyond 'until 1 day before cancellation')"
+  ]
+}
