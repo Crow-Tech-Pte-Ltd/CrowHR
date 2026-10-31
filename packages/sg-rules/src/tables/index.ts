@@ -12,6 +12,7 @@ import {
 } from "./cpf.ts";
 import { type Effective, pickInForce } from "./effective.ts";
 import { OVERTIME_RULES, type OvertimeRule, PART4_COVERAGE, type Part4Coverage } from "./employment-act.ts";
+import { MINIMUM_AGE_RULES, NOTICE_RULES } from "./employment-terms.ts";
 import { ANNUAL_LEAVE_RULES, type AnnualLeaveRule, SICK_LEAVE_RULES, type SickLeaveRule } from "./leave.ts";
 import { PUBLIC_HOLIDAY_YEARS, type PublicHolidayYear } from "./public-holidays.ts";
 import { SDL_RATES, type SdlRate } from "./sdl.ts";
@@ -117,5 +118,7 @@ export function ruleFamilies(): { family: string; rows: readonly Effective[]; ma
     { family: "EA overtime", rows: OVERTIME_RULES, mandatory: true },
     { family: "Annual leave", rows: ANNUAL_LEAVE_RULES, mandatory: true },
     { family: "Sick leave", rows: SICK_LEAVE_RULES, mandatory: true },
+    { family: "EA default notice", rows: NOTICE_RULES, mandatory: true },
+    { family: "EA minimum age", rows: MINIMUM_AGE_RULES, mandatory: true },
   ];
 }
