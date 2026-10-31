@@ -2,7 +2,7 @@ import { Alert, AlertDescription, AlertTitle, Button, formatDate } from "@crowhr
 import { createFileRoute, isRedirect, Link, Outlet, redirect } from "@tanstack/react-router";
 import { ShieldAlert } from "lucide-react";
 import { ReauthProvider } from "../auth/reauth.tsx";
-import { meQuery, reasonFor, useMe } from "../auth/session.ts";
+import { meQuery, reasonFor, rememberOrg, useMe } from "../auth/session.ts";
 import { ApiError } from "../lib/api.ts";
 import { AppShell } from "../shell/app-shell.tsx";
 
@@ -12,6 +12,7 @@ export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context, location }) => {
     try {
       const me = await context.queryClient.ensureQueryData(meQuery);
+      rememberOrg(me.organisation.slug);
       if (me.mfa.blocked && location.pathname !== "/me/sessions") {
         throw redirect({ to: "/me/sessions", search: { enrol: "1" } });
       }

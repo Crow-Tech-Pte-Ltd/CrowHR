@@ -2,6 +2,7 @@ import { Button, FormField, Input } from "@crowhr/ui";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import { AuthLayout } from "../auth/auth-layout.tsx";
+import { rememberedOrg } from "../auth/session.ts";
 import type { SignInMethods } from "../auth/types.ts";
 import { apiGet } from "../lib/api.ts";
 
@@ -18,8 +19,9 @@ export const Route = createFileRoute("/sign-in/")({
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
     const methods = await apiGet<SignInMethods>("/api/v1/auth/methods");
-    if (methods.organisation?.slug)
-      throw redirect({ to: "/sign-in/$org", params: { org: methods.organisation.slug }, search: deps });
+    // One-org install: that org. Several: the one last signed in to on this browser, if any.
+    const slug = methods.organisation?.slug ?? rememberedOrg();
+    if (slug) throw redirect({ to: "/sign-in/$org", params: { org: slug }, search: deps });
     return methods;
   },
   component: ChooseOrganisation,

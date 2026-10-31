@@ -1,7 +1,9 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { AppContext } from "../context.ts";
 import { sha256Hex } from "../crypto/tokens.ts";
+import { memberships } from "../db/schema/access.ts";
 import { auditEvents, auditHeads } from "../db/schema/audit.ts";
+import { users } from "../db/schema/users.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 
@@ -165,6 +167,16 @@ export async function recordAudit(
   input: AuditEventInput,
 ): Promise<{ id: string; seq: number; hash: string }> {
   const orgId = input.orgId ?? ctx.orgId;
+  // Unauthenticated events about a membership (sign-in attempts, invitation acceptance): label
+  // them with the account concerned so the log reads "who", while the actor type stays anonymous.
+  if (ctx.actorType === "anonymous" && !ctx.actorLabel && input.targetType === "membership" && input.targetId) {
+    const [row] = await db
+      .select({ email: users.email })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(and(eq(memberships.id, input.targetId), eq(memberships.orgId, orgId)));
+    if (row) ctx = { ...ctx, actorLabel: row.email };
+  }
   return db.transaction(async (tx) => {
     await tx.insert(auditHeads).values({ orgId, lastSeq: 0, lastHash: GENESIS_HASH }).onConflictDoNothing();
     const [head] = await tx.select().from(auditHeads).where(eq(auditHeads.orgId, orgId)).for("update");
