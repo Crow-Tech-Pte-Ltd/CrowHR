@@ -1,6 +1,7 @@
 import { computeSdlTotal, publicHolidays } from "@crowhr/sg-rules";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
+import { memberships } from "../db/schema/access.ts";
 import { allowanceTypes, employees } from "../db/schema/employees.ts";
 import { companyProfiles } from "../db/schema/organisation.ts";
 import {
@@ -17,6 +18,7 @@ import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { singaporeToday } from "../employees/dates.ts";
 import { AppError } from "../errors.ts";
+import { notify } from "../notifications/notify.ts";
 import { submitApproval, withdrawSubject } from "../workflows/engine.ts";
 import { canonicalHash } from "./engine/canonical.ts";
 import { computeEmployeePay } from "./engine/compute.ts";
@@ -1008,6 +1010,64 @@ async function doRelease(
     targetId: runId,
     meta: { auto },
   });
+  await notifyPayslipsReleased(tx, deps, orgId, runId);
+}
+
+/**
+ * Tells each employee their payslip is ready (in-app, and email when configured), in the release
+ * transaction. The notification names the month only: never an amount (notifications spec "Email
+ * notifications"). Employees without an active membership get nothing.
+ */
+async function notifyPayslipsReleased(tx: Db, deps: AppDeps, orgId: string, runId: string) {
+  const run = await loadRun(tx, orgId, runId);
+  const slips = await tx
+    .select({ id: payrollPayslips.id, employeeId: payrollPayslips.employeeId })
+    .from(payrollPayslips)
+    .where(and(eq(payrollPayslips.orgId, orgId), eq(payrollPayslips.runId, runId)));
+  if (!slips.length) return;
+  const members = await tx
+    .select({ id: memberships.id, employeeId: memberships.employeeId })
+    .from(memberships)
+    .where(
+      and(
+        eq(memberships.orgId, orgId),
+        eq(memberships.status, "active"),
+        inArray(
+          memberships.employeeId,
+          slips.map((s) => s.employeeId),
+        ),
+      ),
+    );
+  const kind =
+    run.kind === "adjustment"
+      ? "revised payslip"
+      : run.kind === "off_cycle"
+        ? run.offCycleReason === "final_pay"
+          ? "final pay payslip"
+          : "bonus payslip"
+        : "payslip";
+  const title = `Your ${kind} for ${monthLabel(run.month)}`;
+  for (const s of slips) {
+    const recipients = members.filter((m) => m.employeeId === s.employeeId).map((m) => m.id);
+    if (!recipients.length) continue;
+    const link = `/me/payslips/${s.id}`;
+    await notify(tx, deps, {
+      orgId,
+      recipients,
+      kind: "payslip_released",
+      title: `${title} is ready`,
+      body: `Paid on ${dateLabel(run.payDate)}.`,
+      link,
+      subjectType: "payslip",
+      subjectId: s.id,
+      email: {
+        headline: `${title} is ready.`,
+        detail: `Paid on ${dateLabel(run.payDate)}.`,
+        linkPath: link,
+        actionLabel: "View payslip",
+      },
+    });
+  }
 }
 
 export async function releaseRun(deps: AppDeps, actor: PayrollActor, runId: string) {

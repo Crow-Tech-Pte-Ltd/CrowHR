@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ChevronRight,
   Clock,
+  FileText,
   GitBranch,
   KeyRound,
   type LucideIcon,
@@ -37,7 +38,8 @@ function SettingsPage() {
       | "/settings/claim-types"
       | "/settings/leave"
       | "/settings/attendance"
-      | "/settings/shift-templates";
+      | "/settings/shift-templates"
+      | "/settings/documents";
     title: string;
     body: string;
     icon: LucideIcon;
@@ -105,6 +107,13 @@ function SettingsPage() {
       body: "The shifts managers pick from on the roster: times, unpaid break, location and marker.",
       icon: CalendarClock,
       show: can(me, "shift_templates:update"),
+    },
+    {
+      to: "/settings/documents",
+      title: "Documents",
+      body: "Document categories and who sees them, letter templates (offer, KETs, confirmation, salary change, employment certificate).",
+      icon: FileText,
+      show: can(me, "documents:update"),
     },
     {
       to: "/settings/notifications",
