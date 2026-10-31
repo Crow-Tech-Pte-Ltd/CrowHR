@@ -172,3 +172,12 @@ Rules of the road:
 - **Tests**: `createTestDb()` + `createTestDeps(db)` from `@crowhr/core/testing`; call `createApp(deps).request(...)`. Pass stub modules with `createApp(deps, { modules: [...] })`. One fresh PGlite per test file or test; close it in `afterEach`.
 - **Web route**: `apps/web/src/routes/_app/<module>.tsx` (inside the shell) using `PageHeader` and `@crowhr/ui`. Add nav metadata in `src/shell/nav.ts`. Fixture data only in `src/fixtures/`, always with `<SampleDataNotice />`.
 - **UI**: hairline borders by default; `Card variant="emphasis"`/`Button variant="primary"`/dialogs are the only hard-shadow surfaces. Numbers use the `num` class (Azeret Mono, tabular). Money via `formatMoney(cents)`, dates via `formatDate("YYYY-MM-DD")`, NRIC/FIN via `maskNric`.
+
+## Effective-dated data
+
+Records that change over time (employment terms, compensation, allowances, bank accounts, work schedule versions) use one convention, implemented in `packages/core/src/employees/effective.ts`:
+
+- `effective_from date NOT NULL`, `effective_to date NULL`, half-open `[from, to)`; `null` means "until further notice".
+- Write through `planInsert`: a new version closes the one in force on its start date and, if later versions already exist (future-dated changes), ends where the next one begins, in the same transaction. Two versions may not start on the same date.
+- Non-overlap is enforced in the service (PGlite cannot guarantee `btree_gist` exclusion constraints) and covered by a property test.
+- Read with `asAt(db, table, orgId, employeeId, date)` / `asAtMany(...)` or the `inForceOn(columns, date)` SQL fragment. Status such as "Scheduled" or "Leaving on X" is derived from dates and the injected clock (Asia/Singapore), never stored.
