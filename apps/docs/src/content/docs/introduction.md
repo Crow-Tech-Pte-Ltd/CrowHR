@@ -47,7 +47,7 @@ Crow HR is early software. Built and tested today:
 - monthly payroll with CPF, SHG, SDL and an FWL estimate, itemised payslips, the CPF EZPay file, a generic ISO 20022 bank file and an IR8A export;
 - self-hosting with automatic migrations, scheduled encrypted backups and a `crowhr` CLI.
 
-Leave, attendance, claims, scheduling, documents, reporting, the public demo and the mobile apps are planned but not built. The [project status](/docs/status/) page lists what is built and what is not.
+Leave, attendance, claims, scheduling, the public demo and the mobile apps are planned but not built. The [project status](/docs/status/) page lists what is built and what is not.
 
 ## Not legal advice
 

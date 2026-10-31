@@ -34,7 +34,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 - **Home** shows real work from `GET /api/v1/inbox`; its payroll card lists open runs and the month's run when not started, or "Payroll isn't set up yet" before payroll settings are saved.
 - **Command palette** "People" results come from the live directory (people module).
-- **Every module** except People, Payroll, Claims, Leave, Attendance and Schedules (Documents, Reports) is an empty-state placeholder. Settings lists future sections as "Not available yet".
+- **Every module** has real screens now (People, Payroll, Claims, Leave, Attendance, Schedules, Documents, Reports). Settings lists future sections as "Not available yet".
 - **No dark mode.** The landing site's dark tokens were not ported.
 
 ## Platform
@@ -107,7 +107,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Polyglot detection is heuristic**: HTML/script/SVG/PHP markers in the first kilobyte and a ZIP end-of-central-directory record near the end are refused. Downloads are always served with the detected type, `nosniff` and a sandbox CSP; PDFs and HEIC as attachments.
 - **HEIC receipts** are accepted and stored but not previewed ("Preview not available. Download to view").
 - **Approval type code**: the workflows engine takes one `typeCode`, so a claim with several types sends its largest type by SGD amount (first on a tie). A `typeCodes` policy condition therefore matches on that type only.
-- **Reports NOT IMPLEMENTED in part** (task 4.1): totals by type/department/employee/month with GST, the line register and the payout register exist (JSON, CSV, XLSX); the per-employee cap-usage report and registration with the `reporting` module (not built yet) are open. Ageing is shown as "N days" on waiting claims in the admin table.
+- **Reports NOT IMPLEMENTED in part** (task 4.1): totals by type/department/employee/month with GST, the line register and the payout register exist (JSON, CSV, XLSX); the claims summary is also in Reports (`claims.summary`); the per-employee cap-usage report is open. Ageing is shown as "N days" on waiting claims in the admin table.
 - **FX sanity warning NOT IMPLEMENTED**: the design's "rate deviates more than 20% from the last rate" warning to approvers is not built; approvers see the original amount, rate and SGD amount.
 - **On-behalf claims**: owners and hr_admins can create claims for an employee through the API (`employeeId`); the web form only files claims for yourself.
 - **Uploaded but unattached receipts** are kept until the uploader deletes them; there is no cleanup sweep.
@@ -168,3 +168,21 @@ The demo is the real web app and the real core API running in the visitor's brow
 - **Week grid**: drag moves a shift (no copy-drag); a cell holds several shifts but the keyboard shortcuts act on the first. Below 1400 px the chip drops the template code (it stays in the tooltip and the editor). At phone width the grid becomes a day list.
 - **The approver's link** from a shift-swap task opens My schedule, not the roster week (the workflows link callback has no database access).
 - **CSV export** is for editors only; staff see the published roster on screen.
+## Reports (add-reporting, WS6b)
+
+- **Report set is fixed**: headcount, headcount over time, joiners/leavers/turnover, work-pass expiry, leave taken, leave balances and liability, attendance exceptions, claims summary and payroll cost. No custom builder, saved views or scheduled reports (proposal non-goals).
+- **Charts** are a single bar chart under the table, drawn from the rows on the current page only, and hidden when a label repeats (e.g. a month split by department). The table is the accessible view.
+- **Exports** are streamed as CSV; XLSX is built in memory from 500-row batches (store-only ZIP, no compression). The runner holds at most 50 000 rows to sort; larger results answer 422 `too_many_rows`.
+- **Payroll cost SDL by department** is an allocation: payroll rounds SDL once for the employer per month, and the report splits that total across departments by SDL-liable wages (largest remainder), so departments add up exactly but a department's SDL is not a statutory figure. FWL is payroll's estimate.
+- **Leave liability** values available annual leave at the daily basic rate for monthly-rated staff only; hourly and daily-rated staff show none.
+- **Manager scope** comes from the current reporting lines, not the lines in force on the report's dates.
+
+## Documents (add-documents, WS6b)
+
+- **Italic** in letter templates prints in the regular face (the embedded fonts have no italic). **Logo**: only a PNG company logo is drawn on letters; an SVG logo is left out.
+- **No e-signature.** "I acknowledge" records the time, IP, user agent and the file's SHA-256; it is not a legally binding signature (proposal non-goal).
+- **Contract terms Crow HR doesn't store** (main duties, fixed deductions, OT period and rate, other salary components, medical benefits, notice period when no notice is recorded, signatory title) are entered per document at generation and kept on the document version, not on the employee record.
+- **Retention review** flags documents of ex-employees 12 months after the last working day (Employment Act; per-category months are configurable) and never deletes anything: HR keeps or soft-deletes, and only an owner purges. IRAS/CPF keeping periods were not researched (research §11.2, UNVERIFIED), so the default is the Employment Act minimum.
+- **Expiry reminders** run on the existing reminders sweep: 30 days, 7 days and on the day, to hr_admins (owners when there is none) and to the employee for employee-visible categories. Home shows only acknowledgement requests; expiring documents are on Documents → Expiring.
+- **DOCX/XLSX** are checked by package structure (OOXML parts present, no VBA project, macro sheets or ActiveX) and always downloaded, never previewed. Macro checks look at part names only; content is not inflated.
+- **Employment letter requests** are approved by hr_admins by default and generated from the first active "employment certificate" template with the approver as signatory ("for and on behalf of the employer").

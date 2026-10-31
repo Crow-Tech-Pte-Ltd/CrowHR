@@ -1,9 +1,19 @@
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
 import { files } from "../db/schema/files.ts";
+import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import { fileScannerOf } from "./scanner.ts";
-import { EXTENSION_FOR, looksPolyglot, type SniffedType, safeDisplayName, sha256Hex, sniffType } from "./sniff.ts";
+import {
+  EXTENSION_FOR,
+  inspectOoxml,
+  isOoxml,
+  looksPolyglot,
+  type SniffedType,
+  safeDisplayName,
+  sha256Hex,
+  sniffType,
+} from "./sniff.ts";
 
 /** Receipts and documents: 10 MB each (add-claims proposal "Receipts"). */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -59,7 +69,11 @@ export interface StoreFileInput {
   /** Shown when the content is not an accepted type. */
   rejectMessage: string;
   audit: AuditContext;
+  /** Defaults to MAX_UPLOAD_BYTES (10 MB); documents allow 20 MB. */
+  maxBytes?: number;
 }
+
+export const MACRO_REJECT_MESSAGE = "Macro-enabled documents are not accepted. Save as .docx or PDF";
 
 /**
  * Validates and stores an upload: size, signature (never the extension or the client's
@@ -67,20 +81,33 @@ export interface StoreFileInput {
  * records the `files` row. Scanned later by the tick sweep when a scanner is configured.
  */
 export async function storeFile(deps: AppDeps, input: StoreFileInput) {
+  return storeFileWith(deps, input, (fn) => deps.db.transaction(fn));
+}
+
+/**
+ * `storeFile` inside the caller's transaction (e.g. a letter generated in an approval callback).
+ * If the transaction later rolls back, the bytes stay in storage without a row: harmless, and never
+ * reachable, since files are only served through their row.
+ */
+export async function storeFileInTx(tx: Db, deps: AppDeps, input: StoreFileInput) {
+  return storeFileWith(deps, input, (fn) => fn(tx));
+}
+
+async function storeFileWith(deps: AppDeps, input: StoreFileInput, run: <T>(fn: (tx: Db) => Promise<T>) => Promise<T>) {
   if (input.data.byteLength === 0) {
     throw new AppError("validation_failed", "The file is empty. Pick the photo or PDF again.");
   }
-  if (input.data.byteLength > MAX_UPLOAD_BYTES) {
-    throw new AppError(
-      "file_too_large",
-      `This file is larger than ${MB(MAX_UPLOAD_BYTES)}. Upload a smaller photo or PDF.`,
-      {
-        maxBytes: MAX_UPLOAD_BYTES,
-      },
-    );
+  const max = input.maxBytes ?? MAX_UPLOAD_BYTES;
+  if (input.data.byteLength > max) {
+    throw new AppError("file_too_large", `This file is larger than ${MB(max)}. Upload a smaller photo or PDF.`, {
+      maxBytes: max,
+    });
+  }
+  if (inspectOoxml(input.data) === "macro") {
+    throw new AppError("unsupported_file_type", MACRO_REJECT_MESSAGE, { accepted: input.accept });
   }
   const type = sniffType(input.data);
-  if (!type || !input.accept.includes(type) || looksPolyglot(input.data)) {
+  if (!type || !input.accept.includes(type) || looksPolyglot(input.data, { zipAllowed: isOoxml(type) })) {
     throw new AppError("unsupported_file_type", input.rejectMessage, { accepted: input.accept });
   }
   const id = deps.ids.newId();
@@ -89,7 +116,7 @@ export async function storeFile(deps: AppDeps, input: StoreFileInput) {
   const scanStatus = fileScannerOf(deps) ? ("pending_scan" as const) : ("unscanned" as const);
   await deps.fileStore.put(storageKey, input.data, { contentType: type });
   try {
-    return await deps.db.transaction(async (tx) => {
+    return await run(async (tx) => {
       const [row] = await tx
         .insert(files)
         .values({

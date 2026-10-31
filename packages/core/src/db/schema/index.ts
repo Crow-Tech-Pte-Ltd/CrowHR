@@ -4,6 +4,7 @@ export * from "./attendance.ts";
 export * from "./audit.ts";
 export * from "./auth.ts";
 export * from "./claims.ts";
+export * from "./documents.ts";
 export * from "./employees.ts";
 export * from "./files.ts";
 export * from "./leave.ts";

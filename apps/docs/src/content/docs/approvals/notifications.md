@@ -9,6 +9,7 @@ The bell at the top right shows unread notifications. You are notified when:
 
 - a task is assigned, escalated or reassigned to you;
 - someone decides or withdraws one of your requests;
+- your payslips are released, or HR asks you to read and acknowledge a document;
 - a reminder is due (below).
 
 Each notification links to what it is about. Notifications are kept for 180 days.
@@ -33,6 +34,8 @@ Reminders are created once per subject and threshold, and stop when the conditio
 | Probation ending | 14 days before | The employee's manager and HR admins |
 | Payroll cutoff | 3 days before the cutoff day in payroll settings (or the pay day), until the month's regular run is approved | Payroll admins |
 | Backups | Last successful scheduled backup more than 48 hours old (on Home) | Owners |
+| Document expiry | 30 and 7 days before, and on the day | HR admins, and the employee when the category is visible to them |
+| Acknowledgement | 3 and 7 days after HR asked, while not yet acknowledged | The employee |
 
 ## Home
 
@@ -41,4 +44,4 @@ Home lists your actionable items from every source: approval tasks (including de
 ## Not available yet
 
 - Notification email templates are fixed in code and do not carry the company logo.
-- Notifications for payslip release, "sign-in attempts blocked", "new MFA method" and "recovery code used" are not sent yet.
+- Notifications for "sign-in attempts blocked", "new MFA method" and "recovery code used" are not sent yet.

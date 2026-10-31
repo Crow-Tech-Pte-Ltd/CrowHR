@@ -68,9 +68,8 @@ The independent review of the payroll choices marked these as **unclear**: the a
 - **Security emails bypass the outbox**: invitations and password resets are sent once, without retries. "Sign-in attempts blocked", "new MFA method" and "recovery code used" notices are not sent.
 - **JIT-provisioned members** are not reported to HR; only the audit log records them.
 - **No email change** for a member's sign-in email yet.
-- **Payslip release** does not notify employees yet.
 - **Org switcher** in the web app shows only the current organisation (the API supports switching).
 - **No row-level security** in the database: isolation is enforced by the application and composite foreign keys, with a test that every route refuses another organisation's IDs.
 - **The common-password list** is a curated list of a few hundred entries plus patterns, not a breach corpus.
 - **Docker images are not published** and CI has not run on a hosted runner. Of the reverse proxies, only Caddy is tested.
-- **Not built**: [leave](/docs/coming-soon/leave/), [attendance](/docs/coming-soon/attendance/), [claims](/docs/coming-soon/claims/), [scheduling](/docs/coming-soon/scheduling/), [documents](/docs/coming-soon/documents/), [reporting](/docs/coming-soon/reporting/), the [public demo](/docs/coming-soon/demo/) and the [mobile apps](/docs/coming-soon/mobile-apps/).
+- **Not built**: [leave](/docs/coming-soon/leave/), [attendance](/docs/coming-soon/attendance/), [claims](/docs/coming-soon/claims/), [scheduling](/docs/coming-soon/scheduling/), the [public demo](/docs/coming-soon/demo/) and the [mobile apps](/docs/coming-soon/mobile-apps/).

@@ -2,6 +2,7 @@ import { attendanceWorkflowPlugin } from "../attendance/approval.ts";
 import { claimsWorkflowPlugin } from "../claims/approval.ts";
 import { SUBJECT_TYPE_PATTERN } from "../db/schema/workflows.ts";
 import type { AppDeps } from "../deps.ts";
+import { documentsWorkflowPlugin } from "../documents/workflow.ts";
 import { AppError } from "../errors.ts";
 import { leaveWorkflowPlugin } from "../leave/approval.ts";
 import { payrollWorkflowPlugin } from "../payroll/approval.ts";
@@ -30,6 +31,7 @@ export const CORE_WORKFLOW_PLUGINS: readonly CorePlugin[] = [
   (deps) => leaveWorkflowPlugin(deps),
   (deps) => attendanceWorkflowPlugin(deps),
   (deps) => schedulingWorkflowPlugin(deps),
+  (deps) => documentsWorkflowPlugin(deps),
 ];
 
 export interface WorkflowRegistry {

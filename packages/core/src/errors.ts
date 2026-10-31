@@ -64,6 +64,12 @@ export const ERROR_STATUS = {
   ip_not_allowed: 422,
   /** Attendance: the punch cannot be recorded (e.g. more than 7 days old, or in the future). */
   punch_rejected: 422,
+  /** Reports: the result has more rows than an export or a screen allows (50 000); narrow the parameters. */
+  too_many_rows: 422,
+  /** Documents: a letter can't be generated until the listed merge fields have values (details.missing). */
+  missing_fields: 422,
+  /** Documents: the employee must open the document before acknowledging it. */
+  not_viewed: 409,
   rate_limited: 429,
   internal: 500,
   /** The feature exists in the API contract but its implementation has not landed yet. */
