@@ -23792,6 +23792,9 @@
                       "isWorkman": {
                         "type": "boolean"
                       },
+                      "isManagerOrExecutive": {
+                        "type": "boolean"
+                      },
                       "hireDate": {
                         "type": "string"
                       }
@@ -24673,6 +24676,9 @@
                         "isWorkman": {
                           "type": "boolean"
                         },
+                        "isManagerOrExecutive": {
+                          "type": "boolean"
+                        },
                         "tenures": {
                           "type": "array",
                           "items": {
@@ -24853,6 +24859,7 @@
                         "probationEnd",
                         "eaCovered",
                         "isWorkman",
+                        "isManagerOrExecutive",
                         "tenures",
                         "history",
                         "events",
@@ -26978,6 +26985,9 @@
                           },
                           "isWorkman": {
                             "type": "boolean"
+                          },
+                          "isManagerOrExecutive": {
+                            "type": "boolean"
                           }
                         }
                       },
@@ -27361,6 +27371,9 @@
                             "type": "boolean"
                           },
                           "isWorkman": {
+                            "type": "boolean"
+                          },
+                          "isManagerOrExecutive": {
                             "type": "boolean"
                           },
                           "hireDate": {
@@ -55434,6 +55447,9 @@
                             "isWorkman": {
                               "type": "boolean"
                             },
+                            "isManagerOrExecutive": {
+                              "type": "boolean"
+                            },
                             "tenures": {
                               "type": "array",
                               "items": {
@@ -55614,6 +55630,7 @@
                             "probationEnd",
                             "eaCovered",
                             "isWorkman",
+                            "isManagerOrExecutive",
                             "tenures",
                             "history",
                             "events",

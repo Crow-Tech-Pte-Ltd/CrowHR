@@ -513,6 +513,8 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
           ? { type: pass.passType, issuedOn: pass.issuedOn, expiresOn: pass.expiresOn, cancelledOn: pass.cancelledOn }
           : null,
         isWorkman: job?.isWorkman ?? false,
+        // Only when set, so snapshots (and their hashes) of everyone else are unchanged.
+        ...(job?.isManagerOrExecutive ? { isManagerOrExecutive: true } : {}),
       },
       employment: {
         hireDate: tenure.hireDate,

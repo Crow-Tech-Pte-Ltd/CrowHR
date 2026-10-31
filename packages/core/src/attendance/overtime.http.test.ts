@@ -1,8 +1,10 @@
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { punch } from "../../testing/attendance.ts";
 import type { TestClient } from "../../testing/http.ts";
 import { createLeaveWorld, type LeaveWorld } from "../../testing/leave.ts";
 import { overtimeClaims } from "../db/schema/attendance.ts";
+import { employmentRecords } from "../db/schema/employees.ts";
 
 /** Overtime claims through the workflows engine (spec "Overtime and claims"). */
 describe("overtime claims", () => {
@@ -103,6 +105,20 @@ describe("overtime claims", () => {
       label: "OT in Nov 2026",
       value: "73 h of 72 h (over the 72-hour monthly limit: lawful only with an MOM exemption)",
     });
+  });
+
+  it("a manager or executive gets contractual OT even on Part 4 pay", async () => {
+    await w.t.db
+      .update(employmentRecords)
+      .set({ isManagerOrExecutive: true })
+      .where(eq(employmentRecords.employeeId, w.emp.staff));
+    const staff = await w.as("staff");
+    await worked(staff, "2026-11-12", "09:00", "20:00");
+    const res = await staff.post("/api/v1/attendance/overtime", { date: "2026-11-12", minutes: 60 });
+    expect(res.status, await res.clone().text()).toBe(201);
+    const body = (await res.json()) as { claim: { statutory: boolean }; warnings: string[] };
+    expect(body.claim.statutory).toBe(false);
+    expect(body.warnings.join(" ")).toMatch(/contractual/);
   });
 
   it("an employee outside Part 4 gets contractual OT; rejection and withdrawal close claims", async () => {

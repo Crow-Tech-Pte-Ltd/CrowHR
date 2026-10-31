@@ -111,6 +111,8 @@ export const employeeDetailSchema = z.object({
       probationEnd: z.string().nullable(),
       eaCovered: z.boolean(),
       isWorkman: z.boolean(),
+      /** Manager or executive: never covered by Employment Act Part 4 (no statutory OT). */
+      isManagerOrExecutive: z.boolean(),
       tenures: z.array(
         z.object({
           id: z.string(),

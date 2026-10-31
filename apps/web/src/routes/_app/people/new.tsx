@@ -17,7 +17,7 @@ import {
   schedulesQuery,
   structureQuery,
 } from "./-lib/api.ts";
-import { DateInput, label, SelectInput, TextInput, today } from "./-lib/ui.tsx";
+import { DateInput, label, Part4Fields, SelectInput, TextInput, today } from "./-lib/ui.tsx";
 
 export const Route = createFileRoute("/_app/people/new")({ component: NewEmployeePage });
 
@@ -44,6 +44,8 @@ const blank = {
   employmentType: "full_time",
   workScheduleId: "",
   probationEnd: "",
+  isWorkman: false,
+  isManagerOrExecutive: false,
   payBasis: "monthly",
   passType: "",
   passNumber: "",
@@ -98,6 +100,8 @@ function NewEmployeePage() {
           employmentType: f.employmentType,
           workScheduleId: orNull(f.workScheduleId),
           probationEnd: orNull(f.probationEnd),
+          isWorkman: f.isWorkman,
+          isManagerOrExecutive: f.isManagerOrExecutive,
         },
         compensation: amount === null ? null : { payBasis: f.payBasis, amountCents: amount },
         workPass:
@@ -355,6 +359,11 @@ function NewEmployeePage() {
             value={f.probationEnd}
             onChange={set("probationEnd")}
             error={e("job.probationEnd")}
+          />
+          <Part4Fields
+            isWorkman={f.isWorkman}
+            isManagerOrExecutive={f.isManagerOrExecutive}
+            onChange={(v) => setF((s) => ({ ...s, ...v }))}
           />
         </FormSection>
 

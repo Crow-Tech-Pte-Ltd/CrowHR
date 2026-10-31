@@ -85,6 +85,8 @@ type Seed = {
   payBasis?: "monthly" | "hourly";
   pass?: { type: string; expiresOn: string; issuedOn: string };
   isWorkman?: boolean;
+  /** Manager or executive (never EA Part 4). */
+  isManagerOrExecutive?: boolean;
   bank?: string;
 };
 
@@ -104,6 +106,7 @@ export const SEED_PEOPLE: Seed[] = [
     religion: "buddhism",
     hireDate: "2019-04-01",
     jobTitle: "Managing Director",
+    isManagerOrExecutive: true,
     department: "Management",
     location: "hq",
     employmentType: "full_time",
@@ -145,6 +148,7 @@ export const SEED_PEOPLE: Seed[] = [
     religion: "hinduism",
     hireDate: "2019-06-03",
     jobTitle: "Operations Manager",
+    isManagerOrExecutive: true,
     department: "Operations",
     location: "hq",
     manager: "owner",
@@ -302,6 +306,7 @@ export const SEED_PEOPLE: Seed[] = [
     religion: "christianity",
     hireDate: "2019-05-02",
     jobTitle: "Head Chef",
+    isManagerOrExecutive: true,
     department: "Operations",
     team: "Central kitchen",
     location: "ck",
@@ -436,6 +441,7 @@ export const SEED_PEOPLE: Seed[] = [
     religion: "christianity",
     hireDate: "2024-05-06",
     jobTitle: "Head of Growth",
+    isManagerOrExecutive: true,
     department: "Marketing",
     location: "hq",
     manager: "owner",
@@ -457,6 +463,7 @@ export const SEED_PEOPLE: Seed[] = [
     religion: "hinduism",
     hireDate: "2025-09-01",
     jobTitle: "Finance Manager",
+    isManagerOrExecutive: true,
     department: "Finance",
     location: "hq",
     manager: "owner",
@@ -729,6 +736,7 @@ export async function seedPeople(deps: AppDeps, ports: PeoplePorts, owner: Actor
         employmentType: p.employmentType,
         workScheduleId: out.schedules[p.schedule ?? "office"] as string,
         isWorkman: p.isWorkman ?? false,
+        isManagerOrExecutive: p.isManagerOrExecutive ?? false,
       },
       compensation: { payBasis: p.payBasis ?? "monthly", amountCents: p.basicCents },
       allowances:
