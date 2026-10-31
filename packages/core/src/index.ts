@@ -53,6 +53,7 @@ export {
   systemClock,
 } from "./deps.ts";
 export type * from "./employees/public-types.ts";
+export { createReportingScopeResolver } from "./employees/reports/reporting-scope.ts";
 export { AppError, ERROR_STATUS, type ErrorCode, type ErrorEnvelope } from "./errors.ts";
 export {
   assertValidFileKey,

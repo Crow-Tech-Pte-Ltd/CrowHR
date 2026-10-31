@@ -44,6 +44,7 @@ import {
   referenceQuery,
   structureQuery,
 } from "./-lib/api.ts";
+import { RevealValue } from "./-lib/reveal.tsx";
 import {
   DateInput,
   EmployeeStatus,
@@ -225,7 +226,7 @@ function Overview({ e }: { e: EmployeeDetailDto }) {
         {p ? (
           <dl>
             <Field term={p.idType === "other" ? "ID" : p.idType.toUpperCase()} mono>
-              {p.idNumberMasked}
+              <RevealValue masked={p.idNumberMasked} employeeId={e.id} kind="nric" />
             </Field>
             <Field term="Date of birth">
               {formatDate(p.dob)} <span className="num text-primary-200">· {p.age} years</span>
@@ -451,7 +452,7 @@ function PayTab({ e, onChangePay }: { e: EmployeeDetailDto; onChangePay: () => v
               <dl>
                 <Field term="Bank">{e.bank.current.bankName}</Field>
                 <Field term="Account" mono>
-                  ••••{e.bank.current.accountLast4}
+                  <RevealValue masked={`••••${e.bank.current.accountLast4}`} employeeId={e.id} kind="bank" />
                 </Field>
                 <Field term="Holder">{e.bank.current.holderName}</Field>
                 <Field term="Since">{formatDate(e.bank.current.effectiveFrom)}</Field>

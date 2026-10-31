@@ -1,5 +1,6 @@
 import {
   type AppDeps,
+  createReportingScopeResolver,
   createSecretBox,
   createUuidV7Generator,
   type Logger,
@@ -21,6 +22,8 @@ export function createServerDeps(config: ServerConfig, database: Database, logge
     logger,
     secretBox: createSecretBox(parseSecretKey(config.CROWHR_SECRET_KEY)),
     publicUrl: config.PUBLIC_URL,
+    // Manager scope from employment records (people module).
+    reportingScope: createReportingScopeResolver(database.db),
     // NOT IMPLEMENTED: SMTP mailer (add-approvals-and-notifications owns the outbox). Without it,
     // invitations and password resets offer a copyable link.
   };

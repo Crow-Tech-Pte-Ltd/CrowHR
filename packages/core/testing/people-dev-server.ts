@@ -26,6 +26,8 @@ import { seedMember } from "./fixtures.ts";
 import { createTestDb, createTestDeps } from "./index.ts";
 
 const PORT = Number(process.env.PORT ?? 3200);
+/** Fictional dev-only password for every persona (re-authentication prompts). */
+const DEV_PASSWORD = "kopi-kaki-dev-only";
 const WEB_DIST = resolve(process.env.WEB_DIST ?? new URL("../../../apps/web/dist", import.meta.url).pathname);
 
 const PERSONAS: Record<string, { roles: AssignedRole[]; employee: string | null; email: string }> = {
@@ -51,6 +53,7 @@ async function main() {
         email: p.email,
         roles: p.roles,
         employeeId: p.employee ? (seeded.employees[p.employee] ?? null) : null,
+        password: DEV_PASSWORD,
       }),
     );
   }
@@ -70,7 +73,8 @@ async function main() {
       authMethod: "password",
       createdAt: now,
       lastSeenAt: now,
-      authenticatedAt: now,
+      // `?stale=1` backdates the sign-in so re-authentication prompts can be exercised.
+      authenticatedAt: c.req.query("stale") ? new Date(now.getTime() - 3_600_000) : now,
       absoluteExpiresAt: new Date(now.getTime() + 12 * 3600_000),
       mfaSatisfied: true,
     });
