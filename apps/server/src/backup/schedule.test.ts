@@ -131,6 +131,22 @@ describe("scheduled backups", () => {
     expect(await s.tick()).toBe("not_due");
   });
 
+  it("waits until setup has created an organisation", async () => {
+    const s = createBackupScheduler({
+      time: { hour: 2, minute: 0 },
+      timeZone: SGT,
+      now: () => at("2026-10-30T18:00:30Z"),
+      logger: createMemoryLogger(),
+      isPaused: () => false,
+      hasData: async () => false,
+      lastScheduledStart: async () => null,
+      run: async () => {
+        throw new Error("must not run");
+      },
+    });
+    expect(await s.tick()).toBe("nothing_to_back_up");
+  });
+
   it("pauses during maintenance", async () => {
     const { s } = scheduler({ paused: () => true });
     now = at("2026-10-30T18:00:30Z");

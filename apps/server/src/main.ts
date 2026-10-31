@@ -18,7 +18,7 @@ import { waitForDatabase } from "./db/wait.ts";
 import { type Database, openDatabase } from "./db.ts";
 import { createServerDeps } from "./deps.ts";
 import { createServerApp, createStartingApp } from "./http.ts";
-import { currentSchemaTag, planMigrations, readBundledMigrations } from "./migrate/runner.ts";
+import { currentSchemaTag, databaseHasData, planMigrations, readBundledMigrations } from "./migrate/runner.ts";
 import { migrateOnStart } from "./migrate/start.ts";
 import { readExistingKey } from "./secrets/existing.ts";
 import { resolveSecretKey } from "./secrets/key.ts";
@@ -178,6 +178,7 @@ function startScheduledBackups(
       return row?.startedAt ?? null;
     },
     tryLock: () => database.lock.acquire("crowhr:backup", { timeoutMs: 0 }),
+    hasData: () => databaseHasData(database.db),
     run: async () => {
       await runBackup({
         db: database.db,
