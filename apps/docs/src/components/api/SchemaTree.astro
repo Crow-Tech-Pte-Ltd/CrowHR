@@ -1,0 +1,54 @@
+---
+/**
+ * Renders a JSON Schema's properties as a nested list (name, type, required, constraints,
+ * sensitivity). Nested objects collapse into <details> so long payloads stay scannable.
+ */
+import { childProperties, constraints, type JsonSchema, sensitivity, typeLabel } from "../../lib/openapi.ts";
+
+interface Props {
+  schema: JsonSchema | undefined;
+  depth?: number;
+}
+
+const { schema, depth = 0 } = Astro.props;
+const fields = childProperties(schema);
+const MAX_DEPTH = 8;
+---
+
+{
+  fields.length > 0 && (
+    <ul class="schema-tree" role="list">
+      {fields.map((field) => {
+        const children = depth < MAX_DEPTH ? childProperties(field.schema) : [];
+        const notes = constraints(field.schema);
+        const sens = sensitivity(field.schema);
+        const head = (
+          <span class="field-head">
+            <code class="field-name">{field.name}</code>
+            <span class="field-type">{typeLabel(field.schema)}</span>
+            {field.required && <span class="field-flag">required</span>}
+            {sens && <span class="field-flag field-flag--sensitive">sensitive: {sens}</span>}
+          </span>
+        );
+        return (
+          <li>
+            {children.length > 0 ? (
+              <details open={depth === 0 && children.length <= 6}>
+                <summary>{head}</summary>
+                {field.schema.description && <p class="field-desc">{field.schema.description}</p>}
+                {notes.length > 0 && <p class="field-notes">{notes.join(" · ")}</p>}
+                <Astro.self schema={field.schema} depth={depth + 1} />
+              </details>
+            ) : (
+              <>
+                {head}
+                {field.schema.description && <p class="field-desc">{field.schema.description}</p>}
+                {notes.length > 0 && <p class="field-notes">{notes.join(" · ")}</p>}
+              </>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  )
+}

@@ -1,0 +1,46 @@
+---
+/**
+ * One API reference page per OpenAPI tag, generated at build time from the committed snapshot
+ * (packages/core/openapi/v1.snapshot.json). Static HTML only.
+ */
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import snapshot from "../../../../../packages/core/openapi/v1.snapshot.json";
+import Operation from "../../components/api/Operation.astro";
+import { groupByTag, type OpenApiDocument, type TagGroup } from "../../lib/openapi.ts";
+
+export function getStaticPaths() {
+  return groupByTag(snapshot as unknown as OpenApiDocument).map((group) => ({
+    params: { tag: group.slug },
+    props: { group },
+  }));
+}
+
+interface Props {
+  group: TagGroup;
+}
+
+const doc = snapshot as unknown as OpenApiDocument;
+const { group } = Astro.props;
+const count = group.operations.length;
+const headings = group.operations.map((o) => ({
+  depth: 2,
+  slug: o.anchor,
+  text: `${o.method.toUpperCase()} ${o.path.replace("/api/v1", "")}`,
+}));
+---
+
+<StarlightPage
+  frontmatter={{
+    title: `${group.tag} API`,
+    description: `Crow HR REST API reference: ${count} ${group.tag} endpoint${count === 1 ? "" : "s"} under /api/v1, generated from the OpenAPI ${doc.info.version} document.`,
+    tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 2 },
+  }}
+  headings={headings}
+>
+  <p>
+    {count} endpoint{count === 1 ? "" : "s"}, generated from <code>packages/core/openapi/v1.snapshot.json</code> (OpenAPI {doc.openapi}, contract version {doc.info.version}). Conventions for lists, errors, money and authentication are
+    on the{" "}
+    <a href={`${import.meta.env.BASE_URL}developers/api-conventions/`}>API conventions</a> page.
+  </p>
+  {group.operations.map((entry) => <Operation doc={doc} entry={entry} />)}
+</StarlightPage>

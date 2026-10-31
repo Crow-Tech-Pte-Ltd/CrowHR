@@ -1,0 +1,572 @@
+/*
+ * Crow HR look for Starlight, from the tokens in packages/ui/src/styles/globals.css:
+ * near-white surfaces, near-black ink, kuning (yellow) for the brand chip / selected item / primary
+ * call to action, biru (blue) for links and focus rings. Azeret Mono for headings, labels, nav and
+ * numbers; Ubuntu for body text. Hairline borders by default; the 2px ink border + hard offset
+ * shadow is reserved for the primary call to action and the search dialog. No blurred shadows,
+ * no gradients. Dark mode is the docs' own (the app has none) and keeps WCAG AA contrast.
+ */
+
+:root {
+  /* Crow tokens (HSL triplets as in packages/ui) */
+  --crow-ink: hsl(0 0% 4%);
+  --crow-surface-50: hsl(0 0% 100%);
+  --crow-surface-100: hsl(40 84% 95%);
+  --crow-surface-200: hsl(210 10% 93%);
+  --crow-kuning-50: hsl(45 100% 90%);
+  --crow-kuning-200: hsl(43 99% 71%);
+  --crow-kuning-300: hsl(43 99% 62%);
+  --crow-biru-100: hsl(220 82% 79%);
+  --crow-biru-400: hsl(220 78% 50%);
+  --crow-oren-400: hsl(23 84% 52%);
+  --crow-success-300: hsl(119 51% 38%);
+  --crow-warning-400: hsl(34 86% 35%);
+  --crow-danger-200: hsl(0 64% 47%);
+  --crow-danger-300: hsl(0 65% 40%);
+
+  --sl-font: "Ubuntu", ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: "Azeret Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sl-text-code: 0.8125rem;
+  --sl-line-height-headings: 1.25;
+  --sl-content-width: 48rem;
+
+  /* Hard, unblurred shadows only (neo-brutalist emphasis). */
+  --sl-shadow-sm: none;
+  --sl-shadow-md: 3px 3px 0 0 hsl(0 0% 0% / 0.35);
+  --sl-shadow-lg: 4px 4px 0 0 hsl(0 0% 0% / 0.6);
+
+  /* Dark mode (Starlight's default theme when the visitor prefers dark). */
+  --sl-color-white: hsl(40 20% 97%);
+  --sl-color-gray-1: hsl(0 0% 91%);
+  --sl-color-gray-2: hsl(0 0% 82%);
+  --sl-color-gray-3: hsl(0 0% 68%);
+  --sl-color-gray-4: hsl(0 0% 52%);
+  --sl-color-gray-5: hsl(0 0% 26%);
+  --sl-color-gray-6: hsl(0 0% 13%);
+  --sl-color-black: hsl(0 0% 7%);
+
+  --sl-color-accent-low: hsl(43 40% 18%);
+  --sl-color-accent: var(--crow-kuning-200);
+  --sl-color-accent-high: var(--crow-kuning-50);
+  --sl-color-text-accent: var(--crow-biru-100);
+  --sl-color-text-invert: var(--crow-ink);
+  --sl-color-bg-nav: hsl(0 0% 9%);
+  --sl-color-bg-sidebar: hsl(0 0% 9%);
+  --sl-color-bg-inline-code: hsl(0 0% 16%);
+  --sl-color-hairline-light: hsl(0 0% 22%);
+  --sl-color-hairline: hsl(0 0% 18%);
+  --sl-color-hairline-shade: hsl(0 0% 4%);
+
+  --crow-selected-bg: var(--crow-kuning-200);
+  --crow-selected-fg: var(--crow-ink);
+  --crow-emphasis-border: var(--crow-kuning-200);
+  --crow-focus: var(--crow-biru-100);
+  --crow-card-bg: hsl(0 0% 10%);
+}
+
+:root[data-theme="light"] {
+  --sl-color-white: var(--crow-ink);
+  --sl-color-gray-1: hsl(0 0% 13%);
+  --sl-color-gray-2: hsl(0 0% 20%);
+  --sl-color-gray-3: hsl(0 0% 33%);
+  --sl-color-gray-4: hsl(0 0% 42%);
+  --sl-color-gray-5: hsl(0 0% 87%);
+  --sl-color-gray-6: var(--crow-surface-200);
+  --sl-color-gray-7: hsl(0 0% 97%);
+  --sl-color-black: var(--crow-surface-50);
+
+  --sl-color-accent-low: var(--crow-kuning-50);
+  --sl-color-accent: var(--crow-kuning-200);
+  --sl-color-accent-high: var(--crow-ink);
+  --sl-color-text-accent: var(--crow-biru-400);
+  --sl-color-text-invert: var(--crow-ink);
+  --sl-color-bg-nav: var(--crow-surface-50);
+  --sl-color-bg-sidebar: hsl(40 84% 97%);
+  --sl-color-bg-inline-code: var(--crow-surface-200);
+  --sl-color-hairline-light: hsl(0 0% 87%);
+  --sl-color-hairline: hsl(0 0% 87%);
+  --sl-color-hairline-shade: hsl(0 0% 80%);
+  --sl-color-backdrop-overlay: hsl(0 0% 4% / 0.45);
+
+  --sl-shadow-md: 3px 3px 0 0 hsl(0 0% 4% / 0.08);
+  --sl-shadow-lg: 4px 4px 0 0 var(--crow-ink);
+
+  --crow-emphasis-border: var(--crow-ink);
+  --crow-focus: var(--crow-biru-400);
+  --crow-card-bg: var(--crow-surface-50);
+}
+
+body {
+  background-color: var(--sl-color-bg);
+  font-feature-settings: "kern";
+}
+
+/* Type: Azeret Mono for headings, labels, navigation and numbers. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.sl-markdown-content :is(h1, h2, h3, h4, h5, h6),
+.sidebar-content .group-label,
+.sidebar-content .large,
+starlight-toc h2,
+mobile-starlight-toc .toggle,
+.pagination-links,
+.hero .actions a,
+.sl-badge,
+.right-sidebar-panel h2 {
+  font-family: var(--__sl-font-mono);
+  letter-spacing: -0.01em;
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4) {
+  font-weight: 600;
+}
+h1#_top {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-size: 1.875rem;
+}
+@media (min-width: 50em) {
+  h1#_top {
+    font-size: 2.375rem;
+  }
+}
+.sl-markdown-content h2 {
+  font-size: var(--sl-text-2xl);
+  padding-top: 0.25rem;
+}
+.sl-markdown-content h3 {
+  font-size: var(--sl-text-xl);
+}
+.sl-markdown-content h4 {
+  font-size: var(--sl-text-lg);
+}
+
+/* Small uppercase mono labels, as in the app's section headings. */
+.sidebar-content .group-label .large,
+starlight-toc h2 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sl-color-gray-3);
+}
+
+/* Numbers: tabular figures everywhere they line up. */
+.num,
+td.num,
+th.num,
+.sl-markdown-content td code,
+.crow-matrix td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Links and focus: biru. */
+.sl-markdown-content a {
+  text-underline-offset: 0.2em;
+}
+:focus-visible {
+  outline: 2px solid var(--crow-focus);
+  outline-offset: 2px;
+}
+
+/* Sidebar: selected page is the kuning chip with ink text, like the app's nav. */
+.sidebar-content a {
+  border-radius: 0.375rem;
+}
+.sidebar-content a[aria-current="page"],
+.sidebar-content a[aria-current="page"]:hover,
+.sidebar-content a[aria-current="page"]:focus {
+  background-color: var(--crow-selected-bg);
+  color: var(--crow-selected-fg);
+  font-weight: 600;
+}
+.sidebar-content ul ul li {
+  border-inline-start-color: var(--sl-color-hairline-light);
+}
+
+/* Header: hairline bottom border, no shadow. */
+header.header {
+  border-bottom: 1px solid var(--sl-color-hairline);
+}
+
+/* Badges: mono, squared. */
+.sl-badge {
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Inline code: quiet surface, no border noise. */
+.sl-markdown-content :not(pre) > code {
+  border-radius: 0.25rem;
+  padding: 0.1em 0.3em;
+  overflow-wrap: anywhere;
+}
+
+/* Tables are first-class: dense rows, hairlines, sticky-feeling header, right-aligned numbers. */
+.sl-markdown-content table {
+  font-size: var(--sl-text-sm);
+  border-collapse: collapse;
+}
+.sl-markdown-content :is(th, td) {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid var(--sl-color-hairline);
+  vertical-align: top;
+}
+.sl-markdown-content th {
+  font-family: var(--__sl-font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--sl-color-gray-3);
+  background: transparent;
+  border-bottom: 1px solid var(--sl-color-gray-5);
+}
+.sl-markdown-content tr:nth-child(2n) {
+  background: transparent;
+}
+.sl-markdown-content :is(th.num, td.num) {
+  text-align: end;
+}
+
+/* Asides: hairline box with a solid left rule, no tinted gradients. */
+.starlight-aside {
+  border-radius: 0.375rem;
+  border: 1px solid var(--sl-color-hairline);
+  border-inline-start: 4px solid var(--sl-color-asides-border);
+}
+.starlight-aside__title {
+  font-family: var(--__sl-font-mono);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.starlight-aside--note {
+  --sl-color-asides-border: var(--crow-biru-400);
+}
+.starlight-aside--tip {
+  --sl-color-asides-border: var(--crow-kuning-300);
+}
+.starlight-aside--caution {
+  --sl-color-asides-border: var(--crow-oren-400);
+}
+.starlight-aside--danger {
+  --sl-color-asides-border: var(--crow-danger-200);
+}
+
+/* Cards: hairline, flat. */
+.card {
+  border: 1px solid var(--sl-color-hairline) !important;
+  border-radius: 0.5rem;
+  background: var(--crow-card-bg) !important;
+  box-shadow: none;
+}
+.card .title {
+  font-family: var(--__sl-font-mono);
+  font-size: var(--sl-text-base) !important;
+  font-weight: 600;
+}
+.card .icon {
+  border: 1px solid var(--sl-color-hairline) !important;
+  background: var(--crow-kuning-50) !important;
+  color: var(--crow-ink) !important;
+}
+.link-card {
+  border-radius: 0.5rem !important;
+  box-shadow: none !important;
+}
+.link-card:hover {
+  border-color: var(--crow-emphasis-border) !important;
+}
+
+/* Hero (home page): the primary action is the one hard-shadow emphasis surface. */
+.hero h1 {
+  font-family: var(--__sl-font-mono);
+  letter-spacing: -0.03em;
+  font-size: clamp(2rem, 4.2vw, 3.25rem);
+  line-height: 1.15;
+}
+.hero .tagline {
+  color: var(--sl-color-gray-2);
+}
+.hero .actions a {
+  border-radius: 0.375rem;
+  font-size: var(--sl-text-sm);
+  font-weight: 600;
+}
+.hero .actions a.primary {
+  background: var(--crow-kuning-200);
+  color: var(--crow-ink);
+  border: 2px solid var(--crow-ink);
+  box-shadow: 4px 4px 0 0 var(--crow-ink);
+}
+:root:not([data-theme="light"]) .hero .actions a.primary {
+  box-shadow: 4px 4px 0 0 var(--crow-kuning-300);
+  border-color: var(--crow-ink);
+}
+.hero .actions a.primary:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 3px 3px 0 0 var(--crow-ink);
+}
+.hero .actions a.secondary,
+.hero .actions a.minimal {
+  border: 1px solid var(--sl-color-gray-5);
+  color: var(--sl-color-white);
+}
+
+/* Search dialog: modal surface, so it gets the 2px ink border + hard offset. */
+site-search dialog {
+  border: 2px solid var(--crow-emphasis-border) !important;
+  border-radius: 0.5rem;
+  box-shadow: var(--sl-shadow-lg);
+}
+site-search button[data-open-modal] {
+  border-radius: 0.375rem;
+}
+
+/* Screenshots: hairline frame, never a drop shadow. */
+.sl-markdown-content img {
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 0.375rem;
+}
+
+/* Status pill used by "Coming soon" pages and verification labels. */
+.crow-pill {
+  display: inline-block;
+  font-family: var(--__sl-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  border: 1px solid currentColor;
+  vertical-align: middle;
+}
+.crow-pill--soon {
+  color: var(--sl-color-gray-2);
+}
+.crow-pill--tested {
+  color: var(--crow-success-300);
+}
+.crow-pill--untested {
+  color: var(--crow-warning-400);
+}
+:root:not([data-theme="light"]) .crow-pill--tested {
+  color: hsl(119 45% 62%);
+}
+:root:not([data-theme="light"]) .crow-pill--untested {
+  color: hsl(34 85% 64%);
+}
+
+/* Permission matrix */
+.crow-matrix-wrap {
+  overflow-x: auto;
+}
+.crow-matrix {
+  width: 100%;
+}
+.crow-matrix td.cell {
+  text-align: center;
+  font-family: var(--__sl-font-mono);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.crow-matrix td.cell--none {
+  color: var(--sl-color-gray-4);
+}
+.crow-matrix td.cell--all {
+  font-weight: 600;
+}
+.crow-matrix tr:target {
+  background: var(--sl-color-accent-low);
+}
+/* Matrix row headers read as normal cells; group headers as quiet mono labels. */
+.sl-markdown-content .crow-matrix th[scope="row"] {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--__sl-font);
+  font-size: var(--sl-text-sm);
+  font-weight: 400;
+  color: var(--sl-color-white);
+  border-bottom: 1px solid var(--sl-color-hairline);
+}
+.sl-markdown-content .crow-matrix th[scope="row"] code {
+  font-size: 0.75rem;
+}
+.sl-markdown-content .crow-matrix th[scope="rowgroup"] {
+  padding-top: 1rem;
+  color: var(--sl-color-white);
+}
+.crow-matrix th[scope="rowgroup"] .crow-pill {
+  margin-inline-start: 0.5rem;
+}
+
+/* API reference */
+.api-op {
+  border-top: 1px solid var(--sl-color-hairline);
+  padding-top: 1.25rem;
+  margin-top: 2rem;
+}
+.api-op__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: var(--sl-text-lg) !important;
+  line-height: 1.4;
+}
+.api-path {
+  font-size: var(--sl-text-base);
+  background: none !important;
+  padding: 0 !important;
+  overflow-wrap: anywhere;
+}
+.api-method {
+  font-family: var(--__sl-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--sl-color-gray-5);
+  color: var(--sl-color-white);
+}
+.api-method--get {
+  border-color: var(--crow-biru-400);
+}
+.api-method--post {
+  background: var(--crow-kuning-200);
+  color: var(--crow-ink);
+  border-color: var(--crow-ink);
+}
+.api-method--put,
+.api-method--patch {
+  border-color: var(--crow-oren-400);
+}
+.api-method--delete {
+  border-color: var(--crow-danger-200);
+}
+.api-op__summary {
+  font-weight: 500;
+  color: var(--sl-color-white);
+}
+.api-meta {
+  display: grid;
+  gap: 0.25rem;
+  font-size: var(--sl-text-sm);
+}
+.api-meta > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.api-meta dt {
+  font-family: var(--__sl-font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sl-color-gray-3);
+  min-width: 9rem;
+  padding-top: 0.15rem;
+}
+.api-meta dd {
+  margin: 0;
+}
+.api-sub {
+  font-size: 0.75rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sl-color-gray-3);
+  margin-top: 1.25rem !important;
+}
+.api-table-wrap {
+  overflow-x: auto;
+}
+.api-table {
+  width: 100%;
+  font-size: var(--sl-text-sm);
+}
+.api-table td.num,
+.api-table th.num {
+  text-align: end;
+  font-family: var(--__sl-font-mono);
+}
+.api-status {
+  font-family: var(--__sl-font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.api-status--error {
+  color: var(--crow-danger-300);
+}
+:root:not([data-theme="light"]) .api-status--error {
+  color: hsl(0 70% 72%);
+}
+.api-response__head {
+  margin-bottom: 0.25rem;
+}
+.api-errors {
+  list-style: none;
+  padding: 0;
+  font-size: var(--sl-text-sm);
+}
+.schema-tree {
+  list-style: none;
+  padding-inline-start: 0.9rem;
+  border-inline-start: 1px solid var(--sl-color-hairline);
+  margin: 0.25rem 0 0.5rem;
+  font-size: var(--sl-text-sm);
+}
+.sl-markdown-content .schema-tree li,
+.schema-tree li {
+  margin: 0.2rem 0;
+}
+.schema-tree details > summary {
+  cursor: pointer;
+}
+.field-head {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.schema-tree .field-name {
+  font-weight: 600;
+  background: none;
+  padding: 0;
+}
+.field-type {
+  font-family: var(--__sl-font-mono);
+  font-size: 0.75rem;
+  color: var(--sl-color-gray-3);
+}
+.field-flag {
+  font-family: var(--__sl-font-mono);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sl-color-gray-3);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.2rem;
+  padding: 0 0.25rem;
+}
+.field-flag--sensitive {
+  color: var(--crow-warning-400);
+  border-color: currentColor;
+}
+:root:not([data-theme="light"]) .field-flag--sensitive {
+  color: hsl(34 85% 64%);
+}
+.field-desc,
+.field-notes {
+  margin: 0.1rem 0 0 !important;
+  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-xs);
+}

@@ -1,0 +1,35 @@
+---
+title: OpenID Connect (Okta, Keycloak, Authentik)
+description: Connect any OpenID Connect identity provider with discovery - Okta, Keycloak, Authentik and others - to Crow HR.
+---
+
+Any identity provider that publishes an OpenID Connect discovery document (`<issuer>/.well-known/openid-configuration`) and supports the authorisation code flow can be used. The same code serves Google and Entra; this preset just has no provider-specific checks.
+
+## What your provider must support
+
+- Authorisation code flow with PKCE (S256) and `response_mode=query`.
+- Client authentication with a client secret.
+- Scopes `openid email profile`, and an `email` plus `email_verified: true` claim in the ID token if you want first sign-ins to link by email. Without a verified email, members link only through their invitation link.
+
+## Set it up
+
+1. **In your provider**, create an OpenID Connect **web application** (Okta: *App integration → OIDC → Web Application*; Keycloak: a *client* with client authentication on and the standard flow enabled; Authentik: an *OAuth2/OpenID Provider* with an *Application*). Note the **issuer URL**, **client ID** and **client secret**.
+
+   Issuer examples: Keycloak `https://sso.example.sg/realms/acme`, Okta `https://example.okta.com` (or an authorisation server URL), Authentik `https://auth.example.sg/application/o/crow-hr/`.
+
+2. **Crow HR**: in **Settings → Security** choose **Add a method → OpenID Connect**. Enter a **Button label** (shown as "Sign in with …", for example `Okta`), the issuer URL, client ID and secret. Optionally set allowed email domains for [JIT accounts](/docs/admin/sign-in-methods/#creating-accounts-on-first-sign-in-jit). Save: Crow HR fetches the discovery document and refuses to save if it is unreachable or its `issuer` does not match what you entered.
+
+3. Copy the **Redirect URI** shown after saving and register it in the provider as the allowed redirect (Keycloak: *Valid redirect URIs*; Okta: *Sign-in redirect URIs*; Authentik: *Redirect URIs*).
+
+4. Use **Test sign-in**, then switch the method on.
+
+
+## Common errors
+
+| Symptom | Cause |
+| --- | --- |
+| Save fails: discovery document could not be fetched | The Crow HR server cannot reach `<issuer>/.well-known/openid-configuration` (DNS, firewall, TLS certificate), or the issuer is mistyped. Crow HR fetches it from the server, not from your browser. |
+| Save fails: issuer does not match | Enter the issuer exactly as the discovery document's `issuer` value, including any trailing slash. |
+| Audit reason `email_not_verified` | The ID token lacks `email_verified: true`. Configure the provider to send it, or link through invitations. |
+
+The flow is tested end to end against an in-process mock identity provider (`packages/core/testing/mock-oidc.ts`). Okta, Keycloak and Authentik themselves have not been tested.

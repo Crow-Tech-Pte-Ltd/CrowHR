@@ -9,7 +9,8 @@
 # Health:  docker compose ps     /     docker compose exec app crowhr doctor
 #
 # Only the app port is published. Bring your own reverse proxy (Caddy, nginx, Traefik,
-# Cloudflare Tunnel) or none on a LAN: see docs/self-hosting/reverse-proxy.md.
+# Cloudflare Tunnel) or none on a LAN: see https://hr.crow.sg/docs/self-hosting/reverse-proxy/
+# (source: apps/docs/src/content/docs/self-hosting/reverse-proxy.md).
 
 x-crowhr-image: &crowhr-image
   # NOT PUBLISHED YET: the registry name is unconfirmed and nothing is pushed without approval.

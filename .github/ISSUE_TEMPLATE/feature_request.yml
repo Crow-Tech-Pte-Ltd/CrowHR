@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest something Crow HR should do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the project status page in the docs first: leave, attendance, claims, scheduling, documents and reporting are already planned.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+    validations:
+      required: true
+  - type: textarea
+    id: rules
+    attributes:
+      label: Singapore rules involved
+      description: If this touches CPF, IRAS, MOM or other statutory rules, link the official source.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

@@ -36,7 +36,7 @@
 ## 7. Upgrades and docs (M3)
 
 - [x] 7.1 apps/server: write `src/migrate/skip-versions.test.ts` (database at an older migration tag upgrades through all later migrations in one start) then fix any gaps
-- [x] 7.2 apps/docs: install, reverse proxy examples (Caddy, nginx, Traefik, Cloudflare Tunnel with TRUSTED_PROXIES values), backup/restore, copying backups off-host, upgrade and troubleshooting pages — verified by following the install page verbatim in `e2e/self-host.sh` — drafts in `docs/self-hosting/` (the docs site does not exist yet; WS8 moves them); only the Caddy example is exercised
+- [x] 7.2 apps/docs: install, reverse proxy examples (Caddy, nginx, Traefik, Cloudflare Tunnel with TRUSTED_PROXIES values), backup/restore, copying backups off-host, upgrade and troubleshooting pages — verified by following the install page verbatim in `e2e/self-host.sh` — moved into the docs site (`apps/docs/src/content/docs/self-hosting/`, pointer in `docs/self-hosting/README.md`) with a `crowhr` CLI reference; only the Caddy example is exercised
 - [x] 7.3 root: multi-arch buildx verification for amd64 + arm64 — verified once locally under resource limits; publishing to GHCR is NOT part of this task and needs Daniel's approval — arm64 built once with buildx + QEMU, argon2 loads and the server starts against PostgreSQL 17; CI builds amd64 only; nothing published
 
 ## 8. Break-glass CLI (added during implementation)

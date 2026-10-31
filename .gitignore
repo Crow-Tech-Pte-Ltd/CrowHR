@@ -19,3 +19,6 @@ blob-report/
 # TanStack Router generated tree is committed; Vite cache is not
 .vite/
 .claude/worktrees/
+
+# Astro generated types (apps/docs)
+.astro/
