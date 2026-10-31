@@ -1,4 +1,5 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { eq, isNull, sql } from "drizzle-orm";
+import { orgScope } from "../../access/org-scope.ts";
 import {
   employees,
   type ImportCellError,
@@ -161,27 +162,28 @@ interface Lookups {
 }
 
 async function lookups(db: Db, orgId: string): Promise<Lookups> {
+  const org = orgScope(db, orgId);
   const [d, t, l, c, s] = await Promise.all([
     db
       .select({ id: departments.id, name: departments.name })
       .from(departments)
-      .where(and(eq(departments.orgId, orgId), isNull(departments.archivedAt))),
+      .where(org.where(departments, isNull(departments.archivedAt))),
     db
       .select({ id: teams.id, name: teams.name })
       .from(teams)
-      .where(and(eq(teams.orgId, orgId), isNull(teams.archivedAt))),
+      .where(org.where(teams, isNull(teams.archivedAt))),
     db
       .select({ id: locations.id, name: locations.name })
       .from(locations)
-      .where(and(eq(locations.orgId, orgId), isNull(locations.archivedAt))),
+      .where(org.where(locations, isNull(locations.archivedAt))),
     db
       .select({ id: costCentres.id, name: costCentres.code })
       .from(costCentres)
-      .where(and(eq(costCentres.orgId, orgId), isNull(costCentres.archivedAt))),
+      .where(org.where(costCentres, isNull(costCentres.archivedAt))),
     db
       .select({ id: workSchedules.id, name: workSchedules.name })
       .from(workSchedules)
-      .where(and(eq(workSchedules.orgId, orgId), isNull(workSchedules.archivedAt))),
+      .where(org.where(workSchedules, isNull(workSchedules.archivedAt))),
   ]);
   return { departments: d, teams: t, locations: l, costCentres: c, schedules: s };
 }
@@ -213,10 +215,11 @@ function resolve(
 }
 
 async function employeeIdByNumber(db: Db, orgId: string, number: string): Promise<string | null> {
+  const org = orgScope(db, orgId);
   const [e] = await db
     .select({ id: employees.id })
     .from(employees)
-    .where(and(eq(employees.orgId, orgId), sql`lower(${employees.employeeNumber}) = ${number.trim().toLowerCase()}`));
+    .where(org.where(employees, sql`lower(${employees.employeeNumber}) = ${number.trim().toLowerCase()}`));
   return e?.id ?? null;
 }
 
@@ -626,10 +629,7 @@ export async function previewImport(
 }
 
 export async function getImport(deps: AppDeps, actor: Actor, jobId: string): Promise<ImportPreview> {
-  const [job] = await deps.db
-    .select()
-    .from(importJobs)
-    .where(and(eq(importJobs.orgId, actor.orgId), eq(importJobs.id, jobId)));
+  const [job] = await deps.db.select().from(importJobs).where(actor.org.whereId(importJobs, jobId));
   if (!job) throw new AppError("not_found", "No such import.");
   assertImportAllowed(actor, job.kind);
   return toPreview(job, null, deps.clock.now());
@@ -642,10 +642,7 @@ export async function commitImport(
   actor: Actor,
   jobId: string,
 ): Promise<ImportPreview> {
-  const [job] = await deps.db
-    .select()
-    .from(importJobs)
-    .where(and(eq(importJobs.orgId, actor.orgId), eq(importJobs.id, jobId)));
+  const [job] = await deps.db.select().from(importJobs).where(actor.org.whereId(importJobs, jobId));
   if (!job) throw new AppError("not_found", "No such import.");
   assertImportAllowed(actor, job.kind);
   const now = deps.clock.now();
@@ -692,15 +689,12 @@ export async function commitImport(
 
 /** YTD opening balances for payroll (one row per employee and year). */
 export async function ytdOpeningBalance(db: Db, orgId: string, employeeId: string, year: number) {
+  const org = orgScope(db, orgId);
   const [row] = await db
     .select()
     .from(ytdOpeningBalances)
     .where(
-      and(
-        eq(ytdOpeningBalances.orgId, orgId),
-        eq(ytdOpeningBalances.employeeId, employeeId),
-        eq(ytdOpeningBalances.year, year),
-      ),
+      org.where(ytdOpeningBalances, eq(ytdOpeningBalances.employeeId, employeeId), eq(ytdOpeningBalances.year, year)),
     );
   return row ?? null;
 }

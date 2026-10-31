@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { type WorkPass, workPasses } from "../db/schema/employees.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
@@ -70,7 +70,7 @@ export async function listWorkPasses(deps: AppDeps, actor: Actor, employeeId: st
   const rows = await deps.db
     .select()
     .from(workPasses)
-    .where(and(eq(workPasses.orgId, actor.orgId), eq(workPasses.employeeId, employeeId)))
+    .where(actor.org.where(workPasses, eq(workPasses.employeeId, employeeId)))
     .orderBy(asc(workPasses.expiresOn));
   const today = singaporeToday(deps.clock.now());
   return rows.map((p) => toPassView(p, today));
@@ -133,7 +133,7 @@ export async function updateWorkPass(
   const [before] = await deps.db
     .select()
     .from(workPasses)
-    .where(and(eq(workPasses.orgId, actor.orgId), eq(workPasses.employeeId, employeeId), eq(workPasses.id, passId)));
+    .where(actor.org.where(workPasses, eq(workPasses.employeeId, employeeId), eq(workPasses.id, passId)));
   if (!before) throw new AppError("not_found", "No such work pass.");
   const input = parseInput(workPassPatch, raw);
   const set: Partial<WorkPass> = { updatedAt: deps.clock.now() };

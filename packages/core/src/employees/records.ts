@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { orgScope } from "../access/org-scope.ts";
 import {
   allowanceTypes,
   bankAccounts,
@@ -27,15 +28,13 @@ import { overallPassState, type PassState, toPassView, type WorkPassView } from 
 
 /** Lookup maps for structure names (archived entries included: history must still render). */
 export async function structureNames(db: Db, orgId: string) {
+  const org = orgScope(db, orgId);
   const [d, t, l, c, s] = await Promise.all([
-    db.select({ id: departments.id, name: departments.name }).from(departments).where(eq(departments.orgId, orgId)),
-    db.select({ id: teams.id, name: teams.name }).from(teams).where(eq(teams.orgId, orgId)),
-    db.select({ id: locations.id, name: locations.name }).from(locations).where(eq(locations.orgId, orgId)),
-    db.select({ id: costCentres.id, name: costCentres.name }).from(costCentres).where(eq(costCentres.orgId, orgId)),
-    db
-      .select({ id: workSchedules.id, name: workSchedules.name })
-      .from(workSchedules)
-      .where(eq(workSchedules.orgId, orgId)),
+    db.select({ id: departments.id, name: departments.name }).from(departments).where(org.where(departments)),
+    db.select({ id: teams.id, name: teams.name }).from(teams).where(org.where(teams)),
+    db.select({ id: locations.id, name: locations.name }).from(locations).where(org.where(locations)),
+    db.select({ id: costCentres.id, name: costCentres.name }).from(costCentres).where(org.where(costCentres)),
+    db.select({ id: workSchedules.id, name: workSchedules.name }).from(workSchedules).where(org.where(workSchedules)),
   ]);
   const map = (rows: { id: string; name: string }[]) => new Map(rows.map((r) => [r.id, r.name]));
   return { departments: map(d), teams: map(t), locations: map(l), costCentres: map(c), schedules: map(s) };
@@ -94,12 +93,13 @@ interface Loaded {
 
 /** Everything the directory needs, as at today, in a handful of queries (fine for SME headcounts). */
 async function loadDirectory(db: Db, orgId: string, today: string, withPasses: boolean): Promise<Loaded> {
+  const org = orgScope(db, orgId);
   const [emps, recs, tens, names, passes] = await Promise.all([
-    db.select().from(employees).where(eq(employees.orgId, orgId)),
-    db.select().from(employmentRecords).where(eq(employmentRecords.orgId, orgId)),
-    db.select().from(tenures).where(eq(tenures.orgId, orgId)),
+    db.select().from(employees).where(org.where(employees)),
+    db.select().from(employmentRecords).where(org.where(employmentRecords)),
+    db.select().from(tenures).where(org.where(tenures)),
     structureNames(db, orgId),
-    withPasses ? db.select().from(workPasses).where(eq(workPasses.orgId, orgId)) : Promise.resolve([]),
+    withPasses ? db.select().from(workPasses).where(org.where(workPasses)) : Promise.resolve([]),
   ]);
   const byEmp = <T extends { employeeId: string }>(rows: T[]) => {
     const m = new Map<string, T[]>();
@@ -294,12 +294,8 @@ const SECTION_FIELDS: Partial<Record<Section, string>> = {
 
 export async function getEmployee(deps: AppDeps, actor: Actor, employeeId: string): Promise<EmployeeDetail> {
   const { db } = deps;
-  const orgId = actor.orgId;
-  const [e] = await db
-    .select()
-    .from(employees)
-    .where(and(eq(employees.orgId, orgId), eq(employees.id, employeeId)));
-  if (!e) throw new AppError("not_found", "That employee record doesn't exist or you can't see it.");
+  const { orgId, org } = actor;
+  const e = await org.getById(employees, employeeId, "employee record");
   await assertCanRead(actor, "directory", employeeId);
   const today = singaporeToday(deps.clock.now());
   const sections = await readableSections(actor, employeeId);
@@ -307,12 +303,12 @@ export async function getEmployee(deps: AppDeps, actor: Actor, employeeId: strin
   const recs = await db
     .select()
     .from(employmentRecords)
-    .where(and(eq(employmentRecords.orgId, orgId), eq(employmentRecords.employeeId, employeeId)))
+    .where(org.where(employmentRecords, eq(employmentRecords.employeeId, employeeId)))
     .orderBy(desc(employmentRecords.effectiveFrom));
   const ten = await db
     .select()
     .from(tenures)
-    .where(and(eq(tenures.orgId, orgId), eq(tenures.employeeId, employeeId)))
+    .where(org.where(tenures, eq(tenures.employeeId, employeeId)))
     .orderBy(asc(tenures.hireDate));
   const current = findAsAt(recs, today) ?? recs.find((r) => r.effectiveFrom > today) ?? recs[0];
   const managerIds = [...new Set(recs.map((r) => r.managerEmployeeId).filter((x): x is string => !!x))];
@@ -320,7 +316,7 @@ export async function getEmployee(deps: AppDeps, actor: Actor, employeeId: strin
     ? await db
         .select({ id: employees.id, legalName: employees.legalName, preferredName: employees.preferredName })
         .from(employees)
-        .where(and(eq(employees.orgId, orgId), inArray(employees.id, managerIds)))
+        .where(org.where(employees, inArray(employees.id, managerIds)))
     : [];
   const mgrName = new Map(managers.map((m) => [m.id, displayName(m)]));
 
@@ -356,8 +352,8 @@ export async function getEmployee(deps: AppDeps, actor: Actor, employeeId: strin
         and(eq(employees.orgId, employmentRecords.orgId), eq(employees.id, employmentRecords.employeeId)),
       )
       .where(
-        and(
-          eq(employmentRecords.orgId, orgId),
+        org.where(
+          employmentRecords,
           eq(employmentRecords.managerEmployeeId, employeeId),
           inForceOn(employmentRecords, today),
         ),
@@ -417,7 +413,7 @@ export async function getEmployee(deps: AppDeps, actor: Actor, employeeId: strin
     const rows = await db
       .select()
       .from(emergencyContacts)
-      .where(and(eq(emergencyContacts.orgId, orgId), eq(emergencyContacts.employeeId, employeeId)))
+      .where(org.where(emergencyContacts, eq(emergencyContacts.employeeId, employeeId)))
       .orderBy(asc(emergencyContacts.position));
     out.emergencyContacts = rows.map((c) => ({
       id: c.id,
@@ -430,7 +426,7 @@ export async function getEmployee(deps: AppDeps, actor: Actor, employeeId: strin
     const rows = await db
       .select()
       .from(workPasses)
-      .where(and(eq(workPasses.orgId, orgId), eq(workPasses.employeeId, employeeId)))
+      .where(org.where(workPasses, eq(workPasses.employeeId, employeeId)))
       .orderBy(desc(workPasses.expiresOn));
     out.workPasses = rows.map((p) => toPassView(p, today));
   }
@@ -443,10 +439,11 @@ export async function getEmployee(deps: AppDeps, actor: Actor, employeeId: strin
 }
 
 export async function compensationOf(db: Db, orgId: string, employeeId: string, today: string) {
+  const org = orgScope(db, orgId);
   const rows = await db
     .select()
     .from(compensationRecords)
-    .where(and(eq(compensationRecords.orgId, orgId), eq(compensationRecords.employeeId, employeeId)))
+    .where(org.where(compensationRecords, eq(compensationRecords.employeeId, employeeId)))
     .orderBy(desc(compensationRecords.effectiveFrom));
   const history: CompensationView[] = rows.map((r) => ({
     id: r.id,
@@ -468,7 +465,7 @@ export async function compensationOf(db: Db, orgId: string, employeeId: string, 
         eq(allowanceTypes.id, recurringAllowances.allowanceTypeId),
       ),
     )
-    .where(and(eq(recurringAllowances.orgId, orgId), eq(recurringAllowances.employeeId, employeeId)))
+    .where(org.where(recurringAllowances, eq(recurringAllowances.employeeId, employeeId)))
     .orderBy(desc(recurringAllowances.effectiveFrom));
   return {
     current: findAsAt(history, today) ?? null,
@@ -485,10 +482,11 @@ export async function compensationOf(db: Db, orgId: string, employeeId: string, 
 }
 
 export async function bankOf(db: Db, orgId: string, employeeId: string, today: string) {
+  const org = orgScope(db, orgId);
   const rows = await db
     .select()
     .from(bankAccounts)
-    .where(and(eq(bankAccounts.orgId, orgId), eq(bankAccounts.employeeId, employeeId)))
+    .where(org.where(bankAccounts, eq(bankAccounts.employeeId, employeeId)))
     .orderBy(desc(bankAccounts.effectiveFrom));
   const history: BankView[] = rows.map((b) => ({
     id: b.id,
@@ -504,21 +502,20 @@ export async function bankOf(db: Db, orgId: string, employeeId: string, today: s
 
 /** 404 unless the employee exists in the actor's organisation. */
 export async function assertEmployeeInOrg(db: Db, orgId: string, employeeId: string): Promise<void> {
-  const [e] = await db
-    .select({ id: employees.id })
-    .from(employees)
-    .where(and(eq(employees.orgId, orgId), eq(employees.id, employeeId)));
+  const org = orgScope(db, orgId);
+  const [e] = await db.select({ id: employees.id }).from(employees).where(org.whereId(employees, employeeId));
   if (!e) throw new AppError("not_found", "That employee record doesn't exist or you can't see it.");
 }
 
 /** Pending change requests for the employee themself (never shown to others). */
 export async function pendingRequestsFor(db: Db, orgId: string, employeeId: string) {
+  const org = orgScope(db, orgId);
   return db
     .select()
     .from(profileChangeRequests)
     .where(
-      and(
-        eq(profileChangeRequests.orgId, orgId),
+      org.where(
+        profileChangeRequests,
         eq(profileChangeRequests.employeeId, employeeId),
         eq(profileChangeRequests.status, "pending"),
       ),

@@ -1,5 +1,6 @@
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { orgScope } from "../access/org-scope.ts";
 import { allowanceTypes, bankAccounts, type Employee, emergencyContacts, employees } from "../db/schema/employees.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
@@ -17,12 +18,7 @@ import { addressInput, bankAccountInput, emergencyContactsInput, personPatch, re
 import { fieldError, isUniqueViolation, parseInput } from "./validation.ts";
 
 async function loadEmployee(db: Db, orgId: string, employeeId: string): Promise<Employee> {
-  const [e] = await db
-    .select()
-    .from(employees)
-    .where(and(eq(employees.orgId, orgId), eq(employees.id, employeeId)));
-  if (!e) throw new AppError("not_found", "That employee record doesn't exist or you can't see it.");
-  return e;
+  return orgScope(db, orgId).getById(employees, employeeId, "employee record");
 }
 
 /** Fields an admin edits on the profile (personal and identity). Employment changes go through events. */
@@ -111,7 +107,7 @@ export async function applyPersonalPatch(
     await tx
       .update(employees)
       .set(set)
-      .where(and(eq(employees.orgId, actor.orgId), eq(employees.id, employeeId)))
+      .where(actor.org.whereId(employees, employeeId))
       .catch((err: unknown) => {
         if (isUniqueViolation(err))
           throw new AppError("duplicate_id_number", "This ID number is already used by another employee.");
@@ -146,9 +142,8 @@ async function writeEmergencyContacts(
   employeeId: string,
   contacts: z.output<typeof emergencyContactsInput>,
 ) {
-  await tx
-    .delete(emergencyContacts)
-    .where(and(eq(emergencyContacts.orgId, orgId), eq(emergencyContacts.employeeId, employeeId)));
+  const org = orgScope(tx, orgId);
+  await tx.delete(emergencyContacts).where(org.where(emergencyContacts, eq(emergencyContacts.employeeId, employeeId)));
   for (const [position, c] of contacts.entries()) {
     await tx.insert(emergencyContacts).values({
       id: deps.ids.newId(),
@@ -207,10 +202,7 @@ export async function updateOwnProfile(deps: AppDeps, ports: PeoplePorts, actor:
   if (patch.mobile !== undefined) set.mobileE164 = phoneOrError(patch.mobile, "mobile");
   if (patch.address !== undefined) set.address = patch.address ?? null;
   await deps.db.transaction(async (tx) => {
-    await tx
-      .update(employees)
-      .set(set)
-      .where(and(eq(employees.orgId, actor.orgId), eq(employees.id, employeeId)));
+    await tx.update(employees).set(set).where(actor.org.whereId(employees, employeeId));
     if (patch.emergencyContacts)
       await writeEmergencyContacts(tx, deps, actor.orgId, employeeId, patch.emergencyContacts);
     const { updatedAt: _u, ...visible } = set;
@@ -264,7 +256,7 @@ export async function setBankAccount(
     const existing = await tx
       .select()
       .from(bankAccounts)
-      .where(and(eq(bankAccounts.orgId, actor.orgId), eq(bankAccounts.employeeId, employeeId)));
+      .where(actor.org.where(bankAccounts, eq(bankAccounts.employeeId, employeeId)));
     const plan = planInsert(existing, input.effectiveFrom);
     if (plan.close) {
       await tx.update(bankAccounts).set({ effectiveTo: input.effectiveFrom }).where(eq(bankAccounts.id, plan.close.id));
@@ -329,7 +321,7 @@ export async function listAllowanceTypes(deps: AppDeps, actor: Actor) {
   const rows = await deps.db
     .select()
     .from(allowanceTypes)
-    .where(eq(allowanceTypes.orgId, actor.orgId))
+    .where(actor.org.where(allowanceTypes))
     .orderBy(asc(allowanceTypes.name));
   return rows.map((r) => ({ id: r.id, code: r.code, name: r.name, archived: r.archivedAt !== null }));
 }

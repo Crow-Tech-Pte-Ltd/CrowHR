@@ -1,4 +1,5 @@
-import { and, eq, ne, sql } from "drizzle-orm";
+import { eq, ne, sql } from "drizzle-orm";
+import { orgScope } from "../access/org-scope.ts";
 import { employees } from "../db/schema/employees.ts";
 import { organisations } from "../db/schema/organisations.ts";
 import type { Db } from "../db/types.ts";
@@ -26,12 +27,13 @@ export async function sealIdNumber(
 
 /** 409 `duplicate_id_number` (including former employees), pointing at the rehire flow. */
 export async function assertIdNumberFree(db: Db, orgId: string, hmac: string, exceptEmployeeId?: string) {
+  const org = orgScope(db, orgId);
   const [existing] = await db
     .select({ id: employees.id, name: employees.legalName, number: employees.employeeNumber })
     .from(employees)
     .where(
-      and(
-        eq(employees.orgId, orgId),
+      org.where(
+        employees,
         eq(employees.idNumberHmac, hmac),
         exceptEmployeeId ? ne(employees.id, exceptEmployeeId) : undefined,
       ),
@@ -51,6 +53,7 @@ export async function assertIdNumberFree(db: Db, orgId: string, hmac: string, ex
 
 /** Serialises employee-number allocation per organisation by locking the org row. */
 export async function nextEmployeeNumber(tx: Db, orgId: string): Promise<string> {
+  const org = orgScope(tx, orgId);
   await tx.select({ id: organisations.id }).from(organisations).where(eq(organisations.id, orgId)).for("update");
   const [row] = await tx
     .select({
@@ -59,7 +62,7 @@ export async function nextEmployeeNumber(tx: Db, orgId: string): Promise<string>
       >`max(nullif(regexp_replace(${employees.employeeNumber}, '^E', ''), '')::int) filter (where ${employees.employeeNumber} ~ '^E[0-9]+$')`,
     })
     .from(employees)
-    .where(eq(employees.orgId, orgId));
+    .where(org.where(employees));
   const next = Number(row?.max ?? 0) + 1;
   return `E${String(next).padStart(4, "0")}`;
 }

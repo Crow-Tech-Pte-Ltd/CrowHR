@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { orgScope } from "../access/org-scope.ts";
 import { type CompanyProfile, companyProfiles } from "../db/schema/organisation.ts";
 import { organisations } from "../db/schema/organisations.ts";
 import type { AppDeps } from "../deps.ts";
@@ -103,7 +104,8 @@ export function toView(p: CompanyProfile): CompanyProfileView {
 }
 
 export async function getCompanyProfile(deps: AppDeps, orgId: string): Promise<CompanyProfile | null> {
-  const [row] = await deps.db.select().from(companyProfiles).where(eq(companyProfiles.orgId, orgId));
+  const org = orgScope(deps.db, orgId);
+  const [row] = await deps.db.select().from(companyProfiles).where(org.where(companyProfiles));
   return row ?? null;
 }
 
@@ -200,7 +202,7 @@ export async function saveCompanyLogo(
     await tx
       .update(companyProfiles)
       .set({ logoFileKey: key, logoContentType: file.contentType, updatedAt: deps.clock.now() })
-      .where(eq(companyProfiles.orgId, actor.orgId));
+      .where(actor.org.where(companyProfiles));
     await recordAudit(tx, ports, actor, {
       action: "company_profile.logo_updated",
       targetType: "organisation",
