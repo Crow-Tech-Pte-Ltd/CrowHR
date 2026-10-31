@@ -1,6 +1,7 @@
 import { Button, cn, formatDate, Skeleton, StatusPill, Textarea, toast } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CircleDashed, CircleSlash, Clock, MessageSquare, Undo2, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowUpRight, Check, CircleDashed, CircleSlash, Clock, MessageSquare, Undo2, X } from "lucide-react";
 import * as React from "react";
 import { ErrorNote } from "../components/section.tsx";
 import { ApiError, apiPost } from "../lib/api.ts";
@@ -71,6 +72,15 @@ export function RequestPanel({
           Sent {when(d.submittedAt)}
           {d.decidedAt ? ` · closed ${when(d.decidedAt)}` : ""} · {d.policyName} policy
         </p>
+        {d.link && !d.link.startsWith("/inbox") ? (
+          <Link
+            to={d.link}
+            className="focus-ring inline-flex w-fit items-center gap-1 rounded-sm text-ui font-medium text-biru-400 hover:underline"
+            data-testid="request-subject-link"
+          >
+            Open the {d.subjectLabel.toLowerCase()} <ArrowUpRight className="size-3.5" aria-hidden />
+          </Link>
+        ) : null}
         {actions ? <div className="pt-2">{actions(d)}</div> : null}
       </header>
 

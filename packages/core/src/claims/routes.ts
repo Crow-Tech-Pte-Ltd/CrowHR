@@ -20,6 +20,7 @@ import {
   summaryRowSchema,
 } from "./api-schemas.ts";
 import { markPaidOutside } from "./payouts.ts";
+import { payableForPeriod } from "./reimbursement.ts";
 import { claimsSummary, exportClaims } from "./reports.ts";
 import {
   copyClaim,
@@ -340,6 +341,37 @@ export const claimsModule = defineModule({
       responses: { 200: z.object({ paid: z.int() }) },
       errors: ["not_found", "conflict"],
       handler: async ({ c, deps, body }) => markPaidOutside(deps, claimsActorFrom(c), body),
+    }),
+
+    defineRoute({
+      method: "get",
+      path: "/payable",
+      summary: "Approved claims a payroll run for the period would reimburse (one entry per claim and type)",
+      description:
+        "The same list payroll reads through `ReimbursementSource.listPayable`: approved, unpaid, payroll-payout claims approved (Asia/Singapore date) on or before `periodEnd`.",
+      access: { permission: "claims:pay" },
+      request: { query: z.object({ periodEnd: z.iso.date({ error: "Use a date in the form YYYY-MM-DD." }) }) },
+      responses: {
+        200: z.object({
+          items: z.array(
+            z.object({
+              claimId: z.uuid(),
+              employeeId: z.uuid(),
+              typeName: z.string(),
+              amountCents: z.int(),
+              claimNumber: z.string().nullable(),
+              employeeName: z.string(),
+              approvedOn: z.string().nullable(),
+              reserved: z.boolean(),
+            }),
+          ),
+          totalCents: z.int(),
+        }),
+      },
+      handler: async ({ deps, auth, query }) => {
+        const items = await payableForPeriod(deps.db, auth.orgId, query.periodEnd);
+        return { items, totalCents: items.reduce((s, i) => s + i.amountCents, 0) };
+      },
     }),
 
     // ----- Reports ---------------------------------------------------------------------------
