@@ -17,6 +17,7 @@ export function requestContext(deps: AppDeps) {
     c.set("requestId", requestId);
     c.set("logger", deps.logger.child({ requestId }));
     c.set("auth", null);
+    c.set("memo", new Map());
     c.header("x-request-id", requestId);
     await next();
   });

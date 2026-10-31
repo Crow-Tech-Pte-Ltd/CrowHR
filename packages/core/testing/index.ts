@@ -60,6 +60,7 @@ export function createTestDeps(
     fileStore: createMemoryFileStore(),
     clock,
     ids: createUuidV7Generator(clock),
+    responseValidation: "strict",
     ...overrides,
     logger,
   };

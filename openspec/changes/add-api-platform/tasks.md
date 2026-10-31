@@ -1,9 +1,9 @@
 ## 1. Route contract
 
-- [ ] 1.1 packages/core: write `http/define-route.test.ts` (validates request, strict response parse in test mode, strips unknown keys in prod mode, runs `authorize()`, registration without schemas throws naming the route) then implement `defineRoute`
-- [ ] 1.2 packages/core: write `http/versioning.test.ts` (routes under `/api/v1`, `/api/health` unversioned, `/api/v9/*` → 404 with supported versions, deprecated route sends `Deprecation` and `Sunset`) then implement the v1 router and deprecation option — request the foundation owner to mount it
-- [ ] 1.3 packages/core: write `openapi/generate.test.ts` (document is valid OpenAPI 3.1, contains every registered route, error codes, `x-sensitivity`) then implement `/api/v1/openapi.json` and the `openapi:generate` script writing `openapi/v1.snapshot.json`
-- [ ] 1.4 root: write `scripts/openapi-diff.test.ts` (removed path, removed response field, optional→required, type change, removed enum value → breaking; added optional field → OK) then implement `openapi:check` and add it to `bun run check`
+- [x] 1.1 packages/core: write `http/define-route.test.ts` (validates request, strict response parse in test mode, strips unknown keys in prod mode, runs `authorize()`, registration without schemas throws naming the route) then implement `defineRoute`
+- [x] 1.2 packages/core: write `http/versioning.test.ts` (routes under `/api/v1`, `/api/health` unversioned, `/api/v9/*` → 404 with supported versions, deprecated route sends `Deprecation` and `Sunset`) then implement the v1 router and deprecation option — request the foundation owner to mount it
+- [x] 1.3 packages/core: write `openapi/generate.test.ts` (document is valid OpenAPI 3.1, contains every registered route, error codes, `x-sensitivity`) then implement `/api/v1/openapi.json` and the `openapi:generate` script writing `openapi/v1.snapshot.json`
+- [x] 1.4 root: write `scripts/openapi-diff.test.ts` (removed path, removed response field, optional→required, type change, removed enum value → breaking; added optional field → OK) then implement `openapi:check` and add it to `bun run check` (lives in `packages/core/scripts/` so it shares core's Vitest project and Node typecheck)
 
 ## 2. Meta
 
