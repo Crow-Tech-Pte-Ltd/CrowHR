@@ -28,6 +28,8 @@ export const RESOURCE_LABELS: Record<string, string> = {
   approval_delegations: "Out-of-office cover for others",
   notification_delivery: "Email delivery status",
   rosters: "Rosters and shifts",
+  shift_templates: "Shift templates",
+  shift_swaps: "Shift swaps and open-shift pickup",
   documents: "Documents",
   policies: "Approval policies, leave and claim types",
   claim_types: "Claim types",
@@ -41,7 +43,6 @@ export const RESOURCE_LABELS: Record<string, string> = {
 
 /** Resources whose module is not built yet: the rows exist in the matrix but no endpoint uses them. */
 export const NOT_BUILT_RESOURCES = new Set([
-  "rosters",
   "documents",
   "reports_people",
   "reports_leave",
