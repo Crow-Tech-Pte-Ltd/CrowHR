@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Crow Tech tokens, ported from crow-tech-landing/app/globals.css.
+ * App adjustments (see openspec/changes/add-foundation/design.md §10):
+ * - --border is a hairline (ink at ~13% on white), not mid-grey;
+ * - --muted-foreground is #666 (AA on white) instead of #999;
+ * - --ring is biru-400 (focus rings are blue per the design language);
+ * - --accent-foreground is ink (yellow needs dark text).
+ */
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    --surface-50: 0 0% 100%; /* #FFFFFF */
+    --surface-100: 40 84% 95%; /* #FDF7E5 */
+    --surface-200: 210 10% 93%; /* #ECEDEE */
+
+    --primary-50: 0 0% 90%; /* #E5E5E5 */
+    --primary-100: 0 0% 60%; /* #999999 — decorative only, fails AA as text */
+    --primary-200: 0 0% 40%; /* #666666 */
+    --primary-300: 0 0% 20%; /* #333333 */
+    --primary-400: 0 0% 0%; /* #000000 */
+
+    --danger-50: 0 80% 95%;
+    --danger-100: 0 64% 66%;
+    --danger-200: 0 64% 47%;
+    --danger-300: 0 65% 40%;
+    --danger-400: 0 62% 26%;
+
+    --success-50: 120 56% 90%;
+    --success-100: 119 58% 76%;
+    --success-200: 119 58% 64%;
+    --success-300: 119 51% 38%;
+    --success-400: 165 80% 23%;
+
+    --warning-50: 38 87% 94%;
+    --warning-100: 35 85% 84%;
+    --warning-200: 35 85% 64%;
+    --warning-300: 34 85% 53%;
+    --warning-400: 34 86% 35%;
+
+    --biru-50: 220 87% 89%;
+    --biru-100: 220 82% 79%;
+    --biru-200: 220 86% 68%;
+    --biru-300: 220 78% 59%;
+    --biru-400: 220 78% 50%;
+
+    --oren-50: 19 100% 85%;
+    --oren-100: 19 100% 75%;
+    --oren-200: 19 99% 66%;
+    --oren-300: 19 99% 60%;
+    --oren-400: 23 84% 52%;
+
+    --kuning-50: 45 100% 90%;
+    --kuning-100: 43 100% 80%;
+    --kuning-200: 43 99% 71%;
+    --kuning-300: 43 99% 62%;
+    --kuning-400: 43 89% 51%;
+
+    /* Ink: near-black used for text, emphasised borders and hard shadows. */
+    --ink: 0 0% 4%;
+
+    --background: var(--surface-50);
+    --foreground: var(--ink);
+    --card: var(--surface-50);
+    --card-foreground: var(--ink);
+    --popover: var(--surface-50);
+    --popover-foreground: var(--ink);
+    --primary: var(--ink);
+    --primary-foreground: var(--surface-50);
+    --muted: var(--surface-200);
+    --muted-foreground: var(--primary-200);
+    --accent: var(--kuning-200);
+    --accent-foreground: var(--ink);
+    --destructive: var(--danger-200);
+    --destructive-foreground: var(--surface-50);
+    --border: 0 0% 87%;
+    --input: 0 0% 80%;
+    --ring: var(--biru-400);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background font-sans text-ui text-foreground antialiased;
+    font-feature-settings: "kern";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-azeret tracking-tight;
+  }
+
+  ::selection {
+    background: hsl(var(--kuning-200));
+    color: hsl(var(--ink));
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* All numbers: mono + tabular figures so columns line up. */
+  .num {
+    font-family: "Azeret Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
