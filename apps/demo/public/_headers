@@ -1,0 +1,41 @@
+# Cloudflare Pages response headers for hr.crow.sg (demo at /, docs at /docs).
+#
+# The demo has no backend and talks to nobody: every request is same-origin. The CSP allows
+# exactly what the in-browser runtime needs and nothing else:
+# - script-src 'self' 'wasm-unsafe-eval': our bundles, plus compiling PGlite's WebAssembly
+#   (no 'unsafe-eval', no inline scripts);
+# - worker-src 'self': the API Web Worker and the /demo-sw.js service worker;
+# - connect-src 'self': PGlite fetches its .wasm/.data files from this origin; no other host;
+# - style-src 'unsafe-inline': Radix positions popovers and the toaster with inline styles
+#   (same as the self-hosted server's policy); no third-party stylesheets or fonts;
+# - img-src data: blob:: authenticator QR codes and downloaded files made in the browser.
+# No analytics, no third-party origins anywhere.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; manifest-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  Strict-Transport-Security: max-age=31536000
+
+# Hashed build output never changes.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The app shell and the service worker must always be revalidated, so a deploy takes effect.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/demo-sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+# Docs (Astro Starlight + Pagefind, built by apps/docs): static pages that hold no user data.
+# Starlight ships small inline scripts (theme, sidebar state), so its policy allows inline
+# scripts; still no third-party origins. Pagefind's search index runs as WebAssembly.
+/docs/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'

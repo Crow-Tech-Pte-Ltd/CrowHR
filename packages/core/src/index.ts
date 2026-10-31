@@ -16,6 +16,7 @@ export {
   systemAuditContext,
   verifyChain,
 } from "./audit/audit.ts";
+export { createDemoPasswordHasher, DEMO_HASH_PREFIX } from "./auth/demo-hasher.ts";
 export { requireRecentAuth } from "./auth/guards.ts";
 export { newResetLinkForCli } from "./auth/owner-recovery.ts";
 export { passwordProblem } from "./auth/password-policy.ts";

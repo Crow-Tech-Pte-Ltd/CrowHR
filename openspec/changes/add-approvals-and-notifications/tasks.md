@@ -32,7 +32,7 @@
 - [x] 5.1 packages/core: write `workflows/inbox.test.ts` (union of sources, overdue first then due date then age, only actionable items, role filtering) then implement `GET /api/v1/inbox`
 - [x] 5.2 apps/web: write `e2e/home-inbox.spec.ts` (manager approves a leave inline, rejection requires comment, empty state text, no stat cards) then replace the foundation's fixture Home with the real inbox — leave doesn't exist yet, so the spec uses people's real `profile_change` request type (seeded chain manager → HR admin): submit → manager on Home → HR in the inbox → change applied → requester notified
 - [x] 5.3 apps/web: write `e2e/approvals-settings.spec.ts` (create amount-threshold claim policy, set out-of-office delegation, escalation shown as "Escalated") then build Settings → Approvals, notification bell and the delegation form — the delegation form lives in the Inbox ("Out of office") and, for HR, in Settings → Approvals; My profile belongs to the people workstream. Also built: the Inbox page (j/k/a/r/x keys, bulk approve, optimistic updates) and Settings → Notifications
-- [ ] 5.4 packages/demo: write `src/tick.test.ts` (interval tick, demo mailbox lists outbox) then wire the demo scheduler — coordinate with the demo workstream (packages/demo doesn't exist yet; core exports `createManualScheduler` and `tick` for it)
+- [x] 5.4 packages/demo: write `src/tick.test.ts` (interval tick, demo mailbox lists outbox) then wire the demo scheduler — done by WS8b: the worker runs `createManualScheduler`, the page ticks it every 30 s and on navigation, sweep email lands in the Demo outbox
 
 ## 6. Integration with people and self-hosting
 

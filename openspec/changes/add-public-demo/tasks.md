@@ -1,0 +1,37 @@
+## 1. Runtime (packages/demo)
+
+- [x] 1.1 `migrations.test.ts` then bundle core's drizzle SQL + journal and apply them with the dialect migrator
+- [x] 1.2 `cookie-jar.test.ts`, `bridge.test.ts` then the cookie-preserving bridge in front of `createApp`
+- [x] 1.3 `client.test.ts` then the page-side RPC client and the `/api` fetch interceptor
+- [x] 1.4 Web Worker: PGlite on IndexedDB, data-versioned database name, durable flush after writes, reset
+- [x] 1.5 Service worker for non-fetch API requests (receipt images, downloads)
+- [x] 1.6 `clock.test.ts` then the demo clock anchored on the seed's date
+- [x] 1.7 `tick.test.ts` then the manual scheduler tick (workflows task 5.4) and the Demo outbox mailer
+
+## 2. Seed
+
+- [x] 2.1 `seed.test.ts` then Kopi Kaki: core's people seed + third outlet, joiner and leaver this month
+- [x] 2.2 Four months of payroll through the API and the real engine (Jul–Sep paid, Oct draft with warnings only)
+- [x] 2.3 Claims (draft, waiting, approved, rejected, reimbursed), leave (approved and waiting) and change requests; approvals waiting for every persona
+- [ ] 2.4 Attendance clock-ins and approved overtime claims feeding October's run (attendance landed after the seed was written; OT is entered on the run by hand)
+
+## 3. App (apps/demo, apps/web slots)
+
+- [x] 3.1 Loading screen with boot stages; first-load timing recorded (`window.__crowhrDemo`)
+- [x] 3.2 Persona picker on the sign-in page in demo mode; SSO buttons visible and disabled
+- [x] 3.3 Banner (Outbox, About, Docs, Self-host, Reset), Demo outbox in the notifications popover
+- [x] 3.4 About page listing every demo-only behaviour; docs/limitations.md "Public demo"
+- [x] 3.5 One-tab lock with "Use it here instead"
+
+## 4. Build and deployment prep
+
+- [x] 4.1 Bundle guard (build fails on server-only modules) and size report
+- [x] 4.2 Pre-compressed PGlite binaries
+- [x] 4.3 `_headers`, `_redirects`, `404.html`, `wrangler.toml`, site build with docs at /docs, local Pages-like preview server
+- [x] 4.4 docs/deploy-demo.md
+- [ ] 4.5 Deploy to Cloudflare Pages and point hr.crow.sg at it — needs Daniel's approval
+
+## 5. Tests
+
+- [x] 5.1 Playwright against the built demo: load, payroll admin opens the draft run and a CPF working, manager approves a claim (receipt via the service worker), reset re-seeds
+- [x] 5.2 Screenshots at 1440 and 390 (`SHOTS_DIR=… playwright test -c e2e/demo/playwright.demo.config.ts shots`)

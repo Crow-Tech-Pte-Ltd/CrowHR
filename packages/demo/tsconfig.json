@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Browser package, no @types/node (same rule as core). The worker entry points are checked
+    // against the WebWorker lib in tsconfig.worker.json (DOM and WebWorker libs conflict).
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "types": ["vite/client"]
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/worker.ts", "src/service-worker.ts"]
+}

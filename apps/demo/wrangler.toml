@@ -1,0 +1,6 @@
+# Cloudflare Pages project for hr.crow.sg (demo at /, docs at /docs). A static site: no Functions,
+# no bindings, no environment variables. NOT DEPLOYED: deploying needs Daniel's approval and
+# follows docs/deploy-demo.md. Build the folder first with `bun run demo:site`.
+name = "crowhr-demo"
+pages_build_output_dir = "dist-site"
+compatibility_date = "2026-10-01"
