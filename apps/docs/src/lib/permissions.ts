@@ -21,6 +21,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
   payroll: "Payroll runs and statutory files",
   payslips: "Payslips and tax forms",
   leave: "Leave",
+  leave_claims: "Government-paid leave report",
   claims: "Claims",
   attendance: "Attendance, overtime and timesheets",
   approval_tasks: "Approval tasks",
@@ -40,12 +41,8 @@ export const RESOURCE_LABELS: Record<string, string> = {
 
 /** Resources whose module is not built yet: the rows exist in the matrix but no endpoint uses them. */
 export const NOT_BUILT_RESOURCES = new Set([
-  "leave",
-  "claims",
-  "attendance",
   "rosters",
   "documents",
-  "claim_types",
   "reports_people",
   "reports_leave",
   "reports_attendance",
