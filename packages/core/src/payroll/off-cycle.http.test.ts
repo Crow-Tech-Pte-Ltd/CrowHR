@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDb, type TestDb } from "../../testing/index.ts";
-import { type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
+import { decideRun, type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
 import { applyEvent, ctxFor } from "../employees/lifecycle.ts";
 import { OWNER } from "../testing/people-harness.ts";
 
@@ -69,7 +69,7 @@ describe("off-cycle runs", () => {
     const o = await p.ok<Overview>(p.admin.get(`${api}/runs/${reg.id}`));
     expect(o.rows.map((r) => r.employeeId)).toEqual([p.co.e.A]);
     await p.ok(p.admin.post(`${api}/runs/${reg.id}/submit`));
-    await p.ok(p.owner.post(`${api}/runs/${reg.id}/decision`, { outcome: "approved" }));
+    await p.ok(decideRun(p.owner, reg.id, "approved"));
   });
 
   it("a bonus run in the same month recomputes the month's CPF and charges the difference", async () => {

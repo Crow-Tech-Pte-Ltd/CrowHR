@@ -8,6 +8,7 @@ import {
   type TestClient,
   type TestDb,
 } from "../../testing/index.ts";
+import { decideRun } from "../../testing/payroll-http.ts";
 import { createApp } from "../app.ts";
 import { auditEvents } from "../db/schema/audit.ts";
 import { payrollPayslips } from "../db/schema/payroll.ts";
@@ -238,9 +239,9 @@ describe("October 2026 payroll for a 12-person company", () => {
 
   it("submits, is approved by the owner, released and paid, with an audit trail", async () => {
     await json(await admin.post(`${api}/runs/${runId}/submit`), 200);
-    // The submitter (a payroll admin) cannot approve their own run.
-    expect((await admin.post(`${api}/runs/${runId}/decision`, { outcome: "approved" })).status).toBe(403);
-    await json(await owner.post(`${api}/runs/${runId}/decision`, { outcome: "approved" }), 200);
+    // The approval goes to owners (built-in payroll_run policy); the submitting payroll admin has no task.
+    expect((await decideRun(admin, runId, "approved")).status).toBe(404);
+    await json(await decideRun(owner, runId, "approved"), 200);
     await json(await admin.post(`${api}/runs/${runId}/release`), 200);
     const paid = await json<{ status: string }>(await admin.post(`${api}/runs/${runId}/mark-paid`), 200);
     expect(paid.status).toBe("paid");

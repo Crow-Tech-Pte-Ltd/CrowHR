@@ -1,16 +1,20 @@
+import { and, eq } from "drizzle-orm";
 import { systemAuditContext } from "../audit/audit.ts";
+import { payrollRuns } from "../db/schema/payroll.ts";
+import { approvalTasks } from "../db/schema/workflows.ts";
 import type { AppDeps } from "../deps.ts";
+import { AppError } from "../errors.ts";
 import {
   addItem,
   computeRun,
   createRun,
-  decideRun,
   markPaid,
   type PayrollActor,
   releaseRun,
   submitRun,
   updateSettings,
 } from "../payroll/service.ts";
+import { decideTask } from "../workflows/engine.ts";
 import type { SeededPeople } from "./seed-people.ts";
 
 /**
@@ -55,7 +59,7 @@ export async function seedPayroll(deps: AppDeps, orgId: string, people: SeededPe
     await addItem(deps, prep, sep.id, { employeeId: e.tp_lead, kind: "overtime", label: "Overtime", minutes: 4 * 60 });
   await computeRun(deps, prep, sep.id);
   await submitRun(deps, prep, sep.id);
-  await decideRun(deps, boss, sep.id, { outcome: "approved" });
+  await approveThroughEngine(deps, orgId, sep.id, boss);
   await releaseRun(deps, prep, sep.id);
   await markPaid(deps, prep, sep.id);
 
@@ -88,4 +92,30 @@ export async function seedPayroll(deps: AppDeps, orgId: string, people: SeededPe
   });
   await computeRun(deps, prep, oct.id);
   return { september: sep.id, october: oct.id };
+}
+
+/** Approves a submitted run as `approver` through the workflows engine (the approver's open task). */
+export async function approveThroughEngine(deps: AppDeps, orgId: string, runId: string, approver: PayrollActor) {
+  const [run] = await deps.db
+    .select({ requestId: payrollRuns.approvalRequestId })
+    .from(payrollRuns)
+    .where(and(eq(payrollRuns.orgId, orgId), eq(payrollRuns.id, runId)));
+  if (!run?.requestId) throw new AppError("conflict", "The run has no approval request.");
+  const [task] = await deps.db
+    .select({ id: approvalTasks.id })
+    .from(approvalTasks)
+    .where(
+      and(
+        eq(approvalTasks.orgId, orgId),
+        eq(approvalTasks.requestId, run.requestId),
+        eq(approvalTasks.assigneeMembershipId, approver.membershipId),
+        eq(approvalTasks.status, "pending"),
+      ),
+    );
+  if (!task) throw new AppError("not_found", "No open approval task for that member.");
+  await decideTask(
+    deps,
+    { orgId, membershipId: approver.membershipId, roles: ["owner"], audit: approver.audit },
+    { taskId: task.id, decision: "approve" },
+  );
 }

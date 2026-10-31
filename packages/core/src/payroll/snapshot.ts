@@ -15,6 +15,7 @@ import { companyProfiles, departments, workSchedules, workScheduleVersions } fro
 import {
   type PayrollRun,
   payrollAllowanceSettings,
+  payrollBackpayNotices,
   payrollPayslips,
   payrollRunItems,
   payrollRuns,
@@ -266,6 +267,16 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
     .select()
     .from(payrollRunItems)
     .where(and(eq(payrollRunItems.orgId, orgId), eq(payrollRunItems.runId, run.id)));
+  const backpay = await db
+    .select()
+    .from(payrollBackpayNotices)
+    .where(
+      and(
+        eq(payrollBackpayNotices.orgId, orgId),
+        inArray(payrollBackpayNotices.employeeId, ids),
+        isNull(payrollBackpayNotices.resolvedRunId),
+      ),
+    );
   const openings = await db
     .select()
     .from(ytdOpeningBalances)
@@ -293,6 +304,21 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
     const e = emps.find((x) => x.id === id);
     if (!e) continue;
     const snapshotIssues: PayIssue[] = [];
+    for (const n of backpay
+      .filter((b) => b.employeeId === id && b.effectiveFrom < run.periodStart)
+      .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1))) {
+      snapshotIssues.push({
+        code: "BACKPAY_OWED",
+        severity: "warning",
+        message: `Basic pay was changed retroactively from ${n.effectiveFrom}${
+          n.previousAmountCents !== null
+            ? ` (${(n.previousAmountCents / 100).toFixed(2)} → ${(n.newAmountCents / 100).toFixed(2)} a month)`
+            : ""
+        }. Add a "Back pay" item for the months already paid: a retrospective increment decided later is AW of the month paid; one paid late by error is OW of the original months (recompute those months).`,
+        source:
+          "https://www.cpf.gov.sg/service/article/are-retrospective-salary-increments-classified-as-ordinary-wages-ow-or-additional-wages-aw",
+      });
+    }
     const tenure = tens
       .filter((t) => t.employeeId === id && t.hireDate <= run.periodEnd)
       .sort((a, b) => (a.hireDate < b.hireDate ? 1 : -1))[0];

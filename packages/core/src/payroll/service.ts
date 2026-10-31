@@ -1,11 +1,12 @@
 import { computeSdlTotal, publicHolidays } from "@crowhr/sg-rules";
-import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
 import { allowanceTypes, employees } from "../db/schema/employees.ts";
 import { companyProfiles } from "../db/schema/organisation.ts";
 import {
   type PayrollRun,
   payrollAllowanceSettings,
+  payrollBackpayNotices,
   payrollPayslips,
   payrollRunItems,
   payrollRuns,
@@ -16,13 +17,13 @@ import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { singaporeToday } from "../employees/dates.ts";
 import { AppError } from "../errors.ts";
+import { submitApproval, withdrawSubject } from "../workflows/engine.ts";
 import { canonicalHash } from "./engine/canonical.ts";
 import { computeEmployeePay } from "./engine/compute.ts";
 import { addDays, dateLabel, dayOfWeek, daysInMonth, maxDate, monthBounds, monthLabel } from "./engine/dates.ts";
 import type { PayInput, PayIssue, PayResult, RunItemKind } from "./engine/types.ts";
 import { missingPayslipItems } from "./payslip.ts";
-import type { ApprovalDecision } from "./ports.ts";
-import { payrollPorts } from "./ports.ts";
+import { type ApprovalDecision, payrollPorts } from "./ports.ts";
 import { DEDUCTION_CATEGORIES, type DeductionCategory, MOM_PAYING_SALARY_SOURCE, PAYMENT_DEADLINES } from "./rules.ts";
 import { buildSnapshots, replacedChain, runEmployeeIds } from "./snapshot.ts";
 
@@ -66,6 +67,7 @@ function assertDraft(run: PayrollRun) {
 
 export interface PayrollSettingsView {
   payDay: number | null;
+  cutoffDay: number | null;
   autoRelease: boolean;
   cpfAdviceCode: string;
   fwlSector: string | null;
@@ -80,6 +82,7 @@ export async function getSettings(db: Db, orgId: string): Promise<PayrollSetting
   const [s] = await db.select().from(payrollSettings).where(eq(payrollSettings.orgId, orgId));
   return {
     payDay: s?.payDay ?? null,
+    cutoffDay: s?.cutoffDay ?? null,
     autoRelease: s?.autoRelease ?? false,
     cpfAdviceCode: s?.cpfAdviceCode ?? "01",
     fwlSector: s?.fwlSector ?? null,
@@ -93,6 +96,7 @@ export async function getSettings(db: Db, orgId: string): Promise<PayrollSetting
 
 export interface SettingsInput {
   payDay?: number | null;
+  cutoffDay?: number | null;
   autoRelease?: boolean;
   cpfAdviceCode?: string;
   fwlSector?: string | null;
@@ -107,6 +111,7 @@ export async function updateSettings(deps: AppDeps, actor: PayrollActor, input: 
   const patch: Partial<typeof payrollSettings.$inferInsert> = {};
   for (const k of [
     "payDay",
+    "cutoffDay",
     "autoRelease",
     "cpfAdviceCode",
     "fwlSector",
@@ -818,39 +823,31 @@ export async function submitRun(deps: AppDeps, actor: PayrollActor, runId: strin
       { blocking },
     );
   }
-  const ports = payrollPorts(deps);
   await deps.db.transaction(async (tx) => {
-    const { approvalRequestId } = await ports.approvals.submit(tx, {
-      orgId: actor.orgId,
-      subjectType: "payroll_run",
-      subjectId: run.id,
-      requester: { userId: actor.userId, membershipId: actor.membershipId, employeeId: actor.employeeId },
-      attributes: { amountCents: run.totals?.netPayableCents ?? 0, typeCode: run.kind },
-      summary: {
-        title: `${monthLabel(run.month)} ${run.kind === "regular" ? "payroll" : run.kind === "adjustment" ? "payroll adjustment" : `${run.offCycleReason?.replace("_", " ")} run`}`,
-        lines: [
-          `${run.totals?.headcount ?? 0} employees`,
-          `Net pay ${(run.totals?.netPayableCents ?? 0) / 100}`,
-          `Pay date ${dateLabel(run.payDate)}`,
-        ],
-      },
-    });
     await tx
       .update(payrollRuns)
       .set({
         status: "in_review",
-        approvalRequestId,
         submittedBy: actor.userId,
         submittedAt: deps.clock.now(),
         decisionComment: null,
         updatedAt: deps.clock.now(),
       })
       .where(eq(payrollRuns.id, run.id));
+    const { requestId } = await submitApproval(tx, deps, actor.audit, {
+      orgId: actor.orgId,
+      subjectType: "payroll_run",
+      subjectId: run.id,
+      requesterMembershipId: actor.membershipId,
+      requesterEmployeeId: actor.employeeId,
+      attributes: { amountCents: run.totals?.netPayableCents ?? 0, typeCode: run.kind },
+    });
+    await tx.update(payrollRuns).set({ approvalRequestId: requestId }).where(eq(payrollRuns.id, run.id));
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.run_submitted",
       targetType: "payroll_run",
       targetId: run.id,
-      meta: { approvalRequestId, inputHash: run.inputHash },
+      meta: { approvalRequestId: requestId, inputHash: run.inputHash },
     });
   });
   return loadRun(deps.db, actor.orgId, runId);
@@ -860,7 +857,7 @@ export async function withdrawRun(deps: AppDeps, actor: PayrollActor, runId: str
   const run = await loadRun(deps.db, actor.orgId, runId);
   if (run.status !== "in_review") conflict("Only a run in review can be withdrawn to draft.");
   await deps.db.transaction(async (tx) => {
-    if (run.approvalRequestId) await payrollPorts(deps).approvals.withdraw(tx, actor.orgId, run.approvalRequestId);
+    await withdrawSubject(tx, deps, actor.audit, { orgId: actor.orgId, subjectType: "payroll_run", subjectId: run.id });
     await tx
       .update(payrollRuns)
       .set({ status: "draft", approvalRequestId: null, updatedAt: deps.clock.now() })
@@ -919,6 +916,25 @@ export async function applyDecision(
       updatedAt: deps.clock.now(),
     })
     .where(eq(payrollRuns.id, run.id));
+  // Back pay paid by this run settles the employee's open back-pay notices.
+  const paidBackpay = await tx
+    .select({ employeeId: payrollRunItems.employeeId })
+    .from(payrollRunItems)
+    .where(
+      and(eq(payrollRunItems.orgId, orgId), eq(payrollRunItems.runId, run.id), eq(payrollRunItems.kind, "backpay")),
+    );
+  if (paidBackpay.length) {
+    await tx
+      .update(payrollBackpayNotices)
+      .set({ resolvedRunId: run.id })
+      .where(
+        and(
+          eq(payrollBackpayNotices.orgId, orgId),
+          inArray(payrollBackpayNotices.employeeId, [...new Set(paidBackpay.map((b) => b.employeeId))]),
+          isNull(payrollBackpayNotices.resolvedRunId),
+        ),
+      );
+  }
   if (run.kind === "adjustment" && run.adjustsRunId) {
     await tx
       .update(payrollRuns)
@@ -936,45 +952,6 @@ export async function applyDecision(
     const missing = await releaseProblems(tx, orgId, run.id);
     if (missing.length === 0) await doRelease(tx, deps, audit, orgId, run.id, decision.decidedByUserId, true);
   }
-}
-
-/** Local approvals: an owner or payroll_admin decides. The submitter may not, unless they are an owner (self-approved). */
-export async function decideRun(
-  deps: AppDeps,
-  actor: PayrollActor,
-  runId: string,
-  input: { outcome: "approved" | "rejected"; comment?: string | null },
-) {
-  const ports = payrollPorts(deps);
-  if (ports.approvals.mode !== "local") {
-    conflict("Payroll approvals go through the approvals inbox. Decide the request there.");
-  }
-  const run = await loadRun(deps.db, actor.orgId, runId);
-  if (run.status !== "in_review") conflict("This run is not waiting for a decision.");
-  const own = run.submittedBy === actor.userId;
-  if (own && !actor.isOwner) {
-    throw new AppError(
-      "forbidden",
-      "You submitted this run, so someone else must approve it: an owner or another payroll admin.",
-    );
-  }
-  if (input.outcome === "rejected" && !input.comment?.trim()) {
-    throw new AppError("validation_failed", "Say why the run is rejected so the preparer can fix it.", {
-      issues: [{ path: "comment", message: "Add a comment explaining what to fix." }],
-    });
-  }
-  if (input.outcome === "approved") await assertFresh(deps, run);
-  await deps.db.transaction(async (tx) => {
-    await applyDecision(tx, deps, actor.audit, actor.orgId, run.id, {
-      outcome: input.outcome,
-      decidedByUserId: actor.userId,
-      decidedByMembershipId: actor.membershipId,
-      decidedAt: deps.clock.now(),
-      comment: input.comment?.trim() || null,
-      selfApproved: own,
-    });
-  });
-  return loadRun(deps.db, actor.orgId, runId);
 }
 
 async function releaseProblems(db: Db, orgId: string, runId: string) {

@@ -57,8 +57,21 @@ export const myPayslipQuery = (payslipId: string) =>
 export const runAction = (runId: string, action: "compute" | "submit" | "withdraw" | "release" | "mark-paid") =>
   api<PayrollRunDto>("POST", `/payroll/runs/${runId}/${action}`);
 
-export const decide = (runId: string, outcome: "approved" | "rejected", comment?: string) =>
-  api<PayrollRunDto>("POST", `/payroll/runs/${runId}/decision`, { outcome, comment: comment ?? null });
+/** My open approval task for a run's request (the workflows engine routes payroll runs to owners). */
+export const myRunTaskQuery = (requestId: string | null) =>
+  queryOptions({
+    queryKey: ["approvals", "tasks", "mine"] as const,
+    queryFn: () => api<{ items: { taskId: string; requestId: string }[] }>("GET", "/approvals/tasks"),
+    select: (d: { items: { taskId: string; requestId: string }[] }) =>
+      d.items.find((t) => t.requestId === requestId) ?? null,
+    enabled: !!requestId,
+  });
+
+export const decide = (taskId: string, outcome: "approved" | "rejected", comment?: string) =>
+  api<unknown>("POST", `/approvals/tasks/${taskId}/decision`, {
+    decision: outcome === "approved" ? "approve" : "reject",
+    ...(comment ? { comment } : {}),
+  });
 
 export const reopen = (runId: string, reason: string) =>
   api<PayrollRunDto>("POST", `/payroll/runs/${runId}/reopen`, { reason });

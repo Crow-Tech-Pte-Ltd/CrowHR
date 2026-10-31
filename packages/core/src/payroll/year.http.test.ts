@@ -7,6 +7,7 @@ import {
   type TestClient,
   type TestDb,
 } from "../../testing/index.ts";
+import { decideRun } from "../../testing/payroll-http.ts";
 import { createApp } from "../app.ts";
 import { applyEvent, ctxFor } from "../employees/lifecycle.ts";
 import { type SeededCompany, seedCompany } from "../testing/payroll-harness.ts";
@@ -94,7 +95,7 @@ async function payMonth(month: string, bonusCents?: number) {
   }
   await ok(await admin.post(`${api}/runs/${run.id}/compute`));
   await ok(await admin.post(`${api}/runs/${run.id}/submit`));
-  await ok(await owner.post(`${api}/runs/${run.id}/decision`, { outcome: "approved" }));
+  await ok(await decideRun(owner, run.id, "approved"));
   await ok(await admin.post(`${api}/runs/${run.id}/mark-paid`));
   details.set(month, await ok<Detail>(await admin.get(`${api}/runs/${run.id}/employees/${co.e.M}`)));
 }

@@ -35,6 +35,7 @@ import {
   errorMessage,
   invalidateRun,
   monthName,
+  myRunTaskQuery,
   reopen,
   runAction,
   runQuery,
@@ -102,6 +103,8 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
     onSuccess: () => invalidateRun(qc, run.id),
     onError: (e) => toast.error(errorMessage(e)),
   });
+  const myTask = useQuery(myRunTaskQuery(run.status === "in_review" ? run.approvalRequestId : null));
+  const taskId = myTask.data?.taskId ?? null;
   const blocking = o.issues.filter((i) => i.severity === "blocking").length;
   const computed = !!run.computedAt;
   const busy = act.isPending;
@@ -143,18 +146,33 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
       >
         Withdraw
       </Button>,
-      <Button key="reject" size="sm" disabled={busy} onClick={() => setDialog("reject")}>
-        Reject
-      </Button>,
-      <Button
-        key="approve"
-        variant="primary"
-        size="sm"
-        disabled={busy}
-        onClick={() => act.mutate(() => decide(run.id, "approved").then(() => toast.success("Run approved")))}
-      >
-        <CheckCircle2 aria-hidden /> Approve
-      </Button>,
+      ...(taskId
+        ? [
+            <Button key="reject" size="sm" disabled={busy} onClick={() => setDialog("reject")}>
+              Reject
+            </Button>,
+            <Button
+              key="approve"
+              variant="primary"
+              size="sm"
+              disabled={busy}
+              onClick={() =>
+                act.mutate(() =>
+                  decide(taskId, "approved").then(async () => {
+                    await qc.invalidateQueries({ queryKey: ["approvals"] });
+                    toast.success("Run approved");
+                  }),
+                )
+              }
+            >
+              <CheckCircle2 aria-hidden /> Approve
+            </Button>,
+          ]
+        : [
+            <span key="waiting" className="self-center text-2xs text-primary-300">
+              Waiting for the approver (an owner by default). It is in their Inbox.
+            </span>,
+          ]),
     );
   }
   if (run.status === "approved" || run.status === "paid") {
@@ -248,7 +266,14 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
         label="What needs fixing"
         confirm="Reject run"
         onClose={() => setDialog(null)}
-        onConfirm={(reason) => act.mutateAsync(() => decide(run.id, "rejected", reason)).then(() => setDialog(null))}
+        onConfirm={(reason) =>
+          act
+            .mutateAsync(() => decide(taskId as string, "rejected", reason))
+            .then(async () => {
+              await qc.invalidateQueries({ queryKey: ["approvals"] });
+              setDialog(null);
+            })
+        }
       />
       <ReasonDialog
         open={dialog === "reopen"}

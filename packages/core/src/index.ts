@@ -83,6 +83,7 @@ export type { HealthResponse } from "./modules/health/routes.ts";
 export { type EmailPayload, renderEmail } from "./notifications/email-templates.ts";
 export { NOTIFICATION_KINDS, type NotificationKind } from "./notifications/kinds.ts";
 export { type NotifyInput, notify } from "./notifications/notify.ts";
+export type * from "./payroll/public-types.ts";
 export {
   formatSetupCode,
   generateSetupCode,
@@ -102,7 +103,6 @@ export {
   setSystemSetting,
 } from "./system/settings.ts";
 export { BACKUP_STALE_HOURS, type SystemStatus } from "./system/status.ts";
-export type * from "./payroll/public-types.ts";
 export { VERSION } from "./version.ts";
 export { createApproverDirectory } from "./workflows/directory.ts";
 export {

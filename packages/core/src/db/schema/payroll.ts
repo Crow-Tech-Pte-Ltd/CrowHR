@@ -43,6 +43,8 @@ export const payrollSettings = pgTable("payroll_settings", {
     .references(() => organisations.id, { onDelete: "cascade" }),
   /** Day of the month salary is paid (1–31, clamped to the month's last day); null = last day of the period. */
   payDay: smallint("pay_day"),
+  /** Day of the month inputs close (reminder to payroll admins 3 days before); null = the pay date. */
+  cutoffDay: smallint("cutoff_day"),
   /** Release payslips to employees as soon as a run is approved. */
   autoRelease: boolean("auto_release").notNull().default(false),
   /** CPF EZPay advice code for regular runs (01–99). */
@@ -245,6 +247,39 @@ export const payrollPayslips = pgTable(
       foreignColumns: [employees.orgId, employees.id],
     }),
     index("payroll_payslips_employee").on(t.orgId, t.employeeId, t.releasedAt),
+  ],
+);
+
+/**
+ * Back pay owed after a retroactive compensation change (people's `PayrollPort.notifyBackPay`).
+ * Open notices show as a warning on the employee in later runs until an approved run pays back pay.
+ */
+export const payrollBackpayNotices = pgTable(
+  "payroll_backpay_notices",
+  {
+    id: uuid("id").primaryKey(),
+    orgId: orgId(),
+    employeeId: uuid("employee_id").notNull(),
+    compensationRecordId: uuid("compensation_record_id").notNull(),
+    effectiveFrom: date("effective_from").notNull(),
+    previousAmountCents: cents("previous_amount_cents"),
+    newAmountCents: cents("new_amount_cents").notNull(),
+    resolvedRunId: uuid("resolved_run_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("payroll_backpay_notices_org_id_id_unique").on(t.orgId, t.id),
+    foreignKey({
+      name: "payroll_backpay_notices_employee_fk",
+      columns: [t.orgId, t.employeeId],
+      foreignColumns: [employees.orgId, employees.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "payroll_backpay_notices_run_fk",
+      columns: [t.orgId, t.resolvedRunId],
+      foreignColumns: [payrollRuns.orgId, payrollRuns.id],
+    }),
+    index("payroll_backpay_notices_open").on(t.orgId, t.employeeId),
   ],
 );
 
