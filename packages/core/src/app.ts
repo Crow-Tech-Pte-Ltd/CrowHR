@@ -23,6 +23,7 @@ import { organisationModule } from "./organisation/routes.ts";
 import { setupModule } from "./setup/routes.ts";
 import { systemModule } from "./system/routes.ts";
 import { approvalsModule, inboxModule } from "./workflows/routes.ts";
+import { payrollModule, payslipsModule } from "./payroll/routes.ts";
 
 /**
  * Every module served under `/api/v1`, in mount order. Adding a module = one line here
@@ -39,6 +40,8 @@ export const V1_MODULES: readonly ApiModule[] = [
   nativeModule,
   notificationsModule,
   organisationModule,
+  payrollModule,
+  payslipsModule,
   peopleModule,
   securityModule,
   setupModule,
