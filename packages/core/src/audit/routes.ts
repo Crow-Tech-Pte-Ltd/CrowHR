@@ -5,6 +5,7 @@ import { auditEvents } from "../db/schema/audit.ts";
 import { listQuery, pageOf, toLimitOffset } from "../http/list.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 import { auditCategorySql, auditContext, recordAudit } from "./audit.ts";
+import { resolveTargetLabels, targetKey } from "./labels.ts";
 
 const event = z.object({
   id: z.uuid(),
@@ -16,6 +17,10 @@ const event = z.object({
   action: z.string(),
   targetType: z.string(),
   targetId: z.string().nullable(),
+  targetLabel: z
+    .string()
+    .nullable()
+    .meta({ description: "Human name of the target (member, employee, department…) when it still exists." }),
   requestId: z.string().nullable(),
   ip: z.string().nullable(),
   userAgent: z.string().nullable(),
@@ -70,7 +75,7 @@ function where(c: AppContext, orgId: string, f: Filters): SQL {
   return and(...conds) as SQL;
 }
 
-function toOut(r: typeof auditEvents.$inferSelect): z.input<typeof event> {
+function toOut(r: typeof auditEvents.$inferSelect, labels: Map<string, string>): z.input<typeof event> {
   return {
     id: r.id,
     seq: r.seq,
@@ -81,6 +86,7 @@ function toOut(r: typeof auditEvents.$inferSelect): z.input<typeof event> {
     action: r.action,
     targetType: r.targetType,
     targetId: r.targetId,
+    targetLabel: r.targetId ? (labels.get(targetKey(r.targetType, r.targetId)) ?? null) : null,
     requestId: r.requestId,
     ip: r.ip,
     userAgent: r.userAgent,
@@ -120,7 +126,13 @@ export const auditModule = defineModule({
           .orderBy(query.sort === "at" ? asc(auditEvents.seq) : desc(auditEvents.seq))
           .limit(toLimitOffset(query).limit)
           .offset(toLimitOffset(query).offset);
-        return { items: rows.map(toOut), page: query.page, pageSize: query.pageSize, total: count?.n ?? 0 };
+        const labels = await resolveTargetLabels(deps.db, auth.orgId, rows);
+        return {
+          items: rows.map((r) => toOut(r, labels)),
+          page: query.page,
+          pageSize: query.pageSize,
+          total: count?.n ?? 0,
+        };
       },
     }),
     defineRoute({

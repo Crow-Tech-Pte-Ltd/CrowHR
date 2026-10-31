@@ -197,6 +197,13 @@
                               "null"
                             ]
                           },
+                          "targetLabel": {
+                            "description": "Human name of the target (member, employee, department…) when it still exists.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "requestId": {
                             "type": [
                               "string",
@@ -242,6 +249,7 @@
                           "action",
                           "targetType",
                           "targetId",
+                          "targetLabel",
                           "requestId",
                           "ip",
                           "userAgent",
