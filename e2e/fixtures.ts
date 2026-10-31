@@ -10,6 +10,13 @@ export const E2E = {
     staff: { email: "staff@kampongkopi.example", name: "Ravi Kumar", roles: [] },
     mfa: { email: "mfa@kampongkopi.example", name: "Lim Wei Jie", roles: [] },
     revokee: { email: "revokee@kampongkopi.example", name: "Siti Rahmah", roles: [] },
+    shots: { email: "farah@kampongkopi.example", name: "Farah Hassan", roles: [] },
+  },
+  /** Second organisation with every SSO method on (screenshots / multi-org). */
+  ssoOrg: {
+    name: "Tanjong Tech Pte. Ltd.",
+    slug: "tanjong-tech",
+    owner: { email: "owner@tanjongtech.example", name: "Daniel Ong" },
   },
 } as const;
 
@@ -26,15 +33,15 @@ export async function apiSignIn(request: APIRequestContext, email: string, passw
 }
 
 /** Signs in through the UI. */
-export async function uiSignIn(page: Page, email: string, password: string = E2E.password) {
-  await page.goto(`/sign-in/${E2E.org.slug}`);
+export async function uiSignIn(page: Page, email: string, password: string = E2E.password, org: string = E2E.org.slug) {
+  await page.goto(`/sign-in/${org}`);
   await page.getByLabel("Work email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
 
 /** Signs in through the UI and waits until Home has loaded. */
-export async function uiSignInOk(page: Page, email: string, password: string = E2E.password) {
-  await uiSignIn(page, email, password);
+export async function uiSignInOk(page: Page, email: string, password: string = E2E.password, org?: string) {
+  await uiSignIn(page, email, password, org);
   await page.getByRole("heading", { level: 1, name: "Work to do" }).waitFor();
 }

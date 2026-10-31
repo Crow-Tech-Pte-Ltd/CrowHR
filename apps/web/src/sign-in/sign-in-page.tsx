@@ -160,7 +160,9 @@ export function SignInPage({
               ? "Enter the 6-digit code from your authenticator app. Lost your phone? Use one of your recovery codes."
               : nativeRequestId
                 ? "Sign in to connect the Crow HR app. You'll return to the app afterwards."
-                : "Use the method your organisation has set up."}
+                : providers.length
+                  ? "Use the method your organisation has set up."
+                  : "Sign in with your work email and password."}
           </p>
 
           {notice ? (

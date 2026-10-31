@@ -104,7 +104,7 @@ function AuditLogPage() {
         className="mb-4 grid gap-3 sm:grid-cols-5 sm:items-end"
         aria-label="Filter audit log"
       >
-        <FormField label="Action" hint="Exact, or a prefix like auth.">
+        <FormField label="Action or prefix">
           <Input
             value={draft.action}
             onChange={(e) => setDraft({ ...draft, action: e.target.value })}

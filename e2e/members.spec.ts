@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { E2E, shot, uiSignIn, uiSignInOk } from "./fixtures.ts";
+import { E2E, uiSignIn, uiSignInOk } from "./fixtures.ts";
 
 test.describe("members", () => {
   test("invite → accept → sign in", async ({ page, browser }) => {
@@ -7,7 +7,6 @@ test.describe("members", () => {
     await uiSignInOk(page, E2E.members.owner.email);
     await page.goto("/settings/members");
     await expect(page.getByTestId("members-table")).toBeVisible();
-    await shot(page, "members");
     await page.getByRole("button", { name: "Invite someone" }).click();
     await page.getByLabel("Work email").fill(email);
     await page.getByLabel("Name", { exact: true }).fill("Chua Boon Keat");
@@ -15,7 +14,6 @@ test.describe("members", () => {
       .getByRole("dialog")
       .getByRole("checkbox", { name: /^HR admin/ })
       .check();
-    await shot(page, "members-invite");
     await page.getByRole("button", { name: "Send invitation" }).click();
     const link = await page.getByTestId("invite-link").inputValue();
     expect(link).toMatch(/\/invite\/[A-Za-z0-9_-]{43}$/);

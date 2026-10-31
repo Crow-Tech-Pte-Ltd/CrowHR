@@ -29,3 +29,23 @@ export function reasonFor(err: unknown): SignedOutReason | undefined {
   if (err.code === "session_revoked") return "revoked";
   return undefined;
 }
+
+const LAST_ORG_KEY = "crowhr.lastOrg";
+
+/** Remembers the organisation last signed in to, so `/sign-in` on a multi-org install goes straight there. */
+export function rememberOrg(slug: string | null | undefined) {
+  if (!slug) return;
+  try {
+    localStorage.setItem(LAST_ORG_KEY, slug);
+  } catch {
+    // storage unavailable: the chooser still works
+  }
+}
+
+export function rememberedOrg(): string | null {
+  try {
+    return localStorage.getItem(LAST_ORG_KEY);
+  } catch {
+    return null;
+  }
+}

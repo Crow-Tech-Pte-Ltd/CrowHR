@@ -1,7 +1,6 @@
 import {
   Badge,
   Button,
-  EmptyState,
   ProviderButton,
   Skeleton,
   Table,
@@ -206,12 +205,10 @@ function Identities({ linkResult }: { linkResult?: string }) {
         </p>
       ) : null}
       {ids.data.items.length === 0 ? (
-        <EmptyState
-          variant="plain"
-          icon={<Link2 />}
-          title="No single sign-on linked"
-          description="You sign in with your email and password."
-        />
+        <p className="flex items-center gap-2 text-ui text-primary-300">
+          <Link2 className="size-4" aria-hidden />
+          No single sign-on linked. You sign in with your email and password.
+        </p>
       ) : (
         <ul className="divide-y divide-border">
           {ids.data.items.map((i) => (

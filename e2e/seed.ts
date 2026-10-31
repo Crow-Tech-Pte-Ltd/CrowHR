@@ -7,7 +7,15 @@
 
 import { createArgon2Hasher } from "../apps/server/src/argon2-hasher.ts";
 import { openDatabase } from "../apps/server/src/db.ts";
-import { createUuidV7Generator, schema, systemClock } from "../packages/core/src/index.ts";
+import { generateRpKeys } from "../packages/core/src/auth/oidc/keys.ts";
+import {
+  createSecretBox,
+  createUuidV7Generator,
+  parseSecretKey,
+  SECRET_PURPOSES,
+  schema,
+  systemClock,
+} from "../packages/core/src/index.ts";
 import { seedMember } from "../packages/core/testing/fixtures.ts";
 import { E2E } from "./fixtures.ts";
 
@@ -36,5 +44,72 @@ if (!existing) {
     });
   }
   console.error(`Seeded ${E2E.org.name} with ${Object.keys(E2E.members).length} members.`);
+}
+
+// A second organisation with every single sign-on preset enabled, so the sign-in page can be
+// reviewed with all methods. Client IDs and secrets are fictional; no IdP is contacted unless a
+// button is pressed.
+const ssoOrg = (await db.select().from(schema.organisations)).find((o) => o.slug === E2E.ssoOrg.slug);
+if (!ssoOrg) {
+  const box = createSecretBox(parseSecretKey(process.env.CROWHR_SECRET_KEY ?? ""));
+  const orgId = ids.newId();
+  await db.insert(schema.organisations).values({ id: orgId, name: E2E.ssoOrg.name, slug: E2E.ssoOrg.slug });
+  await db.insert(schema.orgSecuritySettings).values({ orgId });
+  // biome-ignore lint/suspicious/noExplicitAny: seedMember only needs db/ids/clock/passwordHasher.
+  await seedMember(deps as any, orgId, {
+    email: E2E.ssoOrg.owner.email,
+    displayName: E2E.ssoOrg.owner.name,
+    password: E2E.password,
+    roles: ["owner"],
+  });
+  const now = new Date();
+  const secret = await box.encrypt(SECRET_PURPOSES.ssoClientSecret, "fictional-secret");
+  const keys = await generateRpKeys();
+  const base = { orgId, createdAt: now, updatedAt: now, enabled: true };
+  await db.insert(schema.ssoProviders).values([
+    {
+      ...base,
+      id: ids.newId(),
+      kind: "singpass",
+      displayName: "Singpass",
+      issuer: "https://stg-id.singpass.gov.sg",
+      clientId: "fictional-singpass-client",
+      environment: "staging",
+      privateJwksEnc: await box.encrypt(SECRET_PURPOSES.ssoPrivateJwks, JSON.stringify(keys.privateJwks)),
+      publicJwks: keys.publicJwks,
+    },
+    {
+      ...base,
+      id: ids.newId(),
+      kind: "google",
+      displayName: "Google",
+      issuer: "https://accounts.google.com",
+      clientId: "fictional.apps.googleusercontent.com",
+      clientSecretEnc: secret,
+      allowedDomains: ["tanjongtech.example"],
+      lastTestOkAt: now,
+    },
+    {
+      ...base,
+      id: ids.newId(),
+      kind: "entra",
+      displayName: "Microsoft",
+      issuer: "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/v2.0",
+      clientId: "fictional-entra-client",
+      clientSecretEnc: secret,
+      tenantId: "00000000-0000-0000-0000-000000000000",
+    },
+    {
+      ...base,
+      id: ids.newId(),
+      kind: "oidc",
+      displayName: "Okta",
+      issuer: "https://tanjongtech.okta.example",
+      clientId: "fictional-okta-client",
+      clientSecretEnc: secret,
+      enabled: false,
+    },
+  ]);
+  console.error(`Seeded ${E2E.ssoOrg.name} with every sign-in method.`);
 }
 await database.close();
