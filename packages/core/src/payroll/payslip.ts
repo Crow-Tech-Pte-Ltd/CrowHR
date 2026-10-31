@@ -40,9 +40,15 @@ export interface PayslipView {
   overtime: {
     hours: number;
     payCents: number;
-    periodStart: string | null;
-    periodEnd: string | null;
-    differsFromSalaryPeriod: boolean;
+    /** Each OT entry with its own period (MOM item 11), hours and pay. */
+    periods: {
+      label: string;
+      hours: number;
+      payCents: number;
+      periodStart: string | null;
+      periodEnd: string | null;
+      differsFromSalaryPeriod: boolean;
+    }[];
   } | null;
   deductions: (PayslipLine & { type: "fixed" | "ad_hoc" })[];
   reimbursements: PayslipLine[];
@@ -131,11 +137,16 @@ export function buildPayslipView(
       ? {
           hours: r.overtime.minutes / 60,
           payCents: otPay,
-          periodStart: r.overtime.periodStart,
-          periodEnd: r.overtime.periodEnd,
-          differsFromSalaryPeriod:
-            (r.overtime.periodStart !== null && r.overtime.periodStart !== input.run.periodStart) ||
-            (r.overtime.periodEnd !== null && r.overtime.periodEnd !== input.run.periodEnd),
+          periods: r.overtime.periods.map((p) => ({
+            label: p.label,
+            hours: p.minutes / 60,
+            payCents: p.payCents,
+            periodStart: p.periodStart,
+            periodEnd: p.periodEnd,
+            differsFromSalaryPeriod:
+              (p.periodStart !== null && p.periodStart !== input.run.periodStart) ||
+              (p.periodEnd !== null && p.periodEnd !== input.run.periodEnd),
+          })),
         }
       : null,
     deductions,
@@ -176,8 +187,15 @@ export function missingPayslipItems(input: PayInput, result: PayResult): string[
   if (!input.run.periodStart || !input.run.periodEnd) missing.push("Start and end date of the salary period");
   const bonusOnly = input.run.kind === "off_cycle" && input.run.offCycleReason === "bonus";
   if (!bonusOnly && !result.lines.some((l) => l.category === "basic")) missing.push("Basic salary");
-  if (result.overtime && result.overtime.minutes <= 0 && result.totals.overtimeCents > 0)
-    missing.push("Overtime hours worked");
+  for (const p of result.overtime?.periods ?? []) {
+    if (p.payCents > 0 && p.minutes <= 0 && !missing.includes("Overtime hours worked"))
+      missing.push("Overtime hours worked");
+    if ((p.periodStart === null) !== (p.periodEnd === null) && !missing.includes("Overtime period")) {
+      missing.push("Overtime period");
+    }
+  }
+  const otLines = result.lines.filter((l) => l.category === "overtime").length;
+  if (otLines !== (result.overtime?.periods.length ?? 0)) missing.push("Overtime pay");
   return missing;
 }
 

@@ -1,6 +1,7 @@
 import {
   A4,
   createPdf,
+  type FontRole,
   finishPdf,
   HAIRLINE,
   INK,
@@ -14,15 +15,44 @@ import { dateLabel, sgd } from "./engine/dates.ts";
 import type { PayslipView } from "./payslip.ts";
 
 /**
- * Payslip PDF (A4, one page for normal payslips). Same content and order as the web payslip, laid
- * out to MOM's itemised payslip items. Byte-stable: `createdAt` is the release (or approval) time.
+ * Payslip PDF (A4). Same content and order as the web payslip, laid out to MOM's itemised payslip
+ * items. Mandatory text (names, labels, OT periods) wraps instead of being cut, and long payslips
+ * continue on further pages (payroll-choices.md §5). Byte-stable: `createdAt` is the release time.
  */
 
 const M = 48; // margin
 const RIGHT = A4.width - M;
+const BOTTOM = 80; // keep clear of the footer
 
 function money(cents: number) {
   return sgd(cents).replace("−", "-");
+}
+
+/** Greedy word wrap (long words are broken by character) using the embedded font metrics. */
+export function wrapText(c: PdfCanvas, text: string, role: FontRole, size: number, width: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let cur = "";
+  const fits = (s: string) => c.width(s, role, size) <= width;
+  for (const word of words) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (fits(next)) {
+      cur = next;
+      continue;
+    }
+    if (cur) lines.push(cur);
+    cur = "";
+    let w = word;
+    while (!fits(w)) {
+      let k = w.length - 1;
+      while (k > 1 && !fits(w.slice(0, k))) k--;
+      lines.push(w.slice(0, k));
+      w = w.slice(k);
+    }
+    cur = w;
+  }
+  if (cur || lines.length === 0) lines.push(cur);
+  return lines;
 }
 
 export async function renderPayslipPdf(view: PayslipView, opts: { createdAt: Date }): Promise<Uint8Array> {
@@ -32,27 +62,63 @@ export async function renderPayslipPdf(view: PayslipView, opts: { createdAt: Dat
     subject: `Pay date ${dateLabel(view.payDate)}`,
     createdAt: opts.createdAt,
   });
+  let page = 1;
   let y = A4.height - M;
+  const newPage = () => {
+    footer(c, view, page);
+    c.addPage();
+    page++;
+    y = A4.height - M;
+    c.text(`${view.title.toUpperCase()} · ${view.employee.name} (continued)`, M, y, {
+      font: "mono",
+      size: 7,
+      color: MUTED,
+      maxWidth: RIGHT - M,
+    });
+    y -= 24;
+  };
+  const ensure = (space: number) => {
+    if (y - space < BOTTOM) newPage();
+  };
+  /** Wrapped text; returns the number of lines drawn. */
+  const para = (
+    text: string,
+    x: number,
+    width: number,
+    role: FontRole,
+    size: number,
+    color = INK,
+    lineHeight = size + 3,
+  ) => {
+    const lines = wrapText(c, text, role, size, width);
+    lines.forEach((l, i) => {
+      c.text(l, x, y - i * lineHeight, { font: role, size, color });
+    });
+    return lines.length;
+  };
 
-  // Header: employer, title, brand chip.
+  // Header: employer (wrapped), title, brand chip.
   c.rect(M, y - 4, 6, 18, { fill: KUNING });
-  c.text(view.employer.legalName, M + 14, y, { font: "bodyStrong", size: 13 });
   c.text(view.title.toUpperCase(), RIGHT, y, { font: "monoStrong", size: 10, align: "right" });
-  y -= 18;
+  const titleW = c.width(view.title.toUpperCase(), "monoStrong", 10);
+  const n = para(view.employer.legalName, M + 14, RIGHT - M - 14 - titleW - 16, "bodyStrong", 13);
+  y -= 18 + (n - 1) * 16;
   if (view.revision) {
-    c.text(
-      `Revision: replaces the payslip of the original run. Net already paid ${money(view.revision.previouslyPaidCents)}.`,
-      M + 14,
-      y,
-      { size: 8, color: MUTED },
-    );
-    y -= 12;
+    y -=
+      para(
+        `Revision: replaces the payslip of the original run. Net already paid ${money(view.revision.previouslyPaidCents)}.`,
+        M + 14,
+        RIGHT - M - 14,
+        "body",
+        8,
+        MUTED,
+      ) * 11;
   }
   y -= 8;
   c.line(M, y, RIGHT, y, 1, INK);
   y -= 20;
 
-  // Particulars: two columns of label/value pairs.
+  // Particulars: two columns of label/value pairs; values wrap.
   const left: [string, string][] = [
     ["Employee", view.employee.name],
     ["Employee no.", view.employee.employeeNumber],
@@ -71,32 +137,42 @@ export async function renderPayslipPdf(view: PayslipView, opts: { createdAt: Dat
     const [ll, lv] = left[i] as [string, string];
     const [rl, rv] = right[i] as [string, string];
     c.text(ll.toUpperCase(), M, y, { font: "mono", size: 6.5, color: MUTED });
-    c.text(lv, M + 80, y, { size: 9, maxWidth: 170 });
     c.text(rl.toUpperCase(), 310, y, { font: "mono", size: 6.5, color: MUTED });
-    c.text(rv, 400, y, { size: 9, maxWidth: RIGHT - 400 });
-    y -= 15;
+    const a = para(lv, M + 80, 170, "body", 9, INK, 12);
+    const b = para(rv, 400, RIGHT - 400, "body", 9, INK, 12);
+    y -= 15 + (Math.max(a, b) - 1) * 12;
   }
   y -= 10;
 
   const section = (title: string) => {
+    ensure(40);
     c.rect(M, y - 5, RIGHT - M, 16, { fill: SURFACE });
     c.text(title.toUpperCase(), M + 6, y, { font: "monoStrong", size: 7.5 });
     c.text("S$", RIGHT - 6, y, { font: "mono", size: 7, color: MUTED, align: "right" });
     y -= 18;
   };
   const row = (label: string, cents: number, detail: string | null = null, negative = false) => {
-    c.text(label, M + 6, y, { size: 9, maxWidth: 260 });
-    if (detail) c.text(detail, 330, y, { size: 7.5, color: MUTED, maxWidth: 150 });
+    const labelLines = wrapText(c, label, "body", 9, 260);
+    const detailLines = detail ? wrapText(c, detail, "body", 7.5, 150) : [];
+    const h = Math.max(labelLines.length * 11, detailLines.length * 9);
+    ensure(h + 12);
+    labelLines.forEach((l, i) => {
+      c.text(l, M + 6, y - i * 11, { size: 9 });
+    });
+    detailLines.forEach((l, i) => {
+      c.text(l, 330, y - i * 9, { size: 7.5, color: MUTED });
+    });
     c.text(negative ? `-${money(cents).replace("S$", "")}` : money(cents).replace("S$", ""), RIGHT - 6, y, {
       font: "mono",
       size: 9,
       align: "right",
     });
-    y -= 6;
+    y -= h - 5;
     c.line(M, y, RIGHT, y, 0.4, HAIRLINE);
     y -= 11;
   };
   const total = (label: string, cents: number) => {
+    ensure(20);
     c.text(label, M + 6, y, { font: "bodyStrong", size: 9 });
     c.text(money(cents).replace("S$", ""), RIGHT - 6, y, { font: "monoStrong", size: 9, align: "right" });
     y -= 20;
@@ -112,12 +188,16 @@ export async function renderPayslipPdf(view: PayslipView, opts: { createdAt: Dat
     row("Basic salary (paid in the monthly payslip)", 0);
   }
   for (const a of view.allowances) row(a.label, a.amountCents, a.detail ?? "Allowance");
-  if (view.overtime) {
+  for (const p of view.overtime?.periods ?? []) {
     const period =
-      view.overtime.differsFromSalaryPeriod && view.overtime.periodStart && view.overtime.periodEnd
-        ? `, ${dateLabel(view.overtime.periodStart)} – ${dateLabel(view.overtime.periodEnd)}`
+      p.differsFromSalaryPeriod && p.periodStart && p.periodEnd
+        ? `, ${dateLabel(p.periodStart)} – ${dateLabel(p.periodEnd)}`
         : "";
-    row("Overtime pay", view.overtime.payCents, `${view.overtime.hours} h worked${period}`);
+    row(
+      p.label === "Overtime" ? "Overtime pay" : `Overtime pay: ${p.label}`,
+      p.payCents,
+      `${p.hours} h worked${period}`,
+    );
   }
   for (const a of view.additional) row(a.label, a.amountCents, a.detail);
   total("Gross pay", view.grossCents);
@@ -136,6 +216,7 @@ export async function renderPayslipPdf(view: PayslipView, opts: { createdAt: Dat
 
   // Net pay: the one emphasised surface (2px ink border, hard offset shadow).
   const boxH = view.revision ? 52 : 40;
+  ensure(boxH + 50);
   c.rect(M + 3, y - boxH + 9, RIGHT - M, boxH, { fill: INK });
   c.rect(M, y - boxH + 12, RIGHT - M, boxH, { fill: WHITE, border: INK, borderWidth: 2 });
   c.text("NET PAY", M + 12, y - 12, { font: "monoStrong", size: 9 });
@@ -157,24 +238,19 @@ export async function renderPayslipPdf(view: PayslipView, opts: { createdAt: Dat
   c.text(money(view.employerCpfCents), 250, y, { font: "mono", size: 8.5, align: "right" });
   c.text(`AW subject to CPF in ${view.ytd.year} to date`, 300, y, { size: 8.5 });
   c.text(money(view.ytd.awSubjectCents), RIGHT, y, { font: "mono", size: 8.5, align: "right" });
-  y -= 13;
 
-  // Footer.
-  footer(c, view);
+  footer(c, view, page);
   return finishPdf(c);
 }
 
-function footer(c: PdfCanvas, view: PayslipView) {
+function footer(c: PdfCanvas, view: PayslipView, page: number) {
   c.line(M, 64, RIGHT, 64, 0.4, HAIRLINE);
   c.text(
-    `Itemised payslip with the items MOM requires (mom.gov.sg/employment-practices/salary/itemised-payslips). Keep it for your records.`,
+    "Itemised payslip with the items MOM requires (mom.gov.sg/employment-practices/salary/itemised-payslips). Keep it for your records.",
     M,
     52,
-    {
-      size: 6.5,
-      color: MUTED,
-      maxWidth: RIGHT - M,
-    },
+    { size: 6.5, color: MUTED, maxWidth: RIGHT - M },
   );
   c.text(`Payslip ${view.id} · Generated by Crow HR`, M, 42, { font: "mono", size: 6, color: MUTED });
+  c.text(`Page ${page}`, RIGHT, 42, { font: "mono", size: 6, color: MUTED, align: "right" });
 }

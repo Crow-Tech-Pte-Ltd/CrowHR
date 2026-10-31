@@ -93,6 +93,10 @@ export interface RunTotals {
   reimbursementsCents: number;
   cpfEmployeeCents: number;
   cpfEmployerCents: number;
+  /** Employee share of AW top-ups borne by the employer (not statutory employer CPF). */
+  cpfEmployeeShareAbsorbedCents?: number;
+  /** Employee share of AW top-ups recovered from pay (CPF Act s 7(9)). */
+  cpfAwRecoveredCents?: number;
   cpfTotalChargedCents: number;
   shgCents: number;
   shgChargedByFund: Record<string, number>;
@@ -124,6 +128,8 @@ export const payrollRuns = pgTable(
     supersededByRunId: uuid("superseded_by_run_id"),
     reopenReason: text("reopen_reason"),
     approvalRequestId: text("approval_request_id"),
+    /** CPF EZPay advice code, allocated on the first CPF file and kept (distinct per month). */
+    cpfAdviceCode: text("cpf_advice_code"),
     submittedBy: uuid("submitted_by"),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     decidedBy: uuid("decided_by"),

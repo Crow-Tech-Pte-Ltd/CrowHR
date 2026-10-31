@@ -30,7 +30,7 @@ test("monthly payroll from creation to the employee's payslip PDF", async ({ pag
 
   // The drawer shows the working; add the hours there.
   const drawer = page.getByRole("dialog");
-  await expect(drawer.getByText("shows its working")).toBeVisible();
+  await expect(drawer.getByText("Items in this run")).toBeVisible();
   await drawer.getByRole("button", { name: "Add item" }).click();
   await drawer.getByRole("combobox", { name: "Item" }).click();
   await page.getByRole("option", { name: "Hours worked" }).click();

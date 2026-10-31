@@ -76,7 +76,9 @@ describe("payslip content", () => {
     ]); // 8 deductions, fixed and ad hoc
     expect(v.overtime?.hours).toBe(2.5); // 9 OT hours
     expect(v.overtime?.payCents).toBe(5_100); // 10 OT pay: 13.60 × 1.5 × 2.5
-    expect(v.overtime?.differsFromSalaryPeriod).toBe(true); // 11 OT period
+    expect(v.overtime?.periods.map((p) => [p.periodStart, p.periodEnd, p.differsFromSalaryPeriod])).toEqual([
+      ["2026-09-21", "2026-10-20", true],
+    ]); // 11 OT period
     expect(v.netCents).toBeGreaterThan(0); // 12 net salary
     expect(v.grossCents - v.totalDeductionsCents).toBe(v.netCents);
     expect(missingPayslipItems(october(), computeEmployeePay(october()))).toEqual([]);
@@ -151,5 +153,74 @@ describe("payslip PDF", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("payslip PDF completeness (payroll-choices.md §5)", () => {
+  it("keeps a long full name, every OT period and long line lists, over several pages", async (ctx) => {
+    let hasPdftotext = true;
+    try {
+      execFileSync("pdftotext", ["-v"], { stdio: "ignore" });
+    } catch {
+      hasPdftotext = false;
+    }
+    const longName = "Muhammad Abdul Rahman bin Abdullah Ibrahim Ismail";
+    const items = [
+      item({
+        kind: "overtime",
+        label: "Overtime (September)",
+        minutes: 120,
+        amountCents: 6_000,
+        periodStart: "2026-09-21",
+        periodEnd: "2026-09-30",
+      }),
+      item({
+        kind: "overtime",
+        label: "Overtime (October)",
+        minutes: 90,
+        amountCents: 4_500,
+        periodStart: "2026-10-01",
+        periodEnd: "2026-10-20",
+      }),
+      ...Array.from({ length: 40 }, (_, i) =>
+        item({
+          kind: "deduction",
+          label: `Staff purchase ${String(i + 1).padStart(2, "0")}`,
+          amountCents: 100,
+          deductionCategory: "consented",
+        }),
+      ),
+    ];
+    const input = payInput({ run: { payDate: "2026-10-30" }, employee: { legalName: longName }, items });
+    const result = computeEmployeePay(input);
+    expect(missingPayslipItems(input, result)).toEqual([]);
+    const v = view(input);
+    expect(v.overtime?.periods).toHaveLength(2);
+    const pdf = await renderPayslipPdf(v, { createdAt: new Date("2026-10-30T02:00:00Z") });
+    const doc = await PDFDocument.load(pdf);
+    expect(doc.getPageCount()).toBeGreaterThan(1);
+    if (!hasPdftotext) ctx.skip();
+    const dir = mkdtempSync(join(tmpdir(), "payslip-long-"));
+    try {
+      writeFileSync(join(dir, "p.pdf"), pdf);
+      const text = execFileSync("pdftotext", [join(dir, "p.pdf"), "-"])
+        .toString()
+        .replace(/\s+/g, " ");
+      for (const word of longName.split(" ")) expect(text).toContain(word);
+      expect(text).toContain("Muhammad Abdul Rahman bin Abdullah Ibrahim");
+      expect(text).toContain("21 Sep 2026 – 30 Sep 2026");
+      expect(text).toContain("1 Oct 2026 – 20 Oct 2026");
+      for (let i = 1; i <= 40; i++) expect(text).toContain(`Staff purchase ${String(i).padStart(2, "0")}`);
+      expect(text).toContain("NET PAY");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a payslip whose OT period has only one end", () => {
+    const input = payInput({
+      items: [item({ kind: "overtime", minutes: 60, amountCents: 3_000, periodEnd: "2026-10-15" })],
+    });
+    expect(missingPayslipItems(input, computeEmployeePay(input))).toEqual(["Overtime period"]);
   });
 });

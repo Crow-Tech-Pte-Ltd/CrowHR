@@ -27,6 +27,8 @@ export const totalsSchema = z.object({
   reimbursementsCents: cents,
   cpfEmployeeCents: cents,
   cpfEmployerCents: cents,
+  cpfEmployeeShareAbsorbedCents: cents.optional(),
+  cpfAwRecoveredCents: cents.optional(),
   cpfTotalChargedCents: cents,
   shgCents: cents,
   shgChargedByFund: shgRecord,
@@ -143,6 +145,7 @@ const lineSchema = z.object({
 const chargedSchema = z.object({
   cpfTotalCents: cents,
   cpfEmployeeCents: cents,
+  cpfAwTopUpEmployeeCents: cents.optional(),
   cpfEmployerCents: cents,
   shgCents: shgRecord,
   sdlUnits1e4Cent: z.number().int(),
@@ -198,8 +201,29 @@ export const payResultSchema = z.object({
     .nullable(),
   shgFunds: z.array(z.string()),
   overtime: z
-    .object({ minutes: z.number().int(), periodStart: isoDate.nullable(), periodEnd: isoDate.nullable() })
+    .object({
+      minutes: z.number().int(),
+      periods: z.array(
+        z.object({
+          label: z.string(),
+          periodStart: isoDate.nullable(),
+          periodEnd: isoDate.nullable(),
+          minutes: z.number().int(),
+          payCents: cents,
+        }),
+      ),
+    })
     .nullable(),
+  awTopUp: z
+    .object({
+      employeeShareCents: cents,
+      recoveredThisRunCents: cents,
+      recoveredEarlierCents: cents,
+      absorbedCents: cents,
+      deadline: isoDate,
+    })
+    .nullable()
+    .optional(),
   hourly: z.object({ rateCents: cents, minutes: z.number().int() }).nullable(),
   rules: z.array(
     z.object({
@@ -224,6 +248,9 @@ export const itemKinds = [
   "unpaid_leave",
   "hours",
   "deduction",
+  "scheduled_days",
+  "days_worked",
+  "cpf_aw_recovery",
 ] as const;
 
 export const itemSchema = z.object({
@@ -313,9 +340,16 @@ export const payslipViewSchema = z.object({
     .object({
       hours: z.number(),
       payCents: cents,
-      periodStart: isoDate.nullable(),
-      periodEnd: isoDate.nullable(),
-      differsFromSalaryPeriod: z.boolean(),
+      periods: z.array(
+        z.object({
+          label: z.string(),
+          hours: z.number(),
+          payCents: cents,
+          periodStart: isoDate.nullable(),
+          periodEnd: isoDate.nullable(),
+          differsFromSalaryPeriod: z.boolean(),
+        }),
+      ),
     })
     .nullable(),
   deductions: z.array(slipLine.extend({ type: z.enum(["fixed", "ad_hoc"]) })),

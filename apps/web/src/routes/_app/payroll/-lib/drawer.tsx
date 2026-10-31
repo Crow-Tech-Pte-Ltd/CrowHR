@@ -48,6 +48,9 @@ const ITEM_KIND: Record<PayrollItemDto["kind"], string> = {
   unpaid_leave: "No-pay leave",
   hours: "Hours worked",
   deduction: "Deduction",
+  scheduled_days: "Scheduled days",
+  days_worked: "Days worked",
+  cpf_aw_recovery: "Recover AW top-up CPF",
 };
 
 export function EmployeeDrawer({
@@ -88,7 +91,7 @@ export function EmployeeDrawer({
               {row?.name ?? detail.data?.employeeName ?? "Employee"}
             </SheetTitle>
             <SheetDescription className="font-azeret text-[10px] uppercase tracking-wide text-primary-200">
-              {row?.employeeNumber} {row?.department ? `· ${row.department}` : ""} · shows its working
+              {row?.employeeNumber} {row?.department ? `· ${row.department}` : ""}
             </SheetDescription>
           </div>
           <div className="flex shrink-0 gap-1">
@@ -231,7 +234,7 @@ function DrawerBody({ d, runId, editable }: { d: PayrollEmployeeDetailDto; runId
                     <Fact k="Headroom left" v={formatMoney(r.cpf.awCeiling.headroomAfterCents)} mono />
                   </>
                 ) : null}
-                <Fact k="Exact total (cents)" v={r.cpf.exactTotal} mono />
+                <Fact k="Exact total" v={exactMoney(r.cpf.exactTotal)} mono />
               </dl>
             </>
           ) : null}
@@ -389,8 +392,9 @@ function ItemList({ items, runId, editable }: { items: PayrollItemDto[]; runId: 
 const DEDUCTION_OPTIONS: [string, string][] = [
   ["consented", "Other (written consent)"],
   ["damage_loss", "Damage or loss (25% limit)"],
-  ["accommodation", "Accommodation (25% limit)"],
-  ["amenities", "Amenities and services (25% limit)"],
+  ["accommodation", "Accommodation (25% with amenities)"],
+  ["amenities", "Amenities and services (25% with accommodation)"],
+  ["unearned_benefit", "Unearned employment benefit"],
   ["advance", "Advance recovery (25% per instalment)"],
   ["loan", "Loan instalment (25%)"],
   ["overpayment", "Overpaid salary recovery"],
@@ -472,11 +476,17 @@ function AddItem({ runId, employeeId }: { runId: string; employeeId: string }) {
       <FormField label="Label on payslip" error={errors.label}>
         <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={ITEM_KIND[kind]} />
       </FormField>
-      {earning || kind === "deduction" || kind === "overtime" ? (
+      {earning || kind === "deduction" || kind === "overtime" || kind === "cpf_aw_recovery" ? (
         <FormField
           label="Amount"
           error={errors.amountCents}
-          hint={kind === "overtime" ? "Leave empty to use the statutory 1.5× rate." : undefined}
+          hint={
+            kind === "overtime"
+              ? "Leave empty to use the statutory 1.5× rate."
+              : kind === "cpf_aw_recovery"
+                ? "Leave empty to recover all that CPF Act s 7(9) allows."
+                : undefined
+          }
         >
           <MoneyInput value={amount} onChange={(c) => setAmount(c)} />
         </FormField>
@@ -509,6 +519,19 @@ function AddItem({ runId, employeeId }: { runId: string; employeeId: string }) {
       {kind === "overtime" || kind === "hours" ? (
         <FormField label="Hours" error={errors.minutes}>
           <Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="e.g. 4.5" />
+        </FormField>
+      ) : null}
+      {kind === "scheduled_days" || kind === "days_worked" ? (
+        <FormField
+          label="Days"
+          error={errors.days}
+          hint={
+            kind === "scheduled_days"
+              ? "Working days the roster required this month, including public holidays."
+              : "Days worked, including public holidays and paid leave, excluding no-pay leave."
+          }
+        >
+          <Input inputMode="decimal" value={days} onChange={(e) => setDays(e.target.value)} />
         </FormField>
       ) : null}
       {kind === "unpaid_leave" ? (
@@ -547,4 +570,23 @@ function AddItem({ runId, employeeId }: { runId: string; employeeId: string }) {
       </div>
     </form>
   );
+}
+
+/** An exact rational number of cents ("n" or "n/d") as dollars with every significant decimal. */
+function exactMoney(exact: string): string {
+  const [n, d = "1"] = exact.split("/");
+  const num = BigInt(n as string);
+  const den = BigInt(d) * 100n;
+  const neg = num < 0n;
+  const abs = neg ? -num : num;
+  const whole = abs / den;
+  let rem = abs % den;
+  let frac = "";
+  for (let i = 0; i < 8 && (rem !== 0n || frac.length < 2); i++) {
+    rem *= 10n;
+    frac += String(rem / den);
+    rem %= den;
+  }
+  const dollars = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${neg ? "-" : ""}S$${dollars}.${frac}${rem !== 0n ? "…" : ""}`;
 }

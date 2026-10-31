@@ -1,5 +1,5 @@
 import { incompleteMonthSalary, WORK_PATTERNS, type WorkPattern, workingDaysInMonth } from "@crowhr/sg-rules";
-import { MOM_INCOMPLETE_MONTH_SOURCE } from "../rules.ts";
+import { EA_S20A_SOURCE, MOM_INCOMPLETE_MONTH_SOURCE } from "../rules.ts";
 import { addDays, dateLabel, dayOfWeek, eachDay, maxDate, minDate, sgd } from "./dates.ts";
 import type { AllowanceInput, CompensationSegment, PayInput, PayIssue, PayLine, WorkingLine } from "./types.ts";
 
@@ -142,16 +142,14 @@ export function prorate(input: PayInput): ProrationResult {
         source: null,
       });
     }
+  } else if (
+    employment.pattern === null &&
+    !(start === run.periodStart && end === run.periodEnd && segments.length === 1 && npl.length === 0)
+  ) {
+    // Rostered staff (no fixed week): EA s 20A's denominator is the days the employee is required
+    // to work in the month, so pro-ration needs the roster's figures; no week pattern is assumed.
+    return rostered(input, out, segments, start, end);
   } else {
-    if (employment.pattern === null && (start !== run.periodStart || end !== run.periodEnd || npl.length > 0)) {
-      issues.push({
-        code: "PRORATION_PATTERN_ASSUMED",
-        severity: "warning",
-        message:
-          "The employee is on a shift schedule with no fixed week, so pro-ration assumes a 5-day (Mon–Fri) week. Check the days worked.",
-        source: MOM_INCOMPLETE_MONTH_SOURCE,
-      });
-    }
     // Assign no-pay leave to segments: by date, else the last segment.
     const nplBySeg = new Map<CompensationSegment, number>();
     for (const item of npl) {
@@ -339,3 +337,106 @@ export function roundHalfUp(numerator: number, denominator: number): number {
 }
 
 const centsText = sgd;
+
+/**
+ * Incomplete month for rostered staff from entered roster figures: scheduled working days in the
+ * month (`scheduled_days`, incl. public holidays) and days worked (`days_worked`, incl. public
+ * holidays and paid leave, excl. no-pay leave). Blocks without them (payroll-choices.md §4).
+ */
+function rostered(
+  input: PayInput,
+  out: ProrationResult,
+  segments: CompensationSegment[],
+  start: string,
+  end: string,
+): ProrationResult {
+  const sum = (kind: string) => input.items.filter((i) => i.kind === kind).reduce((t, i) => t + (i.days ?? 0), 0);
+  const has = (kind: string) => input.items.some((i) => i.kind === kind);
+  if (!has("scheduled_days") || !has("days_worked")) {
+    out.issues.push(
+      blocking(
+        "SCHEDULED_DAYS_REQUIRED",
+        `This employee works a roster with no fixed week, and ${dateLabel(start)}–${dateLabel(end)} is not a full month of pay. Enter "Scheduled days" (working days the roster required in ${dateLabel(input.run.periodStart).slice(-8)}, including public holidays) and "Days worked" (including public holidays and paid leave, excluding no-pay leave), then recompute.`,
+        EA_S20A_SOURCE,
+      ),
+    );
+    return out;
+  }
+  const W = sum("scheduled_days");
+  const worked = sum("days_worked");
+  if (segments.length > 1) {
+    out.issues.push(
+      blocking(
+        "ROSTER_RATE_CHANGE_UNSUPPORTED",
+        'Basic pay changes within this month for a rostered employee. Crow HR cannot split roster days between rates yet: pay the period at the later rate and enter the difference as an "Other earning".',
+      ),
+    );
+    return out;
+  }
+  if (W <= 0 || worked > W) {
+    out.issues.push(
+      blocking(
+        "ROSTER_DAYS_INVALID",
+        `Days worked (${worked}) must be between 0 and the scheduled days (${W}), and scheduled days more than 0.`,
+      ),
+    );
+    return out;
+  }
+  const seg = segments[0] as CompensationSegment;
+  const paid = incompleteMonthSalary({ monthlyGrossCents: seg.amountCents, workingDaysInMonth: W, daysWorked: worked });
+  out.basicCents = paid.payCents;
+  out.prorated = true;
+  out.monthlyBasicAtEndCents = seg.amountCents;
+  out.window = { start, end };
+  out.lines.push({
+    code: "BASIC",
+    kind: "earning",
+    category: "basic",
+    label: "Basic salary",
+    amountCents: paid.payCents,
+    wageClass: "OW",
+    cpfLiable: true,
+    detail: `${worked} of ${W} scheduled days`,
+    itemId: null,
+  });
+  out.working.push({
+    section: "basic",
+    code: "BASIC_ROSTER",
+    text: `Roster: ${W} scheduled days, ${worked} worked. ${paid.working[0]?.text ?? ""}`,
+  });
+  if (input.items.some((i) => i.kind === "unpaid_leave")) {
+    out.issues.push({
+      code: "NPL_IN_DAYS_WORKED",
+      severity: "info",
+      message:
+        "For rostered staff, no-pay leave is reflected in the days worked; separate no-pay leave items are not deducted again.",
+      source: null,
+    });
+  }
+  let fullAllowanceOw = 0;
+  for (const a of [...input.allowances].sort((x, y) =>
+    x.code < y.code ? -1 : x.code > y.code ? 1 : x.id < y.id ? -1 : 1,
+  )) {
+    if (!overlaps(a.from, a.to, start, end)) continue;
+    const pay = a.prorate
+      ? incompleteMonthSalary({ monthlyGrossCents: a.amountCents, workingDaysInMonth: W, daysWorked: worked }).payCents
+      : a.amountCents;
+    out.lines.push({
+      code: `ALLOWANCE_${a.code.toUpperCase()}`,
+      kind: "earning",
+      category: "allowance",
+      label: a.name,
+      amountCents: pay,
+      wageClass: a.cpfLiable ? "OW" : null,
+      cpfLiable: a.cpfLiable,
+      detail: a.prorate ? `${worked} of ${W} scheduled days` : null,
+      itemId: null,
+    });
+    if (a.cpfLiable) {
+      out.allowanceOwCents += pay;
+      fullAllowanceOw += a.amountCents;
+    } else out.allowanceNonCpfCents += pay;
+  }
+  out.fullMonthlyOwCents = seg.amountCents + fullAllowanceOw;
+  return out;
+}
