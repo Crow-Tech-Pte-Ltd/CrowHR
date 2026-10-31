@@ -74,7 +74,7 @@ function deferredPorts(ports: PeoplePorts) {
       markFormer: async (i) => void queue.push(() => ports.memberships.markFormer(i)),
     },
     payroll: {
-      lastFinalisedPeriodEnd: (o) => ports.payroll.lastFinalisedPeriodEnd(o),
+      lastFinalisedPeriodEnd: (o, db) => ports.payroll.lastFinalisedPeriodEnd(o, db),
       notifyBackPay: async (n) => void queue.push(() => ports.payroll.notifyBackPay(n)),
     },
   };

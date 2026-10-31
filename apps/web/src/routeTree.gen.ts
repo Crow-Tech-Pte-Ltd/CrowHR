@@ -17,7 +17,6 @@ import { Route as AppClaimsRouteImport } from './routes/_app/claims'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
 import { Route as AppLeaveRouteImport } from './routes/_app/leave'
-import { Route as AppPayrollRouteImport } from './routes/_app/payroll'
 import { Route as AppReportsRouteImport } from './routes/_app/reports'
 import { Route as AppSchedulesRouteImport } from './routes/_app/schedules'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
@@ -26,6 +25,7 @@ import { Route as SignInIndexRouteImport } from './routes/sign-in.index'
 import { Route as SignInOrgRouteImport } from './routes/sign-in.$org'
 import { Route as AppMeProfileRouteImport } from './routes/_app/me/profile'
 import { Route as AppMeSessionsRouteImport } from './routes/_app/me/sessions'
+import { Route as AppPayrollIndexRouteImport } from './routes/_app/payroll/index'
 import { Route as AppPeopleIndexRouteImport } from './routes/_app/people/index'
 import { Route as AppPeopleEmployeeIdRouteImport } from './routes/_app/people/$employeeId'
 import { Route as AppPeopleImportRouteImport } from './routes/_app/people/import'
@@ -39,6 +39,10 @@ import { Route as AppSettingsNotificationsRouteImport } from './routes/_app/sett
 import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
 import { Route as AppSettingsStructureRouteImport } from './routes/_app/settings/structure'
 import { Route as AppSettingsSystemRouteImport } from './routes/_app/settings/system'
+import { Route as AppMePayslipsIndexRouteImport } from './routes/_app/me/payslips.index'
+import { Route as AppMePayslipsPayslipIdRouteImport } from './routes/_app/me/payslips.$payslipId'
+import { Route as AppPayrollRunsRunIdRouteImport } from './routes/_app/payroll/runs.$runId'
+import { Route as AppPayrollRunsRunIdPayslipsPayslipIdRouteImport } from './routes/_app/payroll/runs.$runId.payslips.$payslipId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -79,11 +83,6 @@ const AppLeaveRoute = AppLeaveRouteImport.update({
   path: '/leave',
   getParentRoute: () => AppRoute,
 } as any)
-const AppPayrollRoute = AppPayrollRouteImport.update({
-  id: '/payroll',
-  path: '/payroll',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppReportsRoute = AppReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -122,6 +121,11 @@ const AppMeProfileRoute = AppMeProfileRouteImport.update({
 const AppMeSessionsRoute = AppMeSessionsRouteImport.update({
   id: '/me/sessions',
   path: '/me/sessions',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPayrollIndexRoute = AppPayrollIndexRouteImport.update({
+  id: '/payroll/',
+  path: '/payroll/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPeopleIndexRoute = AppPeopleIndexRouteImport.update({
@@ -190,6 +194,27 @@ const AppSettingsSystemRoute = AppSettingsSystemRouteImport.update({
   path: '/settings/system',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMePayslipsIndexRoute = AppMePayslipsIndexRouteImport.update({
+  id: '/me/payslips/',
+  path: '/me/payslips/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMePayslipsPayslipIdRoute = AppMePayslipsPayslipIdRouteImport.update({
+  id: '/me/payslips/$payslipId',
+  path: '/me/payslips/$payslipId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPayrollRunsRunIdRoute = AppPayrollRunsRunIdRouteImport.update({
+  id: '/payroll/runs/$runId',
+  path: '/payroll/runs/$runId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPayrollRunsRunIdPayslipsPayslipIdRoute =
+  AppPayrollRunsRunIdPayslipsPayslipIdRouteImport.update({
+    id: '/payslips/$payslipId',
+    path: '/payslips/$payslipId',
+    getParentRoute: () => AppPayrollRunsRunIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -199,7 +224,6 @@ export interface FileRoutesByFullPath {
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
   '/leave': typeof AppLeaveRoute
-  '/payroll': typeof AppPayrollRoute
   '/reports': typeof AppReportsRoute
   '/schedules': typeof AppSchedulesRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -219,8 +243,13 @@ export interface FileRoutesByFullPath {
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/structure': typeof AppSettingsStructureRoute
   '/settings/system': typeof AppSettingsSystemRoute
+  '/payroll/': typeof AppPayrollIndexRoute
   '/people/': typeof AppPeopleIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
+  '/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
+  '/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
+  '/me/payslips/': typeof AppMePayslipsIndexRoute
+  '/payroll/runs/$runId/payslips/$payslipId': typeof AppPayrollRunsRunIdPayslipsPayslipIdRoute
 }
 export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
@@ -229,7 +258,6 @@ export interface FileRoutesByTo {
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
   '/leave': typeof AppLeaveRoute
-  '/payroll': typeof AppPayrollRoute
   '/reports': typeof AppReportsRoute
   '/schedules': typeof AppSchedulesRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -250,8 +278,13 @@ export interface FileRoutesByTo {
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/structure': typeof AppSettingsStructureRoute
   '/settings/system': typeof AppSettingsSystemRoute
+  '/payroll': typeof AppPayrollIndexRoute
   '/people': typeof AppPeopleIndexRoute
   '/settings': typeof AppSettingsIndexRoute
+  '/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
+  '/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
+  '/me/payslips': typeof AppMePayslipsIndexRoute
+  '/payroll/runs/$runId/payslips/$payslipId': typeof AppPayrollRunsRunIdPayslipsPayslipIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -262,7 +295,6 @@ export interface FileRoutesById {
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/inbox': typeof AppInboxRoute
   '/_app/leave': typeof AppLeaveRoute
-  '/_app/payroll': typeof AppPayrollRoute
   '/_app/reports': typeof AppReportsRoute
   '/_app/schedules': typeof AppSchedulesRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -283,8 +315,13 @@ export interface FileRoutesById {
   '/_app/settings/security': typeof AppSettingsSecurityRoute
   '/_app/settings/structure': typeof AppSettingsStructureRoute
   '/_app/settings/system': typeof AppSettingsSystemRoute
+  '/_app/payroll/': typeof AppPayrollIndexRoute
   '/_app/people/': typeof AppPeopleIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
+  '/_app/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
+  '/_app/me/payslips/': typeof AppMePayslipsIndexRoute
+  '/_app/payroll/runs/$runId/payslips/$payslipId': typeof AppPayrollRunsRunIdPayslipsPayslipIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -296,7 +333,6 @@ export interface FileRouteTypes {
     | '/documents'
     | '/inbox'
     | '/leave'
-    | '/payroll'
     | '/reports'
     | '/schedules'
     | '/invite/$token'
@@ -316,8 +352,13 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/settings/structure'
     | '/settings/system'
+    | '/payroll/'
     | '/people/'
     | '/settings/'
+    | '/me/payslips/$payslipId'
+    | '/payroll/runs/$runId'
+    | '/me/payslips/'
+    | '/payroll/runs/$runId/payslips/$payslipId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/setup'
@@ -326,7 +367,6 @@ export interface FileRouteTypes {
     | '/documents'
     | '/inbox'
     | '/leave'
-    | '/payroll'
     | '/reports'
     | '/schedules'
     | '/invite/$token'
@@ -347,8 +387,13 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/settings/structure'
     | '/settings/system'
+    | '/payroll'
     | '/people'
     | '/settings'
+    | '/me/payslips/$payslipId'
+    | '/payroll/runs/$runId'
+    | '/me/payslips'
+    | '/payroll/runs/$runId/payslips/$payslipId'
   id:
     | '__root__'
     | '/_app'
@@ -358,7 +403,6 @@ export interface FileRouteTypes {
     | '/_app/documents'
     | '/_app/inbox'
     | '/_app/leave'
-    | '/_app/payroll'
     | '/_app/reports'
     | '/_app/schedules'
     | '/invite/$token'
@@ -379,8 +423,13 @@ export interface FileRouteTypes {
     | '/_app/settings/security'
     | '/_app/settings/structure'
     | '/_app/settings/system'
+    | '/_app/payroll/'
     | '/_app/people/'
     | '/_app/settings/'
+    | '/_app/me/payslips/$payslipId'
+    | '/_app/payroll/runs/$runId'
+    | '/_app/me/payslips/'
+    | '/_app/payroll/runs/$runId/payslips/$payslipId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -450,13 +499,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLeaveRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/payroll': {
-      id: '/_app/payroll'
-      path: '/payroll'
-      fullPath: '/payroll'
-      preLoaderRoute: typeof AppPayrollRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/reports': {
       id: '/_app/reports'
       path: '/reports'
@@ -511,6 +553,13 @@ declare module '@tanstack/react-router' {
       path: '/me/sessions'
       fullPath: '/me/sessions'
       preLoaderRoute: typeof AppMeSessionsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/payroll/': {
+      id: '/_app/payroll/'
+      path: '/payroll'
+      fullPath: '/payroll/'
+      preLoaderRoute: typeof AppPayrollIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/people/': {
@@ -604,8 +653,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsSystemRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/me/payslips/': {
+      id: '/_app/me/payslips/'
+      path: '/me/payslips'
+      fullPath: '/me/payslips/'
+      preLoaderRoute: typeof AppMePayslipsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/me/payslips/$payslipId': {
+      id: '/_app/me/payslips/$payslipId'
+      path: '/me/payslips/$payslipId'
+      fullPath: '/me/payslips/$payslipId'
+      preLoaderRoute: typeof AppMePayslipsPayslipIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/payroll/runs/$runId': {
+      id: '/_app/payroll/runs/$runId'
+      path: '/payroll/runs/$runId'
+      fullPath: '/payroll/runs/$runId'
+      preLoaderRoute: typeof AppPayrollRunsRunIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/payroll/runs/$runId/payslips/$payslipId': {
+      id: '/_app/payroll/runs/$runId/payslips/$payslipId'
+      path: '/payslips/$payslipId'
+      fullPath: '/payroll/runs/$runId/payslips/$payslipId'
+      preLoaderRoute: typeof AppPayrollRunsRunIdPayslipsPayslipIdRouteImport
+      parentRoute: typeof AppPayrollRunsRunIdRoute
+    }
   }
 }
+
+interface AppPayrollRunsRunIdRouteChildren {
+  AppPayrollRunsRunIdPayslipsPayslipIdRoute: typeof AppPayrollRunsRunIdPayslipsPayslipIdRoute
+}
+
+const AppPayrollRunsRunIdRouteChildren: AppPayrollRunsRunIdRouteChildren = {
+  AppPayrollRunsRunIdPayslipsPayslipIdRoute:
+    AppPayrollRunsRunIdPayslipsPayslipIdRoute,
+}
+
+const AppPayrollRunsRunIdRouteWithChildren =
+  AppPayrollRunsRunIdRoute._addFileChildren(AppPayrollRunsRunIdRouteChildren)
 
 interface AppRouteChildren {
   AppAttendanceRoute: typeof AppAttendanceRoute
@@ -613,7 +702,6 @@ interface AppRouteChildren {
   AppDocumentsRoute: typeof AppDocumentsRoute
   AppInboxRoute: typeof AppInboxRoute
   AppLeaveRoute: typeof AppLeaveRoute
-  AppPayrollRoute: typeof AppPayrollRoute
   AppReportsRoute: typeof AppReportsRoute
   AppSchedulesRoute: typeof AppSchedulesRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -630,8 +718,12 @@ interface AppRouteChildren {
   AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
   AppSettingsStructureRoute: typeof AppSettingsStructureRoute
   AppSettingsSystemRoute: typeof AppSettingsSystemRoute
+  AppPayrollIndexRoute: typeof AppPayrollIndexRoute
   AppPeopleIndexRoute: typeof AppPeopleIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+  AppMePayslipsPayslipIdRoute: typeof AppMePayslipsPayslipIdRoute
+  AppPayrollRunsRunIdRoute: typeof AppPayrollRunsRunIdRouteWithChildren
+  AppMePayslipsIndexRoute: typeof AppMePayslipsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -640,7 +732,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppDocumentsRoute: AppDocumentsRoute,
   AppInboxRoute: AppInboxRoute,
   AppLeaveRoute: AppLeaveRoute,
-  AppPayrollRoute: AppPayrollRoute,
   AppReportsRoute: AppReportsRoute,
   AppSchedulesRoute: AppSchedulesRoute,
   AppIndexRoute: AppIndexRoute,
@@ -657,8 +748,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsSecurityRoute: AppSettingsSecurityRoute,
   AppSettingsStructureRoute: AppSettingsStructureRoute,
   AppSettingsSystemRoute: AppSettingsSystemRoute,
+  AppPayrollIndexRoute: AppPayrollIndexRoute,
   AppPeopleIndexRoute: AppPeopleIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppMePayslipsPayslipIdRoute: AppMePayslipsPayslipIdRoute,
+  AppPayrollRunsRunIdRoute: AppPayrollRunsRunIdRouteWithChildren,
+  AppMePayslipsIndexRoute: AppMePayslipsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

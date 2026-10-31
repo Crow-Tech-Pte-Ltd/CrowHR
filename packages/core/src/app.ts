@@ -20,6 +20,7 @@ import { healthRoutes } from "./modules/health/routes.ts";
 import { notificationsModule } from "./notifications/routes.ts";
 import { buildOpenApiDocument, SUPPORTED_API_VERSIONS } from "./openapi/generate.ts";
 import { organisationModule } from "./organisation/routes.ts";
+import { payrollModule, payslipsModule } from "./payroll/routes.ts";
 import { setupModule } from "./setup/routes.ts";
 import { systemModule } from "./system/routes.ts";
 import { approvalsModule, inboxModule } from "./workflows/routes.ts";
@@ -39,6 +40,8 @@ export const V1_MODULES: readonly ApiModule[] = [
   nativeModule,
   notificationsModule,
   organisationModule,
+  payrollModule,
+  payslipsModule,
   peopleModule,
   securityModule,
   setupModule,

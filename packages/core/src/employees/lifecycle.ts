@@ -173,8 +173,8 @@ async function assertPassValidOn(tx: Db, orgId: string, employeeId: string, date
 }
 
 /** Retroactive guard: a change dated on or before the last finalised period needs `retroactive: true`. */
-async function assertNotFinalised(ctx: LifecycleCtx, effectiveFrom: string, retroactive: boolean | undefined) {
-  const end = await ctx.ports.payroll.lastFinalisedPeriodEnd(ctx.actor.orgId);
+async function assertNotFinalised(ctx: LifecycleCtx, effectiveFrom: string, retroactive: boolean | undefined, tx?: Db) {
+  const end = await ctx.ports.payroll.lastFinalisedPeriodEnd(ctx.actor.orgId, tx);
   if (end && effectiveFrom <= end) {
     const [y, m] = end.split("-").map(Number) as [number, number];
     if (!retroactive) {
@@ -236,7 +236,7 @@ async function insertCompensationVersion(
     .from(compensationRecords)
     .where(ctx.actor.org.where(compensationRecords, eq(compensationRecords.employeeId, employeeId)));
   // A new tenure has no earlier pay to adjust, so the finalised-period guard does not apply.
-  const retro = opts.newTenure ? false : await assertNotFinalised(ctx, effectiveFrom, comp.retroactive);
+  const retro = opts.newTenure ? false : await assertNotFinalised(ctx, effectiveFrom, comp.retroactive, tx);
   const plan = planInsert(existing, effectiveFrom);
   if (plan.close) {
     await tx
@@ -258,14 +258,17 @@ async function insertCompensationVersion(
     retroactive: retro,
   });
   if (retro) {
-    await ctx.ports.payroll.notifyBackPay({
-      orgId: ctx.actor.orgId,
-      employeeId,
-      compensationRecordId: id,
-      effectiveFrom,
-      previousAmountCents: plan.close?.amountCents ?? null,
-      newAmountCents: comp.amountCents,
-    });
+    await ctx.ports.payroll.notifyBackPay(
+      {
+        orgId: ctx.actor.orgId,
+        employeeId,
+        compensationRecordId: id,
+        effectiveFrom,
+        previousAmountCents: plan.close?.amountCents ?? null,
+        newAmountCents: comp.amountCents,
+      },
+      tx,
+    );
   }
   return { id, previous: plan.close };
 }
