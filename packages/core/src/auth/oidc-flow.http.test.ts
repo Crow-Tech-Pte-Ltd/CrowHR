@@ -125,6 +125,18 @@ describe("OIDC sign-in flow (Google, Entra, generic) against the mock IdP", () =
     expect(await reasons()).toContain("state_mismatch");
   });
 
+  it("refuses a callback completed in a different browser than the one that started it (login CSRF)", async () => {
+    await seedMember(deps, org.id, { email: "attacker@kampongkopi.sg" });
+    generic.nextUser = { sub: "okta-attacker", email: "attacker@kampongkopi.sg", email_verified: true };
+    const attacker = testClient(app, deps);
+    const start = await attacker.get(`/api/v1/auth/oidc/${ids.generic}/start`);
+    const cb = await generic.login(start.headers.get("location") as string);
+    const victim = testClient(app, deps);
+    const res = await victim.get(cb.pathname + cb.search);
+    expect(res.headers.get("location")).toContain("error=sso_failed");
+    expect(victim.sessionToken()).toBeUndefined();
+  });
+
   it("fails when the transaction is older than 10 minutes", async () => {
     await seedMember(deps, org.id, { email: "slow@kampongkopi.sg" });
     generic.nextUser = { sub: "okta-slow", email: "slow@kampongkopi.sg", email_verified: true };
