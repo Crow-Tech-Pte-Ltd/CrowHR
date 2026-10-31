@@ -1,4 +1,5 @@
 import type { AuditDiff } from "../audit/audit.ts";
+import type { Db } from "../db/types.ts";
 import type { Actor } from "./access.ts";
 import type { AuditEventInput, PeoplePorts } from "./ports.ts";
 
@@ -34,6 +35,11 @@ export function diffOf(
   return out;
 }
 
-export async function recordAudit(ports: PeoplePorts, actor: Actor, event: AuditEventInput): Promise<void> {
-  await ports.audit.record(actor.auditCtx, event);
+/**
+ * Records `event` inside `tx`, the transaction that makes the change, so a
+ * failed audit write rolls the change back (architecture "Write + audit in one
+ * transaction").
+ */
+export async function recordAudit(tx: Db, ports: PeoplePorts, actor: Actor, event: AuditEventInput): Promise<void> {
+  await ports.audit.record(tx, actor.auditCtx, event);
 }

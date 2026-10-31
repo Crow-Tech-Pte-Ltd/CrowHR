@@ -50,13 +50,17 @@ interface RowOutcome {
   errors: ImportCellError[];
 }
 
-/** Ports that queue side effects (audit, invitations, back-pay) until the outer transaction commits. */
+/**
+ * Ports that queue side effects (invitations, back-pay) until the outer
+ * transaction commits. Audit events are not deferred: they are written inside
+ * that transaction, so a preview's roll-back discards them too.
+ */
 function deferredPorts(ports: PeoplePorts) {
   const queue: (() => Promise<void>)[] = [];
   const deferred: PeoplePorts = {
     secretBox: ports.secretBox,
     approvals: ports.approvals,
-    audit: { record: async (a, e) => void queue.push(() => ports.audit.record(a, e)) },
+    audit: ports.audit,
     memberships: {
       inviteForEmployee: async (i) => void queue.push(() => ports.memberships.inviteForEmployee(i)),
       markFormer: async (i) => void queue.push(() => ports.memberships.markFormer(i)),
@@ -505,7 +509,8 @@ async function runFile(
   actor: Actor,
   kind: ImportKind,
   rows: { line: number; values: Record<string, string> }[],
-  commit: boolean,
+  /** Commit (instead of rolling back) when every row passes; runs inside the transaction first. */
+  commit: ((tx: Db) => Promise<void>) | null,
 ): Promise<{ outcomes: RowOutcome[]; flush: () => Promise<void> }> {
   const { deferred, flush } = deferredPorts(ports);
   const outcomes: RowOutcome[] = [];
@@ -515,6 +520,7 @@ async function runFile(
       const seen = new Set<string>();
       for (const row of rows) outcomes.push(await PROCESSORS[kind](tx, deps, deferred, actor, look, row, seen));
       if (!commit || outcomes.some((o) => o.errors.length)) throw new Rollback();
+      await commit(tx);
     });
   } catch (err) {
     if (!(err instanceof Rollback)) throw err;
@@ -593,7 +599,7 @@ export async function previewImport(
   }
   const { outcomes } = headerErrors.some((e) => e.message.includes("missing"))
     ? { outcomes: [] as RowOutcome[] }
-    : await runFile(deps, ports, actor, kind, parsed.csv.rows, false);
+    : await runFile(deps, ports, actor, kind, parsed.csv.rows, null);
   const errors = [...headerErrors, ...outcomes.flatMap((o) => o.errors)];
   const id = deps.ids.newId();
   const now = deps.clock.now();
@@ -650,7 +656,20 @@ export async function commitImport(
     throw new AppError("conflict", "Fix the errors in the file and upload it again before confirming.");
   const rows = await unsealRows(ports, job.rows);
   if (rows.length > MAX_IMPORT_ROWS) throw new AppError("validation_failed", "Too many rows.");
-  const { outcomes, flush } = await runFile(deps, ports, actor, job.kind, rows, true);
+  let done: ImportJob | undefined;
+  const { outcomes, flush } = await runFile(deps, ports, actor, job.kind, rows, async (tx) => {
+    [done] = await tx
+      .update(importJobs)
+      .set({ status: "committed", committedAt: now, rows: [] })
+      .where(eq(importJobs.id, jobId))
+      .returning();
+    await recordAudit(tx, ports, actor, {
+      action: `import.${job.kind}.committed`,
+      targetType: "import_job",
+      targetId: jobId,
+      meta: { rows: rows.length, fileName: job.fileName },
+    });
+  });
   const errors = outcomes.flatMap((o) => o.errors);
   if (errors.length) {
     const [failed] = await deps.db
@@ -667,18 +686,7 @@ export async function commitImport(
       },
     );
   }
-  const [done] = await deps.db
-    .update(importJobs)
-    .set({ status: "committed", committedAt: now, rows: [] })
-    .where(eq(importJobs.id, jobId))
-    .returning();
   await flush();
-  await recordAudit(ports, actor, {
-    action: `import.${job.kind}.committed`,
-    targetType: "import_job",
-    targetId: jobId,
-    meta: { rows: outcomes.length, fileName: job.fileName },
-  });
   return toPreview(done as ImportJob, outcomes, now);
 }
 

@@ -157,17 +157,20 @@ export async function createStructure(
   if (kind === "teams") await assertDepartmentSelectable(deps.db, actor.orgId, input.departmentId as string | null);
   const table = tables[kind];
   const id = deps.ids.newId();
-  const [row] = (await deps.db
-    .insert(table)
-    // biome-ignore lint/suspicious/noExplicitAny: kind-specific insert shape validated by `inputs[kind]`.
-    .values({ id, orgId: actor.orgId, ...input } as any)
-    .returning()
-    .catch((err: unknown) => nameTaken(kind, err))) as AnyRow[];
-  await recordAudit(ports, actor, {
-    action: `${labels[kind].one.replace(" ", "_")}.created`,
-    targetType: labels[kind].one.replace(" ", "_"),
-    targetId: id,
-    diff: diffOf(null, input),
+  const row = await deps.db.transaction(async (tx) => {
+    const [inserted] = (await tx
+      .insert(table)
+      // biome-ignore lint/suspicious/noExplicitAny: kind-specific insert shape validated by `inputs[kind]`.
+      .values({ id, orgId: actor.orgId, ...input } as any)
+      .returning()
+      .catch((err: unknown) => nameTaken(kind, err))) as AnyRow[];
+    await recordAudit(tx, ports, actor, {
+      action: `${labels[kind].one.replace(" ", "_")}.created`,
+      targetType: labels[kind].one.replace(" ", "_"),
+      targetId: id,
+      diff: diffOf(null, input),
+    });
+    return inserted;
   });
   return toItem(kind, row as AnyRow, 0);
 }
@@ -187,18 +190,21 @@ export async function updateStructure(
     await assertDepartmentSelectable(deps.db, actor.orgId, input.departmentId as string | null);
   }
   const table = tables[kind];
-  const [row] = (await deps.db
-    .update(table)
-    // biome-ignore lint/suspicious/noExplicitAny: kind-specific update shape validated by `inputs[kind]`.
-    .set({ ...input, updatedAt: deps.clock.now() } as any)
-    .where(and(eq(table.orgId, actor.orgId), eq(table.id, id)))
-    .returning()
-    .catch((err: unknown) => nameTaken(kind, err))) as AnyRow[];
-  await recordAudit(ports, actor, {
-    action: `${labels[kind].one.replace(" ", "_")}.updated`,
-    targetType: labels[kind].one.replace(" ", "_"),
-    targetId: id,
-    diff: diffOf(before, input),
+  const row = await deps.db.transaction(async (tx) => {
+    const [updated] = (await tx
+      .update(table)
+      // biome-ignore lint/suspicious/noExplicitAny: kind-specific update shape validated by `inputs[kind]`.
+      .set({ ...input, updatedAt: deps.clock.now() } as any)
+      .where(and(eq(table.orgId, actor.orgId), eq(table.id, id)))
+      .returning()
+      .catch((err: unknown) => nameTaken(kind, err))) as AnyRow[];
+    await recordAudit(tx, ports, actor, {
+      action: `${labels[kind].one.replace(" ", "_")}.updated`,
+      targetType: labels[kind].one.replace(" ", "_"),
+      targetId: id,
+      diff: diffOf(before, input),
+    });
+    return updated;
   });
   const counts = await usageCounts(deps.db, actor.orgId, kind, singaporeToday(deps.clock.now()));
   return toItem(kind, row as AnyRow, counts.get(id) ?? 0);
@@ -228,16 +234,19 @@ export async function archiveStructure(
     );
   }
   const table = tables[kind];
-  const [row] = (await deps.db
-    .update(table)
-    .set({ archivedAt: archived ? deps.clock.now() : null, updatedAt: deps.clock.now() })
-    .where(and(eq(table.orgId, actor.orgId), eq(table.id, id)))
-    .returning()
-    .catch((err: unknown) => nameTaken(kind, err))) as AnyRow[];
-  await recordAudit(ports, actor, {
-    action: `${labels[kind].one.replace(" ", "_")}.${archived ? "archived" : "restored"}`,
-    targetType: labels[kind].one.replace(" ", "_"),
-    targetId: id,
+  const row = await deps.db.transaction(async (tx) => {
+    const [updated] = (await tx
+      .update(table)
+      .set({ archivedAt: archived ? deps.clock.now() : null, updatedAt: deps.clock.now() })
+      .where(and(eq(table.orgId, actor.orgId), eq(table.id, id)))
+      .returning()
+      .catch((err: unknown) => nameTaken(kind, err))) as AnyRow[];
+    await recordAudit(tx, ports, actor, {
+      action: `${labels[kind].one.replace(" ", "_")}.${archived ? "archived" : "restored"}`,
+      targetType: labels[kind].one.replace(" ", "_"),
+      targetId: id,
+    });
+    return updated;
   });
   return toItem(kind, row as AnyRow, count);
 }

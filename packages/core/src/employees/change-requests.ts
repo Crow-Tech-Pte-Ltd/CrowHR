@@ -112,28 +112,31 @@ export async function submitChangeRequest(
       routeToRole,
       summary: `Profile change: ${fieldNames.join(", ")}`,
     });
-    const [row] = await deps.db
-      .insert(profileChangeRequests)
-      .values({
-        id,
-        orgId: actor.orgId,
-        employeeId,
-        fields: { values: sealed, display },
-        fieldNames,
-        routeToRole,
-        attachmentFileKey: input.attachmentFileKey ?? null,
-        approvalRequestId,
-        requestedBy: actor.userId,
-      })
-      .returning();
-    created.push(row as ProfileChangeRequest);
-    await recordAudit(ports, actor, {
-      action: "profile_change.submitted",
-      targetType: "employee",
-      targetId: employeeId,
-      diff: Object.fromEntries(fieldNames.map((f) => [f, { changed: true as const }])),
-      meta: { requestId: id, routeToRole },
+    const row = await deps.db.transaction(async (tx) => {
+      const [inserted] = await tx
+        .insert(profileChangeRequests)
+        .values({
+          id,
+          orgId: actor.orgId,
+          employeeId,
+          fields: { values: sealed, display },
+          fieldNames,
+          routeToRole,
+          attachmentFileKey: input.attachmentFileKey ?? null,
+          approvalRequestId,
+          requestedBy: actor.userId,
+        })
+        .returning();
+      await recordAudit(tx, ports, actor, {
+        action: "profile_change.submitted",
+        targetType: "employee",
+        targetId: employeeId,
+        diff: Object.fromEntries(fieldNames.map((f) => [f, { changed: true as const }])),
+        meta: { requestId: id, routeToRole },
+      });
+      return inserted;
     });
+    created.push(row as ProfileChangeRequest);
   };
 
   if (input.personal && Object.keys(input.personal).length) {
@@ -228,52 +231,57 @@ export async function decideChangeRequest(
   if (r.status !== "pending") throw new AppError("conflict", `This request is already ${r.status}.`);
   const today = singaporeToday(deps.clock.now());
   const effectiveFrom = input.effectiveFrom ?? today;
-  if (input.decision === "approve") {
-    const values = (r.fields.values ?? {}) as Record<string, unknown>;
-    if (r.routeToRole === "payroll_admin") {
-      await setBankAccount(
-        deps,
-        ports,
-        actor,
-        r.employeeId,
-        {
-          bankCode: values.bankCode,
-          accountNumber: await ports.secretBox.decrypt("change-request", String(values.accountNumber)),
-          holderName: await ports.secretBox.decrypt("change-request", String(values.holderName)),
-          effectiveFrom,
-        },
-        { viaChangeRequest: true },
-      );
-    } else {
-      if (effectiveFrom > today) {
-        // NOT IMPLEMENTED: personal details are not effective-dated, so a future date cannot be honoured.
-        throw fieldError("effectiveFrom", "Personal details changes apply from today. Approve on or after the date.");
+  // One transaction: the applied change, the decision and its audit event commit together.
+  const row = await deps.db.transaction(async (tx) => {
+    const txDeps: AppDeps = { ...deps, db: tx };
+    if (input.decision === "approve") {
+      const values = (r.fields.values ?? {}) as Record<string, unknown>;
+      if (r.routeToRole === "payroll_admin") {
+        await setBankAccount(
+          txDeps,
+          ports,
+          actor,
+          r.employeeId,
+          {
+            bankCode: values.bankCode,
+            accountNumber: await ports.secretBox.decrypt("change-request", String(values.accountNumber)),
+            holderName: await ports.secretBox.decrypt("change-request", String(values.holderName)),
+            effectiveFrom,
+          },
+          { viaChangeRequest: true },
+        );
+      } else {
+        if (effectiveFrom > today) {
+          // NOT IMPLEMENTED: personal details are not effective-dated, so a future date cannot be honoured.
+          throw fieldError("effectiveFrom", "Personal details changes apply from today. Approve on or after the date.");
+        }
+        const patch: Record<string, unknown> = { ...values };
+        if (typeof values.idNumber === "string") {
+          patch.idNumber = await ports.secretBox.decrypt("change-request", values.idNumber);
+        }
+        await applyPersonalPatch(txDeps, ports, actor, r.employeeId, patch, { action: "employee.updated_by_request" });
       }
-      const patch: Record<string, unknown> = { ...values };
-      if (typeof values.idNumber === "string") {
-        patch.idNumber = await ports.secretBox.decrypt("change-request", values.idNumber);
-      }
-      await applyPersonalPatch(deps, ports, actor, r.employeeId, patch, { action: "employee.updated_by_request" });
     }
-  }
-  const [row] = await deps.db
-    .update(profileChangeRequests)
-    .set({
-      status: input.decision === "approve" ? "approved" : "rejected",
-      decidedBy: actor.userId,
-      decidedAt: deps.clock.now(),
-      decisionNote: input.note ?? null,
-      effectiveFrom: input.decision === "approve" ? effectiveFrom : null,
-      // Drop the proposed ciphertext once decided; the audit log keeps the record.
-      fields: { display: (r.fields.display ?? {}) as Record<string, unknown> },
-    })
-    .where(eq(profileChangeRequests.id, requestId))
-    .returning();
-  await recordAudit(ports, actor, {
-    action: `profile_change.${input.decision === "approve" ? "approved" : "rejected"}`,
-    targetType: "employee",
-    targetId: r.employeeId,
-    meta: { requestId, effectiveFrom },
+    const [decided] = await tx
+      .update(profileChangeRequests)
+      .set({
+        status: input.decision === "approve" ? "approved" : "rejected",
+        decidedBy: actor.userId,
+        decidedAt: deps.clock.now(),
+        decisionNote: input.note ?? null,
+        effectiveFrom: input.decision === "approve" ? effectiveFrom : null,
+        // Drop the proposed ciphertext once decided; the audit log keeps the record.
+        fields: { display: (r.fields.display ?? {}) as Record<string, unknown> },
+      })
+      .where(eq(profileChangeRequests.id, requestId))
+      .returning();
+    await recordAudit(tx, ports, actor, {
+      action: `profile_change.${input.decision === "approve" ? "approved" : "rejected"}`,
+      targetType: "employee",
+      targetId: r.employeeId,
+      meta: { requestId, effectiveFrom },
+    });
+    return decided;
   });
   return toView(row as ProfileChangeRequest);
 }
@@ -286,14 +294,16 @@ export async function cancelOwnChangeRequest(deps: AppDeps, ports: PeoplePorts, 
   if (!r || r.employeeId !== actor.employeeId) throw new AppError("not_found", "No such change request.");
   if (r.status !== "pending") throw new AppError("conflict", `This request is already ${r.status}.`);
   if (r.approvalRequestId) await ports.approvals.cancel(actor.orgId, r.approvalRequestId);
-  await deps.db
-    .update(profileChangeRequests)
-    .set({ status: "cancelled", fields: { display: (r.fields.display ?? {}) as Record<string, unknown> } })
-    .where(eq(profileChangeRequests.id, requestId));
-  await recordAudit(ports, actor, {
-    action: "profile_change.cancelled",
-    targetType: "employee",
-    targetId: r.employeeId,
-    meta: { requestId },
+  await deps.db.transaction(async (tx) => {
+    await tx
+      .update(profileChangeRequests)
+      .set({ status: "cancelled", fields: { display: (r.fields.display ?? {}) as Record<string, unknown> } })
+      .where(eq(profileChangeRequests.id, requestId));
+    await recordAudit(tx, ports, actor, {
+      action: "profile_change.cancelled",
+      targetType: "employee",
+      targetId: r.employeeId,
+      meta: { requestId },
+    });
   });
 }

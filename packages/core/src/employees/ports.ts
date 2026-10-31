@@ -1,6 +1,7 @@
 import { markMembershipFormer } from "../access/members-routes.ts";
 import { type AuditContext, type AuditEventInput, recordAudit, systemAuditContext } from "../audit/audit.ts";
 import type { SecretBox } from "../crypto/secret-box.ts";
+import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import type { IsoDate } from "./dates.ts";
 
@@ -32,7 +33,8 @@ export const PEOPLE_PURPOSES = {
 } as const;
 
 export interface AuditSink {
-  record(ctx: AuditContext, event: AuditEventInput): Promise<void>;
+  /** Appends `event` inside `tx`, the transaction that makes the audited change. */
+  record(tx: Db, ctx: AuditContext, event: AuditEventInput): Promise<void>;
 }
 
 export interface MembershipsPort {
@@ -43,8 +45,11 @@ export interface MembershipsPort {
     email: string;
     invitedBy: string | null;
   }): Promise<void>;
-  /** Termination took effect: drop roles, mark the membership `former`. Idempotent. */
-  markFormer(input: { orgId: string; employeeId: string; lastWorkingDay: IsoDate }): Promise<void>;
+  /**
+   * Termination took effect: drop roles, mark the membership `former`. Idempotent. Pass `tx` to
+   * make the change (and its audit event) part of the caller's transaction.
+   */
+  markFormer(input: { orgId: string; employeeId: string; lastWorkingDay: IsoDate }, tx?: Db): Promise<void>;
 }
 
 export interface ApprovalSubmission {
@@ -113,8 +118,8 @@ export function defaultPeoplePorts(deps: AppDeps): PeoplePorts {
   return {
     secretBox: deps.secretBox,
     audit: {
-      record: async (ctx, event) => {
-        await recordAudit(deps.db, deps, ctx, event);
+      record: async (tx, ctx, event) => {
+        await recordAudit(tx, deps, ctx, event);
       },
     },
     memberships: {
@@ -122,8 +127,8 @@ export function defaultPeoplePorts(deps: AppDeps): PeoplePorts {
         // NOT IMPLEMENTED: identity has no exported invite service yet; HR invites from Settings → Members.
         deps.logger.info("Employee hired; invite them from Settings → Members", { orgId });
       },
-      markFormer: async ({ orgId, employeeId }) => {
-        await markMembershipFormer(deps, deps.db, systemAuditContext(orgId, "system", "people.former"), {
+      markFormer: async ({ orgId, employeeId }, tx) => {
+        await markMembershipFormer(deps, tx ?? deps.db, systemAuditContext(orgId, "system", "people.former"), {
           orgId,
           employeeId,
         });

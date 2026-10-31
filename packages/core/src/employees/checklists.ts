@@ -106,12 +106,12 @@ export async function createTemplate(
   const id = deps.ids.newId();
   await deps.db.transaction(async (tx) => {
     await insertTemplate(tx, deps.ids, actor.orgId, id, input);
-  });
-  await recordAudit(ports, actor, {
-    action: "checklist_template.created",
-    targetType: "checklist_template",
-    targetId: id,
-    meta: { kind: input.kind, name: input.name, items: input.items.length },
+    await recordAudit(tx, ports, actor, {
+      action: "checklist_template.created",
+      targetType: "checklist_template",
+      targetId: id,
+      meta: { kind: input.kind, name: input.name, items: input.items.length },
+    });
   });
   const found = (await listTemplates(deps, actor)).find((t) => t.id === id);
   if (!found) throw new AppError("internal", "Template was not saved.");
@@ -328,12 +328,14 @@ export async function updateChecklistItem(
       : input.action === "skip"
         ? { status: "skipped" as const, doneBy: actor.userId, doneAt: now, skipReason: input.reason }
         : { status: "open" as const, doneBy: null, doneAt: null, skipReason: null };
-  await deps.db.update(checklistItems).set(set).where(eq(checklistItems.id, itemId));
-  await recordAudit(ports, actor, {
-    action: `checklist_item.${input.action === "done" ? "completed" : input.action === "skip" ? "skipped" : "reopened"}`,
-    targetType: "checklist_item",
-    targetId: itemId,
-    meta: input.action === "skip" ? { reason: input.reason } : undefined,
+  await deps.db.transaction(async (tx) => {
+    await tx.update(checklistItems).set(set).where(eq(checklistItems.id, itemId));
+    await recordAudit(tx, ports, actor, {
+      action: `checklist_item.${input.action === "done" ? "completed" : input.action === "skip" ? "skipped" : "reopened"}`,
+      targetType: "checklist_item",
+      targetId: itemId,
+      meta: input.action === "skip" ? { reason: input.reason } : undefined,
+    });
   });
 }
 

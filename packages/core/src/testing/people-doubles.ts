@@ -27,7 +27,7 @@ export function createMemoryAuditSink(): AuditSink & { events: RecordedAuditEven
   const events: RecordedAuditEvent[] = [];
   return {
     events,
-    async record(ctx, event) {
+    async record(_tx, ctx, event) {
       events.push({ ...event, ctx });
     },
   };
