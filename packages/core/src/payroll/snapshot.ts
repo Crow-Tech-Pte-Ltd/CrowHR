@@ -22,7 +22,7 @@ import {
 } from "../db/schema/payroll.ts";
 import type { Db } from "../db/types.ts";
 import { findAsAt } from "../employees/effective.ts";
-import { maxDate, minDate, monthLabel } from "./engine/dates.ts";
+import { addMonths as addMonthsTo, maxDate, minDate, monthLabel } from "./engine/dates.ts";
 import {
   ENGINE_VERSION,
   type MonthBefore,
@@ -385,6 +385,19 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
       cpfStateBefore = o.state;
       cpfStateSource = o.text;
       snapshotIssues.push(...o.issues);
+    }
+    // Employed earlier this year but neither Crow HR payroll nor an opening balance covers those months:
+    // the AW ceiling would count only part of the year's OW.
+    const employedFrom = tenure.hireDate > `${year}-01-01` ? tenure.hireDate.slice(0, 7) : `${year}-01`;
+    // An opening balance covers January to its last month; otherwise coverage starts at the first Crow HR run.
+    const firstCovered = opening ? `${year}-01` : (earlier[0]?.month ?? run.month);
+    if (firstCovered > employedFrom) {
+      snapshotIssues.push({
+        code: "YTD_BEFORE_CROWHR_MISSING",
+        severity: "warning",
+        message: `Employed since ${monthLabel(employedFrom)}, but ${monthLabel(employedFrom)} to ${monthLabel(addMonthsTo(firstCovered, -1))} were not paid in Crow HR and have no year-to-date opening balance. The AW ceiling counts only the months Crow HR knows. Import the ${year} opening balances in People → Import.`,
+        source: "https://www.cpf.gov.sg/employer/employer-obligations/what-constitutes-wages-for-cpf-contributions",
+      });
     }
 
     // Earlier runs of the same month.

@@ -29,17 +29,17 @@
 
 ## 5. Web (apps/web)
 
-- [ ] 5.1 `_app/payroll` runs list + new run; run overview (issues first, totals, changes); dense review table with keyboard navigation; CPF working drawer; payslip view
-- [ ] 5.2 `_app/me/payslips` list + view + download
-- [ ] 5.3 Playwright `e2e/payroll/payroll.payroll.ts`: create run → review → approve → payslip visible to employee → download PDF
+- [x] 5.1 `_app/payroll` runs list + new run; run overview (issues first, totals, changes); dense review table with keyboard navigation; CPF working drawer; payslip view
+- [x] 5.2 `_app/me/payslips` list + view + download
+- [x] 5.3 Playwright `e2e/payroll/payroll.payroll.ts`: create run → review → approve → payslip visible to employee → download PDF
 - [ ] 5.4 Screenshots (1440 and 390) of overview, review table, CPF drawer, payslip web + PDF and Me → Payslips, reviewed against AGENTS.md design language
 
 ## 6. Statutory files (M2)
 
-- [ ] 6.1 Write `payroll/files/cpf-ezpay.test.ts` (golden file, 150-char records, field rules, forbidden characters, E/L/N/O, refusals) then implement the EZPay writer and route
-- [ ] 6.2 Write `payroll/files/pain001.test.ts` (well-formed XML, totals, escaping, excluded employees, recent-auth + audit) then implement the bank file and route
+- [x] 6.1 Write `payroll/files/cpf-ezpay.test.ts` (golden file, 150-char records, field rules, forbidden characters, E/L/N/O, refusals) then implement the EZPay writer and route
+- [x] 6.2 Write `payroll/files/pain001.test.ts` (well-formed XML, totals, escaping, excluded employees, recent-auth + audit) then implement the bank file and route
 - [ ] 6.3 IR8A import-template export (income rounded down, deductions up, 200-record chunks); verified by `payroll/files/ir8a.test.ts`
 
 ## 7. Docs
 
-- [ ] 7.1 `docs/limitations.md`: local approvals, manual OT and hours, no direct CPF/IRAS/bank submission, generic bank file, shortfall employee share not recovered, FWL estimate; ports for the lead to wire listed in the payroll module README comment
+- [x] 7.1 `docs/limitations.md`: local approvals, manual OT and hours, no direct CPF/IRAS/bank submission, generic bank file, shortfall employee share not recovered, FWL estimate; ports for the lead to wire listed in the payroll module README comment

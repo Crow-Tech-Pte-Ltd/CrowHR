@@ -66,6 +66,8 @@ export const runSchema = z.object({
   releasedAt: z.string().nullable(),
   paidAt: z.string().nullable(),
   createdAt: z.string(),
+  /** Items or the pay date changed after the last computation: recompute before submitting. */
+  inputsChangedSinceCompute: z.boolean(),
 });
 
 export const runSummarySchema = runSchema.pick({

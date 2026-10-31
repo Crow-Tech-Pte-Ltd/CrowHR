@@ -319,7 +319,7 @@ export async function updateRun(deps: AppDeps, actor: PayrollActor, runId: strin
   await deps.db.transaction(async (tx) => {
     await tx
       .update(payrollRuns)
-      .set({ payDate: input.payDate, computedAt: null, updatedAt: deps.clock.now() })
+      .set({ payDate: input.payDate, inputsChangedAt: deps.clock.now(), updatedAt: deps.clock.now() })
       .where(eq(payrollRuns.id, run.id));
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.run_updated",
@@ -449,7 +449,7 @@ export async function addItem(deps: AppDeps, actor: PayrollActor, runId: string,
     });
     await tx
       .update(payrollRuns)
-      .set({ computedAt: null, updatedAt: deps.clock.now() })
+      .set({ inputsChangedAt: deps.clock.now(), updatedAt: deps.clock.now() })
       .where(eq(payrollRuns.id, run.id));
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.item_added",
@@ -478,7 +478,7 @@ export async function updateItem(deps: AppDeps, actor: PayrollActor, runId: stri
     await tx.update(payrollRunItems).set(itemValues(input)).where(eq(payrollRunItems.id, itemId));
     await tx
       .update(payrollRuns)
-      .set({ computedAt: null, updatedAt: deps.clock.now() })
+      .set({ inputsChangedAt: deps.clock.now(), updatedAt: deps.clock.now() })
       .where(eq(payrollRuns.id, run.id));
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.item_updated",
@@ -504,7 +504,7 @@ export async function deleteItem(deps: AppDeps, actor: PayrollActor, runId: stri
     await tx.delete(payrollRunItems).where(eq(payrollRunItems.id, itemId));
     await tx
       .update(payrollRuns)
-      .set({ computedAt: null, updatedAt: deps.clock.now() })
+      .set({ inputsChangedAt: deps.clock.now(), updatedAt: deps.clock.now() })
       .where(eq(payrollRuns.id, run.id));
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.item_deleted",
@@ -605,6 +605,29 @@ async function runLevelIssues(db: Db, run: PayrollRun, headcount: number): Promi
       severity: "warning",
       message: `The pay date ${dateLabel(run.payDate)} is ${holiday ? `a public holiday (${holiday})` : dow === 0 ? "a Sunday" : "a Saturday"}. MOM expects salary to be paid on a working day; bank transfers may land late.`,
       source: MOM_PAYING_SALARY_SOURCE,
+    });
+  }
+  const unfinished = await db
+    .select({ month: payrollRuns.month })
+    .from(payrollRuns)
+    .where(
+      and(
+        eq(payrollRuns.orgId, run.orgId),
+        eq(payrollRuns.kind, "regular"),
+        inArray(payrollRuns.status, ["draft", "in_review"]),
+        ne(payrollRuns.id, run.id),
+      ),
+    );
+  const earlierOpen = unfinished
+    .map((r) => r.month)
+    .filter((m) => m < run.month && m.slice(0, 4) === run.month.slice(0, 4))
+    .sort();
+  if (earlierOpen.length) {
+    issues.push({
+      code: "EARLIER_MONTH_NOT_FINALISED",
+      severity: "warning",
+      message: `${monthLabel(earlierOpen[0] as string)} payroll is not approved yet, so this run's CPF year-to-date figures leave it out. Approve the earlier month first, then recompute this run.`,
+      source: null,
     });
   }
   if (run.kind === "adjustment") {

@@ -58,19 +58,16 @@ export async function renderPayslipPdf(view: PayslipView, opts: { createdAt: Dat
     ["Employee no.", view.employee.employeeNumber],
     ["NRIC/FIN", view.employee.idMasked],
     ["Job title", view.employee.jobTitle ?? "—"],
+    ["Department", view.employee.department ?? "—"],
   ];
   const right: [string, string][] = [
     ["Date of payment", dateLabel(view.payDate)],
     ["Salary period", `${dateLabel(view.periodStart)} – ${dateLabel(view.periodEnd)}`],
-    ["Department", view.employee.department ?? "—"],
-    [
-      "CPF",
-      view.cpf?.rateTableLabel
-        ? `${view.cpf.rateTableLabel}${view.cpf.ageBand ? `, age ${view.cpf.ageBand}` : ""}`
-        : "Not applicable",
-    ],
+    ["CPF table", view.cpf?.rateTableLabel ?? "Not applicable"],
+    ["CPF age band", view.cpf?.ageBand ?? "—"],
+    ["Self-help group", view.shgFunds.length ? view.shgFunds.join(", ") : "None"],
   ];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     const [ll, lv] = left[i] as [string, string];
     const [rl, rv] = right[i] as [string, string];
     c.text(ll.toUpperCase(), M, y, { font: "mono", size: 6.5, color: MUTED });
@@ -161,10 +158,6 @@ export async function renderPayslipPdf(view: PayslipView, opts: { createdAt: Dat
   c.text(`AW subject to CPF in ${view.ytd.year} to date`, 300, y, { size: 8.5 });
   c.text(money(view.ytd.awSubjectCents), RIGHT, y, { font: "mono", size: 8.5, align: "right" });
   y -= 13;
-  if (view.shgFunds.length) {
-    c.text(`Self-help group: ${view.shgFunds.join(", ")}`, M, y, { size: 8.5 });
-    y -= 13;
-  }
 
   // Footer.
   footer(c, view);

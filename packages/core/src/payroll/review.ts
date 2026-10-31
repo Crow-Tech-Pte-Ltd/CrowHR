@@ -202,6 +202,9 @@ async function previousRegular(db: Db, run: PayrollRun): Promise<PayrollRun | nu
   return rows.find((r) => r.month === month && r.kind !== "off_cycle" && !r.supersededByRunId) ?? null;
 }
 
+/** More employees than this with the same warning are listed as one line. */
+const GROUP_AT = 4;
+
 export async function runOverview(db: Db, orgId: string, runId: string): Promise<RunOverview> {
   const run = await loadRun(db, orgId, runId);
   const slips = await db
@@ -210,10 +213,31 @@ export async function runOverview(db: Db, orgId: string, runId: string): Promise
     .where(and(eq(payrollPayslips.orgId, orgId), eq(payrollPayslips.runId, run.id)));
   slips.sort((a, b) => a.employeeName.localeCompare(b.employeeName) || a.employeeId.localeCompare(b.employeeId));
   const issues: RunIssueRow[] = (run.issues ?? []).map((i) => ({ ...i, employeeId: null, employeeName: null }));
+  const perEmployee: RunIssueRow[] = [];
   for (const s of slips) {
     for (const i of s.result.issues) {
       if (i.severity === "info") continue;
-      issues.push({ ...i, employeeId: s.employeeId, employeeName: s.employeeName });
+      perEmployee.push({ ...i, employeeId: s.employeeId, employeeName: s.employeeName });
+    }
+  }
+  // The same warning for many people reads as one line ("22 employees: …"); blocking issues stay
+  // per employee so each can be fixed. The drawer still lists each employee's own issues.
+  const byCode = new Map<string, RunIssueRow[]>();
+  for (const i of perEmployee) if (i.severity === "warning") byCode.set(i.code, [...(byCode.get(i.code) ?? []), i]);
+  for (const i of perEmployee) {
+    const same = byCode.get(i.code);
+    if (i.severity !== "warning" || !same || same.length <= GROUP_AT) {
+      issues.push(i);
+    } else if (same[0] === i) {
+      issues.push({
+        ...i,
+        employeeId: null,
+        employeeName: `${same.length} employees`,
+        message: `${same
+          .slice(0, 3)
+          .map((x) => x.employeeName)
+          .join(", ")} and ${same.length - 3} more. For example: ${i.message}`,
+      });
     }
   }
   const order = { blocking: 0, warning: 1, info: 2 };

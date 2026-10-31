@@ -492,7 +492,9 @@ export function computeEmployeePay(input: PayInput): PayResult {
       amountCents: cpfEe,
       wageClass: null,
       cpfLiable: false,
-      detail: cpf?.rateTable ? `${cpf.rateTable.id}, age ${cpf.ageBand ? cpfAgeBandLabel(cpf.ageBand) : ""}` : null,
+      detail: cpf?.rateTable
+        ? `CPF Table ${cpf.rateTable.publishedTableNo} (${cpf.rateTable.effectiveFrom.slice(0, 4)}), age ${cpf.ageBand ? cpfAgeBandLabel(cpf.ageBand) : ""}`
+        : null,
       itemId: null,
     });
   }
