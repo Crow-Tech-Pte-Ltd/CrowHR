@@ -84,3 +84,13 @@ Rule: a workstream edits only the paths it owns. To change another workstream's 
 
 - `research/sg-regulatory.md` blocks the payroll, leave, attendance/OT, CPF file and IR8A changes, and the TODO-cited values in organisation and people (rest day, minimum age, default notice, CSN payment types), scheduling (hour limits) and documents (KET mandatory items).
 - Demo, docs and landing changes are not yet written. The demo must provide the API for mobile store review if that route is chosen (see `add-mobile-apps` design).
+
+## Lead decisions (2026-10-31)
+
+- Research has landed (`research/sg-regulatory.md`, verified by `research/verification/codex-verification.md`); resolve TODO-cited values from it as each module is implemented.
+- One legal entity and one CPF Submission Number per org in v1.
+- PDF rendering lives in core `pdf/`, built first by WS4 for payslips and reused by documents. It must be runtime-agnostic (it runs in the browser demo too), so use a pure-JS renderer with self-hosted fonts.
+- Roles are combinable: one person may hold `hr_admin` + `payroll_admin`, which is the usual SME setup. Keeping salary out of plain `hr_admin` is accepted.
+- Backups include the encryption key by default. The backup command warns loudly and recommends the passphrase option.
+- Mobile bundle/application id `crowtech.crowhr`. No remote push in v1 (in-app inbox, background refresh, local notifications). UnifiedPush and relay options are deferred to a later opt-in decision.
+- Integrator (WS0) = lead agent. Workstreams after WS1 work on branches/worktrees; the lead merges and regenerates migrations per the merge-hotspot rules.
