@@ -112,7 +112,8 @@ describe("structure", () => {
       .as(h.orgId, ["hr_admin"])
       .post(`/organisation/structure/departments/${s.departments.sales}/archive`, { archived: true });
     expect(res.status).toBe(409);
-    expect(res.body.error.details).toMatchObject({ reason: "in_use", count: 4 });
+    expect(res.body.error.code).toBe("in_use");
+    expect(res.body.error.details).toMatchObject({ count: 4 });
     expect(res.body.error.details.link).toContain(s.departments.sales);
     const list = await api.as(h.orgId, ["payroll_admin"]).get("/organisation/structure/departments");
     expect(list.body.items.find((d: { id: string }) => d.id === s.departments.sales).employeeCount).toBe(4);

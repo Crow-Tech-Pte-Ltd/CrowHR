@@ -42,6 +42,11 @@ export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong.";
 }
 
+/** The API error code (`duplicate_id_number`, `in_use`, …), or undefined for other failures. */
+export function errorCode(err: unknown): string | undefined {
+  return err instanceof ApiError ? err.code : undefined;
+}
+
 export function errorDetails<T = Record<string, unknown>>(err: unknown): T | null {
   return err instanceof ApiError ? ((err.envelope?.error.details as T | undefined) ?? null) : null;
 }

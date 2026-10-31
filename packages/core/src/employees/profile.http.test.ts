@@ -83,7 +83,8 @@ describe("create and read", () => {
       hirePayload(s, { person: { idNumber: nric.toLowerCase(), legalName: "Someone Else" } }),
     );
     expect(res.status).toBe(409);
-    expect(res.body.error.details).toMatchObject({ reason: "duplicate_id_number", existingEmployeeId: first });
+    expect(res.body.error.code).toBe("duplicate_id_number");
+    expect(res.body.error.details).toMatchObject({ existingEmployeeId: first });
     expect(res.body.error.message).toContain("Rehire this person instead");
   });
 

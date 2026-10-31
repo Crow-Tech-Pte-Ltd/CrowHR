@@ -224,10 +224,9 @@ export async function archiveStructure(
   const count = counts.get(id) ?? 0;
   if (archived && count > 0) {
     throw new AppError(
-      "conflict",
+      "in_use",
       `${count} current employee${count === 1 ? " uses" : "s use"} this ${labels[kind].one}. Move them first, then archive it.`,
       {
-        reason: "in_use",
         count,
         link: `/people?${labels[kind].column.replace("Id", "")}=${id}`,
       },

@@ -158,8 +158,8 @@ describe("transfer, promotion, salary change", () => {
     const e = await err(
       applyEvent(owner(), a, { type: "transfer", effectiveDate: "2026-11-01", changes: { managerEmployeeId: b } }),
     );
-    expect(e.code).toBe("conflict");
-    expect((e.details as { reason: string }).reason).toBe("reporting_cycle");
+    expect(e.code).toBe("reporting_cycle");
+    expect(e.status).toBe(409);
     const self = await err(
       applyEvent(owner(), a, { type: "transfer", effectiveDate: "2026-11-01", changes: { managerEmployeeId: a } }),
     );

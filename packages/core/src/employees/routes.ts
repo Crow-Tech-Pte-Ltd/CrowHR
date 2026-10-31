@@ -158,7 +158,7 @@ export const employeesModule = defineModule({
       access: { permission: "employment:create" },
       request: { body: hireInput },
       responses: { 201: z.object({ employeeId: z.string() }) },
-      errors: ["conflict"],
+      errors: ["conflict", "duplicate_id_number", "reporting_cycle"],
       handler: async ({ c, deps, body }) => {
         const { actor, ports } = actorFrom(c);
         return hire(ctxFor(deps, ports, actor), body);
@@ -233,7 +233,7 @@ export const employeesModule = defineModule({
       access: { permission: "personal_details:update" },
       request: { params: idParam, body: adminProfilePatch },
       responses: { 204: null },
-      errors: ["not_found", "conflict"],
+      errors: ["not_found", "conflict", "duplicate_id_number"],
       handler: async ({ c, deps, params, body }) => {
         const { actor, ports } = actorFrom(c);
         await updatePersonal(deps, ports, actor, params.id, body);
@@ -263,7 +263,7 @@ export const employeesModule = defineModule({
       access: { permission: "employment:read" },
       request: { params: idParam, body: eventInput },
       responses: { 201: z.object({ eventId: z.string(), status: z.enum(["scheduled", "effective", "cancelled"]) }) },
-      errors: ["not_found", "conflict", "self_change_requires_approval"],
+      errors: ["not_found", "conflict", "reporting_cycle", "self_change_requires_approval"],
       handler: async ({ c, deps, params, body }) => {
         const { actor, ports } = actorFrom(c);
         await assertCanRead(actor, "directory", params.id);
@@ -521,7 +521,7 @@ export const peopleModule = defineModule({
       access: "authenticated",
       request: { params: z.object({ requestId: z.uuid() }), body: decisionInput },
       responses: { 200: changeRequestSchema },
-      errors: ["not_found", "forbidden", "conflict", "self_change_requires_approval"],
+      errors: ["not_found", "forbidden", "conflict", "duplicate_id_number", "self_change_requires_approval"],
       handler: async ({ c, deps, params, body }) => {
         const { actor, ports } = actorFrom(c);
         return decideChangeRequest(deps, ports, actor, params.requestId, body);

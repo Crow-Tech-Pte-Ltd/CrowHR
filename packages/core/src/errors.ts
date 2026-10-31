@@ -27,6 +27,12 @@ export const ERROR_STATUS = {
   disabled_in_demo: 403,
   not_found: 404,
   conflict: 409,
+  /** The NRIC/FIN already belongs to another employee of the organisation (including former ones): rehire them instead. */
+  duplicate_id_number: 409,
+  /** A structure entry (department, team, location, cost centre) is used by current employees and can't be archived. */
+  in_use: 409,
+  /** The chosen manager reports, directly or indirectly, to this employee. */
+  reporting_cycle: 409,
   last_owner: 409,
   /** No organisation exists yet: finish the setup wizard at /setup first. */
   setup_required: 409,

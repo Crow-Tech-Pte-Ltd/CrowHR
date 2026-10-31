@@ -58,8 +58,6 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Personal-details change requests apply from the approval date only** (no future-dated personal details). Bank changes honour the approver's effective date.
 - **Sole-owner self-approval** of change requests (`self_approved`) belongs to workflows and is NOT IMPLEMENTED; nobody can decide their own request.
 - **Cancelling a scheduled hire or rehire** is not supported; record a termination instead.
-- **Audit events are recorded after the domain transaction commits**, not inside it (identity's `recordAudit` supports the transaction; threading it through every people service is follow-up work).
 - **Statutory lookups** (CSN payment types, rest-day rule, work pass types) are cited in `packages/core/src/organisation/statutory.ts` and should move to `packages/sg-rules`.
 - **NRIC/bank reveal** (`POST /api/v1/employees/:id/nric/reveal`, `/bank/reveal`) has no web unit test: apps/web has no DOM test environment; it is covered by Playwright (`e2e/people/reveal.people.ts`).
 - **Company logo** upload has an API only; there is no upload control on the Company screen yet.
-- **Error codes** `duplicate_id_number`, `in_use`, `reporting_cycle` are sent as `409 conflict` with `details.reason` until they are added to `ERROR_STATUS`.

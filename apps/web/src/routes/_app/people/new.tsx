@@ -7,6 +7,7 @@ import { PageHeader } from "../../../components/page-header.tsx";
 import {
   api,
   directoryQuery,
+  errorCode,
   errorDetails,
   errorMessage,
   fieldErrors,
@@ -113,7 +114,8 @@ function NewEmployeePage() {
   });
   const errs = fieldErrors(save.error);
   const e = (path: string) => errs[path];
-  const dup = errorDetails<{ reason?: string; existingEmployeeId?: string }>(save.error);
+  const dup =
+    errorCode(save.error) === "duplicate_id_number" ? errorDetails<{ existingEmployeeId?: string }>(save.error) : null;
 
   return (
     <>
@@ -134,14 +136,10 @@ function NewEmployeePage() {
           <Alert variant="danger">
             <AlertTriangle aria-hidden />
             <div>
-              <AlertTitle>
-                {dup?.reason === "duplicate_id_number"
-                  ? "This person is already on record"
-                  : "Check the highlighted fields"}
-              </AlertTitle>
+              <AlertTitle>{dup ? "This person is already on record" : "Check the highlighted fields"}</AlertTitle>
               <AlertDescription>
                 {Object.keys(errs).length ? "Each problem is shown next to its field below." : errorMessage(save.error)}{" "}
-                {dup?.reason === "duplicate_id_number" && dup.existingEmployeeId ? (
+                {dup?.existingEmployeeId ? (
                   <Link
                     className="font-medium text-biru-400 underline"
                     to="/people/$employeeId"
