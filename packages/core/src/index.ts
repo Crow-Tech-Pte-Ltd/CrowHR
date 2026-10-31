@@ -52,6 +52,7 @@ export {
   type PasswordHasher,
   systemClock,
 } from "./deps.ts";
+export type * from "./employees/public-types.ts";
 export { AppError, ERROR_STATUS, type ErrorCode, type ErrorEnvelope } from "./errors.ts";
 export {
   assertValidFileKey,

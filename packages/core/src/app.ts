@@ -10,12 +10,14 @@ import { securityModule } from "./auth/security-routes.ts";
 import { authenticate } from "./auth/sessions.ts";
 import type { AppEnv } from "./context.ts";
 import type { AppDeps } from "./deps.ts";
+import { employeesModule, peopleModule } from "./employees/routes.ts";
 import { AppError, errorResponse, handleError } from "./errors.ts";
 import { requestContext } from "./http/request-context.ts";
 import { type ApiModule, buildModuleRouter, type RouteGuard } from "./http/route.ts";
 import { createMetaModule } from "./meta/routes.ts";
 import { healthRoutes } from "./modules/health/routes.ts";
 import { buildOpenApiDocument, SUPPORTED_API_VERSIONS } from "./openapi/generate.ts";
+import { organisationModule } from "./organisation/routes.ts";
 
 /**
  * Every module served under `/api/v1`, in mount order. Adding a module = one line here
@@ -24,9 +26,12 @@ import { buildOpenApiDocument, SUPPORTED_API_VERSIONS } from "./openapi/generate
 export const V1_MODULES: readonly ApiModule[] = [
   auditModule,
   authModule,
+  employeesModule,
   meModule,
   membersModule,
   nativeModule,
+  organisationModule,
+  peopleModule,
   securityModule,
 ];
 

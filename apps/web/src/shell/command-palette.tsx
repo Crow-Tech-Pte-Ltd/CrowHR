@@ -7,12 +7,12 @@ import {
   CommandList,
   CommandSeparator,
   CommandShortcut,
-  toast,
 } from "@crowhr/ui";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { LogOut, UserRound } from "lucide-react";
 import * as React from "react";
-import { samplePeople } from "../fixtures/home.ts";
+import { directoryQuery } from "../routes/_app/people/-lib/api.ts";
 import { MODULES, type ModuleId } from "./nav.ts";
 
 const ORDER: ModuleId[] = [
@@ -31,6 +31,8 @@ const ORDER: ModuleId[] = [
 /** ⌘K / Ctrl+K: jump to a module or find a person. */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const navigate = useNavigate();
+  // People search: the directory is visible to every member; fetched when the palette opens.
+  const people = useQuery({ ...directoryQuery({ status: "active,leaving,not_started" }), enabled: open });
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -67,18 +69,21 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           })}
         </CommandGroup>
         <CommandSeparator />
-        <CommandGroup heading="People · sample data">
-          {samplePeople.map((name) => (
+        <CommandGroup heading="People">
+          {(people.data?.items ?? []).map((p) => (
             <CommandItem
-              key={name}
-              value={`person ${name}`}
+              key={p.id}
+              value={`person ${p.name} ${p.legalName} ${p.employeeNumber}`}
               onSelect={() => {
                 onOpenChange(false);
-                toast("Sample data", { description: `Employee profiles aren't built yet, so ${name} has no page.` });
+                void navigate({ to: "/people/$employeeId", params: { employeeId: p.id } });
               }}
             >
               <UserRound />
-              {name}
+              {p.name}
+              <span className="num truncate text-2xs text-primary-200">
+                {p.employeeNumber} · {p.jobTitle ?? ""}
+              </span>
             </CommandItem>
           ))}
         </CommandGroup>

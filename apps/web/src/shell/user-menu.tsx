@@ -13,7 +13,7 @@ import {
 } from "@crowhr/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { LogOut, MonitorSmartphone, Settings } from "lucide-react";
+import { LogOut, MonitorSmartphone, Settings, UserRound } from "lucide-react";
 import { useMe } from "../auth/session.ts";
 import { ROLE_LABEL } from "../auth/types.ts";
 import { apiPost } from "../lib/api.ts";
@@ -67,6 +67,10 @@ export function UserMenu() {
           <DropdownMenuRadioItem value="employee">Employee</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => navigate({ to: "/me/profile" })}>
+          <UserRound />
+          My profile
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => navigate({ to: "/me/sessions" })}>
           <MonitorSmartphone />
           Sign-in and devices
