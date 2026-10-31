@@ -29,9 +29,10 @@ import {
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRightLeft, FileText, Lock, Pencil, UserMinus, Wallet } from "lucide-react";
+import { ArrowRightLeft, Lock, Pencil, UserMinus, Wallet } from "lucide-react";
 import * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
+import { EmployeeDocuments } from "../../../documents/employee-tab.tsx";
 import { ApiError } from "../../../lib/api.ts";
 import {
   api,
@@ -165,12 +166,7 @@ function EmployeePage() {
           <PayTab e={e} onChangePay={() => setDialog("pay")} />
         </TabsContent>
         <TabsContent value="documents">
-          <EmptyState
-            icon={<FileText />}
-            title="Documents aren't available yet"
-            description="Contracts, KETs, letters and pass copies will be stored here once the documents module is built."
-            note="Not available yet"
-          />
+          <EmployeeDocuments employeeId={e.id} employeeName={e.name} />
         </TabsContent>
         <TabsContent value="history">
           <HistoryTab e={e} />

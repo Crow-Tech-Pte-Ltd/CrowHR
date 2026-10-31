@@ -25,7 +25,7 @@ A payslip missing a mandatory item cannot be released: the release fails and nam
 
 ## Release
 
-Payslips stay hidden from employees until the run is approved **and** released by a payroll admin or owner (or automatically on approval, if you turned that on in [payroll settings](/docs/payroll/settings/)). Before release, an employee gets `404` for their payslip. Release is audit-logged. Employees are **not notified** of a release yet (the notification type exists but the payroll module does not send it), so tell them their payslips are available.
+Payslips stay hidden from employees until the run is approved **and** released by a payroll admin or owner (or automatically on approval, if you turned that on in [payroll settings](/docs/payroll/settings/)). Before release, an employee gets `404` for their payslip. Release is audit-logged, and each employee with a Crow HR account is notified ("Your payslip for October 2026 is ready", in the app and by email when email is set up). The notification names the month only, never an amount.
 
 Payroll admins can preview any payslip, including the PDF, before release.
 
@@ -37,6 +37,5 @@ PDFs are rendered by a pure-JavaScript renderer with fonts shipped in the reposi
 
 ## Not available
 
-- A notification when payslips are released.
 - Payslip emails with the PDF attached (by design, emails never carry pay data).
 - Daily-rated and piece-rated pay units on the payslip.

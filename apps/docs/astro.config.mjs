@@ -123,6 +123,11 @@ export default defineConfig({
           label: "Approvals and notifications",
           items: [{ slug: "approvals/approvals" }, { slug: "approvals/notifications" }],
         },
+        {
+          label: "Documents",
+          items: [{ slug: "documents/documents" }, { slug: "documents/letters-and-kets" }],
+        },
+        { label: "Reports", items: [{ slug: "reports/running-reports" }] },
         { label: "Roles and permissions", items: [{ slug: "roles-and-permissions" }] },
         { label: "Integrations", items: [{ slug: "integrations" }] },
         {
@@ -133,8 +138,6 @@ export default defineConfig({
             { slug: "coming-soon/attendance", badge: soon },
             { slug: "coming-soon/claims", badge: soon },
             { slug: "coming-soon/scheduling", badge: soon },
-            { slug: "coming-soon/documents", badge: soon },
-            { slug: "coming-soon/reporting", badge: soon },
             { slug: "coming-soon/demo", badge: soon },
             { slug: "coming-soon/mobile-apps", badge: soon },
           ],

@@ -27,6 +27,7 @@ export {
   type Part4Result,
   type RateResult,
 } from "./employment-act/rates.ts";
+export * from "./employment-act/records.ts";
 export * from "./employment-act/salary.ts";
 export * from "./employment-act/salary-payment.ts";
 export { RulesNotAvailableError, SgRulesInputError } from "./errors.ts";
@@ -53,6 +54,14 @@ export type {
 } from "./tables/cpf.ts";
 export { CPF_RATE_TABLES, CPF_RATES_PUBLISHED_UNTIL } from "./tables/cpf.ts";
 export { type Effective, ENGINE_COVERAGE_START, effectiveRangeIssues, RULES_VERIFIED_ON } from "./tables/effective.ts";
+export {
+  KET_RULES,
+  type KetRule,
+  MOM_EMPLOYMENT_RECORDS,
+  MOM_KETS,
+  RECORD_RETENTION_RULES,
+  type RecordRetentionRule,
+} from "./tables/employment-records.ts";
 export {
   MINIMUM_AGE_RULES,
   type MinimumAgeRule,
