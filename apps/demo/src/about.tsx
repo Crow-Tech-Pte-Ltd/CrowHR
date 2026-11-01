@@ -40,7 +40,7 @@ const DIFFERENCES: [string, string, string][] = [
   ["Passwords", "PBKDF2 (Web Crypto, 10,000 rounds) in a demo-only format that a real server refuses.", "argon2id."],
   [
     "Encryption at rest",
-    "NRIC/FIN and bank numbers are encrypted with a key generated for this browser and kept with the demo database.",
+    "NRIC/FIN and bank numbers are encrypted with a throwaway key shipped with the fictional snapshot and kept with the demo database. Browser seeding generates a fresh key.",
     "Encrypted with the server's CROWHR_SECRET_KEY.",
   ],
   [
@@ -168,15 +168,14 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
 
         <section className="mt-10" aria-labelledby="missing">
           <h2 id="missing" className="mb-2 font-azeret text-sm font-semibold">
-            Not in the demo yet
+            Demo limits
           </h2>
           <ul className="list-disc space-y-1 pl-5 text-ui leading-6 text-primary-300">
+            <li>January–June opening balances are not imported, so payroll shows the missing YTD warning.</li>
             <li>
-              Schedules, Documents and Reports are not built yet; their screens say so, in the demo and in the product.
-            </li>
-            <li>
-              Attendance has no seeded clock-ins: overtime in the payroll history was entered by hand on each run. Clock
-              in yourself to see timesheets fill.
+              July–September overtime was entered on the historical payroll runs. October uses approved clocked
+              overtime. Part-month joiner and leaver payroll uses a full-month denominator counted from the outlet
+              roster.
             </li>
             <li>The demo runs in one tab at a time (two tabs would write the same local database).</li>
             <li>

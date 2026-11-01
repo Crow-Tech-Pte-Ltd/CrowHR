@@ -1,8 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 
 /** Waits for the in-browser runtime to boot (loader gone, banner up) and returns its timings. */
-export async function waitForDemo(page: Page) {
-  await expect(page.getByTestId("demo-banner")).toBeVisible({ timeout: 60_000 });
+export async function waitForDemo(page: Page, timeout = 60_000) {
+  await expect(page.getByTestId("demo-banner")).toBeVisible({ timeout });
   await expect(page.getByTestId("demo-loading")).toBeHidden();
   return page.evaluate(
     () =>
@@ -11,7 +11,7 @@ export async function waitForDemo(page: Page) {
           __crowhrDemo: {
             bootMs: number;
             readyMs: number;
-            timings: { totalMs: number; seeded: boolean; stages: { stage: string; ms: number }[] };
+            timings: { totalMs: number; seeded: boolean; restored?: boolean; stages: { stage: string; ms: number }[] };
           };
         }
       ).__crowhrDemo,
