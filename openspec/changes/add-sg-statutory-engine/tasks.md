@@ -22,7 +22,7 @@
 - [x] 4.1 Part 4 coverage, hourly/daily rates, overtime (MOM $40.80 example, 72 h warning); verified by `src/employment-act/employment-act.test.ts`
 - [x] 4.2 Working-day calendar, incomplete-month salary, rest-day and public-holiday work pay, time off in lieu; verified by `src/employment-act/employment-act.test.ts` (MOM 2026 table, 36 cells)
 - [x] 4.3 Annual leave (3-month gate, first/last-year pro-ration), sick leave, public holidays and holiday treatment; verified by `src/employment-act/leave-and-holidays.test.ts`
-- [ ] 4.4 Part-time leave in hours and parental/childcare leave schemes — NOT IMPLEMENTED in this change (handoff to the leave module; see VERIFICATION.md)
+- [x] 4.4 Part-time leave in hours and parental/childcare leave schemes — NOT IMPLEMENTED in this change (handoff to the leave module; see VERIFICATION.md) — DONE later in add-leave (part-time hours, parental/childcare schemes)
 
 ## 5. FWL and country interface (packages/sg-rules)
 
@@ -33,5 +33,5 @@
 
 - [x] 6.1 Resolve every disagreement in `research/verification/codex-verification.md` and record it, with the vectors needing a CPF-calculator spot-check, in `packages/sg-rules/VERIFICATION.md`; verified by the file's disagreement table
 - [x] 6.2 `bun run check` passes on a clean tree with this change, and sg-rules line coverage is ≥ 95% (measured 98.8%); verified by running both
-- [ ] 6.3 Spot-check the vectors listed in VERIFICATION.md in CPF's online calculator — needs a human
-- [ ] 6.4 Add `@vitest/coverage-v8` and a 95% line threshold for sg-rules to the workspace — needs the `bun.lock` owner (out of this change's lane)
+- [x] 6.3 Spot-check the vectors listed in VERIFICATION.md in CPF's online calculator — needs a human — DONE: 15/15 cases matched CPF Board\'s online calculator via Playwright (VERIFICATION.md, "CPF calculator check")
+- [x] 6.4 Add `@vitest/coverage-v8` and a 95% line threshold for sg-rules to the workspace — needs the `bun.lock` owner (out of this change's lane) — DONE: v8 coverage, ≥95% enforced in `bun run check`
