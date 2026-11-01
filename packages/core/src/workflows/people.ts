@@ -1,11 +1,10 @@
 import { and, count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { singaporeDate } from "../access/scope.ts";
-import { type AuditContext, recordAudit } from "../audit/audit.ts";
+import type { AuditContext } from "../audit/audit.ts";
 import { memberships } from "../db/schema/access.ts";
 import { employees, profileChangeRequests } from "../db/schema/employees.ts";
 import { users } from "../db/schema/users.ts";
-import { approvalRequests } from "../db/schema/workflows.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { buildActor } from "../employees/access.ts";
@@ -14,10 +13,8 @@ import { checklistInbox } from "../employees/checklists.ts";
 import { runFormerTransitions } from "../employees/former.ts";
 import type { ApprovalSubmission, ApprovalsPort } from "../employees/ports.ts";
 import { peoplePorts } from "../employees/ports.ts";
-import { notify } from "../notifications/notify.ts";
 import { setupChecklist } from "../organisation/setup-checklist.ts";
-import { lockRequest, refOf, subjectNoun, submitApproval, withdrawLocked } from "./engine.ts";
-import { workflowRegistry } from "./registry.ts";
+import { lockRequest, submitApproval, sweepInactiveApprovers, withdrawLocked } from "./engine.ts";
 import type {
   InboxItem,
   InboxSource,
@@ -213,6 +210,13 @@ export function profileChangeAdapter(deps: AppDeps): SubjectAdapter<z.output<typ
     label: "Profile change",
     inlineDecision: true,
     attributes: changeAttributes,
+    // Bank details redirect pay: only owners edit who approves them (review #5).
+    ownerOnlyPolicy: true,
+    /** Bank changes: payroll admins and owners; other personal details: HR admins and owners. */
+    async canDecide(_db, decider, ref) {
+      const role = ref.attributes.typeCode === "bank" ? "payroll_admin" : "hr_admin";
+      return decider.roles.includes(role) || decider.roles.includes("owner");
+    },
     async summary(db, ref) {
       const [row] = await db
         .select()
@@ -296,68 +300,6 @@ export function workflowsApprovalsPort(deps: AppDeps): ApprovalsPort {
       });
     },
   };
-}
-
-/**
- * A subject decided outside the engine (people's legacy decision endpoint): close the open request
- * so no approval task lingers, recording who decided. No module callback runs (it already applied).
- */
-export async function closeDecidedElsewhere(
-  db: Db,
-  deps: AppDeps,
-  audit: AuditContext,
-  input: { orgId: string; subjectType: string; subjectId: string; outcome: "approved" | "rejected" },
-): Promise<boolean> {
-  const [open] = await db
-    .select({ id: approvalRequests.id })
-    .from(approvalRequests)
-    .where(
-      and(
-        eq(approvalRequests.orgId, input.orgId),
-        eq(approvalRequests.subjectType, input.subjectType),
-        eq(approvalRequests.subjectId, input.subjectId),
-        eq(approvalRequests.status, "pending"),
-      ),
-    );
-  if (!open) return false;
-  const request = await lockRequest(db, input.orgId, open.id);
-  if (request?.status !== "pending") return false;
-  const now = deps.clock.now();
-  await db
-    .update(approvalRequests)
-    .set({ status: input.outcome, decidedAt: now })
-    .where(eq(approvalRequests.id, request.id));
-  await db.execute(
-    sql`update approval_tasks set status = 'superseded', superseded_reason = 'decided_elsewhere' where request_id = ${request.id} and status = 'pending'`,
-  );
-  await db.execute(
-    sql`update approval_steps set status = ${input.outcome}, decided_at = ${now.toISOString()}::timestamptz where request_id = ${request.id} and status = 'active'`,
-  );
-  const adapter = workflowRegistry(deps).subjects.get(request.subjectType);
-  const noun = subjectNoun(adapter, request.subjectType);
-  const link = adapter?.link?.(refOf(request)) ?? `/inbox?request=${request.id}`;
-  await notify(db, deps, {
-    orgId: request.orgId,
-    recipients: [request.requesterMembershipId],
-    kind: input.outcome === "approved" ? "request_approved" : "request_rejected",
-    title: input.outcome === "approved" ? `Your ${noun} was approved` : `Your ${noun} was not approved`,
-    body: request.title,
-    link,
-    subjectType: request.subjectType,
-    subjectId: request.subjectId,
-    email: {
-      headline: input.outcome === "approved" ? `Your ${noun} was approved.` : `Your ${noun} was not approved.`,
-      linkPath: link,
-      actionLabel: "View request",
-    },
-  });
-  await recordAudit(db, deps, audit, {
-    action: "approval.decided_elsewhere",
-    targetType: "approval_request",
-    targetId: request.id,
-    meta: { outcome: input.outcome, subjectType: request.subjectType },
-  });
-  return true;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -444,12 +386,23 @@ export function formerTransition(deps: AppDeps) {
   };
 }
 
+/**
+ * Suspended and former members lose their open approval tasks and cover (runs after the former
+ * transition, so a leaver made former in this sweep is handled in the same tick).
+ */
+export function inactiveApproversTransition(deps: AppDeps) {
+  return {
+    id: "approvals_inactive_members",
+    run: (_db: Db, input: { audit: (orgId: string) => AuditContext }) => sweepInactiveApprovers(deps, input.audit),
+  };
+}
+
 /** Workflows contributions of the people module. */
 export function peopleWorkflowPlugin(deps: AppDeps): WorkflowPlugin {
   return {
     name: "people",
     subjects: [profileChangeAdapter(deps)],
     inbox: [checklistInboxSource(deps), setupInboxSource],
-    transitions: [formerTransition(deps)],
+    transitions: [formerTransition(deps), inactiveApproversTransition(deps)],
   };
 }

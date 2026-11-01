@@ -5,7 +5,6 @@ import { AppError } from "../errors.ts";
 import { csvEnum, listQuery } from "../http/list.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 import { WORK_PASS_TYPES } from "../organisation/statutory.ts";
-import { closeDecidedElsewhere } from "../workflows/people.ts";
 import { actorFrom, assertCanRead } from "./access.ts";
 import {
   changeRequestSchema,
@@ -21,8 +20,6 @@ import {
   cancelOwnChangeRequest,
   changeRequestInput,
   decidableChangeRequests,
-  decideChangeRequest,
-  decisionInput,
   ownChangeRequests,
   submitChangeRequest,
 } from "./change-requests.ts";
@@ -524,31 +521,6 @@ export const peopleModule = defineModule({
       handler: async ({ c, deps, params, body }) => {
         const { actor, ports } = actorFrom(c);
         await updateChecklistItem(deps, ports, actor, params.itemId, body);
-      },
-    }),
-    defineRoute({
-      method: "post",
-      path: "/change-requests/:requestId/decision",
-      summary: "Approve or reject a profile change request",
-      example: { body: { decision: "approve", effectiveFrom: "2026-11-01" } },
-      description: "Stands in for the workflows onApproved callback until workflows lands.",
-      access: "authenticated",
-      request: { params: z.object({ requestId: z.uuid() }), body: decisionInput },
-      responses: { 200: changeRequestSchema },
-      errors: ["not_found", "forbidden", "conflict", "duplicate_id_number", "self_change_requires_approval"],
-      handler: async ({ c, deps, params, body }) => {
-        const { actor, ports } = actorFrom(c);
-        const view = await decideChangeRequest(deps, ports, actor, params.requestId, body);
-        // Decided here rather than in the Inbox: close the approval request so no task lingers.
-        await deps.db.transaction((tx) =>
-          closeDecidedElsewhere(tx, deps, actor.auditCtx, {
-            orgId: actor.orgId,
-            subjectType: "profile_change",
-            subjectId: params.requestId,
-            outcome: view.status === "approved" ? "approved" : "rejected",
-          }),
-        );
-        return view;
       },
     }),
     defineRoute({

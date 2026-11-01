@@ -26,6 +26,8 @@ export const SKIP_LABEL: Record<string, string> = {
   no_manager: "Skipped: no manager on record",
   inactive: "Skipped: approver is suspended or has left",
   no_members: "Skipped: nobody holds this role",
+  excluded: "Skipped: the approver filed this request or benefits from it",
+  not_allowed: "Skipped: the approver's role can't decide this kind of request",
 };
 
 async function namesOf(db: Db, orgId: string, membershipIds: string[]): Promise<Map<string, string>> {
@@ -122,7 +124,7 @@ export const myRequestItem = z.object({
 export async function listMyTasks(deps: AppDeps, viewer: ReadContext) {
   const registry = workflowRegistry(deps);
   const today = singaporeDate(deps.clock.now());
-  const rows = await myOpenTasks(deps.db, viewer.orgId, viewer.membershipId);
+  const rows = await myOpenTasks(deps.db, viewer.orgId, viewer.membershipId, deps);
   if (!rows.length) return [];
   const reqIds = rows.map((r) => r.request.id);
   const counts = await deps.db

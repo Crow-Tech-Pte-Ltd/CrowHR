@@ -10,6 +10,7 @@ import {
   type PeopleHarness,
   seedBasicStructure,
 } from "../testing/people-harness.ts";
+import { decideChangeRequest } from "./change-requests.ts";
 import { checklistInbox, employeeChecklists } from "./checklists.ts";
 import { applyEvent, ctxFor, hire } from "./lifecycle.ts";
 import { bankAccountForPayment } from "./profile.ts";
@@ -85,26 +86,23 @@ describe("self-service", () => {
     expect((await bankAccountForPayment(h.deps, h.ports, h.orgId, me, "2026-11-15"))?.bankCode).toBe("DBSSSGSG");
     const mine = await client.get("/people/me/profile");
     expect(mine.body.changeRequests[0].status).toBe("pending");
-    // hr_admin cannot decide a bank request; the requester cannot decide their own.
     const reqId = sub.body.items[0].id;
-    expect(
-      (await api.as(h.orgId, ["hr_admin"]).post(`/people/change-requests/${reqId}/decision`, { decision: "approve" }))
-        .status,
-    ).toBe(403);
-    expect(
-      (
-        await api
-          .as(h.orgId, ["payroll_admin"], me)
-          .post(`/people/change-requests/${reqId}/decision`, { decision: "approve" })
-      ).status,
-    ).toBe(403);
+    // HTTP decisions are exclusively owned by the workflow engine. The module callback still
+    // independently enforces the routed role and not-own-bank guard.
+    expect((await pay.post(`/people/change-requests/${reqId}/decision`, { decision: "approve" })).status).toBe(404);
+    await expect(
+      decideChangeRequest(h.deps, h.ports, h.actor(["hr_admin"]), reqId, { decision: "approve" }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(
+      decideChangeRequest(h.deps, h.ports, h.actor(["payroll_admin"], me), reqId, { decision: "approve" }),
+    ).rejects.toMatchObject({ code: "self_change_requires_approval" });
     const inbox = await pay.get("/people/inbox");
     expect(inbox.body.changeRequests.map((r: { id: string }) => r.id)).toEqual([reqId]);
-    const ok = await pay.post(`/people/change-requests/${reqId}/decision`, {
+    const ok = await decideChangeRequest(h.deps, h.ports, h.actor(["payroll_admin"]), reqId, {
       decision: "approve",
       effectiveFrom: "2026-11-01",
     });
-    expect(ok.body.status).toBe("approved");
+    expect(ok.status).toBe("approved");
     expect((await bankAccountForPayment(h.deps, h.ports, h.orgId, me, "2026-10-31"))?.bankCode).toBe("DBSSSGSG");
     expect(await bankAccountForPayment(h.deps, h.ports, h.orgId, me, "2026-11-15")).toMatchObject({
       bankCode: "OCBCSGSG",
@@ -125,8 +123,10 @@ describe("self-service", () => {
     expect(sub.body.items[0].proposed.idNumber).toMatch(/^S\*{4}\d{3}[A-Z]$/);
     const hr = api.as(h.orgId, ["hr_admin"]);
     expect((await hr.get(`/employees/${me}`)).body.legalName).toBe("Tan Mei Ling");
-    const res = await hr.post(`/people/change-requests/${sub.body.items[0].id}/decision`, { decision: "approve" });
-    expect(res.status).toBe(200);
+    const res = await decideChangeRequest(h.deps, h.ports, h.actor(["hr_admin"]), sub.body.items[0].id, {
+      decision: "approve",
+    });
+    expect(res.status).toBe("approved");
     const after = await hr.get(`/employees/${me}`);
     expect(after.body.legalName).toBe("Tan Mei Ling Grace");
     expect(after.body.personal.idNumberMasked).toBe(`${nric[0]}****${nric.slice(-4)}`);

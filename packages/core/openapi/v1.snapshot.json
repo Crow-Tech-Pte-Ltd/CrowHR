@@ -795,7 +795,7 @@
       "put": {
         "operationId": "approvals.putPoliciesBySubjectType",
         "summary": "Replace the approval policies of one request type",
-        "description": "Exactly one policy must have no condition (the default). Requests already submitted keep their chain. Payroll policies are owner-only.",
+        "description": "Exactly one policy must have no condition (the default). Requests already submitted keep their chain. Policies for payroll runs and profile changes (bank details) are owner-only.",
         "tags": [
           "Approvals"
         ],
@@ -29131,6 +29131,19 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         }
       },
@@ -53368,231 +53381,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/people/change-requests/{requestId}/decision": {
-      "post": {
-        "operationId": "people.postChangeRequestsByRequestIdDecision",
-        "summary": "Approve or reject a profile change request",
-        "description": "Stands in for the workflows onApproved callback until workflows lands.",
-        "tags": [
-          "People"
-        ],
-        "security": [
-          {
-            "cookieSession": []
-          },
-          {
-            "bearerToken": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "requestId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "pending",
-                        "approved",
-                        "rejected",
-                        "cancelled"
-                      ]
-                    },
-                    "routeToRole": {
-                      "type": "string",
-                      "enum": [
-                        "hr_admin",
-                        "payroll_admin"
-                      ]
-                    },
-                    "fieldNames": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "proposed": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string"
-                      },
-                      "additionalProperties": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
-                      }
-                    },
-                    "submittedAt": {
-                      "type": "string"
-                    },
-                    "decidedAt": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "effectiveFrom": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    },
-                    "decisionNote": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "status",
-                    "routeToRole",
-                    "fieldNames",
-                    "proposed",
-                    "submittedAt",
-                    "decidedAt",
-                    "effectiveFrom",
-                    "decisionNote"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Error: validation_failed.",
-            "x-error-codes": [
-              "validation_failed"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Error: session_expired, session_revoked, unauthenticated.",
-            "x-error-codes": [
-              "session_expired",
-              "session_revoked",
-              "unauthenticated"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required, self_change_requires_approval.",
-            "x-error-codes": [
-              "csrf_rejected",
-              "forbidden",
-              "mfa_enrolment_required",
-              "self_change_requires_approval"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Error: not_found.",
-            "x-error-codes": [
-              "not_found"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Error: conflict, duplicate_id_number.",
-            "x-error-codes": [
-              "conflict",
-              "duplicate_id_number"
-            ],
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "decision": {
-                    "type": "string",
-                    "enum": [
-                      "approve",
-                      "reject"
-                    ]
-                  },
-                  "effectiveFrom": {
-                    "type": "string"
-                  },
-                  "note": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "maxLength": 500
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "decision"
-                ]
-              },
-              "example": {
-                "decision": "approve",
-                "effectiveFrom": "2026-11-01"
               }
             }
           }

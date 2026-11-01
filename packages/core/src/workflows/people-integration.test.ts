@@ -11,7 +11,7 @@ import {
 } from "../../testing/index.ts";
 import { createApp } from "../app.ts";
 import { systemAuditContext } from "../audit/audit.ts";
-import { memberships } from "../db/schema/access.ts";
+import { membershipRoles, memberships } from "../db/schema/access.ts";
 import { employees, profileChangeRequests } from "../db/schema/employees.ts";
 import { notifications } from "../db/schema/notifications.ts";
 import { approvalRequests, approvalTasks } from "../db/schema/workflows.ts";
@@ -94,7 +94,16 @@ describe("workflows × people", () => {
 
   it("resolves the line manager from employment records", async () => {
     const ctx = { db: deps.db, deps, now: clock.now() };
-    const request = { orgId, requesterMembershipId: m.staff.membershipId, requesterEmployeeId: emp.staff };
+    const request = {
+      id: deps.ids.newId(),
+      subjectId: deps.ids.newId(),
+      subjectType: "leave",
+      attributes: {},
+      excludedDeciderMembershipIds: [],
+      orgId,
+      requesterMembershipId: m.staff.membershipId,
+      requesterEmployeeId: emp.staff,
+    };
     expect((await resolveRule(ctx, request, "manager")).members.map((x) => x.membershipId)).toEqual([
       m.manager.membershipId,
     ]);
@@ -163,7 +172,7 @@ describe("workflows × people", () => {
     expect(decided).toMatchObject({ status: "rejected", decisionNote: "The holder name doesn't match your NRIC." });
   });
 
-  it("cancelling in people withdraws the approval; deciding through the legacy endpoint closes it", async () => {
+  it("cancelling in people withdraws the approval; the legacy decision endpoint is gone, the engine decides", async () => {
     const asStaff = await clientAs(app, deps, m.staff);
     const a = (await (
       await asStaff.post("/api/v1/people/me/change-requests", { personal: { religion: "islam" } })
@@ -182,9 +191,18 @@ describe("workflows × people", () => {
     };
     const bId = b.items[0]?.id as string;
     const asHr = await clientAs(app, deps, m.hr);
+    // The old people endpoint bypassed the policy chain (review): it no longer exists.
     expect((await asHr.post(`/api/v1/people/change-requests/${bId}/decision`, { decision: "approve" })).status).toBe(
-      200,
+      404,
     );
+    const [open] = await deps.db
+      .select()
+      .from(approvalTasks)
+      .innerJoin(approvalRequests, eq(approvalRequests.id, approvalTasks.requestId))
+      .where(and(eq(approvalRequests.subjectId, bId), eq(approvalTasks.status, "pending")));
+    expect(
+      (await asHr.post(`/api/v1/approvals/tasks/${open?.approval_tasks.id}/decision`, { decision: "approve" })).status,
+    ).toBe(200);
     const [rb] = await deps.db.select().from(approvalRequests).where(eq(approvalRequests.subjectId, bId));
     expect(rb?.status).toBe("approved");
     expect(await openTasks(rb?.id as string)).toEqual([]);
@@ -203,6 +221,11 @@ describe("workflows × people", () => {
   });
 
   it("a transfer to a new manager moves the open manager task", async () => {
+    // Personal-detail changes are decided by HR admins (canDecide), so these managers are HR admins too.
+    await deps.db.insert(membershipRoles).values([
+      { orgId, membershipId: m.manager.membershipId, role: "hr_admin" },
+      { orgId, membershipId: m.boss.membershipId, role: "hr_admin" },
+    ]);
     await replacePolicies(deps.db, deps, systemAuditContext(orgId, "system", "t"), orgId, "profile_change", [
       { name: "Default", condition: null, priority: 0, steps: [{ approverRule: "manager", escalateAfterDays: 3 }] },
     ]);

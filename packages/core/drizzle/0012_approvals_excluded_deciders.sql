@@ -1,0 +1,1 @@
+ALTER TABLE "approval_requests" ADD COLUMN "excluded_decider_membership_ids" uuid[] DEFAULT '{}'::uuid[] NOT NULL;

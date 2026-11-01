@@ -14,6 +14,7 @@ import { dueState, loadInbox } from "./inbox.ts";
 import {
   builtInDefaultSteps,
   loadPolicies,
+  ownerOnlyPolicy,
   policyConditionSchema,
   policyInputSchema,
   replacePolicies,
@@ -33,11 +34,33 @@ import {
 const id = z.object({ id: z.uuid() });
 
 function viewerOf(auth: AuthContext): ReadContext {
-  return { orgId: auth.orgId, membershipId: auth.membershipId, employeeId: auth.employeeId, roles: auth.roles };
+  return {
+    orgId: auth.orgId,
+    membershipId: auth.membershipId,
+    employeeId: auth.employeeId,
+    roles: auth.roles,
+    active: auth.membershipStatus === "active",
+  };
 }
 
 function actorOf(c: AppContext, auth: AuthContext) {
-  return { orgId: auth.orgId, membershipId: auth.membershipId, roles: auth.roles, audit: auditContext(c) };
+  return {
+    orgId: auth.orgId,
+    membershipId: auth.membershipId,
+    employeeId: auth.employeeId,
+    roles: auth.roles,
+    audit: auditContext(c),
+  };
+}
+
+/**
+ * Former members sign in only to read their own payslips and requests: they decide, comment,
+ * reassign and cover nothing (review #15). The engine refuses them as well.
+ */
+function assertActive(auth: AuthContext) {
+  if (auth.membershipStatus !== "active") {
+    throw new AppError("forbidden", "You've left this organisation, so approvals are closed to you.");
+  }
 }
 
 const decisionBody = z.object({
@@ -129,7 +152,9 @@ export const approvalsModule = defineModule({
       description: "Pending tasks assigned to the caller, including delegated, escalated and reassigned ones.",
       access: "authenticated",
       responses: { 200: z.object({ items: z.array(taskListItem) }) },
-      handler: async ({ deps, auth }) => ({ items: await listMyTasks(deps, viewerOf(auth)) }),
+      handler: async ({ deps, auth }) => ({
+        items: auth.membershipStatus === "active" ? await listMyTasks(deps, viewerOf(auth)) : [],
+      }),
     }),
     defineRoute({
       method: "post",
@@ -241,7 +266,10 @@ export const approvalsModule = defineModule({
       request: { params: id },
       responses: { 200: z.object({ requestId: z.uuid(), status: z.literal("withdrawn") }) },
       errors: ["not_found", "already_decided"],
-      handler: async ({ c, deps, auth, params }) => withdrawRequest(deps, actorOf(c, auth), params.id),
+      handler: async ({ c, deps, auth, params }) => {
+        assertActive(auth);
+        return withdrawRequest(deps, actorOf(c, auth), params.id);
+      },
     }),
     defineRoute({
       method: "post",
@@ -255,8 +283,10 @@ export const approvalsModule = defineModule({
       responses: { 201: z.object({ id: z.uuid() }) },
       errors: ["not_found"],
       example: { body: { body: "Can you attach the receipt?" } },
-      handler: async ({ c, deps, auth, params, body }) =>
-        addComment(deps, { ...actorOf(c, auth), ...viewerOf(auth) }, params.id, body.body),
+      handler: async ({ c, deps, auth, params, body }) => {
+        assertActive(auth);
+        return addComment(deps, { ...actorOf(c, auth), ...viewerOf(auth) }, params.id, body.body);
+      },
     }),
     defineRoute({
       method: "get",
@@ -287,7 +317,7 @@ export const approvalsModule = defineModule({
         return {
           types: types.map((type) => {
             const adapter = registry.subjects.get(type);
-            const ownerOnly = type === "payroll_run" || !!adapter?.ownerOnlyPolicy;
+            const ownerOnly = ownerOnlyPolicy(type, adapter);
             const mine = stored.filter((p) => p.subjectType === type);
             const policies = mine.length
               ? mine
@@ -326,7 +356,7 @@ export const approvalsModule = defineModule({
       path: "/policies/:subjectType",
       summary: "Replace the approval policies of one request type",
       description:
-        "Exactly one policy must have no condition (the default). Requests already submitted keep their chain. Payroll policies are owner-only.",
+        "Exactly one policy must have no condition (the default). Requests already submitted keep their chain. Policies for payroll runs and profile changes (bank details) are owner-only.",
       access: { permission: "policies:update" },
       request: {
         params: z.object({
@@ -344,8 +374,9 @@ export const approvalsModule = defineModule({
           throw new AppError("not_found", `There is no "${type}" request type.`);
         }
         const adapter = registry.subjects.get(type);
-        if ((type === "payroll_run" || adapter?.ownerOnlyPolicy) && !auth.roles.includes("owner")) {
-          throw new AppError("forbidden", "Only an owner can change who approves payroll runs.");
+        if (ownerOnlyPolicy(type, adapter) && !auth.roles.includes("owner")) {
+          const what = (TYPE_LABEL[type] ?? adapter?.label ?? type).toLowerCase();
+          throw new AppError("forbidden", `Only an owner can change who approves ${what}.`);
         }
         const defaults = body.policies.filter((p) => p.condition === null);
         if (defaults.length !== 1) {
@@ -394,6 +425,7 @@ export const approvalsModule = defineModule({
       access: "authenticated",
       responses: { 200: z.object({ items: z.array(z.object({ membershipId: z.uuid(), name: z.string() })) }) },
       handler: async ({ deps, auth }) => {
+        assertActive(auth);
         const rows = await deps.db
           .select({ membershipId: memberships.id, name: users.displayName })
           .from(memberships)
@@ -413,6 +445,7 @@ export const approvalsModule = defineModule({
       request: { query: z.object({ all: z.enum(["true", "false"]).default("false") }) },
       responses: { 200: z.object({ items: z.array(delegationOut) }) },
       handler: async ({ c, deps, auth, query }) => {
+        if (auth.membershipStatus !== "active") return { items: [] };
         const all = query.all === "true" && (await can(c, "approval_delegations:manage"));
         return { items: await listDelegations(deps, auth.orgId, all ? {} : { membershipId: auth.membershipId }) };
       },
@@ -427,12 +460,14 @@ export const approvalsModule = defineModule({
       request: { body: delegationInput },
       responses: { 201: delegationOut },
       errors: ["not_found"],
-      handler: async ({ c, deps, auth, body }) =>
-        createDelegation(
+      handler: async ({ c, deps, auth, body }) => {
+        assertActive(auth);
+        return createDelegation(
           deps,
           { ...actorOf(c, auth), canManageOthers: await can(c, "approval_delegations:manage") },
           body,
-        ),
+        );
+      },
     }),
     defineRoute({
       method: "delete",
@@ -443,6 +478,7 @@ export const approvalsModule = defineModule({
       responses: { 204: null },
       errors: ["not_found"],
       handler: async ({ c, deps, auth, params }) => {
+        assertActive(auth);
         await revokeDelegation(
           deps,
           { ...actorOf(c, auth), canManageOthers: await can(c, "approval_delegations:manage") },
