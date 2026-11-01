@@ -152,6 +152,18 @@ describe("sign-in throttling and lockout", () => {
     expect((await attempt("nobody@example.sg", "whatever pw 123", "203.0.113.50")).status).toBe(401);
   });
 
+  it("does not count successful sign-ins against the network: a busy office signs in freely", async () => {
+    clock.set("2026-10-31T02:30:05Z");
+    for (let i = 0; i < 40; i++)
+      await seedMember(deps, org.id, { email: `staff${i}@office.example`, password: PASSWORD });
+    for (let i = 0; i < 40; i++)
+      expect((await attempt(`staff${i}@office.example`, PASSWORD, "203.0.113.80")).status).toBe(200);
+    // Failures from that same network still hit the 30-per-minute budget.
+    for (let i = 0; i < 30; i++)
+      expect((await attempt("nobody@example.sg", "whatever pw 123", "203.0.113.80")).status).toBe(401);
+    expect((await attempt("nobody@example.sg", "whatever pw 123", "203.0.113.80")).status).toBe(429);
+  });
+
   it("lets an owner clear a member's lockout", async () => {
     clock.set("2026-10-31T04:00:00Z");
     const owner = await seedMember(deps, org.id, { roles: ["owner"] });
