@@ -95,7 +95,7 @@ describe("receipt upload security", () => {
     expect(row?.storageKey).not.toContain("..");
     expect(row?.storageKey).toBe(`org/${w.orgId}/files/${body.id}.png`);
     const dl = await (await w.as("staff")).get(`/api/v1/claims/receipts/${body.id}`);
-    expect(dl.headers.get("content-disposition")).toBe('inline; filename="evil.png"');
+    expect(dl.headers.get("content-disposition")).toBe("inline; filename=\"evil.png\"; filename*=UTF-8''evil.png");
   });
 
   it("serves receipts with the detected type, nosniff and a sandbox CSP; PDFs and HEIC as attachments", async () => {
@@ -110,7 +110,9 @@ describe("receipt upload security", () => {
     expect(a.headers.get("content-security-policy")).toContain("sandbox");
     expect(new Uint8Array(await a.arrayBuffer())).toEqual(RECEIPT_BYTES.png);
     const b = await staff.get(`/api/v1/claims/receipts/${pdf.id}`);
-    expect(b.headers.get("content-disposition")).toBe('attachment; filename="invoice.pdf"');
+    expect(b.headers.get("content-disposition")).toBe(
+      "attachment; filename=\"invoice.pdf\"; filename*=UTF-8''invoice.pdf",
+    );
     expect(heic.previewable).toBe(false);
     expect((await staff.get(`/api/v1/claims/receipts/${heic.id}`)).headers.get("content-disposition")).toMatch(
       /^attachment/,

@@ -1999,3 +1999,11 @@ The sources for these come from CPF's own *Mistakes by Employers* list, the offi
 14. **Parental leave.** Common errors:
     - stale rules (paternity leave is 4 weeks, SPL is 10 weeks from 1 Apr 2026, unpaid infant care leave is 12 days);
     - wrong reimbursement windows (GPML 1st and 2nd child: employer weeks 1–8, Government weeks 9–16).
+
+## 17. Review follow-up: taxable cash claims and holiday gross pay (1 Nov 2026)
+
+- [IRAS: Tax Principles and Flexible Benefits](https://www.iras.gov.sg/taxes/individual-income-tax/employers/understanding-the-tax-treatment/tax-principles-and-flexible-benefits) requires employers to track taxable flexible benefits and report them in IR8A; exemptions still depend on the underlying benefit. Crow HR reports claim-type taxable cash reimbursements in d1 allowances. Non-cash benefits (Appendix 8A) and employer-borne tax remain separate manual entries, not inferred from that flag.
+- [IRAS: Transport](https://www.iras.gov.sg/taxes/individual-income-tax/employers/understanding-the-tax-treatment/transport) distinguishes non-taxable official-duty reimbursements from taxable private mileage. Do not mark every reimbursement taxable or exempt merely because it is a claim.
+- [MOM: Monthly and daily salary](https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary) defines the daily gross rate and excludes travelling, food and housing allowances and expense reimbursements from the gross base. The existing sg-rules dailyRate calculator is used; allowance inclusion is explicitly configured.
+- [MOM: Public holiday entitlement and pay](https://www.mom.gov.sg/employment-practices/public-holidays-entitlement-and-pay) gives an off-day holiday another day off or an extra day's gross pay. A rest-day holiday becomes a substitute working-day holiday; it is not silently cashed out.
+- [MOM: Annual leave in special situations](https://www.mom.gov.sg/employment-practices/leave/annual-leave/special-situations) requires Part IV unused statutory annual leave to remain available for the next 12 months. An earlier company carry expiry cannot shorten that minimum.

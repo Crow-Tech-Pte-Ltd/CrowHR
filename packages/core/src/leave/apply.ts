@@ -3,14 +3,15 @@ import type { z } from "zod";
 import type { Grant } from "../access/authorize.ts";
 import { orgScope } from "../access/org-scope.ts";
 import { singaporeDate } from "../access/scope.ts";
-import { recordAudit } from "../audit/audit.ts";
+import { recordAudit, systemAuditContext } from "../audit/audit.ts";
 import { memberships } from "../db/schema/access.ts";
 import { leaveAttachments, leaveRequestDays, leaveRequests, leaveTypes } from "../db/schema/leave.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { displayDate } from "../employees/dates.ts";
 import { AppError } from "../errors.ts";
-import { assertValidFileKey } from "../files/file-store.ts";
+import { sniffType } from "../files/sniff.ts";
+import { storeFileInTx } from "../files/uploads.ts";
 import { attachRosters } from "../scheduling/feeds.ts";
 import { submitApproval } from "../workflows/engine.ts";
 import { type Balance, childrenOf, computeBalance, needsChild } from "./balances.ts";
@@ -271,17 +272,11 @@ function decodeBase64(data: string): Uint8Array {
 
 /** Content sniffing: the declared type must match the file's magic bytes. */
 export function sniffContentType(bytes: Uint8Array): (typeof ATTACHMENT_TYPES)[number] | null {
-  const at = (i: number) => bytes[i] ?? -1;
-  const ascii = (from: number, len: number) => String.fromCharCode(...bytes.slice(from, from + len));
-  if (ascii(0, 5) === "%PDF-") return "application/pdf";
-  if (at(0) === 0xff && at(1) === 0xd8 && at(2) === 0xff) return "image/jpeg";
-  if (at(0) === 0x89 && ascii(1, 3) === "PNG") return "image/png";
-  if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") return "image/webp";
-  if (ascii(4, 4) === "ftyp" && ["heic", "heix", "mif1", "msf1", "hevc"].includes(ascii(8, 4))) return "image/heic";
-  return null;
+  const type = sniffType(bytes);
+  return type && ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"].includes(type)
+    ? (type as (typeof ATTACHMENT_TYPES)[number])
+    : null;
 }
-
-const SAFE_NAME = /[^A-Za-z0-9 ._()-]+/g;
 
 export async function storeAttachments(
   tx: Db,
@@ -289,6 +284,7 @@ export async function storeAttachments(
   input: { orgId: string; requestId: string; membershipId: string },
   files: z.output<typeof attachmentInput>[],
 ) {
+  const request = await orgScope(tx, input.orgId).getById(leaveRequests, input.requestId, "leave request");
   const stored: { id: string; filename: string }[] = [];
   for (const [i, f] of files.entries()) {
     const bytes = decodeBase64(f.dataBase64);
@@ -306,19 +302,31 @@ export async function storeAttachments(
         },
       );
     }
-    const id = deps.ids.newId();
-    const ext = f.contentType === "application/pdf" ? "pdf" : (f.contentType.split("/")[1] ?? "bin");
-    const key = `org/${input.orgId}/leave/${input.requestId}/${id}.${ext}`;
-    assertValidFileKey(key);
-    await deps.fileStore.put(key, bytes, { contentType: f.contentType });
+    const file = await storeFileInTx(tx, deps, {
+      orgId: input.orgId,
+      purpose: "leave_attachment",
+      data: bytes,
+      fileName: f.filename,
+      ownerEmployeeId: request.employeeId,
+      uploadedByMembershipId: input.membershipId,
+      accept: ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"],
+      rejectMessage: "Attach a PDF, JPEG, PNG, WebP or HEIC file without active content.",
+      maxBytes: ATTACHMENT_MAX_BYTES,
+      audit: {
+        ...systemAuditContext(input.orgId, "system", "leave-attachment"),
+        actorType: "member",
+        actorMembershipId: input.membershipId,
+      },
+    });
+    const id = file.id;
     await tx.insert(leaveAttachments).values({
       id,
       orgId: input.orgId,
       requestId: input.requestId,
-      fileKey: key,
-      filename: f.filename.replace(SAFE_NAME, "_").slice(0, 120),
-      contentType: f.contentType,
-      sizeBytes: bytes.length,
+      fileKey: file.storageKey,
+      filename: file.originalName,
+      contentType: file.mime,
+      sizeBytes: file.sizeBytes,
       uploadedByMembershipId: input.membershipId,
     });
     stored.push({ id, filename: f.filename });

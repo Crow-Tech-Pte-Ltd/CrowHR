@@ -7,6 +7,7 @@ import { singaporeDate } from "../access/scope.ts";
 import { recordAudit } from "../audit/audit.ts";
 import type { AuthContext } from "../context.ts";
 import { employees } from "../db/schema/employees.ts";
+import { files } from "../db/schema/files.ts";
 import {
   type LeaveChild,
   type LeaveRequest,
@@ -18,11 +19,12 @@ import {
   leaveRequests,
   leaveTypes,
 } from "../db/schema/leave.ts";
-import { approvalTasks } from "../db/schema/workflows.ts";
+import { approvalRequests, approvalSteps, approvalTasks } from "../db/schema/workflows.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { displayName } from "../employees/records.ts";
 import { AppError } from "../errors.ts";
+import { activeDelegationsFrom, resolveRule } from "../workflows/engine.ts";
 import { ensureLeaveSetup, NEEDS_CHILD_CODES, PER_CHILD_CODES } from "./defaults.ts";
 import { isoDate, type LeaveActor } from "./service.ts";
 
@@ -223,19 +225,63 @@ export async function readAttachment(deps: AppDeps, auth: AuthContext, requestId
     const ids = [request.approvalRequestId, request.cancellationRequestId].filter((x): x is string => !!x);
     if (ids.length) {
       const tasks = await deps.db
-        .select({ id: approvalTasks.id })
+        .select({ task: approvalTasks, approval: approvalRequests, step: approvalSteps })
         .from(approvalTasks)
+        .innerJoin(
+          approvalRequests,
+          and(eq(approvalRequests.orgId, approvalTasks.orgId), eq(approvalRequests.id, approvalTasks.requestId)),
+        )
+        .innerJoin(
+          approvalSteps,
+          and(
+            eq(approvalSteps.orgId, approvalTasks.orgId),
+            eq(approvalSteps.requestId, approvalTasks.requestId),
+            eq(approvalSteps.position, approvalTasks.position),
+          ),
+        )
         .where(
           and(
             eq(approvalTasks.orgId, auth.orgId),
             inArray(approvalTasks.requestId, ids),
             eq(approvalTasks.assigneeMembershipId, auth.membershipId),
+            eq(approvalTasks.status, "pending"),
+            eq(approvalRequests.status, "pending"),
           ),
         );
-      allowed = tasks.length > 0;
+      const now = deps.clock.now();
+      for (const { task, approval, step } of tasks) {
+        if (task.viaRole && !auth.roles.some((r) => r === task.viaRole)) continue;
+        const resolution = await resolveRule({ db: deps.db, deps, now }, approval, step.approverRule);
+        const eligible = task.onBehalfOfMembershipId ?? auth.membershipId;
+        // Reassigned/escalated tasks are explicit grants; ordinary assignments must still satisfy their rule.
+        if (task.origin === "resolved" || task.origin === "delegated") {
+          if (!resolution.members.some((m) => m.membershipId === eligible)) continue;
+        }
+        if (task.onBehalfOfMembershipId) {
+          const delegations = await activeDelegationsFrom(
+            deps.db,
+            auth.orgId,
+            [task.onBehalfOfMembershipId],
+            singaporeDate(now),
+            approval.subjectType,
+          );
+          if (!delegations.some((d) => d.toMembershipId === auth.membershipId)) continue;
+        }
+        allowed = true;
+      }
     }
   }
   if (!allowed) throw notFound;
+  const [managed] = await deps.db
+    .select()
+    .from(files)
+    .where(org.where(files, eq(files.storageKey, file.fileKey)));
+  if (managed?.deletedAt || managed?.scanStatus === "infected") throw notFound;
+  if (managed && !["clean", "unscanned"].includes(managed.scanStatus))
+    throw new AppError(
+      "conflict",
+      "This medical certificate is awaiting a successful virus scan. Try again shortly or ask an owner to check the scanner.",
+    );
   const stored = await deps.fileStore.get(file.fileKey);
   if (!stored) throw notFound;
   return { file, data: stored.data };

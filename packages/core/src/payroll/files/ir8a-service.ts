@@ -1,5 +1,6 @@
 import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { recordAudit } from "../../audit/audit.ts";
+import { taxableCashClaims } from "../../claims/taxable.ts";
 import { bankAccounts, employees, ytdOpeningBalances } from "../../db/schema/employees.ts";
 import { payrollPayslips, payrollRuns } from "../../db/schema/payroll.ts";
 import type { AppDeps } from "../../deps.ts";
@@ -109,7 +110,15 @@ async function build(deps: AppDeps, orgId: string, year: number): Promise<Built>
     list.push({ month: r.month, payDate: r.payDate, input: r.input as PayInput, result: r.result as PayResult });
     bySlip.set(r.employeeId, list);
   }
-  const ids = [...new Set([...bySlip.keys(), ...openings.map((o) => o.employeeId)])];
+  const legacyClaimIds = [
+    ...new Set(
+      slipRows.flatMap((s) => s.input.reimbursements.filter((r) => r.taxable === undefined).map((r) => r.claimId)),
+    ),
+  ];
+  const cashClaims = await taxableCashClaims(db, orgId, year, legacyClaimIds);
+  const ids = [
+    ...new Set([...bySlip.keys(), ...openings.map((o) => o.employeeId), ...cashClaims.map((c) => c.employeeId)]),
+  ];
   const people = ids.length
     ? await db
         .select({
@@ -156,6 +165,14 @@ async function build(deps: AppDeps, orgId: string, year: number): Promise<Built>
         : null,
       funds,
     );
+    const cash = cashClaims.filter((c) => c.employeeId === p.id).reduce((n, c) => n + Number(c.cents), 0);
+    amounts.allowancesCents += cash;
+    if (cash || slips.some((s) => s.input.reimbursements.some((r) => r.taxable)))
+      notes.push({
+        code: "IR8A_TAXABLE_REIMBURSEMENTS",
+        message:
+          "Includes taxable cash reimbursements in d1 allowances. Review claim-type tax classifications. Non-cash benefits belong in Appendix 8A; tax borne by the employer has separate IRAS treatment.",
+      });
     const nothing =
       amounts.grossSalaryCents <= 0 &&
       amounts.bonusCents === 0 &&

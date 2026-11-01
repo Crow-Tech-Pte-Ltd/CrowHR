@@ -106,6 +106,13 @@
       "when": 1793534657458,
       "tag": "0014_approvals_excluded_deciders",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793535911354,
+      "tag": "0015_payroll_files_hardening",
+      "breakpoints": true
     }
   ]
 }

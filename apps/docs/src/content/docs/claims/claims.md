@@ -60,8 +60,8 @@ A receipt file that is already attached to another submitted claim is flagged, n
 - **Viewing**: JPEG, PNG and WebP receipts preview in the app. PDFs open in your PDF viewer, and HEIC files are stored but not previewed ("Preview not available. Download to view."). Downloads are served with the detected type and headers that stop the browser running them.
 - **Who sees them**: the employee, approvers, HR and payroll admins, and managers for their team; for medical and dental-category lines, only owners, HR admins, the employee and the approver whose task is open.
 
-:::caution[Receipts are not virus-scanned]
-Crow HR has a hook for a virus scanner, but no scanner ships with it and none is configured by default. Receipts are stored **unscanned** and usable immediately, after the file-type and size checks above. Owners see "Virus scanning of receipts is off on this server" in **Settings → Claim types**; despite its wording, there is no server setting that turns scanning on (the ClamAV adapter is not built, and `CLAMAV_HOST` is not read). The hook is for developers: when a scanner is plugged into the server code, new receipts wait as "being scanned" and can't be submitted until they are clean, infected files are deleted and the uploader told, and a receipt that fails to scan three times is blocked.
+:::caution[Scanning is optional]
+Without a configured scanner, receipts are stored **unscanned** and usable after content and size checks; owners see that scanning is off. Configure your own private clamd with `CLAMAV_HOST` / `CLAMAV_PORT` to scan through the shared background sweep. New receipts then wait for a clean result before submission, infected files are removed with a notification, and three failed attempts leave a blocked scan-failed receipt. See [server configuration](/docs/self-hosting/configuration/#optional-virus-scanning).
 :::
 
 ## Foreign currency
@@ -92,14 +92,13 @@ Approved claims to be paid **with payroll** are added to the employee's next reg
 - When the run is computed, those claims are reserved for it so no other run can pay them. Discarding a draft run releases them.
 - A claim approved **after the run was computed** but while it is still a draft makes **Submit for approval** fail with a request to recompute, which picks it up.
 - A claim approved **after the run was submitted**, or after the month ended, **rolls over** to the next month's run.
-- The payslip shows one line per claim type ("Claims reimbursement: Transport") under **Reimbursements (not wages)**. Reimbursements are not wages: they add to net pay but not gross pay, attract no CPF and are not reported in the IR8A export.
+- The payslip shows one line per claim type ("Claims reimbursement: Transport") under **Reimbursements (not wages)**. Reimbursements are not wages: they add to net pay but not gross pay, attract no CPF and exempt business reimbursements are not reported in IR8A. Cash reimbursements marked taxable are included in IR8A d1; review [tax classifications](/docs/payroll/ir8a-export/#taxable-cash-reimbursements).
 - When the run is marked **paid**, its claims become **Paid**, dated the run's pay date.
 
 Off-cycle bonus runs pay no claims; an off-cycle final-pay run pays the leaver's approved claims.
 
-:::caution[Reopening a run that paid claims]
-An adjustment run created by reopening a month does not carry the original run's claim reimbursements, so it shows them as overpaid. Until this is fixed, don't reopen a month only to correct something unrelated to claims without checking the adjustment's reimbursement lines against the original run.
-:::
+Reopened adjustments carry the replaced chain's reimbursed or reserved claims. Marking the adjustment paid settles unpaid reservations from the replaced runs without paying already-paid claims twice.
+
 
 ### Outside payroll
 
@@ -125,4 +124,6 @@ Owners and HR admins can also file a claim on an employee's behalf through the A
 - A per-employee cap-usage report.
 - Mileage or per-diem claim types, and corporate cards.
 - Cleanup of receipts uploaded but never attached to a claim.
-- The **Taxable benefit** flag is recorded on the type but not yet used by payroll or the IR8A export.
+- Non-cash benefits require Appendix 8A outside Crow HR. The **Taxable benefit** flag covers cash reimbursement reporting in IR8A d1.
+
+Optional ClamAV scanning is configured on the server with `CLAMAV_HOST` and `CLAMAV_PORT`; see [configuration](/docs/self-hosting/configuration/#optional-virus-scanning).

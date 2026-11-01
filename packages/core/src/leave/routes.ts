@@ -5,6 +5,7 @@ import { auditContext } from "../audit/audit.ts";
 import type { AppContext, AuthContext } from "../context.ts";
 import { leaveChildren, leaveHolidays } from "../db/schema/leave.ts";
 import { AppError } from "../errors.ts";
+import { fileResponseHeaders } from "../files/uploads.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 import { adjustBalance, adjustmentInput, cancelLeave, loadRequest, withdrawLeave } from "./actions.ts";
 import {
@@ -254,6 +255,7 @@ export const leaveModule = defineModule({
     defineRoute({
       method: "post",
       path: "/requests",
+      maxBodyBytes: 36 * 1024 * 1024,
       summary: "Apply for leave (your own, or on behalf of an employee as owner or HR admin)",
       access: { permission: "leave:create" },
       request: { body: applyInput },
@@ -325,6 +327,7 @@ export const leaveModule = defineModule({
     defineRoute({
       method: "post",
       path: "/requests/:id/attachments",
+      maxBodyBytes: 36 * 1024 * 1024,
       summary: "Attach files (such as an MC) to a pending or approved leave request",
       access: { permission: "leave:create" },
       request: { params: id, body: z.object({ attachments: z.array(attachmentInput).min(1).max(5) }) },
@@ -362,12 +365,10 @@ export const leaveModule = defineModule({
         const { file, data } = await readAttachment(deps, auth, params.id, params.attachmentId);
         const inline = file.contentType.startsWith("image/");
         return new Response(data as BodyInit, {
-          headers: {
-            "content-type": file.contentType,
-            "content-disposition": `${inline ? "inline" : "attachment"}; filename="${file.filename.replace(/"/g, "")}"`,
-            "x-content-type-options": "nosniff",
-            "cache-control": "private, no-store",
-          },
+          headers: fileResponseHeaders(
+            { mime: file.contentType, originalName: file.filename, sizeBytes: file.sizeBytes },
+            { inline },
+          ),
         });
       },
     }),

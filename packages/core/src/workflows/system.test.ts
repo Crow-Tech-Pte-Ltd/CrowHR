@@ -9,7 +9,7 @@ const host = (schedule: string | null): SystemHost => ({
     secureCookies: true,
     trustedProxies: [],
     database: { driver: "postgres" },
-    backups: { directory: "/backups", encrypted: false, schedule, keep: 14, beforeMigrate: true },
+    backups: { directory: "/backups", encrypted: true, schedule, keep: 14, beforeMigrate: true },
     disk: [],
     migrations: { bundled: 6, latestBundledTag: null },
   }),
@@ -40,6 +40,20 @@ describe("backup warning on Home", () => {
     expect(await kinds(w.m.owner)).toEqual([]);
     clock.set("2026-11-02T01:00:00.000Z");
     expect((await kinds(w.m.owner)).map((i) => i.title)).toEqual(["No backup in the last 48 hours"]);
+  });
+
+  it("warns immediately about disabled plaintext schedules even after a recent manual backup", async () => {
+    const plain = host("02:00 Asia/Singapore");
+    const describe = plain.describe;
+    plain.describe = async () => {
+      const h = await describe();
+      return { ...h, backups: { ...h.backups, encrypted: false } };
+    };
+    w = await createWorkflowWorld({ clock, systemHost: plain });
+    await w.deps.db
+      .insert(backupRuns)
+      .values({ id: w.deps.ids.newId(), trigger: "manual", status: "succeeded", startedAt: clock.now() });
+    expect((await kinds(w.m.owner)).map((i) => i.title)).toEqual(["Scheduled backups are disabled"]);
   });
 
   it("stays quiet where backups aren't expected (no host, or scheduled backups off)", async () => {

@@ -20,6 +20,25 @@ export function backupInboxSource(deps: AppDeps): InboxSource {
     status: async (db) => ((await expected()) || (await lastBackupRuns(db)).last ? "ready" : "not_set_up"),
     async list(db, ctx) {
       if (!ctx.roles.includes("owner")) return [];
+      const host = await deps.systemHost?.describe();
+      if (host?.database.driver === "postgres" && host.backups.schedule && !host.backups.encrypted) {
+        return [
+          {
+            id: "backups:encryption",
+            source: "backups",
+            kind: "backup_stale",
+            title: "Scheduled backups are disabled",
+            concerns: null,
+            detail:
+              "Set BACKUP_PASSPHRASE in .env (at least 12 characters), keep it outside this server and restart Crow HR. Automatic backups require encryption to protect the master key.",
+            dueOn: ctx.today,
+            createdAt: ctx.now.toISOString(),
+            href: "/settings/system",
+            actionLabel: "Check backups",
+            task: null,
+          },
+        ];
+      }
       const { lastSuccessful } = await lastBackupRuns(db);
       const ageMs = lastSuccessful ? ctx.now.getTime() - lastSuccessful.startedAt.getTime() : null;
       if (ageMs !== null && ageMs <= BACKUP_STALE_HOURS * 3_600_000) return [];

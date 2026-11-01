@@ -6,6 +6,7 @@ import { leaveChildren, leaveRequestDays, leaveRequests, leaveTypes } from "../d
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { displayName } from "../employees/records.ts";
+import { simpleCsv } from "../export/csv.ts";
 import type { UnpaidLeaveDay, UnpaidLeaveSource } from "../payroll/ports.ts";
 import { loadEmployeesTime } from "./calendar.ts";
 import { PER_CHILD_CODES } from "./defaults.ts";
@@ -279,15 +280,9 @@ export async function governmentPaidReport(
   return rows;
 }
 
-const csvCell = (v: unknown) => {
-  const s = v === null || v === undefined ? "" : String(v);
-  // Neutralise spreadsheet formulas and quote when needed.
-  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
-  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-};
-
+/** Leave, attendance and roster CSVs: the shared writer (quotes on `" , CR LF`, neutralises formulas). */
 export function toCsv(header: string[], rows: unknown[][]): string {
-  return `${[header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n")}\r\n`;
+  return simpleCsv(header, rows);
 }
 
 export function governmentPaidCsv(rows: GovernmentPaidRow[]): string {

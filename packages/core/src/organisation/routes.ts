@@ -129,7 +129,8 @@ export const organisationModule = defineModule({
     defineRoute({
       method: "put",
       path: "/profile/logo",
-      summary: "Upload the company logo (PNG or SVG, at most 1 MB)",
+      maxBodyBytes: 1_500_000,
+      summary: "Upload the company logo (PNG, at most 1 MB)",
       access: { permission: "org_structure:update" },
       request: {
         body: z.object({

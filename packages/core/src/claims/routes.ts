@@ -278,6 +278,7 @@ export const claimsModule = defineModule({
     defineRoute({
       method: "post",
       path: "/receipts",
+      maxBodyBytes: 10 * 1024 * 1024,
       summary: "Upload a receipt (raw bytes in the body; PDF, JPEG, PNG, WebP or HEIC, at most 10 MB)",
       description:
         "Send the file as the raw request body (any Content-Type; the type is detected from the file's signature, never from the name or header). `fileName` is for display only. Owners and hr_admins may upload for another employee with `employeeId`.",

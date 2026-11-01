@@ -61,6 +61,7 @@ export async function renderPayslipPdf(view: PayslipView, opts: { createdAt: Dat
     author: view.employer.legalName,
     subject: `Pay date ${dateLabel(view.payDate)}`,
     createdAt: opts.createdAt,
+    text: JSON.stringify(view),
   });
   let page = 1;
   let y = A4.height - M;
