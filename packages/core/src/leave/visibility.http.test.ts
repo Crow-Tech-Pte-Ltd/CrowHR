@@ -1,6 +1,10 @@
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { TestClient } from "../../testing/http.ts";
 import { createLeaveWorld, type LeaveWorld } from "../../testing/leave.ts";
+import { files } from "../db/schema/files.ts";
+import { type FilesAppDeps, runScanSweep } from "../files/scanner.ts";
+import { createApproverDirectory } from "../workflows/directory.ts";
 
 /** Attachments (medical) and the team calendar (spec "Calendar and visibility"). */
 describe("leave visibility", () => {
@@ -62,6 +66,44 @@ describe("leave visibility", () => {
     const more = await staff.post(`/api/v1/leave/requests/${r.id}/attachments`, { attachments: [pdf("mc-page2.pdf")] });
     expect(more.status).toBe(200);
     expect(((await more.json()) as { attachments: unknown[] }).attachments).toHaveLength(2);
+  });
+
+  it("stores medical certificates through the shared scanner and sandbox pipeline", async () => {
+    (w.deps as FilesAppDeps).fileScanner = { scan: async () => "clean" };
+    const staff = await w.as("staff");
+    const sick = await typeId(staff, "sick_outpatient");
+    const bad = await staff.post("/api/v1/leave/requests", {
+      leaveTypeId: sick,
+      startDate: "2026-11-11",
+      endDate: "2026-11-11",
+      attachments: [{ ...pdf(), dataBase64: btoa("%PDF-1.4\n<script>alert(1)</script>") }],
+    });
+    expect(bad.status).toBe(415);
+    const res = await staff.post("/api/v1/leave/requests", {
+      leaveTypeId: sick,
+      startDate: "2026-11-10",
+      endDate: "2026-11-10",
+      attachments: [pdf()],
+    });
+    expect(res.status).toBe(201);
+    const request = (await res.json()) as { id: string; attachments: { id: string }[] };
+    const url = `/api/v1/leave/requests/${request.id}/attachments/${request.attachments[0]?.id}`;
+    const [file] = await w.deps.db.select().from(files).where(eq(files.orgId, w.orgId));
+    expect(file).toMatchObject({
+      purpose: "leave_attachment",
+      scanStatus: "pending_scan",
+      ownerEmployeeId: w.emp.staff,
+    });
+    expect((await staff.get(url)).status).toBe(409);
+    await runScanSweep(w.deps);
+    const download = await staff.get(url);
+    expect(download.status).toBe(200);
+    expect(download.headers.get("content-security-policy")).toContain("sandbox");
+    expect(download.headers.get("cache-control")).toBe("private, no-store");
+    // A historical assignment is not medical access after the reporting line changes.
+    w.deps.approverDirectory = createApproverDirectory({ managers: { [w.emp.staff]: null } });
+    expect((await (await w.as("manager")).get(url)).status).toBe(404);
+    expect((await (await w.as("owner")).get(url)).status).toBe(200);
   });
 
   it("the calendar hides sensitive types and reasons from colleagues", async () => {

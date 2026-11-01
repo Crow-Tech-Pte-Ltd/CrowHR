@@ -100,6 +100,30 @@ describe("leave year end", () => {
     expect(await w.deps.db.select().from(leaveYearClosings)).toHaveLength(1);
   });
 
+  it("expires last year's carry before closing that year, and keeps Part IV carry for 12 months", async () => {
+    const hr = await w.as("hr");
+    const policies = (await (await hr.get("/api/v1/leave/policies")).json()) as {
+      items: { id: string; code: string; policy: Record<string, unknown> }[];
+    };
+    const annual = policies.items.find((p) => p.code === "annual");
+    if (!annual) throw new Error("Annual leave policy missing");
+    await hr.patch(`/api/v1/leave/policies/${annual.id}`, {
+      policy: { ...annual.policy, carryForward: { maxDays: 5, expiresAfterMonths: 3 } },
+    });
+    w.clock.set("2027-01-01T01:00:00Z");
+    await tick(w.deps, w.clock.now());
+    const staff = await ledger(w.emp.staff);
+    expect(staff.find((l) => l.leaveYear === 2027 && l.hundredths > 0)?.expiresOn).toBe("2028-01-01");
+    // No ticks for a year: carry that expired during 2027 must not be re-carried into 2028.
+    w.clock.set("2028-01-01T01:00:00Z");
+    const result = await tick(w.deps, w.clock.now());
+    expect(result.errors).toEqual([]);
+    const manager = await ledger(w.emp.manager);
+    expect(manager.find((l) => l.kind === "expiry" && l.leaveYear === 2027)?.hundredths).toBe(-500);
+    // 2027 has 13 days entitlement; 5 carry and 8 forfeit. The old five are already expired.
+    expect(manager.find((l) => l.kind === "forfeit" && l.leaveYear === 2027)?.hundredths).toBe(-800);
+  });
+
   it("marks the excess for encashment when the policy allows", async () => {
     const hr = await w.as("hr");
     const policies = (await (await hr.get("/api/v1/leave/policies")).json()) as {
