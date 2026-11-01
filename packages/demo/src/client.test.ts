@@ -93,6 +93,16 @@ describe("demo client (page side of the worker bridge)", () => {
     await expect(client.tick()).rejects.toThrow("The demo is still starting.");
   });
 
+  it("clears readiness after reset so no request uses the discarded database before reload", async () => {
+    const w = fakeWorker((msg) =>
+      msg.method === "boot" ? BOOT : msg.method === "reset" ? { reset: true } : okResponse(200, {}),
+    );
+    const client = createDemoClient(w.port);
+    await client.boot("https://hr.crow.sg", "v");
+    expect(await client.reset()).toEqual({ reset: true });
+    await expect(client.fetch(new Request("https://hr.crow.sg/api/v1/me"))).rejects.toThrow(/boot/);
+  });
+
   it("returns a null body for 204 responses", async () => {
     const w = fakeWorker((msg) =>
       msg.method === "boot" ? BOOT : { status: 204, statusText: "", headers: [], body: new ArrayBuffer(0) },

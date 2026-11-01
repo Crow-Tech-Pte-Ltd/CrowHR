@@ -7,7 +7,7 @@
   "description": "The public demo: apps/web built in demo mode with the in-browser API worker (packages/demo). Static; deployable to Cloudflare Pages.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/check-bundle.ts",
+    "build": "vite build && node scripts/build-snapshot.ts && node scripts/check-bundle.ts",
     "build:site": "node scripts/build-site.ts",
     "preview": "node scripts/serve.ts dist",
     "typecheck": "tsc -p ."

@@ -21,6 +21,9 @@ interface Meta {
   offsetMs: number;
   secretKey: string;
   seededAt: string;
+  /** Build snapshots are re-anchored only once, on their first visitor open. */
+  needsAnchor?: boolean;
+  snapshotOrigin?: string;
 }
 
 export interface OpenDemoInput {
@@ -91,6 +94,25 @@ export async function openDemo(input: OpenDemoInput) {
     stage("seed");
   }
 
+  if (meta.needsAnchor) {
+    // Seeded outbox links must work on local previews and alternate static hosts too.
+    if (meta.snapshotOrigin && meta.snapshotOrigin !== input.origin) {
+      await sql.query(
+        "update demo_outbox set body_text = replace(body_text, $1, $2), body_html = replace(body_html, $1, $2)",
+        [meta.snapshotOrigin, input.origin],
+      );
+    }
+    meta = {
+      ...meta,
+      needsAnchor: false,
+      offsetMs: demoClockOffset(new Date(realNow())),
+      seededAt: new Date(realNow()).toISOString(),
+    };
+    await kv.set("meta", meta);
+    // A snapshot restore is a fresh visitor copy, just like seeding, for durability and reset.
+    seeded = true;
+  }
+
   input.onStage?.("app", "Starting Crow HR");
   const offsetMs = meta.offsetMs;
   const clock = offsetClock(offsetMs, realNow);
@@ -148,3 +170,16 @@ export async function openDemo(input: OpenDemoInput) {
 }
 
 export type DemoRuntime = Awaited<ReturnType<typeof openDemo>>;
+
+/** Mark only a build-generated copy; its build-machine date must never become a visitor's clock. */
+export async function prepareDemoSnapshot(pglite: PGlite, origin: string) {
+  const kv = createKv(pglite as unknown as SqlClient);
+  const meta = await kv.get<Meta>("meta");
+  if (!meta) throw new Error("Cannot snapshot an unseeded demo");
+  await kv.set("meta", { ...meta, needsAnchor: true, snapshotOrigin: origin });
+}
+
+export async function validateDemoSnapshot(pglite: PGlite, dataVersion: string) {
+  const meta = await createKv(pglite as unknown as SqlClient).get<Meta>("meta");
+  if (meta?.dataVersion !== dataVersion || !meta.needsAnchor) throw new Error("Stale or unseeded demo snapshot");
+}

@@ -32,6 +32,8 @@ export interface BootTimings {
   totalMs: number;
   /** True when the database was created and seeded on this load (first visit or after a reset). */
   seeded: boolean;
+  /** Fresh copy restored from the build snapshot (false for browser seeding and later opens). */
+  restored?: boolean;
 }
 
 export type BootStage = "wasm" | "open" | "migrate" | "seed" | "app";
@@ -57,7 +59,7 @@ export type RpcResult<M extends RpcCall["method"]> = M extends "boot"
   : M extends "fetch"
     ? WireResponse
     : M extends "reset"
-      ? { timings: BootTimings; info: DemoInfo }
+      ? { reset: true }
       : M extends "outbox"
         ? OutboxMessage[]
         : M extends "tick"

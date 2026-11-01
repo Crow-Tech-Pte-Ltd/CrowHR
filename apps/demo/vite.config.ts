@@ -7,6 +7,7 @@ import { defineConfig } from "vite";
 import { demoDataVersion } from "./scripts/data-version.ts";
 import { forbidServerModules } from "./scripts/forbidden-modules.ts";
 import { precompressPgliteAssets } from "./scripts/precompress.ts";
+import { preloadApp } from "./scripts/preload-app.ts";
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 // PGlite's binaries, imported by URL in packages/demo/src/pglite-assets.ts (not in its exports map).
@@ -25,6 +26,7 @@ export default defineConfig({
       generatedRouteTree: here("../web/src/routeTree.gen.ts"),
     }),
     react(),
+    preloadApp(),
     forbidServerModules(),
   ],
   define: {
