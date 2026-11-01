@@ -54,7 +54,19 @@ describe("MFA policy for privileged roles", () => {
     expect((await http.post("/api/v1/auth/sign-out")).status).toBe(204);
   });
 
-  it("does not apply to plain employees or to SSO sessions", async () => {
+  it("applies to SSO sessions unless the identity provider asserted MFA", async () => {
+    const sso = await clientAs(
+      app,
+      deps,
+      await seedMember(deps, org.id, { roles: ["hr_admin"], grantedAt: new Date("2020-01-01") }),
+      { authMethod: "google", mfaSatisfied: false },
+    );
+    const res = await sso.get("/api/v1/members");
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as ErrorEnvelope).error.code).toBe("mfa_enrolment_required");
+  });
+
+  it("does not apply to plain employees or to SSO sessions whose IdP asserted MFA", async () => {
     const emp = await clientAs(
       app,
       deps,

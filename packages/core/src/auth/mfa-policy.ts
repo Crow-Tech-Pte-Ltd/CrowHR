@@ -19,18 +19,29 @@ export interface MfaPolicyStatus {
 
 /**
  * MFA policy for privileged roles (auth spec): default owner, hr_admin, payroll_admin; 7-day
- * grace from the role grant; SSO sign-ins exempt because the IdP owns MFA there.
+ * grace from the role grant.
+ *
+ * SSO (security review finding 1): an SSO session is exempt only when the identity provider
+ * asserted multi-factor authentication in the ID token (`amr`, see `oidc/mfa.ts`), recorded as
+ * the session's `mfaSatisfied`. Otherwise the policy applies exactly as for passwords: the member
+ * enrols a Crow HR authenticator, and from then on every SSO sign-in without an IdP MFA assertion
+ * also asks for the TOTP. Owners who trust their IdP's MFA can take roles out of the policy.
+ * Applies to browser and device (native-app) sessions alike.
  */
 export async function mfaPolicyStatus(
   db: Db,
-  auth: Pick<AuthContext, "user" | "membershipId" | "orgId" | "roles" | "authMethod">,
+  auth: Pick<AuthContext, "membershipId" | "orgId" | "roles" | "authMethod"> & {
+    user: Pick<AuthContext["user"], "id">;
+    session: Pick<AuthContext["session"], "mfaSatisfied">;
+  },
   settings: SecuritySettings,
   now: Date,
 ): Promise<MfaPolicyStatus> {
   const [user] = await db.select({ enrolledAt: users.mfaEnrolledAt }).from(users).where(eq(users.id, auth.user.id));
   const enrolled = !!user?.enrolledAt;
   const covered = auth.roles.filter((r) => settings.mfaRequiredRoles.includes(r));
-  if (auth.authMethod !== "password" || covered.length === 0) {
+  const idpAssertedMfa = auth.authMethod !== "password" && auth.session.mfaSatisfied && !enrolled;
+  if (covered.length === 0 || idpAssertedMfa) {
     return { required: false, enrolled, graceEndsAt: null, blocked: false };
   }
   const [row] = await db
