@@ -43,6 +43,7 @@ export const policySchema = z.object({
     })
     .nullable(),
   encashable: z.boolean(),
+  employeeEncashmentRequests: z.boolean().optional(),
 });
 
 export const policyView = typeView.extend({
