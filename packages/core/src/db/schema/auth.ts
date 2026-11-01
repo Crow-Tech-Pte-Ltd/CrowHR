@@ -65,7 +65,10 @@ export const mfaChallenges = pgTable(
       .notNull()
       .references(() => users.id),
     membershipId: uuid("membership_id").notNull(),
+    /** `password`, `password:break_glass`, or the SSO method (`google`, `oidc`, …) awaiting Crow HR's TOTP. */
     authMethod: text("auth_method").notNull(),
+    /** user_identities.id when an SSO sign-in waits for the TOTP. */
+    identityId: uuid("identity_id"),
     nativeRequestId: uuid("native_request_id"),
     attempts: integer("attempts").notNull().default(0),
     expiresAt: tz("expires_at").notNull(),
@@ -113,7 +116,8 @@ export const passwordResets = pgTable("password_resets", {
 
 /**
  * Sign-in throttling (security infrastructure, deliberately not org-scoped). Keys:
- * `acct:<userId>`, `ip:<ip>`, `reveal:<membershipId>`. Swept after a day.
+ * `acct:<userId>` (all networks), `acct:<userId>:<ip>` (one network), `mfa:<userId>`,
+ * `ip:<ip>`, `ipmfa:<ip>`, `reveal:<membershipId>`. Swept after a day. See auth/throttle.ts.
  */
 export const authThrottle = pgTable("auth_throttle", {
   key: text("key").primaryKey(),
@@ -249,6 +253,8 @@ export const nativeAuthRequests = pgTable("native_auth_requests", {
   userId: uuid("user_id"),
   membershipId: uuid("membership_id"),
   authMethod: text("auth_method"),
+  /** The sign-in satisfied MFA (Crow HR TOTP, or an IdP asserting MFA). */
+  mfaSatisfied: boolean("mfa_satisfied").notNull().default(false),
   usedAt: tz("used_at"),
   /** Device session created by the first exchange; revoked if the code is replayed. */
   deviceSessionId: uuid("device_session_id"),
@@ -282,6 +288,8 @@ export const deviceSessions = pgTable(
     idleExpiresAt: tz("idle_expires_at").notNull(),
     absoluteExpiresAt: tz("absolute_expires_at").notNull(),
     authenticatedAt: tz("authenticated_at").notNull(),
+    /** The sign-in behind this device satisfied MFA (drives the MFA policy for SSO devices). */
+    mfaSatisfied: boolean("mfa_satisfied").notNull().default(false),
     revokedAt: tz("revoked_at"),
     revokedReason: text("revoked_reason"),
   },
