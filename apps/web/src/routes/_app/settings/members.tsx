@@ -265,7 +265,10 @@ function MembersPage() {
                               </DropdownMenuItem>
                             </>
                           ) : null}
-                          {(m.status === "active" || m.status === "former") && manageable && !me.mailerConfigured ? (
+                          {(m.status === "active" || m.status === "former") &&
+                          isOwner &&
+                          m.roles.length === 0 &&
+                          !me.mailerConfigured ? (
                             <DropdownMenuItem
                               onSelect={() =>
                                 void act(

@@ -34,19 +34,21 @@ export function SignInPage({
   orgSlug,
   nativeRequestId,
   initialNotice,
+  ssoMfaPending = false,
 }: {
   methods: SignInMethods;
   orgSlug: string;
   nativeRequestId?: string;
   initialNotice: SignInNotice | null;
+  ssoMfaPending?: boolean;
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const orgName = methods.organisation?.name ?? orgSlug;
   const [notice, setNotice] = React.useState<SignInNotice | null>(initialNotice);
   const [showOwnerLogin, setShowOwnerLogin] = React.useState(false);
-  const [step, setStep] = React.useState<{ kind: "credentials" } | { kind: "mfa"; token: string }>({
-    kind: "credentials",
+  const [step, setStep] = React.useState<{ kind: "credentials" } | { kind: "mfa"; token?: string }>({
+    kind: ssoMfaPending ? "mfa" : "credentials",
   });
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -398,7 +400,7 @@ function ResetRequestDialog({
             <AlertDescription>
               {result.emailConfigured
                 ? "If that email belongs to an account here, a reset link is on its way. Check your inbox and spam folder."
-                : "Email isn't set up on this server, so no link can be sent. Ask your HR admin or an owner to create a reset link for you in Settings → Members and roles."}
+                : "Email isn't set up on this server, so no link can be sent. Ask an owner to create a reset link for you in Settings → Members and roles."}
             </AlertDescription>
           </Alert>
         ) : (
