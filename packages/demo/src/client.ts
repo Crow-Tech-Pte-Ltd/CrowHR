@@ -70,9 +70,12 @@ export function createDemoClient(worker: WorkerPort, events: DemoClientEvents = 
     async fetch(request: Request): Promise<Response> {
       return fromWireResponse(await this.send(await toWireRequest(request)));
     },
+    /** Discard the copy; the page reload starts a fresh worker and restores the snapshot. */
     async reset() {
-      ready = call("reset", {});
-      return ready;
+      const previous = ready;
+      ready = null;
+      await previous;
+      return call("reset", {});
     },
     outbox: () => call("outbox", {}),
     tick: () => call("tick", {}),

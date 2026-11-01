@@ -25,13 +25,18 @@ async function open(url: string, type: string): Promise<Response> {
 
 export async function pgliteAssets(): Promise<{
   pgliteWasmModule: WebAssembly.Module;
-  initdbWasmModule: WebAssembly.Module;
   fsBundle: Blob;
 }> {
-  const [wasm, initdb, data] = await Promise.all([
+  const [wasm, data] = await Promise.all([
     open(pgliteWasmUrl, "application/wasm").then((r) => WebAssembly.compileStreaming(r)),
-    open(initdbWasmUrl, "application/wasm").then((r) => WebAssembly.compileStreaming(r)),
     open(pgliteDataUrl, "application/octet-stream").then((r) => r.blob()),
   ]);
-  return { pgliteWasmModule: wasm, initdbWasmModule: initdb, fsBundle: data };
+  return { pgliteWasmModule: wasm, fsBundle: data };
+}
+
+let initdb: Promise<WebAssembly.Module> | undefined;
+/** Snapshot restores and persistent opens skip initdb entirely; download it only for fallback. */
+export function initdbAsset() {
+  initdb ??= open(initdbWasmUrl, "application/wasm").then((r) => WebAssembly.compileStreaming(r));
+  return initdb;
 }
