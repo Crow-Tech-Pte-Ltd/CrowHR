@@ -138,9 +138,7 @@ export default defineConfig({
         {
           label: "Coming soon",
           collapsed: true,
-          items: [
-            { slug: "coming-soon/mobile-apps", badge: soon },
-          ],
+          items: [{ slug: "coming-soon/mobile-apps", badge: soon }],
         },
         {
           label: "Developers",
