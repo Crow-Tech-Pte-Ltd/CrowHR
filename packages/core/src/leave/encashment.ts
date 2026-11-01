@@ -1,16 +1,16 @@
-import { dailyRate, hourlyBasicRate, roundHalfUpToCent } from "@crowhr/sg-rules";
+import { dailyRate, roundHalfUpToCent } from "@crowhr/sg-rules";
 import { and, asc, eq, lte } from "drizzle-orm";
 import { z } from "zod";
 import type { Grant } from "../access/authorize.ts";
 import { orgScope } from "../access/org-scope.ts";
 import { singaporeDate } from "../access/scope.ts";
 import { recordAudit } from "../audit/audit.ts";
-import { compensationRecords } from "../db/schema/employees.ts";
+import { allowanceTypes, compensationRecords, recurringAllowances } from "../db/schema/employees.ts";
 import { type LeaveEncashment, type LeaveType, leaveEncashments, leaveLedger } from "../db/schema/leave.ts";
-import { payrollFeedReservations, payrollRuns } from "../db/schema/payroll.ts";
+import { payrollAllowanceSettings, payrollFeedReservations, payrollRuns } from "../db/schema/payroll.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
-import { findAsAt } from "../employees/effective.ts";
+import { findAsAt, inForceOn } from "../employees/effective.ts";
 import { AppError } from "../errors.ts";
 import type { EncashmentSource } from "../payroll/ports.ts";
 import { submitApproval, withdrawSubject } from "../workflows/engine.ts";
@@ -141,7 +141,12 @@ async function checkBalance(
   return { t, balance };
 }
 
-/** Snapshot the requested basic-salary basis. Exact rational multiplication; round once, half up to cents. */
+/**
+ * Snapshot the gross rate in force on the request date (cessation date for leavers).
+ * MOM gross-rate formula/allowance exclusions, verified 1 Nov 2026:
+ * https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary
+ * Exact rational multiplication; round only the final payout, half up to cents.
+ */
 async function price(
   db: Db,
   orgId: string,
@@ -177,20 +182,80 @@ async function price(
     );
   const daysPerWeek = shift ? (requestedWorkdays ?? 5) : workingDaysPerWeekOn(t, date);
   const weeklyMinutes = sched.version.weeklyMinutes;
-  const rate =
+  const allowances = await db
+    .select({
+      allowance: recurringAllowances,
+      name: allowanceTypes.name,
+      included: payrollAllowanceSettings.grossRateIncluded,
+    })
+    .from(recurringAllowances)
+    .innerJoin(
+      allowanceTypes,
+      and(
+        eq(allowanceTypes.orgId, recurringAllowances.orgId),
+        eq(allowanceTypes.id, recurringAllowances.allowanceTypeId),
+      ),
+    )
+    .leftJoin(
+      payrollAllowanceSettings,
+      and(
+        eq(payrollAllowanceSettings.orgId, recurringAllowances.orgId),
+        eq(payrollAllowanceSettings.allowanceTypeId, recurringAllowances.allowanceTypeId),
+      ),
+    )
+    .where(
+      org.where(
+        recurringAllowances,
+        eq(recurringAllowances.employeeId, employeeId),
+        inForceOn(recurringAllowances, date),
+      ),
+    )
+    .orderBy(asc(recurringAllowances.allowanceTypeId), asc(recurringAllowances.id));
+  const unclassified = allowances.filter((a) => a.included === null);
+  if (unclassified.length)
+    throw new AppError(
+      "validation_failed",
+      `Classify ${unclassified.map((a) => a.name).join(", ")} using grossRateIncluded in Payroll allowance settings before requesting encashment. Include fixed contractual salary allowances; exclude variable incentives, reimbursements, travel, food and housing allowances.`,
+    );
+  const included = allowances.filter((a) => a.included === true);
+  const allowanceCents = included.reduce((sum, a) => sum + BigInt(a.allowance.amountCents), 0n);
+  const monthlyGross = BigInt(comp.amountCents) + allowanceCents;
+  if (monthlyGross > BigInt(Number.MAX_SAFE_INTEGER))
+    throw new AppError(
+      "validation_failed",
+      "Gross pay exceeds the supported money range. Correct basic pay or allowances.",
+    );
+  if (weeklyMinutes <= 0 && (comp.payBasis === "hourly" || unit === "hours"))
+    throw new AppError("validation_failed", "Record positive contractual weekly hours before requesting encashment.");
+  const money = (cents: number | bigint) => `S$${(Number(cents) / 100).toFixed(2)}`;
+  const allowanceText = `included allowances ${money(allowanceCents)}${included.length ? ` (${included.map((a) => `${a.name} ${money(a.allowance.amountCents)}`).join(" + ")})` : ""}`;
+  // Monthly allowances are converted to an exact hourly amount for hourly-paid staff;
+  // do not round a monthly equivalent or an intermediate hourly/daily rate.
+  const hourly =
     comp.payBasis === "monthly"
-      ? unit === "days"
-        ? dailyRate({ monthlyCents: comp.amountCents, workingDaysPerWeek: daysPerWeek, kind: "basic" })
-        : hourlyBasicRate({ date, monthlyBasicCents: comp.amountCents, weeklyHours: weeklyMinutes / 60 })
+      ? { n: monthlyGross * 12n * 60n, d: 52n * BigInt(weeklyMinutes) }
+      : {
+          n: BigInt(comp.amountCents) * 52n * BigInt(weeklyMinutes) + allowanceCents * 12n * 60n,
+          d: 52n * BigInt(weeklyMinutes),
+        };
+  const basis =
+    comp.payBasis === "monthly"
+      ? `Monthly basic ${money(comp.amountCents)} + ${allowanceText} = monthly gross ${money(monthlyGross)}`
+      : `Hourly basic ${money(comp.amountCents)} + monthly ${allowanceText} × 12 / (52 × ${weeklyMinutes / 60} weekly hours)`;
+  const rate =
+    comp.payBasis === "monthly" && unit === "days"
+      ? dailyRate({ monthlyCents: Number(monthlyGross), workingDaysPerWeek: daysPerWeek, kind: "gross" })
       : {
           exact:
             unit === "hours"
-              ? { n: BigInt(comp.amountCents), d: 1n }
-              : { n: BigInt(comp.amountCents) * BigInt(weeklyMinutes) * 2n, d: 60n * BigInt(daysPerWeek * 2) },
+              ? hourly
+              : { n: hourly.n * BigInt(weeklyMinutes) * 2n, d: hourly.d * 60n * BigInt(daysPerWeek * 2) },
           text:
             unit === "hours"
-              ? `Hourly basic rate = S$${(comp.amountCents / 100).toFixed(2)}`
-              : `Daily basic rate = S$${(comp.amountCents / 100).toFixed(2)} hourly basic × ${weeklyMinutes / 60} weekly hours / ${daysPerWeek} days`,
+              ? comp.payBasis === "monthly"
+                ? `Hourly gross rate = (12 × ${money(monthlyGross)}) / (52 × ${weeklyMinutes / 60} weekly hours)`
+                : "Hourly gross rate = hourly basic + included allowances converted to hourly pay"
+              : `Daily gross rate = hourly gross × ${weeklyMinutes / 60} weekly hours / ${daysPerWeek} days`,
         };
   const amountCents = roundHalfUpToCent({ n: rate.exact.n * BigInt(hundredths), d: rate.exact.d * 100n });
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0)
@@ -200,7 +265,7 @@ async function price(
     );
   return {
     amountCents,
-    rateText: `${rate.text}${shift && unit === "days" ? ` (contractual average ${daysPerWeek} workdays/week supplied for approval)` : ""}; basic salary effective ${date}, × ${hundredths / 100} ${unit}; rounded once half up to cents = S$${(amountCents / 100).toFixed(2)}.`,
+    rateText: `${basis}; ${rate.text}${shift && unit === "days" ? ` (contractual average ${daysPerWeek} workdays/week supplied for approval)` : ""}; salary, included allowances and schedule effective ${date}, × ${hundredths / 100} ${unit}; rounded once half up to cents = ${money(amountCents)}.`,
   };
 }
 

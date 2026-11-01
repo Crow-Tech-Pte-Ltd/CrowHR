@@ -5,6 +5,7 @@ import { decideRun, type PayrollHttp, payrollHttp } from "../../testing/payroll-
 import { compensationRecords, employees, tenures } from "../db/schema/employees.ts";
 import { leaveEncashments, leaveLedger } from "../db/schema/leave.ts";
 import { workSchedules } from "../db/schema/organisation.ts";
+import { payrollAllowanceSettings } from "../db/schema/payroll.ts";
 import { approvalRequests, approvalTasks } from "../db/schema/workflows.ts";
 import type { PayInput, PayResult } from "../payroll/engine/types.ts";
 
@@ -30,6 +31,11 @@ beforeAll(async () => {
       basicCents: 260_000,
     })),
   );
+  await t.db.insert(payrollAllowanceSettings).values({
+    orgId: p.co.h.orgId,
+    allowanceTypeId: p.co.allowances.transport,
+    grossRateIncluded: false,
+  });
   employee = await clientAs(p.app, p.co.h.deps, await seedMember(p.co.h.deps, p.co.h.orgId, { employeeId: p.co.e.A }));
   hr = await clientAs(p.app, p.co.h.deps, await seedMember(p.co.h.deps, p.co.h.orgId, { roles: ["hr_admin"] }));
   const types = await p.ok<{ items: { id: string; code: string; policy: Record<string, unknown> }[] }>(
@@ -105,9 +111,9 @@ describe("leave encashment through payroll", () => {
     let d = await slip(nov.id);
     const line = d.result.lines.find((l) => l.label === "Leave encashment (2.5 days)");
     expect(line).toMatchObject({ amountCents: 30_000, wageClass: "AW", cpfLiable: true });
-    expect(d.result.working.some((w) => w.text.includes("Daily basic rate"))).toBe(true);
+    expect(d.result.working.some((w) => w.text.includes("Daily gross rate"))).toBe(true);
     expect(d.result.totals.awCpfCents).toBe(30_000);
-    // 2,600 basic + 200 allowance OW + 300 AW; the encashment rate excludes allowances.
+    // 2,600 basic + 200 transport OW + 300 AW; transport is excluded from MOM's gross rate.
     expect(d.result.totals.cpfEmployeeCents).toBe(62_000);
     expect(d.result.totals.cpfEmployerCents).toBe(52_700);
     await p.ok(p.admin.post(`${payroll}/${nov.id}/compute`));
