@@ -59,7 +59,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 ## Documentation site (apps/docs)
 
-- **Not deployed.** It builds to static files for `https://hr.crow.sg/docs` (`base: /docs`), but nothing is published, and the repository URL used in install commands (`https://github.com/Crow-Tech-Pte-Ltd/crow-hr`) is a placeholder.
+- **Not deployed.** It builds to static files for `https://hr.crow.sg/docs` (`base: /docs`), but nothing is published. The repository (`https://github.com/Crow-Tech-Pte-Ltd/CrowHR`) is private until Daniel approves making it public, so the install commands only work for collaborators until then.
 - **Placeholder contacts**: `security@crow.sg` (SECURITY.md) and `conduct@crow.sg` (CODE_OF_CONDUCT.md) are not confirmed.
 - **Generated, not hand-kept**: the permission matrix and import-template columns are rendered from `packages/core` sources at build time, and the API reference from the OpenAPI snapshot. The configuration and CLI pages are hand-written and checked by `apps/docs/tests/` against the code.
 - **SSO guides** describe the provider consoles from their public documentation; only the mock identity provider has been exercised. The Singpass guide's staging sign-in has not been done (identity task 8.3).

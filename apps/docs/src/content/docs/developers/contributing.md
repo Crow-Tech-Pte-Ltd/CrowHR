@@ -10,8 +10,8 @@ Crow HR is MIT-licensed and open to contributions. The short version is `CONTRIB
 You need [bun](https://bun.sh) 1.3 and Node 24.
 
 ```sh
-git clone https://github.com/Crow-Tech-Pte-Ltd/crow-hr.git   # URL not confirmed yet
-cd crow-hr
+git clone https://github.com/Crow-Tech-Pte-Ltd/CrowHR.git
+cd CrowHR
 bun install
 bun run dev        # API on 127.0.0.1:8080 (PGlite in ./data), web app with Vite
 ```

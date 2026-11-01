@@ -3,7 +3,7 @@ title: Quick start
 description: Install Crow HR in three steps with Docker Compose, then finish setup in the browser.
 ---
 
-You need a machine with Docker Engine 24+ and the Compose plugin, 2 GB of RAM and a few GB of disk. Get the repository first (`git clone https://github.com/Crow-Tech-Pte-Ltd/crow-hr.git`; the URL is not confirmed yet), then:
+You need a machine with Docker Engine 24+ and the Compose plugin, 2 GB of RAM and a few GB of disk. Get the repository first (`git clone https://github.com/Crow-Tech-Pte-Ltd/CrowHR.git`), then:
 
 ## 1. Copy the example settings
 

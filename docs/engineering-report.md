@@ -46,7 +46,7 @@ Crow HR is a working, self-hostable HR and payroll platform for Singapore SMEs, 
 ## Needs Daniel
 
 1. **GitHub:** create the repository (private first?) and push; this also runs CI for the first time. Making it public is a separate decision.
-2. **Placeholders:** the repo URL (`github.com/Crow-Tech-Pte-Ltd/crow-hr`), `security@crow.sg` and `conduct@crow.sg` are assumed in docs and README.
+2. **Placeholders:** the repo is `github.com/Crow-Tech-Pte-Ltd/CrowHR` (private); `security@crow.sg` and `conduct@crow.sg` are assumed in docs and README.
 3. **Deploy hr.crow.sg:** demo at `/` and docs at `/docs` on Cloudflare Pages, following `docs/deploy-demo.md`. Needs approval and a DNS change.
 4. **Landing page:** pushing `crow-hr-product-page` and opening a PR publishes a Cloudflare preview at a public pages.dev URL. Flipping `CROW_HR_LAUNCHED` launches it.
 5. **Mobile apps:** go-ahead to start M4, and a decision on push notifications (none, a Crow-run relay, or UnifiedPush).
