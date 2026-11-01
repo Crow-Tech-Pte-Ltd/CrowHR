@@ -10,6 +10,7 @@ import type { SubjectAdapter, SubjectSummary, WorkflowPlugin } from "../workflow
 import { chargeRequest, loadRequest, requestDays, restoreRequest, setStatus } from "./actions.ts";
 import { childrenOf, computeBalance } from "./balances.ts";
 import { loadEmployeeTime } from "./calendar.ts";
+import { leaveEncashmentAdapter } from "./encashment.ts";
 import { leaveYearEndTransition } from "./year-end.ts";
 
 /**
@@ -136,7 +137,7 @@ export function leaveCancellationAdapter(deps: AppDeps): SubjectAdapter<Attrs> {
 export function leaveWorkflowPlugin(deps: AppDeps): WorkflowPlugin {
   return {
     name: "leave",
-    subjects: [leaveAdapter(deps), leaveCancellationAdapter(deps)],
+    subjects: [leaveAdapter(deps), leaveCancellationAdapter(deps), leaveEncashmentAdapter(deps)],
     transitions: [leaveYearEndTransition(deps)],
   };
 }

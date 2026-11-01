@@ -148,8 +148,10 @@ export function diffRuns(current: PayrollPayslip[], previous: PayrollPayslip[], 
         text: `Basic pay ${sgd(before)} → ${sgd(after)}.`,
       });
     }
-    for (const item of i.items.filter((x) =>
-      ["bonus", "commission", "backpay", "other_earning", "deduction", "unpaid_leave", "overtime"].includes(x.kind),
+    for (const item of i.items.filter(
+      (x) =>
+        ["bonus", "commission", "backpay", "other_earning", "deduction", "unpaid_leave", "overtime"].includes(x.kind) &&
+        !x.id.startsWith("encashment:"),
     )) {
       const label =
         item.kind === "unpaid_leave"
@@ -258,6 +260,15 @@ export async function runOverview(db: Db, orgId: string, runId: string): Promise
       items = run.kind === "adjustment" ? diffAdjustment(slips, prevSlips) : diffRuns(slips, prevSlips, run);
     }
   }
+  for (const slip of slips)
+    for (const item of slip.input.items.filter((i) => i.id.startsWith("encashment:"))) {
+      items.push({
+        kind: "new_item",
+        employeeId: slip.employeeId,
+        name: slip.employeeName,
+        text: `${item.label}: ${sgd(item.amountCents ?? 0)} (AW), approved leave payout.`,
+      });
+    }
   const against = comparedWith
     ? run.kind === "adjustment"
       ? "the original run"
@@ -265,7 +276,9 @@ export async function runOverview(db: Db, orgId: string, runId: string): Promise
     : null;
   const headline = !comparedWith
     ? run.computedAt
-      ? "First payroll run: nothing to compare with."
+      ? items.length
+        ? `${items.length} approved ${items.length === 1 ? "encashment" : "encashments"} in this run.`
+        : "First payroll run: nothing to compare with."
       : "Compute the run to see changes."
     : items.length === 0
       ? `No changes since ${against}.`

@@ -1,5 +1,6 @@
 import { computeSdlTotal, publicHolidays } from "@crowhr/sg-rules";
 import { and, desc, eq, inArray, isNull, ne, type SQL } from "drizzle-orm";
+import { orgScope } from "../access/org-scope.ts";
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
 import { memberships } from "../db/schema/access.ts";
 import { allowanceTypes, employees } from "../db/schema/employees.ts";
@@ -26,8 +27,8 @@ import { submitApproval, withdrawSubject } from "../workflows/engine.ts";
 import { isEarningsInput, selfEarningsEditors } from "../workflows/payroll-eligibility.ts";
 import { canonicalHash } from "./engine/canonical.ts";
 import { computeEmployeePay } from "./engine/compute.ts";
-import { dateLabel, dayOfWeek, daysInMonth, maxDate, monthBounds, monthLabel } from "./engine/dates.ts";
-import type { PayInput, PayIssue, PayResult, RunItemKind } from "./engine/types.ts";
+import { dateLabel, dayOfWeek, daysInMonth, maxDate, minDate, monthBounds, monthLabel } from "./engine/dates.ts";
+import type { PayInput, PayIssue, PayResult, RunItemInput, RunItemKind } from "./engine/types.ts";
 import { reserveFeeds, unavailableFeeds } from "./feed-reservations.ts";
 import { appendHolidayPay } from "./holiday-pay.ts";
 import { changedPayees, changedPayeesMessage, liveAccounts, toPayee } from "./payees.ts";
@@ -641,7 +642,34 @@ async function computeAll(deps: AppDeps, run: PayrollRun): Promise<{ computed: C
   const scheduledDays = bonusOnly
     ? []
     : await ports.scheduledDays.listScheduledDays(run.orgId, run.periodStart, run.periodEnd);
-  const inputs = await buildSnapshots(deps.db, { run, claims, overtime, unpaidLeave, daysWorked, scheduledDays });
+  // A request approved after this run's pay date belongs to a later run, even within the same month.
+  const encashments = bonusOnly
+    ? []
+    : await ports.encashments.listApproved(run.orgId, minDate(run.periodEnd, run.payDate));
+  const inputs = await buildSnapshots(deps.db, {
+    run,
+    claims,
+    overtime,
+    unpaidLeave,
+    daysWorked,
+    scheduledDays,
+    encashments,
+  });
+  // Preserve the exact earning/payable date from the replaced chain, including legacy paid feeds.
+  if (carryFromRunIds.length) {
+    const prior = await deps.db
+      .select()
+      .from(payrollPayslips)
+      .where(orgScope(deps.db, run.orgId).where(payrollPayslips, inArray(payrollPayslips.runId, carryFromRunIds)));
+    for (const input of inputs) {
+      const carried = new Map<string, RunItemInput>();
+      for (const runId of carryFromRunIds)
+        for (const slip of prior.filter((s) => s.runId === runId && s.employeeId === input.employee.id))
+          for (const item of slip.input.items)
+            if (item.id.startsWith("encashment:") && !carried.has(item.id)) carried.set(item.id, item);
+      input.items = input.items.filter((i) => !carried.has(i.id)).concat([...carried.values()]);
+    }
+  }
   await appendHolidayPay(deps, run, inputs);
   for (const input of inputs) input.items = input.items.filter((i) => !unavailable.has(i.id));
   const accounts = await liveAccounts(

@@ -27,6 +27,15 @@ import { applyLeave, quoteLeave, resolveTargetEmployee, storeAttachments } from 
 import { balancesFor } from "./balances.ts";
 import { loadEmployeeTime } from "./calendar.ts";
 import { ensureLeaveSetup } from "./defaults.ts";
+import {
+  encashmentCandidateView,
+  encashmentEmployee,
+  encashmentInput,
+  encashmentView,
+  listEncashments,
+  requestEncashment,
+  withdrawEncashment,
+} from "./encashment.ts";
 import { governmentPaidCsv, governmentPaidReport, listUnpaidLeave } from "./outputs.ts";
 import { applyInput, attachmentInput, isoDate, type LeaveActor, listTypes, quoteInput } from "./service.ts";
 import {
@@ -200,6 +209,41 @@ export const leaveModule = defineModule({
   tag: "Leave",
   feature: "leave",
   routes: [
+    defineRoute({
+      method: "get",
+      path: "/encashments",
+      summary: "List your encashment requests, or an employee's as HR",
+      access: { permission: "leave:read" },
+      request: { query: z.object({ employeeId: z.uuid().optional() }) },
+      responses: { 200: z.object({ items: z.array(encashmentView), candidates: z.array(encashmentCandidateView) }) },
+      handler: async ({ c, deps, auth, grant, query }) => {
+        const employeeId = await encashmentEmployee(deps.db, actorOf(c, auth), grant, query.employeeId);
+        return listEncashments(deps.db, auth.orgId, employeeId);
+      },
+    }),
+    defineRoute({
+      method: "post",
+      path: "/encashments",
+      summary: "Request leave encashment for approval under the leave policy",
+      access: { permission: "leave:create" },
+      request: { body: encashmentInput },
+      responses: { 201: encashmentView },
+      errors: ["not_found", "insufficient_balance", "conflict"],
+      handler: ({ c, deps, auth, grant, body }) => requestEncashment(deps, actorOf(c, auth), grant, body),
+    }),
+    defineRoute({
+      method: "post",
+      path: "/encashments/:id/withdraw",
+      summary: "Withdraw pending encashment and release its leave balance",
+      access: { permission: "leave:create" },
+      request: { params: id },
+      responses: { 204: null },
+      errors: ["not_found", "conflict"],
+      example: { body: {} },
+      handler: async ({ c, deps, auth, grant, params }) => {
+        await withdrawEncashment(deps, actorOf(c, auth), grant, params.id);
+      },
+    }),
     defineRoute({
       method: "get",
       path: "/types",

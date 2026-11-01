@@ -6,6 +6,7 @@ import {
   type LeaveType,
   type LeaveUnit,
   leaveChildren,
+  leaveEncashments,
   leaveLedger,
   leaveRequestDays,
   leaveRequests,
@@ -180,6 +181,7 @@ export interface BalanceOptions {
   children?: readonly LeaveChild[];
   /** Approval re-check: don't count this request as pending. */
   excludeRequestId?: string;
+  excludeEncashmentId?: string;
   /** All org types (to find the hospitalisation pool). */
   types?: readonly LeaveType[];
 }
@@ -194,7 +196,21 @@ export async function computeBalance(db: Db, t: EmployeeTime, type: LeaveType, o
     ? { year: opts.year, childId: child?.id ?? "00000000-0000-0000-0000-000000000000" }
     : { year: opts.year };
   const own = await ledgerSums(db, t, [type.id], scope);
-  const pending = await pendingSum(db, t, [type.id], scope, opts.excludeRequestId);
+  const [encashment] = await db
+    .select({ total: sql<number>`coalesce(sum(${leaveEncashments.hundredths}), 0)::int` })
+    .from(leaveEncashments)
+    .where(
+      orgScope(db, t.orgId).where(
+        leaveEncashments,
+        eq(leaveEncashments.employeeId, t.employeeId),
+        eq(leaveEncashments.leaveTypeId, type.id),
+        eq(leaveEncashments.leaveYear, opts.year),
+        eq(leaveEncashments.status, "pending"),
+        sql`${leaveEncashments.ledgerEntryId} is null`,
+        opts.excludeEncashmentId ? ne(leaveEncashments.id, opts.excludeEncashmentId) : undefined,
+      ),
+    );
+  const pending = (await pendingSum(db, t, [type.id], scope, opts.excludeRequestId)) + Number(encashment?.total ?? 0);
   const carried = own.sums.carry_forward;
   const expired = -(own.sums.expiry + own.sums.forfeit + own.sums.encashment);
   const taken = -(own.sums.taken + own.sums.restored);
