@@ -33,10 +33,10 @@ If a sign-in fails, the person sees a generic "Sign-in with … failed" message 
 
 Crow HR has no open self-signup. An SSO sign-in works only for an identity linked to an active member of the organisation. On the first sign-in an identity is linked when:
 
-- the provider asserts a **verified email** (`email_verified: true`, or an Entra token from your configured tenant) that equals the email of an existing active or invited member; or
+- the provider asserts a **verified email** (`email_verified: true`, or `xms_edov: true` from your configured Entra tenant) that equals the email of an existing active or invited member; or
 - the sign-in started from that member's **invitation link**.
 
-After that the identity is matched by its issuer and subject, not by email. Singpass identities are never linked by email or NRIC: only through an invitation or by a signed-in member linking it in **My sessions → Linked sign-in methods**, where members can also link other providers and unlink an identity unless it is their only way to sign in. Linking and unlinking are audit-logged.
+After that the identity is matched by its issuer and subject, not by email. Singpass identities are never linked by email or NRIC: only through an invitation or by a signed-in member linking it in **My sessions → Linked sign-in methods**, where members can also link other providers and unlink an identity unless it is their only way to sign in. Linking and unlinking are audit-logged. Linking and testing a provider require re-authentication within 10 minutes, checked at both the start and callback. A new linked method triggers best-effort email when SMTP is configured.
 
 Someone without a membership sees "Your account has not been set up in (organisation). Ask your HR team for an invitation".
 
@@ -58,6 +58,6 @@ Settings → Security also sets how long people stay signed in:
 | Always sign out after | 12 hours | 1 to 24 hours |
 | Mobile app: sign out after unused | 30 days | 1 to 90 days (for the planned native apps) |
 
-People see and revoke their own sessions in **My sessions**. Changing or resetting a password and suspending a member revoke sessions too. Sensitive actions (changing the password, two-step verification or security settings, SSO configuration, role grants, revealing an NRIC/FIN or bank number, exports with sensitive fields) need a sign-in within the last 10 minutes.
+People see and revoke their own sessions in **My sessions**. **Sign out everywhere** removes all linked SSO identities in that organisation, including the current method; the current session stays signed in. A password reset removes identities across all organisations. Verified-email providers can link again at the next SSO sign-in; other identities need a new invitation or a fresh profile link. Changing or resetting a password and suspending a member revoke sessions too. Sensitive actions (changing the password, two-step verification or security settings, SSO configuration, role grants, revealing an NRIC/FIN or bank number, exports with sensitive fields) need a sign-in within the last 10 minutes.
 
 When `PUBLIC_URL` is plain `http`, Settings → Security warns "Not using HTTPS": session cookies are not protected in transit. Put Crow HR behind HTTPS ([reverse proxy](/docs/self-hosting/reverse-proxy/)) before using it over the internet.

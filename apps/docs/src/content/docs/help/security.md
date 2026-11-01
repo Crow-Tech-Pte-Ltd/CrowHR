@@ -19,7 +19,7 @@ Only the latest release is supported with security fixes while the project is pr
 | Area | What Crow HR does |
 | --- | --- |
 | Passwords | argon2id (19 MiB, 2 iterations), 12 to 128 characters, common-password list, no composition rules. Failures give one generic message; verification runs even for unknown emails. |
-| Brute force | Account lockout after 10 failures in 15 minutes; 30 sign-in attempts per minute per IP; 5 wrong setup codes block an IP for 15 minutes. |
+| Brute force | After 10 wrong passwords per account/IP in 15 minutes, delays double from 1 second to a 30-second maximum. The 50th wrong password across IPs pauses new browsers for at most 30 seconds once per 15-minute window; attempts cannot extend that pause. Previously signed-in browsers with a signed 180-day device cookie can still sign in from other networks, subject to their network delay. 30 sign-in and 30 MFA-verification requests per minute per IP; 5 wrong MFA codes pause the account for 15 minutes. |
 | Two-step verification | TOTP with replay protection, hashed single-use recovery codes, required for owners, HR and payroll admins by default. |
 | Sessions | 256-bit random tokens stored as SHA-256 hashes; `__Host-` HttpOnly, Secure, SameSite=Lax cookies over HTTPS; idle and absolute timeouts; rotation on sign-in; revocation. |
 | CSRF | State-changing requests must come from `PUBLIC_URL`'s origin. |
@@ -35,9 +35,11 @@ Only the latest release is supported with security fixes while the project is pr
 - Set `BACKUP_PASSPHRASE` and copy backups off the server. An unencrypted backup contains the encryption key.
 - Keep the server and Docker updated, and [upgrade](/docs/self-hosting/upgrades/) Crow HR when releases come out.
 - Keep `PUBLIC_URL` and the encryption key stable; never delete the database to "fix" a key mismatch.
-- Enforce MFA at your identity provider when staff use SSO.
+- Enforce MFA at your identity provider when staff use SSO, or enrol a Crow HR authenticator. Crow HR requires an explicit IdP MFA assertion to satisfy its role policy.
 - Review **Settings → Audit log** and **Settings → System** regularly.
 
 ## Known gaps
 
 See [limitations](/docs/payroll/limitations/#platform-and-sign-in): security notification emails are not all sent yet, there is no row-level security in the database (isolation is in the application, with tests), and the common-password list is curated rather than a breach corpus.
+
+SMTP submission on port 587 requires STARTTLS by default. `SMTP_REQUIRE_TLS=true` also requires it on another SMTP port; `false` explicitly permits a server without STARTTLS. Implicit TLS (`smtps://`, usually port 465) remains supported.
