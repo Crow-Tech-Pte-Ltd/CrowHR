@@ -6,6 +6,7 @@ import { allowanceTypes, bankAccounts, type Employee, emergencyContacts, employe
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
+import { CONTROL_CHARS } from "../export/csv.ts";
 import { notify } from "../notifications/notify.ts";
 import { type Actor, assertCanRead, assertCanWrite, assertNotSelfChange } from "./access.ts";
 import { diffOf, recordAudit } from "./audit-helpers.ts";
@@ -184,7 +185,15 @@ export async function replaceEmergencyContacts(
 /** Fields employees edit directly (spec: Employee self-service changes). */
 export const selfServicePatch = z
   .object({
-    preferredName: z.preprocess((v) => (v === "" ? null : v), z.string().trim().max(100).nullish()),
+    preferredName: z.preprocess(
+      (v) => (v === "" ? null : v),
+      z
+        .string()
+        .refine((v) => !CONTROL_CHARS.test(v), "Remove control characters from the name.")
+        .trim()
+        .max(100)
+        .nullish(),
+    ),
     personalEmail: z.preprocess((v) => (v === "" ? null : v), z.email().nullish()),
     mobile: z.preprocess((v) => (v === "" ? null : v), z.string().trim().max(30).nullish()),
     address: addressInput.nullish(),

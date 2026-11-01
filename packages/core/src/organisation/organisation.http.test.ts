@@ -66,9 +66,9 @@ describe("company profile", () => {
     expect(res.body.profile).toMatchObject({ payrollReady: false, missingForPayroll: ["csn", "address"] });
   });
 
-  it("logo: PNG or SVG, at most 1 MB; requires a profile", async () => {
+  it("logo: sniffed PNG only, at most 1 MB; requires a profile", async () => {
     const owner = api.as(h.orgId, ["owner"]);
-    const png = btoa(String.fromCharCode(0x89, 0x50, 0x4e, 0x47));
+    const png = btoa(String.fromCharCode(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a));
     expect((await owner.put("/organisation/profile/logo", { contentType: "image/png", dataBase64: png })).status).toBe(
       409,
     );
@@ -76,6 +76,16 @@ describe("company profile", () => {
     expect((await owner.put("/organisation/profile/logo", { contentType: "image/jpeg", dataBase64: png })).status).toBe(
       400,
     );
+    for (const contentType of ["image/png", "image/svg+xml"]) {
+      expect(
+        (
+          await owner.put("/organisation/profile/logo", {
+            contentType,
+            dataBase64: btoa('<svg onload="alert(1)"></svg>'),
+          })
+        ).status,
+      ).toBe(400);
+    }
     const big = btoa("x".repeat(1024 * 1024 + 1));
     expect(
       (await owner.put("/organisation/profile/logo", { contentType: "image/png", dataBase64: big.slice(0, 1_499_000) }))

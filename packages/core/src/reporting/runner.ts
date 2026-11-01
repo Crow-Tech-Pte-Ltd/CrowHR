@@ -3,6 +3,7 @@ import { SENSITIVITY_PERMISSION } from "../access/redact.ts";
 import { effectiveRoles, singaporeDate } from "../access/scope.ts";
 import type { SensitivityClass } from "../access/sensitivity.ts";
 import { auditContext, recordAudit } from "../audit/audit.ts";
+import { requireRecentAuth } from "../auth/guards.ts";
 import type { AppContext } from "../context.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
@@ -313,6 +314,7 @@ function paramText(v: unknown): string {
 export async function exportReport(c: AppContext, id: string, query: ReportQuery, format: "csv" | "xlsx") {
   const deps: AppDeps = c.var.deps;
   const p = await prepare(c, id, query, "export");
+  if (p.columns.some((col) => col.sensitivity === "salary")) requireRecentAuth(c);
   const sort = sortOf(p, query);
   const rows = sortRows(await collect(p), sort.key, sort.dir);
   const totals = rows.length ? totalsOf(p.columns, rows) : null;

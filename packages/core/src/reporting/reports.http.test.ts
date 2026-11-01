@@ -98,6 +98,19 @@ describe("reports", () => {
     expect((await ids(owner)).map((r) => r.id)).not.toContain("leave.balances");
   });
 
+  it.each(["csv", "xlsx"])(
+    "salary exports require recent re-auth (%s), ordinary reports remain available",
+    async (format) => {
+      const stale = await clientAs(w.app, w.deps, w.m.owner, {
+        authenticatedAt: new Date(w.clock.now().getTime() - 11 * 60_000),
+      });
+      const res = await stale.get(`/api/v1/reports/people.headcount/export?columns=basicPay&format=${format}`);
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({ error: { code: "reauth_required" } });
+      expect((await stale.get(`/api/v1/reports/people.headcount/export?format=${format}`)).status).toBe(200);
+    },
+  );
+
   it("validates parameters with messages that say how to fix them", async () => {
     const res = await (await w.as("hr")).get("/api/v1/reports/people.headcount?asAt=31-10-2026&by=colour");
     expect(res.status).toBe(400);
