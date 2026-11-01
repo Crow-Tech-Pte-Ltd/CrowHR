@@ -23,7 +23,7 @@
 - [x] 4.1 packages/core: write `auth/password-policy.test.ts` (length 12–128, common list, equals-email) then implement the policy with the bundled list
 - [x] 4.2 apps/server: extend `src/argon2-hasher.test.ts` (parameters, needsRehash, rejects `$demo-pbkdf2$` hashes) then implement rehash detection
 - [x] 4.3 packages/core: write `auth/sign-in.http.test.ts` (success sets cookie with the right flags, identical failure responses for unknown and wrong, timing-equalising dummy verify called) then implement `POST /api/v1/auth/sign-in` and `POST /api/v1/auth/sign-out`
-- [x] 4.4 packages/core: write `auth/throttle.test.ts` (10 failures → locked 15 min with injected clock, reset on success, IP 31/min → 429 with Retry-After, owner clears lockout) then implement `auth_throttle` — "sign-in attempts blocked" is emailed when a mailer exists; in-app notification NOT IMPLEMENTED (notifications workstream)
+- [x] 4.4 packages/core: write `auth/throttle.test.ts` (10 failures per account/IP → progressive 1–30 second delays; 50 across IPs → one non-extending 30-second new-device pause per 15 minutes, reset on success, IP 31/min → 429 with Retry-After, owner clears lockout) then implement `auth_throttle` — "sign-in attempts blocked" is emailed when a mailer exists; in-app notification NOT IMPLEMENTED (notifications workstream)
 - [x] 4.5 packages/core: write `auth/session.test.ts` (idle and absolute expiry with injected clock, `last_seen_at` throttled to 60 s, rotation on sign-in/MFA/org switch, revoke one/all-others, revoked on password change and suspension) then implement session middleware making `requireAuth` real
 - [x] 4.6 packages/core: write `auth/csrf.http.test.ts` (cross-origin POST → 403, same-origin OK, `Sec-Fetch-Site: cross-site` → 403, GET unaffected) then implement the middleware
 - [x] 4.7 packages/core: write `auth/reauth.test.ts` (each sensitive action > 10 min since auth → 403 `reauth_required`) then implement `requireRecentAuth`
@@ -34,7 +34,7 @@
 
 - [x] 5.1 packages/core: write `auth/totp.test.ts` with RFC 6238 Appendix B vectors, ±1 step and replay rejection, then implement TOTP on Web Crypto HMAC
 - [x] 5.2 packages/core: write `auth/mfa.http.test.ts` (enrol requires confirm code, pending-sign-in token 5 min, 5 wrong codes end it, recovery codes 10 × single use, regenerate invalidates, owner resets member MFA) then implement the endpoints
-- [x] 5.3 packages/core: write `auth/mfa-policy.test.ts` (default roles, 7-day grace from role grant, `mfa_enrolment_required` afterwards, SSO exempt) then implement the policy
+- [x] 5.3 packages/core: write `auth/mfa-policy.test.ts` (default roles, 7-day grace from role grant, `mfa_enrolment_required` afterwards, device sessions included, SSO exempt only with explicit MFA assertion) then implement the policy
 
 ## 6. Memberships and invitations
 
@@ -67,3 +67,15 @@
 
 - [x] 10.1 packages/demo: `DemoPasswordHasher`, demo SecretBox key and the no-op Mailer — `createDemoPasswordHasher()` lives in core (`auth/demo-hasher.ts`, tested) and is injected by `packages/demo/src/deps.ts`; the per-browser SecretBox key and the Demo outbox mailer are in `packages/demo` (WS8b)
 - [x] 10.2 packages/core: write `auth/demo-mode.http.test.ts` (SSO start returns 403 `disabled_in_demo` without outbound fetch; persona list endpoint only in demo mode) then implement the demo flags
+
+## Security review follow-up (sign-in and member access)
+
+- [x] Require recent authentication at SSO link/test start and callback; email new links; remove links on reset/sign-out-everywhere; enforce MFA after SSO.
+- [x] Restrict admin reset links to recently authenticated owners and single-org, unprivileged targets; notify the target when SMTP exists.
+- [x] Enforce one live membership per employee with a generated partial unique index; protect privileged/manager invitation links in the shared service.
+- [x] Apply enrolment policy to native exchange and device sessions; rotate refresh tokens with compare-and-set and revoke on reuse.
+- [x] Share a serialized per-user TOTP/recovery failure budget across verification, re-authentication and invitation acceptance; rate-limit MFA verification by IP; clear password failures only after MFA.
+- [x] Require TOTP for invitation acceptance by an enrolled account; require Entra xms_edov for automatic email linking.
+- [x] Replace account-wide password denial with per-account/IP progressive delays and a bounded new-device ceiling; preserve known-browser access on other networks.
+- [x] Parse forwarded source ports and stop at unknown hops; require SMTP STARTTLS by default on port 587 with an explicit override.
+- [ ] Security notices in the in-app inbox and retryable outbox delivery remain NOT IMPLEMENTED; SMTP-free installs cannot email security notices. See docs/limitations.md.

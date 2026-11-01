@@ -31,6 +31,10 @@ export interface MockLogin {
   hd?: string;
   tid?: string;
   name?: string;
+  /** Entra optional claim: the email's domain is verified by the tenant. */
+  xms_edov?: boolean;
+  /** Authentication methods references (RFC 8176), e.g. ["pwd", "mfa"]. */
+  amr?: string[];
 }
 
 interface CodeRecord {

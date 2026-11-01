@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { MATRIX, type Permission, ROLES, type Role, type Scope } from "../access/matrix.ts";
 import { effectiveRoles } from "../access/scope.ts";
+import { auditContext, recordAudit } from "../audit/audit.ts";
 import type { AppContext } from "../context.ts";
 import { SECRET_PURPOSES } from "../crypto/secret-box.ts";
 import { deviceSessions, recoveryCodes, sessions, ssoProviders, userIdentities } from "../db/schema/auth.ts";
@@ -13,7 +14,13 @@ import { defineModule, defineRoute } from "../http/route.ts";
 import { audit, regenerateRecoveryCodes, remainingRecoveryCodes, verifyPasswordOrDummy } from "./credentials.ts";
 import { mfaPolicyStatus } from "./mfa-policy.ts";
 import { passwordProblem } from "./password-policy.ts";
-import { activeBrowserSessions, activeDeviceSessions, revokeUserSessions, startBrowserSession } from "./sessions.ts";
+import {
+  activeBrowserSessions,
+  activeDeviceSessions,
+  removeLinkedIdentities,
+  revokeUserSessions,
+  startBrowserSession,
+} from "./sessions.ts";
 import { sessionCookie, settingsFor } from "./settings.ts";
 import { newTotpSecret, otpauthUri, verifyTotp } from "./totp.ts";
 
@@ -249,23 +256,31 @@ export const meModule = defineModule({
       method: "post",
       path: "/sessions/revoke-others",
       summary: "Sign out everywhere except here",
+      description:
+        "Also unlinks every SSO sign-in method of this organisation including the one this session signed in with (`unlinked` counts them).",
       access: "authenticated",
-      responses: { 200: z.object({ revoked: z.number().int() }) },
+      responses: { 200: z.object({ revoked: z.number().int(), unlinked: z.number().int() }) },
       handler: async ({ c, deps, auth }) => {
-        const revoked = await revokeUserSessions(deps.db, {
-          userId: auth.user.id,
-          orgId: auth.orgId,
-          exceptSessionId: auth.session.id,
-          reason: "revoked_others",
-          now: deps.clock.now(),
+        return deps.db.transaction(async (tx) => {
+          const revoked = await revokeUserSessions(tx, {
+            userId: auth.user.id,
+            orgId: auth.orgId,
+            exceptSessionId: auth.session.id,
+            reason: "revoked_others",
+            now: deps.clock.now(),
+          });
+          const unlinked = await removeLinkedIdentities(tx, {
+            userId: auth.user.id,
+            orgId: auth.orgId,
+          });
+          await recordAudit(tx, deps, auditContext(c), {
+            action: "auth.session_revoked",
+            targetType: "membership",
+            targetId: auth.membershipId,
+            meta: { by: "self", scope: "others", count: revoked, unlinkedIdentities: unlinked },
+          });
+          return { revoked, unlinked };
         });
-        await audit(c, {
-          action: "auth.session_revoked",
-          targetType: "membership",
-          targetId: auth.membershipId,
-          meta: { by: "self", scope: "others", count: revoked },
-        });
-        return { revoked };
       },
     }),
 
@@ -398,7 +413,10 @@ export const meModule = defineModule({
             orgId: auth.orgId,
             membershipId: auth.membershipId,
             authMethod: auth.authMethod,
-            identityId: null,
+            // Retain the SSO identity associated with this rotated session.
+            identityId:
+              (await db.select({ id: sessions.identityId }).from(sessions).where(eq(sessions.id, auth.session.id)))[0]
+                ?.id ?? null,
             mfaSatisfied: true,
           });
         }

@@ -5,7 +5,8 @@ import nodemailer from "nodemailer";
  * SMTP mailer (workflows "Email notifications"). Optional: without SMTP_URL, Crow HR works with
  * in-app notifications only, and invitations and resets offer a copyable link.
  *
- *   SMTP_URL   smtp://user:pass@host:587 (STARTTLS when offered) or smtps://user:pass@host:465
+ *   SMTP_URL   smtp://user:pass@host:587 (STARTTLS required by default) or smtps://user:pass@host:465
+ *   SMTP_REQUIRE_TLS  true/false; defaults to true on port 587
  *   MAIL_FROM  "Crow HR <hr@example.sg>" (required when SMTP_URL is set)
  *
  * Core never sends directly for notifications: it queues to the outbox and the scheduled sweep
@@ -20,6 +21,8 @@ export interface SmtpConfig {
   from: string;
   /** Connection and greeting timeout; default 15 s. */
   timeoutMs?: number;
+  /** Require STARTTLS; defaults to true for SMTP submission on port 587. */
+  requireTLS?: boolean;
 }
 
 export function mailerConfigFromEnv(env: Record<string, string | undefined>): SmtpConfig | null {
@@ -46,16 +49,24 @@ export function mailerConfigFromEnv(env: Record<string, string | undefined>): Sm
   if (!/@[^@\s>]+\.[^@\s>]+>?$/.test(from)) {
     throw new MailerConfigError('MAIL_FROM must contain an email address, e.g. "Crow HR <hr@example.sg>".');
   }
-  return { url, from };
+  const tls = env.SMTP_REQUIRE_TLS?.trim();
+  if (tls !== undefined && tls !== "true" && tls !== "false") {
+    throw new MailerConfigError(
+      "SMTP_REQUIRE_TLS must be true or false. Leave it unset to require STARTTLS on port 587.",
+    );
+  }
+  return { url, from, ...(tls !== undefined ? { requireTLS: tls === "true" } : {}) };
 }
 
 export function createSmtpMailer(config: SmtpConfig): Mailer & { close(): void } {
   const timeout = config.timeoutMs ?? 15_000;
   const url = new URL(config.url);
   const secure = url.protocol === "smtps:";
+  const port = url.port ? Number(url.port) : secure ? 465 : 587;
   const transport = nodemailer.createTransport({
     host: url.hostname,
-    port: url.port ? Number(url.port) : secure ? 465 : 587,
+    port,
+    requireTLS: config.requireTLS ?? (!secure && port === 587),
     secure,
     ...(url.username
       ? { auth: { user: decodeURIComponent(url.username), pass: decodeURIComponent(url.password) } }

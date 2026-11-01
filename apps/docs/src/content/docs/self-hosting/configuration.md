@@ -68,7 +68,8 @@ Optional. Without it Crow HR works fully: notifications appear in the app (the b
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `SMTP_URL` | unset (email off) | `smtps://user:password@smtp.example.sg:465` (TLS from the start) or `smtp://user:password@smtp.example.sg:587` (STARTTLS when offered). URL-encode special characters in the user and password (`@` → `%40`). |
+| `SMTP_URL` | unset (email off) | `smtps://user:password@smtp.example.sg:465` (TLS from the start) or `smtp://user:password@smtp.example.sg:587` (STARTTLS required by default). URL-encode special characters in the user and password (`@` → `%40`). |
+| `SMTP_REQUIRE_TLS` | `true` on SMTP port 587; otherwise `false` | Require STARTTLS on an SMTP connection. Set `true` for a relay on another port, or explicitly `false` for a relay without STARTTLS. `smtps://` always uses implicit TLS. Only `true` and `false` are accepted. |
 | `MAIL_FROM` | required with `SMTP_URL` | Sender, for example `"Crow HR <hr@example.sg>"`. Use an address your mail provider lets you send from (SPF/DKIM). Setting it without `SMTP_URL` is an error. |
 
 Notification emails go through an outbox: a failed send is retried after 1, 5, 30, 120 and 720 minutes, then marked failed; owners see failures in **Settings → Notifications**. Emails never contain salary or other amounts, NRIC/FIN, bank or medical details, only a short summary and a link. A wrong `SMTP_URL` or a missing `MAIL_FROM` stops startup with a message saying which one to fix.

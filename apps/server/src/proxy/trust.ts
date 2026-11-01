@@ -38,6 +38,17 @@ export function normaliseIp(address: string | null | undefined): string | null {
   return isIP(a) ? a.toLowerCase() : null;
 }
 
+/** XFF endpoints may include a source port. Invalid hops are trust boundaries, never skipped. */
+function forwardedIp(value: string): string | null {
+  const a = value.trim();
+  const endpoint = /^(?:\[([^\]]+)\]|(\d{1,3}(?:\.\d{1,3}){3})):(\d{1,5})$/.exec(a);
+  if (endpoint) {
+    if (Number(endpoint[3]) > 65535) return null;
+    return normaliseIp(endpoint[1] ?? endpoint[2]);
+  }
+  return normaliseIp(a);
+}
+
 /** Parses a comma-separated list of IPs, CIDRs and the aliases `loopback` / `private`. */
 export function parseTrustedProxies(raw: string | undefined): ParseResult {
   const list = new BlockList();
@@ -146,17 +157,13 @@ export function resolveClient(input: ResolveClientInput, trusted: TrustedProxies
 
   let ip: string | null = peerIp;
   if (xff) {
-    const hops = xff
-      .split(",")
-      .map((h) => normaliseIp(h))
-      .filter((h): h is string => h !== null);
-    let candidate: string | null = null;
+    const hops = xff.split(",");
     for (let i = hops.length - 1; i >= 0; i--) {
-      const hop = hops[i] as string;
-      candidate = hop;
-      if (!trusted.contains(hop)) break;
+      const hop = forwardedIp(hops[i] as string);
+      // An unknown hop could be the client. Nothing to its left can be trusted.
+      ip = hop;
+      if (!hop || !trusted.contains(hop)) break;
     }
-    if (candidate) ip = candidate;
   }
   const proto = lastListValue(xfp)?.toLowerCase();
   const scheme = proto === "https" || proto === "http" ? proto : socketScheme;

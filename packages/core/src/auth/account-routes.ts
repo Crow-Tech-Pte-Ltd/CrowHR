@@ -1,6 +1,6 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { auditContext, recordAudit } from "../audit/audit.ts";
+import { auditContext, clientIp, recordAudit } from "../audit/audit.ts";
 import { newToken, sha256Hex } from "../crypto/tokens.ts";
 import { invitations, memberships } from "../db/schema/access.ts";
 import { passwordResets, ssoProviders } from "../db/schema/auth.ts";
@@ -8,10 +8,21 @@ import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
 import { AppError } from "../errors.ts";
 import { defineRoute, reply } from "../http/route.ts";
-import { audit, emailInput, findMemberByEmail, findOrgBySlug, verifyPasswordOrDummy } from "./credentials.ts";
+import {
+  audit,
+  checkSecondFactor,
+  emailInput,
+  findMemberByEmail,
+  findOrgBySlug,
+  MFA_LOCKED_MESSAGE,
+  notifyUser,
+  verifyPasswordOrDummy,
+} from "./credentials.ts";
+import { isKnownDevice, rememberDevice } from "./known-device.ts";
 import { passwordProblem } from "./password-policy.ts";
-import { revokeUserSessions, startBrowserSession } from "./sessions.ts";
+import { removeLinkedIdentities, revokeUserSessions, startBrowserSession } from "./sessions.ts";
 import { loadSecuritySettings } from "./settings.ts";
+import { clearNetworkThrottle, passwordLocked, passwordLockState, recordPasswordFailure } from "./throttle.ts";
 
 const RESET_TTL_MS = 60 * 60_000;
 
@@ -111,34 +122,46 @@ export const accountRoutes = [
         });
       const problem = passwordProblem(body.password, user.email);
       if (problem) throw passwordIssue(problem);
-      const claimed = await db
-        .update(passwordResets)
-        .set({ usedAt: now })
-        .where(and(eq(passwordResets.tokenHash, hash), isNull(passwordResets.usedAt)))
-        .returning();
-      if (!claimed.length)
-        throw new AppError("conflict", "This reset link has expired or was already used. Request a new one.", {
-          reason: "expired_or_used",
-        });
-      await db
-        .update(users)
-        .set({ passwordHash: await passwordHasher.hash(body.password), passwordChangedAt: now, updatedAt: now })
-        .where(eq(users.id, user.id));
-      await revokeUserSessions(db, { userId: user.id, reason: "password_reset", now });
-      const [m] = await db
-        .select()
-        .from(memberships)
-        .where(and(eq(memberships.orgId, reset.orgId), eq(memberships.userId, user.id)));
-      await recordAudit(
-        db,
+      const unlinked = await db.transaction(async (tx) => {
+        const claimed = await tx
+          .update(passwordResets)
+          .set({ usedAt: now })
+          .where(and(eq(passwordResets.tokenHash, hash), isNull(passwordResets.usedAt)))
+          .returning();
+        if (!claimed.length)
+          throw new AppError("conflict", "This reset link has expired or was already used. Request a new one.", {
+            reason: "expired_or_used",
+          });
+        await tx
+          .update(users)
+          .set({ passwordHash: await passwordHasher.hash(body.password), passwordChangedAt: now, updatedAt: now })
+          .where(eq(users.id, user.id));
+        await revokeUserSessions(tx, { userId: user.id, reason: "password_reset", now });
+        // Security review finding 1: a reset is how a member evicts an intruder, so it also removes
+        // every SSO identity linked to the account (in every organisation, like the password).
+        const unlinked = await removeLinkedIdentities(tx, { userId: user.id });
+        const [m] = await tx
+          .select()
+          .from(memberships)
+          .where(and(eq(memberships.orgId, reset.orgId), eq(memberships.userId, user.id)));
+        await recordAudit(
+          tx,
+          deps,
+          { ...auditContext(c, reset.orgId), actorLabel: user.email },
+          {
+            action: "auth.password_reset",
+            targetType: "membership",
+            targetId: m?.id ?? null,
+            meta: { via: reset.createdBy ? "admin_link" : "email", unlinkedIdentities: unlinked },
+          },
+        );
+        return unlinked;
+      });
+      await notifyUser(
         deps,
-        { ...auditContext(c, reset.orgId), actorLabel: user.email },
-        {
-          action: "auth.password_reset",
-          targetType: "membership",
-          targetId: m?.id ?? null,
-          meta: { via: reset.createdBy ? "admin_link" : "email" },
-        },
+        user.email,
+        "Your Crow HR password was reset",
+        `The password for your Crow HR account was reset${reset.createdBy ? " with a link from your administrator" : ""}. You were signed out everywhere${unlinked ? " and your single sign-on links were removed (they link again at your next sign-in by verified email, or from your profile)" : ""}. If this wasn't you, tell your administrator now.`,
       );
       const [org] = await db
         .select({ slug: organisations.slug })
@@ -162,6 +185,8 @@ export const accountRoutes = [
         displayName: z.string().nullable(),
         /** The invitee already has a Crow HR password (another organisation): they confirm it instead. */
         existingAccount: z.boolean(),
+        /** The existing account uses two-step verification: accepting also needs its code. */
+        mfaRequired: z.boolean(),
         passwordAllowed: z.boolean(),
         providers: z.array(z.object({ id: z.uuid(), kind: z.string(), displayName: z.string() })),
       }),
@@ -185,6 +210,7 @@ export const accountRoutes = [
           email: null,
           displayName: null,
           existingAccount: false,
+          mfaRequired: false,
           passwordAllowed: false,
           providers: [],
         };
@@ -206,6 +232,7 @@ export const accountRoutes = [
         email: status === "valid" ? row.user.email : null,
         displayName: status === "valid" ? row.user.displayName : null,
         existingAccount: !!row.user.passwordHash,
+        mfaRequired: status === "valid" && !!row.user.mfaEnrolledAt,
         passwordAllowed: settings.passwordEnabled,
         providers: status === "valid" ? providers : [],
       };
@@ -223,10 +250,12 @@ export const accountRoutes = [
       body: tokenBody.extend({
         password: z.string().min(1, "Enter a password.").max(1024),
         displayName: z.string().trim().min(1).max(120).optional(),
+        /** TOTP or recovery code, required when the existing account uses two-step verification. */
+        code: z.string().trim().max(20).optional(),
       }),
     },
     responses: { 200: z.object({ orgSlug: z.string().nullable() }) },
-    errors: ["conflict", "invalid_credentials", "password_sign_in_disabled"],
+    errors: ["conflict", "invalid_credentials", "invalid_mfa_code", "password_sign_in_disabled"],
     handler: async ({ c, deps, body }) => {
       const { db, clock, passwordHasher } = deps;
       const now = clock.now();
@@ -262,7 +291,13 @@ export const accountRoutes = [
         );
       }
       if (row.user.passwordHash) {
-        if (!(await verifyPasswordOrDummy(passwordHasher, row.user.passwordHash, body.password))) {
+        // An existing account's password is checked like a sign-in: same lockout counters.
+        const ip = clientIp(c) ?? "unknown";
+        const lockState = await passwordLockState(db, row.user.id, ip, now);
+        const locked = passwordLocked(lockState, await isKnownDevice(c, row.user.id));
+        const ok = await verifyPasswordOrDummy(passwordHasher, row.user.passwordHash, body.password);
+        if (!ok && !locked) await recordPasswordFailure(db, row.user.id, ip, now);
+        if (!ok || locked) {
           throw new AppError(
             "invalid_credentials",
             "Enter the password you already use for Crow HR to accept this invitation.",
@@ -271,6 +306,31 @@ export const accountRoutes = [
       } else {
         const problem = passwordProblem(body.password, row.user.email);
         if (problem) throw passwordIssue(problem);
+      }
+      // Security review: an existing account with TOTP must not be entered with the password alone.
+      let mfaSatisfied = false;
+      if (row.user.mfaEnrolledAt) {
+        if (!body.code) {
+          throw new AppError(
+            "invalid_mfa_code",
+            "Your Crow HR account uses two-step verification. Enter the 6-digit code from your authenticator app.",
+            { codeRequired: true },
+          );
+        }
+        const second = await checkSecondFactor(c, {
+          userId: row.user.id,
+          orgId: row.invite.orgId,
+          membershipId: row.membership.id,
+          code: body.code,
+        });
+        if (!second.ok) {
+          throw new AppError(
+            "invalid_mfa_code",
+            second.locked ? MFA_LOCKED_MESSAGE : "That code didn't work. Check your authenticator app and try again.",
+            { codeRequired: true },
+          );
+        }
+        mfaSatisfied = true;
       }
       await db.transaction(async (tx) => {
         await tx.update(invitations).set({ acceptedAt: now }).where(eq(invitations.id, row.invite.id));
@@ -290,6 +350,7 @@ export const accountRoutes = [
             })
             .where(eq(users.id, row.user.id));
         }
+        await clearNetworkThrottle(tx, row.user.id, clientIp(c) ?? "unknown");
         await recordAudit(
           tx,
           deps,
@@ -307,8 +368,9 @@ export const accountRoutes = [
         orgId: row.invite.orgId,
         membershipId: row.membership.id,
         authMethod: "password",
-        mfaSatisfied: false,
+        mfaSatisfied,
       });
+      await rememberDevice(c, row.user.id);
       const [org] = await db
         .select({ slug: organisations.slug })
         .from(organisations)

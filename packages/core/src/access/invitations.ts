@@ -1,4 +1,4 @@
-import { eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
 import { normaliseEmail } from "../auth/credentials.ts";
 import { DAY } from "../auth/settings.ts";
@@ -12,6 +12,7 @@ import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import type { AssignedRole } from "./matrix.ts";
 import { orgScope } from "./org-scope.ts";
+import { noReportingLines, singaporeDate } from "./scope.ts";
 
 /**
  * Invitation service (access-control "Invitations"). The members routes and the people hire flow
@@ -111,8 +112,57 @@ export async function inviteMember(
   const email = normaliseEmail(input.email);
   const roles = [...new Set(input.roles ?? [])];
   const org = orgScope(deps.db, input.orgId);
-  if (input.employeeId) await org.getById(employees, input.employeeId, "employee record");
+  if (input.employeeId) {
+    await org.getById(employees, input.employeeId, "employee record");
+  }
+  // The injected resolver can use its own DB handle; resolve before opening a transaction
+  // (PGlite serializes transactions and would otherwise wait on this transaction itself).
+  const team = input.employeeId
+    ? await (deps.reportingScope ?? noReportingLines).teamOf(
+        input.orgId,
+        input.employeeId,
+        singaporeDate(deps.clock.now()),
+      )
+    : new Set<string>();
   const result = await deps.db.transaction(async (tx) => {
+    if (input.employeeId) {
+      // Serialize competing invites for the same employee, so the loser gets a readable 409.
+      await tx
+        .select({ id: employees.id })
+        .from(employees)
+        .where(org.whereId(employees, input.employeeId))
+        .for("update");
+      await assertEmployeeUnlinked(tx, input.orgId, input.employeeId);
+      const [owner] = input.invitedBy
+        ? await tx
+            .select({ role: membershipRoles.role })
+            .from(membershipRoles)
+            .where(
+              org.where(
+                membershipRoles,
+                eq(membershipRoles.membershipId, input.invitedBy),
+                eq(membershipRoles.role, "owner"),
+              ),
+            )
+        : [];
+      if (!owner) {
+        const [privileged] = await tx
+          .select({ id: memberships.id })
+          .from(memberships)
+          .innerJoin(
+            membershipRoles,
+            and(eq(membershipRoles.membershipId, memberships.id), eq(membershipRoles.orgId, memberships.orgId)),
+          )
+          .where(org.where(memberships, eq(memberships.employeeId, input.employeeId)))
+          .limit(1);
+        if (privileged || [...team].some((id) => id !== input.employeeId)) {
+          throw new AppError(
+            "forbidden",
+            "Only an owner can link a sign-in to an employee who holds roles or manages people.",
+          );
+        }
+      }
+    }
     let [user] = await tx.select().from(users).where(eq(users.email, email));
     if (user) {
       const [existing] = await tx
@@ -171,6 +221,29 @@ export async function inviteMember(
   });
   const inviteUrl = await deliverInvitation(deps, { orgId: input.orgId, email, token: result.invite.token });
   return { membershipId: result.membershipId, expiresAt: result.invite.expiresAt, inviteUrl };
+}
+
+/**
+ * One login per employee record (security review finding 3): a second live membership linked to
+ * the same employee would read that person's salary, bank account and NRIC through `own` scope.
+ * Former memberships don't count (they keep payslip access; the person may be rehired). The
+ * partial unique index `memberships_org_employee_live_unique` enforces the same in the database.
+ */
+export async function assertEmployeeUnlinked(db: Db, orgId: string, employeeId: string) {
+  const [linked] = await db
+    .select({ id: memberships.id, status: memberships.status, email: users.email })
+    .from(memberships)
+    .innerJoin(users, eq(users.id, memberships.userId))
+    .where(
+      orgScope(db, orgId).where(memberships, eq(memberships.employeeId, employeeId), ne(memberships.status, "former")),
+    );
+  if (linked) {
+    throw new AppError(
+      "conflict",
+      `This employee record already has a sign-in (${linked.email}, ${linked.status}). Use that member, or remove it in Settings → Members first.`,
+      { linkedMembershipId: linked.id },
+    );
+  }
 }
 
 /** The membership linked to an employee, if any (any status). */

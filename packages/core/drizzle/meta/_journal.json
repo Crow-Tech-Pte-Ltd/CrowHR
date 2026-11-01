@@ -92,6 +92,13 @@
       "when": 1793465706559,
       "tag": "0012_manager_executive",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793534009332,
+      "tag": "0013_auth_hardening",
+      "breakpoints": true
     }
   ]
 }

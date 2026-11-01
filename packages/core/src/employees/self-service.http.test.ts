@@ -68,7 +68,8 @@ describe("self-service", () => {
       holderName: "Tan Mei Ling",
       effectiveFrom: "2026-01-05",
     });
-    const client = api.as(h.orgId, [], me);
+    // The requester also holds payroll_admin; reuse their one employee-linked account.
+    const client = api.as(h.orgId, ["payroll_admin"], me);
     const sub = await client.post("/people/me/change-requests", {
       bank: { bankCode: "OCBCSGSG", accountNumber: "5012345678", holderName: "Tan Mei Ling" },
     });
@@ -91,13 +92,7 @@ describe("self-service", () => {
       (await api.as(h.orgId, ["hr_admin"]).post(`/people/change-requests/${reqId}/decision`, { decision: "approve" }))
         .status,
     ).toBe(403);
-    expect(
-      (
-        await api
-          .as(h.orgId, ["payroll_admin"], me)
-          .post(`/people/change-requests/${reqId}/decision`, { decision: "approve" })
-      ).status,
-    ).toBe(403);
+    expect((await client.post(`/people/change-requests/${reqId}/decision`, { decision: "approve" })).status).toBe(403);
     const inbox = await pay.get("/people/inbox");
     expect(inbox.body.changeRequests.map((r: { id: string }) => r.id)).toEqual([reqId]);
     const ok = await pay.post(`/people/change-requests/${reqId}/decision`, {

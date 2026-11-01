@@ -1,9 +1,9 @@
-import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type AuditContext, auditContext, recordAudit } from "../audit/audit.ts";
-import { audit, emailInput } from "../auth/credentials.ts";
+import { audit, emailInput, notifyUser } from "../auth/credentials.ts";
 import { clearMfa, listSessionsFor, revokeOneSession, sessionItem } from "../auth/me-routes.ts";
-import { revokeMembershipSessions, revokeUserSessions } from "../auth/sessions.ts";
+import { removeLinkedIdentities, revokeMembershipSessions, revokeUserSessions } from "../auth/sessions.ts";
 import { accountLockedUntil, clearAccountThrottle } from "../auth/throttle.ts";
 import type { AppContext, AuthContext } from "../context.ts";
 import { newToken, sha256Hex } from "../crypto/tokens.ts";
@@ -294,7 +294,7 @@ export const membersModule = defineModule({
       path: "/invitations",
       summary: "Invite someone by email",
       description:
-        "hr_admins may only invite members with no assigned roles. Without email configured, the response carries a link to copy.",
+        "hr_admins may only invite members with no assigned roles, and may not link the invitation to a manager's employee record. An employee record that already has a (non-former) sign-in is refused with 409. Without email configured, the response carries a link to copy.",
       access: { permission: "members:create" },
       request: {
         body: z.object({
@@ -308,7 +308,8 @@ export const membersModule = defineModule({
       errors: ["conflict", "not_found"],
       handler: async ({ c, deps, auth, body }) => {
         const roles = [...new Set(body.roles)] as AssignedRole[];
-        if (roles.length && !auth.roles.includes("owner")) {
+        const isOwner = auth.roles.includes("owner");
+        if (roles.length && !isOwner) {
           throw new AppError(
             "forbidden",
             "Only an owner can invite someone with a role. Invite them without a role, then ask an owner.",
@@ -561,26 +562,35 @@ export const membersModule = defineModule({
       method: "post",
       path: "/:id/sign-out-everywhere",
       summary: "Sign a member out of every browser and device",
+      description: "Also unlinks the member's SSO sign-in methods in this organisation (`unlinked` counts them).",
       access: { permission: "security_settings:update" },
       request: { params: idParams },
-      responses: { 200: z.object({ revoked: z.number().int() }) },
+      responses: { 200: z.object({ revoked: z.number().int(), unlinked: z.number().int() }) },
       errors: ["not_found"],
       handler: async ({ c, deps, auth, params }) => {
         const target = await getMember(c, auth.orgId, params.id);
-        const revoked = await revokeUserSessions(deps.db, {
-          userId: target.userId,
-          orgId: auth.orgId,
-          reason: "owner_sign_out_everywhere",
-          now: deps.clock.now(),
-          ...(target.id === auth.membershipId ? { exceptSessionId: auth.session.id } : {}),
+        const self = target.id === auth.membershipId;
+        return deps.db.transaction(async (tx) => {
+          const revoked = await revokeUserSessions(tx, {
+            userId: target.userId,
+            orgId: auth.orgId,
+            reason: "owner_sign_out_everywhere",
+            now: deps.clock.now(),
+            ...(self ? { exceptSessionId: auth.session.id } : {}),
+          });
+          // Finding 1: also unlink every SSO identity in this organisation (an intruder's included).
+          const unlinked = await removeLinkedIdentities(tx, {
+            userId: target.userId,
+            orgId: auth.orgId,
+          });
+          await recordAudit(tx, deps, auditContext(c), {
+            action: "auth.session_revoked",
+            targetType: "membership",
+            targetId: target.id,
+            meta: { by: "owner", scope: "everywhere", count: revoked, unlinkedIdentities: unlinked },
+          });
+          return { revoked, unlinked };
         });
-        await audit(c, {
-          action: "auth.session_revoked",
-          targetType: "membership",
-          targetId: target.id,
-          meta: { by: "owner", scope: "everywhere", count: revoked },
-        });
-        return { revoked };
       },
     }),
 
@@ -610,36 +620,87 @@ export const membersModule = defineModule({
     defineRoute({
       method: "post",
       path: "/:id/password-reset-link",
-      summary: "Generate a one-time password reset link for a member",
+      summary: "Reset a member's password (email, or a one-time link for the owner)",
       description:
-        "For installs without email. Shown once; valid 60 minutes. hr_admins can do this only for members without assigned roles.",
+        "Owner only, after a recent sign-in. With email configured the reset link goes to the member (forced reset by email; `url` is null). Without email the owner gets a link to hand over, shown once and valid 60 minutes. Refused for members who hold a role or belong to another organisation (the password is shared across organisations).",
       access: { permission: "members:update" },
+      recentAuth: true,
       request: { params: idParams },
-      responses: { 201: z.object({ url: z.string(), expiresAt: z.iso.datetime() }) },
-      errors: ["not_found", "conflict"],
+      responses: {
+        201: z.object({
+          url: z.string().nullable(),
+          delivery: z.enum(["email", "link"]),
+          expiresAt: z.iso.datetime(),
+        }),
+      },
+      errors: ["not_found", "conflict", "forbidden"],
       handler: async ({ c, deps, auth, params }) => {
+        // Security review finding 2: this takes over the account, so it is the owner's call.
+        if (!auth.roles.includes("owner"))
+          throw new AppError("forbidden", "Only an owner can reset another member's password.");
         const target = await getMember(c, auth.orgId, params.id);
-        assertCanManage(auth, target);
         if (target.status !== "active" && target.status !== "former")
           throw new AppError("conflict", "Only active members can reset a password. Resend the invitation instead.");
+        if (target.roles.length > 0) {
+          throw new AppError(
+            "conflict",
+            "Members who hold a role reset their own password (Forgot password on the sign-in page). For a lost authenticator, reset their two-step verification instead.",
+          );
+        }
+        const [elsewhere] = await deps.db
+          .select({ id: memberships.id })
+          .from(memberships)
+          .where(and(eq(memberships.userId, target.userId), ne(memberships.orgId, auth.orgId)))
+          .limit(1);
+        if (elsewhere) {
+          throw new AppError(
+            "conflict",
+            "This person also belongs to another organisation on this server, and the password is shared, so only they can reset it (Forgot password on the sign-in page).",
+          );
+        }
         const now = deps.clock.now();
         const token = newToken();
         const expiresAt = new Date(now.getTime() + RESET_TTL_MS);
-        await deps.db.insert(passwordResets).values({
-          tokenHash: await sha256Hex(token),
-          orgId: auth.orgId,
-          userId: target.userId,
-          expiresAt,
-          createdBy: auth.membershipId,
-          createdAt: now,
+        await deps.db.transaction(async (tx) => {
+          await tx.insert(passwordResets).values({
+            tokenHash: await sha256Hex(token),
+            orgId: auth.orgId,
+            userId: target.userId,
+            expiresAt,
+            createdBy: auth.membershipId,
+            createdAt: now,
+          });
+          await recordAudit(tx, deps, auditContext(c), {
+            action: "auth.reset_link_generated",
+            targetType: "membership",
+            targetId: target.id,
+            meta: { for: target.email, emailConfigured: !!deps.mailer },
+          });
         });
-        await audit(c, {
-          action: "auth.reset_link_generated",
-          targetType: "membership",
-          targetId: target.id,
-          meta: { for: target.email },
-        });
-        return { url: `${deps.publicUrl.replace(/\/$/, "")}/reset/${token}`, expiresAt: expiresAt.toISOString() };
+        const url = `${deps.publicUrl.replace(/\/$/, "")}/reset/${token}`;
+        let delivery: "email" | "link" = "link";
+        if (deps.mailer) {
+          try {
+            await deps.mailer.send({
+              to: target.email,
+              subject: "Reset your Crow HR password",
+              text: `An owner of your organisation asked you to set a new password for Crow HR. Use this link within 60 minutes: ${url}\nIf you didn't expect this, tell your administrator.`,
+            });
+            delivery = "email";
+          } catch (err) {
+            // Owners can do this anyway without email; hand over the link rather than fail.
+            c.var.logger.warn("Password reset email failed; returning the link to the owner", { err });
+          }
+        }
+        if (delivery === "link") {
+          await notifyUser(
+            deps,
+            target.email,
+            "A password reset link was created for you",
+            "An owner created a one-time link to reset your Crow HR password. If you didn't ask for this, tell your administrator.",
+          );
+        }
+        return { url: delivery === "link" ? url : null, delivery, expiresAt: expiresAt.toISOString() };
       },
     }),
   ],

@@ -1,5 +1,5 @@
 import { createServer, type Server, type Socket } from "node:net";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSmtpMailer, MailerConfigError, mailerConfigFromEnv, mailerFromEnv } from "./mailer.ts";
 
 /** A minimal in-process SMTP sink: accepts one session at a time and records DATA. */
@@ -76,6 +76,46 @@ describe("SMTP mailer", () => {
       url: "smtps://u:p@mail.example.sg:465",
       from: "Crow HR <hr@example.sg>",
     });
+  });
+
+  it("requires STARTTLS on port 587 by default, with an explicit override", async () => {
+    const nodemailer = (await import("nodemailer")).default;
+    const create = vi.spyOn(nodemailer, "createTransport");
+    for (const [url, requireTLS] of [
+      ["smtp://mail.example.sg:587", true],
+      ["smtp://mail.example.sg", true],
+      ["smtps://mail.example.sg:465", false],
+    ] as const) {
+      createSmtpMailer({ url, from: "hr@example.sg" }).close();
+      expect(create).toHaveBeenLastCalledWith(expect.objectContaining({ requireTLS }));
+    }
+    createSmtpMailer({ url: "smtp://mail.example.sg:587", from: "hr@example.sg", requireTLS: false }).close();
+    expect(create).toHaveBeenLastCalledWith(expect.objectContaining({ requireTLS: false }));
+    create.mockRestore();
+    expect(
+      mailerConfigFromEnv({
+        SMTP_URL: "smtp://mail.example.sg:587",
+        MAIL_FROM: "hr@example.sg",
+        SMTP_REQUIRE_TLS: "false",
+      }),
+    ).toMatchObject({ requireTLS: false });
+    expect(() =>
+      mailerConfigFromEnv({
+        SMTP_URL: "smtp://mail.example.sg:587",
+        MAIL_FROM: "hr@example.sg",
+        SMTP_REQUIRE_TLS: "nope",
+      }),
+    ).toThrow(/SMTP_REQUIRE_TLS/);
+  });
+
+  it("refuses delivery when STARTTLS is required but unavailable", async () => {
+    const mailer = createSmtpMailer({ url: `smtp://127.0.0.1:${sink.port}`, from: "hr@example.sg", requireTLS: true });
+    try {
+      await expect(mailer.send({ to: "x@y.sg", subject: "s", text: "t" })).rejects.toThrow();
+      expect(sink.messages).toHaveLength(0);
+    } finally {
+      mailer.close();
+    }
   });
 
   it("delivers text and HTML parts to an SMTP server", async () => {

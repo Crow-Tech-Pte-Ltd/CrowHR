@@ -66,6 +66,12 @@ describe("redact()", () => {
     orgId = (await seedOrg(deps)).id;
   });
   afterAll(() => t.close());
+  // One login per employee record (memberships_org_employee_live_unique): seed the manager once.
+  let manager: Awaited<ReturnType<typeof seedMember>> | undefined;
+  const managerMember = async () => {
+    manager ??= await seedMember(deps, orgId, { employeeId: MGR });
+    return manager;
+  };
 
   const read = async (member: Awaited<ReturnType<typeof seedMember>>, employeeId: string, approver = false) => {
     const http = await clientAs(app, deps, member);
@@ -100,12 +106,12 @@ describe("redact()", () => {
   });
 
   it("a manager sees none of the sensitive fields of a report", async () => {
-    const body = await read(await seedMember(deps, orgId, { employeeId: MGR }), EMP);
+    const body = await read(await managerMember(), EMP);
     expect(body.redactedFields).toEqual(["bankAccountMasked", "basicPayCents", "mcCertificateUrl", "nric"]);
   });
 
   it("the assigned approver of a medical item sees that item's medical field only", async () => {
-    const mgr = await seedMember(deps, orgId, { employeeId: MGR });
+    const mgr = await managerMember();
     const asApprover = await read(mgr, EMP, true);
     expect(asApprover.mcCertificateUrl).toBe("/files/mc.pdf");
     expect(asApprover.redactedFields).toEqual(["bankAccountMasked", "basicPayCents", "nric"]);
