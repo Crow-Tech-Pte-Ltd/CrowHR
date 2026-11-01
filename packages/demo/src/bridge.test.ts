@@ -84,6 +84,25 @@ describe("api bridge", () => {
     expect((await handle(wire("GET", "https://evil.example/api/v1/whoami"))).status).toBe(404);
   });
 
+  it("keeps the unguarded cookie headers independent of the native Request", async () => {
+    const NativeRequest = Request;
+    vi.stubGlobal(
+      "Request",
+      class extends NativeRequest {
+        constructor(input: RequestInfo | URL, init?: RequestInit) {
+          const guarded = new Headers(init?.headers);
+          guarded.delete("cookie");
+          super(input, { ...init, headers: guarded });
+          // Some browser request implementations adopt the supplied Headers' guard/list.
+          if (init?.headers instanceof Headers) init.headers.delete("cookie");
+        }
+      },
+    );
+    const { handle } = setup();
+    await handle(wire("POST", "/api/v1/login", {}));
+    expect(json((await handle(wire("GET", "/api/v1/whoami"))).body).session).toBe("tok");
+  });
+
   it("works with browser fetch semantics (Cookie and Set-Cookie are forbidden headers)", async () => {
     // Browsers drop a script-set Cookie request header and a Set-Cookie response header.
     const NativeRequest = Request;

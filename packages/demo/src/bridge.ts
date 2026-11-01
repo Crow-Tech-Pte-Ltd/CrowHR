@@ -65,7 +65,8 @@ export function createApiBridge(app: AnyHono, options: BridgeOptions) {
     }
     const request = new Request(url, {
       method: wire.method,
-      headers,
+      // Do not let the native Request adopt the unguarded Headers list.
+      headers: [...headers],
       body: SAFE.has(wire.method) ? null : wire.body,
     });
     // In browsers the Request constructor silently drops `Cookie`; shadow it with the unguarded copy.
