@@ -19,7 +19,12 @@ export default defineConfig({
   workers: 1,
   timeout: 120_000,
   reporter: "list",
-  use: { baseURL: `http://127.0.0.1:${PORT}`, trace: "retain-on-failure", acceptDownloads: true },
+  use: {
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH },
+    baseURL: `http://127.0.0.1:${PORT}`,
+    trace: "retain-on-failure",
+    acceptDownloads: true,
+  },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "node apps/demo/scripts/serve.ts apps/demo/dist",

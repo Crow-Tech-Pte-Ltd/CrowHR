@@ -42,29 +42,44 @@ export function createKv(sql: SqlClient) {
 export type Kv = ReturnType<typeof createKv>;
 
 /** FileStore on the demo database (receipts, payslip PDFs survive a reload, and go on reset). */
-export function createSqlFileStore(sql: SqlClient): FileStore {
+export async function createSqlFileStore(sql: SqlClient): Promise<FileStore & { flush(): Promise<void> }> {
+  // Core can store generated letters inside a database transaction. PGlite serialises root
+  // queries behind that transaction, so querying demo_files from put/get would deadlock.
+  // Keep the small fictional files in memory and write them back only after the request commits.
+  const { rows } = await sql.query<{ key: string; content_type: string; data: Uint8Array }>(
+    "select key, content_type, data from demo_files",
+  );
+  const files = new Map(rows.map((r) => [r.key, { data: new Uint8Array(r.data), contentType: r.content_type }]));
+  const dirty = new Set<string>();
   return {
     async put(key, data, meta) {
       assertValidFileKey(key);
-      await sql.query(
-        `insert into demo_files (key, content_type, size, data) values ($1, $2, $3, $4)
-         on conflict (key) do update set content_type = excluded.content_type, size = excluded.size, data = excluded.data`,
-        [key, meta.contentType, data.byteLength, data],
-      );
+      files.set(key, { data: data.slice(), contentType: meta.contentType });
+      dirty.add(key);
       return { key, contentType: meta.contentType, size: data.byteLength };
     },
     async get(key) {
       assertValidFileKey(key);
-      const { rows } = await sql.query<{ content_type: string; size: number; data: Uint8Array }>(
-        "select content_type, size, data from demo_files where key = $1",
-        [key],
-      );
-      const row = rows[0];
-      return row ? { key, contentType: row.content_type, size: row.size, data: new Uint8Array(row.data) } : null;
+      const file = files.get(key);
+      return file ? { key, contentType: file.contentType, size: file.data.byteLength, data: file.data.slice() } : null;
     },
     async delete(key) {
       assertValidFileKey(key);
-      await sql.query("delete from demo_files where key = $1", [key]);
+      files.delete(key);
+      dirty.add(key);
+    },
+    async flush() {
+      for (const key of dirty) {
+        const file = files.get(key);
+        if (file)
+          await sql.query(
+            `insert into demo_files (key, content_type, size, data) values ($1, $2, $3, $4)
+           on conflict (key) do update set content_type = excluded.content_type, size = excluded.size, data = excluded.data`,
+            [key, file.contentType, file.data.byteLength, file.data],
+          );
+        else await sql.query("delete from demo_files where key = $1", [key]);
+        dirty.delete(key);
+      }
     },
   };
 }
