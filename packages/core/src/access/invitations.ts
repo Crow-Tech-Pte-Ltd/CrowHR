@@ -161,6 +161,21 @@ export async function inviteMember(
             "Only an owner can link a sign-in to an employee who holds roles or manages people.",
           );
         }
+        // A non-owner may only invite the employee at an address already on their record, so
+        // nobody can attach a sign-in they control to someone else's pay and bank details.
+        const [record] = await tx
+          .select({ workEmail: employees.workEmail, personalEmail: employees.personalEmail })
+          .from(employees)
+          .where(org.whereId(employees, input.employeeId));
+        const onRecord = [record?.workEmail, record?.personalEmail]
+          .filter((e): e is string => Boolean(e))
+          .map(normaliseEmail);
+        if (!onRecord.includes(email)) {
+          throw new AppError(
+            "forbidden",
+            "Invite this employee at the work or personal email on their record. Only an owner can use a different address.",
+          );
+        }
       }
     }
     let [user] = await tx.select().from(users).where(eq(users.email, email));
