@@ -30,7 +30,7 @@ Status as of 1 November 2026. Requirements and task lists live in `openspec/chan
 | In-browser demo | Built and tested, **not deployed**: it is not online anywhere yet. |
 | Singpass login | Implemented to the published FAPI 2.0 profile and tested against a mock identity provider only. Not tested against real Singpass, and the button does not include the official Singpass logo. See the [Singpass guide](/docs/admin/sso/singpass/). |
 | Virus scanning | A scanner hook exists for receipts and documents, but no scanner ships with Crow HR, so uploads are stored unscanned. |
-| Payroll inputs from other modules | Fed overtime can't be priced for staff outside Part 4 or paid by the hour; rest-day and public-holiday pay and leave encashment are entered by hand. See [payroll limitations](/docs/payroll/limitations/#payroll-inputs). |
+| Payroll inputs from other modules | Fed overtime can't be priced for staff outside Part 4 or paid by the hour; rest-day and public-holiday work premiums need separate inputs. Approved leave encashment feeds payroll at the gross rate; active allowances need classification through the payroll settings API. See [payroll limitations](/docs/payroll/limitations/#payroll-inputs). |
 | Docker images | Built from the checkout; nothing is published to a registry yet. |
 | CI | The workflow exists but has not run on a hosted runner yet. |
 
