@@ -15,7 +15,8 @@ import { DAY, MINUTE } from "./settings.ts";
  * 2. **Per account, all networks** (`acct:<user>`): the 50th wrong password in a 15-minute
  *    window pauses new browsers for at most 30 seconds. Further failures cannot extend or
  *    restart this pause until the next window. Known browsers retain access from other networks.
- * 3. **Per network** (`ip:<ip>`): 30 sign-in attempts per minute (any account).
+ * 3. **Per network** (`ip:<ip>`): 30 *failed* sign-ins per minute (any account), plus a ceiling
+ *    of 300 attempts of any outcome (`ipall:<ip>`), so an office behind one address isn't blocked.
  * 4. **Second factor** (`mfa:<user>`): 5 wrong TOTP/recovery codes within 15 minutes, counted
  *    across every challenge, `/auth/reauth` and invitation acceptance, lock the account's second
  *    factor for 15 minutes (and email the member). Only someone who knows the password or holds
@@ -57,18 +58,48 @@ export async function hitWindow(
   return { count: row?.count ?? 1, resetsAt: new Date(windowStart.getTime() + windowMs) };
 }
 
-/** Per-IP rate: the 31st attempt in a minute is refused. `scope` separates sign-in from MFA. */
+/**
+ * Ceiling on all password sign-in attempts per network per minute, successful or not. Generous,
+ * because an office behind one NAT address signs many people in at 9am; failures have their own,
+ * much lower budget (`IP_LIMIT_PER_MINUTE`).
+ */
+export const IP_TOTAL_LIMIT_PER_MINUTE = 300;
+
+const retryAfter = (resetsAt: Date, now: Date) => Math.max(1, Math.ceil((resetsAt.getTime() - now.getTime()) / 1000));
+
+/**
+ * Per-IP rate. For password sign-in, only *failed* attempts count toward the 30-per-minute budget
+ * (record them with `recordIpFailure`), plus a high ceiling on all attempts; so a busy office
+ * shares an address without locking itself out. For MFA every attempt counts (`ipmfa:<ip>`).
+ */
 export async function checkIpRate(
   db: Db,
   ip: string,
   now: Date,
   scope: "sign_in" | "mfa" = "sign_in",
 ): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
-  const { count, resetsAt } = await hitWindow(db, `${scope === "mfa" ? "ipmfa" : "ip"}:${ip}`, MINUTE, now);
+  if (scope === "mfa") {
+    const { count, resetsAt } = await hitWindow(db, `ipmfa:${ip}`, MINUTE, now);
+    return { allowed: count <= IP_LIMIT_PER_MINUTE, retryAfterSeconds: retryAfter(resetsAt, now) };
+  }
+  const total = await hitWindow(db, `ipall:${ip}`, MINUTE, now);
+  if (total.count > IP_TOTAL_LIMIT_PER_MINUTE)
+    return { allowed: false, retryAfterSeconds: retryAfter(total.resetsAt, now) };
+  const windowStart = new Date(Math.floor(now.getTime() / MINUTE) * MINUTE);
+  const [row] = await db
+    .select()
+    .from(authThrottle)
+    .where(eq(authThrottle.key, `ip:${ip}`));
+  const failures = row && row.windowStart.getTime() === windowStart.getTime() ? row.count : 0;
   return {
-    allowed: count <= IP_LIMIT_PER_MINUTE,
-    retryAfterSeconds: Math.max(1, Math.ceil((resetsAt.getTime() - now.getTime()) / 1000)),
+    allowed: failures < IP_LIMIT_PER_MINUTE,
+    retryAfterSeconds: retryAfter(new Date(windowStart.getTime() + MINUTE), now),
   };
+}
+
+/** Counts a failed password sign-in against the network's per-minute failure budget. */
+export async function recordIpFailure(db: Db, ip: string, now: Date): Promise<void> {
+  await hitWindow(db, `ip:${ip}`, MINUTE, now);
 }
 
 const accountKey = (userId: string) => `acct:${userId}`;

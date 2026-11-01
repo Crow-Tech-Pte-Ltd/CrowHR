@@ -33,6 +33,7 @@ import {
   clearNetworkThrottle,
   passwordLocked,
   passwordLockState,
+  recordIpFailure,
   recordPasswordFailure,
   sweepThrottle,
 } from "./throttle.ts";
@@ -182,7 +183,10 @@ export const signInRoutes = [
       const org = await findOrgBySlug(db, body.org);
       const found = org ? await findMemberByEmail(db, org.id, body.email) : null;
       const passwordOk = await verifyPasswordOrDummy(passwordHasher, found?.user.passwordHash ?? null, body.password);
-      if (!org || !found) throw invalidCredentials();
+      if (!org || !found) {
+        await recordIpFailure(db, ip, now);
+        throw invalidCredentials();
+      }
 
       const { user, membership } = found;
       // Lockout design in throttle.ts: per (account, network), plus a new-device soft lock.
@@ -246,6 +250,7 @@ export const signInRoutes = [
             `There were many wrong passwords for your ${org.name} account on Crow HR from several networks, so sign-in from new devices is paused for at most 30 seconds. Browsers you have signed in with before still work. If this wasn't you, tell your administrator and consider changing your password.`,
           );
         }
+        await recordIpFailure(db, ip, now);
         throw invalidCredentials();
       }
 
