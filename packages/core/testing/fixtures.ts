@@ -24,7 +24,7 @@ export async function seedOrg(deps: Pick<AppDeps, "db" | "ids">, input: { name?:
 export async function seedEmployee(
   deps: Pick<AppDeps, "db" | "ids">,
   orgId: string,
-  input: { id?: string; legalName?: string } = {},
+  input: { id?: string; legalName?: string; workEmail?: string; personalEmail?: string } = {},
 ): Promise<string> {
   const id = input.id ?? deps.ids.newId();
   const tail = id.replace(/-/g, "").slice(-8);
@@ -42,6 +42,8 @@ export async function seedEmployee(
       idNumberMasked: "S****000A",
       dob: "1990-01-01",
       residencyStatus: "citizen",
+      workEmail: input.workEmail ?? null,
+      personalEmail: input.personalEmail ?? null,
     })
     .onConflictDoNothing();
   return id;

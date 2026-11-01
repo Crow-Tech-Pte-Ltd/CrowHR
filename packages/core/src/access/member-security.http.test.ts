@@ -168,7 +168,7 @@ describe("member access (security review)", () => {
       const app = createApp(deps);
       const org = await seedOrg(deps);
       await seedEmployee(deps, org.id, { id: managerEmployee });
-      await seedEmployee(deps, org.id, { id: report });
+      await seedEmployee(deps, org.id, { id: report, workEmail: "r@example.sg" });
       const hr = await clientAs(app, deps, await seedMember(deps, org.id, { roles: ["hr_admin"] }));
       const owner = await clientAs(app, deps, await seedMember(deps, org.id, { roles: ["owner"] }));
       const body = { email: "mgr@example.sg", displayName: "Manager", employeeId: managerEmployee };
@@ -178,6 +178,44 @@ describe("member access (security review)", () => {
         (await hr.post("/api/v1/members/invitations", { ...body, email: "r@example.sg", employeeId: report })).status,
       ).toBe(201);
       expect((await owner.post("/api/v1/members/invitations", body)).status).toBe(201);
+    });
+
+    it("a non-owner may only invite an employee at an email on their record", async () => {
+      const deps = createTestDeps(t.db, { clock });
+      const app = createApp(deps);
+      const org = await seedOrg(deps);
+      const employeeId = await seedEmployee(deps, org.id, {
+        workEmail: "Mei.Ling@kopi.example",
+        personalEmail: "meiling@home.example",
+      });
+      const hr = await clientAs(app, deps, await seedMember(deps, org.id, { roles: ["hr_admin"] }));
+      const sock = await hr.post("/api/v1/members/invitations", {
+        email: "sock@evil.example",
+        displayName: "Sock",
+        employeeId,
+      });
+      expect(sock.status).toBe(403);
+      // Case-insensitive match on the work or personal email is allowed.
+      const ok = await hr.post("/api/v1/members/invitations", {
+        email: "mei.ling@kopi.example",
+        displayName: "Mei Ling",
+        employeeId,
+      });
+      expect(ok.status).toBe(201);
+    });
+
+    it("an owner may invite an employee at a different address", async () => {
+      const deps = createTestDeps(t.db, { clock });
+      const app = createApp(deps);
+      const org = await seedOrg(deps);
+      const employeeId = await seedEmployee(deps, org.id, { workEmail: "old@kopi.example" });
+      const owner = await clientAs(app, deps, await seedMember(deps, org.id, { roles: ["owner"] }));
+      const res = await owner.post("/api/v1/members/invitations", {
+        email: "new@kopi.example",
+        displayName: "New Address",
+        employeeId,
+      });
+      expect(res.status).toBe(201);
     });
   });
 
