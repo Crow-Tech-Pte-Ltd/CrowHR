@@ -11,6 +11,10 @@
 # refused and recovered with --secrets-only → behind Caddy with and without TRUSTED_PROXIES.
 set -euo pipefail
 
+# `grep -q` exits at the first match; with pipefail, a producer still writing (compose logs, tar)
+# then dies of SIGPIPE and the check fails although the text was there. Read all input instead.
+has() { grep "$@" >/dev/null; }
+
 PROJECT="${PROJECT:-crowhr-selfhost-test}"
 IMAGE="${CROWHR_IMAGE:-crowhr:selfhost-test}"
 HTTP_PORT="${HTTP_PORT:-18080}"
@@ -76,10 +80,10 @@ echo "healthy after $((SECONDS - start)) s"
 
 step "Fresh install checks"
 health=$(curl -fsS "$PUBLIC_URL/api/health")
-echo "$health" | grep -q '"status":"ok"' || fail "health: $health"
+echo "$health" | has '"status":"ok"' || fail "health: $health"
 [ "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$PUBLIC_URL/")" = "302 ${PUBLIC_URL}/setup" ] || fail "/ does not redirect to /setup"
-curl -fsS "$PUBLIC_URL/setup" | grep -q '<div id="root">' || fail "/setup is not the web app"
-compose logs --no-color app | grep -q "Open ${PUBLIC_URL}/setup" || fail "setup URL not in logs"
+curl -fsS "$PUBLIC_URL/setup" | has '<div id="root">' || fail "/setup is not the web app"
+compose logs --no-color app | has "Open ${PUBLIC_URL}/setup" || fail "setup URL not in logs"
 CODE=$(setup_code)
 [ -n "$CODE" ] || fail "no setup code in logs"
 echo "setup code from logs: $CODE"
@@ -87,7 +91,7 @@ echo "setup code from logs: $CODE"
 [ "$(compose exec -T app stat -c '%a %u' /data/secrets/crowhr.key)" = "600 10001" ] || fail "key file mode/owner"
 [ "$(compose exec -T app id -u)" = "10001" ] || fail "app does not run as uid 10001"
 [ "$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' "$(compose ps -q app)")" = "true" ] || fail "root filesystem is writable"
-compose logs --no-color app | grep -q "Generated a new encryption key at /data/secrets/crowhr.key" || fail "no key generation log line"
+compose logs --no-color app | has "Generated a new encryption key at /data/secrets/crowhr.key" || fail "no key generation log line"
 
 step "Setup wizard in a real browser (Playwright)"
 (cd "$ROOT" && SELFHOST_URL="$PUBLIC_URL" SELFHOST_SETUP_CODE="$CODE" bunx playwright test -c e2e/selfhost.config.ts)
@@ -99,15 +103,15 @@ KEY_SUM=$(compose exec -T app sha256sum /data/secrets/crowhr.key | cut -d' ' -f1
 compose exec -T app crowhr doctor || fail "crowhr doctor reported problems"
 backup_out=$(compose exec -T app crowhr backup 2>&1) || fail "crowhr backup: $backup_out"
 echo "$backup_out"
-echo "$backup_out" | grep -q "contains your encryption key" || fail "no unencrypted-key warning"
+echo "$backup_out" | has "contains your encryption key" || fail "no unencrypted-key warning"
 ARCHIVE=$(echo "$backup_out" | grep -oE '/backups/crowhr-backup-[0-9TZ]+\.tar\.gz' | head -1)
 [ -n "$ARCHIVE" ] || fail "no archive path"
 compose exec -T app cat "$ARCHIVE" > "$WORK/backup.tar.gz"
 tar -tzf "$WORK/backup.tar.gz" | sort | tr '\n' ' '
 echo
-tar -tzf "$WORK/backup.tar.gz" | grep -q '^files/blobs/receipts/r-001.pdf$' || fail "file missing from archive"
+tar -tzf "$WORK/backup.tar.gz" | has '^files/blobs/receipts/r-001.pdf$' || fail "file missing from archive"
 encrypted_out=$(compose exec -T app crowhr backup --passphrase "correct horse battery staple" 2>&1) || fail "encrypted backup: $encrypted_out"
-echo "$encrypted_out" | grep -q 'tar.gz.age' || fail "encrypted backup not .age"
+echo "$encrypted_out" | has 'tar.gz.age' || fail "encrypted backup not .age"
 
 step "Disaster: delete everything (docker compose down -v), install fresh, restore"
 compose down -v
@@ -119,7 +123,7 @@ NEW_KEY_SUM=$(compose exec -T app sha256sum /data/secrets/crowhr.key | cut -d' '
 compose exec -T app sh -c 'cat > /backups/restore-me.tar.gz' < "$WORK/backup.tar.gz"
 restore_out=$(compose exec -T app crowhr restore /backups/restore-me.tar.gz 2>&1) || fail "crowhr restore: $restore_out"
 echo "$restore_out"
-echo "$restore_out" | grep -q "Restarting the app" || fail "restore did not restart the app"
+echo "$restore_out" | has "Restarting the app" || fail "restore did not restart the app"
 sleep 3
 wait_healthy 120
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/api/v1/setup")" = "404" ] || fail "organisation not restored"
@@ -130,7 +134,7 @@ signin=$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/js
   -d "{\"org\":\"kampong-kopi\",\"email\":\"${OWNER_EMAIL}\",\"password\":\"${OWNER_PASSWORD}\"}" "$PUBLIC_URL/api/v1/auth/sign-in")
 [ "$signin" = "200" ] || fail "owner cannot sign in after restore ($signin)"
 again=$(compose exec -T app crowhr restore /backups/restore-me.tar.gz --no-restart 2>&1) && fail "restore over data without --force succeeded"
-echo "$again" | grep -q -- "--force" || fail "no --force hint: $again"
+echo "$again" | has -- "--force" || fail "no --force hint: $again"
 
 step "Lost data volume: the app refuses to generate a new key; --secrets-only recovers"
 compose stop app
@@ -138,11 +142,11 @@ compose rm -f app >/dev/null
 docker volume rm "${PROJECT}_data" >/dev/null
 compose up -d --no-build app
 deadline=$((SECONDS + 60))
-until compose logs --no-color app 2>/dev/null | grep -q "does not match this database"; do
+until compose logs --no-color app 2>/dev/null | has "does not match this database"; do
   [ "$SECONDS" -lt "$deadline" ] || fail "app did not refuse the missing key"
   sleep 2
 done
-compose logs --no-color app | grep -q "crowhr restore --secrets-only" || fail "no --secrets-only hint"
+compose logs --no-color app | has "crowhr restore --secrets-only" || fail "no --secrets-only hint"
 compose stop app >/dev/null
 compose run --rm --no-deps -T app crowhr restore --secrets-only /backups/restore-me.tar.gz
 compose up -d --no-build app
@@ -165,9 +169,9 @@ done
 signin_via "$CADDY_URL"
 untrusted=$(curl -fsS -b "$cookie" -H 'x-forwarded-for: 6.6.6.6' "$CADDY_URL/api/v1/system/status")
 echo "TRUSTED_PROXIES empty: $(echo "$untrusted" | grep -oE '"request":\{[^}]*\}')"
-echo "$untrusted" | grep -q '"viaTrustedProxy":false' || fail "untrusted proxy treated as trusted"
-echo "$untrusted" | grep -q '"clientIp":"6.6.6.6"' && fail "spoofed X-Forwarded-For believed"
-compose logs --no-color app | grep -q "Ignoring X-Forwarded-\* headers from" || fail "no untrusted-proxy hint in logs"
+echo "$untrusted" | has '"viaTrustedProxy":false' || fail "untrusted proxy treated as trusted"
+echo "$untrusted" | has '"clientIp":"6.6.6.6"' && fail "spoofed X-Forwarded-For believed"
+compose logs --no-color app | has "Ignoring X-Forwarded-\* headers from" || fail "no untrusted-proxy hint in logs"
 
 sed -i "s|^TRUSTED_PROXIES=.*|TRUSTED_PROXIES=private|" "$WORK/.env"
 compose up -d --no-build app
@@ -175,8 +179,8 @@ wait_healthy 120
 signin_via "$CADDY_URL"
 trusted=$(curl -fsS -b "$cookie" -H 'x-forwarded-for: 6.6.6.6' "$CADDY_URL/api/v1/system/status")
 echo "TRUSTED_PROXIES=private: $(echo "$trusted" | grep -oE '"request":\{[^}]*\}')"
-echo "$trusted" | grep -q '"viaTrustedProxy":true' || fail "caddy not trusted with TRUSTED_PROXIES=private"
-echo "$trusted" | grep -q '"clientIp":"6.6.6.6"' && fail "Caddy passed a spoofed X-Forwarded-For through"
-echo "$trusted" | grep -qE '"clientIp":"[0-9.]+"' || fail "no client IP"
+echo "$trusted" | has '"viaTrustedProxy":true' || fail "caddy not trusted with TRUSTED_PROXIES=private"
+echo "$trusted" | has '"clientIp":"6.6.6.6"' && fail "Caddy passed a spoofed X-Forwarded-For through"
+echo "$trusted" | has -E '"clientIp":"[0-9.]+"' || fail "no client IP"
 
 step "All self-host checks passed"
