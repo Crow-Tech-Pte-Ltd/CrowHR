@@ -18,9 +18,9 @@ env:
 
 jobs:
   check:
-    name: Lint, typecheck, test, build, audit
+    name: Lint, typecheck, build, audit
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -40,8 +40,8 @@ jobs:
         run: bunx biome ci .
       - name: Typecheck
         run: bun run typecheck
-      - name: Unit + integration tests (Vitest, PGlite)
-        run: bun run test
+      - name: Statutory rules coverage (95% lines or more)
+        run: bun run coverage:sg-rules
       - name: OpenAPI snapshot current and v1 additive-only
         run: bun run openapi:check
       - name: Migrations are consistent and in sync with the schema
@@ -58,6 +58,34 @@ jobs:
         run: bun run docs:build
       - name: Dependency audit (fail on high or critical)
         run: bun audit --audit-level=high
+
+  test:
+    # The suite (2,000+ tests on in-process PGlite) is too slow for one 4-core hosted runner,
+    # so it is split across four. A self-hosted runner with more cores can use fewer shards.
+    name: Unit + integration tests (shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Cache bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - name: Vitest (PGlite)
+        run: bunx vitest run --shard=${{ matrix.shard }}/4
 
   e2e:
     name: Playwright smoke (Postgres 17)
