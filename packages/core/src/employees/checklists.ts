@@ -363,7 +363,6 @@ export async function checklistInbox(deps: AppDeps, actor: Actor): Promise<Check
       employeeId: checklists.employeeId,
       kind: checklists.kind,
       name: employees.legalName,
-      preferred: employees.preferredName,
     })
     .from(checklistItems)
     .innerJoin(
@@ -402,7 +401,7 @@ export async function checklistInbox(deps: AppDeps, actor: Actor): Promise<Check
       out.push({
         itemId: r.itemId,
         employeeId: r.employeeId,
-        title: `${r.title}: ${r.preferred ?? r.name}`,
+        title: `${r.title}: ${r.name}`,
         dueOn: r.dueOn,
         kind: r.kind,
       });

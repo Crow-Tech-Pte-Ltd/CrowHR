@@ -122,7 +122,9 @@ function EmployeePage() {
             <>
               {e.job.jobTitle} · {e.job.department?.name ?? "No department"}
               {e.job.location ? ` · ${e.job.location.name}` : ""}
-              {e.preferredName ? <span className="text-primary-200"> · legal name {e.legalName}</span> : null}
+              {e.preferredName && e.preferredName !== e.legalName ? (
+                <span className="text-primary-200"> · goes by {e.preferredName}</span>
+              ) : null}
             </>
           ) : null
         }

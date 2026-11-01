@@ -69,7 +69,7 @@ export const peopleDates: PeopleDates = {
     }>(sql`
       select * from (
         select distinct on (wp.org_id, wp.employee_id)
-               wp.org_id, wp.id as pass_id, wp.employee_id, coalesce(e.preferred_name, e.legal_name) as name,
+               wp.org_id, wp.id as pass_id, wp.employee_id, e.legal_name as name,
                wp.pass_type, wp.expires_on::text as expires_on
           from work_passes wp
           join employees e on e.org_id = wp.org_id and e.id = wp.employee_id
@@ -103,7 +103,7 @@ export const peopleDates: PeopleDates = {
     // Probation end on the record in force today; confirmed probations (a non-cancelled
     // `probation_confirmed` event in the same tenure) are left out.
     const result = await db.execute<{ org_id: string; employee_id: string; name: string; ends_on: string }>(sql`
-      select er.org_id, er.employee_id, coalesce(e.preferred_name, e.legal_name) as name,
+      select er.org_id, er.employee_id, e.legal_name as name,
              er.probation_end::text as ends_on
         from employment_records er
         join employees e on e.org_id = er.org_id and e.id = er.employee_id

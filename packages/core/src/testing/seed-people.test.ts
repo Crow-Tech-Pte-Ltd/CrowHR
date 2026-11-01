@@ -24,7 +24,7 @@ describe("seedPeople", () => {
     expect(by("intern")?.status.code).toBe("not_started");
     expect(by("wp_expired")?.workPassState).toBe("expired");
     expect(by("ep")?.workPassState).toBe("expiring");
-    expect(by("senior70")?.manager?.name).toBe("Ben");
+    expect(by("senior70")?.manager?.name).toBe("Benjamin Lee Jia Hao");
     const residencies = new Set(SEED_PEOPLE.map((p) => p.residency));
     expect([...residencies].sort()).toEqual(["citizen", "foreigner", "pr"]);
     const passTypes = new Set(SEED_PEOPLE.flatMap((p) => (p.pass ? [p.pass.type] : [])));
