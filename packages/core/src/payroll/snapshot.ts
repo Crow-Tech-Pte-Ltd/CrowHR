@@ -392,11 +392,11 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
       )
       .sort((a, b) => ((a.issuedOn ?? "") < (b.issuedOn ?? "") ? 1 : -1))[0];
     const itemRows = items
-      .filter((i) => i.employeeId === id)
+      .filter((i) => i.employeeId === id && !i.overtimeSourceId)
       .sort((a, b) => (a.id < b.id ? -1 : 1))
       .map(
         (i): RunItemInput => ({
-          id: i.id,
+          id: i.holidayDate ? `holiday:${i.employeeId}:${i.holidayDate}` : i.id,
           kind: i.kind,
           label: i.label,
           amountCents: i.amountCents,
@@ -551,6 +551,7 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
           to: a.effectiveTo,
           cpfLiable: setting?.cpfLiable ?? true,
           prorate: setting?.prorate ?? true,
+          grossRateIncluded: setting?.grossRateIncluded ?? null,
         })),
       items: [
         ...itemRows,
@@ -623,7 +624,10 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
               id: `attendance:${o.sourceId}`,
               kind: "overtime",
               label: "Overtime (approved in attendance)",
-              amountCents: null,
+              amountCents:
+                items.find((i) => i.employeeId === id && i.overtimeSourceId === o.sourceId)?.amountCents ??
+                o.amountCents ??
+                null,
               wageClass: null,
               cpfLiable: true,
               awPayableDate: null,
@@ -640,7 +644,12 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
       reimbursements: ctx.claims
         .filter((c) => c.employeeId === id)
         .sort((a, b) => (a.claimId < b.claimId ? -1 : 1))
-        .map((c) => ({ claimId: c.claimId, typeName: c.typeName, amountCents: c.amountCents })),
+        .map((c) => ({
+          claimId: c.claimId,
+          typeName: c.typeName,
+          amountCents: c.amountCents,
+          taxable: c.taxable ?? false,
+        })),
       cpfStateBefore,
       cpfStateSource,
       monthBefore,

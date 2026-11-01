@@ -1,10 +1,13 @@
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { orgScope } from "../access/org-scope.ts";
+import { memberships } from "../db/schema/access.ts";
 import { allowanceTypes, bankAccounts, type Employee, emergencyContacts, employees } from "../db/schema/employees.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
+import { CONTROL_CHARS } from "../export/csv.ts";
+import { notify } from "../notifications/notify.ts";
 import { type Actor, assertCanRead, assertCanWrite, assertNotSelfChange } from "./access.ts";
 import { diffOf, recordAudit } from "./audit-helpers.ts";
 import { normaliseAccountNumber } from "./banks.ts";
@@ -182,7 +185,15 @@ export async function replaceEmergencyContacts(
 /** Fields employees edit directly (spec: Employee self-service changes). */
 export const selfServicePatch = z
   .object({
-    preferredName: z.preprocess((v) => (v === "" ? null : v), z.string().trim().max(100).nullish()),
+    preferredName: z.preprocess(
+      (v) => (v === "" ? null : v),
+      z
+        .string()
+        .refine((v) => !CONTROL_CHARS.test(v), "Remove control characters from the name.")
+        .trim()
+        .max(100)
+        .nullish(),
+    ),
     personalEmail: z.preprocess((v) => (v === "" ? null : v), z.email().nullish()),
     mobile: z.preprocess((v) => (v === "" ? null : v), z.string().trim().max(30).nullish()),
     address: addressInput.nullish(),
@@ -280,8 +291,47 @@ export async function setBankAccount(
       diff: { bankCode: { to: input.bankCode }, accountNumber: { changed: true }, holderName: { changed: true } },
       meta: { effectiveFrom: input.effectiveFrom },
     });
+    await notifyBankChange(tx, deps, actor.orgId, employeeId, sealed.last4, input.effectiveFrom);
   });
   return { id, accountMasked: maskTail(sealed.last4) };
+}
+
+/**
+ * Tells the employee their salary account changed (review finding #10: an admin could redirect pay
+ * unnoticed). Security category: always emailed when a mailer is configured.
+ */
+async function notifyBankChange(
+  tx: Db,
+  deps: AppDeps,
+  orgId: string,
+  employeeId: string,
+  last4: string,
+  effectiveFrom: string,
+) {
+  const members = await tx
+    .select({ id: memberships.id })
+    .from(memberships)
+    .where(
+      orgScope(tx, orgId).where(memberships, eq(memberships.employeeId, employeeId), eq(memberships.status, "active")),
+    );
+  if (!members.length) return;
+  const detail = `Salary will be paid into the account ending ${last4} from ${effectiveFrom}. If you did not ask for this, tell your employer's owner or HR straight away.`;
+  await notify(tx, deps, {
+    orgId,
+    recipients: members.map((m) => m.id),
+    kind: "security_notice",
+    title: "Your bank account for salary was changed",
+    body: detail,
+    link: "/me/profile",
+    subjectType: "employee",
+    subjectId: employeeId,
+    email: {
+      headline: "Your bank account for salary was changed.",
+      detail,
+      linkPath: "/me/profile",
+      actionLabel: "Check your details",
+    },
+  });
 }
 
 /**

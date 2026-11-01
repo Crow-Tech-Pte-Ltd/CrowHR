@@ -70,22 +70,19 @@ export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
   app.use(
     "*",
     secureHeaders({
-      contentSecurityPolicy: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        // Radix positions popovers with inline styles.
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:"],
-        fontSrc: ["'self'"],
-        connectSrc: ["'self'"],
-        frameAncestors: ["'none'"],
-        baseUri: ["'self'"],
-        formAction: ["'self'"],
-        objectSrc: ["'none'"],
-      },
       referrerPolicy: "strict-origin-when-cross-origin",
     }),
   );
+  // secureHeaders writes after downstream handlers. Install the page CSP separately so
+  // a file handler's stricter sandbox policy survives the outer middleware.
+  app.use("*", async (c, next) => {
+    await next();
+    if (!c.res.headers.has("content-security-policy"))
+      c.res.headers.set(
+        "content-security-policy",
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
+      );
+  });
   if (options.maintenance) app.use("*", maintenanceGuard(options.maintenance));
   if (options.setupGate) app.use("*", setupGateMiddleware(options.setupGate));
   app.route("/", createApp(deps, { modules: options.modules ?? [] }));

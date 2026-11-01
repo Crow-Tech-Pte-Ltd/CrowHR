@@ -55,6 +55,22 @@ const base: Ir8aRecord = {
 };
 
 describe("IR8A import template rows", () => {
+  it("includes taxable cash reimbursements in d1 without making business reimbursements income", () => {
+    const slips = [
+      {
+        payDate: "2026-10-31",
+        input: {
+          items: [],
+          reimbursements: [
+            { claimId: "a", typeName: "Private benefit", amountCents: 12345, taxable: true },
+            { claimId: "b", typeName: "Business travel", amountCents: 9999, taxable: false },
+          ],
+        },
+        result: { lines: [] },
+      },
+    ];
+    expect(aggregateIr8a(slips, null, new Set()).amounts.allowancesCents).toBe(12345);
+  });
   it("has the template's 44 columns, A to AR", () => {
     expect(IR8A_HEADERS).toHaveLength(44);
     expect(columnIndex("A")).toBe(0);

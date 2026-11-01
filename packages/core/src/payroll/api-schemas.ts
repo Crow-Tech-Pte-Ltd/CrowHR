@@ -270,9 +270,13 @@ export const itemSchema = z.object({
   deductionCategory: z.enum(DEDUCTION_CATEGORY_KEYS).nullable(),
   source: z.enum(["manual", "attendance"]),
   copiedFromItemId: z.uuid().nullable(),
+  overtimeSourceId: z.uuid().nullable(),
+  holidayDate: isoDate.nullable(),
 });
 
 export const itemInputSchema = z.object({
+  overtimeSourceId: z.uuid().nullable().optional(),
+  holidayDate: isoDate.nullable().optional(),
   employeeId: z.uuid(),
   kind: z.enum(itemKinds),
   label: z.string().trim().min(1, "Give the item a label the employee will understand, e.g. 'Year-end bonus'.").max(80),

@@ -113,6 +113,17 @@ describe("audit log", () => {
     });
   });
 
+  it.each(["tail", "all", "head", "missing_head"])("detects %s tampering against the committed head", async (kind) => {
+    await recordAudit(deps.db, deps, ctx(), { action: "x.one", targetType: "t" });
+    const last = await recordAudit(deps.db, deps, ctx(), { action: "x.two", targetType: "t" });
+    await t.pglite.exec("alter table audit_events disable trigger audit_events_immutable");
+    if (kind === "tail") await t.pglite.query("delete from audit_events where id = $1", [last.id]);
+    if (kind === "all") await t.pglite.exec("delete from audit_events");
+    if (kind === "head") await t.pglite.exec("update audit_heads set last_hash = repeat('f', 64)");
+    if (kind === "missing_head") await t.pglite.exec("delete from audit_heads");
+    expect(await verifyChain(deps.db, orgId)).toMatchObject({ ok: false, reason: "head_mismatch" });
+  });
+
   it("rolls the event back with the surrounding transaction", async () => {
     await expect(
       deps.db.transaction(async (tx) => {

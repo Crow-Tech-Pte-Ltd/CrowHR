@@ -94,7 +94,7 @@ export const reportsModule = defineModule({
       access: "authenticated",
       request: { params: reportId, query: runQuery },
       responses: { 200: reportResult },
-      errors: ["forbidden", "not_found", "too_many_rows"],
+      errors: ["forbidden", "not_found", "too_many_rows", "reauth_required"],
       crossOrgExempt: "The path holds a report ID, not a record ID; rows are always the caller's organisation.",
       handler: async ({ c, params, query }) => runReport(c, params.id, query as ReportQuery) as never,
     }),
@@ -108,7 +108,7 @@ export const reportsModule = defineModule({
         query: runQuery.extend({ format: z.enum(["csv", "xlsx"]).default("csv") }),
       },
       responses: { 200: { description: "CSV or XLSX file", contentType: "text/csv" } },
-      errors: ["forbidden", "not_found", "too_many_rows"],
+      errors: ["forbidden", "not_found", "too_many_rows", "reauth_required"],
       crossOrgExempt: "The path holds a report ID, not a record ID; rows are always the caller's organisation.",
       handler: async ({ c, params, query }) => {
         const { format, ...rest } = query as ReportQuery & { format: "csv" | "xlsx" };

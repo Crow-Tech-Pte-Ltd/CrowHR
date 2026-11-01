@@ -164,3 +164,7 @@ The unpaid weeks of Employment Act maternity leave (weeks 9 to 12, for a non-cit
 - Employment Act maternity leave for a non-citizen child approximates "fewer than 2 living children" by birth order.
 - The lifetime caps per child for childcare leave are not enforced, and the 2026 National Day Rally childcare changes are not applied.
 - Part 4 coverage for the carry-forward floor uses the salary threshold and Employment Act coverage on the employment record.
+
+Medical certificates use the same content-sniffing, polyglot checks, virus-scan metadata and sandboxed download headers as other uploads. An approver needs a current pending assignment and current eligibility; an old or rerouted task does not retain medical access. The employee, owner and HR retain their normal access.
+
+The year-end job expires old carry before closing the year so a delayed January run cannot carry expired days forward again. Part IV statutory annual leave is retained for at least the next 12 months even when company policy expires other carry earlier.

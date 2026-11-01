@@ -6,6 +6,8 @@ import type { Permission } from "../access/matrix.ts";
 import { type AppContext, type AppEnv, type AuthContext, requireAuth } from "../context.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError, type ErrorCode } from "../errors.ts";
+import { CONTROL_CHARS } from "../export/csv.ts";
+import { isJsonContentType } from "./body-limit.ts";
 import { friendlyIssueMessage, toValidationIssues } from "./validate.ts";
 
 /**
@@ -100,6 +102,8 @@ export interface RouteDefinition<
   deprecated?: { since: string; sunset: string };
   /** Sensitive actions (spec "Recent re-authentication"): requires authentication within 10 minutes. */
   recentAuth?: boolean;
+  /** Maximum request bytes for an upload; all other requests default to 1 MB. */
+  maxBodyBytes?: number;
   /** Reachable while the member must still enrol in MFA (enrolment and sign-out only). */
   allowDuringMfaEnrolment?: boolean;
   /**
@@ -213,7 +217,24 @@ function assertDocumented(module: ApiModule, route: AnyRoute) {
   }
 }
 
+/** Check raw name fields before string trimming can hide a leading tab/CR. */
+function rejectNameControls(value: unknown, path = "", depth = 0): void {
+  if (!value || typeof value !== "object") return;
+  if (depth > 64) throw new AppError("validation_failed", "The request is nested too deeply. Send a simpler request.");
+  for (const [key, item] of Object.entries(value)) {
+    const at = path ? `${path}.${key}` : key;
+    if (/name$/i.test(key) && typeof item === "string" && CONTROL_CHARS.test(item)) {
+      throw new AppError("validation_failed", "Remove control characters from the name.", {
+        target: "json",
+        issues: [{ path: at, message: "Remove line breaks, tabs and other control characters from the name." }],
+      });
+    }
+    rejectNameControls(item, at, depth + 1);
+  }
+}
+
 async function parseInput(schema: z.ZodType, value: unknown, target: "param" | "query" | "json"): Promise<unknown> {
+  if (target === "json") rejectNameControls(value);
   const result = await schema.safeParseAsync(value, { error: friendlyIssueMessage });
   if (!result.success) {
     throw new AppError("validation_failed", "Some fields need attention.", {
@@ -226,14 +247,14 @@ async function parseInput(schema: z.ZodType, value: unknown, target: "param" | "
 
 async function readJsonBody(c: AppContext): Promise<unknown> {
   const type = c.req.header("content-type") ?? "";
-  const text = await c.req.text();
-  if (text === "") return {};
-  if (!/^application\/(.+\+)?json\b/i.test(type)) {
+  if (c.req.raw.body && !isJsonContentType(type)) {
     throw new AppError(
       "validation_failed",
       "Send the request body as JSON with the header Content-Type: application/json.",
     );
   }
+  const text = await c.req.text();
+  if (text === "") return {};
   try {
     return JSON.parse(text);
   } catch {

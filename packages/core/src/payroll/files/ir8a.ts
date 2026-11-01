@@ -1,3 +1,4 @@
+import { formatCsvCell } from "../../export/csv.ts";
 import type { PayInput, PayResult } from "../engine/types.ts";
 
 /**
@@ -140,7 +141,7 @@ export const deductionDollars = (cents: number): number => Math.ceil(Math.max(0,
 
 export interface Ir8aSlip {
   payDate: string;
-  input: Pick<PayInput, "items">;
+  input: Pick<PayInput, "items"> & Partial<Pick<PayInput, "reimbursements">>;
   result: Pick<PayResult, "lines">;
 }
 
@@ -155,7 +156,7 @@ export interface Ir8aOpening {
 /**
  * Sums a year of effective payslips (approved or paid, not replaced by an adjustment) into the IR8A
  * items. Basic pay after no-pay leave, overtime, back pay and other earnings go to (a); bonuses to
- * (b); commissions to (d2); allowances to (d1); reimbursements are not income and are left out.
+ * (b); commissions to (d2); allowances to (d1); taxable cash reimbursements go to (d1); exempt business reimbursements are left out.
  */
 export function aggregateIr8a(
   slips: readonly Ir8aSlip[],
@@ -177,6 +178,10 @@ export function aggregateIr8a(
     if (!notes.some((n) => n.code === code)) notes.push({ code, message });
   };
   for (const s of slips) {
+    // IRAS requires taxable flexible benefits to be declared; genuine business expenses remain
+    // exempt. Cash reimbursement is d1; non-cash benefits require Appendix 8A outside this export.
+    // https://www.iras.gov.sg/taxes/individual-income-tax/employers/understanding-the-tax-treatment/tax-principles-and-flexible-benefits
+    a.allowancesCents += (s.input.reimbursements ?? []).filter((r) => r.taxable).reduce((n, r) => n + r.amountCents, 0);
     const kinds = new Map(s.input.items.map((i) => [i.id, i.kind]));
     for (const l of s.result.lines) {
       switch (l.category) {
@@ -279,9 +284,9 @@ export function columnIndex(col: string): number {
 }
 
 function csvCell(v: string): string {
-  // Spreadsheet formula injection: a cell starting with = + - @ is prefixed with an apostrophe.
-  const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
-  return /[",\r\n]|^\s|\s$/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
+  // The shared writer (formula neutralising, quoting); IRAS's template also keeps edge spaces quoted.
+  const out = formatCsvCell(v, "text");
+  return out.startsWith('"') || !/^\s|\s$/.test(out) ? out : `"${out}"`;
 }
 
 export interface Ir8aPart {

@@ -50,9 +50,9 @@ describe("ReimbursementSource (claims → payroll)", () => {
     const payable = await source.listPayable(w.orgId, "2026-10-31");
     expect(payable).toEqual(
       expect.arrayContaining([
-        { claimId: a.id, employeeId: w.emp.staff, typeName: "Transport", amountCents: 5000 },
-        { claimId: a.id, employeeId: w.emp.staff, typeName: "Meals", amountCents: 1200 },
-        { claimId: b.id, employeeId: w.emp.other, typeName: "Meals", amountCents: 900 },
+        { claimId: a.id, employeeId: w.emp.staff, typeName: "Transport", taxable: false, amountCents: 5000 },
+        { claimId: a.id, employeeId: w.emp.staff, typeName: "Meals", taxable: false, amountCents: 1200 },
+        { claimId: b.id, employeeId: w.emp.other, typeName: "Meals", taxable: false, amountCents: 900 },
       ]),
     );
     expect(payable).toHaveLength(3);

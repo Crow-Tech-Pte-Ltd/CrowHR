@@ -1,10 +1,10 @@
-import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { recordAudit, systemAuditContext } from "../audit/audit.ts";
 import { claimLines, claims, claimTypes } from "../db/schema/claims.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
-import type { PayableClaim, ReimbursementSource } from "../payroll/ports.ts";
+import type { PayableClaim, ReimbursementRunOpts, ReimbursementSource } from "../payroll/ports.ts";
 
 /**
  * Reimbursement through payroll (spec "Reimbursement through payroll", design decision 5).
@@ -39,36 +39,46 @@ export async function listPayableClaims(
   db: Db,
   orgId: string,
   periodEnd: string,
-  opts: { runId?: string } = {},
+  opts: ReimbursementRunOpts = {},
 ): Promise<PayableClaim[]> {
   if (!ISO_DATE.test(periodEnd)) throw new Error(`periodEnd must be YYYY-MM-DD, got ${periodEnd}`);
+  const carry = [...new Set(opts.carryFromRunIds ?? [])];
+  const payable = and(
+    eq(claims.status, "approved"),
+    eq(claims.payoutMethod, "payroll"),
+    isNull(claims.paidOn),
+    lte(claims.approvedOn, periodEnd),
+    opts.runId ? sql`(${claims.payrollRunId} is null or ${claims.payrollRunId} = ${opts.runId})` : undefined,
+  );
+  // An adjustment carries what its replaced chain reserved or paid through payroll.
+  const carried = carry.length
+    ? and(
+        inArray(claims.payrollRunId, carry),
+        or(eq(claims.status, "approved"), and(eq(claims.status, "paid"), eq(claims.paidVia, "payroll"))),
+      )
+    : undefined;
   const rows = await db
     .select({
       claimId: claims.id,
       employeeId: claims.employeeId,
       typeName: claimTypes.name,
+      taxable: claimTypes.taxable,
+      payrollRunId: claims.payrollRunId,
       amount: sql<string>`sum(${claimLines.sgdCents})::text`,
     })
     .from(claims)
     .innerJoin(claimLines, and(eq(claimLines.orgId, claims.orgId), eq(claimLines.claimId, claims.id)))
     .innerJoin(claimTypes, and(eq(claimTypes.orgId, claimLines.orgId), eq(claimTypes.id, claimLines.claimTypeId)))
-    .where(
-      and(
-        eq(claims.orgId, orgId),
-        eq(claims.status, "approved"),
-        eq(claims.payoutMethod, "payroll"),
-        isNull(claims.paidOn),
-        lte(claims.approvedOn, periodEnd),
-        opts.runId ? sql`(${claims.payrollRunId} is null or ${claims.payrollRunId} = ${opts.runId})` : undefined,
-      ),
-    )
-    .groupBy(claims.id, claims.employeeId, claimTypes.name)
+    .where(and(eq(claims.orgId, orgId), carried ? or(payable, carried) : payable))
+    .groupBy(claims.id, claims.employeeId, claimTypes.name, claimTypes.taxable, claims.payrollRunId)
     .orderBy(claims.employeeId, claims.id, claimTypes.name);
   return rows.map((r) => ({
     claimId: r.claimId,
     employeeId: r.employeeId,
     typeName: r.typeName,
+    taxable: r.taxable,
     amountCents: Number(r.amount),
+    ...(r.payrollRunId && carry.includes(r.payrollRunId) ? { carriedFromRunId: r.payrollRunId } : {}),
   }));
 }
 
@@ -114,12 +124,21 @@ export async function releaseClaims(deps: AppDeps, tx: Db, orgId: string, runId:
     .where(and(eq(claims.orgId, orgId), eq(claims.payrollRunId, runId), eq(claims.status, "approved")));
 }
 
-export async function markClaimsPaidByRun(deps: AppDeps, tx: Db, orgId: string, runId: string, paymentDate: string) {
+export async function markClaimsPaidByRun(
+  deps: AppDeps,
+  tx: Db,
+  orgId: string,
+  runId: string,
+  paymentDate: string,
+  opts: { carryFromRunIds?: string[] } = {},
+) {
   if (!ISO_DATE.test(paymentDate)) throw new Error(`paymentDate must be YYYY-MM-DD, got ${paymentDate}`);
+  const holders = [...new Set([runId, ...(opts.carryFromRunIds ?? [])])];
+  // An adjustment pays (and takes over) what its superseded chain reserved but never paid.
   const paid = await tx
     .update(claims)
-    .set({ status: "paid", paidVia: "payroll", paidOn: paymentDate, updatedAt: deps.clock.now() })
-    .where(and(eq(claims.orgId, orgId), eq(claims.payrollRunId, runId), eq(claims.status, "approved")))
+    .set({ status: "paid", paidVia: "payroll", paidOn: paymentDate, payrollRunId: runId, updatedAt: deps.clock.now() })
+    .where(and(eq(claims.orgId, orgId), inArray(claims.payrollRunId, holders), eq(claims.status, "approved")))
     .returning({ id: claims.id, claimNumber: claims.claimNumber, totalCents: claims.totalCents });
   const audit = systemAuditContext(orgId, "system", "payroll");
   for (const c of paid) {
@@ -139,8 +158,8 @@ export function createClaimsReimbursementSource(deps: AppDeps): ReimbursementSou
     listPayable: (orgId, periodEnd, opts) => listPayableClaims(deps.db, orgId, periodEnd, opts),
     reserve: (tx, orgId, runId, claimIds) => reserveClaims(deps, tx, orgId, runId, claimIds),
     release: (tx, orgId, runId) => releaseClaims(deps, tx, orgId, runId),
-    markPaid: async (tx, orgId, runId, paymentDate) => {
-      await markClaimsPaidByRun(deps, tx, orgId, runId, paymentDate);
+    markPaid: async (tx, orgId, runId, paymentDate, opts) => {
+      await markClaimsPaidByRun(deps, tx, orgId, runId, paymentDate, opts);
     },
   };
 }
@@ -168,7 +187,10 @@ export async function payableForPeriod(db: Db, orgId: string, periodEnd: string)
   return entries.map((e) => {
     const r = byId.get(e.claimId);
     return {
-      ...e,
+      claimId: e.claimId,
+      employeeId: e.employeeId,
+      typeName: e.typeName,
+      amountCents: e.amountCents,
       claimNumber: r?.claimNumber ?? null,
       employeeName: r?.name ?? "",
       approvedOn: r?.approvedOn ?? null,

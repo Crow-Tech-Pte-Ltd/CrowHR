@@ -22,7 +22,7 @@ Approved payslips of the year plus the [year-to-date opening balances](/docs/peo
 | --- | --- |
 | (a) Gross salary, fees, leave pay, wages and overtime | Basic pay after no-pay leave, overtime, back pay and other earnings |
 | (b) Bonus | Bonus items, dated by their last pay date |
-| d1 Allowances | Allowances |
+| d1 Allowances | Allowances and cash reimbursements whose claim type is marked taxable |
 | d2 Commission | Commission items |
 | Employee CPF | Employee CPF, including AW top-up recoveries |
 | SHG donations | SHG deductions |
@@ -43,3 +43,9 @@ Employees with an ID type other than NRIC or FIN, or without a recorded sex, are
 ## No direct submission
 
 Direct submission through IRAS's AIS API is **not available**. It requires IRAS to approve the software, plus Corppass and APEX credentials and whitelisted servers. The export is for manual import in myTax Portal, which the employer does.
+
+## Taxable cash reimbursements
+
+The claim-type **Taxable benefit** flag is snapshotted when payroll is computed. Taxable cash reimbursements enter d1; genuine business reimbursements remain excluded. Claims paid outside payroll enter d1 in their recorded payment year. Legacy payroll snapshots without a tax flag use the claim type's current classification, so review older years when changing a type. Superseded runs are excluded so an adjustment does not double-report the reimbursement.
+
+This follows [IRAS's Tax Principles and Flexible Benefits](https://www.iras.gov.sg/taxes/individual-income-tax/employers/understanding-the-tax-treatment/tax-principles-and-flexible-benefits): employers must track taxable benefits for IR8A. The flag does not determine whether a reimbursement legally attracts CPF, nor does it replace the separate Appendix 8A treatment of non-cash benefits or tax borne by the employer. Review those separately.

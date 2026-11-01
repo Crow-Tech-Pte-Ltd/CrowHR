@@ -1,3 +1,4 @@
+/// <reference path="./regenerator.d.ts" />
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, type PDFFont, type PDFPage, rgb } from "pdf-lib";
 import { AzeretMono_Regular, AzeretMono_SemiBold, Ubuntu_Medium, Ubuntu_Regular } from "./fonts.generated.ts";
@@ -26,6 +27,11 @@ function decode(b64: string): Uint8Array {
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
+}
+
+async function decodeOptionalFont(b64: string): Promise<Uint8Array> {
+  const stream = new Blob([decode(b64) as BlobPart]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
 let fontBytes: Record<FontRole, Uint8Array> | null = null;
@@ -58,10 +64,12 @@ export interface TextOptions {
   color?: ReturnType<typeof rgb>;
   align?: "left" | "right";
   maxWidth?: number;
+  page?: PDFPage;
 }
 
 export interface PdfCanvas {
   doc: PDFDocument;
+  missingGlyphs: Set<string>;
   page: PDFPage;
   font(role: FontRole): PDFFont;
   width(text: string, role: FontRole, size: number): number;
@@ -84,6 +92,8 @@ export interface PdfMeta {
   subject?: string;
   /** Fixed creation date for byte-stable output (e.g. the run's approval time). */
   createdAt: Date;
+  /** All variable text, used to load optional script fonts before synchronous layout. */
+  text?: string;
 }
 
 export async function createPdf(meta: PdfMeta): Promise<PdfCanvas> {
@@ -100,29 +110,69 @@ export async function createPdf(meta: PdfMeta): Promise<PdfCanvas> {
   for (const role of Object.keys(FONT_NAMES) as FontRole[]) {
     embedded[role] = await doc.embedFont(fonts()[role], { subset: true, customName: FONT_NAMES[role] });
   }
+  const fallbackFonts: PDFFont[] = [];
+  const content = meta.text ?? "";
+  if (/[\u2e80-\u9fff\uf900-\ufaff]/u.test(content)) {
+    const { fontGzipBase64 } = await import("./noto-sc.generated.ts");
+    fallbackFonts.push(
+      await doc.embedFont(await decodeOptionalFont(fontGzipBase64), { subset: true, customName: "CrowHR-NotoSansSC" }),
+    );
+  }
+  if (/[\u0b80-\u0bff]/u.test(content)) {
+    await import("regenerator-runtime/runtime.js");
+    const { fontGzipBase64 } = await import("./noto-tamil.generated.ts");
+    fallbackFonts.push(
+      await doc.embedFont(await decodeOptionalFont(fontGzipBase64), {
+        subset: true,
+        customName: "CrowHR-NotoSansTamil",
+      }),
+    );
+  }
+  const supported = new Map(
+    [...Object.values(embedded), ...fallbackFonts].map((f) => [f, new Set(f.getCharacterSet())]),
+  );
+  const missingGlyphs = new Set<string>();
+  const runs = (text: string, role: FontRole) => {
+    const out: { text: string; font: PDFFont }[] = [];
+    for (let char of pdfSafe(text)) {
+      const code = char.codePointAt(0) as number;
+      let font = [embedded[role], ...fallbackFonts].find((f) => supported.get(f)?.has(code));
+      if (!font) {
+        missingGlyphs.add(char);
+        char = "?";
+        font = embedded[role];
+      }
+      const last = out.at(-1);
+      if (last?.font === font) last.text += char;
+      else out.push({ text: char, font });
+    }
+    return out;
+  };
+  const width = (text: string, role: FontRole, size: number) =>
+    runs(text, role).reduce((w, r) => w + r.font.widthOfTextAtSize(r.text, size), 0);
   let page = doc.addPage([A4.width, A4.height]);
   const canvas: PdfCanvas = {
     doc,
+    missingGlyphs,
     get page() {
       return page;
     },
     font: (role) => embedded[role],
-    width: (text, role, size) => embedded[role].widthOfTextAtSize(pdfSafe(text), size),
+    width,
     text(text, x, y, opts = {}) {
       const role = opts.font ?? "body";
       const size = opts.size ?? 9;
-      let s = pdfSafe(text);
+      let chars = Array.from(pdfSafe(text));
       if (opts.maxWidth) {
-        while (s.length > 1 && embedded[role].widthOfTextAtSize(s, size) > opts.maxWidth) s = `${s.slice(0, -2)}…`;
+        while (chars.length > 1 && width(chars.join(""), role, size) > opts.maxWidth)
+          chars = [...chars.slice(0, -2), "…"];
       }
-      const w = embedded[role].widthOfTextAtSize(s, size);
-      page.drawText(s, {
-        x: opts.align === "right" ? x - w : x,
-        y,
-        size,
-        font: embedded[role],
-        color: opts.color ?? INK,
-      });
+      const value = chars.join("");
+      let at = opts.align === "right" ? x - width(value, role, size) : x;
+      for (const run of runs(value, role)) {
+        (opts.page ?? page).drawText(run.text, { x: at, y, size, font: run.font, color: opts.color ?? INK });
+        at += run.font.widthOfTextAtSize(run.text, size);
+      }
     },
     line(x1, y1, x2, y2, thickness = 0.5, color = HAIRLINE) {
       page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness, color });
@@ -145,5 +195,15 @@ export async function createPdf(meta: PdfMeta): Promise<PdfCanvas> {
 }
 
 export async function finishPdf(canvas: PdfCanvas): Promise<Uint8Array> {
+  if (canvas.missingGlyphs.size) {
+    const codes = [...canvas.missingGlyphs].map((c) => `U+${c.codePointAt(0)?.toString(16).toUpperCase()}`).join(", ");
+    for (const page of canvas.doc.getPages())
+      canvas.text(`Warning: unsupported characters (${codes}). Verify names in Crow HR.`, 48, 20, {
+        page,
+        size: 7,
+        maxWidth: A4.width - 96,
+        color: rgb(0.7, 0.1, 0.1),
+      });
+  }
   return canvas.doc.save({ useObjectStreams: false });
 }

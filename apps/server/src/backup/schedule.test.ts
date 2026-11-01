@@ -45,7 +45,9 @@ describe("scheduled backups", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  function scheduler(options: { keep?: number; failing?: boolean; paused?: () => boolean } = {}) {
+  function scheduler(
+    options: { keep?: number; failing?: boolean; paused?: () => boolean; passphrase?: string | null } = {},
+  ) {
     const dumper = fakeDumper(testDb.db);
     if (options.failing) {
       dumper.dump = async () => {
@@ -75,7 +77,7 @@ describe("scheduled backups", () => {
           backupDir: join(dir, "backups"),
           filesDir: join(dir, "files"),
           key: new Uint8Array(32),
-          passphrase: null,
+          passphrase: options.passphrase === undefined ? "test-backup-passphrase" : options.passphrase,
           trigger: "scheduled",
           schemaTag: null,
           newId: () => ids.newId(),
@@ -98,9 +100,11 @@ describe("scheduled backups", () => {
     expect(await s.tick()).toBe("ran");
     expect(dumper.dumps).toBe(2);
     expect(await readdir(join(dir, "backups"))).toEqual([
-      "crowhr-backup-20261030T180030Z-scheduled.tar.gz",
-      "crowhr-backup-20261031T180030Z-scheduled.tar.gz",
+      "crowhr-backup-20261030T180030Z-scheduled.tar.gz.age",
+      "crowhr-backup-20261031T180030Z-scheduled.tar.gz.age",
     ]);
+    const runs = await testDb.db.select().from(schema.backupRuns);
+    expect(runs.every((run) => run.encrypted && run.includesKey && run.status === "succeeded")).toBe(true);
   });
 
   it("keeps only the newest BACKUP_KEEP archives", async () => {
@@ -116,8 +120,21 @@ describe("scheduled backups", () => {
     expect(await readdir(join(dir, "backups"))).toEqual([
       "crowhr-backup-20261003T180000Z-scheduled.tar.gz",
       "crowhr-backup-20261004T180000Z-scheduled.tar.gz",
-      "crowhr-backup-20261030T180030Z-scheduled.tar.gz",
+      "crowhr-backup-20261030T180030Z-scheduled.tar.gz.age",
     ]);
+  });
+
+  it("refuses an unconfigured scheduled backup before dumping and records the actionable failure", async () => {
+    const { s, dumper } = scheduler({ passphrase: null });
+    now = at("2026-10-30T18:00:30Z");
+    expect(await s.tick()).toBe("failed");
+    expect(dumper.dumps).toBe(0);
+    expect(await readdir(join(dir, "backups"))).toEqual([]);
+    const [run] = await testDb.db.select().from(schema.backupRuns);
+    expect(run?.status).toBe("failed");
+    expect(run?.error).toContain("BACKUP_PASSPHRASE");
+    now = at("2026-10-30T18:01:30Z");
+    expect(await s.tick()).toBe("not_due");
   });
 
   it("records a failure and does not retry every minute", async () => {

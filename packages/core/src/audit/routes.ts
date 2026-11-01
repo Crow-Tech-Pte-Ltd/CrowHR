@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, like, lt, or, type SQL, sql } from "drizzle-or
 import { z } from "zod";
 import type { AppContext } from "../context.ts";
 import { auditEvents } from "../db/schema/audit.ts";
+import { formatCsvCell } from "../export/csv.ts";
 import { listQuery, pageOf, toLimitOffset } from "../http/list.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 import { auditCategorySql, auditContext, recordAudit } from "./audit.ts";
@@ -96,10 +97,12 @@ function toOut(r: typeof auditEvents.$inferSelect, labels: Map<string, string>):
 }
 
 function csvCell(v: unknown): string {
-  const s = v === null || v === undefined ? "" : typeof v === "string" ? v : JSON.stringify(v);
-  // Neutralise spreadsheet formulas (CSV injection) and quote.
-  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
-  return `"${safe.replace(/"/g, '""')}"`;
+  const cell = formatCsvCell(
+    v === null || v === undefined ? "" : typeof v === "string" ? v : JSON.stringify(v),
+    "text",
+  );
+  // Preserve the audit export's all-quoted format; escaping comes from the shared writer.
+  return cell.startsWith('"') ? cell : `"${cell}"`;
 }
 
 export const auditModule = defineModule({

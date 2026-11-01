@@ -30,3 +30,9 @@ The settings API also stores a **cutoff day**. Payroll admins get a reminder 3 d
 ## Allowance treatment
 
 Each allowance type is, by default, CPF-liable as ordinary wages and pro-rated in incomplete months. The API (`/api/v1/payroll/allowance-settings`) can mark a type as not CPF-liable or not pro-rated; there is no screen for this yet. Decide the treatment for each allowance with CPF's guidance on [what counts as wages](https://www.cpf.gov.sg/employer/employer-obligations/what-constitutes-wages-for-cpf-contributions).
+
+The API also accepts `grossRateIncluded` for each allowance type. Set it explicitly before automatic off-day holiday pay is approved: include contractual salary allowances, and exclude travelling, food, housing and expense reimbursements under [MOM's gross-rate definition](https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary). An unclassified allowance produces a blocking issue for holiday pay rather than an assumed amount.
+
+An off-day public holiday with the leave policy's **extra pay** setting feeds one daily gross-rate earning into payroll. Rest-day holidays continue to produce a substitute paid holiday. Monthly fixed-week rates are automatic; hourly or rostered staff need an explicit `other_earning` item with `holidayDate` and the confirmed daily gross `amountCents`. These API inputs currently have no dedicated screen.
+
+Approved overtime missed by its original run rolls into a later run once. Payroll reserves the source and carries it through adjustments. For contractual or hourly OT, add an overtime item with `overtimeSourceId` (the approved attendance claim's ID), minutes and the contractual `amountCents`; this replaces the fed amount without adding a second OT line. These fields are available through the API. Earlier-period OT keeps its original dates and the existing late-payment/AW classification warnings; review them before approving.

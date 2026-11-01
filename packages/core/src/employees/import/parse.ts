@@ -1,3 +1,4 @@
+import { simpleCsv } from "../../export/csv.ts";
 /**
  * Runtime-agnostic RFC 4180 CSV parser for imports (no Node APIs, no
  * dependencies). UTF-8 with or without BOM, comma separator, header row,
@@ -181,10 +182,5 @@ export function closestName(target: string, names: readonly string[]): string | 
 
 /** CSV writer counterpart: quotes when needed and neutralises spreadsheet formulas. */
 export function toCsv(headers: readonly string[], rows: readonly (readonly (string | number | null)[])[]): string {
-  const cell = (v: string | number | null) => {
-    let s = v === null ? "" : String(v);
-    if (/^[=+\-@\t\r]/.test(s) && typeof v === "string") s = `'${s}`;
-    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  return `${[headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n")}\r\n`;
+  return simpleCsv(headers, rows);
 }

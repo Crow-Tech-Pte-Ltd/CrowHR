@@ -9,8 +9,11 @@ import { diffOf, recordAudit } from "../employees/audit-helpers.ts";
 import type { PeoplePorts } from "../employees/ports.ts";
 import { isUniqueViolation, parseInput } from "../employees/validation.ts";
 import { AppError } from "../errors.ts";
+import { CONTROL_CHARS } from "../export/csv.ts";
+import { looksPolyglot, sniffType } from "../files/sniff.ts";
 import { isValidUen, normaliseUen, UEN_FORMAT_MESSAGE, validateCsn } from "./uen.ts";
 
+const nameText = z.string().refine((v) => !CONTROL_CHARS.test(v), "Remove control characters from the name.");
 const optionalText = z
   .string()
   .trim()
@@ -20,8 +23,12 @@ const optionalText = z
 
 export const companyProfileInput = z
   .object({
-    legalName: z.string().trim().min(1, "Enter the company's legal name as registered with ACRA.").max(200),
-    tradingName: optionalText,
+    legalName: nameText.trim().min(1, "Enter the company's legal name as registered with ACRA.").max(200),
+    tradingName: nameText
+      .trim()
+      .max(200)
+      .transform((v) => v || null)
+      .nullish(),
     uen: z.string().transform(normaliseUen).refine(isValidUen, { message: UEN_FORMAT_MESSAGE }),
     csn: z
       .string()
@@ -174,10 +181,6 @@ export async function saveCompanyProfile(
   return toView(row);
 }
 
-const LOGO_TYPES = new Map([
-  ["image/png", "png"],
-  ["image/svg+xml", "svg"],
-]);
 export const MAX_LOGO_BYTES = 1024 * 1024;
 
 export async function saveCompanyLogo(
@@ -187,16 +190,18 @@ export async function saveCompanyLogo(
   file: { data: Uint8Array; contentType: string },
 ): Promise<void> {
   assertCanWrite(actor, "structure");
-  const ext = LOGO_TYPES.get(file.contentType);
-  if (!ext) throw new AppError("validation_failed", "Upload the logo as a PNG or SVG file.", { field: "logo" });
+  if (sniffType(file.data) !== "image/png" || looksPolyglot(file.data) || file.contentType !== "image/png")
+    throw new AppError("validation_failed", "Upload the logo as a PNG file. Export SVG artwork to PNG first.", {
+      field: "logo",
+    });
   if (file.data.byteLength > MAX_LOGO_BYTES) {
-    throw new AppError("validation_failed", "The logo must be at most 1 MB. Export a smaller PNG or use SVG.", {
+    throw new AppError("validation_failed", "The logo must be at most 1 MB. Export a smaller PNG.", {
       field: "logo",
     });
   }
   const profile = await getCompanyProfile(deps, actor.orgId);
   if (!profile) throw new AppError("conflict", "Save the company profile (legal name and UEN) before adding a logo.");
-  const key = `org/${actor.orgId}/company/logo.${ext}`;
+  const key = `org/${actor.orgId}/company/logo.png`;
   await deps.fileStore.put(key, file.data, { contentType: file.contentType });
   await deps.db.transaction(async (tx) => {
     await tx
@@ -217,5 +222,8 @@ export async function readCompanyLogo(deps: AppDeps, orgId: string) {
   if (!profile?.logoFileKey) throw new AppError("not_found", "No logo has been uploaded.");
   const file = await deps.fileStore.get(profile.logoFileKey);
   if (!file) throw new AppError("not_found", "No logo has been uploaded.");
-  return file;
+  // Also refuse legacy SVG uploads saved before content sniffing was required.
+  if (sniffType(file.data) !== "image/png" || looksPolyglot(file.data))
+    throw new AppError("not_found", "Upload the company logo again as a PNG file.");
+  return { ...file, contentType: "image/png" };
 }

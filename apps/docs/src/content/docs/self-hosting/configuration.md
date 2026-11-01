@@ -29,7 +29,7 @@ This page is checked by a test (`apps/docs/tests/env-vars.test.ts`) that reads e
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `BACKUP_PASSPHRASE` | empty | Encrypts every backup archive with [age](https://age-encryption.org) (scrypt). At least 12 characters. Strongly recommended: archives contain the encryption key. Keep it outside the server; restores need it. |
+| `BACKUP_PASSPHRASE` | empty | Encrypts every backup archive with [age](https://age-encryption.org) (scrypt). At least 12 characters. Required for scheduled backups: they refuse to run without it because archives contain the encryption key. Keep it outside the server; restores need it. |
 | `BACKUP_TIME` | `02:00` | Daily scheduled backup time (24 h) in `BACKUP_TIMEZONE`, or `off`. If the server was down at that time it catches up later the same day. Not run until setup has created an organisation. |
 | `BACKUP_TIMEZONE` | `Asia/Singapore` | IANA time zone for `BACKUP_TIME`. |
 | `BACKUP_KEEP` | `14` | Newest archives kept in the backups directory after each scheduled backup (manual and pre-upgrade ones count). 1 to 3650. |
@@ -97,3 +97,16 @@ You do not set these in `.env`; they are listed so nothing the app reads is undo
 | `CROWHR_IMAGE` | `docker-compose.yml` | Image to run, default `ghcr.io/crow-tech-pte-ltd/crowhr:1` (not published yet; compose builds it from the checkout). Override to pin a tag or use a local build. |
 | `CROWHR_CONTAINER` | Dockerfile (`1`) | Tells `crowhr restore` it runs inside the container, so it can restart the app afterwards by signalling PID 1. Outside Docker it prints "restart the app" instead. |
 | `NODE_OPTIONS` | Dockerfile | Silences Node's experimental-feature warnings in the logs. |
+
+## Optional virus scanning
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CLAMAV_HOST` | unset (scanning off) | Private hostname/IP of your own clamd server. Enables the shared upload scan pipeline; no third-party service is contacted. |
+| `CLAMAV_PORT` | `3310` | clamd TCP port, 1–65535. Uses INSTREAM, a 15-second deadline and 64 KB chunks. |
+
+Configure these on the **app container** (for example an `environment` entry in a local compose override), then recreate it. Keep clamd on a private network: this protocol has no authentication or TLS. Crow HR does not install or operate clamd. Keep its signatures current with your own FreshClam service. No scanner is required to run Crow HR.
+
+Receipt, document and medical certificate uploads are initially `pending_scan`; the existing background sweep scans them and records `clean` or `infected`. Infected bytes are removed, the uploader is notified, and an audit event is written. Transport errors never mark a file clean: three failed attempts produce `scan_failed`. Medical certificates are unavailable until a configured scanner returns clean. Without configuration, files remain explicitly `unscanned` and the scanning-off notice remains visible.
+
+Requests default to a 1 MB body limit. Dedicated receipt/document uploads, CSV import previews, company logos and leave attachment requests have explicit larger limits, with each file's own size validation still enforced.

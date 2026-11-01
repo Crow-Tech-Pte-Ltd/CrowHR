@@ -90,6 +90,11 @@ export async function runBackup(options: BackupOptions): Promise<BackupResult> {
 
   const staging = join(options.backupDir, `.tmp-${runId}`);
   try {
+    if (options.trigger === "scheduled" && !options.passphrase?.trim()) {
+      throw new Error(
+        "Scheduled backups are disabled until BACKUP_PASSPHRASE is set in .env (at least 12 characters). Keep the passphrase outside this server, then restart Crow HR.",
+      );
+    }
     await mkdir(staging, { recursive: true, mode: 0o700 });
     const dumpFile = join(staging, "db.dump");
     await options.dumper.dump(dumpFile);

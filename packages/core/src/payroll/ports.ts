@@ -34,10 +34,28 @@ export interface ApprovalDecision {
 
 /** Claims payable through payroll (add-claims design §5). */
 export interface PayableClaim {
+  /** Snapshotted at compute: taxable cash reimbursement (IR8A d1), independent of CPF wages. */
+  taxable?: boolean;
   claimId: string;
   employeeId: string;
   typeName: string;
   amountCents: number;
+  /**
+   * Set when the claim was reserved or paid by a run this adjustment replaces: the adjustment
+   * carries the reimbursement (the replaced run's net already included it) but does not reserve it.
+   */
+  carriedFromRunId?: string;
+}
+
+/** Options for `listPayable` / `markPaid`. */
+export interface ReimbursementRunOpts {
+  /** The run asking: claims reserved by other runs are left out, its own stay listed. */
+  runId?: string;
+  /**
+   * An adjustment's replaced chain (original, that one's original, …): claims those runs reserved
+   * or paid are listed too (with `carriedFromRunId`), whatever their approval date.
+   */
+  carryFromRunIds?: string[];
 }
 
 export interface ReimbursementSource {
@@ -45,11 +63,21 @@ export interface ReimbursementSource {
    * Approved, unpaid claims approved on or before `periodEnd`. With `runId`, claims reserved by
    * another run are left out (claims reserved by this run stay listed, so a recompute keeps them).
    */
-  listPayable(orgId: string, periodEnd: string, opts?: { runId?: string }): Promise<PayableClaim[]>;
+  listPayable(orgId: string, periodEnd: string, opts?: ReimbursementRunOpts): Promise<PayableClaim[]>;
   /** Fails if any claim is already reserved by another run or paid. */
   reserve(tx: Db, orgId: string, runId: string, claimIds: string[]): Promise<void>;
   release(tx: Db, orgId: string, runId: string): Promise<void>;
-  markPaid(tx: Db, orgId: string, runId: string, paymentDate: string): Promise<void>;
+  /**
+   * Pays this run's reserved claims. With `carryFromRunIds` (an adjustment), claims still reserved
+   * (approved, unpaid) by the replaced chain move to this run and are paid too.
+   */
+  markPaid(
+    tx: Db,
+    orgId: string,
+    runId: string,
+    paymentDate: string,
+    opts?: { carryFromRunIds?: string[] },
+  ): Promise<void>;
 }
 
 /** Nothing payable: a test double for payroll tests that don't involve claims. */
@@ -61,6 +89,8 @@ export const noClaimsYet: ReimbursementSource = {
 };
 
 export interface ApprovedOvertime {
+  /** Optional contractual amount provided by a host feed. */
+  amountCents?: number | null;
   /** Stable id from attendance (idempotent import). */
   sourceId: string;
   employeeId: string;

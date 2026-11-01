@@ -93,6 +93,18 @@ describe("defineRoute", () => {
     });
   });
 
+  it("rejects control characters in nested name fields before a schema can trim them", async () => {
+    const res = await app().request("/api/v1/widgets", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "\tKopi" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: { code: "validation_failed", details: { issues: [{ path: "name" }] } },
+    });
+  });
+
   it("refuses non-JSON and malformed JSON bodies with a message saying how to fix them", async () => {
     const form = await app().request("/api/v1/widgets", {
       method: "POST",

@@ -15,6 +15,7 @@ import type { AppDeps } from "./deps.ts";
 import { documentsModule } from "./documents/routes.ts";
 import { employeesModule, peopleModule } from "./employees/routes.ts";
 import { AppError, errorResponse, handleError } from "./errors.ts";
+import { requestBodyLimit } from "./http/body-limit.ts";
 import { requestContext } from "./http/request-context.ts";
 import { type ApiModule, buildModuleRouter, type RouteGuard } from "./http/route.ts";
 import { tick } from "./jobs/tick.ts";
@@ -111,6 +112,7 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
 
   const app = new Hono<AppEnv>();
   app.use("*", requestContext(deps));
+  app.use("*", requestBodyLimit(modules));
   app.use("/api/v1/*", authenticate(), csrfProtection());
   app.onError(handleError);
   app.route("/api", api);
