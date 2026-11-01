@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { orgScope } from "../access/org-scope.ts";
-import { leaveAttachments, leaveChildren, leaveTypes } from "../db/schema/leave.ts";
+import { leaveAttachments, leaveTypes } from "../db/schema/leave.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { displayDate } from "../employees/dates.ts";
@@ -54,10 +54,8 @@ async function summaryFor(db: Db, orgId: string, requestId: string, cancellation
   ];
   if (r.reason) lines.push({ label: "Reason", value: r.reason });
   if (cancellation && r.cancelReason) lines.push({ label: "Why cancel", value: r.cancelReason });
-  if (r.childId) {
-    const [child] = await db.select().from(leaveChildren).where(org.whereId(leaveChildren, r.childId));
-    if (child) lines.push({ label: "Child", value: child.name });
-  }
+  // Summaries are shared with managers; eligibility is enough, family identities stay private.
+  if (r.childId) lines.push({ label: "Child eligibility", value: "Assessed for the selected child" });
   const files = await db
     .select()
     .from(leaveAttachments)

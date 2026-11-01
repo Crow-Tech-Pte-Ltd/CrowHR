@@ -1,8 +1,10 @@
 import { and, asc, eq, gte, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type { AssignedRole } from "../access/matrix.ts";
+import { orgScope } from "../access/org-scope.ts";
 import { singaporeDate } from "../access/scope.ts";
 import { selfApproval } from "../access/self-change.ts";
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
+import { auditEvents } from "../db/schema/audit.ts";
 import {
   type ApprovalRequest,
   type ApprovalStep,
@@ -56,6 +58,7 @@ function refOf(request: ApprovalRequest): SubjectRef {
     requesterMembershipId: request.requesterMembershipId,
     requesterEmployeeId: request.requesterEmployeeId,
     attributes: request.attributes ?? {},
+    excludedDeciderMembershipIds: request.excludedDeciderMembershipIds ?? [],
   };
 }
 
@@ -98,7 +101,7 @@ async function lockRequest(db: Db, orgId: string, requestId: string): Promise<Ap
 // Approver resolution
 // ---------------------------------------------------------------------------------------------
 
-export type SkipReason = "self" | "no_manager" | "inactive" | "no_members";
+export type SkipReason = "self" | "no_manager" | "inactive" | "no_members" | "excluded" | "not_allowed";
 
 export interface Resolution {
   members: DirectoryMember[];
@@ -106,6 +109,112 @@ export interface Resolution {
   /** Role-based steps delegate only to members holding that role. */
   viaRole: AssignedRole | null;
   selfApproved?: boolean;
+}
+
+/** Subject types only these roles ever decide, whatever a policy, delegation or reassignment says. */
+const DECIDER_ROLES: Readonly<Record<string, readonly AssignedRole[]>> = { payroll_run: ["owner"] };
+
+/** Why a member may not decide a request. */
+export type DecideBlocker = "inactive" | "self" | "excluded" | "role" | "not_allowed";
+
+type RequestForEligibility = Pick<
+  ApprovalRequest,
+  | "id"
+  | "orgId"
+  | "subjectType"
+  | "subjectId"
+  | "requesterMembershipId"
+  | "requesterEmployeeId"
+  | "attributes"
+  | "excludedDeciderMembershipIds"
+>;
+
+function isExcluded(request: Pick<ApprovalRequest, "excludedDeciderMembershipIds">, membershipId: string): boolean {
+  return (request.excludedDeciderMembershipIds ?? []).includes(membershipId);
+}
+
+/** Existing requests predate the exclusions column; their immutable submission audit names the filer. */
+async function filedOnBehalf(db: Db, request: RequestForEligibility, member: DirectoryMember): Promise<boolean> {
+  if (
+    member.membershipId === request.requesterMembershipId &&
+    (!request.requesterEmployeeId || member.employeeId === request.requesterEmployeeId)
+  )
+    return false;
+  const [filed] = await db
+    .select({ id: auditEvents.id })
+    .from(auditEvents)
+    .where(
+      orgScope(db, request.orgId).where(
+        auditEvents,
+        eq(auditEvents.targetType, "approval_request"),
+        eq(auditEvents.targetId, request.id),
+        eq(auditEvents.action, "approval.submitted"),
+        eq(auditEvents.actorMembershipId, member.membershipId),
+      ),
+    )
+    .limit(1);
+  return !!filed;
+}
+
+/**
+ * The one eligibility rule for deciding. Every path that hands a task to someone (resolution,
+ * fallback, escalation, delegation, reassignment, re-resolution) and every decision (single, bulk,
+ * inline, delegated) asks it. Null when the member may decide:
+ *
+ * - the member is active (not invited, suspended or former);
+ * - they are not the requester or an excluded decider (whoever filed it on the requester's behalf,
+ *   a beneficiary such as the colleague taking a shift); only a genuine owner requester may use
+ *   the `self_approved` fallback, and explicit exclusions still apply;
+ * - they hold the task's role (`viaRole`) when it has one;
+ * - payroll runs are decided by owners only;
+ * - the subject adapter's `canDecide` agrees (bank changes: payroll admins and owners only).
+ */
+export async function decideBlocker(
+  db: Db,
+  deps: AppDeps,
+  request: RequestForEligibility,
+  member: DirectoryMember | null,
+  opts: { viaRole?: string | null; selfApproved?: boolean } = {},
+): Promise<DecideBlocker | null> {
+  if (member?.status !== "active") return "inactive";
+  if (isExcluded(request, member.membershipId) || (await filedOnBehalf(db, request, member))) return "excluded";
+  const aboutMember =
+    member.membershipId === request.requesterMembershipId ||
+    (!!member.employeeId && member.employeeId === request.requesterEmployeeId);
+  if (aboutMember && !(opts.selfApproved && member.roles.includes("owner"))) return "self";
+  if (opts.viaRole && !member.roles.includes(opts.viaRole as AssignedRole)) return "role";
+  const only = DECIDER_ROLES[request.subjectType];
+  if (only && !only.some((r) => member.roles.includes(r))) return "not_allowed";
+  const adapter = workflowRegistry(deps).subjects.get(request.subjectType);
+  if (adapter?.canDecide && !(await adapter.canDecide(db, member, refOf(request as ApprovalRequest)))) {
+    return "not_allowed";
+  }
+  return null;
+}
+
+const SKIP_FOR: Record<DecideBlocker, SkipReason> = {
+  inactive: "inactive",
+  self: "self",
+  excluded: "excluded",
+  role: "not_allowed",
+  not_allowed: "not_allowed",
+};
+
+/** The candidates who may decide, and the most telling reason another one was refused. */
+async function eligibleOf(
+  ctx: Pick<Ctx, "db" | "deps">,
+  request: RequestForEligibility,
+  candidates: readonly DirectoryMember[],
+): Promise<{ members: DirectoryMember[]; reason: SkipReason | null }> {
+  const members: DirectoryMember[] = [];
+  const reasons = new Set<DecideBlocker>();
+  for (const m of candidates) {
+    const why = await decideBlocker(ctx.db, ctx.deps, request, m);
+    if (why) reasons.add(why);
+    else members.push(m);
+  }
+  const first = (["self", "excluded", "not_allowed", "role", "inactive"] as const).find((r) => reasons.has(r));
+  return { members, reason: first ? SKIP_FOR[first] : null };
 }
 
 async function managerMember(
@@ -122,16 +231,15 @@ async function managerMember(
 /** Resolves one approver rule for a request (spec "Approver resolution and fallback"). */
 export async function resolveRule(
   ctx: Pick<Ctx, "db" | "deps" | "now">,
-  request: Pick<ApprovalRequest, "orgId" | "requesterMembershipId" | "requesterEmployeeId">,
+  request: RequestForEligibility,
   rule: string,
 ): Promise<Resolution> {
   const directory = approverDirectory(ctx.deps);
-  const requester = request.requesterMembershipId;
   const none = (skipReason: SkipReason): Resolution => ({ members: [], skipReason, viaRole: null });
-  const single = (m: DirectoryMember | null, missing: SkipReason): Resolution => {
+  const single = async (m: DirectoryMember | null, missing: SkipReason): Promise<Resolution> => {
     if (!m) return none(missing);
-    if (m.membershipId === requester) return none("self");
-    if (m.status !== "active") return none("inactive");
+    const why = await decideBlocker(ctx.db, ctx.deps, request, m);
+    if (why) return none(SKIP_FOR[why]);
     return { members: [m], skipReason: null, viaRole: null };
   };
 
@@ -146,9 +254,10 @@ export async function resolveRule(
   if (rule.startsWith("role:")) {
     const role = rule.slice(5) as AssignedRole;
     const holders = (await directory.membersWithRole(ctx.db, request.orgId, role)).filter((m) => m.status === "active");
-    const others = holders.filter((m) => m.membershipId !== requester);
-    if (others.length) return { members: others, skipReason: null, viaRole: role };
-    return none(holders.length ? "self" : "no_members");
+    if (!holders.length) return none("no_members");
+    const { members, reason } = await eligibleOf(ctx, request, holders);
+    if (members.length) return { members, skipReason: null, viaRole: role };
+    return none(reason ?? "no_members");
   }
   if (rule.startsWith("member:")) {
     return single(await directory.member(ctx.db, request.orgId, rule.slice(7)), "no_members");
@@ -158,23 +267,28 @@ export async function resolveRule(
 
 /**
  * When every configured step was skipped: hr_admins; for payroll (or when the requester is the
- * only hr_admin) owners; and if nobody but the requester is eligible, an owner-requester may
- * decide with the decision marked `self_approved`.
+ * only hr_admin) owners; and if nobody but the requester is eligible, an owner requester may decide with the
+ * decision marked `self_approved`. Members the subject refuses (`canDecide`) are never chosen, so
+ * a bank change with no other payroll admin goes to owners, never to hr_admins.
  */
-async function fallbackResolution(ctx: Ctx, request: ApprovalRequest): Promise<(Resolution & { rule: string }) | null> {
+async function fallbackResolution(
+  ctx: Pick<Ctx, "db" | "deps">,
+  request: ApprovalRequest,
+): Promise<(Resolution & { rule: string }) | null> {
   const directory = approverDirectory(ctx.deps);
-  const requester = request.requesterMembershipId;
-  if (request.subjectType !== "payroll_run") {
-    const hr = (await directory.membersWithRole(ctx.db, request.orgId, "hr_admin")).filter(
-      (m) => m.status === "active" && m.membershipId !== requester,
-    );
+  const holders = async (role: AssignedRole) =>
+    (await directory.membersWithRole(ctx.db, request.orgId, role)).filter((m) => m.status === "active");
+  if (request.subjectType !== "payroll_run" && !isBankChange(request)) {
+    const hr = (await eligibleOf(ctx, request, await holders("hr_admin"))).members;
     if (hr.length) return { rule: "role:hr_admin", members: hr, skipReason: null, viaRole: "hr_admin" };
   }
-  const owners = (await directory.membersWithRole(ctx.db, request.orgId, "owner")).filter((m) => m.status === "active");
-  const others = owners.filter((m) => m.membershipId !== requester);
+  const owners = await holders("owner");
+  const others = (await eligibleOf(ctx, request, owners)).members;
   if (others.length) return { rule: "role:owner", members: others, skipReason: null, viaRole: "owner" };
-  const self = owners.find((m) => m.membershipId === requester);
-  if (self && selfApproval({ roles: self.roles }, 0).allowed) {
+  for (const self of owners) {
+    const involved = self.membershipId === request.requesterMembershipId;
+    if (!involved || !selfApproval({ roles: self.roles }, 0).allowed) continue;
+    if (await decideBlocker(ctx.db, ctx.deps, request, self, { selfApproved: true })) continue;
     return { rule: "role:owner", members: [self], skipReason: null, viaRole: "owner", selfApproved: true };
   }
   return null;
@@ -237,7 +351,9 @@ interface NewTask {
 async function insertTasks(ctx: Ctx, request: ApprovalRequest, items: NewTask[]): Promise<ApprovalTask[]> {
   const created: ApprovalTask[] = [];
   for (const item of items) {
-    if (item.assignee.membershipId === request.requesterMembershipId && !item.selfApproved) continue;
+    const involved =
+      item.assignee.membershipId === request.requesterMembershipId || isExcluded(request, item.assignee.membershipId);
+    if (involved && !item.selfApproved) continue;
     const rows = await ctx.db
       .insert(approvalTasks)
       .values({
@@ -308,11 +424,14 @@ export async function applyDelegations(
   const directory = approverDirectory(ctx.deps);
   const items: NewTask[] = [];
   for (const task of original) {
+    const source = await directory.member(ctx.db, request.orgId, task.assigneeMembershipId);
+    if (source?.status !== "active") continue;
     for (const d of found.filter((x) => x.fromMembershipId === task.assigneeMembershipId)) {
-      if (d.toMembershipId === request.requesterMembershipId) continue; // never for their own request
+      // Never to the requester or someone involved, only to holders of the task's role, and only to
+      // members the subject allows (decideBlocker).
       const delegate = await directory.member(ctx.db, request.orgId, d.toMembershipId);
-      if (delegate?.status !== "active") continue;
-      if (task.viaRole && !delegate.roles.includes(task.viaRole as AssignedRole)) continue;
+      if (await decideBlocker(ctx.db, ctx.deps, request, delegate, { viaRole: task.viaRole })) continue;
+      if (!delegate) continue;
       items.push({
         position: task.position,
         assignee: delegate,
@@ -469,6 +588,26 @@ export interface SubmitInput {
   requesterMembershipId: string;
   requesterEmployeeId?: string | null;
   attributes?: SubjectAttributes;
+  /**
+   * Members who must not decide besides the requester, e.g. the colleague who takes a shift. The
+   * engine adds the member who filed it when that is not the requester (leave or a claim entered
+   * on an employee's behalf), from the audit context.
+   */
+  excludedDeciderMembershipIds?: readonly string[];
+}
+
+/** The module's exclusions plus the filer, including employees who have no sign-in yet. */
+async function excludedDeciders(db: Db, deps: AppDeps, audit: AuditContext, input: SubmitInput): Promise<string[]> {
+  const out = new Set(input.excludedDeciderMembershipIds ?? []);
+  if (audit.actorType === "member" && audit.actorMembershipId) {
+    const filer = await approverDirectory(deps).member(db, input.orgId, audit.actorMembershipId);
+    if (
+      audit.actorMembershipId !== input.requesterMembershipId ||
+      (input.requesterEmployeeId && filer?.employeeId !== input.requesterEmployeeId)
+    )
+      out.add(audit.actorMembershipId);
+  }
+  return [...out].sort();
 }
 
 export interface SubmitResult {
@@ -522,6 +661,7 @@ export async function submitApproval(
   const now = deps.clock.now();
   const ctx: Ctx = { db, deps, audit, now };
   const id = deps.ids.newId();
+  const excluded = await excludedDeciders(db, deps, audit, input);
   const ref: SubjectRef = {
     orgId: input.orgId,
     subjectType: input.subjectType,
@@ -530,6 +670,7 @@ export async function submitApproval(
     requesterMembershipId: input.requesterMembershipId,
     requesterEmployeeId: input.requesterEmployeeId ?? null,
     attributes,
+    excludedDeciderMembershipIds: excluded,
   };
   await adapter.validate?.(db, ref);
   const summary = await adapter.summary(db, ref);
@@ -548,6 +689,7 @@ export async function submitApproval(
       status: "pending",
       currentPosition: 1,
       attributes,
+      excludedDeciderMembershipIds: excluded,
       title: summary.title.slice(0, 200),
       submittedAt: now,
     })
@@ -567,7 +709,12 @@ export async function submitApproval(
     action: "approval.submitted",
     targetType: "approval_request",
     targetId: id,
-    meta: { subjectType: input.subjectType, subjectId: input.subjectId, policy: policy.name },
+    meta: {
+      subjectType: input.subjectType,
+      subjectId: input.subjectId,
+      policy: policy.name,
+      ...(excluded.length ? { excludedDeciders: excluded } : {}),
+    },
   });
   const state = await advance(ctx, request);
   if (state === "approved") {
@@ -580,9 +727,19 @@ export async function submitApproval(
 export interface Actor {
   orgId: string;
   membershipId: string;
+  /** The actor's employee record, so they can't act on requests about themselves. */
+  employeeId?: string | null;
   roles: readonly AssignedRole[];
   audit: AuditContext;
 }
+
+const BLOCKED_MESSAGE: Record<DecideBlocker, string> = {
+  inactive: "Your membership isn't active, so you can't decide approvals.",
+  self: "You can't decide your own request. Someone else needs to approve it.",
+  excluded: "You filed this request or benefit from it, so someone else needs to decide it.",
+  role: "This task needs a role you no longer hold. Ask an owner to reassign it.",
+  not_allowed: "Your role can't decide this kind of request. Ask an owner to reassign it.",
+};
 
 export interface DecideInput {
   taskId: string;
@@ -653,14 +810,24 @@ export async function decideTask(deps: AppDeps, actor: Actor, input: DecideInput
     const [task] = await tx.select().from(approvalTasks).where(eq(approvalTasks.id, input.taskId));
     if (!task) throw new AppError("not_found", "That approval task doesn't exist or isn't assigned to you.");
 
+    // Enforced for every decision path (single, bulk, Home inline, delegate): see decideBlocker.
+    const me = await approverDirectory(deps).member(tx, actor.orgId, actor.membershipId);
+    const blocked = await decideBlocker(tx, deps, request, me, {
+      viaRole: task.viaRole,
+      selfApproved: task.selfApproved,
+    });
+    if (blocked) throw new AppError("forbidden", BLOCKED_MESSAGE[blocked]);
+    if (task.onBehalfOfMembershipId) {
+      const delegator = await approverDirectory(deps).member(tx, actor.orgId, task.onBehalfOfMembershipId);
+      if (delegator?.status !== "active")
+        throw new AppError("forbidden", "This task's delegator is no longer active. Ask an owner to reassign it.");
+    }
+
     if (task.status !== "pending" || request.status !== "pending") {
       if (task.status === outcome && (task.comment ?? null) === comment) {
         return { taskId: task.id, requestId: request.id, outcome, requestStatus: request.status, replayed: true };
       }
       throw await alreadyDecided(tx, deps, request, task);
-    }
-    if (request.requesterMembershipId === actor.membershipId && !task.selfApproved) {
-      throw new AppError("forbidden", "You can't decide your own request. Someone else needs to approve it.");
     }
 
     await tx
@@ -780,6 +947,10 @@ async function withdrawLocked(ctx: Ctx, request: ApprovalRequest) {
   return { requestId: request.id, status: "withdrawn" as const };
 }
 
+export function isBankChange(request: Pick<ApprovalRequest, "subjectType" | "attributes">): boolean {
+  return request.subjectType === "profile_change" && request.attributes?.typeCode === "bank";
+}
+
 /** Who may read a request (and so the subject summary). Delegates only while their task is open. */
 export async function canReadRequest(
   db: Db,
@@ -789,13 +960,21 @@ export async function canReadRequest(
 ): Promise<boolean> {
   if (request.orgId !== viewer.orgId) return false;
   if (request.requesterMembershipId === viewer.membershipId) return true;
+  // Former members keep sight of their own requests only (review #15).
+  if (viewer.active === false) return false;
+  // Task history must not grant bank visibility to an HR admin who lost payroll access.
+  if (isBankChange(request) && !viewer.roles.includes("owner") && !viewer.roles.includes("payroll_admin")) return false;
   const mine = await db
     .select({ origin: approvalTasks.origin, status: approvalTasks.status })
     .from(approvalTasks)
     .where(and(eq(approvalTasks.requestId, request.id), eq(approvalTasks.assigneeMembershipId, viewer.membershipId)));
   if (mine.some((t) => t.origin !== "delegated" || t.status === "pending")) return true;
   if (viewer.roles.includes("owner")) return true;
-  if (viewer.roles.includes("hr_admin") && request.subjectType !== "payroll_run") return true;
+  if (viewer.roles.includes("hr_admin") && request.subjectType !== "payroll_run") {
+    // A bank change's summary shows the account holder and last digits: payroll data, so an
+    // hr_admin reads it only when they are also a payroll admin.
+    if (!isBankChange(request) || viewer.roles.includes("payroll_admin")) return true;
+  }
   const adapter = workflowRegistry(deps).subjects.get(request.subjectType);
   return (await adapter?.canRead?.(db, viewer, refOf(request))) ?? false;
 }
@@ -849,7 +1028,16 @@ export async function addComment(
   });
 }
 
-/** Owners and hr_admins move a pending task to another eligible member, with a reason. */
+const ROLE_NOUN: Record<string, string> = {
+  owner: "an owner",
+  hr_admin: "an HR admin",
+  payroll_admin: "a payroll admin",
+};
+
+/**
+ * Owners and hr_admins move a pending task to another eligible member, with a reason. The target
+ * must hold the task's role and be allowed by the subject; the actor may not be involved.
+ */
 export async function reassignTask(
   deps: AppDeps,
   actor: Actor,
@@ -874,26 +1062,51 @@ export async function reassignTask(
     if (request.subjectType === "payroll_run" && !actor.roles.includes("owner")) {
       throw new AppError("not_found", "That approval task doesn't exist.");
     }
+    // Nobody steers a request they made, filed or that is about them (review #5).
+    const me = await approverDirectory(deps).member(tx, actor.orgId, actor.membershipId);
+    if (me?.status !== "active") throw new AppError("forbidden", BLOCKED_MESSAGE.inactive);
+    const involved =
+      request.requesterMembershipId === actor.membershipId ||
+      isExcluded(request, actor.membershipId) ||
+      (await filedOnBehalf(tx, request, me)) ||
+      (!!me.employeeId && me.employeeId === request.requesterEmployeeId);
+    if (involved) {
+      throw new AppError(
+        "forbidden",
+        "You can't reassign a task on a request you made, filed or that is about you. Ask an owner.",
+      );
+    }
     const [task] = await tx.select().from(approvalTasks).where(eq(approvalTasks.id, found.id));
     if (task?.status !== "pending" || request.status !== "pending")
       throw await alreadyDecided(tx, deps, request, found);
     const target = await approverDirectory(deps).member(tx, actor.orgId, input.toMembershipId);
-    if (target?.status !== "active") {
-      throw new AppError("validation_failed", "Choose an active member to reassign to.", {
-        issues: [{ path: "toMembershipId", message: "Pick an active member of this organisation." }],
+    // The new assignee must be someone who could decide this task: same role, allowed by the subject.
+    const blocked = await decideBlocker(tx, deps, request, target, { viaRole: task.viaRole });
+    if (blocked) {
+      const why: Record<DecideBlocker, string> = {
+        inactive: "Choose an active member to reassign to.",
+        self: "The requester can't approve their own request. Choose someone else.",
+        excluded: "That member filed this request or benefits from it. Choose someone else.",
+        role: `This step needs ${ROLE_NOUN[task.viaRole ?? ""] ?? "a specific role"}. Choose a member who holds it.`,
+        not_allowed: "That member's role can't decide this kind of request. Choose someone who can.",
+      };
+      throw new AppError("validation_failed", why[blocked], {
+        issues: [{ path: "toMembershipId", message: why[blocked] }],
       });
     }
-    if (target.membershipId === request.requesterMembershipId) {
-      throw new AppError("validation_failed", "The requester can't approve their own request. Choose someone else.", {
-        issues: [{ path: "toMembershipId", message: "Choose someone other than the requester." }],
-      });
-    }
+    if (!target) throw new AppError("not_found", "That member doesn't exist.");
     await tx
       .update(approvalTasks)
       .set({ status: "superseded", supersededReason: "reassigned" })
       .where(eq(approvalTasks.id, task.id));
     const created = await insertTasks(ctx, request, [
-      { position: task.position, assignee: target, origin: "reassigned", viaRole: null, dueAt: task.dueAt },
+      {
+        position: task.position,
+        assignee: target,
+        origin: "reassigned",
+        viaRole: (task.viaRole as AssignedRole | null) ?? null,
+        dueAt: task.dueAt,
+      },
     ]);
     const delegated = await applyDelegations(ctx, request, created);
     await notifyAssignees(ctx, request, [...created, ...delegated]);
@@ -1055,6 +1268,139 @@ export async function closeEndedDelegations(db: Db, deps: AppDeps, orgId?: strin
     closed += rows.length;
   }
   return closed;
+}
+
+/**
+ * Members who left or were suspended (review #15): out-of-office cover to and from them is revoked,
+ * their open tasks (and delegate tasks on their behalf) are superseded, and a step left with nobody
+ * is re-resolved to whoever may decide it now, falling back like a skipped chain. Call it in the
+ * transaction that makes a membership former or suspended; `sweepInactiveApprovers` catches the rest.
+ * Returns the number of tasks taken away.
+ */
+export async function retireInactiveApprovers(
+  db: Db,
+  deps: AppDeps,
+  audit: AuditContext,
+  input: { orgId: string; membershipIds: readonly string[] },
+): Promise<number> {
+  const ids = [...new Set(input.membershipIds)];
+  if (!ids.length) return 0;
+  const now = deps.clock.now();
+  const ctx: Ctx = { db, deps, audit, now };
+  await db
+    .update(delegations)
+    .set({ revokedAt: now })
+    .where(
+      and(
+        eq(delegations.orgId, input.orgId),
+        isNull(delegations.revokedAt),
+        or(inArray(delegations.fromMembershipId, ids), inArray(delegations.toMembershipId, ids)),
+      ),
+    );
+  const open = await db
+    .select({ requestId: approvalTasks.requestId })
+    .from(approvalTasks)
+    .where(
+      and(
+        eq(approvalTasks.orgId, input.orgId),
+        eq(approvalTasks.status, "pending"),
+        or(inArray(approvalTasks.assigneeMembershipId, ids), inArray(approvalTasks.onBehalfOfMembershipId, ids)),
+      ),
+    );
+  let removed = 0;
+  for (const requestId of [...new Set(open.map((t) => t.requestId))].sort()) {
+    const request = await lockRequest(db, input.orgId, requestId);
+    if (request?.status !== "pending") continue;
+    const gone = await db
+      .update(approvalTasks)
+      .set({ status: "superseded", supersededReason: "member_inactive" })
+      .where(
+        and(
+          eq(approvalTasks.requestId, requestId),
+          eq(approvalTasks.status, "pending"),
+          or(inArray(approvalTasks.assigneeMembershipId, ids), inArray(approvalTasks.onBehalfOfMembershipId, ids)),
+        ),
+      )
+      .returning();
+    removed += gone.length;
+    for (const position of [...new Set(gone.map((t) => t.position))]) {
+      await reresolveEmptyStep(ctx, request, position, gone);
+    }
+  }
+  return removed;
+}
+
+async function reresolveEmptyStep(ctx: Ctx, request: ApprovalRequest, position: number, gone: ApprovalTask[]) {
+  const [left] = await ctx.db
+    .select({ id: approvalTasks.id })
+    .from(approvalTasks)
+    .where(
+      and(
+        eq(approvalTasks.requestId, request.id),
+        eq(approvalTasks.position, position),
+        eq(approvalTasks.status, "pending"),
+      ),
+    )
+    .limit(1);
+  if (left) return;
+  const [step] = await ctx.db
+    .select()
+    .from(approvalSteps)
+    .where(and(eq(approvalSteps.requestId, request.id), eq(approvalSteps.position, position)));
+  if (step?.status !== "active") return;
+  let resolution: Resolution = await resolveRule(ctx, request, step.approverRule);
+  if (!resolution.members.length) resolution = (await fallbackResolution(ctx, request)) ?? resolution;
+  const created = resolution.members.length ? await createStepTasks(ctx, request, step, resolution) : [];
+  if (!created.length) {
+    ctx.deps.logger.warn("Approval request has no eligible approver after a member left", { requestId: request.id });
+  }
+  await recordAudit(ctx.db, ctx.deps, ctx.audit, {
+    action: "approval.rerouted",
+    targetType: "approval_request",
+    targetId: request.id,
+    meta: {
+      position,
+      reason: "member_inactive",
+      from: [...new Set(gone.filter((t) => t.position === position).map((t) => t.assigneeMembershipId))],
+      to: created.map((t) => t.assigneeMembershipId),
+    },
+  });
+}
+
+/**
+ * Sweep step: members who are no longer active but still hold open tasks or out-of-office cover
+ * (suspended from Settings → Members, or made former outside the people module).
+ */
+export async function sweepInactiveApprovers(deps: AppDeps, audit: (orgId: string) => AuditContext): Promise<number> {
+  const result = await deps.db.execute<{ org_id: string; membership_id: string }>(sql`
+    select distinct m.org_id, m.id as membership_id
+      from memberships m
+     where m.status in ('suspended', 'former')
+       and (exists (select 1 from approval_tasks t
+                     where t.org_id = m.org_id and t.status = 'pending'
+                       and (t.assignee_membership_id = m.id or t.on_behalf_of_membership_id = m.id))
+         or exists (select 1 from delegations d
+                     where d.org_id = m.org_id and d.revoked_at is null
+                       and (d.from_membership_id = m.id or d.to_membership_id = m.id)))
+  `);
+  const rows = (Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? [])) as {
+    org_id: string;
+    membership_id: string;
+  }[];
+  const byOrg = new Map<string, string[]>();
+  for (const r of rows) byOrg.set(r.org_id, [...(byOrg.get(r.org_id) ?? []), r.membership_id]);
+  let removed = 0;
+  for (const [orgId, ids] of byOrg) {
+    try {
+      removed += await deps.db.transaction((tx) =>
+        retireInactiveApprovers(tx, deps, audit(orgId), { orgId, membershipIds: ids }),
+      );
+    } catch (err) {
+      // One organisation's failure never blocks the others.
+      deps.logger.error("Retiring inactive approvers failed", { orgId, error: String(err) });
+    }
+  }
+  return removed;
 }
 
 export type { Ctx as EngineContext };

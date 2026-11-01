@@ -113,6 +113,11 @@ export const approvalRequests = pgTable(
     status: text("status", { enum: ["pending", "approved", "rejected", "withdrawn"] }).notNull(),
     currentPosition: integer("current_position").notNull().default(1),
     attributes: jsonb("attributes").$type<SubjectAttributes>().notNull().default({}),
+    /**
+     * Members who may never decide this request besides the requester: whoever filed it on the
+     * requester's behalf, and the beneficiaries the module names (e.g. the colleague taking a shift).
+     */
+    excludedDeciderMembershipIds: uuid("excluded_decider_membership_ids").array().notNull().default(sql`'{}'::uuid[]`),
     /** Subject title at submission, for fast lists (the adapter's live summary is shown in detail). */
     title: text("title").notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),

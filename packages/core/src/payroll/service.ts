@@ -20,6 +20,7 @@ import { singaporeToday } from "../employees/dates.ts";
 import { AppError } from "../errors.ts";
 import { notify } from "../notifications/notify.ts";
 import { submitApproval, withdrawSubject } from "../workflows/engine.ts";
+import { isEarningsInput, selfEarningsEditors } from "../workflows/payroll-eligibility.ts";
 import { canonicalHash } from "./engine/canonical.ts";
 import { computeEmployeePay } from "./engine/compute.ts";
 import { dateLabel, dayOfWeek, daysInMonth, maxDate, monthBounds, monthLabel } from "./engine/dates.ts";
@@ -468,7 +469,12 @@ export async function addItem(deps: AppDeps, actor: PayrollActor, runId: string,
       action: "payroll.item_added",
       targetType: "payroll_run",
       targetId: run.id,
-      meta: { itemId: id, employeeId: input.employeeId, kind: input.kind },
+      meta: {
+        itemId: id,
+        employeeId: input.employeeId,
+        kind: input.kind,
+        selfEarnings: actor.employeeId === input.employeeId && isEarningsInput(input.kind),
+      },
       diff: { amountCents: { changed: true } },
     });
   });
@@ -497,7 +503,12 @@ export async function updateItem(deps: AppDeps, actor: PayrollActor, runId: stri
       action: "payroll.item_updated",
       targetType: "payroll_run",
       targetId: run.id,
-      meta: { itemId, kind: input.kind },
+      meta: {
+        itemId,
+        employeeId: input.employeeId,
+        kind: input.kind,
+        selfEarnings: actor.employeeId === input.employeeId && isEarningsInput(input.kind),
+      },
       diff: { amountCents: { changed: true } },
     });
   });
@@ -860,6 +871,7 @@ export async function submitRun(deps: AppDeps, actor: PayrollActor, runId: strin
       requesterMembershipId: actor.membershipId,
       requesterEmployeeId: actor.employeeId,
       attributes: { amountCents: run.totals?.netPayableCents ?? 0, typeCode: run.kind },
+      excludedDeciderMembershipIds: (await selfEarningsEditors(tx, actor.orgId, run.id)).map((m) => m.membershipId),
     });
     await tx.update(payrollRuns).set({ approvalRequestId: requestId }).where(eq(payrollRuns.id, run.id));
     await recordAudit(tx, deps, actor.audit, {

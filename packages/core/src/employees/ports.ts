@@ -1,10 +1,10 @@
-import { eq, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { inviteMember } from "../access/invitations.ts";
 import { markMembershipFormer } from "../access/members-routes.ts";
 import { orgScope } from "../access/org-scope.ts";
 import { type AuditContext, type AuditEventInput, recordAudit, systemAuditContext } from "../audit/audit.ts";
 import type { SecretBox } from "../crypto/secret-box.ts";
-import { memberships as membershipsTable } from "../db/schema/access.ts";
+import { membershipRoles, memberships as membershipsTable } from "../db/schema/access.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
@@ -138,10 +138,11 @@ export function defaultPeoplePorts(deps: AppDeps): PeoplePorts {
     memberships: {
       inviteForEmployee: (input, ctx) => inviteHiredEmployee(deps, input, ctx),
       markFormer: async ({ orgId, employeeId }, tx) => {
-        await markMembershipFormer(deps, tx ?? deps.db, systemAuditContext(orgId, "system", "people.former"), {
-          orgId,
-          employeeId,
-        });
+        const audit = systemAuditContext(orgId, "system", "people.former");
+        const run = async (db: Db) => {
+          await markMembershipFormer(deps, db, audit, { orgId, employeeId });
+        };
+        await (tx ? run(tx) : deps.db.transaction(run));
       },
     },
     approvals: workflowsApprovalsPort(deps),
@@ -152,7 +153,9 @@ export function defaultPeoplePorts(deps: AppDeps): PeoplePorts {
 /**
  * Hire-time invitation through identity's invite service. A hire never fails because of its
  * invitation: an email that already has a membership is linked to the new record when that
- * membership has no employee yet, and anything else is reported back as `skipped` with what to do.
+ * membership has no employee yet and holds no roles, and anything else is reported back as
+ * `skipped` with what to do. Linking a role holder would let whoever records the hire later end
+ * that employment and so strip an owner's or admin's roles (review #6), so it is never automatic.
  */
 export async function inviteHiredEmployee(
   deps: AppDeps,
@@ -179,6 +182,18 @@ export async function inviteHiredEmployee(
     if (err instanceof AppError && err.code === "conflict" && existingId?.membershipId) {
       const membershipId = existingId.membershipId;
       return deps.db.transaction(async (tx) => {
+        const [role] = await tx
+          .select({ role: membershipRoles.role })
+          .from(membershipRoles)
+          .where(and(eq(membershipRoles.orgId, input.orgId), eq(membershipRoles.membershipId, membershipId)))
+          .limit(1);
+        if (role) {
+          return {
+            status: "skipped" as const,
+            inviteUrl: null,
+            message: `${input.email} already signs in as an owner or admin, so it wasn't linked to this record automatically: an owner has to link it.`,
+          };
+        }
         const [linked] = await tx
           .update(membershipsTable)
           .set({ employeeId: input.employeeId, updatedAt: deps.clock.now() })

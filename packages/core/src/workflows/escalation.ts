@@ -1,11 +1,12 @@
 import { and, eq, inArray, isNotNull, isNull, lte, ne } from "drizzle-orm";
+import type { AssignedRole } from "../access/matrix.ts";
 import { singaporeDate } from "../access/scope.ts";
 import { recordAudit, systemAuditContext } from "../audit/audit.ts";
 import { type ApprovalTask, approvalRequests, approvalSteps, approvalTasks } from "../db/schema/workflows.ts";
 import type { AppDeps } from "../deps.ts";
 import { notify } from "../notifications/notify.ts";
 import { approverDirectory } from "./directory.ts";
-import { createStepTasks, type EngineContext, lockRequest, memberName, subjectNoun } from "./engine.ts";
+import { createStepTasks, decideBlocker, type EngineContext, lockRequest, memberName, subjectNoun } from "./engine.ts";
 import { workflowRegistry } from "./registry.ts";
 import type { DirectoryMember } from "./types.ts";
 
@@ -14,8 +15,9 @@ const BATCH = 100;
 /**
  * Escalation sweep (spec "Escalation and reassignment"; design decision 6). For every active step
  * with a pending task past its due time and not yet escalated: remind the assignees, add a task for
- * the next level (the assignee's manager, or the hr_admins when the assignee has no manager or is
- * an hr_admin), and mark the step escalated so it happens once. Due tasks are claimed with
+ * the next level (role step: the role's other holders, then owners; manager step: the assignee's
+ * manager, or the hr_admins when the assignee has no manager or is an hr_admin, then owners; never
+ * anyone who may not decide it), and mark the step escalated so it happens once. Due tasks are claimed with
  * `FOR UPDATE SKIP LOCKED`, so concurrent sweeps (two replicas) never double-process.
  */
 export async function sweepEscalations(deps: AppDeps, now: Date): Promise<number> {
@@ -137,41 +139,64 @@ async function escalateStep(
     },
   });
 
-  // 2. One level up: each original assignee's manager, or the hr_admins.
+  // 2. One level up, only to members who may decide it (decideBlocker: role, subject, involvement).
+  //    A role step goes to the role's other holders, then owners; a manager or member step to each
+  //    assignee's manager, then the hr_admins, then owners. Escalated tasks keep the role they were
+  //    given, so delegation stays within it. Payroll runs and bank changes never reach a role that
+  //    can't decide them: decideBlocker refuses the candidate.
   const directory = approverDirectory(deps);
-  const targets = new Map<string, DirectoryMember>();
-  let needHr = false;
-  for (const task of pending.filter((t) => t.origin !== "delegated")) {
-    const assignee = await directory.member(db, request.orgId, task.assigneeMembershipId);
-    if (!assignee || assignee.roles.includes("hr_admin") || !assignee.employeeId) {
-      needHr = true;
-      continue;
-    }
-    const managerEmp = await directory.managerOf(db, request.orgId, assignee.employeeId, singaporeDate(now));
-    const manager = managerEmp ? await directory.memberForEmployee(db, request.orgId, managerEmp) : null;
-    if (manager && manager.status === "active") targets.set(manager.membershipId, manager);
-    else needHr = true;
-  }
-  if (needHr) {
-    for (const hr of await directory.membersWithRole(db, request.orgId, "hr_admin")) {
-      if (hr.status === "active") targets.set(hr.membershipId, hr);
-    }
-  }
   const already = new Set(pending.map((t) => t.assigneeMembershipId));
-  const members = [...targets.values()].filter(
-    (m) => m.membershipId !== request.requesterMembershipId && !already.has(m.membershipId),
-  );
-  if (!members.length && needHr) {
-    // No hr_admin other than the current assignees: owners.
-    for (const o of await directory.membersWithRole(db, request.orgId, "owner")) {
-      if (o.status === "active" && o.membershipId !== request.requesterMembershipId && !already.has(o.membershipId)) {
-        members.push(o);
+  const eligible = async (candidates: readonly DirectoryMember[]) => {
+    const out = new Map<string, DirectoryMember>();
+    for (const m of candidates) {
+      if (already.has(m.membershipId) || out.has(m.membershipId)) continue;
+      if (!(await decideBlocker(db, deps, request, m))) out.set(m.membershipId, m);
+    }
+    return [...out.values()];
+  };
+  const holders = (role: AssignedRole) => directory.membersWithRole(db, request.orgId, role);
+  const stepRole = step.approverRule.startsWith("role:") ? (step.approverRule.slice(5) as AssignedRole) : null;
+  const groups: { members: DirectoryMember[]; viaRole: AssignedRole | null }[] = [];
+  if (stepRole) {
+    const peers = await eligible(await holders(stepRole));
+    if (peers.length) groups.push({ members: peers, viaRole: stepRole });
+  } else {
+    const managers: DirectoryMember[] = [];
+    let needHr = false;
+    for (const task of pending.filter((t) => t.origin !== "delegated")) {
+      const assignee = await directory.member(db, request.orgId, task.assigneeMembershipId);
+      if (!assignee || assignee.roles.includes("hr_admin") || !assignee.employeeId) {
+        needHr = true;
+        continue;
       }
+      const managerEmp = await directory.managerOf(db, request.orgId, assignee.employeeId, singaporeDate(now));
+      const manager = managerEmp ? await directory.memberForEmployee(db, request.orgId, managerEmp) : null;
+      if (manager) managers.push(manager);
+      else needHr = true;
+    }
+    const up = await eligible(managers);
+    if (up.length) groups.push({ members: up, viaRole: null });
+    if (needHr || !up.length) {
+      const hr = await eligible(await holders("hr_admin"));
+      if (hr.length) groups.push({ members: hr, viaRole: "hr_admin" });
     }
   }
-  const created = members.length
-    ? await createStepTasks(ctx, request, step, { members, skipReason: null, viaRole: null }, "escalated")
-    : [];
+  if (!groups.length) {
+    const owners = await eligible(await holders("owner"));
+    if (owners.length) groups.push({ members: owners, viaRole: "owner" });
+  }
+  const created: ApprovalTask[] = [];
+  for (const g of groups) {
+    created.push(
+      ...(await createStepTasks(
+        ctx,
+        request,
+        step,
+        { members: g.members, skipReason: null, viaRole: g.viaRole },
+        "escalated",
+      )),
+    );
+  }
 
   await db
     .update(approvalSteps)

@@ -113,10 +113,10 @@ describe("hire-time invitation", () => {
 
   it("links an existing member without an employee record instead of failing the hire", async () => {
     const { deps, api } = await setup();
-    const existing = await seedMember(deps, h.orgId, { email: "owner@kopikaki.sg", roles: ["owner"] });
+    const existing = await seedMember(deps, h.orgId, { email: "staff@kopikaki.sg", roles: [] });
     const res = await api
       .as(h.orgId, ["hr_admin"])
-      .post("/employees", hirePayload(s, { person: { workEmail: "owner@kopikaki.sg" }, compensation: null }));
+      .post("/employees", hirePayload(s, { person: { workEmail: "staff@kopikaki.sg" }, compensation: null }));
     expect(res.status).toBe(201);
     expect(res.body.invite).toMatchObject({ status: "linked", inviteUrl: null });
     const [m] = await t.db.select().from(memberships).where(eq(memberships.id, existing.membershipId));
@@ -125,7 +125,7 @@ describe("hire-time invitation", () => {
     // Work emails are unique among current employees, so nobody else can take over that link.
     const again = await api
       .as(h.orgId, ["hr_admin"])
-      .post("/employees", hirePayload(s, { person: { workEmail: "owner@kopikaki.sg" }, compensation: null }));
+      .post("/employees", hirePayload(s, { person: { workEmail: "staff@kopikaki.sg" }, compensation: null }));
     expect(again.status).toBe(409);
   });
 

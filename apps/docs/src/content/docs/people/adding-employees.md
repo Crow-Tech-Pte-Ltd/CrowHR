@@ -29,6 +29,8 @@ Checks that stop a hire:
 - An age below the minimum employment age on the start date (13, Employment Act s 68(3)). The family-only industrial undertaking exception is not supported.
 - A manager that would create a reporting cycle, or the employee as their own manager.
 
+An existing sign-in with no employee link is linked automatically only if it holds no assigned roles. An owner or admin sign-in is never linked automatically; the hire succeeds with a message explaining why the invitation was skipped.
+
 Employee numbers are generated as `E0001`, `E0002`… unless you enter one.
 
 ### Legal and preferred names
