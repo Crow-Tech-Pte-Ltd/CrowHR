@@ -2,6 +2,7 @@ import { attendanceDaysWorkedSource, attendanceOvertimeSource } from "../attenda
 import { createClaimsReimbursementSource } from "../claims/reimbursement.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
+import { leaveEncashmentSource } from "../leave/encashment.ts";
 import { leaveUnpaidSource } from "../leave/outputs.ts";
 import { schedulingScheduledDaysSource } from "../scheduling/feeds.ts";
 
@@ -13,6 +14,7 @@ import { schedulingScheduledDaysSource } from "../scheduling/feeds.ts";
  * | --- | --- | --- | --- |
  * | `reimbursements` | WS6 claims (`ReimbursementSource`, add-claims design §5) | `createClaimsReimbursementSource(deps)` (approved claims) | `createMemoryReimbursements()` |
  * | `overtime` | WS5 attendance (approved OT) | `attendanceOvertimeSource` | `createMemoryOvertime()` / `manualOvertimeOnly` |
+ * | `encashments` | Leave (approved encashment) | `leaveEncashmentSource` | `leave/encashment.http.test.ts` |
  * | `unpaidLeave` | WS5 leave (no-pay, unpaid infant care) | `leaveUnpaidSource` | `noUnpaidLeave` |
  * | `daysWorked` | WS5 attendance (rostered staff) | `attendanceDaysWorkedSource` | `noDaysWorked` |
  * | `scheduledDays` | WS5 scheduling (published rosters) | `schedulingScheduledDaysSource` | `noScheduledDays` |
@@ -158,7 +160,20 @@ export const noScheduledDays: ScheduledDaysSource = { listScheduledDays: async (
 export const noUnpaidLeave: UnpaidLeaveSource = { listUnpaid: async () => [] };
 export const noDaysWorked: DaysWorkedSource = { listDaysWorked: async () => [] };
 
+export interface PayableEncashment {
+  id: string;
+  employeeId: string;
+  unit: "days" | "hours";
+  hundredths: number;
+  amountCents: number;
+  rateText: string;
+}
+export interface EncashmentSource {
+  listApproved(orgId: string, periodEnd: string): Promise<PayableEncashment[]>;
+}
+
 export interface PayrollPorts {
+  encashments: EncashmentSource;
   reimbursements: ReimbursementSource;
   overtime: OvertimeSource;
   /** WS5 leave: approved unpaid leave per date (pro-ration). */
@@ -174,6 +189,7 @@ export type PayrollAppDeps = AppDeps & { payroll?: Partial<PayrollPorts> };
 export function payrollPorts(deps: AppDeps): PayrollPorts {
   const p = (deps as PayrollAppDeps).payroll ?? {};
   return {
+    encashments: p.encashments ?? leaveEncashmentSource(deps),
     reimbursements: p.reimbursements ?? createClaimsReimbursementSource(deps),
     overtime: p.overtime ?? attendanceOvertimeSource(deps),
     unpaidLeave: p.unpaidLeave ?? leaveUnpaidSource(deps),

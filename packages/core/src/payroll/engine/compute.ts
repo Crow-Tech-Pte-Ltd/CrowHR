@@ -301,6 +301,13 @@ export function computeEmployeePay(input: PayInput): PayResult {
         item.id,
       ),
     );
+    if (item.rateExplanation && item.id.startsWith("encashment:")) {
+      working.push({
+        section: "pay",
+        code: "LEAVE_ENCASHMENT_RATE",
+        text: `${item.label}: ${item.rateExplanation} Accumulated unused leave is AW, including final pay.${item.cpfLiable ? "" : " CPF excluded: SPR status began after cessation."}`,
+      });
+    }
     if (item.kind === "backpay") {
       working.push({
         section: "pay",

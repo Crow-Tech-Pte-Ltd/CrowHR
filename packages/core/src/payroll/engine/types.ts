@@ -51,7 +51,9 @@ export interface RunItemInput {
   periodEnd: string | null;
   deductionCategory: DeductionCategory | null;
   /** Where it came from: manual entry or a source port (attendance, claims). */
-  source: "manual" | "attendance";
+  source: "manual" | "attendance" | "leave";
+  /** Snapshotted leave rate basis, shown in payslip working. */
+  rateExplanation?: string;
 }
 
 export interface CompensationSegment {

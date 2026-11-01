@@ -33,7 +33,14 @@ import {
   type PayResult,
   type RunItemInput,
 } from "./engine/types.ts";
-import type { ApprovedOvertime, PayableClaim, RosterDaysWorked, RosterScheduledDays, UnpaidLeaveDay } from "./ports.ts";
+import type {
+  ApprovedOvertime,
+  PayableClaim,
+  PayableEncashment,
+  RosterDaysWorked,
+  RosterScheduledDays,
+  UnpaidLeaveDay,
+} from "./ports.ts";
 
 /**
  * Gathers each employee's input snapshot for a run from the live records (people module tables,
@@ -214,6 +221,7 @@ function stateFromOpening(
 export interface SnapshotContext {
   run: PayrollRun;
   claims: PayableClaim[];
+  encashments?: PayableEncashment[];
   /** Approved overtime from attendance (OvertimeSource); entered as items with source "attendance". */
   overtime?: ApprovedOvertime[];
   /** Approved unpaid leave from the leave module, by date (`unpaid_leave` items); a manual item on the same date wins. */
@@ -614,6 +622,35 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
               periodEnd: d.periodEnd,
               deductionCategory: null,
               source: "attendance",
+            }),
+          ),
+        ...(ctx.encashments ?? [])
+          .filter((encashment) => encashment.employeeId === id)
+          .map(
+            (encashment): RunItemInput => ({
+              id: `encashment:${encashment.id}`,
+              kind: "other_earning",
+              label: `Leave encashment (${encashment.hundredths / 100} ${encashment.unit})`,
+              amountCents: encashment.amountCents,
+              wageClass: "AW",
+              // Effective 1 Jan 2024: ex-employees must be SC/SPR at cessation as well as payable date.
+              // https://www.cpf.gov.sg/service/article/are-cpf-contributions-payable-on-additional-wages-payable-to-ex-employees-after-they-have-left-employment
+              cpfLiable: !(
+                run.month >= "2024-01" &&
+                tenure.lastWorkingDay &&
+                e.residencyStatus === "pr" &&
+                e.prStartDate &&
+                e.prStartDate > tenure.lastWorkingDay
+              ),
+              awPayableDate: minDate(run.periodEnd, maxDate(run.periodStart, run.payDate)),
+              minutes: null,
+              days: encashment.unit === "days" ? encashment.hundredths / 100 : null,
+              date: null,
+              periodStart: null,
+              periodEnd: null,
+              deductionCategory: null,
+              source: "leave",
+              rateExplanation: encashment.rateText,
             }),
           ),
         ...(ctx.overtime ?? [])

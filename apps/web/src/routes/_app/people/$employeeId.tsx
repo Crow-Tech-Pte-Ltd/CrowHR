@@ -34,6 +34,7 @@ import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { EmployeeDocuments } from "../../../documents/employee-tab.tsx";
+import { Encashments } from "../../../leave/encashments.tsx";
 import { ApiError } from "../../../lib/api.ts";
 import {
   api,
@@ -62,7 +63,7 @@ import {
   today,
 } from "./-lib/ui.tsx";
 
-const TABS = ["overview", "job", "pay", "documents", "history"] as const;
+const TABS = ["overview", "job", "pay", "leave", "documents", "history"] as const;
 type Tab = (typeof TABS)[number];
 
 export const Route = createFileRoute("/_app/people/$employeeId")({
@@ -169,6 +170,9 @@ function EmployeePage() {
         </TabsContent>
         <TabsContent value="pay">
           <PayTab e={e} onChangePay={() => setDialog("pay")} />
+        </TabsContent>
+        <TabsContent value="leave">
+          <Encashments employeeId={e.id} showBalances />
         </TabsContent>
         <TabsContent value="documents">
           <EmployeeDocuments employeeId={e.id} employeeName={e.name} />

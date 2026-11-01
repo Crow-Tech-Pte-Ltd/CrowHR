@@ -6,7 +6,7 @@ import { AppError } from "../errors.ts";
 import type { PayInput } from "./engine/types.ts";
 
 export const isPayFeed = (id: string, kind: string) =>
-  (kind === "overtime" && id.startsWith("attendance:")) || id.startsWith("holiday:");
+  (kind === "overtime" && id.startsWith("attendance:")) || id.startsWith("holiday:") || id.startsWith("encashment:");
 
 /** Includes legacy snapshots, so upgrading does not make previously paid OT payable again. */
 export async function unavailableFeeds(db: Db, run: PayrollRun, chain: string[]): Promise<Set<string>> {
