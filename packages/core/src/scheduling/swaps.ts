@@ -204,6 +204,12 @@ function kindNoun(kind: ShiftSwap["kind"]) {
 }
 
 async function submit(db: Db, deps: AppDeps, audit: AuditContext, swap: ShiftSwap) {
+  // The colleague who takes or trades the shift benefits from it, so they never decide it, even
+  // when they are the requester's manager (review #19). The engine honours this through
+  // resolution, escalation, delegation, reassignment and the decision itself.
+  const peer = swap.peerEmployeeId
+    ? (await membershipsFor(db, swap.orgId, [swap.peerEmployeeId])).get(swap.peerEmployeeId)
+    : undefined;
   const r = await submitApproval(db, deps, audit, {
     orgId: swap.orgId,
     subjectType: "shift_swap",
@@ -211,6 +217,7 @@ async function submit(db: Db, deps: AppDeps, audit: AuditContext, swap: ShiftSwa
     requesterMembershipId: swap.createdByMembershipId,
     requesterEmployeeId: swap.requesterEmployeeId,
     attributes: { typeCode: swap.kind },
+    excludedDeciderMembershipIds: peer ? [peer] : [],
   });
   await db
     .update(shiftSwaps)
@@ -443,6 +450,12 @@ export function shiftSwapAdapter(deps: AppDeps): SubjectAdapter<Attrs> {
     inlineDecision: true,
     attributes,
     defaultSteps: [{ approverRule: "manager", escalateAfterDays: 2 }],
+    /** Nobody whose shifts move decides the move (by employee record, whatever their sign-in). */
+    async canDecide(db, decider, ref) {
+      if (!decider.employeeId) return true;
+      const swap = await loadSwap(db, ref.orgId, ref.subjectId);
+      return decider.employeeId !== swap.requesterEmployeeId && decider.employeeId !== swap.peerEmployeeId;
+    },
     async summary(db, ref) {
       const swap = await loadSwap(db, ref.orgId, ref.subjectId);
       const [v] = await toSwapViews(db, ref.orgId, [swap], null);
