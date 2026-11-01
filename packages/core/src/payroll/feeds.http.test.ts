@@ -40,9 +40,12 @@ async function slip(id: string) {
     result: { totals: { overtimeCents: number; additionalCents: number }; issues: { code: string }[] };
   }>(p.admin.get(`${api}/runs/${id}/employees/${p.co.e.A}`));
 }
+// One live sign-in per employee record: create employee A's membership once and reuse it.
+let memberA: Promise<{ membershipId: string }> | null = null;
 async function overtime(workDate: string) {
   const id = p.co.h.deps.ids.newId();
-  const member = await seedMember(p.co.h.deps, p.co.h.orgId, { employeeId: p.co.e.A });
+  memberA ??= seedMember(p.co.h.deps, p.co.h.orgId, { employeeId: p.co.e.A });
+  const member = await memberA;
   await t.db.insert(overtimeClaims).values({
     id,
     orgId: p.co.h.orgId,
