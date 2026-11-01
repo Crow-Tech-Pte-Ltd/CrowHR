@@ -29624,6 +29624,580 @@
         }
       }
     },
+    "/api/v1/leave/encashments": {
+      "get": {
+        "operationId": "leave.getEncashments",
+        "summary": "List your encashment requests, or an employee's as HR",
+        "tags": [
+          "Leave"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "leave:read",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "employeeId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "leaveTypeId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "leaveYear": {
+                            "type": "number"
+                          },
+                          "unit": {
+                            "type": "string",
+                            "enum": [
+                              "days",
+                              "hours"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "amountCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "rateText": {
+                            "type": "string"
+                          },
+                          "rateDate": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "approved",
+                              "rejected",
+                              "withdrawn",
+                              "reserved",
+                              "paid"
+                            ]
+                          },
+                          "approvalRequestId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "payrollRunId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "employeeId",
+                          "leaveTypeId",
+                          "leaveYear",
+                          "unit",
+                          "quantity",
+                          "amountCents",
+                          "rateText",
+                          "rateDate",
+                          "status",
+                          "approvalRequestId",
+                          "payrollRunId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ledgerEntryId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "leaveTypeId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "leaveYear": {
+                            "type": "number"
+                          },
+                          "unit": {
+                            "type": "string",
+                            "enum": [
+                              "days",
+                              "hours"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "ledgerEntryId",
+                          "leaveTypeId",
+                          "leaveYear",
+                          "unit",
+                          "quantity"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "candidates"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "leave.postEncashments",
+        "summary": "Request leave encashment for approval under the leave policy",
+        "tags": [
+          "Leave"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "leave:create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "employeeId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "leaveTypeId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "leaveYear": {
+                      "type": "number"
+                    },
+                    "unit": {
+                      "type": "string",
+                      "enum": [
+                        "days",
+                        "hours"
+                      ]
+                    },
+                    "quantity": {
+                      "type": "number"
+                    },
+                    "amountCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "rateText": {
+                      "type": "string"
+                    },
+                    "rateDate": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "approved",
+                        "rejected",
+                        "withdrawn",
+                        "reserved",
+                        "paid"
+                      ]
+                    },
+                    "approvalRequestId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "payrollRunId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "employeeId",
+                    "leaveTypeId",
+                    "leaveYear",
+                    "unit",
+                    "quantity",
+                    "amountCents",
+                    "rateText",
+                    "rateDate",
+                    "status",
+                    "approvalRequestId",
+                    "payrollRunId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "csrf_rejected",
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: conflict.",
+            "x-error-codes": [
+              "conflict"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error: insufficient_balance.",
+            "x-error-codes": [
+              "insufficient_balance"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "employeeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "leaveTypeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "days": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 365
+                  },
+                  "ledgerEntryId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "workingDaysPerWeek": {
+                    "type": "number",
+                    "minimum": 0.5,
+                    "maximum": 7
+                  }
+                },
+                "required": [
+                  "leaveTypeId",
+                  "days"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/leave/encashments/{id}/withdraw": {
+      "post": {
+        "operationId": "leave.postEncashmentsByIdWithdraw",
+        "summary": "Withdraw pending encashment and release its leave balance",
+        "tags": [
+          "Leave"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "leave:create",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content."
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "csrf_rejected",
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: conflict.",
+            "x-error-codes": [
+              "conflict"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/leave/holidays": {
       "get": {
         "operationId": "leave.getHolidays",
@@ -30209,6 +30783,12 @@
                           "archived": {
                             "type": "boolean"
                           },
+                          "encashable": {
+                            "type": "boolean"
+                          },
+                          "employeeEncashmentRequests": {
+                            "type": "boolean"
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -30372,6 +30952,9 @@
                               },
                               "encashable": {
                                 "type": "boolean"
+                              },
+                              "employeeEncashmentRequests": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -30402,6 +30985,8 @@
                           "perChild",
                           "unlimited",
                           "archived",
+                          "encashable",
+                          "employeeEncashmentRequests",
                           "kind",
                           "dayCounting",
                           "policy",
@@ -30524,6 +31109,12 @@
                       "type": "boolean"
                     },
                     "archived": {
+                      "type": "boolean"
+                    },
+                    "encashable": {
+                      "type": "boolean"
+                    },
+                    "employeeEncashmentRequests": {
                       "type": "boolean"
                     },
                     "kind": {
@@ -30689,6 +31280,9 @@
                         },
                         "encashable": {
                           "type": "boolean"
+                        },
+                        "employeeEncashmentRequests": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -30719,6 +31313,8 @@
                     "perChild",
                     "unlimited",
                     "archived",
+                    "encashable",
+                    "employeeEncashmentRequests",
                     "kind",
                     "dayCounting",
                     "policy",
@@ -30977,6 +31573,9 @@
                       },
                       "encashable": {
                         "type": "boolean"
+                      },
+                      "employeeEncashmentRequests": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -31086,6 +31685,12 @@
                       "type": "boolean"
                     },
                     "archived": {
+                      "type": "boolean"
+                    },
+                    "encashable": {
+                      "type": "boolean"
+                    },
+                    "employeeEncashmentRequests": {
                       "type": "boolean"
                     },
                     "kind": {
@@ -31251,6 +31856,9 @@
                         },
                         "encashable": {
                           "type": "boolean"
+                        },
+                        "employeeEncashmentRequests": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -31281,6 +31889,8 @@
                     "perChild",
                     "unlimited",
                     "archived",
+                    "encashable",
+                    "employeeEncashmentRequests",
                     "kind",
                     "dayCounting",
                     "policy",
@@ -31544,6 +32154,9 @@
                       },
                       "encashable": {
                         "type": "boolean"
+                      },
+                      "employeeEncashmentRequests": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -31651,6 +32264,12 @@
                       "type": "boolean"
                     },
                     "archived": {
+                      "type": "boolean"
+                    },
+                    "encashable": {
+                      "type": "boolean"
+                    },
+                    "employeeEncashmentRequests": {
                       "type": "boolean"
                     },
                     "kind": {
@@ -31816,6 +32435,9 @@
                         },
                         "encashable": {
                           "type": "boolean"
+                        },
+                        "employeeEncashmentRequests": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -31846,6 +32468,8 @@
                     "perChild",
                     "unlimited",
                     "archived",
+                    "encashable",
+                    "employeeEncashmentRequests",
                     "kind",
                     "dayCounting",
                     "policy",
@@ -32033,6 +32657,12 @@
                         },
                         "archived": {
                           "type": "boolean"
+                        },
+                        "encashable": {
+                          "type": "boolean"
+                        },
+                        "employeeEncashmentRequests": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -32048,7 +32678,9 @@
                         "needsChild",
                         "perChild",
                         "unlimited",
-                        "archived"
+                        "archived",
+                        "encashable",
+                        "employeeEncashmentRequests"
                       ],
                       "additionalProperties": false
                     },
@@ -35316,6 +35948,12 @@
                           },
                           "archived": {
                             "type": "boolean"
+                          },
+                          "encashable": {
+                            "type": "boolean"
+                          },
+                          "employeeEncashmentRequests": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -35331,7 +35969,9 @@
                           "needsChild",
                           "perChild",
                           "unlimited",
-                          "archived"
+                          "archived",
+                          "encashable",
+                          "employeeEncashmentRequests"
                         ],
                         "additionalProperties": false
                       }

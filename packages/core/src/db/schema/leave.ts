@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  bigint,
   boolean,
   date,
   foreignKey,
@@ -88,6 +89,8 @@ export interface LeavePolicy {
   carryForward: { maxDays: number | null; expiresAfterMonths: number | null } | null;
   /** Unused days beyond the carry-forward cap are marked for encashment instead of forfeited. */
   encashable: boolean;
+  /** Employee self-service requests; absent in older policies means disabled. */
+  employeeEncashmentRequests?: boolean;
 }
 
 export const leaveTypes = pgTable(
@@ -354,3 +357,44 @@ export type LeaveRequestDay = typeof leaveRequestDays.$inferSelect;
 export type LeaveChild = typeof leaveChildren.$inferSelect;
 export type LeaveLedgerEntry = typeof leaveLedger.$inferSelect;
 export type LeaveSettingsRow = typeof leaveSettings.$inferSelect;
+
+/** Approved requests feed payroll via payroll_feed_reservations (no independent paid flag). */
+export const leaveEncashments = pgTable(
+  "leave_encashments",
+  {
+    id: uuid("id").primaryKey(),
+    orgId: orgId(),
+    employeeId: uuid("employee_id").notNull(),
+    leaveTypeId: uuid("leave_type_id").notNull(),
+    leaveYear: integer("leave_year").notNull(),
+    unit: text("unit").$type<LeaveUnit>().notNull(),
+    hundredths: integer("hundredths").notNull(),
+    /** Existing year-end movement, already deducted. One request per movement, ever. */
+    ledgerEntryId: uuid("ledger_entry_id"),
+    amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+    rateText: text("rate_text").notNull(),
+    rateDate: date("rate_date").notNull(),
+    status: text("status").$type<"pending" | "approved" | "rejected" | "withdrawn">().notNull(),
+    approvalRequestId: uuid("approval_request_id"),
+    requestedByMembershipId: uuid("requested_by_membership_id").notNull(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    unique("leave_encashments_org_id_id_unique").on(t.orgId, t.id),
+    unique("leave_encashments_ledger_once").on(t.orgId, t.ledgerEntryId),
+    employeeFk("leave_encashments_employee_fk", t),
+    foreignKey({
+      name: "leave_encashments_type_fk",
+      columns: [t.orgId, t.leaveTypeId],
+      foreignColumns: [leaveTypes.orgId, leaveTypes.id],
+    }),
+    foreignKey({
+      name: "leave_encashments_ledger_fk",
+      columns: [t.orgId, t.ledgerEntryId],
+      foreignColumns: [leaveLedger.orgId, leaveLedger.id],
+    }),
+    index("leave_encashments_balance").on(t.orgId, t.employeeId, t.leaveYear),
+  ],
+);
+export type LeaveEncashment = typeof leaveEncashments.$inferSelect;

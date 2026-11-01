@@ -44,6 +44,8 @@ export const typeView = z.object({
   perChild: z.boolean(),
   unlimited: z.boolean(),
   archived: z.boolean(),
+  encashable: z.boolean(),
+  employeeEncashmentRequests: z.boolean(),
 });
 
 export function toTypeView(t: LeaveType): z.input<typeof typeView> {
@@ -61,6 +63,8 @@ export function toTypeView(t: LeaveType): z.input<typeof typeView> {
     perChild: !!t.statutoryCode && PER_CHILD_CODES.has(t.statutoryCode),
     unlimited: t.policy.entitlement.basis === "unlimited",
     archived: t.archivedAt !== null,
+    encashable: t.policy.encashable,
+    employeeEncashmentRequests: t.policy.employeeEncashmentRequests ?? false,
   };
 }
 
