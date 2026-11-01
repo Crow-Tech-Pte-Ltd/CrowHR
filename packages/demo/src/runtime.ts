@@ -60,7 +60,7 @@ export async function openDemo(input: OpenDemoInput) {
     throw new Error(`This database holds demo data version ${meta.dataVersion}, not ${input.dataVersion}.`);
   }
   let seeded = false;
-  const fileStore = createSqlFileStore(sql);
+  const fileStore = await createSqlFileStore(sql);
 
   if (!meta) {
     input.onStage?.("migrate", "Creating the database");
@@ -79,6 +79,7 @@ export async function openDemo(input: OpenDemoInput) {
       publicUrl: input.origin,
     });
     await seedDemo(seedDeps, seedClock, input.origin);
+    await fileStore.flush();
     meta = {
       dataVersion: input.dataVersion,
       offsetMs: demoClockOffset(new Date(realNow())),
@@ -112,7 +113,10 @@ export async function openDemo(input: OpenDemoInput) {
     jar,
     now: () => clock.now().getTime(),
     onCookiesChanged: () => kv.set("cookies", jar.toJSON()),
-    afterWrite: input.flush,
+    afterWrite: async () => {
+      await fileStore.flush();
+      await input.flush?.();
+    },
   });
   const scheduler = createManualScheduler(deps);
   scheduler.start();
@@ -132,7 +136,11 @@ export async function openDemo(input: OpenDemoInput) {
     jar,
     info,
     timings,
-    tick: () => scheduler.tick(),
+    tick: async () => {
+      const report = await scheduler.tick();
+      await fileStore.flush();
+      return report;
+    },
     outbox: () => mailer.list(),
     outboxCount: () => mailer.count(),
     stop: () => scheduler.stop(),

@@ -12,6 +12,19 @@ People evaluating Crow HR (SME owners, HR staff, the one technical person who wo
 - **Deployment prep (not deployed)**: Cloudflare Pages `wrangler.toml`, `_headers` (strict CSP: same origin only, WebAssembly and workers allowed, no analytics), `_redirects` that never touch `/docs`, a site build combining the demo and apps/docs, and docs/deploy-demo.md.
 - **Guards**: a build plugin fails if server-only code enters the bundle; a test keeps `_redirects` in step with apps/web's routes.
 
+## Module showcase and startup follow-up
+
+Seed published October and current/next-week café rosters with OPN/AM/MID/PM templates;
+clock attendance through the real API, approve overtime through workflows and compute October
+from those feeds. Supply preferred names and management classification through people APIs,
+generated KETs for recent hires, an employee acknowledgement, a work-pass expiry and a manager
+shift swap. Every persona retains actionable Home work. Reports use the real paid payroll history.
+
+At build time, run the same migrations and seed to emit a gzip PGlite data-directory snapshot.
+Version it by seed-source and migration content. First visits load the snapshot instead of initdb
+and browser seeding; failed loads fall back to the real seed. Anchor each visitor's clock on first
+open, preserve it on reload, and re-anchor on reset. Keep everything local; deployment stays pending.
+
 ## Impact
 
 - New: `packages/demo`, `apps/demo`, `e2e/demo`, `docs/deploy-demo.md`.

@@ -140,6 +140,7 @@ export async function seedDemoPeople(deps: AppDeps, orgId: string, ownerUserId: 
         employmentType: "full_time",
         workScheduleId: people.schedules.shift as string,
         isWorkman: p.jobTitle === "Barista",
+        isManagerOrExecutive: p.jobTitle === "Outlet Supervisor",
       },
       compensation: { payBasis: "monthly", amountCents: p.basicCents },
       allowances: [{ allowanceTypeId: people.allowances.shift as string, amountCents: 15_000 }],
@@ -176,3 +177,34 @@ export async function resignLeaver(deps: AppDeps, orgId: string, ownerUserId: st
     noticeDays: 30,
   });
 }
+
+/** Familiar names in everyday use; all records are fictional. Kept demo-local. */
+export const PREFERRED_NAMES: Record<string, string> = {
+  owner: "Kah Hui",
+  hr: "Aisyah",
+  opsmgr: "Rajesh",
+  fin: "Chloe",
+  tp_lead: "Wei Ming",
+  jp_lead: "Siti",
+  barista1: "Jun Jie",
+  barista2: "Hafiz",
+  pt1: "Hui Min",
+  chef: "Ben",
+  senior70: "Ah Seng",
+  senior65: "Kamala",
+  spr_y1: "Xiaoling",
+  spr_y2: "Arjun",
+  spr_y3: "Lan",
+  ep: "Daniel",
+  ep_indian: "Priya",
+  spass: "Maria",
+  spass_muslim: "Faizal",
+  wp_expired: "Rahim",
+  wp: "Kyaw",
+  leaver: "Pei Shan",
+  former: "Farhan",
+  intern: "Isabelle",
+  tb_lead: "Mei Xuan",
+  joiner: "Darren",
+  leaver_oct: "Priyanka",
+};
