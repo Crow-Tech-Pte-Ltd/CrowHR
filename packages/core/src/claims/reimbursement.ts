@@ -62,6 +62,7 @@ export async function listPayableClaims(
       claimId: claims.id,
       employeeId: claims.employeeId,
       typeName: claimTypes.name,
+      taxable: claimTypes.taxable,
       payrollRunId: claims.payrollRunId,
       amount: sql<string>`sum(${claimLines.sgdCents})::text`,
     })
@@ -69,12 +70,13 @@ export async function listPayableClaims(
     .innerJoin(claimLines, and(eq(claimLines.orgId, claims.orgId), eq(claimLines.claimId, claims.id)))
     .innerJoin(claimTypes, and(eq(claimTypes.orgId, claimLines.orgId), eq(claimTypes.id, claimLines.claimTypeId)))
     .where(and(eq(claims.orgId, orgId), carried ? or(payable, carried) : payable))
-    .groupBy(claims.id, claims.employeeId, claimTypes.name, claims.payrollRunId)
+    .groupBy(claims.id, claims.employeeId, claimTypes.name, claimTypes.taxable, claims.payrollRunId)
     .orderBy(claims.employeeId, claims.id, claimTypes.name);
   return rows.map((r) => ({
     claimId: r.claimId,
     employeeId: r.employeeId,
     typeName: r.typeName,
+    taxable: r.taxable,
     amountCents: Number(r.amount),
     ...(r.payrollRunId && carry.includes(r.payrollRunId) ? { carriedFromRunId: r.payrollRunId } : {}),
   }));

@@ -10,6 +10,7 @@ import {
   type PayrollRunStatus,
   payrollAllowanceSettings,
   payrollBackpayNotices,
+  payrollFeedReservations,
   payrollPayslips,
   payrollRunItems,
   payrollRuns,
@@ -26,6 +27,8 @@ import { canonicalHash } from "./engine/canonical.ts";
 import { computeEmployeePay } from "./engine/compute.ts";
 import { dateLabel, dayOfWeek, daysInMonth, maxDate, monthBounds, monthLabel } from "./engine/dates.ts";
 import type { PayInput, PayIssue, PayResult, RunItemKind } from "./engine/types.ts";
+import { reserveFeeds, unavailableFeeds } from "./feed-reservations.ts";
+import { appendHolidayPay } from "./holiday-pay.ts";
 import { changedPayees, changedPayeesMessage, liveAccounts, toPayee } from "./payees.ts";
 import { missingPayslipItems } from "./payslip.ts";
 import { type ApprovalDecision, payrollPorts } from "./ports.ts";
@@ -212,6 +215,7 @@ export async function listAllowanceSettings(db: Db, orgId: string) {
       name: type.name,
       cpfLiable: s?.cpfLiable ?? true,
       prorate: s?.prorate ?? true,
+      grossRateIncluded: s?.grossRateIncluded ?? null,
     }))
     .sort((a, b) => a.code.localeCompare(b.code));
 }
@@ -220,7 +224,7 @@ export async function setAllowanceSetting(
   deps: AppDeps,
   actor: PayrollActor,
   allowanceTypeId: string,
-  input: { cpfLiable: boolean; prorate: boolean },
+  input: { cpfLiable: boolean; prorate: boolean; grossRateIncluded?: boolean | null },
 ) {
   const [type] = await deps.db
     .select()
@@ -239,7 +243,11 @@ export async function setAllowanceSetting(
       action: "payroll.allowance_setting_updated",
       targetType: "allowance_type",
       targetId: allowanceTypeId,
-      diff: { cpfLiable: { to: input.cpfLiable }, prorate: { to: input.prorate } },
+      diff: {
+        cpfLiable: { to: input.cpfLiable },
+        prorate: { to: input.prorate },
+        grossRateIncluded: { to: input.grossRateIncluded },
+      },
     });
   });
   return (await listAllowanceSettings(deps.db, actor.orgId)).find((a) => a.allowanceTypeId === allowanceTypeId);
@@ -403,6 +411,8 @@ export async function deleteRun(deps: AppDeps, actor: PayrollActor, runId: strin
 // Items
 
 export interface ItemInput {
+  overtimeSourceId?: string | null;
+  holidayDate?: string | null;
   employeeId: string;
   kind: RunItemKind;
   label: string;
@@ -420,7 +430,17 @@ export interface ItemInput {
 
 function validateItem(run: PayrollRun, input: ItemInput) {
   const issues: { path: string; message: string }[] = [];
+  if (
+    input.holidayDate &&
+    (input.kind !== "other_earning" || input.holidayDate < run.periodStart || input.holidayDate > run.periodEnd)
+  )
+    issues.push({
+      path: "holidayDate",
+      message: "Use an other earning item and a holiday date within the run's period.",
+    });
   const needsAmount = ["bonus", "commission", "backpay", "other_earning", "deduction"].includes(input.kind);
+  if (input.overtimeSourceId && input.kind !== "overtime")
+    issues.push({ path: "overtimeSourceId", message: "Only an overtime item can override approved overtime." });
   if (needsAmount && (input.amountCents === null || input.amountCents === undefined || input.amountCents <= 0)) {
     issues.push({ path: "amountCents", message: "Enter an amount greater than S$0.00." });
   }
@@ -465,6 +485,8 @@ function validateItem(run: PayrollRun, input: ItemInput) {
 function itemValues(input: ItemInput) {
   return {
     employeeId: input.employeeId,
+    overtimeSourceId: input.overtimeSourceId ?? null,
+    holidayDate: input.holidayDate ?? null,
     kind: input.kind,
     label: input.label.trim(),
     amountCents: input.amountCents ?? null,
@@ -496,6 +518,11 @@ export async function addItem(deps: AppDeps, actor: PayrollActor, runId: string,
   assertDraft(run);
   await assertEmployeeInRun(deps.db, run, input.employeeId);
   validateItem(run, input);
+  if (input.overtimeSourceId) {
+    const overtime = await payrollPorts(deps).overtime.listApproved(actor.orgId, "0001-01-01", run.periodEnd);
+    if (!overtime.some((o) => o.sourceId === input.overtimeSourceId && o.employeeId === input.employeeId))
+      throw new AppError("not_found", "That approved overtime claim doesn't exist or isn't for this employee.");
+  }
   const id = deps.ids.newId();
   await deps.db.transaction(async (tx) => {
     await lockDraft(tx, deps, run);
@@ -530,6 +557,11 @@ export async function updateItem(deps: AppDeps, actor: PayrollActor, runId: stri
   if (!existing) throw new AppError("not_found", "That pay item doesn't exist or you can't see it.");
   await assertEmployeeInRun(deps.db, run, input.employeeId);
   validateItem(run, input);
+  if (input.overtimeSourceId) {
+    const overtime = await payrollPorts(deps).overtime.listApproved(actor.orgId, "0001-01-01", run.periodEnd);
+    if (!overtime.some((o) => o.sourceId === input.overtimeSourceId && o.employeeId === input.employeeId))
+      throw new AppError("not_found", "That approved overtime claim doesn't exist or isn't for this employee.");
+  }
   await deps.db.transaction(async (tx) => {
     await lockDraft(tx, deps, run);
     await tx.update(payrollRunItems).set(itemValues(input)).where(eq(payrollRunItems.id, itemId));
@@ -585,10 +617,13 @@ async function computeAll(deps: AppDeps, run: PayrollRun): Promise<{ computed: C
     run.kind === "off_cycle" && run.offCycleReason === "bonus"
       ? []
       : await ports.reimbursements.listPayable(run.orgId, run.periodEnd, { runId: run.id, carryFromRunIds });
+  const unavailable = await unavailableFeeds(deps.db, run, carryFromRunIds);
   const overtime =
     run.kind === "off_cycle" && run.offCycleReason === "bonus"
       ? []
-      : await ports.overtime.listApproved(run.orgId, run.periodStart, run.periodEnd);
+      : (await ports.overtime.listApproved(run.orgId, "0001-01-01", run.periodEnd)).filter(
+          (o) => !unavailable.has(`attendance:${o.sourceId}`),
+        );
   const bonusOnly = run.kind === "off_cycle" && run.offCycleReason === "bonus";
   const unpaidLeave = bonusOnly ? [] : await ports.unpaidLeave.listUnpaid(run.orgId, run.periodStart, run.periodEnd);
   const daysWorked = bonusOnly ? [] : await ports.daysWorked.listDaysWorked(run.orgId, run.periodStart, run.periodEnd);
@@ -596,6 +631,8 @@ async function computeAll(deps: AppDeps, run: PayrollRun): Promise<{ computed: C
     ? []
     : await ports.scheduledDays.listScheduledDays(run.orgId, run.periodStart, run.periodEnd);
   const inputs = await buildSnapshots(deps.db, { run, claims, overtime, unpaidLeave, daysWorked, scheduledDays });
+  await appendHolidayPay(deps, run, inputs);
+  for (const input of inputs) input.items = input.items.filter((i) => !unavailable.has(i.id));
   const accounts = await liveAccounts(
     deps.db,
     run.orgId,
@@ -840,6 +877,12 @@ export async function computeRun(deps: AppDeps, actor: PayrollActor, runId: stri
       issues: runIssues,
       updatedAt: now,
     });
+    await reserveFeeds(
+      tx,
+      run,
+      computed.map((c) => c.input),
+      run.kind === "adjustment" ? await replacedChain(tx, run.orgId, run) : [],
+    );
     const ports = payrollPorts(deps);
     await ports.reimbursements.release(tx, actor.orgId, run.id);
     if (claimIds.length) await ports.reimbursements.reserve(tx, actor.orgId, run.id, claimIds);
@@ -1204,6 +1247,13 @@ export async function markPaid(deps: AppDeps, actor: PayrollActor, runId: string
     );
     const carryFromRunIds = run.kind === "adjustment" ? await replacedChain(tx, actor.orgId, run) : [];
     await payrollPorts(deps).reimbursements.markPaid(tx, actor.orgId, run.id, run.payDate, { carryFromRunIds });
+    if (carryFromRunIds.length)
+      await tx
+        .update(payrollFeedReservations)
+        .set({ runId: run.id })
+        .where(
+          and(eq(payrollFeedReservations.orgId, actor.orgId), inArray(payrollFeedReservations.runId, carryFromRunIds)),
+        );
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.run_paid",
       targetType: "payroll_run",

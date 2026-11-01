@@ -34,6 +34,8 @@ export interface ApprovalDecision {
 
 /** Claims payable through payroll (add-claims design §5). */
 export interface PayableClaim {
+  /** Snapshotted at compute: taxable cash reimbursement (IR8A d1), independent of CPF wages. */
+  taxable?: boolean;
   claimId: string;
   employeeId: string;
   typeName: string;
@@ -87,6 +89,8 @@ export const noClaimsYet: ReimbursementSource = {
 };
 
 export interface ApprovedOvertime {
+  /** Optional contractual amount provided by a host feed. */
+  amountCents?: number | null;
   /** Stable id from attendance (idempotent import). */
   sourceId: string;
   employeeId: string;

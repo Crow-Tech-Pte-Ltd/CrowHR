@@ -63,6 +63,14 @@ export function buildPain001(input: Pain001Input): string {
       "Set the company's bank (SWIFT/BIC) and account in Payroll settings before downloading the bank file.",
     );
   }
+  for (const p of input.payments) {
+    // Never silently drop a name (or part of it) when converting to the bank's character set.
+    if (!max(p.creditorName, 140) || /[^\u0020-\u024f]/u.test(p.creditorName.normalize("NFC"))) {
+      throw new Pain001Error(
+        `Creditor "${p.creditorName}" needs a bank-compatible Latin account holder name. Update the bank account, recompute and re-approve this run.`,
+      );
+    }
+  }
   const total = input.payments.reduce((s, p) => s + p.amountCents, 0);
   const tx = input.payments
     .map(

@@ -92,6 +92,20 @@
       "when": 1793466838191,
       "tag": "0012_round_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793532925609,
+      "tag": "0013_thick_siren",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793533016160,
+      "tag": "0014_old_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }

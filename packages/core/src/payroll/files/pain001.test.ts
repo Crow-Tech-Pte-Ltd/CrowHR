@@ -30,6 +30,18 @@ const input = {
 };
 
 describe("pain.001.001.03", () => {
+  it.each(["王小明", "Lim 王", "ரவி", ""])(
+    "blocks a creditor name requiring a bank-compatible spelling: %s",
+    (creditorName) => {
+      expect(() =>
+        buildPain001({
+          ...input,
+          payments: [{ ...(input.payments[0] as (typeof input.payments)[number]), creditorName }],
+        }),
+      ).toThrow(/Latin|bank-compatible/);
+    },
+  );
+
   it("has the ISO 20022 structure, counts and control sum", () => {
     const xml = buildPain001(input);
     expect(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);

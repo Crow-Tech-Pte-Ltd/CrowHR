@@ -41334,7 +41334,7 @@
     "/api/v1/organisation/profile/logo": {
       "put": {
         "operationId": "organisation.putProfileLogo",
-        "summary": "Upload the company logo (PNG or SVG, at most 1 MB)",
+        "summary": "Upload the company logo (PNG, at most 1 MB)",
         "tags": [
           "Organisation"
         ],
@@ -43543,6 +43543,12 @@
                           },
                           "prorate": {
                             "type": "boolean"
+                          },
+                          "grossRateIncluded": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -43550,7 +43556,8 @@
                           "code",
                           "name",
                           "cpfLiable",
-                          "prorate"
+                          "prorate",
+                          "grossRateIncluded"
                         ],
                         "additionalProperties": false
                       }
@@ -43648,6 +43655,12 @@
                     },
                     "prorate": {
                       "type": "boolean"
+                    },
+                    "grossRateIncluded": {
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -43655,7 +43668,8 @@
                     "code",
                     "name",
                     "cpfLiable",
-                    "prorate"
+                    "prorate",
+                    "grossRateIncluded"
                   ],
                   "additionalProperties": false
                 }
@@ -43731,6 +43745,12 @@
                   },
                   "prorate": {
                     "type": "boolean"
+                  },
+                  "grossRateIncluded": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
                   }
                 },
                 "required": [
@@ -47583,6 +47603,30 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "overtimeSourceId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "holidayDate": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -47601,7 +47645,9 @@
                           "periodEnd",
                           "deductionCategory",
                           "source",
-                          "copiedFromItemId"
+                          "copiedFromItemId",
+                          "overtimeSourceId",
+                          "holidayDate"
                         ],
                         "additionalProperties": false
                       }
@@ -48026,6 +48072,30 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "overtimeSourceId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "holidayDate": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "employeeId": {
                     "type": "string",
                     "format": "uuid",
@@ -48315,6 +48385,30 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "overtimeSourceId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "holidayDate": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "employeeId": {
                     "type": "string",
                     "format": "uuid",
@@ -57661,10 +57755,11 @@
             }
           },
           "403": {
-            "description": "Error: forbidden, mfa_enrolment_required.",
+            "description": "Error: forbidden, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "forbidden",
-              "mfa_enrolment_required"
+              "mfa_enrolment_required",
+              "reauth_required"
             ],
             "content": {
               "application/json": {
@@ -57820,10 +57915,11 @@
             }
           },
           "403": {
-            "description": "Error: forbidden, mfa_enrolment_required.",
+            "description": "Error: forbidden, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "forbidden",
-              "mfa_enrolment_required"
+              "mfa_enrolment_required",
+              "reauth_required"
             ],
             "content": {
               "application/json": {

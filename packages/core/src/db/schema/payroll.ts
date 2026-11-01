@@ -69,6 +69,8 @@ export const payrollAllowanceSettings = pgTable(
     allowanceTypeId: uuid("allowance_type_id").notNull(),
     cpfLiable: boolean("cpf_liable").notNull().default(true),
     prorate: boolean("prorate").notNull().default(true),
+    /** EA daily gross rate: null requires classification before holiday pay can be approved. */
+    grossRateIncluded: boolean("gross_rate_included"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -196,6 +198,10 @@ export const payrollRunItems = pgTable(
     source: text("source").$type<"manual" | "attendance">().notNull().default("manual"),
     /** Item this one was copied from (reopen → adjustment). */
     copiedFromItemId: uuid("copied_from_item_id"),
+    /** Contractual amount overriding one approved attendance OT claim. */
+    overtimeSourceId: uuid("overtime_source_id"),
+    /** Explicit daily gross pay for an off-day holiday (e.g. hourly or rostered staff). */
+    holidayDate: date("holiday_date"),
     createdBy: uuid("created_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -212,6 +218,8 @@ export const payrollRunItems = pgTable(
       foreignColumns: [employees.orgId, employees.id],
     }),
     index("payroll_run_items_run").on(t.orgId, t.runId, t.employeeId),
+    unique("payroll_run_items_ot_source_unique").on(t.orgId, t.runId, t.overtimeSourceId),
+    unique("payroll_run_items_holiday_unique").on(t.orgId, t.runId, t.employeeId, t.holidayDate),
   ],
 );
 
@@ -308,3 +316,21 @@ export type PayrollSettings = typeof payrollSettings.$inferSelect;
 export type PayrollRun = typeof payrollRuns.$inferSelect;
 export type PayrollRunItem = typeof payrollRunItems.$inferSelect;
 export type PayrollPayslip = typeof payrollPayslips.$inferSelect;
+
+/** Unique reservations prevent an attendance or holiday earning being paid by two runs. */
+export const payrollFeedReservations = pgTable(
+  "payroll_feed_reservations",
+  {
+    orgId: orgId(),
+    sourceId: text("source_id").notNull(),
+    employeeId: uuid("employee_id").notNull(),
+    runId: uuid("run_id").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.orgId, t.sourceId] }),
+    foreignKey({ columns: [t.orgId, t.runId], foreignColumns: [payrollRuns.orgId, payrollRuns.id] }).onDelete(
+      "cascade",
+    ),
+    foreignKey({ columns: [t.orgId, t.employeeId], foreignColumns: [employees.orgId, employees.id] }),
+  ],
+);

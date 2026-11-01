@@ -1,8 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { clientAs, createTestDb, seedMember, type TestClient, type TestDb } from "../../testing/index.ts";
+import { clientAs, createTestDb, seedMember, seedOrg, type TestClient, type TestDb } from "../../testing/index.ts";
 import { decideRun, type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
-import { claims } from "../db/schema/claims.ts";
+import { taxableCashClaims } from "../claims/taxable.ts";
+import { claims, claimTypes } from "../db/schema/claims.ts";
 import { approvalRequests, approvalTasks } from "../db/schema/workflows.ts";
 
 /**
@@ -42,6 +43,7 @@ beforeAll(async () => {
       residency: "citizen",
       hireDate: "2020-09-01",
       basicCents: 260_000,
+      gender: "male",
     },
   ]);
   employee = await clientAs(p.app, p.co.h.deps, await seedMember(p.co.h.deps, p.co.h.orgId, { employeeId: p.co.e.A }));
@@ -61,6 +63,7 @@ describe("adjustment of a run that reimbursed claims", () => {
         name: "Transport",
         category: "transport",
         receiptRule: "never",
+        taxable: true,
         capPeriod: "none",
       }),
       201,
@@ -117,6 +120,10 @@ describe("adjustment of a run that reimbursed claims", () => {
     expect(row?.payrollRunId).toBe(state === "paid" ? runId : adjId);
     expect(row?.paidOn).toBe(`${month}-28`);
 
+    // IR8A reports each effective reimbursement once, including the reserved original's carry.
+    const ir8a = await p.ok<{ records: { allowances: number }[] }>(p.admin.get(`${api}/years/2026/ir8a`));
+    expect(ir8a.records[0]?.allowances).toBe(state === "paid" ? 400 : 800); // each month's S$200 allowance + S$200 claim
+
     // Never payable again.
     const outside = await p.admin.post("/api/v1/claims/mark-paid", {
       claimIds: [claim],
@@ -124,5 +131,53 @@ describe("adjustment of a run that reimbursed claims", () => {
       reference: "FAST",
     });
     expect(outside.status).toBe(409);
+  });
+  it("reports taxable cash paid outside payroll by payment year and keeps tenant isolation", async () => {
+    for (const [taxable, amountMinor] of [
+      [true, 12345],
+      [false, 9999],
+    ] as const) {
+      const type = await p.ok<{ id: string }>(
+        p.owner.post("/api/v1/claims/types", {
+          code: taxable ? "TAXOUT" : "EXEMPT",
+          name: taxable ? "Private cash benefit" : "Business cost",
+          category: "other",
+          receiptRule: "never",
+          capPeriod: "none",
+          payoutMethod: "outside",
+          taxable,
+        }),
+        201,
+      );
+      const claim = await p.ok<{ id: string }>(
+        employee.post("/api/v1/claims", {
+          submit: true,
+          lines: [
+            {
+              claimTypeId: type.id,
+              expenseDate: "2026-10-02",
+              merchant: "Merchant",
+              description: "Cash reimbursement",
+              currency: "SGD",
+              amountMinor,
+            },
+          ],
+        }),
+        201,
+      );
+      await ownerApproves(claim.id);
+      await p.ok(
+        p.admin.post("/api/v1/claims/mark-paid", { claimIds: [claim.id], paidOn: "2026-12-30", reference: "FAST" }),
+      );
+    }
+    const preview = await p.ok<{ records: { allowances: number }[] }>(p.admin.get(`${api}/years/2026/ir8a`));
+    expect(preview.records[0]?.allowances).toBe(923);
+    const other = await seedOrg(p.co.h.deps);
+    expect(await taxableCashClaims(t.db, other.id, 2026, [])).toEqual([]);
+    // Changing the type later must not rewrite the classification snapshotted by payroll.
+    await t.db.update(claimTypes).set({ taxable: false }).where(eq(claimTypes.code, "TPAID"));
+    expect(
+      (await p.ok<{ records: { allowances: number }[] }>(p.admin.get(`${api}/years/2026/ir8a`))).records[0]?.allowances,
+    ).toBe(923);
   });
 });
