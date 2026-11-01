@@ -143,6 +143,22 @@ Approved leave of every **unpaid** type (no-pay leave, unpaid infant care leave 
 
 The unpaid weeks of Employment Act maternity leave (weeks 9 to 12, for a non-citizen child) are not fed to payroll; enter them on the run.
 
+## Encash unused leave
+
+In **Settings → Leave policies**, enable **Allow leave encashment** on an eligible paid leave type. Enable **Allow employees to request encashment** separately if staff may submit their own requests; existing policies default to HR-only requests.
+
+HR can open **People → employee → Leave → Encash leave**. Employees use **Leave → Leave encashment → Encash leave** when enabled. Choose the type and quantity, then send for approval. The card shows pending, awaiting payroll, in payroll, paid, rejected or withdrawn status, with the rate working. Year-end entries have a **Request payout** action on the employee's Leave tab; their days have already been deducted and are not charged again.
+
+Pending requests reserve their quantity. Final approval deducts it from the balance; rejection or withdrawal releases it. Rejecting or withdrawing a year-end payout restores its earlier ledger movement in that leave year. Only pending requests can be withdrawn. An approved payout needs a payroll correction. Approval policies are configured in **Settings → Approvals**; the default routes to HR, with the workflow engine's owner fallback. Only HR, payroll admins or owners can decide, and beneficiaries cannot approve their own payout.
+
+The next eligible regular payroll, or an off-cycle **Final pay** run for a leaver, picks up approved encashment. Bonus-only runs exclude it. Recomputing a run keeps the earning, and an adjustment carries the original earning without paying it twice.
+
+**Rate basis:** this feature uses the basic salary and effective work schedule recorded when the request is submitted (the last working day if already left). For monthly-paid staff, the daily basic rate is `12 × monthly basic salary / (52 × workdays per week)`. Multiply the exact rate by the days, then round once half up to integer cents. Hour balances use the basic hourly rate. The approval and payslip working preserve the basis even if salary changes later. For shift staff, enter the contractual average workdays per week in the request; the approver must verify that rate denominator. Hour balances use the schedule's weekly hours.
+
+This basic-salary basis does not include allowances. [MOM prescribes the daily gross rate for statutory annual-leave encashment](https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary); assess any required allowance top-up separately before finalising pay.
+
+[CPF is payable on encashment of unused leave](https://www.cpf.gov.sg/service/article/are-cpf-contributions-payable-on-encashment-of-leave). Accumulated unused leave is classified as **Additional Wages (AW)** under the [CPF wage classification rules](https://www.cpf.gov.sg/employer/employer-obligations/what-constitutes-wages-for-cpf-contributions), including leave paid on termination. It is earned leave, rather than exempt termination compensation. The final-pay engine uses the cessation-year AW ceiling and reconciliation. For payments after cessation, [CPF's ex-employee rules](https://www.cpf.gov.sg/service/article/are-cpf-contributions-payable-on-additional-wages-payable-to-ex-employees-after-they-have-left-employment) still apply.
+
 ## Reports
 
 [Reports](/docs/reports/running-reports/) has **Leave taken** and **Leave balances and liability**, for owners, HR admins and managers (their team).
