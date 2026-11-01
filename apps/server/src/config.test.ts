@@ -14,6 +14,15 @@ describe("loadConfig", () => {
     expect(config.WEB_DIST_DIR).toMatch(/apps\/web\/dist$/);
   });
 
+  it("enables ClamAV only when configured and validates its port", () => {
+    expect(loadConfig({})).toMatchObject({ CLAMAV_HOST: null, CLAMAV_PORT: 3310 });
+    expect(loadConfig({ CLAMAV_HOST: "clamav.internal", CLAMAV_PORT: "3311" })).toMatchObject({
+      CLAMAV_HOST: "clamav.internal",
+      CLAMAV_PORT: 3311,
+    });
+    expect(() => loadConfig({ CLAMAV_PORT: "65536" })).toThrow(/CLAMAV_PORT/);
+  });
+
   it("accepts pglite URLs for local development and defaults to one", () => {
     expect(loadConfig({ DATABASE_URL: "pglite:memory" }).DATABASE_URL).toBe("pglite:memory");
     expect(loadConfig({}).DATABASE_URL).toBe("pglite:./data/pglite");
