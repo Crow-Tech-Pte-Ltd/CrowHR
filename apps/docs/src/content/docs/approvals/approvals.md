@@ -26,7 +26,7 @@ Rejecting needs a comment (1 to 500 characters); approving does not. When severa
 
 ## Policies
 
-Owners and HR admins edit the chain for each request type in **Settings → Approvals**. Only owners edit the payroll run policy.
+Owners and HR admins edit the chain for each request type in **Settings → Approvals**. Only owners edit policies for payroll runs, compensation and profile changes (which include bank details).
 
 ![Settings → Approvals with the default chains and the out-of-office cover section (fictional company)](../../../assets/screens/settings-approvals.webp)
 
@@ -52,17 +52,19 @@ The chain is copied onto each request when it is submitted, so editing a policy 
 
 ## When a step has nobody
 
-A step is skipped (and the reason recorded) when it resolves to the requester themselves, to nobody (for example, no manager) or to a suspended or former member. If every step is skipped, the request goes to HR admins; for payroll runs, and when the requester is the only HR admin, to owners. If no eligible member other than the requester exists, an owner who is the requester may decide, and the decision is marked **self-approved**. A request is never approved without a recorded decision by a member.
+A step is skipped (and the reason recorded) when it resolves to the requester themselves, to nobody (for example, no manager) or to a suspended or former member. If every step is skipped, the request goes to eligible HR admins, then owners. Payroll runs and bank changes fall back to owners. Only owners decide payroll runs; only payroll admins and owners decide bank changes. If no eligible member other than the requester exists, an owner who is the requester may decide, and the decision is marked **self-approved**. Explicit exclusions always apply, including to owners: someone who filed a request for another employee, benefits from a shift swap, or entered their own earnings in a payroll run cannot decide that request. If nobody eligible remains, the request stays pending. Appoint an uninvolved approver, then withdraw and resubmit the request to resolve its chain again. A request is never approved without a recorded decision by a member.
 
 ## Delegation (out-of-office cover)
 
-Anyone can set cover from the Inbox: a delegate, a start and end date (inclusive) and optionally which request types. While cover is active, the delegate also gets the delegator's tasks; the delegator keeps them too. A delegate never gets tasks for their own requests, role-based steps only go to delegates who hold that role, and the delegate can read a request only while its task is open. HR admins can set cover for anyone in Settings → Approvals.
+Anyone can set cover from the Inbox: a delegate, a start and end date (inclusive) and optionally which request types. While cover is active, the delegate also gets the delegator's tasks; the delegator keeps them too. A delegate must be eligible for the subject and cannot be the requester, filer or an excluded beneficiary. Role-based steps only go to delegates who hold that role, and the delegate can read a request only while its task is open. HR admins can set cover for anyone in Settings → Approvals.
 
 ## Escalation and reassignment
 
-When a task passes its due time, its assignees get a reminder and a task is added for the next level: the assignee's manager, or the HR admins if there is none or the assignee is an HR admin. This happens once per step.
+When a task passes its due time, its assignees get a reminder. Role steps escalate within that role, then to eligible owners, keeping the required role on the new task. Manager steps try the next manager, eligible HR admins, then owners. Every candidate must be allowed to decide that subject. This happens once per step.
 
-Owners and HR admins can reassign any pending task to another eligible member, with a reason (HR admins cannot reassign payroll run tasks). When a requester's manager changes, open manager tasks move to the new manager.
+Owners and HR admins can reassign a pending task to another eligible member holding the task's required role, with a reason (HR admins cannot reassign payroll run tasks). Nobody can reassign a task on a request they made, filed or benefit from. When a requester's manager changes, open manager tasks move to the new manager.
+
+Suspending a member or making them former supersedes their open tasks, revokes cover to and from them, and re-resolves steps that have no approver left. Inactive members cannot act on approvals.
 
 ## Withdrawing
 

@@ -1,7 +1,8 @@
 import { checkEmploymentAge, RulesNotAvailableError, statutoryMinimumNotice } from "@crowhr/sg-rules";
-import { asc, desc, eq, gt, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { orgScope } from "../access/org-scope.ts";
+import { membershipRoles, memberships } from "../db/schema/access.ts";
 import {
   allowanceTypes,
   type CompensationRecord,
@@ -281,6 +282,10 @@ async function insertAllowances(
   effectiveFrom: string,
   allowances: z.output<typeof allowanceInput>[],
 ) {
+  if (allowances.length) {
+    assertCanWrite(ctx.actor, "compensation");
+    assertNotSelfChange(ctx.actor, "compensation", employeeId);
+  }
   for (const a of allowances) {
     const [t] = await tx
       .select({ archivedAt: allowanceTypes.archivedAt })
@@ -364,7 +369,8 @@ export async function hire(
 ): Promise<{ employeeId: string; invite: HireInvite | null }> {
   assertCanWrite(ctx.actor, "employment");
   const input = parseInput(hireInput, raw);
-  if (input.compensation && !canWrite(ctx.actor, "compensation")) {
+  // Recurring allowances are pay too (review #16): same rights as the basic salary.
+  if ((input.compensation || input.allowances?.length) && !canWrite(ctx.actor, "compensation")) {
     throw new AppError(
       "forbidden",
       "Your role cannot set pay. Leave compensation empty; a payroll admin adds it after the hire.",
@@ -378,13 +384,16 @@ export async function hire(
       action: "employee.hired",
       targetType: "employee",
       targetId: id,
-      diff: diffOf(null, {
-        legalName: input.person.legalName,
-        idNumber: "set",
-        hireDate: input.job.hireDate,
-        jobTitle: input.job.jobTitle,
-        ...(input.compensation ? { basicPayCents: input.compensation.amountCents } : {}),
-      }),
+      diff: {
+        ...diffOf(null, {
+          legalName: input.person.legalName,
+          idNumber: "set",
+          hireDate: input.job.hireDate,
+          jobTitle: input.job.jobTitle,
+          ...(input.compensation ? { basicPayCents: input.compensation.amountCents } : {}),
+        }),
+        ...(input.allowances?.length ? { allowances: { changed: true as const } } : {}),
+      },
     });
     return id;
   };
@@ -776,6 +785,7 @@ async function applyLeaving(
   const { orgId, org } = ctx.actor;
   const tenure = await currentTenure(tx, orgId, employeeId);
   if (!tenure) throw new AppError("conflict", "This person has no employment to end.");
+  await assertMayEndEmployment(tx, ctx, employeeId);
   if (tenure.lastWorkingDay) {
     throw new AppError(
       "conflict",
@@ -871,6 +881,63 @@ async function applyLeaving(
   return { eventId, effectiveDate: lastDay, audit: { lastWorkingDay: { from: null, to: lastDay } } };
 }
 
+/**
+ * Ending the employment of someone whose sign-in holds roles takes those roles away when it takes
+ * effect, so only an owner may record it (review #6), and never for the last active owner: the
+ * sweep could not make them former, and the organisation would lose its owner (review #7).
+ */
+async function assertMayEndEmployment(tx: Db, ctx: LifecycleCtx, employeeId: string) {
+  const { orgId } = ctx.actor;
+  const linked = await tx
+    .select({ id: memberships.id, status: memberships.status })
+    .from(memberships)
+    .where(
+      and(
+        orgScope(tx, orgId).where(memberships, eq(memberships.employeeId, employeeId)),
+        inArray(memberships.status, ["active", "invited", "suspended"]),
+      ),
+    );
+  if (!linked.length) return;
+  const held = await tx
+    .select({ membershipId: membershipRoles.membershipId, role: membershipRoles.role })
+    .from(membershipRoles)
+    .where(
+      and(
+        orgScope(tx, orgId).where(membershipRoles),
+        inArray(
+          membershipRoles.membershipId,
+          linked.map((m) => m.id),
+        ),
+      ),
+    );
+  if (!held.length) return;
+  if (!ctx.actor.roles.has("owner")) {
+    throw new AppError(
+      "forbidden",
+      "Only an owner can record the resignation or termination of someone who holds the owner, HR admin or payroll admin role.",
+      { reason: "holds_roles" },
+    );
+  }
+  const activeIds = new Set(linked.filter((m) => m.status === "active").map((m) => m.id));
+  if (!held.some((r) => r.role === "owner" && activeIds.has(r.membershipId))) return;
+  const owners = await tx
+    .select({ id: memberships.id })
+    .from(membershipRoles)
+    .innerJoin(
+      memberships,
+      and(eq(memberships.id, membershipRoles.membershipId), eq(memberships.orgId, membershipRoles.orgId)),
+    )
+    .where(
+      orgScope(tx, orgId).where(membershipRoles, eq(membershipRoles.role, "owner"), eq(memberships.status, "active")),
+    );
+  if (!owners.some((o) => !activeIds.has(o.id))) {
+    throw new AppError(
+      "last_owner",
+      "This person is the only active owner. Make someone else an owner (Settings → Members) before recording their last day.",
+    );
+  }
+}
+
 async function eventPayload(tx: Db, eventId: string): Promise<Record<string, unknown>> {
   const [e] = await tx
     .select({ payload: lifecycleEvents.payload })
@@ -917,10 +984,10 @@ async function applyRehire(
       { reason: "not_former" },
     );
   }
-  if (input.compensation && !canWrite(ctx.actor, "compensation")) {
+  if ((input.compensation || input.allowances?.length) && !canWrite(ctx.actor, "compensation")) {
     throw new AppError(
       "forbidden",
-      "Your role cannot set pay. Leave compensation empty; a payroll admin adds it later.",
+      "Your role cannot set pay. Leave compensation and allowances empty; a payroll admin adds them later.",
     );
   }
   const [emp] = await tx.select().from(employees).where(org.whereId(employees, employeeId));
@@ -934,7 +1001,15 @@ async function applyRehire(
     input.compensation ?? null,
     input.allowances ?? [],
   );
-  return { eventId, effectiveDate: input.job.hireDate, audit: { hireDate: { from: null, to: input.job.hireDate } } };
+  return {
+    eventId,
+    effectiveDate: input.job.hireDate,
+    audit: {
+      hireDate: { from: null, to: input.job.hireDate },
+      ...(input.compensation ? { basicPayCents: { changed: true as const } } : {}),
+      ...(input.allowances?.length ? { allowances: { changed: true as const } } : {}),
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -950,20 +1025,32 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
       .from(lifecycleEvents)
       .where(org.where(lifecycleEvents, eq(lifecycleEvents.employeeId, employeeId), eq(lifecycleEvents.id, eventId)));
     if (!e) throw new AppError("not_found", "No such event.");
+    // Pay is basic salary and recurring allowances (review #17): undoing either is a pay change.
     const touchesPay =
       e.type === "salary_change" ||
       (
         await tx
           .select({ id: compensationRecords.id })
           .from(compensationRecords)
-          .where(eq(compensationRecords.eventId, eventId))
+          .where(org.where(compensationRecords, eq(compensationRecords.eventId, eventId)))
+      ).length > 0 ||
+      (
+        await tx
+          .select({ id: recurringAllowances.id })
+          .from(recurringAllowances)
+          .where(org.where(recurringAllowances, eq(recurringAllowances.eventId, eventId)))
       ).length > 0;
     if (touchesPay) {
       assertCanWrite(ctx.actor, "compensation");
       assertNotSelfChange(ctx.actor, "compensation", employeeId);
-    } else {
-      assertCanWrite(ctx.actor, "employment");
     }
+    const [jobVersion] = await tx
+      .select({ id: employmentRecords.id })
+      .from(employmentRecords)
+      .where(org.where(employmentRecords, eq(employmentRecords.eventId, eventId)))
+      .limit(1);
+    // A combined event needs both permissions: cancelling pay must not also undo a job change.
+    if (!touchesPay || jobVersion) assertCanWrite(ctx.actor, "employment");
     if (eventStatus(e, ctx.today) !== "scheduled") {
       throw new AppError(
         "conflict",
@@ -1024,7 +1111,7 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
       action: "lifecycle.cancelled",
       targetType: "employee",
       targetId: employeeId,
-      meta: { eventId, type: e.type },
+      meta: { eventId, type: e.type, touchesPay },
     });
   });
 }

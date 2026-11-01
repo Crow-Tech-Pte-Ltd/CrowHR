@@ -53,3 +53,5 @@ Every sign-in, role change, configuration change and change to employee or payro
 - Owners see all events.
 - HR admins see everything except security settings, SSO configuration and payroll events.
 - Payroll admins see payroll, compensation and bank events.
+
+Suspension and former-member transitions also revoke approval cover in both directions, supersede open tasks and find eligible replacement approvers. These changes commit with the membership change.

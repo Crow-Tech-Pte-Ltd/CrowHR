@@ -60,6 +60,14 @@ export const policyInputSchema = z.object({
 });
 export type PolicyInput = z.output<typeof policyInputSchema>;
 
+/** Sensitive approval chains can redirect pay; only owners may edit them. */
+export function ownerOnlyPolicy(subjectType: string, adapter?: AnySubjectAdapter): boolean {
+  return (
+    ["payroll_run", "profile_change", "compensation", "compensation_change"].includes(subjectType) ||
+    !!adapter?.ownerOnlyPolicy
+  );
+}
+
 /**
  * Built-in defaults (spec "Approval policies"): payroll → owner; profile changes → payroll_admin
  * for bank fields, hr_admin for the rest; everything else → manager, then hr_admin.

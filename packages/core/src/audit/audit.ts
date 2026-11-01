@@ -251,7 +251,7 @@ export async function verifyChain(db: Db, orgId: string): Promise<ChainVerificat
 /** Event families for read rules (spec "Audit log access"). */
 export function auditCategory(action: string): "security" | "payroll" | "general" {
   if (/^(security_settings|sso)\./.test(action)) return "security";
-  if (/^(payroll|payslip|compensation|bank)\./.test(action)) return "payroll";
+  if (/^(payroll|payslip|compensation|bank|bank_account)\./.test(action)) return "payroll";
   return "general";
 }
 
@@ -259,5 +259,5 @@ export function auditCategory(action: string): "security" | "payroll" | "general
 export function auditCategorySql(category: "security" | "payroll") {
   return category === "security"
     ? sql`(${auditEvents.action} like 'security_settings.%' or ${auditEvents.action} like 'sso.%')`
-    : sql`(${auditEvents.action} like 'payroll.%' or ${auditEvents.action} like 'payslip.%' or ${auditEvents.action} like 'compensation.%' or ${auditEvents.action} like 'bank.%')`;
+    : sql`(${auditEvents.action} like 'payroll.%' or ${auditEvents.action} like 'payslip.%' or ${auditEvents.action} like 'compensation.%' or ${auditEvents.action} like 'bank.%' or ${auditEvents.action} like 'bank!_account.%' escape '!')`;
 }

@@ -16,6 +16,7 @@ import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import { csvEnum, listQuery, pageOf, toLimitOffset } from "../http/list.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
+import { retireInactiveApprovers } from "../workflows/engine.ts";
 import { deliverInvitation, inviteMember, issueInvitation } from "./invitations.ts";
 import { ASSIGNED_ROLES, type AssignedRole } from "./matrix.ts";
 import { orgScope } from "./org-scope.ts";
@@ -145,7 +146,11 @@ function assertCanManage(auth: AuthContext, target: MemberOut) {
   }
 }
 
-async function activeOwnerCount(db: Db, orgId: string, excludingMembershipId?: string): Promise<number> {
+async function activeOwnerCount(
+  db: Db,
+  orgId: string,
+  excludingMembershipId?: string | readonly string[],
+): Promise<number> {
   const rows = await db
     .select({ id: memberships.id })
     .from(membershipRoles)
@@ -154,7 +159,10 @@ async function activeOwnerCount(db: Db, orgId: string, excludingMembershipId?: s
       and(eq(memberships.id, membershipRoles.membershipId), eq(memberships.orgId, membershipRoles.orgId)),
     )
     .where(and(eq(membershipRoles.orgId, orgId), eq(membershipRoles.role, "owner"), eq(memberships.status, "active")));
-  return rows.filter((r) => r.id !== excludingMembershipId).length;
+  const excluded = new Set(
+    typeof excludingMembershipId === "string" ? [excludingMembershipId] : (excludingMembershipId ?? []),
+  );
+  return rows.filter((r) => !excluded.has(r.id)).length;
 }
 
 const LAST_OWNER_MESSAGE = "An organisation needs at least one active owner. Make someone else an owner first.";
@@ -195,7 +203,11 @@ export async function markMembershipFormer(
     if (
       roles.some((r) => r.role === "owner") &&
       m.status === "active" &&
-      (await activeOwnerCount(db, input.orgId, m.id)) === 0
+      (await activeOwnerCount(
+        db,
+        input.orgId,
+        linked.map((member) => member.id),
+      )) === 0
     ) {
       throw new AppError("last_owner", `${LAST_OWNER_MESSAGE} The termination can't take effect until then.`);
     }
@@ -219,7 +231,9 @@ export async function markMembershipFormer(
     "former",
     now,
   );
-  return linked.map((m) => m.id);
+  const ids = linked.map((m) => m.id);
+  await retireInactiveApprovers(db, deps, ctx, { orgId: input.orgId, membershipIds: ids });
+  return ids;
 }
 
 const idParams = z.object({ id: z.uuid() });
@@ -474,12 +488,20 @@ export const membersModule = defineModule({
           throw new AppError("last_owner", LAST_OWNER_MESSAGE);
         }
         const now = clock.now();
-        await db
-          .update(memberships)
-          .set({ status: "suspended", updatedAt: now })
-          .where(orgScope(db, auth).whereId(memberships, target.id));
-        await revokeMembershipSessions(db, [target.id], "suspended", now);
-        await audit(c, { action: "member.suspended", targetType: "membership", targetId: target.id });
+        await db.transaction(async (tx) => {
+          await tx
+            .update(memberships)
+            .set({ status: "suspended", updatedAt: now })
+            .where(orgScope(tx, auth).whereId(memberships, target.id));
+          await revokeMembershipSessions(tx, [target.id], "suspended", now);
+          const ctx = auditContext(c);
+          await recordAudit(tx, deps, ctx, {
+            action: "member.suspended",
+            targetType: "membership",
+            targetId: target.id,
+          });
+          await retireInactiveApprovers(tx, deps, ctx, { orgId: auth.orgId, membershipIds: [target.id] });
+        });
         return getMember(c, auth.orgId, target.id);
       },
     }),

@@ -5,6 +5,8 @@ import { memberships } from "../db/schema/access.ts";
 import { users } from "../db/schema/users.ts";
 import { approvalRequests, approvalTasks } from "../db/schema/workflows.ts";
 import type { AppDeps } from "../deps.ts";
+import { approverDirectory } from "./directory.ts";
+import { decideBlocker } from "./engine.ts";
 import { workflowRegistry } from "./registry.ts";
 import type { InboxItem, InboxSource } from "./types.ts";
 
@@ -12,8 +14,13 @@ const onBehalfMembership = alias(memberships, "on_behalf_membership");
 const onBehalfUser = alias(users, "on_behalf_user");
 
 /** Open approval tasks of the member (including delegated, escalated and reassigned ones). One indexed query. */
-export async function myOpenTasks(db: Parameters<InboxSource["list"]>[0], orgId: string, membershipId: string) {
-  return db
+export async function myOpenTasks(
+  db: Parameters<InboxSource["list"]>[0],
+  orgId: string,
+  membershipId: string,
+  deps: AppDeps,
+) {
+  const rows = await db
     .select({
       task: approvalTasks,
       request: approvalRequests,
@@ -35,6 +42,18 @@ export async function myOpenTasks(db: Parameters<InboxSource["list"]>[0], orgId:
       ),
     )
     .orderBy(asc(approvalTasks.createdAt));
+  const member = await approverDirectory(deps).member(db, orgId, membershipId);
+  const eligible: typeof rows = [];
+  for (const row of rows) {
+    if (
+      !(await decideBlocker(db, deps, row.request, member, {
+        viaRole: row.task.viaRole,
+        selfApproved: row.task.selfApproved,
+      }))
+    )
+      eligible.push(row);
+  }
+  return eligible;
 }
 
 /** Built with deps at call time (labels and the inline flag come from the registered adapters). */
@@ -44,8 +63,9 @@ export function approvalsInbox(deps: AppDeps): InboxSource {
     label: "Approvals",
     status: async () => "ready",
     async list(db, ctx) {
+      if (ctx.active === false) return []; // former members decide nothing
       const registry = workflowRegistry(deps);
-      const rows = await myOpenTasks(db, ctx.orgId, ctx.membershipId);
+      const rows = await myOpenTasks(db, ctx.orgId, ctx.membershipId, deps);
       return rows.map(({ task, request, requesterName, onBehalfName }): InboxItem => {
         const adapter = registry.subjects.get(request.subjectType);
         const label = adapter?.label ?? request.subjectType.replace(/_/g, " ");

@@ -99,6 +99,13 @@
       "when": 1793534009332,
       "tag": "0013_auth_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793534657458,
+      "tag": "0014_approvals_excluded_deciders",
+      "breakpoints": true
     }
   ]
 }
