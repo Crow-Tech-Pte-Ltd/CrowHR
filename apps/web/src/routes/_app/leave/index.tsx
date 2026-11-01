@@ -43,6 +43,7 @@ import {
 } from "../../../leave/api.ts";
 import { ApplySheet } from "../../../leave/apply-sheet.tsx";
 import { CheckRow, RadioRow } from "../../../leave/choice.tsx";
+import { Encashments } from "../../../leave/encashments.tsx";
 import { dateRange, fmt, qty, STATUS_LABEL, STATUS_TONE } from "../../../leave/format.ts";
 import { LeaveNav } from "../../../leave/leave-nav.tsx";
 import { RequestSheet } from "../../../leave/request-sheet.tsx";
@@ -87,6 +88,7 @@ function MyLeavePage() {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="flex min-w-0 flex-col gap-6">
             <Balances />
+            <Encashments />
             <MyRequests onOpen={(id) => void navigate({ search: { request: id } })} />
           </div>
           <Children />

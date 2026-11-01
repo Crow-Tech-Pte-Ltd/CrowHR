@@ -464,10 +464,17 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
                       </div>
                     ) : null}
                     <ToggleRow
-                      label="Encash days that can't be carried forward"
+                      label="Allow leave encashment (including unused year-end days)"
                       checked={p.encashable}
                       onChange={(v) => setP({ ...p, encashable: v })}
                     />
+                    {p.encashable ? (
+                      <ToggleRow
+                        label="Allow employees to request encashment"
+                        checked={p.employeeEncashmentRequests ?? false}
+                        onChange={(v) => setP({ ...p, employeeEncashmentRequests: v })}
+                      />
+                    ) : null}
                   </>
                 ) : null}
               </>
