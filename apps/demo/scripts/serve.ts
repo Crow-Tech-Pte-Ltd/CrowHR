@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { headersFor, matchRedirect, parseHeaders, parseRedirects } from "./pages-rules.ts";
 
-const root = process.argv[2] ?? fileURLToPath(new URL("../dist", import.meta.url));
+const root = process.env.DEMO_E2E_DIST ?? process.argv[2] ?? fileURLToPath(new URL("../dist", import.meta.url));
 const port = Number(process.env.PORT ?? 5181);
 const read = (f: string) => (existsSync(join(root, f)) ? readFileSync(join(root, f), "utf8") : "");
 const headerRules = parseHeaders(read("_headers"));

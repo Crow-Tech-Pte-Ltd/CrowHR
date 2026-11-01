@@ -8,7 +8,7 @@ import { configureWebForDemo } from "./web-extensions.tsx";
 /**
  * Boot sequence of the public demo:
  * 1. Take the per-browser lock (one tab owns the database; others offer to take over).
- * 2. Start the worker: PGlite on IndexedDB, migrations + seed on first visit, the real core app.
+ * 2. Start the worker: PGlite on IndexedDB, a snapshot on first visit (real seed fallback), the real core app.
  * 3. Route `/api/*` from this page (patched fetch) and from the service worker (images,
  *    downloads) to the worker.
  * 4. Start apps/web's own entry, unchanged, with the demo banner above it.

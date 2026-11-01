@@ -1,7 +1,8 @@
 import { PGlite } from "@electric-sql/pglite";
-import { pgliteAssets } from "./pglite-assets.ts";
+import { initdbAsset, pgliteAssets } from "./pglite-assets.ts";
 import type { BootStage, FromWorker, ToWorker } from "./protocol.ts";
 import type { DemoRuntime } from "./runtime.ts";
+import { openWithSnapshot, readSnapshot } from "./snapshot.ts";
 
 /**
  * The demo Web Worker: owns the visitor's PGlite database (IndexedDB) and the real core app, so
@@ -16,6 +17,15 @@ export const DB_PREFIX = "crowhr-demo-";
 let runtime: DemoRuntime | null = null;
 let pglite: PGlite | null = null;
 let boot: { origin: string; dataVersion: string } | null = null;
+
+// The database is single-connection. In particular, reset must wait for requests and ticks,
+// and no deferred sweep may touch the old PGlite after it has been closed.
+let work: Promise<unknown> = Promise.resolve();
+function enqueue(task: () => Promise<void>) {
+  const next = work.then(task, task);
+  work = next.catch(() => undefined);
+  return next;
+}
 
 const post = (msg: FromWorker, transfer: Transferable[] = []) => self.postMessage(msg, transfer);
 
@@ -69,8 +79,46 @@ async function start(origin: string, dataVersion: string) {
   progress("wasm", "Starting Postgres in your browser");
   // A new demo release with a different data version starts clean; old copies are deleted.
   await deleteOldDatabases(name);
-  pglite = await PGlite.create(`idb://${name}`, { relaxedDurability: true, ...(await assets) });
-  const [{ openDemo }, { CORE_MIGRATIONS }] = await Promise.all([runtimeModule, migrationsModule]);
+  const exists = ((await indexedDB.databases?.()) ?? []).some((db) => db.name === `/pglite/${name}`);
+  // Download alongside WASM compilation and core imports, rather than after them.
+  const snapshotDownload = !exists
+    ? fetch(new URL(`/assets/demo-${dataVersion}.tar.gz`, origin))
+        .then(readSnapshot)
+        .then(
+          (blob) => ({ blob }),
+          () => ({ blob: null }),
+        )
+    : Promise.resolve({ blob: null });
+  const [{ openDemo, validateDemoSnapshot }, { CORE_MIGRATIONS }, binaries] = await Promise.all([
+    runtimeModule,
+    migrationsModule,
+    assets,
+  ]);
+  const opened = await openWithSnapshot({
+    exists,
+    fetchSnapshot: async () => {
+      const { blob } = await snapshotDownload;
+      if (!blob) throw new Error("Snapshot unavailable");
+      return blob;
+    },
+    open: async (snapshot?: Blob) => {
+      // Retain even a failed instance so fallback can close it and discard partial files.
+      pglite = new PGlite(`idb://${name}`, {
+        relaxedDurability: true,
+        ...binaries,
+        ...(snapshot ? { loadDataDir: snapshot } : exists ? {} : { initdbWasmModule: await initdbAsset() }),
+      });
+      await pglite.waitReady;
+      return pglite;
+    },
+    validate: (database) => validateDemoSnapshot(database, dataVersion),
+    discard: async () => {
+      await pglite?.close().catch(() => undefined);
+      pglite = null;
+      await deleteOldDatabases(null);
+    },
+  });
+  pglite = opened.database;
   const wasmMs = performance.now() - stageStart;
   progress("open", "Opening your copy of the demo");
   runtime = await openDemo({
@@ -87,14 +135,16 @@ async function start(origin: string, dataVersion: string) {
   // (doing it first would add ~100 ms to the first load). Requests wait for the flush's lock.
   const started = runtime;
   setTimeout(() => {
-    void (async () => {
+    void enqueue(async () => {
+      if (runtime !== started) return;
       if (started.timings.seeded) await flush();
       await started.tick();
       await flush();
-    })().catch(() => undefined);
+    }).catch(() => undefined);
   }, 0);
   const timings = {
     ...runtime.timings,
+    restored: opened.restored,
     stages: [{ stage: "wasm" as const, ms: Math.round(wasmMs) }, ...runtime.timings.stages],
     totalMs: Math.round(performance.now() - stageStart),
   };
@@ -108,13 +158,12 @@ async function reset() {
   runtime = null;
   pglite = null;
   await deleteOldDatabases(null);
-  const result = await start(boot.origin, boot.dataVersion);
-  // The page reloads right after a reset: the new seed must be on disk first.
-  await flush();
-  return result;
+  // The page reloads after this acknowledgement. Restore in its fresh worker rather than
+  // reopening the same IndexedDB filesystem inside a closed PGlite/WASM instance.
+  return { reset: true as const };
 }
 
-self.onmessage = async (event: MessageEvent<ToWorker>) => {
+async function dispatch(event: MessageEvent<ToWorker>) {
   const msg = event.data;
   try {
     switch (msg.method) {
@@ -144,4 +193,8 @@ self.onmessage = async (event: MessageEvent<ToWorker>) => {
   } catch (err) {
     post({ id: msg.id, error: { message: err instanceof Error ? err.message : String(err) } });
   }
+}
+
+self.onmessage = (event: MessageEvent<ToWorker>) => {
+  void enqueue(() => dispatch(event));
 };

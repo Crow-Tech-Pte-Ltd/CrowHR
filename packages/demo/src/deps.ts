@@ -26,7 +26,7 @@ import {
  * | fileStore | local disk | the visitor's own database (`demo_files`) |
  * | clock | system | system time shifted onto the demo date (clock.ts) |
  * | mailer | SMTP (optional) | the Demo outbox (`demo_outbox`) |
- * | secretBox | CROWHR_SECRET_KEY | a random key generated per visitor, kept with the database |
+ * | secretBox | CROWHR_SECRET_KEY | the fixture key (fresh on browser seeding), kept with the database |
  */
 export interface DemoDepsInput {
   db: Db;

@@ -1,6 +1,5 @@
 /**
- * Bump when the seed changes. The demo's data version is this plus a hash of core's migrations
- * (apps/demo/scripts/data-version.ts), so a deploy with a new seed or a new migration gives
- * every visitor a fresh database automatically; other deploys keep their data.
+ * Human-readable seed release label. The build adds a hash of demo source, core's shared people
+ * seed and migrations, so ordinary seed edits invalidate snapshots without a manual bump.
  */
-export const SEED_VERSION = "2026-10-31.1";
+export const SEED_VERSION = "2026-10-31.2";

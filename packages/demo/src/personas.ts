@@ -68,6 +68,10 @@ export const PERSONAS: readonly PersonaDef[] = [
 
 /** Other members (so their managers and claims are real), listed under the personas. */
 export const OTHER_MEMBERS: readonly { employee: string; email: string }[] = [
+  { employee: "pt1", email: "huimin@kopikaki.example" },
+  { employee: "tb_lead", email: "meixuan@kopikaki.example" },
+  { employee: "joiner", email: "darren@kopikaki.example" },
+  { employee: "leaver_oct", email: "priyanka@kopikaki.example" },
   { employee: "opsmgr", email: "rajesh@kopikaki.example" },
   { employee: "tp_lead", email: "weiming@kopikaki.example" },
   { employee: "barista2", email: "hafiz@kopikaki.example" },

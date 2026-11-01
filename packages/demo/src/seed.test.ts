@@ -60,7 +60,10 @@ describe("demo seed", () => {
     const me = personas.items.find((p) => p.email === email);
     if (!me) throw new Error(`No persona ${email}`);
     await call("POST", "/api/v1/auth/demo/sign-in", { membershipId: me.membershipId });
-    return { get: <T>(url: string) => call<T>("GET", url) };
+    return {
+      get: <T>(url: string) => call<T>("GET", url),
+      post: <T>(url: string, body: unknown = {}) => call<T>("POST", url, body),
+    };
   }
   const persona = (key: string) => PERSONAS.find((p) => p.key === key)?.email as string;
 
@@ -125,6 +128,95 @@ describe("demo seed", () => {
     expect(statuses).toEqual(expect.arrayContaining(["draft", "submitted", "rejected"]));
     const notes = await junJie.get<{ items: unknown[] }>("/api/v1/notifications");
     expect(notes.items.length).toBeGreaterThan(0);
+  });
+
+  it("gives everyone a preferred name and classifies outlet managers", async () => {
+    const employees = await demo.deps.db.select().from(schema.employees);
+    expect(employees.every((e) => !!e.preferredName?.trim())).toBe(true);
+    expect(employees.find((e) => e.legalName === "Goh Jun Jie")?.preferredName).toBe("Jun Jie");
+    const jobs = await demo.deps.db.select().from(schema.employmentRecords);
+    for (const name of ["Tan Wei Ming", "Siti Nurhaliza binte Osman", "Lau Mei Xuan"]) {
+      const employee = employees.find((e) => e.legalName === name);
+      expect(jobs.filter((j) => j.employeeId === employee?.id).at(-1)?.isManagerOrExecutive).toBe(true);
+    }
+  });
+
+  it("publishes current and next week at all three outlets, and leaves a usable swap for Siti", async () => {
+    const rows = await demo.deps.db.select().from(schema.rosters);
+    const locations = await demo.deps.db.select().from(schema.locations);
+    for (const week of ["2026-10-26", "2026-11-02"]) {
+      for (const name of ["Tanjong Pagar outlet", "Jurong Point outlet", "Tiong Bahru outlet"]) {
+        expect(
+          rows.find((r) => r.weekStart === week && r.locationId === locations.find((l) => l.name === name)?.id)
+            ?.publishedAt,
+        ).toBeTruthy();
+      }
+    }
+    const templates = await demo.deps.db.select().from(schema.shiftTemplates);
+    expect(templates.map((t) => t.code)).toEqual(expect.arrayContaining(["OPN", "AM", "MID", "PM"]));
+    const manager = await as(persona("manager"));
+    const tasks = await manager.get<{ items: { taskId: string; subjectType: string }[] }>("/api/v1/approvals/tasks");
+    const swap = tasks.items.find((t) => t.subjectType === "shift_swap");
+    expect(swap).toBeDefined();
+    await manager.post(`/api/v1/approvals/tasks/${swap?.taskId}/decision`, { decision: "approve" });
+    const swaps = await demo.deps.db.select().from(schema.shiftSwaps);
+    expect(swaps.some((s) => s.status === "approved")).toBe(true);
+  });
+
+  it("feeds approved clocked overtime into October payroll without manual overrides", async () => {
+    const punches = await demo.deps.db.select().from(schema.attendancePunches);
+    expect(punches.length).toBeGreaterThan(100);
+    const shifts = await demo.deps.db.select().from(schema.publishedShifts);
+    expect(
+      punches.every((p) =>
+        shifts.some((s) => s.employeeId === p.employeeId && s.date === p.workDate && s.kind === "shift"),
+      ),
+    ).toBe(true);
+    expect(
+      punches.some(
+        (p) =>
+          p.kind === "in" &&
+          shifts.some(
+            (s) => s.employeeId === p.employeeId && s.date === p.workDate && s.startsAt && p.recordedAt > s.startsAt,
+          ),
+      ),
+    ).toBe(true);
+    const approved = (await demo.deps.db.select().from(schema.overtimeClaims)).filter((c) => c.status === "approved");
+    expect(approved.length).toBeGreaterThan(0);
+    const payroll = await as(persona("payroll"));
+    const runs = await payroll.get<{ items: { id: string; month: string }[] }>("/api/v1/payroll/runs");
+    const run = runs.items.find((r) => r.month === "2026-10");
+    const employee = (await demo.deps.db.select().from(schema.employees)).find((e) => e.legalName === "Goh Jun Jie");
+    const detail = await payroll.get<{
+      input: { items: { kind: string; source: string; minutes: number }[] };
+      result: { lines: { code: string; amountCents: number }[] };
+    }>(`/api/v1/payroll/runs/${run?.id}/employees/${employee?.id}`);
+    const ot = detail.input.items.filter((i) => i.kind === "overtime");
+    expect(ot.length).toBeGreaterThan(0);
+    expect(ot.every((i) => i.source === "attendance")).toBe(true);
+    expect(ot.reduce((sum, i) => sum + i.minutes, 0)).toBe(
+      approved.filter((c) => c.employeeId === employee?.id).reduce((sum, c) => sum + (c.approvedMinutes ?? 0), 0),
+    );
+    expect(detail.result.lines.some((l) => l.code.startsWith("OT_") && l.amountCents > 0)).toBe(true);
+  });
+
+  it("has generated KETs, an employee acknowledgement, expiring work pass and populated reports", async () => {
+    const docs = await demo.deps.db.select().from(schema.documentVersions);
+    expect(docs.filter((d) => d.source === "generated").length).toBeGreaterThanOrEqual(3);
+    const employee = await as(persona("employee"));
+    const home = await employee.get<{ items: { kind: string }[] }>("/api/v1/inbox");
+    expect(home.items.some((i) => i.kind === "acknowledgement")).toBe(true);
+    const hr = await as(persona("hr"));
+    const expiring = await hr.get<{ items: { title: string }[] }>("/api/v1/documents?expiry=expiring");
+    expect(expiring.items.some((d) => /work pass/i.test(d.title))).toBe(true);
+    for (const p of PERSONAS) {
+      const home = await (await as(p.email)).get<{ items: unknown[] }>("/api/v1/inbox");
+      expect(home.items.length).toBeGreaterThan(0);
+    }
+    const report = await (await as(persona("payroll"))).get<{ rows: unknown[] }>(
+      "/api/v1/reports/payroll.cost?from=2026-07&to=2026-09",
+    );
+    expect(report.rows.length).toBeGreaterThan(0);
   });
 
   it("sent its emails to the Demo outbox", async () => {

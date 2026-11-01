@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApiBridge } from "./bridge.ts";
@@ -82,6 +83,51 @@ describe("api bridge", () => {
     const { handle } = setup();
     expect((await handle(wire("GET", "/assets/app.js"))).status).toBe(404);
     expect((await handle(wire("GET", "https://evil.example/api/v1/whoami"))).status).toBe(404);
+  });
+
+  it("keeps the unguarded cookie headers independent of the native Request", async () => {
+    const NativeRequest = Request;
+    vi.stubGlobal(
+      "Request",
+      class extends NativeRequest {
+        constructor(input: RequestInfo | URL, init?: RequestInit) {
+          const guarded = new Headers(init?.headers);
+          guarded.delete("cookie");
+          super(input, { ...init, headers: guarded });
+          // Some browser request implementations adopt the supplied Headers' guard/list.
+          if (init?.headers instanceof Headers) init.headers.delete("cookie");
+        }
+      },
+    );
+    const { handle } = setup();
+    await handle(wire("POST", "/api/v1/login", {}));
+    expect(json((await handle(wire("GET", "/api/v1/whoami"))).body).session).toBe("tok");
+  });
+
+  it("preserves sessions on buffered writes through core's body-limit middleware", async () => {
+    const NativeRequest = Request;
+    vi.stubGlobal(
+      "Request",
+      class extends NativeRequest {
+        constructor(input: RequestInfo | URL, init?: RequestInit) {
+          const headers = new Headers(init?.headers ?? (input instanceof NativeRequest ? input.headers : undefined));
+          headers.delete("cookie");
+          headers.delete("content-length");
+          super(input, { ...init, headers });
+        }
+      },
+    );
+    const app = stubApp();
+    // A separate app puts bodyLimit ahead of the routes, exactly as createApp does.
+    const limited = new Hono();
+    limited.use("*", bodyLimit({ maxSize: 1024 }));
+    limited.route("/", app);
+    limited.post("/api/v1/save", (c) => c.json({ session: getCookie(c, "__Host-crowhr_session") ?? null }));
+    const handle = createApiBridge(limited, { origin: ORIGIN, jar: createCookieJar(), now: () => NOW });
+    await handle(wire("POST", "/api/v1/login", {}));
+    const saved = await handle(wire("POST", "/api/v1/save", { text: "saved" }));
+    expect(saved.status).toBe(200);
+    expect(json(saved.body).session).toBe("tok");
   });
 
   it("works with browser fetch semantics (Cookie and Set-Cookie are forbidden headers)", async () => {

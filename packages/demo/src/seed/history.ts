@@ -1,7 +1,9 @@
 import { type App, type AppDeps, schema, tick } from "@crowhr/core";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 import type { SeedClock } from "../clock.ts";
+import { seedDocuments } from "./documents.ts";
 import type { SeedClient, seedHttp } from "./http.ts";
+import { seedOperations } from "./operations.ts";
 import type { DemoPeople } from "./people.ts";
 import { receiptPng } from "./receipt.ts";
 
@@ -11,7 +13,7 @@ import { receiptPng } from "./receipt.ts";
  * released and the run is marked paid. Claims are filed, approved (manager, then HR) and reimbursed
  * by the next run. October ends with a computed draft run and work waiting for every persona.
  */
-interface HistoryInput {
+export interface HistoryInput {
   deps: AppDeps;
   app: App;
   clock: SeedClock;
@@ -175,7 +177,7 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
   await decideAll("hr", (t) => t.subjectType === "claim", "approve");
   runs["2026-07"] = await runMonth("2026-07", [
     ...hours(e.pt1, 88),
-    ...ot(e.tp_lead, 5 * 60),
+    ...ot(e.barista1, 5 * 60),
     ...ot(e.spass_muslim, 3 * 60),
   ]);
 
@@ -216,7 +218,7 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
   await decideAll("tp_lead", (t) => t.subjectType === "leave", "approve");
   runs["2026-08"] = await runMonth("2026-08", [
     ...hours(e.pt1, 96),
-    ...ot(e.tp_lead, 4 * 60 + 30),
+    ...ot(e.barista1, 4 * 60 + 30),
     ...ot(e.wp, 2 * 60),
     {
       employeeId: e.opsmgr as string,
@@ -254,7 +256,7 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
   await h.resignLeaver();
   runs["2026-09"] = await runMonth("2026-09", [
     ...hours(e.pt1, 84),
-    ...ot(e.tp_lead, 4 * 60),
+    ...ot(e.barista1, 4 * 60),
     ...ot(e.spass_muslim, 3 * 60),
     ...roster(e.barista2, 26, 26),
   ]);
@@ -278,14 +280,13 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
   clock.set("2026-10-07T11:00");
   await decideAll("hr", (t) => t.subjectType === "claim", "approve");
 
+  const outletScheduledDays = await seedOperations(h);
+
   // The October run: computed draft, not yet submitted (the payroll admin's next step).
   runs["2026-10"] = await runMonth(
     "2026-10",
     [
       ...hours(e.pt1, 92),
-      ...ot(e.tp_lead, 6 * 60 + 30),
-      ...ot(e.spass_muslim, 4 * 60),
-      ...ot(e.wp, 2 * 60 + 30),
       {
         employeeId: e.chef as string,
         kind: "bonus",
@@ -302,10 +303,14 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
         wageClass: "AW",
         awPayableDate: "2026-10-31",
       },
-      ...roster(e.barista2, 26, 24),
-      // The joiner (from 12 Oct) and the leaver (to 15 Oct) work rosters: a part-month needs the roster days.
-      ...roster(e.joiner, 26, 17),
-      ...roster(e.leaver_oct, 26, 13),
+      // Full-month staff use the roster feed. Core requires explicit full-month denominators
+      // for joiners/leavers; days worked still come directly from their clock-ins.
+      ...[e.joiner, e.leaver_oct].map((employeeId) => ({
+        employeeId: employeeId as string,
+        kind: "scheduled_days",
+        label: "Published outlet days (full month)",
+        days: outletScheduledDays,
+      })),
       { employeeId: e.barista2 as string, kind: "unpaid_leave", label: "No-pay leave", days: 2 },
       {
         employeeId: e.barista1 as string,
@@ -413,7 +418,9 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
     note: "Married in September; marriage certificate available on request.",
   });
 
-  clock.set("2026-10-30T20:00");
+  await seedDocuments(h);
+
+  clock.set("2026-10-30T23:00");
   await sweep();
   return runs;
 }
