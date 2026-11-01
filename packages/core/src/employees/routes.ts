@@ -414,9 +414,11 @@ export const employeesModule = defineModule({
         },
       },
       access: { permission: "bank_details:update" },
+      // Redirecting someone's pay needs a fresh sign-in (review finding #10); the employee is notified.
+      recentAuth: true,
       request: { params: idParam, body: bankAccountInput },
       responses: { 201: z.object({ id: z.string(), accountMasked: z.string() }) },
-      errors: ["not_found", "self_change_requires_approval"],
+      errors: ["not_found", "self_change_requires_approval", "reauth_required"],
       handler: async ({ c, deps, params, body }) => {
         const { actor, ports } = actorFrom(c);
         return setBankAccount(deps, ports, actor, params.id, body);

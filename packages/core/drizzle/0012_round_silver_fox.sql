@@ -1,0 +1,1 @@
+ALTER TABLE "payroll_payslips" ADD COLUMN "payee" jsonb;

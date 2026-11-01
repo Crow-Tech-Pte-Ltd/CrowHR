@@ -7,6 +7,7 @@ import type { AppDeps } from "../../deps.ts";
 import { asAtMany } from "../../employees/effective.ts";
 import { AppError } from "../../errors.ts";
 import { monthCode, monthLabel } from "../engine/dates.ts";
+import { changedPayeesMessage, samePayee, toPayee } from "../payees.ts";
 import { loadRun, type PayrollActor } from "../service.ts";
 import { buildEzpayFile, type EzpayEmployee, EzpayError, employmentStatus } from "./cpf-ezpay.ts";
 import { buildPain001, Pain001Error } from "./pain001.ts";
@@ -143,6 +144,20 @@ export async function bankPaymentFile(deps: AppDeps, actor: PayrollActor, runId:
     slips.map((s) => s.employeeId),
     run.payDate,
   );
+  // Pay only the accounts the approver saw (finding #10).
+  const changed = slips.filter(
+    (s) => s.netPayableCents > 0 && !samePayee(s.payee, toPayee(accounts.get(s.employeeId))),
+  );
+  if (changed.length) {
+    throw new AppError(
+      "conflict",
+      changedPayeesMessage(
+        changed.map((s) => s.employeeName),
+        "file",
+      ),
+      { changedPayees: changed.map((s) => s.employeeName) },
+    );
+  }
   const excluded: GeneratedFile["excluded"] = [];
   const payments = [];
   for (const s of slips) {

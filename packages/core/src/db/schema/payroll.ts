@@ -215,6 +215,15 @@ export const payrollRunItems = pgTable(
   ],
 );
 
+/** A payee's bank account at compute time. `accountNumberHmac` is the blind index (not reversible). */
+export interface PayeeSnapshot {
+  bankAccountId: string;
+  bankCode: string;
+  holderName: string;
+  accountLast4: string;
+  accountNumberHmac: string;
+}
+
 /** One employee's computed pay in one run. Becomes the employee's payslip once released. */
 export const payrollPayslips = pgTable(
   "payroll_payslips",
@@ -236,6 +245,12 @@ export const payrollPayslips = pgTable(
     cpfEmployerCents: cents("cpf_employer_cents").notNull(),
     blockingCount: integer("blocking_count").notNull(),
     warningCount: integer("warning_count").notNull(),
+    /**
+     * The bank account the employee was to be paid into, as at the pay date when the run was
+     * computed (finding #10). The bank file pays this account only while it is still the current
+     * one; a later change makes the run stale until it is recomputed and approved again.
+     */
+    payee: jsonb("payee").$type<PayeeSnapshot | null>(),
     releasedAt: timestamp("released_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
