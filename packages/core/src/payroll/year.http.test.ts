@@ -89,6 +89,9 @@ beforeAll(async () => {
   const app = createApp(co.h.deps);
   admin = await clientAs(app, co.h.deps, await seedMember(co.h.deps, co.h.orgId, { roles: ["payroll_admin"] }));
   owner = await clientAs(app, co.h.deps, await seedMember(co.h.deps, co.h.orgId, { roles: ["owner"] }));
+  // These hand-worked AW vectors assume substitute days off, rather than cash holiday earnings.
+  const leaveSettings = (await (await owner.get("/api/v1/leave/settings")).json()) as Record<string, unknown>;
+  await ok(await owner.put("/api/v1/leave/settings", { ...leaveSettings, offDayHoliday: "next_working_day" }));
 }, 60_000);
 afterAll(() => t.close());
 

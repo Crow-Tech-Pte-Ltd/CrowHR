@@ -1,9 +1,12 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTestDb, seedMember, type TestDb } from "../../testing/index.ts";
+import { createTestDb, seedMember, seedOrg, type TestDb } from "../../testing/index.ts";
 import { decideRun, type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
 import { overtimeClaims } from "../db/schema/attendance.ts";
 import { compensationRecords } from "../db/schema/employees.ts";
+import { payrollPayslips } from "../db/schema/payroll.ts";
+import { reserveFeeds, unavailableFeeds } from "./feed-reservations.ts";
+import { loadRun } from "./service.ts";
 
 let t: TestDb;
 let p: PayrollHttp<"A">;
@@ -120,5 +123,49 @@ describe("payroll source feeds", () => {
     );
     await p.ok(p.admin.post(`${api}/runs/${mar}/compute`));
     expect((await slip(mar)).result.totals.additionalCents).toBe(12000);
+  });
+  it("does not read or create another organisation's earning reservations", async () => {
+    const sourceId = await overtime("2027-05-13");
+    const id = await run("2027-06");
+    await p.ok(p.admin.post(`${api}/runs/${id}/compute`));
+    const current = await loadRun(t.db, p.co.h.orgId, id);
+    expect(await unavailableFeeds(t.db, { ...current, id: p.co.h.deps.ids.newId() }, [])).toContain(
+      `attendance:${sourceId}`,
+    );
+    const other = await seedOrg(p.co.h.deps);
+    const foreign = { ...current, orgId: other.id };
+    expect(await unavailableFeeds(t.db, foreign, [])).toEqual(new Set());
+    const [snapshot] = await t.db.select().from(payrollPayslips).where(eq(payrollPayslips.runId, id));
+    if (!snapshot) throw new Error("Missing payslip");
+    await expect(t.db.transaction((tx) => reserveFeeds(tx, foreign, [snapshot.input], []))).rejects.toThrow();
+  });
+
+  it("two concurrent runs cannot reserve the same late overtime", async () => {
+    await overtime("2027-06-15");
+    const ids = [await run("2027-07"), await run("2027-08")];
+    const db = p.co.h.deps.db as unknown as { transaction: (...args: unknown[]) => Promise<unknown> };
+    const original = db.transaction;
+    let arrived = 0;
+    let resume: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      resume = r;
+    });
+    const timer = setTimeout(() => resume(), 5000);
+    db.transaction = async (...args: unknown[]) => {
+      if (++arrived === 2) {
+        db.transaction = original;
+        resume();
+      }
+      await gate;
+      return original.apply(db, args);
+    };
+    try {
+      const responses = await Promise.all(ids.map((id) => p.admin.post(`${api}/runs/${id}/compute`)));
+      expect(responses.map((r) => r.status).sort()).toEqual([200, 409]);
+    } finally {
+      db.transaction = original;
+      resume();
+      clearTimeout(timer);
+    }
   });
 });

@@ -74,7 +74,7 @@ export const addressInput = z
 const personBase = z.object({
   employeeNumber: optText(20),
   legalName: nameText.trim().min(1, "Enter the legal name as on the NRIC, FIN card or passport.").max(200),
-  preferredName: nameText.trim().max(100).nullish(),
+  preferredName: z.preprocess((v) => (v === "" ? null : v), nameText.trim().max(100).nullish()),
   idType: z.enum(["nric", "fin", "other"]),
   idNumber: z.string().trim().min(1, "Enter the NRIC, FIN or passport number."),
   dob: isoDate,

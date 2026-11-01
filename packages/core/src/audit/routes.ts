@@ -97,7 +97,12 @@ function toOut(r: typeof auditEvents.$inferSelect, labels: Map<string, string>):
 }
 
 function csvCell(v: unknown): string {
-  return formatCsvCell(v === null || v === undefined ? "" : typeof v === "string" ? v : JSON.stringify(v), "text");
+  const cell = formatCsvCell(
+    v === null || v === undefined ? "" : typeof v === "string" ? v : JSON.stringify(v),
+    "text",
+  );
+  // Preserve the audit export's all-quoted format; escaping comes from the shared writer.
+  return cell.startsWith('"') ? cell : `"${cell}"`;
 }
 
 export const auditModule = defineModule({
