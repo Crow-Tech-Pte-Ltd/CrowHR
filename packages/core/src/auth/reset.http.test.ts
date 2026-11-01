@@ -85,11 +85,11 @@ describe("password reset", () => {
     expect((await anon.post("/api/v1/auth/password-reset/complete", { token, password: NEW })).status).toBe(409);
   });
 
-  it("without SMTP an hr_admin generates a one-time link, audited with admin and employee", async () => {
+  it("without SMTP an owner generates a one-time link, audited with admin and employee", async () => {
     clock.set("2026-10-31T01:00:00Z");
     const noMail = createTestDeps(t.db, { clock });
     const noMailApp = createApp(noMail);
-    const hr = await seedMember(noMail, org.id, { roles: ["hr_admin"], email: "hr-admin@example.sg" });
+    const hr = await seedMember(noMail, org.id, { roles: ["owner"], email: "hr-admin@example.sg" });
     const emp = await seedMember(noMail, org.id, { email: "employee-r@example.sg", password: OLD });
     const http = await clientAs(noMailApp, noMail, hr);
     const res = await http.post(`/api/v1/members/${emp.membershipId}/password-reset-link`);

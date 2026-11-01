@@ -190,8 +190,9 @@ describe("OIDC sign-in flow (Google, Entra, generic) against the mock IdP", () =
       "error=sso_failed",
     );
     expect(await reasons()).toContain("tid_mismatch");
-    // From the configured tenant, the email counts as verified even without email_verified.
-    entra.nextUser = { sub: "e-chen", email: "chen@kampongkopi.sg", tid: TENANT };
+    // From the configured tenant, the email links only when Entra marks its domain verified
+    // (xms_edov); see sso-security.http.test.ts for the unverified case.
+    entra.nextUser = { sub: "e-chen", email: "chen@kampongkopi.sg", tid: TENANT, xms_edov: true };
     expect((await ssoRoundTrip(testClient(app, deps), entra, ids.entra as string)).location).toBe("/");
   });
 

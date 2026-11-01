@@ -16,7 +16,15 @@ export const DEFAULT_NATIVE_REDIRECT_URIS = ["crowtech.crowhr:/oauth2redirect"] 
  */
 export async function completeNativeSignIn(
   c: AppContext,
-  input: { requestId: string; orgId: string; userId: string; membershipId: string; authMethod: AuthMethod },
+  input: {
+    requestId: string;
+    orgId: string;
+    userId: string;
+    membershipId: string;
+    authMethod: AuthMethod;
+    /** The sign-in satisfied MFA (Crow HR TOTP or an IdP assertion); feeds the MFA policy. */
+    mfaSatisfied: boolean;
+  },
 ): Promise<string> {
   const { db, clock } = c.var.deps;
   const now = clock.now();
@@ -29,6 +37,7 @@ export async function completeNativeSignIn(
       userId: input.userId,
       membershipId: input.membershipId,
       authMethod: input.authMethod,
+      mfaSatisfied: input.mfaSatisfied,
     })
     .where(
       and(

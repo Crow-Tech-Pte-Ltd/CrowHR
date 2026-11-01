@@ -12,6 +12,7 @@ import type { Db } from "../db/types.ts";
 import type { AppDeps, PasswordHasher } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import { MINUTE } from "./settings.ts";
+import { mfaLockedUntil, recordMfaFailure } from "./throttle.ts";
 import { verifyTotp } from "./totp.ts";
 
 /** Shared pieces of password, MFA and re-authentication flows. */
@@ -92,7 +93,14 @@ export const MFA_MAX_ATTEMPTS = 5;
 
 export async function createMfaChallenge(
   deps: AppDeps,
-  input: { orgId: string; userId: string; membershipId: string; authMethod: string; nativeRequestId?: string | null },
+  input: {
+    orgId: string;
+    userId: string;
+    membershipId: string;
+    authMethod: string;
+    identityId?: string | null;
+    nativeRequestId?: string | null;
+  },
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = newToken();
   const now = deps.clock.now();
@@ -103,6 +111,7 @@ export async function createMfaChallenge(
     userId: input.userId,
     membershipId: input.membershipId,
     authMethod: input.authMethod,
+    identityId: input.identityId ?? null,
     nativeRequestId: input.nativeRequestId ?? null,
     expiresAt,
     createdAt: now,
@@ -114,7 +123,7 @@ export async function createMfaChallenge(
 
 export type SecondFactorResult =
   | { ok: true; method: "totp" | "recovery_code"; remainingRecoveryCodes: number }
-  | { ok: false };
+  | { ok: false; locked?: boolean };
 
 /** Recovery codes: 10 characters from an alphabet without 0/O, 1/I/L, shown as XXXXX-XXXXX. */
 export const RECOVERY_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
@@ -185,6 +194,53 @@ export async function verifySecondFactor(deps: AppDeps, userId: string, code: st
     .returning({ id: recoveryCodes.id });
   if (!used.length) return { ok: false };
   return { ok: true, method: "recovery_code", remainingRecoveryCodes: await remainingRecoveryCodes(db, userId) };
+}
+
+export const MFA_LOCKED_MESSAGE =
+  "Too many wrong codes, so two-step verification is paused for this account for 15 minutes. If this wasn't you, change your password now.";
+
+/**
+ * `verifySecondFactor` behind the account's MFA failure counter (`throttle.ts` rule 4), shared
+ * by `/auth/mfa/verify`, `/auth/reauth` and invitation acceptance. `locked: true` means the
+ * second factor is locked (before or because of this attempt): the code was not accepted.
+ */
+export async function checkSecondFactor(
+  c: AppContext,
+  input: { userId: string; orgId: string; membershipId: string; code: string },
+): Promise<SecondFactorResult> {
+  const deps = c.var.deps;
+  const now = deps.clock.now();
+  // Serialize guesses for the same account across every challenge and endpoint. The lock and
+  // its audit event commit together, including when the caller subsequently returns 401.
+  let causedLock = false;
+  const result = await deps.db.transaction(async (tx): Promise<SecondFactorResult> => {
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, input.userId)).for("update");
+    if (await mfaLockedUntil(tx, input.userId, now)) return { ok: false, locked: true };
+    const checked = await verifySecondFactor({ ...deps, db: tx }, input.userId, input.code);
+    if (checked.ok) return checked;
+    const lockedNow = await recordMfaFailure(tx, input.userId, now);
+    causedLock = lockedNow;
+    if (lockedNow) {
+      await audit(
+        c,
+        { action: "auth.mfa_locked", targetType: "membership", targetId: input.membershipId, meta: { minutes: 15 } },
+        { orgId: input.orgId, db: tx },
+      );
+    }
+    return { ok: false, locked: lockedNow };
+  });
+  if (causedLock) {
+    const [user] = await deps.db.select({ email: users.email }).from(users).where(eq(users.id, input.userId));
+    if (user) {
+      await notifyUser(
+        deps,
+        user.email,
+        "Two-step verification paused",
+        "Several wrong two-step verification codes were entered for your Crow HR account, so codes are not accepted for 15 minutes. Whoever entered them knew your password or had a signed-in session. If this wasn't you, change your password now and tell your administrator.",
+      );
+    }
+  }
+  return result;
 }
 
 /** Best-effort security notification by email (no-op without a mailer). */

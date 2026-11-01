@@ -19,10 +19,13 @@ export function requireRecentAuth(c: AppContext) {
   }
 }
 
-/** Blocks everything except MFA enrolment and sign-out once the grace period is over. */
+/**
+ * Blocks everything except MFA enrolment and sign-out once the grace period is over, for browser
+ * and device (native-app) sessions alike (security review finding 11).
+ */
 const mfaEnrolmentGuard: RouteGuard = async (c, route: AnyRoute) => {
   const auth = c.get("auth");
-  if (!auth || route.access === "public" || route.allowDuringMfaEnrolment || auth.session.kind !== "browser") return;
+  if (!auth || route.access === "public" || route.allowDuringMfaEnrolment) return;
   const status = await mfaPolicyStatus(c.var.deps.db, auth, await settingsFor(c, auth.orgId), c.var.deps.clock.now());
   if (status.blocked) {
     throw new AppError(

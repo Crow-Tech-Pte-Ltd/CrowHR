@@ -118,6 +118,24 @@ export async function revokeUserSessions(
   return count;
 }
 
+/**
+ * Unlinks a user's SSO identities (security review finding 1): a password reset and "sign out
+ * everywhere" must also remove any sign-in method an intruder may have linked. `orgId` limits it
+ * to one organisation. Members
+ * of Google, Entra (with a verified domain) and generic OIDC providers are linked again by
+ * verified email at their next SSO sign-in (and get the "new sign-in method" email); others link
+ * again from their profile. Returns the number removed.
+ */
+export async function removeLinkedIdentities(db: Db, input: { userId: string; orgId?: string }): Promise<number> {
+  const conds: SQL[] = [eq(userIdentities.userId, input.userId)];
+  if (input.orgId) conds.push(eq(userIdentities.orgId, input.orgId));
+  const removed = await db
+    .delete(userIdentities)
+    .where(and(...conds))
+    .returning({ id: userIdentities.id });
+  return removed.length;
+}
+
 /** Loads the member behind a session; null when the membership cannot sign in. */
 export async function loadMember(
   db: Db,
@@ -271,7 +289,12 @@ async function resolveBearer(c: AppContext, db: Db, token: string, now: Date) {
     roles: member.roles,
     authMethod: device.authMethod as AuthMethod,
     identity: null,
-    session: { id: device.id, kind: "device", authenticatedAt: device.authenticatedAt, mfaSatisfied: true },
+    session: {
+      id: device.id,
+      kind: "device",
+      authenticatedAt: device.authenticatedAt,
+      mfaSatisfied: device.mfaSatisfied,
+    },
   });
 }
 

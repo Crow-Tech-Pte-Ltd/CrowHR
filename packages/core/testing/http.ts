@@ -79,7 +79,7 @@ export async function clientAs(
   app: App,
   deps: AppDeps,
   member: SeededMember,
-  options: { authenticatedAt?: Date; authMethod?: string } = {},
+  options: { authenticatedAt?: Date; authMethod?: string; mfaSatisfied?: boolean } = {},
 ): Promise<TestClient> {
   const token = newToken();
   const now = deps.clock.now();
@@ -93,7 +93,7 @@ export async function clientAs(
     lastSeenAt: now,
     authenticatedAt: options.authenticatedAt ?? now,
     absoluteExpiresAt: new Date(now.getTime() + 12 * 3600_000),
-    mfaSatisfied: true,
+    mfaSatisfied: options.mfaSatisfied ?? true,
   });
   const client = testClient(app, deps);
   client.cookies.set(sessionCookie(deps.publicUrl).name, token);
