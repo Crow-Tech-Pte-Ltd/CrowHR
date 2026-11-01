@@ -1,12 +1,13 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { auditContext, clientIp, recordAudit } from "../../audit/audit.ts";
-import type { AppContext } from "../../context.ts";
+import type { AppContext, AuthMethod } from "../../context.ts";
 import { newToken, sha256Base64Url, sha256Hex } from "../../crypto/tokens.ts";
 import { deviceSessions, nativeAuthRequests } from "../../db/schema/auth.ts";
 import { AppError } from "../../errors.ts";
 import { defineModule, defineRoute } from "../../http/route.ts";
 import { audit, findOrgBySlug } from "../credentials.ts";
+import { mfaPolicyStatus } from "../mfa-policy.ts";
 import { loadMember } from "../sessions.ts";
 import { DAY, loadSecuritySettings, MINUTE } from "../settings.ts";
 import { DEFAULT_NATIVE_REDIRECT_URIS, NATIVE_REQUEST_TTL_MS } from "./complete.ts";
@@ -45,6 +46,7 @@ async function issueTokens(
     deviceName: string;
     appVersion: string | null;
     authenticatedAt: Date;
+    mfaSatisfied: boolean;
   },
 ) {
   const { db, clock, ids } = c.var.deps;
@@ -72,6 +74,7 @@ async function issueTokens(
     idleExpiresAt: new Date(now.getTime() + settings.deviceIdleDays * DAY),
     absoluteExpiresAt: new Date(now.getTime() + DEVICE_ABSOLUTE_TTL_MS),
     authenticatedAt: base.authenticatedAt,
+    mfaSatisfied: base.mfaSatisfied,
   });
   return {
     accessToken: access,
@@ -161,7 +164,7 @@ export const nativeModule = defineModule({
       access: "public",
       request: { body: tokenBody },
       responses: { 200: tokenResponse },
-      errors: ["invalid_grant"],
+      errors: ["invalid_grant", "mfa_enrolment_required"],
       handler: async ({ c, deps, body }) => {
         const { db, clock } = deps;
         const now = clock.now();
@@ -197,15 +200,37 @@ export const nativeModule = defineModule({
             throw invalidGrant("The PKCE verifier does not match. Sign in again from the app.");
           const member = await loadMember(db, request.membershipId);
           if (member?.status !== "active") throw invalidGrant("This account can't sign in to the app.");
+          const authMethod = (request.authMethod ?? "password") as AuthMethod;
+          // Security review finding 11: the MFA enrolment policy applies to the app as well.
+          const policy = await mfaPolicyStatus(
+            db,
+            {
+              user: member.user,
+              orgId: request.orgId,
+              membershipId: request.membershipId,
+              roles: member.roles,
+              authMethod,
+              session: { mfaSatisfied: request.mfaSatisfied },
+            },
+            await loadSecuritySettings(db, request.orgId),
+            now,
+          );
+          if (policy.blocked) {
+            throw new AppError(
+              "mfa_enrolment_required",
+              "Your role requires two-step verification. Set up an authenticator app in Crow HR on the web, then sign in to the app again.",
+            );
+          }
           const tokens = await issueTokens(c, null, {
             orgId: request.orgId,
             userId: request.userId,
             membershipId: request.membershipId,
-            authMethod: request.authMethod ?? "password",
+            authMethod,
             platform: request.client,
             deviceName: body.deviceName,
             appVersion: body.appVersion ?? null,
             authenticatedAt: now,
+            mfaSatisfied: request.mfaSatisfied,
           });
           await db
             .update(nativeAuthRequests)
@@ -221,19 +246,15 @@ export const nativeModule = defineModule({
         }
 
         const hash = await sha256Hex(body.refreshToken);
-        const [device] = await db.select().from(deviceSessions).where(eq(deviceSessions.currentRefreshHash, hash));
-        if (!device) {
-          const [reused] = await db
-            .select()
-            .from(deviceSessions)
-            .where(sql`${hash} = any(${deviceSessions.previousRefreshHashes})`);
-          if (reused) {
-            await db
+        /** Refresh-token reuse (RFC 9700 §4.14.2): the whole device session is revoked. */
+        const reuseDetected = async (reused: typeof deviceSessions.$inferSelect) => {
+          await db.transaction(async (tx) => {
+            await tx
               .update(deviceSessions)
               .set({ revokedAt: now, revokedReason: "refresh_reuse" })
               .where(eq(deviceSessions.id, reused.id));
             await recordAudit(
-              db,
+              tx,
               deps,
               { ...auditContext(c, reused.orgId), actorType: "system", actorLabel: "token service" },
               {
@@ -243,7 +264,16 @@ export const nativeModule = defineModule({
                 meta: { deviceName: reused.deviceName, membershipId: reused.membershipId },
               },
             );
-          }
+          });
+          return invalidGrant("This session has ended. Sign in again.");
+        };
+        const [device] = await db.select().from(deviceSessions).where(eq(deviceSessions.currentRefreshHash, hash));
+        if (!device) {
+          const [reused] = await db
+            .select()
+            .from(deviceSessions)
+            .where(sql`${hash} = any(${deviceSessions.previousRefreshHashes})`);
+          if (reused) throw await reuseDetected(reused);
           throw invalidGrant("This session has ended. Sign in again.");
         }
         if (device.revokedAt || device.absoluteExpiresAt <= now || device.idleExpiresAt <= now) {
@@ -260,12 +290,17 @@ export const nativeModule = defineModule({
         const settings = await loadSecuritySettings(db, device.orgId);
         const access = newToken();
         const refresh = newToken();
-        await db
+        // Compare-and-set (security review finding 23): only the request that still holds the
+        // current refresh token rotates it. A concurrent use of the same token updates nothing
+        // and is treated as reuse.
+        const rotated = await db
           .update(deviceSessions)
           .set({
             accessHash: await sha256Hex(access),
             accessExpiresAt: new Date(now.getTime() + ACCESS_TOKEN_TTL_MS),
             currentRefreshHash: await sha256Hex(refresh),
+            // Safe to compute from the row read above: the compare-and-set below only matches
+            // while the current hash (and so this list) is unchanged.
             previousRefreshHashes: [hash, ...device.previousRefreshHashes].slice(0, PREVIOUS_REFRESH_KEPT),
             idleExpiresAt: new Date(
               Math.min(now.getTime() + settings.deviceIdleDays * DAY, device.absoluteExpiresAt.getTime()),
@@ -273,7 +308,15 @@ export const nativeModule = defineModule({
             lastUsedAt: now,
             lastIp: clientIp(c),
           })
-          .where(eq(deviceSessions.id, device.id));
+          .where(
+            and(
+              eq(deviceSessions.id, device.id),
+              eq(deviceSessions.currentRefreshHash, hash),
+              isNull(deviceSessions.revokedAt),
+            ),
+          )
+          .returning({ id: deviceSessions.id });
+        if (!rotated.length) throw await reuseDetected(device);
         return {
           accessToken: access,
           tokenType: "Bearer" as const,

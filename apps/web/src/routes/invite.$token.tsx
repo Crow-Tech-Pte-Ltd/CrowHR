@@ -15,6 +15,7 @@ interface Inspection {
   email: string | null;
   displayName: string | null;
   existingAccount: boolean;
+  mfaRequired: boolean;
   passwordAllowed: boolean;
   providers: { id: string; kind: ProviderKind; displayName: string }[];
 }
@@ -56,6 +57,7 @@ function AcceptInvitation() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [password, setPassword] = React.useState("");
+  const [code, setCode] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -90,12 +92,17 @@ function AcceptInvitation() {
       next.password = "Use at least 12 characters. A short phrase of a few unrelated words works well.";
     if (!info.existingAccount && password !== confirm)
       next.confirm = "The two passwords don't match. Type the same password twice.";
+    if (info.mfaRequired && !code.trim()) next.code = "Enter your authenticator code or a recovery code.";
     setErrors(next);
     if (Object.keys(next).length) return;
     setBusy(true);
     setFailure(null);
     try {
-      await apiPost("/api/v1/auth/invitations/accept", { token, password });
+      await apiPost("/api/v1/auth/invitations/accept", {
+        token,
+        password,
+        ...(code.trim() ? { code: code.trim() } : {}),
+      });
       await qc.invalidateQueries({ queryKey: meQuery.queryKey });
       await navigate({ to: "/" });
     } catch (err) {
@@ -170,6 +177,11 @@ function AcceptInvitation() {
               />
             </FormField>
           )}
+          {info.mfaRequired ? (
+            <FormField label="Authenticator or recovery code" error={errors.code}>
+              <Input autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} />
+            </FormField>
+          ) : null}
           <Button type="submit" variant="primary" size="lg" disabled={busy}>
             {busy ? "Joining…" : "Accept and sign in"}
           </Button>

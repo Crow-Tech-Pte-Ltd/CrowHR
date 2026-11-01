@@ -3,7 +3,7 @@ title: Two-step verification (MFA)
 description: How TOTP two-step verification, recovery codes and the MFA policy for privileged roles work in Crow HR.
 ---
 
-Crow HR supports two-step verification with an authenticator app (TOTP) for password sign-in.
+Crow HR supports two-step verification with an authenticator app (TOTP) for password and SSO sign-in.
 
 ## Enrolling
 
@@ -11,15 +11,15 @@ Each person enrols from **My sessions** (the banner's **Set up now** goes there)
 
 Enrolment shows **10 recovery codes** once. Each works once, in place of an authenticator code. Store them somewhere safe. Regenerating codes invalidates the old set.
 
-After enrolment, password sign-in asks for a code after the password. Five wrong codes end that sign-in attempt; a code that was already used is refused.
+After enrolment, password sign-in and accepting an invitation to another organisation require a code. SSO also requires it unless the identity provider explicitly asserts MFA (`amr` contains `mfa`). A used code is refused. Five wrong TOTP or recovery codes across sign-in challenges, re-authentication and invitation acceptance pause codes for the account for 15 minutes. Starting another challenge does not reset this budget. MFA verification also allows at most 30 requests per minute per IP. Password failure counters clear only after the complete sign-in succeeds.
 
 ## MFA policy for privileged roles
 
-In **Settings → Security → Two-step verification policy**, owners choose which roles must use two-step verification for password sign-in. By default: **owner, HR admin and payroll admin**.
+In **Settings → Security → Two-step verification policy**, owners choose which roles must use two-step verification for password and SSO sign-in. By default: **owner, HR admin and payroll admin**.
 
 - A member who gets such a role has **7 days** from the role grant to enrol. During that time every page shows a banner with the deadline.
 - After 7 days without enrolment, they can only enrol or sign out until they do (`403 mfa_enrolment_required` for everything else).
-- **SSO sign-ins are exempt**: the identity provider is responsible for MFA there. Enforce MFA in Google Workspace, Entra ID or your OIDC provider if staff sign in that way.
+- The policy also covers **SSO and native app sessions**. An SSO session satisfies the policy when its validated ID token explicitly asserts MFA (`amr` contains `mfa`; [RFC 8176](https://www.rfc-editor.org/rfc/rfc8176.html)). A single OTP or key claim does not establish multiple factors. Without that assertion, enrol a Crow HR authenticator. Native token exchange is refused while enrolment is blocked; enrol in the browser first.
 
 ## When someone loses their device
 
@@ -29,5 +29,5 @@ In **Settings → Security → Two-step verification policy**, owners choose whi
 
 ## Not available yet
 
-- Notifications for "new MFA method" and "recovery code used" are not sent yet (in-app or by email). Using a recovery code is recorded in the audit log (`auth.recovery_code_used`).
+- New authenticator enrolment notifications and in-app security notifications are not implemented. Recovery-code use and MFA lockout send best-effort email when SMTP is configured, without outbox retries; recovery-code use is also audited.
 - Only TOTP is supported. There are no passkeys, WebAuthn security keys or SMS codes.

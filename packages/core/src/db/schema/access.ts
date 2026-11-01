@@ -1,5 +1,16 @@
 import { sql } from "drizzle-orm";
-import { check, foreignKey, index, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  foreignKey,
+  index,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { employees } from "./employees.ts";
 import { organisations } from "./organisations.ts";
 import { users } from "./users.ts";
@@ -27,6 +38,10 @@ export const memberships = pgTable(
   (t) => [
     unique("memberships_org_user_unique").on(t.orgId, t.userId),
     unique("memberships_org_id_unique").on(t.orgId, t.id),
+    // One login per employee record: a second live membership would read the first one's
+    // salary, bank and NRIC through `own` scope (security review finding 3). Former members keep
+    // their row for payslip access, so rehiring works.
+    uniqueIndex("memberships_org_employee_live_unique").on(t.orgId, t.employeeId).where(sql`${t.status} <> 'former'`),
     check("memberships_status_check", sql`${t.status} in ('invited', 'active', 'suspended', 'former')`),
     // The linked employee must belong to the same organisation.
     foreignKey({
