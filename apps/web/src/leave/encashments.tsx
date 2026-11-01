@@ -267,8 +267,8 @@ export function Encashments({ employeeId, showBalances = false }: { employeeId?:
           <DialogHeader>
             <DialogTitle>Encash leave</DialogTitle>
             <DialogDescription>
-              Request a payout from basic salary at the daily rate. HR or payroll must approve it before payroll
-              includes it. CPF applies as Additional Wages, including final pay.
+              Request a payout at the gross rate, including eligible fixed allowances. HR or payroll must approve it
+              before payroll includes it. CPF applies as Additional Wages, including final pay.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -297,7 +297,7 @@ export function Encashments({ employeeId, showBalances = false }: { employeeId?:
               hint={
                 candidate
                   ? "Already deducted at year end; approval won't deduct it again."
-                  : `${balance?.available ?? 0} ${balance?.unit ?? "days"} available. Uses basic salary and the effective work schedule; rounded once to cents.`
+                  : `${balance?.available ?? 0} ${balance?.unit ?? "days"} available. Uses basic salary plus included fixed allowances and the effective work schedule; rounded once to cents.`
               }
             >
               <Input
