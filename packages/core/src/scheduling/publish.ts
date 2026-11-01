@@ -105,9 +105,51 @@ export async function publishRoster(
       .from(rosterShifts)
       .where(orgScope(tx, actor.orgId).where(rosterShifts, eq(rosterShifts.rosterId, rosterId)))
       .orderBy(asc(rosterShifts.date), asc(rosterShifts.startsAt));
+    const before = await tx
+      .select()
+      .from(publishedShifts)
+      .where(orgScope(tx, actor.orgId).where(publishedShifts, eq(publishedShifts.rosterId, rosterId)));
+    // A team-scoped manager publishes only their own team's shifts: if someone else's working copy
+    // differs from what is published (HR drafted it), HR publishes it (review: roster leaks).
+    const mine = grant.all ? null : await grant.employeeIds();
+    if (mine) {
+      const key = (r: {
+        id: string;
+        employeeId: string | null;
+        date: string;
+        kind: string;
+        startsAt: Date | null;
+        endsAt: Date | null;
+        breakMinutes: number;
+        templateId: string | null;
+        note: string | null;
+      }) =>
+        JSON.stringify([
+          r.id,
+          r.employeeId,
+          r.date,
+          r.kind,
+          r.startsAt?.toISOString() ?? null,
+          r.endsAt?.toISOString() ?? null,
+          r.breakMinutes,
+          r.templateId,
+          r.note,
+        ]);
+      const was = new Set(before.map(key));
+      const is = new Set(working.map(key));
+      const touched = [...working.filter((r) => !was.has(key(r))), ...before.filter((r) => !is.has(key(r)))];
+      if (touched.some((r) => r.employeeId && !mine.has(r.employeeId))) {
+        throw new AppError(
+          "forbidden",
+          "This roster has changes for people outside your team. Ask HR to publish it, or undo those changes.",
+        );
+      }
+    }
     const { result } = await conflictsOf({ ...deps, db: tx }, actor.orgId, roster.weekStart, working);
     const required: Acknowledgement[] = [];
     for (const s of working) {
+      // Conflicts of other teams' (unchanged) shifts are theirs to acknowledge, and stay private.
+      if (mine && s.employeeId && !mine.has(s.employeeId)) continue;
       for (const c of result.byShift.get(s.id) ?? []) {
         if (c.severity === "block") {
           throw new AppError(
@@ -143,10 +185,6 @@ export async function publishRoster(
       );
     }
 
-    const before = await tx
-      .select()
-      .from(publishedShifts)
-      .where(orgScope(tx, actor.orgId).where(publishedShifts, eq(publishedShifts.rosterId, rosterId)));
     const now = deps.clock.now();
     const version = locked.version + 1;
     await tx

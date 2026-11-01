@@ -93,6 +93,7 @@ export async function toRequestViews(
   orgId: string,
   rows: LeaveRequest[],
   withDays = false,
+  personal?: Grant,
 ): Promise<RequestView[]> {
   if (!rows.length) return [];
   const org = orgScope(db, orgId);
@@ -102,7 +103,12 @@ export async function toRequestViews(
     .select({ id: employees.id, legalName: employees.legalName, preferredName: employees.preferredName })
     .from(employees)
     .where(org.where(employees, inArray(employees.id, [...new Set(rows.map((r) => r.employeeId))])));
-  const childIds = rows.flatMap((r) => (r.childId ? [r.childId] : []));
+  const visibleChildren = new Set<string>();
+  if (personal?.permission === "personal_details:read") {
+    for (const row of rows)
+      if (row.childId && (await personal.canAccessEmployee(row.employeeId))) visibleChildren.add(row.childId);
+  }
+  const childIds = [...visibleChildren];
   const kids = childIds.length
     ? await db
         .select()
@@ -171,7 +177,13 @@ export const requestListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(200),
 });
 
-export async function listRequests(db: Db, orgId: string, grant: Grant, q: z.output<typeof requestListQuery>) {
+export async function listRequests(
+  db: Db,
+  orgId: string,
+  grant: Grant,
+  q: z.output<typeof requestListQuery>,
+  personal?: Grant,
+) {
   const org = orgScope(db, orgId);
   const filters: (SQL | undefined)[] = [await grant.employeeFilter(leaveRequests.employeeId)];
   if (q.employeeId) filters.push(eq(leaveRequests.employeeId, q.employeeId));
@@ -184,14 +196,14 @@ export async function listRequests(db: Db, orgId: string, grant: Grant, q: z.out
     .where(org.where(leaveRequests, ...filters))
     .orderBy(desc(leaveRequests.startDate), desc(leaveRequests.createdAt))
     .limit(q.limit);
-  return toRequestViews(db, orgId, rows);
+  return toRequestViews(db, orgId, rows, false, personal);
 }
 
-export async function getRequest(db: Db, orgId: string, grant: Grant, id: string) {
+export async function getRequest(db: Db, orgId: string, grant: Grant, id: string, personal?: Grant) {
   const row = await orgScope(db, orgId).findById(leaveRequests, id);
   if (!row) throw new AppError("not_found", "That leave request doesn't exist or you can't see it.");
   await grant.assertEmployee(row.employeeId, "leave request");
-  const [view] = await toRequestViews(db, orgId, [row], true);
+  const [view] = await toRequestViews(db, orgId, [row], true, personal);
   return view as RequestView;
 }
 
@@ -475,6 +487,8 @@ export async function saveChild(
 }
 
 export async function listChildren(db: Db, orgId: string, grant: Grant, employeeId: string) {
+  if (grant.permission !== "personal_details:read")
+    throw new AppError("forbidden", "Reading children requires personal-details access.");
   await grant.assertEmployee(employeeId, "employee");
   const org = orgScope(db, orgId);
   return db

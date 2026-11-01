@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Grant } from "../access/authorize.ts";
+import { authorize, type Grant } from "../access/authorize.ts";
 import { orgScope } from "../access/org-scope.ts";
 import { auditContext } from "../audit/audit.ts";
 import type { AppContext, AuthContext } from "../context.ts";
@@ -263,7 +263,7 @@ export const leaveModule = defineModule({
         const actor = actorOf(c, auth);
         const employeeId = await resolveTargetEmployee(actor, grant, body.employeeId);
         const created = await applyLeave(deps, actor, employeeId, body);
-        return getRequest(deps.db, auth.orgId, grant, created.id);
+        return getRequest(deps.db, auth.orgId, grant, created.id, await authorize(c, "personal_details:read"));
       },
     }),
     defineRoute({
@@ -273,8 +273,8 @@ export const leaveModule = defineModule({
       access: { permission: "leave:read" },
       request: { query: requestListQuery },
       responses: { 200: z.object({ items: z.array(requestView) }) },
-      handler: async ({ deps, auth, grant, query }) => ({
-        items: await listRequests(deps.db, auth.orgId, grant, query),
+      handler: async ({ c, deps, auth, grant, query }) => ({
+        items: await listRequests(deps.db, auth.orgId, grant, query, await authorize(c, "personal_details:read")),
       }),
     }),
     defineRoute({
@@ -285,7 +285,8 @@ export const leaveModule = defineModule({
       request: { params: id },
       responses: okRequest,
       errors: ["not_found"],
-      handler: async ({ deps, auth, grant, params }) => getRequest(deps.db, auth.orgId, grant, params.id),
+      handler: async ({ c, deps, auth, grant, params }) =>
+        getRequest(deps.db, auth.orgId, grant, params.id, await authorize(c, "personal_details:read")),
     }),
     defineRoute({
       method: "post",
@@ -298,7 +299,7 @@ export const leaveModule = defineModule({
       example: { body: {} },
       handler: async ({ c, deps, auth, grant, params }) => {
         await withdrawLeave(deps, actorOf(c, auth), grant, params.id);
-        return getRequest(deps.db, auth.orgId, grant, params.id);
+        return getRequest(deps.db, auth.orgId, grant, params.id, await authorize(c, "personal_details:read"));
       },
     }),
     defineRoute({
@@ -318,7 +319,7 @@ export const leaveModule = defineModule({
           reason: body.reason ?? null,
           direct: body.direct,
         });
-        return getRequest(deps.db, auth.orgId, grant, params.id);
+        return getRequest(deps.db, auth.orgId, grant, params.id, await authorize(c, "personal_details:read"));
       },
     }),
     defineRoute({
@@ -332,7 +333,7 @@ export const leaveModule = defineModule({
       example: {
         body: { attachments: [{ filename: "mc.pdf", contentType: "application/pdf", dataBase64: "JVBERi0xLjQK" }] },
       },
-      handler: async ({ deps, auth, grant, params, body }) => {
+      handler: async ({ c, deps, auth, grant, params, body }) => {
         const request = await loadRequest(deps.db, auth.orgId, params.id);
         await grant.assertEmployee(request.employeeId, "leave request");
         if (!["pending", "approved", "cancellation_pending"].includes(request.status)) {
@@ -346,7 +347,7 @@ export const leaveModule = defineModule({
             body.attachments,
           ),
         );
-        return getRequest(deps.db, auth.orgId, grant, params.id);
+        return getRequest(deps.db, auth.orgId, grant, params.id, await authorize(c, "personal_details:read"));
       },
     }),
     defineRoute({
@@ -386,10 +387,12 @@ export const leaveModule = defineModule({
       access: { permission: "leave:read" },
       request: { query: z.object({ employeeId: z.uuid().optional() }) },
       responses: { 200: z.object({ items: z.array(childView) }) },
-      handler: async ({ deps, auth, grant, query }) => {
+      errors: ["not_found"],
+      handler: async ({ c, deps, auth, query }) => {
         const employeeId = query.employeeId ?? auth.employeeId;
         if (!employeeId) return { items: [] };
-        return { items: (await listChildren(deps.db, auth.orgId, grant, employeeId)).map(toChildView) };
+        const personal = await authorize(c, "personal_details:read");
+        return { items: (await listChildren(deps.db, auth.orgId, personal, employeeId)).map(toChildView) };
       },
     }),
     defineRoute({

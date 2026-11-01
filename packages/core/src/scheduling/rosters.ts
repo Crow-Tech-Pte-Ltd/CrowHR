@@ -338,19 +338,24 @@ export async function buildRosterView(
     minutes: shifts.filter((s) => s.date === date && s.employeeId).reduce((n, s) => n + s.paidMinutes, 0),
   }));
   const editable = (id: string) => opts.editableIds === "all" || !!opts.editableIds?.has(id);
+  // A team-scoped manager sees colleagues outside their team by name and shift times only: their
+  // leave (conflicts), hour warnings and employee numbers stay with HR (review: roster leaks).
+  const visible = (id: string | null) => !id || opts.editableIds === "all" || !!opts.editableIds?.has(id);
+  for (const s of shifts) if (!visible(s.employeeId)) s.conflicts = [];
   const list = employeeIds
     .map((id) => {
       const t = times.get(id);
       const s = t ? scheduleOn(t, ref.weekStart) : null;
+      const mine = visible(id);
       return {
         id,
         name: facts.get(id)?.name ?? "",
-        employeeNumber: facts.get(id)?.number ?? "",
+        employeeNumber: mine ? (facts.get(id)?.number ?? "") : "",
         schedule: s ? (s.version.days ? ("fixed" as const) : ("shift" as const)) : null,
         editable: opts.mode === "edit" && editable(id),
         minutes: shifts.filter((x) => x.employeeId === id).reduce((n, x) => n + x.paidMinutes, 0),
-        restDayAssumed: conflicts?.result.assumedRestDay.get(id) ?? null,
-        warnings: conflicts?.result.byEmployee.get(id) ?? [],
+        restDayAssumed: mine ? (conflicts?.result.assumedRestDay.get(id) ?? null) : null,
+        warnings: mine ? (conflicts?.result.byEmployee.get(id) ?? []) : [],
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
