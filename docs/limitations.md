@@ -103,7 +103,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 ## Claims (add-claims)
 
 - **Money rule**: foreign lines convert as `roundHalfUp(amountMinor × rateMicros × 100 / (10^exponent × 10^6))` with BigInt, rounded once per line to the cent; the claim total is the sum of rounded lines (`packages/core/src/claims/money.ts`). Rates are manual (no FX feed), at most 6 decimal places.
-- **ClamAV adapter NOT IMPLEMENTED** (task 3.4). The `FileScanner` hook (`deps.fileScanner`) and its `tick` sweep exist and are tested with a fake; without a scanner, receipts are stored as `unscanned` and owners see "scanning is off" in Settings → Claim types. `CLAMAV_HOST` is not read by the server yet.
+- **ClamAV is optional and externally operated**: the server reads `CLAMAV_HOST` / `CLAMAV_PORT` and scans through INSTREAM on the existing upload sweep. Crow HR does not bundle clamd or FreshClam. Without configuration, uploads are explicitly unscanned.
 - **Polyglot detection is heuristic**: HTML/script/SVG/PHP markers in the first kilobyte and a ZIP end-of-central-directory record near the end are refused. Downloads are always served with the detected type, `nosniff` and a sandbox CSP; PDFs and HEIC as attachments.
 - **HEIC receipts** are accepted and stored but not previewed ("Preview not available. Download to view").
 - **Approval type code**: the workflows engine takes one `typeCode`, so a claim with several types sends its largest type by SGD amount (first on a tie). A `typeCodes` policy condition therefore matches on that type only.
@@ -179,10 +179,19 @@ The demo is the real web app and the real core API running in the visitor's brow
 
 ## Documents (add-documents, WS6b)
 
-- **Italic** in letter templates prints in the regular face (the embedded fonts have no italic). **Logo**: only a PNG company logo is drawn on letters; an SVG logo is left out.
+- **Italic** in letter templates prints in the regular face (the embedded fonts have no italic). **Logo**: only sniffed PNG logos are accepted; legacy SVG logos must be re-uploaded as PNG.
 - **No e-signature.** "I acknowledge" records the time, IP, user agent and the file's SHA-256; it is not a legally binding signature (proposal non-goal).
 - **Contract terms Crow HR doesn't store** (main duties, fixed deductions, OT period and rate, other salary components, medical benefits, notice period when no notice is recorded, signatory title) are entered per document at generation and kept on the document version, not on the employee record.
 - **Retention review** flags documents of ex-employees 12 months after the last working day (Employment Act; per-category months are configurable) and never deletes anything: HR keeps or soft-deletes, and only an owner purges. IRAS/CPF keeping periods were not researched (research §11.2, UNVERIFIED), so the default is the Employment Act minimum.
 - **Expiry reminders** run on the existing reminders sweep: 30 days, 7 days and on the day, to hr_admins (owners when there is none) and to the employee for employee-visible categories. Home shows only acknowledgement requests; expiring documents are on Documents → Expiring.
 - **DOCX/XLSX** are checked by package structure (OOXML parts present, no VBA project, macro sheets or ActiveX) and always downloaded, never previewed. Macro checks look at part names only; content is not inflated.
 - **Employment letter requests** are approved by hr_admins by default and generated from the first active "employment certificate" template with the approver as signatory ("for and on behalf of the employer").
+
+## Correctness review follow-up (1 Nov 2026)
+
+- **API-only payroll inputs**: contractual fed OT amounts use an overtime item's `overtimeSourceId`; off-day holiday amounts for hourly/rostered staff use an `other_earning` item's `holidayDate`. Allowance `grossRateIncluded` must be classified for automatic daily gross pay. Dedicated UI controls are NOT IMPLEMENTED; the API paths are documented in the payroll settings guide. Fixed-week monthly holiday pay is automatic; other known off-day holiday amounts block until provided explicitly. Rest-day/public-holiday *work premiums* remain separate from the holiday entitlement fixed here.
+- **Tax classifications**: taxable cash reimbursements enter IR8A d1 (including outside-payroll payments). New payrolls snapshot the flag; legacy snapshots and outside-payroll claims use the current type classification. Non-cash benefits, employer-borne tax, and determining any CPF liability of a taxable allowance remain the employer's responsibility. This change does not treat taxability as CPF liability.
+- **PDF coverage**: Noto Sans SC and Tamil are loaded only when needed, subsetted per document. Characters outside the embedded fonts show `?` and a visible warning; other scripts still need font support. The font source/size record is in `packages/core/src/pdf/fonts.md`.
+- **Bank correction workflow**: returning an approved unpaid run to draft is API-only; a later run relying on its CPF state may require an adjustment. Re-authentication and employee bank-change notifications are enforced on the server.
+- **Audit integrity**: verification compares the event chain with `audit_heads` and detects tail truncation. A database superuser who rewrites both history and its head can still forge an internally consistent chain; external checkpoints are not implemented.
+- Leave encashment payout is intentionally unchanged; another branch owns it.
