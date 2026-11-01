@@ -11,9 +11,20 @@ function Chevron({ orientation }: { orientation?: "left" | "right" | "up" | "dow
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
-export function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+/**
+ * Today's date in Singapore, as a local-midnight Date (the form DayPicker compares against). The
+ * browser's own date can differ: a laptop set to another time zone, or CI in UTC between
+ * 00:00 and 08:00 Singapore time.
+ */
+export function singaporeToday(now = Date.now()): Date {
+  const [y, m, d] = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10).split("-").map(Number);
+  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+}
+
+export function Calendar({ className, classNames, showOutsideDays = true, today, ...props }: CalendarProps) {
   return (
     <DayPicker
+      today={today ?? singaporeToday()}
       showOutsideDays={showOutsideDays}
       weekStartsOn={1}
       className={cn("p-1", className)}
