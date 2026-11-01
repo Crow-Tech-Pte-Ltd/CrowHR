@@ -1,5 +1,7 @@
+import { and, eq, ne } from "drizzle-orm";
 import type { AssignedRole } from "../src/access/matrix.ts";
 import { createApp } from "../src/app.ts";
+import { memberships } from "../src/db/schema/access.ts";
 import type { AppDeps } from "../src/deps.ts";
 import { createReportingScopeResolver } from "../src/employees/reports/reporting-scope.ts";
 import { seedMember } from "./fixtures.ts";
@@ -33,7 +35,24 @@ export function createPeopleTestApp(deps: AppDeps) {
     as(orgId: string, roles: AssignedRole[], employeeId: string | null = null, status: "active" | "former" = "active") {
       let client: Promise<TestClient> | null = null;
       const get = () => {
-        client ??= seedMember(withScope, orgId, { roles, employeeId, status }).then((m) => clientAs(app, withScope, m));
+        client ??= (async () => {
+          // One live sign-in per employee record (memberships_org_employee_live_unique): signing
+          // in "as" an employee retires any earlier test sign-in (or hire invitation) linked to them.
+          if (employeeId && status !== "former") {
+            await withScope.db
+              .update(memberships)
+              .set({ status: "former" })
+              .where(
+                and(
+                  eq(memberships.orgId, orgId),
+                  eq(memberships.employeeId, employeeId),
+                  ne(memberships.status, "former"),
+                ),
+              );
+          }
+          const m = await seedMember(withScope, orgId, { roles, employeeId, status });
+          return clientAs(app, withScope, m);
+        })();
         return client;
       };
       const v1 = (p: string) => `/api/v1${p}`;
