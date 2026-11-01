@@ -33,7 +33,7 @@ Hiring an employee in People sends their invitation automatically (see [adding e
 - An invitation link is valid for 7 days. Resending replaces the link; revoking makes it unusable.
 - The invitee sets a password or uses any enabled SSO method. An invitation link also binds a first SSO sign-in to that member, which is how Singpass identities are linked.
 - **Without email configured**, the inviter gets the link to copy and send themselves. Invitations from a CSV import are sent after you confirm the import; without SMTP their links are not shown there, so resend them from Settings → Members.
-- Inviting an email that already has an active membership fails with `409 conflict`.
+- Inviting an email that already has an active membership, or linking a second live account to the same employee, fails with `409 conflict`. Former memberships do not prevent rehiring. Only owners may link an invitation to an employee who holds roles or manages people. Existing accounts with two-step verification must enter their code to accept.
 
 ## Member status
 
@@ -44,7 +44,7 @@ Hiring an employee in People sends their invitation automatically (see [adding e
 | Suspended | Cannot sign in; their sessions are revoked. |
 | Former | The employee's last working day has passed. The membership becomes former the day after, automatically, and keeps read-only access to their own released payslips. |
 
-Owners can also clear a member's lockout after failed sign-ins, reset their two-step verification, sign them out everywhere and generate a one-time password reset link (shown once, valid 60 minutes, audited). HR admins can generate reset links for staff when email is not configured.
+Owners can clear lockouts, reset two-step verification and sign members out everywhere (also removing their SSO links in this organisation). Only an owner, after re-authentication within 10 minutes, may create a password reset link. The target must have no assigned roles and no memberships in other organisations, because passwords are shared across organisations. With SMTP the affected member receives the link by email; otherwise the owner gets a copyable link, valid 60 minutes. The action is audited.
 
 ## Audit log
 

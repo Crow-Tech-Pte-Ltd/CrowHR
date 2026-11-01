@@ -9,7 +9,7 @@ Lets staff sign in with their Microsoft 365 / Entra ID work account. You need an
 
 - OpenID Connect against `https://login.microsoftonline.com/<tenant id>/v2.0` with scopes `openid email profile`, authorisation code flow with PKCE.
 - **Single tenant only.** The tenant ID is required, multi-tenant values (`common`, `organizations`, `consumers`) are refused, and any token whose `tid` differs from your tenant is rejected (`tid_mismatch`).
-- An email in a token from your tenant counts as verified, so a first sign-in links to the member with that email. If the ID token has no `email` claim (Entra includes it only for users with an email address), the first sign-in must come from the member's invitation link.
+- A matching tenant does **not** verify the `email` claim. Automatic email linking requires `xms_edov: true`, the optional domain-verification claim ([Microsoft reference](https://docs.azure.cn/en-us/entra/identity-platform/optional-claims-reference)). Without it, use the invitation link for the first sign-in; later sign-ins match the already-linked issuer and subject. Configure the optional `email` and `xms_edov` ID-token claims if you want automatic linking.
 
 ## Set it up
 
@@ -30,9 +30,9 @@ Lets staff sign in with their Microsoft 365 / Entra ID work account. You need an
 
 ## Check
 
-- A member whose Crow HR email equals their Entra email can sign in with Microsoft.
+- A member whose email matches and whose token has `xms_edov: true` can link automatically; otherwise start from their invitation.
 - A personal Microsoft account or another tenant's account is refused (`tid_mismatch` in the audit log).
-- Enforce MFA with Entra (security defaults or Conditional Access). Crow HR's [MFA policy](/docs/admin/mfa/) applies to password sign-in only.
+- Enforce MFA with Entra (security defaults or Conditional Access). Crow HR also enforces its [MFA policy](/docs/admin/mfa/) unless the validated ID token explicitly asserts MFA.
 
 ## Common errors
 
@@ -40,6 +40,6 @@ Lets staff sign in with their Microsoft 365 / Entra ID work account. You need an
 | --- | --- |
 | Microsoft error AADSTS50011 (redirect URI mismatch) | The Web platform redirect URI does not exactly match the one Crow HR showed. |
 | Sign-in worked, then stopped months later | The client secret expired. Create a new one and paste it in **Edit**. |
-| "Your account has not been set up" | No member with that email, or the token had no `email` claim. Use the invitation link. |
+| "Your account has not been set up" | No member with that email, or the token lacks a verified email (`xms_edov: true`). Use the invitation link. |
 
 Tested against an in-process mock identity provider in Crow HR's test suite, not against a live Entra tenant in CI.
