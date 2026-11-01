@@ -1,10 +1,11 @@
-import { getTableName, is } from "drizzle-orm";
+import { and, eq, getTableName, is } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDb, createTestDeps, type TestDb } from "../../testing/index.ts";
 import { createPeopleTestApp, type PeopleClient } from "../../testing/people-http.ts";
 import * as employeeTables from "../db/schema/employees.ts";
 import * as organisationTables from "../db/schema/organisation.ts";
+import { approvalRequests, approvalTasks } from "../db/schema/workflows.ts";
 import type { AppDeps } from "../deps.ts";
 import {
   type BasicStructure,
@@ -198,7 +199,22 @@ describe("a failed audit write rolls the change back", () => {
     });
     expect(sub.status).toBe(201);
     const id = sub.body.items[0].id as string;
-    const decide = () => payroll.post(`/people/change-requests/${id}/decision`, { decision: "approve" });
+    const [task] = await deps.db
+      .select({ id: approvalTasks.id })
+      .from(approvalTasks)
+      .innerJoin(
+        approvalRequests,
+        and(eq(approvalRequests.id, approvalTasks.requestId), eq(approvalRequests.orgId, approvalTasks.orgId)),
+      )
+      .where(
+        and(
+          eq(approvalRequests.orgId, h.orgId),
+          eq(approvalRequests.subjectId, id),
+          eq(approvalTasks.status, "pending"),
+        ),
+      );
+    expect(task).toBeDefined();
+    const decide = () => payroll.post(`/approvals/tasks/${task?.id}/decision`, { decision: "approve" });
     const before = await fingerprint();
     await failAudit(true);
     try {

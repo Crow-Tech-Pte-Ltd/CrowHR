@@ -16,6 +16,11 @@ describe("approver resolution", () => {
 
   const ctx = () => ({ db: w.deps.db, deps: w.deps, now: w.deps.clock.now() });
   const requestOf = (m: { membershipId: string; employeeId: string | null }) => ({
+    id: w.deps.ids.newId(),
+    subjectId: w.deps.ids.newId(),
+    subjectType: "leave",
+    attributes: {},
+    excludedDeciderMembershipIds: [],
     orgId: w.org.id,
     requesterMembershipId: m.membershipId,
     requesterEmployeeId: m.employeeId,

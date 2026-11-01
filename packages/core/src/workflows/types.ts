@@ -37,6 +37,8 @@ export interface SubjectRef {
   requesterMembershipId: string;
   requesterEmployeeId: string | null;
   attributes: SubjectAttributes;
+  /** Members who may not decide besides the requester (on-behalf filer, beneficiaries). */
+  excludedDeciderMembershipIds?: readonly string[];
 }
 
 export interface FinalDecision {
@@ -65,6 +67,8 @@ export interface ReadContext {
   membershipId: string;
   employeeId: string | null;
   roles: readonly AssignedRole[];
+  /** False for a former member signed in to read their own payslips: they see only their own requests. */
+  active?: boolean;
 }
 
 /**
@@ -87,6 +91,14 @@ export interface SubjectAdapter<A extends SubjectAttributes = SubjectAttributes>
   onWithdrawn?(db: Db, ref: SubjectRef & { attributes: A }): Promise<void>;
   /** Whether a member who is not the requester or a task holder may read the subject. Default: no. */
   canRead?(db: Db, viewer: ReadContext, ref: SubjectRef & { attributes: A }): Promise<boolean>;
+  /**
+   * Whether this member may decide this subject at all (role, segregation of duties), on top of the
+   * engine's own rules (active member, not the requester or an excluded decider, holds the task's
+   * role, payroll runs only by owners). The engine asks it before it resolves, escalates,
+   * delegates or reassigns a task to someone, and again on every decision (single, bulk, inline,
+   * delegated), so a member it refuses never sees a task and can never decide one. Default: yes.
+   */
+  canDecide?(db: Db, decider: DirectoryMember, ref: SubjectRef & { attributes: A }): Promise<boolean>;
   /** In-app link to the subject, e.g. `/leave/<id>`. Defaults to the inbox detail. */
   link?(ref: SubjectRef): string;
   /** Leave, claim and profile-change tasks are decided inline on Home (spec "Home work-to-do inbox"). */
