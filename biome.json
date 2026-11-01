@@ -11,6 +11,7 @@
       "!**/routeTree.gen.ts",
       "!**/drizzle/meta",
       "!packages/core/openapi",
+      "!packages/core/src/pdf/noto-*.generated.ts",
       "!research",
       "!openspec",
       "!.claude",

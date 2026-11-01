@@ -112,6 +112,7 @@ export async function renderLetterPdf(input: LetterInput): Promise<Uint8Array> {
     author: input.author,
     subject: input.title,
     createdAt: input.createdAt,
+    text: JSON.stringify(input),
   });
   let y = TOP;
 
@@ -246,7 +247,7 @@ export async function renderLetterPdf(input: LetterInput): Promise<Uint8Array> {
   pages.forEach((p, i) => {
     const label = `Page ${i + 1} of ${pages.length}`;
     p.drawLine({ start: { x: M, y: 48 }, end: { x: RIGHT, y: 48 }, thickness: 0.5, color: HAIRLINE });
-    p.drawText(input.title.slice(0, 80), { x: M, y: 36, size: 7.5, font: c.font("body"), color: MUTED });
+    c.text(input.title, M, 36, { page: p, size: 7.5, maxWidth: WIDTH - 90, color: MUTED });
     p.drawText(label, { x: RIGHT - mono.widthOfTextAtSize(label, 7.5), y: 36, size: 7.5, font: mono, color: MUTED });
   });
   return finishPdf(c);
