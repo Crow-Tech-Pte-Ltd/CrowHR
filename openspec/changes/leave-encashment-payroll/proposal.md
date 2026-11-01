@@ -3,7 +3,7 @@ Approved leave encashment currently removes days without producing payroll earni
 
 ## What Changes
 - Workflow requests for HR and policy-enabled employee leave encashment, including existing year-end entries.
-- Snapshot basic-salary daily rates and feed approved earnings into regular and final-pay payroll through shared reservations.
+- Snapshot gross daily rates from effective basic pay plus included fixed recurring allowances, and feed approved earnings into regular and final-pay payroll through shared reservations.
 - Show requests, status, payslip working and payroll changes; document CPF classification and rate basis.
 
 ## Capabilities
