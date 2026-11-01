@@ -154,10 +154,11 @@ function StatusView({ s }: { s: SystemStatus }) {
         <Alert variant="warning" role="status" data-testid="backup-unencrypted">
           <TriangleAlert aria-hidden />
           <div>
-            <AlertTitle>Backups are not encrypted</AlertTitle>
+            <AlertTitle>Scheduled backups require encryption</AlertTitle>
             <AlertDescription>
-              Each backup includes your encryption key, so anyone with a backup file can read NRIC, bank and SSO data.
-              Set <code className="num">BACKUP_PASSPHRASE</code> in .env and keep the passphrase somewhere safe.
+              Scheduled backups are disabled until encryption is configured. Backups include the master key needed to
+              restore NRIC, bank and SSO data. Set <code className="num">BACKUP_PASSPHRASE</code> in .env, keep the
+              passphrase outside this server and restart Crow HR.
             </AlertDescription>
           </div>
         </Alert>

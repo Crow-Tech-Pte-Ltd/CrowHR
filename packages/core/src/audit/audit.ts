@@ -208,13 +208,27 @@ export async function recordAudit(
 
 export type ChainVerification =
   | { ok: true; count: number }
-  | { ok: false; count: number; brokenEventId: string; seq: number; reason: "hash_mismatch" | "broken_link" | "gap" };
+  | {
+      ok: false;
+      count: number;
+      brokenEventId: string;
+      seq: number;
+      reason: "hash_mismatch" | "broken_link" | "gap" | "head_mismatch";
+    };
 
 /**
  * Recomputes every event's hash in sequence order and checks the links. Reports the first
  * broken event (used by `crowhr admin verify-audit`).
  */
 export async function verifyChain(db: Db, orgId: string): Promise<ChainVerification> {
+  // One database snapshot: a concurrent append must not look like a removed tail.
+  return db.transaction((tx) => verifySnapshot(tx, orgId), {
+    isolationLevel: "repeatable read",
+    accessMode: "read only",
+  });
+}
+
+async function verifySnapshot(db: Db, orgId: string): Promise<ChainVerification> {
   const rows = await db.select().from(auditEvents).where(eq(auditEvents.orgId, orgId)).orderBy(asc(auditEvents.seq));
   let prev = GENESIS_HASH;
   let expectedSeq = 1;
@@ -237,13 +251,23 @@ export async function verifyChain(db: Db, orgId: string): Promise<ChainVerificat
       meta: row.meta ?? null,
       prevHash: row.prevHash,
     };
-    const fail = (reason: "hash_mismatch" | "broken_link" | "gap") =>
+    const fail = (reason: "hash_mismatch" | "broken_link" | "gap" | "head_mismatch") =>
       ({ ok: false, count: rows.length, brokenEventId: row.id, seq: row.seq, reason }) as const;
     if (row.seq !== expectedSeq) return fail("gap");
     if (row.prevHash !== prev) return fail("broken_link");
     if ((await hashEvent(fields)) !== row.hash) return fail("hash_mismatch");
     prev = row.hash;
     expectedSeq++;
+  }
+  const [head] = await db.select().from(auditHeads).where(eq(auditHeads.orgId, orgId));
+  if ((!head && rows.length > 0) || (head && (head.lastSeq !== rows.length || head.lastHash !== prev))) {
+    return {
+      ok: false,
+      count: rows.length,
+      brokenEventId: rows.at(-1)?.id ?? orgId,
+      seq: expectedSeq,
+      reason: "head_mismatch",
+    };
   }
   return { ok: true, count: rows.length };
 }
