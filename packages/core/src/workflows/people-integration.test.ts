@@ -252,6 +252,8 @@ describe("workflows × people", () => {
   });
 
   it("Home shows real work passes, probation, onboarding checklist items and setup steps", async () => {
+    await deps.db.update(employees).set({ preferredName: "Ravi" }).where(eq(employees.id, emp.staff));
+    await deps.db.update(employees).set({ preferredName: "Siti" }).where(eq(employees.id, emp.other));
     const ports = defaultPeoplePorts(deps);
     await addWorkPass(deps, ports, harness.actor(HR), emp.other, {
       passType: "S_PASS",

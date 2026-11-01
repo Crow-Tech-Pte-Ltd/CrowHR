@@ -34,7 +34,7 @@ export async function employeeSummaries(
     department_id: string | null;
     department_name: string | null;
   }>(sql`
-    select e.id, coalesce(e.preferred_name, e.legal_name) as name, e.employee_number,
+    select e.id, e.legal_name as name, e.employee_number,
            er.department_id, d.name as department_name
       from employees e
       left join lateral (

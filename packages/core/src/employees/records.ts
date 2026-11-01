@@ -44,7 +44,9 @@ type Names = Awaited<ReturnType<typeof structureNames>>;
 const ref = (map: Map<string, string>, id: string | null) => (id ? { id, name: map.get(id) ?? "Unknown" } : null);
 
 export function displayName(e: Pick<Employee, "legalName" | "preferredName">): string {
-  return e.preferredName || e.legalName;
+  // Shared directory, approval and administrative views must identify the person by full name.
+  // Preferred names are reserved for greetings and explicit self-service/merge fields.
+  return e.legalName;
 }
 
 // ---------------------------------------------------------------------------

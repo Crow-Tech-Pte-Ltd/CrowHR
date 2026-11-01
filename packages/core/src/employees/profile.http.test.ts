@@ -32,6 +32,19 @@ async function hireVia(payload: ReturnType<typeof hirePayload>, client = owner()
 }
 
 describe("create and read", () => {
+  it("directory and detail identify an employee by full name while preserving their preferred name", async () => {
+    const id = await hireVia(hirePayload(s, { person: { legalName: "Ahmad Ismail", preferredName: "Ahmad" } }));
+    const directory = await owner().get("/employees");
+    expect(directory.body.items.find((e: { id: string }) => e.id === id)).toMatchObject({
+      name: "Ahmad Ismail",
+      preferredName: "Ahmad",
+    });
+    expect((await owner().get(`/employees/${id}`)).body).toMatchObject({
+      name: "Ahmad Ismail",
+      preferredName: "Ahmad",
+    });
+  });
+
   it("required fields are named", async () => {
     const res = await owner().post("/employees", { person: { legalName: "" }, job: {} });
     expect(res.status).toBe(400);
