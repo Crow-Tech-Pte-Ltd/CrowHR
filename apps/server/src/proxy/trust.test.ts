@@ -108,6 +108,18 @@ describe("resolveClient", () => {
     expect(info.ip).toBe("10.0.0.9");
   });
 
+  it.each([
+    ["6.6.6.6, 203.0.113.9:54321", "203.0.113.9"],
+    ["6.6.6.6, [2001:db8::9]:54321", "2001:db8::9"],
+    ["6.6.6.6, unknown", null],
+    ["6.6.6.6, garbage, 10.0.0.3", null],
+    ["6.6.6.6, , 10.0.0.3", null],
+    ["6.6.6.6, 203.0.113.9:99999", null],
+  ])("never walks past an untrusted or unparseable hop: %s", (xff, expected) => {
+    const info = resolveClient({ peer: "10.0.0.2", header: headers({ "x-forwarded-for": xff }) }, trust("10.0.0.0/8"));
+    expect(info.ip).toBe(expected);
+  });
+
   it("uses the peer when a trusted proxy sends no X-Forwarded-For", () => {
     const info = resolveClient({ peer: "127.0.0.1", header: headers({}) }, trust("loopback"));
     expect(info).toMatchObject({ ip: "127.0.0.1", scheme: "http", viaTrustedProxy: true });
