@@ -44,12 +44,36 @@ test.describe("application shell", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Payroll" })).toBeVisible();
   });
 
-  test("unbuilt modules show an honest empty state, also on a deep-link reload", async ({ page }) => {
-    await page.goto("/reports");
-    const empty = page.getByTestId("module-empty-state");
-    await expect(empty).toBeVisible();
-    await expect(empty).toContainText("Reports is not available yet");
-  });
+  for (const [route, heading] of [
+    ["/", HOME_HEADING],
+    ["/inbox", "Inbox"],
+    ["/people", "People"],
+    ["/payroll", "Payroll"],
+    ["/leave", "Leave"],
+    ["/attendance", "Attendance"],
+    ["/schedules", "Schedules"],
+    ["/claims", "Claims"],
+    ["/documents", "Documents"],
+    ["/reports", "Reports"],
+    ["/settings", "Settings"],
+  ] as const) {
+    test(`${route} renders and survives a deep-link reload`, async ({ page }) => {
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.goto("/");
+      await page.getByRole("heading", { level: 1, name: HOME_HEADING }).waitFor();
+      await page
+        .getByRole("complementary", { name: "Main navigation" })
+        .getByRole("link", { name: route === "/" ? "Home" : heading, exact: true })
+        .click();
+      await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
+      await page.reload();
+      await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
+      await expect(page.getByTestId("module-empty-state")).toHaveCount(0);
+      expect(new URL(page.url()).pathname).toBe(route === "/attendance" ? "/attendance/team" : route);
+      expect(errors).toEqual([]);
+    });
+  }
 
   test("works at 360px without horizontal scrolling", async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 780 });

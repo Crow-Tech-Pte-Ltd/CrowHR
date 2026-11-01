@@ -47,7 +47,7 @@ export async function claimsSummary(
     input.by === "type"
       ? { key: sql`t.code`, label: sql`t.name` }
       : input.by === "employee"
-        ? { key: sql`e.employee_number`, label: sql`coalesce(e.preferred_name, e.legal_name)` }
+        ? { key: sql`e.employee_number`, label: sql`e.legal_name` }
         : input.by === "month"
           ? { key: sql`to_char(l.expense_date, 'YYYY-MM')`, label: sql`to_char(l.expense_date, 'Mon YYYY')` }
           : { key: sql`coalesce(${DEPT}, '')`, label: sql`coalesce(${DEPT}, 'No department')` };
@@ -123,7 +123,7 @@ export async function claimLinesReport(
   input: { from: string; to: string; medical: boolean },
 ): Promise<LineReportRow[]> {
   const result = await db.execute<Record<string, unknown>>(sql`
-    select c.claim_number, c.status, e.employee_number, coalesce(e.preferred_name, e.legal_name) as employee_name,
+    select c.claim_number, c.status, e.employee_number, e.legal_name as employee_name,
            ${DEPT} as department, t.code as type_code, t.name as type_name, t.category, t.taxable,
            l.expense_date::text as expense_date, l.merchant, l.description, l.currency, l.amount_minor::text as amount_minor,
            l.currency_exponent, l.rate_micros::text as rate_micros, l.sgd_cents::text as sgd_cents, l.gst_cents::text as gst_cents,
@@ -179,7 +179,7 @@ export interface PayoutRow {
 
 export async function payoutRegister(db: Db, orgId: string, input: { from: string; to: string }): Promise<PayoutRow[]> {
   const result = await db.execute<Record<string, unknown>>(sql`
-    select c.claim_number, e.employee_number, coalesce(e.preferred_name, e.legal_name) as employee_name,
+    select c.claim_number, e.employee_number, e.legal_name as employee_name,
            c.total_cents::text as total_cents, c.paid_via, c.paid_on::text as paid_on, c.paid_reference
       from claims c
       join employees e on e.org_id = c.org_id and e.id = c.employee_id

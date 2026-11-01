@@ -437,7 +437,7 @@ export async function resolveAllFields(db: Db, input: ResolveInput): Promise<Rec
         })
       : null,
     "employee.full_name": emp?.legalName ?? null,
-    "employee.preferred_name": emp ? displayName(emp) : null,
+    "employee.preferred_name": emp ? emp.preferredName || emp.legalName : null,
     "employee.number": emp?.employeeNumber ?? null,
     "employee.nric_masked": emp?.idNumberMasked ?? null,
     "employee.address": addr(emp?.address),

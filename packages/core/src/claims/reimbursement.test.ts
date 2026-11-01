@@ -4,6 +4,7 @@ import { type ClaimsWorld, createClaimsWorld, decide, json, line, managerOnlyPol
 import { seedOrg } from "../../testing/fixtures.ts";
 import { auditEvents } from "../db/schema/audit.ts";
 import { claims } from "../db/schema/claims.ts";
+import { employees } from "../db/schema/employees.ts";
 import { createClaimsReimbursementSource, type ReimbursementSource } from "./reimbursement.ts";
 
 const RUN_OCT = "0192f0c0-0000-7000-8000-00000000a001";
@@ -18,6 +19,7 @@ describe("ReimbursementSource (claims → payroll)", () => {
 
   beforeEach(async () => {
     w = await createClaimsWorld({ now: "2026-10-30T02:00:00.000Z" });
+    await w.deps.db.update(employees).set({ preferredName: "Ravi" }).where(eq(employees.id, w.emp.staff));
     source = createClaimsReimbursementSource(w.deps);
     transport = await w.type({ code: "TRANSPORT", name: "Transport" });
     meals = await w.type({ code: "MEALS", name: "Meals", category: "meals" });
@@ -63,6 +65,8 @@ describe("ReimbursementSource (claims → payroll)", () => {
 
   it("payroll admins see the period's payable claims over HTTP; others can't", async () => {
     const a = await approved([line(transport, { amountMinor: 4560 })]);
+    const adminDetail = await (await w.as("hr")).get(`/api/v1/claims/${a.id}`);
+    expect((await json(adminDetail)).employee.name).toBe("Ravi Kumar");
     const res = await (await w.as("payroll")).get("/api/v1/claims/payable?periodEnd=2026-10-31");
     expect(res.status).toBe(200);
     expect(await json(res)).toEqual({
