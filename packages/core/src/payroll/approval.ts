@@ -6,6 +6,7 @@ import { payrollRuns, payrollSettings } from "../db/schema/payroll.ts";
 import { users } from "../db/schema/users.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
+import { selfEarningsEditors } from "../workflows/payroll-eligibility.ts";
 import type {
   DueReminder,
   FinalDecision,
@@ -73,9 +74,16 @@ export function payrollRunAdapter(deps: AppDeps): SubjectAdapter<z.output<typeof
     label: "Payroll run",
     attributes,
     ownerOnlyPolicy: true,
+    async canDecide(db, decider, ref) {
+      return (
+        decider.roles.includes("owner") &&
+        !(await selfEarningsEditors(db, ref.orgId, ref.subjectId)).some((m) => m.membershipId === decider.membershipId)
+      );
+    },
     async summary(db, ref) {
       const run = await loadRun(db, ref.orgId, ref.subjectId);
       const t = run.totals;
+      const selfEditors = await selfEarningsEditors(db, ref.orgId, ref.subjectId);
       const kind =
         run.kind === "regular" ? "payroll" : run.kind === "adjustment" ? "payroll adjustment" : "off-cycle run";
       return {
@@ -88,6 +96,7 @@ export function payrollRunAdapter(deps: AppDeps): SubjectAdapter<z.output<typeof
           { label: "Pay date", value: dateLabel(run.payDate) },
         ],
         context: [
+          ...selfEditors.map((m) => ({ label: "Entered own earnings — excluded from approval", value: m.name })),
           { label: "Blocking issues", value: String(t?.blocking ?? 0) },
           { label: "Warnings", value: String(t?.warnings ?? 0) },
         ],

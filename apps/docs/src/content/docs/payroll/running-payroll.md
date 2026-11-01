@@ -81,3 +81,5 @@ Adjustments do not recompute later months. If you reopen a month after later mon
 ## Every result is reproducible
 
 Each employee's result is computed from a stored snapshot of their inputs and the rate tables used. Inputs and results are stored with SHA-256 hashes, and recomputing a snapshot gives a byte-identical result, so you can show later exactly how a figure was produced.
+
+When an administrator enters or edits earnings for themselves, the approval summary names them as having entered their own earnings. They cannot approve that run, even if they also hold the owner role. Another eligible owner must decide it. The flag remains if the item is later changed or removed, preserving the audit trail.
