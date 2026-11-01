@@ -75,6 +75,7 @@ export function employee(input: {
         employmentType: input.employmentType ?? "full_time",
         workScheduleId: "own",
         isWorkman: false,
+        isManagerOrExecutive: false,
         eaCovered: true,
         managerEmployeeId: null,
         departmentId: "00000000-0000-7000-8000-000000000003",

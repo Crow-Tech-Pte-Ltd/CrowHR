@@ -5,6 +5,7 @@ import { effectiveRoles } from "../access/scope.ts";
 import type { AppContext } from "../context.ts";
 import { SECRET_PURPOSES } from "../crypto/secret-box.ts";
 import { deviceSessions, recoveryCodes, sessions, ssoProviders, userIdentities } from "../db/schema/auth.ts";
+import { employees } from "../db/schema/employees.ts";
 import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
 import { AppError } from "../errors.ts";
@@ -113,7 +114,15 @@ export async function revokeOneSession(c: AppContext, userId: string, orgId: str
 const permissionScopes = z.record(z.string(), z.array(z.enum(["all", "team", "own", "assigned"])));
 
 const meResponse = z.object({
-  user: z.object({ id: z.uuid(), email: z.string(), displayName: z.string() }),
+  user: z.object({
+    id: z.uuid(),
+    email: z.string(),
+    displayName: z.string(),
+    /** The linked employee's preferred name (what they go by); null when unset or not an employee. */
+    preferredName: z.string().nullable(),
+    /** The linked employee's full legal name, else the member's display name. Greet with `preferredName ?? fullName`. */
+    fullName: z.string(),
+  }),
   organisation: z.object({ id: z.uuid(), name: z.string(), slug: z.string().nullable() }),
   membershipId: z.uuid(),
   membershipStatus: z.enum(["active", "former"]),
@@ -170,8 +179,18 @@ export const meModule = defineModule({
         const [user] = await db.select().from(users).where(eq(users.id, auth.user.id));
         const roles = await effectiveRoles(c);
         const mfa = await mfaPolicyStatus(db, auth, await settingsFor(c, auth.orgId), clock.now());
+        const [emp] = auth.employeeId
+          ? await db
+              .select({ legalName: employees.legalName, preferredName: employees.preferredName })
+              .from(employees)
+              .where(and(eq(employees.orgId, auth.orgId), eq(employees.id, auth.employeeId)))
+          : [];
         return {
-          user: auth.user,
+          user: {
+            ...auth.user,
+            preferredName: emp?.preferredName?.trim() || null,
+            fullName: emp?.legalName || auth.user.displayName,
+          },
           organisation: { id: auth.orgId, name: org?.name ?? "", slug: org?.slug ?? null },
           membershipId: auth.membershipId,
           membershipStatus: auth.membershipStatus,

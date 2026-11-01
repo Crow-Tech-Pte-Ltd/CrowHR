@@ -127,6 +127,19 @@ describe("transfer, promotion, salary change", () => {
     expect((await asAt(t.db, employmentRecords, h.orgId, a, "2026-09-01"))?.departmentId).toBe(s.departments.ops);
   });
 
+  it("records the manager/executive classification at hire and from a promotion (EA Part 4)", async () => {
+    const { employeeId: mgr } = await hire(owner(), hirePayload(s, { job: { isManagerOrExecutive: true } }));
+    expect((await asAt(t.db, employmentRecords, h.orgId, mgr, "2026-01-05"))?.isManagerOrExecutive).toBe(true);
+    expect((await asAt(t.db, employmentRecords, h.orgId, a, "2026-01-05"))?.isManagerOrExecutive).toBe(false);
+    await applyEvent(owner(), a, {
+      type: "promotion",
+      effectiveDate: "2026-09-01",
+      changes: { jobTitle: "Sales Manager", isManagerOrExecutive: true },
+    });
+    expect((await asAt(t.db, employmentRecords, h.orgId, a, "2026-08-31"))?.isManagerOrExecutive).toBe(false);
+    expect((await asAt(t.db, employmentRecords, h.orgId, a, "2026-09-01"))?.isManagerOrExecutive).toBe(true);
+  });
+
   it("future-dated events are scheduled by the injected clock; past ones effective", async () => {
     const future = await applyEvent(owner(), a, {
       type: "promotion",

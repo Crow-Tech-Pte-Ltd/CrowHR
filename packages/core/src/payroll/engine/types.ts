@@ -131,6 +131,8 @@ export interface PayInput {
     shgOptedOut: boolean;
     workPass: { type: string; issuedOn: string | null; expiresOn: string; cancelledOn: string | null } | null;
     isWorkman: boolean;
+    /** Manager or executive: never Part 4. Absent (false) in snapshots taken before the flag existed. */
+    isManagerOrExecutive?: boolean;
   };
   employment: {
     hireDate: string;

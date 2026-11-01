@@ -269,7 +269,10 @@ export const payrollCostReport: ReportDefinition<z.output<ReturnType<typeof para
       .map((r) => r.month)
       .filter((m) => !paid.has(m))
       .sort();
-    const none = monthsIn(p.from, p.to).filter((m) => !paid.has(m) && !notFinal.includes(m));
+    // Months after the current one can't have been paid yet: don't count them as missing.
+    const thisMonth = ctx.today.slice(0, 7);
+    const upTo = p.to < thisMonth ? p.to : thisMonth;
+    const none = monthsIn(p.from, upTo).filter((m) => !paid.has(m) && !notFinal.includes(m));
     return [
       ...(notFinal.length
         ? [

@@ -4,9 +4,11 @@ import {
   AlertDescription,
   AlertTitle,
   Button,
+  Checkbox,
   cn,
   FormField,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -253,4 +255,73 @@ export const today = () => new Date(Date.now() + 8 * 3_600_000).toISOString().sl
 export function centsToInput(cents: number | null | undefined): string {
   if (cents === null || cents === undefined) return "";
   return `${Math.trunc(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
+}
+
+/** MOM: who the Employment Act and its Part 4 (hours, rest days, overtime) cover. */
+export const MOM_WHO_IS_COVERED_URL = "https://www.mom.gov.sg/employment-practices/employment-act/who-is-covered";
+
+/** "MOM: who is covered" link, opening in a new tab. */
+export function MomCoverageLink({ children = "MOM: who is covered" }: { children?: React.ReactNode }) {
+  return (
+    <a
+      className="text-biru-400 underline underline-offset-2 hover:no-underline"
+      href={MOM_WHO_IS_COVERED_URL}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {children}
+    </a>
+  );
+}
+
+/**
+ * Employment Act Part 4 classification of an employment record: workman, and manager or
+ * executive. Managers and executives are never covered by Part 4, so they get no statutory OT.
+ */
+export function Part4Fields({
+  isWorkman,
+  isManagerOrExecutive,
+  onChange,
+}: {
+  isWorkman: boolean;
+  isManagerOrExecutive: boolean;
+  onChange: (v: { isWorkman: boolean; isManagerOrExecutive: boolean }) => void;
+}) {
+  return (
+    <fieldset className="flex flex-col gap-2 sm:col-span-2">
+      <legend className="mb-1 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-300">
+        Employment Act Part 4
+      </legend>
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="part4-workman"
+          checked={isWorkman}
+          onCheckedChange={(c) => onChange({ isWorkman: !!c, isManagerOrExecutive })}
+        />
+        <Label htmlFor="part4-workman" className="flex flex-col gap-0.5 font-sans text-ui font-normal">
+          <span className="font-medium">Workman</span>
+          <span className="text-2xs text-primary-300">
+            Mainly manual work, e.g. cleaners, drivers, kitchen and production crew.
+          </span>
+        </Label>
+      </div>
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="part4-manager"
+          checked={isManagerOrExecutive}
+          onCheckedChange={(c) => onChange({ isWorkman, isManagerOrExecutive: !!c })}
+        />
+        <Label htmlFor="part4-manager" className="flex flex-col gap-0.5 font-sans text-ui font-normal">
+          <span className="font-medium">Manager or executive</span>
+          <span className="text-2xs text-primary-300">
+            Executive or supervisory duties, such as hiring, appraisals or running a team. Never covered by Part 4, so
+            overtime follows the contract, not the statutory 1.5× rate.
+          </span>
+        </Label>
+      </div>
+      <p className="text-2xs text-primary-300">
+        The duties decide this, not the job title. <MomCoverageLink />
+      </p>
+    </fieldset>
+  );
 }

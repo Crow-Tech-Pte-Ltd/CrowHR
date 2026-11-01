@@ -65,6 +65,39 @@ describe("hire-time invitation", () => {
     expect((await anon.get("/api/v1/people/me/profile")).status).toBe(200);
   });
 
+  it("greets by the preferred name from the employee record, else the full name; never a first token", async () => {
+    const { deps, api } = await setup();
+    const hr = api.as(h.orgId, ["hr_admin"]);
+    const signIn = async (legalName: string, preferredName: string | null, email: string) => {
+      const res = await hr.post(
+        "/employees",
+        hirePayload(s, { person: { legalName, preferredName, workEmail: email }, compensation: null }),
+      );
+      expect(res.status).toBe(201);
+      const token = String(res.body.invite.inviteUrl).split("/invite/")[1];
+      const anon = testClient(api.app, deps);
+      expect((await anon.post("/api/v1/auth/invitations/accept", { token, password: PASSWORD })).status).toBe(200);
+      return { anon, employeeId: res.body.employeeId as string };
+    };
+    type MeUser = { user: { displayName: string; preferredName: string | null; fullName: string } };
+    const me = async (c: ReturnType<typeof testClient>) => ((await (await c.get("/api/v1/me")).json()) as MeUser).user;
+
+    const goh = await signIn("Goh Jun Jie", null, "junjie@kopikaki.sg");
+    expect(await me(goh.anon)).toMatchObject({ preferredName: null, fullName: "Goh Jun Jie" });
+
+    const hafiz = await signIn("Muhammad Hafiz bin Ismail", "Hafiz", "hafiz@kopikaki.sg");
+    expect(await me(hafiz.anon)).toMatchObject({
+      displayName: "Muhammad Hafiz bin Ismail",
+      preferredName: "Hafiz",
+      fullName: "Muhammad Hafiz bin Ismail",
+    });
+    // HR changes it later: the greeting follows the employee record, not the name captured at invite.
+    expect((await hr.patch(`/employees/${hafiz.employeeId}`, { preferredName: "Fiz" })).status).toBe(204);
+    expect((await me(hafiz.anon)).preferredName).toBe("Fiz");
+    expect((await hr.patch(`/employees/${hafiz.employeeId}`, { preferredName: "" })).status).toBe(204);
+    expect(await me(hafiz.anon)).toMatchObject({ preferredName: null, fullName: "Muhammad Hafiz bin Ismail" });
+  });
+
   it("emails the invitation when a mailer is configured", async () => {
     const sent: { to: string; text: string }[] = [];
     const mailer: Mailer = { send: async (m) => void sent.push(m) };

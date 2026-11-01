@@ -122,13 +122,13 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **EA maternity leave** for a non-citizen child approximates "fewer than 2 living children" by birth order.
 - **Encashment** is a ledger entry at year end (days only); paying it is payroll's job and is not wired.
 - **Payroll inputs**: approved no-pay and unpaid infant care leave and approved OT reach the run automatically (payroll's port defaults). A manual `unpaid_leave` item on the same date, or a manual `days_worked` item, takes precedence over the fed one. Rostered staff's **scheduled days** come from published rosters (a manual `scheduled_days` item wins); attendance supplies days worked, only for staff who clock in.
-- **NOT IMPLEMENTED: manager/executive flag.** Part 4 coverage (carry-forward floor) assumes nobody is a manager or executive, because employment records have no such field yet.
+- **Manager/executive flag**: Part 4 coverage (carry-forward floor) reads the flag on the employment record in force at year end. The flag is set by HR from the duties; Crow HR does not infer it from the job title or pay.
 - **Scheduling conflicts**: leave approved after a roster was published notifies the roster's last publisher and hr_admins; the affected shifts show `on_leave` on the grid. Shifts are not removed automatically.
 - **The NDR 2026 childcare changes** are recorded in sg-rules with no effective date and are not applied.
 
 ## Attendance (WS5)
 
-- **NOT IMPLEMENTED: manager/executive flag.** Statutory (Part 4) OT assumes nobody is a manager or executive, because employment records have no such field yet. Hourly-rated staff are checked against a monthly equivalent (rate × weekly hours × 52 / 12).
+- **Statutory (Part 4) OT** is never applied to employees flagged as a manager or executive on their employment record (HR sets the flag; it is not inferred from the job title). The CSV import has no column for it yet: set it on the profile after importing. Hourly-rated staff are checked against a monthly equivalent (rate × weekly hours × 52 / 12).
 - **Overnight work** is split at 04:00 SGT: an out punch before 04:00 closes the previous day's open shift; anything later starts a new day. A published overnight shift uses the same rule, so a shift ending after 04:00 splits its punches across two work dates.
 - **Shift schedules**: on a date covered by a published roster, lateness, early out and OT are measured against the shift (its own break replaces the default break); work on an unrostered or rest day is all OT. Without a published roster there is no start time, so lateness and early-out are not computed, and OT is worked minutes beyond a fifth of the weekly hours. Fixed-week staff are always measured against their work schedule, even when they also appear on a roster.
 - **Geolocation accuracy** comes from the browser; up to 50 m of the reported accuracy is credited towards an office radius. Location is spoofable on a rooted device; IP ranges are the stronger control.

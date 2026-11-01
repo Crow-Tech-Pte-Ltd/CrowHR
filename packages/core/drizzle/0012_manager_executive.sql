@@ -1,0 +1,1 @@
+ALTER TABLE "employment_records" ADD COLUMN "is_manager_executive" boolean DEFAULT false NOT NULL;

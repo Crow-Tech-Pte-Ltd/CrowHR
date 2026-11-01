@@ -9,6 +9,7 @@ import type { AppContext, AuthContext } from "../context.ts";
 import { newToken, sha256Hex } from "../crypto/tokens.ts";
 import { invitations, membershipRoles, memberships } from "../db/schema/access.ts";
 import { passwordResets, sessions } from "../db/schema/auth.ts";
+import { employees } from "../db/schema/employees.ts";
 import { users } from "../db/schema/users.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
@@ -29,6 +30,8 @@ const member = z.object({
   userId: z.uuid(),
   email: z.string(),
   displayName: z.string(),
+  /** The linked employee's preferred name, if any (what they go by). */
+  preferredName: z.string().nullable(),
   status: z.enum(["invited", "active", "suspended", "former"]),
   roles: z.array(assignedRole),
   employeeId: z.uuid().nullable(),
@@ -82,6 +85,16 @@ async function loadMembers(
     .from(sessions)
     .where(and(eq(sessions.orgId, orgId), inArray(sessions.membershipId, ids)))
     .groupBy(sessions.membershipId);
+  const employeeIds = rows.flatMap((r) => (r.m.employeeId ? [r.m.employeeId] : []));
+  const preferred = new Map(
+    (employeeIds.length
+      ? await db
+          .select({ id: employees.id, preferredName: employees.preferredName })
+          .from(employees)
+          .where(and(eq(employees.orgId, orgId), inArray(employees.id, employeeIds)))
+      : []
+    ).map((e) => [e.id, e.preferredName?.trim() || null]),
+  );
   const now = clock.now();
   const out: MemberOut[] = [];
   for (const { m, u } of rows) {
@@ -95,6 +108,7 @@ async function loadMembers(
       userId: u.id,
       email: u.email,
       displayName: u.displayName,
+      preferredName: m.employeeId ? (preferred.get(m.employeeId) ?? null) : null,
       status: m.status,
       roles: roles.filter((r) => r.membershipId === m.id).map((r) => r.role),
       employeeId: m.employeeId,

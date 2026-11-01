@@ -263,11 +263,27 @@ export const calendarView = z.object({
   ),
 });
 
-export async function holidaysBetween(db: Db, orgId: string, from: string, to: string) {
+/**
+ * Gazetted public holidays plus the organisation's own, between two dates. With `inLieu`, a
+ * holiday on a Sunday is shown on its gazetted Monday as "<name> (in lieu)", which is the day off
+ * for staff with a Sunday rest day and matches what the apply sheet leaves out (calendar.ts
+ * `holidaysFor`). The roster grid and the holiday list keep the gazetted date.
+ */
+export async function holidaysBetween(
+  db: Db,
+  orgId: string,
+  from: string,
+  to: string,
+  opts: { inLieu?: boolean } = {},
+) {
   const out: { date: string; name: string }[] = [];
-  for (let y = Number(from.slice(0, 4)); y <= Number(to.slice(0, 4)); y++) {
+  // From the year before: a 31 Dec Sunday holiday moves into January.
+  for (let y = Number(from.slice(0, 4)) - (opts.inLieu ? 1 : 0); y <= Number(to.slice(0, 4)); y++) {
     try {
-      for (const h of publicHolidays(y)) if (h.date >= from && h.date <= to) out.push({ date: h.date, name: h.name });
+      for (const h of publicHolidays(y)) {
+        const shown = opts.inLieu && h.observedOn ? { date: h.observedOn, name: `${h.name} (in lieu)` } : h;
+        if (shown.date >= from && shown.date <= to) out.push({ date: shown.date, name: shown.name });
+      }
     } catch (err) {
       if (!(err instanceof RulesNotAvailableError)) throw err;
     }
@@ -370,7 +386,7 @@ export async function teamCalendar(
   return {
     from: input.from,
     to: input.to,
-    holidays: await holidaysBetween(db, auth.orgId, input.from, input.to),
+    holidays: await holidaysBetween(db, auth.orgId, input.from, input.to, { inLieu: true }),
     people: rows,
   };
 }

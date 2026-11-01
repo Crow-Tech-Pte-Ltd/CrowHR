@@ -51,7 +51,7 @@ For problems with the server itself (startup errors, setup code, backups, proxie
 | --- | --- |
 | Run cannot be submitted: company profile | Add UEN, CSN and address in Settings → Company. |
 | `409` "recompute the run" on submit | Records or items changed after computing. Recompute, review, submit again. |
-| `OT_NOT_STATUTORY` | The employee is not covered by Part 4 of the Employment Act. Enter the contractual overtime amount. |
+| `OT_NOT_STATUTORY` | The employee is not covered by Part 4 of the Employment Act (basic pay above the limit, or flagged as a manager or executive on the Job tab). Enter the contractual overtime amount. |
 | `YTD_BEFORE_CROWHR_MISSING` | Import [YTD opening balances](/docs/people/importing/#year-to-date-opening-balances) for months paid before Crow HR. |
 | `CPF_LOW_WAGE_CAPPED_AW_UNSUPPORTED` | A case CPF has no rule for. Compute that employee's CPF with CPF Board's guidance and pay outside Crow HR, or adjust the AW timing. |
 | Scheduled days / days worked missing | The employee has no fixed working week. Add both items for the month. |
