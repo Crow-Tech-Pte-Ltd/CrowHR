@@ -21,6 +21,8 @@ export interface LeaveTypeView {
   perChild: boolean;
   unlimited: boolean;
   archived: boolean;
+  encashable: boolean;
+  employeeEncashmentRequests: boolean;
 }
 
 export interface Balance {
@@ -138,6 +140,7 @@ export interface Policy {
   accrual: "upfront" | "monthly";
   carryForward: { maxDays: number | null; expiresAfterMonths: number | null } | null;
   encashable: boolean;
+  employeeEncashmentRequests?: boolean;
 }
 
 export interface PolicyView extends LeaveTypeView {
