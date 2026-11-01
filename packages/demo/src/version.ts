@@ -3,4 +3,4 @@
  * (apps/demo/scripts/data-version.ts), so a deploy with a new seed or a new migration gives
  * every visitor a fresh database automatically; other deploys keep their data.
  */
-export const SEED_VERSION = "2026-10-31.1";
+export const SEED_VERSION = "2026-10-31.2";

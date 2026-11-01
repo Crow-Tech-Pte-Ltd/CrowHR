@@ -4,7 +4,7 @@ import type { SeedClock } from "../clock.ts";
 import { DEMO_PASSWORD, OTHER_MEMBERS, PERSONAS } from "../personas.ts";
 import { seedHistory } from "./history.ts";
 import { seedHttp } from "./http.ts";
-import { DEMO_ORG, type DemoPeople, resignLeaver, seedDemoPeople } from "./people.ts";
+import { DEMO_ORG, type DemoPeople, PREFERRED_NAMES, resignLeaver, seedDemoPeople } from "./people.ts";
 
 /**
  * Seeds the demo database: Kopi Kaki's people through the people services, then four months of
@@ -52,7 +52,7 @@ export async function seedDemo(deps: AppDeps, clock: SeedClock, origin: string):
     await db.insert(schema.users).values({
       id: userId,
       email,
-      displayName: await nameOf(employeeId),
+      displayName: PREFERRED_NAMES[employee] ?? (await nameOf(employeeId)),
       passwordHash,
       passwordChangedAt: clock.now(),
       emailVerifiedAt: clock.now(),
@@ -71,6 +71,20 @@ export async function seedDemo(deps: AppDeps, clock: SeedClock, origin: string):
 
   const app = createApp(deps);
   const http = seedHttp(app, origin, () => clock.now().getTime());
+  // Fill names via the real profile API and classify outlet supervisors through lifecycle events.
+  const hr = await http.as(members.hr as string);
+  for (const [key, employeeId] of Object.entries(people.employees)) {
+    await hr.patch(`/api/v1/employees/${employeeId}`, { preferredName: PREFERRED_NAMES[key] });
+  }
+  const owner = await http.as(members.owner as string);
+  for (const key of ["tp_lead", "jp_lead"]) {
+    await owner.post(`/api/v1/employees/${people.employees[key]}/events`, {
+      type: "transfer",
+      effectiveDate: "2026-06-22",
+      changes: { isManagerOrExecutive: true },
+      note: "Outlet supervisor with management responsibilities.",
+    });
+  }
   const runs = await seedHistory({
     deps,
     app,

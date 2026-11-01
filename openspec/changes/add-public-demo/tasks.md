@@ -13,7 +13,7 @@
 - [x] 2.1 `seed.test.ts` then Kopi Kaki: core's people seed + third outlet, joiner and leaver this month
 - [x] 2.2 Four months of payroll through the API and the real engine (Jul–Sep paid, Oct draft with warnings only)
 - [x] 2.3 Claims (draft, waiting, approved, rejected, reimbursed), leave (approved and waiting) and change requests; approvals waiting for every persona
-- [ ] 2.4 Attendance clock-ins and approved overtime claims feeding October's run (attendance landed after the seed was written; OT is entered on the run by hand)
+- [x] 2.4 Attendance clock-ins and approved overtime claims feeding October's run
 
 ## 3. App (apps/demo, apps/web slots)
 
@@ -35,3 +35,12 @@
 
 - [x] 5.1 Playwright against the built demo: load, payroll admin opens the draft run and a CPF working, manager approves a claim (receipt via the service worker), reset re-seeds
 - [x] 5.2 Screenshots at 1440 and 390 (`SHOTS_DIR=… playwright test -c e2e/demo/playwright.demo.config.ts shots`)
+
+## 6. Complete module showcase and snapshot startup
+
+- [x] 6.1 Regression tests for preferred names, manager flags, published October/current/next-week rosters, late clock-ins and approved OT in October payroll
+- [x] 6.2 Generate KETs for recent hires, acknowledgement work for the employee, and an expiring work-pass document through the API
+- [ ] 6.3 Build a gzip PGlite snapshot from the real seed; hash seed sources and migrations; restore on first visit with browser-seed fallback and per-visitor clock anchoring
+- [ ] 6.4 Regression tests for snapshot round-trip, bad/missing/version-mismatched snapshot fallback, persistence and reset
+- [ ] 6.5 Extend built-demo Playwright coverage for fed OT, swap approval, document acknowledgement and payroll cost reports; measure before/after with installed Chromium
+- [ ] 6.6 Update demo docs and About; run root check; commit locally without pushing
