@@ -15,6 +15,7 @@ import {
   SheetContent,
   SheetDescription,
   SheetTitle,
+  singaporeToday,
   toast,
   toIsoDate,
 } from "@crowhr/ui";
@@ -55,7 +56,7 @@ interface FormLine {
 }
 
 let keySeq = 0;
-const today = () => toIsoDate(new Date());
+const today = () => toIsoDate(singaporeToday());
 
 function emptyLine(defaults: Partial<FormLine> = {}): FormLine {
   return {

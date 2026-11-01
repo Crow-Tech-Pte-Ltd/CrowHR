@@ -26,6 +26,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  singaporeToday,
   toast,
   toIsoDate,
 } from "@crowhr/ui";
@@ -82,7 +83,7 @@ const EMPTY_TITLE: Record<string, string> = {
 };
 
 function monthRange(): { from: string; to: string } {
-  const now = new Date();
+  const now = singaporeToday();
   const from = toIsoDate(new Date(now.getFullYear(), now.getMonth(), 1));
   const to = toIsoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
   return { from, to };
@@ -473,7 +474,7 @@ function MarkPaidDialog({
   claims: ClaimRowDto[];
   onDone: () => void;
 }) {
-  const [paidOn, setPaidOn] = React.useState(toIsoDate(new Date()));
+  const [paidOn, setPaidOn] = React.useState(toIsoDate(singaporeToday()));
   const [reference, setReference] = React.useState("");
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const total = claims.reduce((s, c) => s + c.totalCents, 0);

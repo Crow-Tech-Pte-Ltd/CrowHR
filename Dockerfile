@@ -21,9 +21,11 @@ WORKDIR /src
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
-# Every workspace manifest must be present for --frozen-lockfile; the docs site is not built here.
+# Every workspace manifest must be present for --frozen-lockfile; docs and demo are not built here.
 COPY apps/docs/package.json apps/docs/
+COPY apps/demo/package.json apps/demo/
 COPY packages/core/package.json packages/core/
+COPY packages/demo/package.json packages/demo/
 COPY packages/sg-rules/package.json packages/sg-rules/
 COPY packages/ui/package.json packages/ui/
 RUN bun install --frozen-lockfile --ignore-scripts
@@ -39,9 +41,11 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
-# Every workspace manifest must be present for --frozen-lockfile; the docs site is not built here.
+# Every workspace manifest must be present for --frozen-lockfile; docs and demo are not built here.
 COPY apps/docs/package.json apps/docs/
+COPY apps/demo/package.json apps/demo/
 COPY packages/core/package.json packages/core/
+COPY packages/demo/package.json packages/demo/
 COPY packages/sg-rules/package.json packages/sg-rules/
 COPY packages/ui/package.json packages/ui/
 RUN bun install --frozen-lockfile --production --ignore-scripts --filter @crowhr/server \

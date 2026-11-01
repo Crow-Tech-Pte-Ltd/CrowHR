@@ -84,6 +84,8 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
+      - name: Install poppler (PDF text and glyph checks)
+        run: sudo apt-get install -y -q poppler-utils
       - name: Vitest (PGlite)
         run: bunx vitest run --shard=${{ matrix.shard }}/4
 
