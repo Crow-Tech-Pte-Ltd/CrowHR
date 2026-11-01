@@ -273,7 +273,9 @@ describe("#7 the former-member sweep", () => {
     expect(await runFormerTransitions(deps, peoplePorts(deps).memberships)).toBe(0);
   });
 
-  it.each([1, 2])(
+  // Two owner sign-ins linked to one employee record are impossible since
+  // memberships_org_employee_live_unique, so only the single-owner case remains.
+  it.each([1])(
     "one failing tenure never blocks others; alerts once per owner (%i linked owners)",
     async (ownerCount) => {
       const { deps, h, s, api } = await setup();
@@ -301,10 +303,7 @@ describe("#7 the former-member sweep", () => {
         .where(and(eq(membershipRoles.orgId, h.orgId), eq(membershipRoles.role, "owner")));
       await t.db.insert(membershipRoles).values({ orgId: h.orgId, membershipId: ownerA.membershipId, role: "owner" });
       const owners = [ownerA];
-      if (ownerCount === 2)
-        owners.push(
-          await seedMember(deps, h.orgId, { email: "a2@k.sg", roles: ["owner"], employeeId: a.body.employeeId }),
-        );
+      if (ownerCount === 2) owners.push(await seedMember(deps, h.orgId, { email: "a2@k.sg", roles: ["owner"] }));
 
       for (let i = 0; i < 3; i++) await runFormerTransitions(deps, peoplePorts(deps).memberships);
       const [mb] = await t.db.select().from(memberships).where(eq(memberships.id, staffB.membershipId));
