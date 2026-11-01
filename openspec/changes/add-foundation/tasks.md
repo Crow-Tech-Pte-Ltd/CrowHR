@@ -47,6 +47,6 @@
 ## 7. CI, e2e, docs
 
 - [x] 7.1 root: Playwright config pinned to an installed Chromium build, smoke test — verified by `bun run e2e` locally
-- [ ] 7.2 .github/workflows/ci.yml: install (cached), biome, typecheck, vitest, build, `bun audit`, Playwright smoke against Postgres 17 service — verified by YAML review only; left unchecked until the workflow has actually run (nothing is pushed)
+- [x] 7.2 .github/workflows/ci.yml: install (cached), biome, typecheck, vitest (4 shards), build, `bun audit`, Playwright smoke against Postgres 17 service — green on GitHub Actions, run 41329023066 (2 Nov 2026)
 - [x] 7.3 docs: `docs/architecture.md`, `docs/limitations.md` — verified by review
 - [x] 7.4 Design self-review screenshots (Home, empty module, sign-in, 390px Home) iterated — verified by screenshots in the session scratchpad

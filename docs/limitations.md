@@ -55,7 +55,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Scheduled backups** are checked on the shared in-process scheduler (`apps/server/src/scheduler.ts`, every 60 s with the workflows sweep) but stay in `apps/server`: `pg_dump` is Node-only, so the backup is a host job rather than a core `tick` sweep. One attempt per day; a failed attempt is retried the next day.
 - **Restore restarts the app** by signalling PID 1 inside the container; under `docker compose run` (or outside Docker) it prints "restart the app" instead.
 - **Dependency audit**: `bun audit` reports one moderate, dev-only advisory (GHSA-67mh-4wv8-2f99, esbuild ≤ 0.24.2 dev server) via drizzle-kit's `@esbuild-kit` loader. It is never shipped or run as a server. CI fails on high/critical only.
-- **CI has not run**: the workflow exists but nothing has been pushed.
+- **CI runs on GitHub-hosted runners** for now (private repo, free-plan minutes). The unit and integration suite is split into four shards because one 4-core runner takes over 15 minutes; a self-hosted runner with more cores can use fewer.
 
 ## Documentation site (apps/docs)
 

@@ -36,7 +36,7 @@ Crow HR is a working, self-hostable HR and payroll platform for Singapore SMEs, 
 - **Legal edge cases CPF hasn't published rules for are refused, not guessed** (e.g. very low wages with a capped bonus).
 - **No remote push notifications** (in-app inbox and email only).
 - **Small UI gaps** remain as unticked OpenSpec tasks: device-session e2e, claims report breakdowns, Settings → Claim types e2e, SSO round-trip e2e, audit-log export e2e, setup-checklist e2e, System page e2e, payroll-cutoff reminder source.
-- **CI has never run** because nothing is pushed; the workflow is reviewed but unproven.
+- **CI** is green on GitHub Actions in the private repo (lint, typecheck, four test shards, build, docs, audit, Playwright against Postgres 17, Docker install smoke). Its first runs found a timezone bug in the date picker, now fixed.
 - The Singpass button uses text, not the official logo (not redistributable under MIT).
 
 ## Not started
@@ -45,7 +45,7 @@ Crow HR is a working, self-hostable HR and payroll platform for Singapore SMEs, 
 
 ## Needs Daniel
 
-1. **GitHub:** create the repository (private first?) and push; this also runs CI for the first time. Making it public is a separate decision.
+1. **GitHub:** pushed to the private repo and CI is green. Making it public is a separate decision.
 2. **Placeholders:** the repo is `github.com/Crow-Tech-Pte-Ltd/CrowHR` (private); `security@crow.sg` and `conduct@crow.sg` are assumed in docs and README.
 3. **Deploy hr.crow.sg:** demo at `/` and docs at `/docs` on Cloudflare Pages, following `docs/deploy-demo.md`. Needs approval and a DNS change.
 4. **Landing page:** pushing `crow-hr-product-page` and opening a PR publishes a Cloudflare preview at a public pages.dev URL. Flipping `CROW_HR_LAUNCHED` launches it.
