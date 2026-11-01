@@ -123,6 +123,25 @@ describe("crowhr backup", () => {
     expect(logger.entries.filter((e) => e.level === "warn")).toEqual([]);
   });
 
+  it("refuses scheduled plaintext backups before dumping and records an actionable failure", async () => {
+    let dumped = false;
+    await expect(
+      backup({
+        trigger: "scheduled",
+        dumper: {
+          ...fakeDumper(testDb.db),
+          dump: async () => {
+            dumped = true;
+          },
+        },
+      }),
+    ).rejects.toThrow(/BACKUP_PASSPHRASE/);
+    expect(dumped).toBe(false);
+    const [run] = await testDb.db.select().from(backupRuns);
+    expect(run).toMatchObject({ status: "failed", error: expect.stringContaining("BACKUP_PASSPHRASE") });
+    expect(await readdir(join(dir, "backups")).catch(() => [])).toEqual([]);
+  });
+
   it("can leave the key out", async () => {
     const result = await backup({ key: null });
     const entries = await listArchive(result.path);

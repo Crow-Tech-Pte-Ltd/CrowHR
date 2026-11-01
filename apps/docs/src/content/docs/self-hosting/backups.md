@@ -14,9 +14,11 @@ One file in the `backups` volume, `crowhr-backup-<UTC time>[-scheduled|-pre-migr
 - `files/…`: every uploaded file;
 - `secrets/crowhr.key`: the encryption key.
 
-**The key is included by default**, because a backup without it cannot restore NRIC, bank or SSO data, and losing the key is far more common than losing a backup to theft. That means an unencrypted backup file is as sensitive as the live system. Set `BACKUP_PASSPHRASE` in `.env` (at least 12 characters, kept outside the server). Then every archive is encrypted with [age](https://age-encryption.org); you can also decrypt it with the standard tool: `age -d backup.tar.gz.age > backup.tar.gz`. Until a passphrase is set, `crowhr backup` prints a warning and Settings → System shows "Backups are not encrypted".
+**The key is included by default**, because a backup without it cannot restore NRIC, bank or SSO data, and losing the key is far more common than losing a backup to theft. That means an unencrypted backup file is as sensitive as the live system. Set `BACKUP_PASSPHRASE` in `.env` (at least 12 characters, kept outside the server). Then every archive is encrypted with [age](https://age-encryption.org); you can also decrypt it with the standard tool: `age -d backup.tar.gz.age > backup.tar.gz`. Scheduled backups refuse to run until a passphrase is set. Home and Settings → System explain that encryption is required. Manual unencrypted backups remain available with a prominent warning.
 
 ## Automatic backups
+
+**First set `BACKUP_PASSPHRASE` (at least 12 characters) in `.env`, save it outside this server, and restart Crow HR.** The scheduler records an actionable failure without dumping data when it is unset. This keeps a restore-ready archive, including the master key, encrypted as one unit.
 
 Daily at `BACKUP_TIME` (default 02:00 Singapore time), keeping the newest `BACKUP_KEEP` (default 14). A backup is also taken before any database upgrade (`BACKUP_BEFORE_MIGRATE`). Results, sizes and failures appear in Settings → System; Owners see a warning on Home when the last successful scheduled backup is more than 48 hours old.
 

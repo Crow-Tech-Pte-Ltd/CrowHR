@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { ErrorEnvelope } from "@crowhr/core";
 import { createTestDb, createTestDeps, type TestDb } from "@crowhr/core/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { fileResponseHeaders } from "../../../packages/core/src/files/uploads.ts";
 import { createServerApp } from "./http.ts";
 
 describe("server HTTP surface", () => {
@@ -57,6 +58,40 @@ describe("server HTTP surface", () => {
     const res = await app.request("/api/health", { method: "DELETE" });
     expect(res.status).toBe(404);
     expect(((await res.json()) as ErrorEnvelope).error.requestId).toBe(res.headers.get("x-request-id"));
+  });
+
+  it("preserves the sandbox CSP on file responses", async () => {
+    const fileApp = createServerApp(createTestDeps(testDb.db), {
+      webDistDir: dist,
+      modules: [
+        {
+          name: "file-test",
+          basePath: "/file-test",
+          routes: [
+            {
+              method: "get",
+              path: "/",
+              summary: "Test file",
+              access: "public",
+              responses: { 200: { description: "PDF" } },
+              handler: () =>
+                new Response("%PDF-1.4", {
+                  headers: fileResponseHeaders(
+                    { mime: "application/pdf", originalName: "mc.pdf", sizeBytes: 8 },
+                    { inline: true },
+                  ),
+                }),
+            },
+          ],
+        },
+      ],
+    });
+    const res = await fileApp.request("/api/v1/file-test");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-security-policy")).toBe(
+      "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
+    );
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
   it("sets security headers", async () => {
