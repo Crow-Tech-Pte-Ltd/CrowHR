@@ -60,8 +60,8 @@ A receipt file that is already attached to another submitted claim is flagged, n
 - **Viewing**: JPEG, PNG and WebP receipts preview in the app. PDFs open in your PDF viewer, and HEIC files are stored but not previewed ("Preview not available. Download to view."). Downloads are served with the detected type and headers that stop the browser running them.
 - **Who sees them**: the employee, approvers, HR and payroll admins, and managers for their team; for medical and dental-category lines, only owners, HR admins, the employee and the approver whose task is open.
 
-:::caution[Receipts are not virus-scanned]
-Crow HR has a hook for a virus scanner, but no scanner ships with it and none is configured by default. Receipts are stored **unscanned** and usable immediately, after the file-type and size checks above. Owners see "Virus scanning of receipts is off on this server" in **Settings → Claim types**; despite its wording, there is no server setting that turns scanning on (the ClamAV adapter is not built, and `CLAMAV_HOST` is not read). The hook is for developers: when a scanner is plugged into the server code, new receipts wait as "being scanned" and can't be submitted until they are clean, infected files are deleted and the uploader told, and a receipt that fails to scan three times is blocked.
+:::caution[Scanning is optional]
+Without a configured scanner, receipts are stored **unscanned** and usable after content and size checks; owners see that scanning is off. Configure your own private clamd with `CLAMAV_HOST` / `CLAMAV_PORT` to scan through the shared background sweep. New receipts then wait for a clean result before submission, infected files are removed with a notification, and three failed attempts leave a blocked scan-failed receipt. See [server configuration](/docs/self-hosting/configuration/#optional-virus-scanning).
 :::
 
 ## Foreign currency

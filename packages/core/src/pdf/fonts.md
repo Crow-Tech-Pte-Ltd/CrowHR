@@ -12,3 +12,15 @@ SC is converted with fontTools 4.57.0 from CFF to quadratic TrueType (maximum cu
 Generated modules contain gzip-compressed font bytes as base64. `createPdf` imports and decompresses only the script needed by the document, then pdf-lib/fontkit embeds only used glyphs. Tamil shaping also lazily loads regenerator-runtime 0.14.1 (fontkit's Indic shaper needs it). No network or filesystem access occurs while generating a PDF. The Docker image gains only these source assets and that small runtime; the browser's initial bundle does not load either font. The final bundle size record is below.
 
 Regenerate from the two checksum-verified upstream files using `python3 packages/core/scripts/pdf-noto-fonts.py /path/to/source-fonts` (fontTools 4.57.0). Output is deterministic; no download happens in the generator. Keep both OFL license notices when redistributing.
+
+## Measured local build (Node 24, 1 Nov 2026)
+
+`bun run demo:build` passes the server-module exclusion check and produces independent lazy chunks:
+
+| Asset | Raw JS | gzip |
+| --- | ---: | ---: |
+| SC font | 7,895,623 bytes | 5,979,631 bytes |
+| Tamil font | 49,215 bytes | 37,169 bytes |
+| Indic runtime | 6,799 bytes | 2,559 bytes |
+
+The optional fonts add no initial font download for Latin-only documents. The full static site including those optional chunks measures 12,921 kB gzip; that is the whole deployable site, not the initial page download. Generated font modules plus the small runtime add approximately 7.6 MiB to the Docker source payload (no Docker image was built). A sample with Chinese, Tamil and Latin text is 12,460 bytes after pdf-lib/fontkit subsetting, and passes both text extraction and raster checks. No external font requests occur.

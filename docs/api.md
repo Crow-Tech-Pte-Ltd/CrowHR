@@ -64,3 +64,9 @@ Clients switch on `code`, never on `message`. The message says what went wrong a
 - **Browser**: an HttpOnly session cookie (`__Host-crowhr_session`, or `crowhr_session` when `PUBLIC_URL` is plain http). State-changing requests must be same-origin (`Origin` / `Sec-Fetch-Site` checked) or they get `403 csrf_rejected`.
 - **Native apps**: `Authorization: Bearer <access token>` from the native authorisation-code + PKCE flow. Tokens are never accepted in query strings. A request carrying both a cookie and a bearer token gets `400 ambiguous_credentials`.
 - Operations show `security: []` when public. `x-permission` names the permission-matrix entry the route checks; `x-recent-auth: true` means the session must have authenticated in the last 10 minutes (`403 reauth_required` otherwise).
+
+## Request sizes and names
+
+All requests have a 1 MB default body limit, including unknown endpoints. Upload routes explicitly raise it: receipts 10 MB, documents 20 MB, leave attachment JSON 36 MB (up to five separately checked 5 MB files), company-logo base64 JSON 1,500,000 bytes and employee import previews 10 MB. Oversized requests return 413 `file_too_large`. JSON Content-Type is checked before buffering the body. A module declares an upload exception using `maxBodyBytes` on its route; new routes keep the 1 MB default unless they explicitly opt in.
+
+Name fields reject tabs, CR/LF and other control characters before schema trimming. Download filenames use an ASCII fallback and, where needed, an RFC 5987 UTF-8 `filename*` parameter. CSV text cells and headers use the shared formula-neutralising writer.
