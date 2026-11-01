@@ -28,7 +28,15 @@ export interface BridgeOptions {
 
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 /** Headers a browser sets itself; never trust copies from the page. */
-const BROWSER_OWNED = ["cookie", "origin", "sec-fetch-site", "sec-fetch-mode", "host"];
+const BROWSER_OWNED = [
+  "cookie",
+  "origin",
+  "sec-fetch-site",
+  "sec-fetch-mode",
+  "host",
+  "content-length",
+  "transfer-encoding",
+];
 
 // biome-ignore lint/suspicious/noExplicitAny: any Hono app (core's env type is irrelevant here).
 type AnyHono = Hono<any, any, any>;
@@ -62,6 +70,9 @@ export function createApiBridge(app: AnyHono, options: BridgeOptions) {
       // What a browser sends on a same-origin fetch; core's CSRF check reads these.
       headers.set("origin", options.origin);
       headers.set("sec-fetch-site", "same-origin");
+      // The wire body is already buffered. Its exact size lets core's body limiter avoid
+      // cloning the Request (a browser clone would drop the worker-only Cookie shadow).
+      headers.set("content-length", String(wire.body?.byteLength ?? 0));
     }
     const request = new Request(url, {
       method: wire.method,
@@ -69,10 +80,8 @@ export function createApiBridge(app: AnyHono, options: BridgeOptions) {
       headers: [...headers],
       body: SAFE.has(wire.method) ? null : wire.body,
     });
-    // In browsers the Request constructor silently drops `Cookie`; shadow it with the unguarded copy.
-    if (cookie && request.headers.get("cookie") !== cookie) {
-      Object.defineProperty(request, "headers", { value: headers });
-    }
+    // Browsers strip Cookie and Content-Length. Core receives the trusted, unguarded copy.
+    Object.defineProperty(request, "headers", { value: headers });
     const response = await wrapper.fetch(request);
     const setCookies = captured.get(request) ?? [];
     if (setCookies.length) {
