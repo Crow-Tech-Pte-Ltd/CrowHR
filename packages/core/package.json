@@ -27,6 +27,7 @@
     "hono": "^4.13.14",
     "openid-client": "^6.8.8",
     "pdf-lib": "1.17.1",
+    "regenerator-runtime": "0.14.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {

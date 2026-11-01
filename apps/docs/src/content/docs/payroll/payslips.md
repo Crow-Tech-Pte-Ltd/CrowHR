@@ -39,3 +39,5 @@ PDFs are rendered by a pure-JavaScript renderer with fonts shipped in the reposi
 
 - Payslip emails with the PDF attached (by design, emails never carry pay data).
 - Daily-rated and piece-rated pay units on the payslip.
+
+PDFs embed subsetted Noto Sans SC and Noto Sans Tamil when names or other text need those scripts. Latin-only documents do not load those fonts. A character missing from every loaded font is replaced with `?`, with a visible warning on the PDF naming its Unicode code point. Check the name in Crow HR before issuing the document. Downloads use a UTF-8 filename with an ASCII fallback.
