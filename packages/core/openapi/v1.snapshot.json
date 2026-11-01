@@ -7420,9 +7420,10 @@
             }
           },
           "401": {
-            "description": "Error: invalid_credentials.",
+            "description": "Error: invalid_credentials, invalid_mfa_code.",
             "x-error-codes": [
-              "invalid_credentials"
+              "invalid_credentials",
+              "invalid_mfa_code"
             ],
             "content": {
               "application/json": {
@@ -7480,6 +7481,10 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 120
+                  },
+                  "code": {
+                    "type": "string",
+                    "maxLength": 20
                   }
                 },
                 "required": [
@@ -7560,6 +7565,9 @@
                     "existingAccount": {
                       "type": "boolean"
                     },
+                    "mfaRequired": {
+                      "type": "boolean"
+                    },
                     "passwordAllowed": {
                       "type": "boolean"
                     },
@@ -7595,6 +7603,7 @@
                     "email",
                     "displayName",
                     "existingAccount",
+                    "mfaRequired",
                     "passwordAllowed",
                     "providers"
                   ],
@@ -7794,7 +7803,8 @@
     "/api/v1/auth/mfa/verify": {
       "post": {
         "operationId": "auth.postMfaVerify",
-        "summary": "Complete a password sign-in with a TOTP or recovery code",
+        "summary": "Complete a sign-in with a TOTP or recovery code",
+        "description": "Completes a password sign-in (token from `/auth/sign-in`) or an SSO sign-in that needs Crow HR's TOTP (token in the `crowhr_mfa` cookie set by the SSO callback; omit `mfaToken`). Wrong codes count toward the account's MFA lock; requests are also limited per network.",
         "tags": [
           "Authentication"
         ],
@@ -7856,6 +7866,19 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Error: rate_limited.",
+            "x-error-codes": [
+              "rate_limited"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -7877,7 +7900,6 @@
                   }
                 },
                 "required": [
-                  "mfaToken",
                   "code"
                 ]
               }
@@ -7924,6 +7946,20 @@
             "description": "Error: validation_failed.",
             "x-error-codes": [
               "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: forbidden, reauth_required.",
+            "x-error-codes": [
+              "forbidden",
+              "reauth_required"
             ],
             "content": {
               "application/json": {
@@ -8106,10 +8142,11 @@
             }
           },
           "403": {
-            "description": "Error: disabled_in_demo, forbidden.",
+            "description": "Error: disabled_in_demo, forbidden, reauth_required.",
             "x-error-codes": [
               "disabled_in_demo",
-              "forbidden"
+              "forbidden",
+              "reauth_required"
             ],
             "content": {
               "application/json": {
@@ -36333,6 +36370,7 @@
       "post": {
         "operationId": "me.postSessionsRevokeOthers",
         "summary": "Sign out everywhere except here",
+        "description": "Also unlinks every SSO sign-in method of this organisation including the one this session signed in with (`unlinked` counts them).",
         "tags": [
           "Me"
         ],
@@ -36357,10 +36395,16 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "unlinked": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
-                    "revoked"
+                    "revoked",
+                    "unlinked"
                   ],
                   "additionalProperties": false
                 }
@@ -36788,7 +36832,7 @@
       "post": {
         "operationId": "members.postInvitations",
         "summary": "Invite someone by email",
-        "description": "hr_admins may only invite members with no assigned roles. Without email configured, the response carries a link to copy.",
+        "description": "hr_admins may only invite members with no assigned roles, and may not link the invitation to a manager's employee record. An employee record that already has a (non-former) sign-in is refused with 409. Without email configured, the response carries a link to copy.",
         "tags": [
           "Members and roles"
         ],
@@ -37765,8 +37809,8 @@
     "/api/v1/members/{id}/password-reset-link": {
       "post": {
         "operationId": "members.postByIdPasswordResetLink",
-        "summary": "Generate a one-time password reset link for a member",
-        "description": "For installs without email. Shown once; valid 60 minutes. hr_admins can do this only for members without assigned roles.",
+        "summary": "Reset a member's password (email, or a one-time link for the owner)",
+        "description": "Owner only, after a recent sign-in. With email configured the reset link goes to the member (forced reset by email; `url` is null). Without email the owner gets a link to hand over, shown once and valid 60 minutes. Refused for members who hold a role or belong to another organisation (the password is shared across organisations).",
         "tags": [
           "Members and roles"
         ],
@@ -37779,6 +37823,7 @@
           }
         ],
         "x-permission": "members:update",
+        "x-recent-auth": true,
         "parameters": [
           {
             "name": "id",
@@ -37800,7 +37845,17 @@
                   "type": "object",
                   "properties": {
                     "url": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "delivery": {
+                      "type": "string",
+                      "enum": [
+                        "email",
+                        "link"
+                      ]
                     },
                     "expiresAt": {
                       "type": "string",
@@ -37810,6 +37865,7 @@
                   },
                   "required": [
                     "url",
+                    "delivery",
                     "expiresAt"
                   ],
                   "additionalProperties": false
@@ -37846,11 +37902,12 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "csrf_rejected",
               "forbidden",
-              "mfa_enrolment_required"
+              "mfa_enrolment_required",
+              "reauth_required"
             ],
             "content": {
               "application/json": {
@@ -38671,6 +38728,7 @@
       "post": {
         "operationId": "members.postByIdSignOutEverywhere",
         "summary": "Sign a member out of every browser and device",
+        "description": "Also unlinks the member's SSO sign-in methods in this organisation (`unlinked` counts them).",
         "tags": [
           "Members and roles"
         ],
@@ -38707,10 +38765,16 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "unlinked": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
-                    "revoked"
+                    "revoked",
+                    "unlinked"
                   ],
                   "additionalProperties": false
                 }
@@ -39433,6 +39497,19 @@
             "x-error-codes": [
               "invalid_grant",
               "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: mfa_enrolment_required.",
+            "x-error-codes": [
+              "mfa_enrolment_required"
             ],
             "content": {
               "application/json": {
