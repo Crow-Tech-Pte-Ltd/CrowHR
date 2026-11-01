@@ -5,5 +5,5 @@
 - [x] 2.2 Wire payroll feeds/reservations, immutable adjustment carry, rate working and change list.
 - [x] 2.3 Add HR employee leave tab and self-service encashment UI with status and withdrawal.
 ## 3. Documentation and verification
-- [ ] 3.1 Update leave/payroll guides and regulatory citations; remove obsolete limitations and explain basic-rate basis.
-- [ ] 3.2 Run full check, review and commit logical changes.
+- [x] 3.1 Update leave/payroll guides and regulatory citations; remove obsolete limitations and explain basic-rate basis.
+- [x] 3.2 Run full check, review and commit logical changes.
