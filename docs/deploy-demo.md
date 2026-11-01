@@ -19,8 +19,12 @@ and no analytics. Visitors' data never leaves their browser.
 | `/404.html` | `apps/demo/public/404.html` | Unknown paths (including `/api/*` when the service worker isn't active) |
 | `/docs/*` | `apps/docs/dist` (Astro, `base: "/docs"`) | Placeholder page if the docs build is skipped or fails |
 
-Size: about 10 MB on disk, ~7 MB transferred on a first visit. The largest file (PGlite's
-WebAssembly, gzip) is ~3.3 MB, well under Pages' 25 MiB per-file limit.
+The demo build now runs `scripts/build-snapshot.ts` after Vite: it applies the real migrations
+and seed, then emits `dist/assets/demo-<data-version>.tar.gz` (about 7.6 MiB gzip). Keep that
+asset with the matching build. The worker downloads it alongside WASM, validates/decompresses
+it and loads it with PGlite `loadDataDir`; missing or invalid snapshots fall back to the real
+browser seed. The build checkpoints Postgres before dumping it so visitors skip replaying the seed's WAL history. The distribution also includes optional language fonts; they are fetched only
+when needed. Nothing is uploaded by the build.
 
 ## Before deploying (local, no approval needed)
 
@@ -28,7 +32,7 @@ WebAssembly, gzip) is ~3.3 MB, well under Pages' 25 MiB per-file limit.
 2. `bun run check` (green)
 3. `REQUIRE_DOCS=1 bun run demo:site` — builds the demo (with the server-code bundle guard) and the
    docs, and assembles `apps/demo/dist-site/`.
-4. `bun run demo:e2e` twice (the second run proves a fresh visitor gets a fresh seed), then
+4. `bun run demo:e2e` twice (the second run proves a fresh visitor gets a fresh copy), then
    `node apps/demo/scripts/serve.ts apps/demo/dist-site` and check by hand at
    http://127.0.0.1:5181: first load, a persona, `/payroll`, `/about-demo`, `/docs/`, Reset.
    The preview server applies `_headers` and `_redirects` like Pages does.
@@ -45,7 +49,7 @@ without approval.
    also build on Cloudflare with a different toolchain).
 2. **Upload**: from `apps/demo/`, `bunx wrangler pages deploy` (reads `wrangler.toml`:
    `pages_build_output_dir = "dist-site"`). Check the `*.crowhr-demo.pages.dev` preview URL first:
-   - the demo loads, seeds and signs in; no console errors; DevTools → Network shows requests to
+   - the demo loads its snapshot and signs in; no console errors; DevTools → Network shows requests to
      this origin only;
    - response headers on `/` include the CSP from `_headers`; `/docs/` has the docs CSP;
    - `/payroll` (deep link) serves the app; `/docs/quick-start/` serves the docs; `/nope` is a 404.
@@ -60,9 +64,10 @@ without approval.
 ## Updating
 
 Run steps 1–4 of "Before deploying", then `bunx wrangler pages deploy` again. Visitors keep their
-data unless the data version changed (`packages/demo/src/version.ts` `SEED_VERSION`, or any new
-migration), in which case their next visit starts from a fresh seed automatically. Bump
-`SEED_VERSION` whenever the seed changes.
+data unless the data version changes, in which case their next visit starts from a fresh copy.
+`apps/demo/scripts/data-version.ts` hashes demo source, core's shared people seed and migrations,
+with `packages/demo/src/version.ts`'s release label as a prefix. Seed edits automatically change
+the asset URL and IndexedDB name; a manual version bump is optional.
 
 ## Rolling back
 
@@ -74,3 +79,26 @@ name; the old one is deleted on the next visit).
 
 Remove the custom domain from the Pages project (and the CNAME if it was added by hand), then
 delete the project. Visitors' copies stay in their own browsers until they clear site data.
+
+## Local first-visit measurements
+
+Use the existing demo Playwright config and an installed Chromium; do not download browsers:
+
+```sh
+DEMO_PERFORMANCE=1 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium \
+  bunx playwright test -c e2e/demo/playwright.demo.config.ts performance.demo.ts
+```
+
+Each sample uses a fresh browser context and IndexedDB. The metric is navigation start to the
+app/banner being mounted (`window.__crowhrDemo.readyMs`), without network or CPU throttling.
+The baseline uses the original seed and initdb startup with the cookie/body-limit fix needed
+to let it run; it was built separately and served through the same preview server using
+`DEMO_E2E_DIST=/tmp/crowhr-demo-baseline`. Measurements are local observations, not a hosted-network SLA.
+
+Baseline on 1 Nov 2026: **5,299 / 4,934 / 4,751 ms** (median **4,934 ms**). This machine's baseline
+is slower than the earlier 3.4 s measurement.
+
+Final snapshot build: **1,198 / 1,223 / 1,199 ms** (median **1,199 ms**, approximately **76% faster**).
+All three fresh visits met the <3 s target. Worker startup was **1,010 / 1,030 / 1,024 ms**;
+there were no migration or seed stages. This comparison includes published rosters, October
+attendance, approved OT and generated documents in the new snapshot.

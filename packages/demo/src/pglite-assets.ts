@@ -6,10 +6,9 @@ import pgliteWasmUrl from "pglite-dist/pglite.wasm?url";
  * PGlite's three large files (Postgres as WebAssembly, initdb, and the filesystem bundle with
  * Postgres's share/ files, ~15 MB together). The demo build stores them gzip-compressed
  * (`<file>.gz`, see apps/demo/scripts/precompress.ts) because static hosts don't compress
- * `application/octet-stream`; here they are fetched in parallel and decompressed with the
- * browser's DecompressionStream while they download (the WebAssembly compiles as it streams), then
- * handed to PGlite, so it downloads nothing itself. Without a `.gz` (Vite dev server), the plain
- * file is used.
+ * `application/octet-stream`. Postgres and its filesystem bundle download in parallel; initdb
+ * downloads only for browser-seeding fallback. Native DecompressionStream and streaming WASM
+ * compilation overlap with downloading. Without a `.gz` (Vite dev server), the plain file is used.
  */
 async function open(url: string, type: string): Promise<Response> {
   const gz = await fetch(`${url}.gz`).catch(() => null);

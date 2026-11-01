@@ -40,7 +40,7 @@
 
 - [x] 6.1 Regression tests for preferred names, manager flags, published October/current/next-week rosters, late clock-ins and approved OT in October payroll
 - [x] 6.2 Generate KETs for recent hires, acknowledgement work for the employee, and an expiring work-pass document through the API
-- [ ] 6.3 Build a gzip PGlite snapshot from the real seed; hash seed sources and migrations; restore on first visit with browser-seed fallback and per-visitor clock anchoring
-- [ ] 6.4 Regression tests for snapshot round-trip, bad/missing/version-mismatched snapshot fallback, persistence and reset
-- [ ] 6.5 Extend built-demo Playwright coverage for fed OT, swap approval, document acknowledgement and payroll cost reports; measure before/after with installed Chromium
-- [ ] 6.6 Update demo docs and About; run root check; commit locally without pushing
+- [x] 6.3 Build a gzip PGlite snapshot from the real seed; hash seed sources and migrations; restore on first visit with browser-seed fallback and per-visitor clock anchoring
+- [x] 6.4 Regression tests for snapshot round-trip, bad/missing/version-mismatched snapshot fallback, persistence and reset
+- [x] 6.5 Extend built-demo Playwright coverage for fed OT, swap approval, document acknowledgement and payroll cost reports; measure before/after with installed Chromium
+- [x] 6.6 Update demo docs and About; run root check; commit locally without pushing
