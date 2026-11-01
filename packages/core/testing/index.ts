@@ -23,11 +23,28 @@ export interface TestDb {
   close(): Promise<void>;
 }
 
+/**
+ * A migrated data directory, built once per test worker. Booting PGlite and running every
+ * migration takes over a second (several on CI runners); loading this snapshot takes a fraction
+ * of that, and each test still gets its own independent database.
+ */
+let migratedSnapshot: Promise<Blob> | undefined;
+
+function migratedDataDir(): Promise<Blob> {
+  migratedSnapshot ??= (async () => {
+    const pglite = new PGlite();
+    await migrate(drizzle({ client: pglite, schema }), { migrationsFolder });
+    const dump = await pglite.dumpDataDir("none");
+    await pglite.close();
+    return dump;
+  })();
+  return migratedSnapshot;
+}
+
 /** A fresh in-memory Postgres (PGlite) with every migration applied. No Docker. */
 export async function createTestDb(): Promise<TestDb> {
-  const pglite = new PGlite();
+  const pglite = new PGlite({ loadDataDir: await migratedDataDir() });
   const db = drizzle({ client: pglite, schema });
-  await migrate(db, { migrationsFolder });
   return {
     db,
     pglite,
