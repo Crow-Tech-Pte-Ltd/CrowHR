@@ -13,7 +13,8 @@ export const E2E = {
     shots: { email: "farah@kampongkopi.example", name: "Farah Hassan", roles: [] },
     // Approvals (WS3): a manager and their report, linked to employee records by e2e/seed.ts
     // (Ahmad and Farah report to Kai Wen).
-    approver: { email: "kaiwen@kampongkopi.example", name: "Wong Kai Wen", roles: [] },
+    // Profile-change decisions require HR for personal details and payroll for bank details.
+    approver: { email: "kaiwen@kampongkopi.example", name: "Wong Kai Wen", roles: ["hr_admin", "payroll_admin"] },
     requester: { email: "ahmad@kampongkopi.example", name: "Ahmad Ismail", roles: [] },
     // Leave (WS5): long-serving staff reporting to Kai Wen, and a payroll admin (e2e/seed.ts).
     leaveStaff: { email: "nadia@kampongkopi.example", name: "Nadia Rahman", roles: [] },

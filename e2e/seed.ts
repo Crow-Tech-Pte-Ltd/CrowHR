@@ -135,7 +135,8 @@ await database.close();
 
 /**
  * People and approvals (WS3 integration): Kai Wen manages Ahmad and Farah (real employee records,
- * linked to their memberships); profile changes go manager → HR admin (bank: manager → payroll
+ * linked to their memberships); Kai Wen is also an HR/payroll admin so he is eligible for
+ * personal/bank decisions. Profile changes go manager → HR admin (bank: manager → payroll
  * admin); Farah's personal-details change was sent five days ago and is still with Kai Wen, so
  * the server's first sweep escalates it to HR ("Escalated" in the inbox). Farah's S Pass expires
  * in 40 days and Ahmad's probation ends in 10 (Home cards).
