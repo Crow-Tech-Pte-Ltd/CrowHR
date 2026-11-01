@@ -160,7 +160,13 @@ export async function closeLeaveYear(
           })
           .onConflictDoNothing();
       if (carry > 0) {
-        const months = policy?.expiresAfterMonths ?? (type.statutoryCode === "annual" && part4 ? 12 : null);
+        // MOM: Part IV annual leave remains available for the next 12 months, even if
+        // company policy expires discretionary carry earlier.
+        // https://www.mom.gov.sg/employment-practices/leave/annual-leave/special-situations
+        const months =
+          part4 && type.statutoryCode === "annual"
+            ? Math.max(12, policy?.expiresAfterMonths ?? 12)
+            : (policy?.expiresAfterMonths ?? null);
         await row(year, "carry_forward", -carry, "out");
         await row(year + 1, "carry_forward", carry, "in", months ? addMonths(next, months) : null);
       }
@@ -262,7 +268,9 @@ export function leaveYearEndTransition(deps: AppDeps): Transition {
           sql`not exists (select 1 from leave_year_closings c where c.org_id = ${leaveTypes.orgId} and c.year = ${year})`,
         )
         .groupBy(leaveTypes.orgId);
-      let n = 0;
+      // Expire old carry before calculating the closed year's remaining balance. Otherwise
+      // a delayed January tick carries already-expired days forward a second time.
+      let n = await deps.db.transaction((tx) => expireCarryForward(tx, deps, today));
       for (const { orgId, since } of orgs) {
         if (Number(since) > year) continue;
         const done = await deps.db.transaction((tx) => closeLeaveYear(tx, deps, input.audit(orgId), orgId, year));
