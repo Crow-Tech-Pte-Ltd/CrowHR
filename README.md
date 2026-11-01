@@ -11,7 +11,7 @@ People records, leave, attendance and overtime, expense claims, shift rosters, d
 You need Docker with the Compose plugin.
 
 ```sh
-git clone https://github.com/Crow-Tech-Pte-Ltd/crow-hr.git && cd crow-hr   # repository URL not confirmed yet
+git clone https://github.com/Crow-Tech-Pte-Ltd/CrowHR.git && cd CrowHR
 cp .env.example .env            # 1. copy the settings
 $EDITOR .env                    # 2. set PUBLIC_URL, e.g. https://hr.example.sg
 docker compose up -d            # 3. start

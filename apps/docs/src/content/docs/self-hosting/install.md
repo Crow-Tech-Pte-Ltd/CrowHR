@@ -10,8 +10,8 @@ You need a machine with Docker Engine 24+ and the Compose plugin (`docker compos
 ## 1. Get the files
 
 ```sh
-git clone https://github.com/Crow-Tech-Pte-Ltd/crow-hr.git   # repository URL not confirmed yet
-cd crow-hr
+git clone https://github.com/Crow-Tech-Pte-Ltd/CrowHR.git
+cd CrowHR
 ```
 
 :::caution[Images are not published yet]
