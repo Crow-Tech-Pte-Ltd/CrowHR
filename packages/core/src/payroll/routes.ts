@@ -44,6 +44,7 @@ import {
   type PayrollActor,
   releaseRun,
   reopenRun,
+  returnToDraft,
   setAllowanceSetting,
   submitRun,
   updateItem,
@@ -425,6 +426,20 @@ export const payrollModule = defineModule({
       responses: { 200: runSchema },
       errors: ["not_found", "conflict"],
       handler: async ({ c, deps, auth, params }) => toRunDto(await markPaid(deps, payrollActor(c, auth), params.runId)),
+    }),
+    defineRoute({
+      method: "post",
+      path: "/runs/:runId/return-to-draft",
+      summary: "Return an approved, unpaid run to draft to recompute and approve it again",
+      description:
+        "For a change after approval that must not be paid as an adjustment, such as an employee's new bank account: the bank file refuses a run whose payees changed after it was computed. Payslips are hidden again until the run is re-approved and released.",
+      access: { permission: "payroll:finalise" },
+      request: { params: runParams, body: z.object({ reason: z.string().max(500) }) },
+      example: { body: { reason: "New bank account for Ravi" } },
+      responses: { 200: runSchema },
+      errors: ["not_found", "conflict", "validation_failed"],
+      handler: async ({ c, deps, auth, params, body }) =>
+        toRunDto(await returnToDraft(deps, payrollActor(c, auth), params.runId, body.reason)),
     }),
     defineRoute({
       method: "post",

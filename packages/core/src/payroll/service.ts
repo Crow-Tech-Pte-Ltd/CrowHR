@@ -1,11 +1,13 @@
 import { computeSdlTotal, publicHolidays } from "@crowhr/sg-rules";
-import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, type SQL } from "drizzle-orm";
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
 import { memberships } from "../db/schema/access.ts";
 import { allowanceTypes, employees } from "../db/schema/employees.ts";
 import { companyProfiles } from "../db/schema/organisation.ts";
 import {
+  type PayeeSnapshot,
   type PayrollRun,
+  type PayrollRunStatus,
   payrollAllowanceSettings,
   payrollBackpayNotices,
   payrollPayslips,
@@ -24,6 +26,7 @@ import { canonicalHash } from "./engine/canonical.ts";
 import { computeEmployeePay } from "./engine/compute.ts";
 import { dateLabel, dayOfWeek, daysInMonth, maxDate, monthBounds, monthLabel } from "./engine/dates.ts";
 import type { PayInput, PayIssue, PayResult, RunItemKind } from "./engine/types.ts";
+import { changedPayees, changedPayeesMessage, liveAccounts, toPayee } from "./payees.ts";
 import { missingPayslipItems } from "./payslip.ts";
 import { type ApprovalDecision, payrollPorts } from "./ports.ts";
 import { DEDUCTION_CATEGORIES, type DeductionCategory, EA_S21, EA_S25, salaryDueBy } from "./rules.ts";
@@ -52,6 +55,47 @@ export async function loadRun(db: Db, orgId: string, runId: string): Promise<Pay
     .where(and(eq(payrollRuns.orgId, orgId), eq(payrollRuns.id, runId)));
   if (!run) throw new AppError("not_found", "That payroll run doesn't exist or you can't see it.");
   return run;
+}
+
+/**
+ * A conditional state change (finding #22): `UPDATE … WHERE status IN (from) [AND extra] RETURNING`.
+ * Postgres re-checks the condition after waiting for a concurrent writer's row lock, so two racing
+ * transitions (withdraw vs approve, compute vs submit, mark paid twice) can't both apply: the loser
+ * gets a 409 from the run's current state and its transaction rolls back.
+ */
+async function transition(
+  tx: Db,
+  orgId: string,
+  runId: string,
+  from: readonly PayrollRunStatus[],
+  set: Partial<typeof payrollRuns.$inferInsert>,
+  extra?: SQL,
+  onConflict?: (current: PayrollRun) => never,
+): Promise<void> {
+  const rows = await tx
+    .update(payrollRuns)
+    .set(set)
+    .where(and(eq(payrollRuns.orgId, orgId), eq(payrollRuns.id, runId), inArray(payrollRuns.status, [...from]), extra))
+    .returning({ id: payrollRuns.id });
+  if (rows.length) return;
+  const current = await loadRun(tx, orgId, runId);
+  if (onConflict) onConflict(current);
+  if (from.includes(current.status))
+    conflict("This run changed while you were working on it. Reload it and try again.", { stale: true });
+  if (from.length === 1 && from[0] === "draft") assertDraft(current);
+  conflict(`This run is now ${current.status.replace("_", " ")}. Reload it and try again.`, { status: current.status });
+}
+
+/** Locks a draft run for an edit inside `tx` (items, delete): 409 if it left draft meanwhile. */
+async function lockDraft(tx: Db, deps: AppDeps, run: PayrollRun, inputsChanged = true) {
+  const now = deps.clock.now();
+  await transition(
+    tx,
+    run.orgId,
+    run.id,
+    ["draft"],
+    inputsChanged ? { inputsChangedAt: now, updatedAt: now } : { updatedAt: now },
+  );
 }
 
 function assertDraft(run: PayrollRun) {
@@ -324,10 +368,11 @@ export async function updateRun(deps: AppDeps, actor: PayrollActor, runId: strin
       issues: [{ path: "payDate", message: "Choose a date on or after the first day of the month." }],
     });
   await deps.db.transaction(async (tx) => {
-    await tx
-      .update(payrollRuns)
-      .set({ payDate: input.payDate, inputsChangedAt: deps.clock.now(), updatedAt: deps.clock.now() })
-      .where(eq(payrollRuns.id, run.id));
+    await transition(tx, actor.orgId, run.id, ["draft"], {
+      payDate: input.payDate,
+      inputsChangedAt: deps.clock.now(),
+      updatedAt: deps.clock.now(),
+    });
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.run_updated",
       targetType: "payroll_run",
@@ -342,8 +387,9 @@ export async function deleteRun(deps: AppDeps, actor: PayrollActor, runId: strin
   const run = await loadRun(deps.db, actor.orgId, runId);
   assertDraft(run);
   await deps.db.transaction(async (tx) => {
+    await lockDraft(tx, deps, run, false);
     await payrollPorts(deps).reimbursements.release(tx, actor.orgId, run.id);
-    await tx.delete(payrollRuns).where(eq(payrollRuns.id, run.id));
+    await tx.delete(payrollRuns).where(and(eq(payrollRuns.id, run.id), eq(payrollRuns.status, "draft")));
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.run_deleted",
       targetType: "payroll_run",
@@ -452,6 +498,7 @@ export async function addItem(deps: AppDeps, actor: PayrollActor, runId: string,
   validateItem(run, input);
   const id = deps.ids.newId();
   await deps.db.transaction(async (tx) => {
+    await lockDraft(tx, deps, run);
     await tx.insert(payrollRunItems).values({
       id,
       orgId: actor.orgId,
@@ -460,10 +507,6 @@ export async function addItem(deps: AppDeps, actor: PayrollActor, runId: string,
       createdBy: actor.userId,
       createdAt: deps.clock.now(),
     });
-    await tx
-      .update(payrollRuns)
-      .set({ inputsChangedAt: deps.clock.now(), updatedAt: deps.clock.now() })
-      .where(eq(payrollRuns.id, run.id));
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.item_added",
       targetType: "payroll_run",
@@ -488,11 +531,8 @@ export async function updateItem(deps: AppDeps, actor: PayrollActor, runId: stri
   await assertEmployeeInRun(deps.db, run, input.employeeId);
   validateItem(run, input);
   await deps.db.transaction(async (tx) => {
+    await lockDraft(tx, deps, run);
     await tx.update(payrollRunItems).set(itemValues(input)).where(eq(payrollRunItems.id, itemId));
-    await tx
-      .update(payrollRuns)
-      .set({ inputsChangedAt: deps.clock.now(), updatedAt: deps.clock.now() })
-      .where(eq(payrollRuns.id, run.id));
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.item_updated",
       targetType: "payroll_run",
@@ -514,11 +554,8 @@ export async function deleteItem(deps: AppDeps, actor: PayrollActor, runId: stri
     );
   if (!existing) throw new AppError("not_found", "That pay item doesn't exist or you can't see it.");
   await deps.db.transaction(async (tx) => {
+    await lockDraft(tx, deps, run);
     await tx.delete(payrollRunItems).where(eq(payrollRunItems.id, itemId));
-    await tx
-      .update(payrollRuns)
-      .set({ inputsChangedAt: deps.clock.now(), updatedAt: deps.clock.now() })
-      .where(eq(payrollRuns.id, run.id));
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.item_deleted",
       targetType: "payroll_run",
@@ -536,14 +573,18 @@ interface Computed {
   inputHash: string;
   result: PayResult;
   resultHash: string;
+  /** The bank account to pay, as at the pay date (finding #10). */
+  payee: PayeeSnapshot | null;
 }
 
 async function computeAll(deps: AppDeps, run: PayrollRun): Promise<{ computed: Computed[]; claimIds: string[] }> {
   const ports = payrollPorts(deps);
+  // An adjustment carries the reimbursements its replaced chain reserved or paid (finding #8).
+  const carryFromRunIds = run.kind === "adjustment" ? await replacedChain(deps.db, run.orgId, run) : [];
   const claims =
     run.kind === "off_cycle" && run.offCycleReason === "bonus"
       ? []
-      : await ports.reimbursements.listPayable(run.orgId, run.periodEnd, { runId: run.id });
+      : await ports.reimbursements.listPayable(run.orgId, run.periodEnd, { runId: run.id, carryFromRunIds });
   const overtime =
     run.kind === "off_cycle" && run.offCycleReason === "bonus"
       ? []
@@ -555,23 +596,44 @@ async function computeAll(deps: AppDeps, run: PayrollRun): Promise<{ computed: C
     ? []
     : await ports.scheduledDays.listScheduledDays(run.orgId, run.periodStart, run.periodEnd);
   const inputs = await buildSnapshots(deps.db, { run, claims, overtime, unpaidLeave, daysWorked, scheduledDays });
+  const accounts = await liveAccounts(
+    deps.db,
+    run.orgId,
+    inputs.map((i) => i.employee.id),
+    run.payDate,
+  );
   const computed: Computed[] = [];
   for (const input of inputs) {
     const result = computeEmployeePay(input);
-    computed.push({ input, inputHash: await canonicalHash(input), result, resultHash: await canonicalHash(result) });
+    computed.push({
+      input,
+      inputHash: await canonicalHash(input),
+      result,
+      resultHash: await canonicalHash(result),
+      payee: toPayee(accounts.get(input.employee.id)),
+    });
   }
   const inRun = new Set(inputs.map((i) => i.employee.id));
   return {
     computed,
-    claimIds: claims
-      .filter((c) => inRun.has(c.employeeId))
-      .map((c) => c.claimId)
-      .sort(),
+    claimIds: [
+      ...new Set(
+        claims
+          .filter((c) => inRun.has(c.employeeId) && !c.carriedFromRunId)
+          .map((c) => c.claimId)
+          .sort(),
+      ),
+    ],
   };
 }
 
 async function runInputHash(run: PayrollRun, computed: Computed[]): Promise<string> {
-  return canonicalHash({ payDate: run.payDate, employees: computed.map((c) => [c.input.employee.id, c.inputHash]) });
+  return canonicalHash({
+    payDate: run.payDate,
+    employees: computed.map((c) => [c.input.employee.id, c.inputHash]),
+    // A bank change makes the run stale like any other input (finding #10).
+    payees: computed.map((c) => [c.input.employee.id, c.payee]),
+  });
 }
 
 async function runLevelIssues(db: Db, run: PayrollRun, headcount: number): Promise<PayIssue[]> {
@@ -769,6 +831,15 @@ export async function computeRun(deps: AppDeps, actor: PayrollActor, runId: stri
   const resultHash = await canonicalHash(computed.map((c) => [c.input.employee.id, c.resultHash]));
   const now = deps.clock.now();
   await deps.db.transaction(async (tx) => {
+    // First statement: holds the run's row lock and refuses a run that left draft meanwhile.
+    await transition(tx, actor.orgId, run.id, ["draft"], {
+      computedAt: now,
+      inputHash,
+      resultHash,
+      totals,
+      issues: runIssues,
+      updatedAt: now,
+    });
     const ports = payrollPorts(deps);
     await ports.reimbursements.release(tx, actor.orgId, run.id);
     if (claimIds.length) await ports.reimbursements.reserve(tx, actor.orgId, run.id, claimIds);
@@ -794,13 +865,10 @@ export async function computeRun(deps: AppDeps, actor: PayrollActor, runId: stri
         cpfEmployerCents: c.result.totals.cpfEmployerCents,
         blockingCount: c.result.issues.filter((i) => i.severity === "blocking").length,
         warningCount: c.result.issues.filter((i) => i.severity === "warning").length,
+        payee: c.payee,
         createdAt: now,
       });
     }
-    await tx
-      .update(payrollRuns)
-      .set({ computedAt: now, inputHash, resultHash, totals, issues: runIssues, updatedAt: now })
-      .where(eq(payrollRuns.id, run.id));
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.run_computed",
       targetType: "payroll_run",
@@ -843,16 +911,27 @@ export async function submitRun(deps: AppDeps, actor: PayrollActor, runId: strin
     );
   }
   await deps.db.transaction(async (tx) => {
-    await tx
-      .update(payrollRuns)
-      .set({
+    // Refuses if the run was recomputed or its inputs edited after the freshness check above.
+    await transition(
+      tx,
+      actor.orgId,
+      run.id,
+      ["draft"],
+      {
         status: "in_review",
         submittedBy: actor.userId,
         submittedAt: deps.clock.now(),
         decisionComment: null,
         updatedAt: deps.clock.now(),
-      })
-      .where(eq(payrollRuns.id, run.id));
+      },
+      and(
+        eq(payrollRuns.inputHash, run.inputHash as string),
+        eq(payrollRuns.resultHash, run.resultHash as string),
+        run.inputsChangedAt
+          ? eq(payrollRuns.inputsChangedAt, run.inputsChangedAt)
+          : isNull(payrollRuns.inputsChangedAt),
+      ),
+    );
     const { requestId } = await submitApproval(tx, deps, actor.audit, {
       orgId: actor.orgId,
       subjectType: "payroll_run",
@@ -876,11 +955,14 @@ export async function withdrawRun(deps: AppDeps, actor: PayrollActor, runId: str
   const run = await loadRun(deps.db, actor.orgId, runId);
   if (run.status !== "in_review") conflict("Only a run in review can be withdrawn to draft.");
   await deps.db.transaction(async (tx) => {
-    await withdrawSubject(tx, deps, actor.audit, { orgId: actor.orgId, subjectType: "payroll_run", subjectId: run.id });
-    await tx
-      .update(payrollRuns)
-      .set({ status: "draft", approvalRequestId: null, updatedAt: deps.clock.now() })
-      .where(eq(payrollRuns.id, run.id));
+    // Lock order request → run, as in a decision (decideTask locks the request, the adapter then the run).
+    const withdrawn = await withdrawSubject(tx, deps, actor.audit, {
+      orgId: actor.orgId,
+      subjectType: "payroll_run",
+      subjectId: run.id,
+    });
+    // The adapter's onWithdrawn returned the run to draft under the request lock.
+    if (!withdrawn) conflict("This run's approval was already decided. Reload it to see the outcome.");
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.run_withdrawn",
       targetType: "payroll_run",
@@ -905,17 +987,14 @@ export async function applyDecision(
   const run = await loadRun(tx, orgId, runId);
   if (run.status !== "in_review") conflict("This run is not waiting for a decision.");
   if (decision.outcome === "rejected") {
-    await tx
-      .update(payrollRuns)
-      .set({
-        status: "draft",
-        approvalRequestId: null,
-        decidedBy: decision.decidedByUserId,
-        decidedAt: decision.decidedAt,
-        decisionComment: decision.comment,
-        updatedAt: deps.clock.now(),
-      })
-      .where(eq(payrollRuns.id, run.id));
+    await transition(tx, orgId, run.id, ["in_review"], {
+      status: "draft",
+      approvalRequestId: null,
+      decidedBy: decision.decidedByUserId,
+      decidedAt: decision.decidedAt,
+      decisionComment: decision.comment,
+      updatedAt: deps.clock.now(),
+    });
     await recordAudit(tx, deps, audit, {
       action: "payroll.run_rejected",
       targetType: "payroll_run",
@@ -924,17 +1003,25 @@ export async function applyDecision(
     });
     return;
   }
-  await tx
-    .update(payrollRuns)
-    .set({
-      status: "approved",
-      decidedBy: decision.decidedByUserId,
-      decidedAt: decision.decidedAt,
-      decisionComment: decision.comment,
-      selfApproved: decision.selfApproved,
-      updatedAt: deps.clock.now(),
+  await transition(tx, orgId, run.id, ["in_review"], {
+    status: "approved",
+    decidedBy: decision.decidedByUserId,
+    decidedAt: decision.decidedAt,
+    decisionComment: decision.comment,
+    selfApproved: decision.selfApproved,
+    updatedAt: deps.clock.now(),
+  });
+  // The approver approves these payees: refuse if a bank account changed after compute.
+  const payees = await tx
+    .select({
+      employeeId: payrollPayslips.employeeId,
+      employeeName: payrollPayslips.employeeName,
+      payee: payrollPayslips.payee,
     })
-    .where(eq(payrollRuns.id, run.id));
+    .from(payrollPayslips)
+    .where(and(eq(payrollPayslips.orgId, orgId), eq(payrollPayslips.runId, run.id)));
+  const changed = await changedPayees(tx, orgId, run.payDate, payees);
+  if (changed.length) conflict(changedPayeesMessage(changed, "approval"), { changedPayees: changed });
   // Back pay paid by this run settles the employee's open back-pay notices.
   const paidBackpay = await tx
     .select({ employeeId: payrollRunItems.employeeId })
@@ -996,10 +1083,20 @@ async function doRelease(
   auto: boolean,
 ) {
   const now = deps.clock.now();
-  await tx
+  const claimed = await tx
     .update(payrollRuns)
     .set({ releasedAt: now, releasedBy: userId, updatedAt: now })
-    .where(and(eq(payrollRuns.orgId, orgId), eq(payrollRuns.id, runId)));
+    .where(
+      and(
+        eq(payrollRuns.orgId, orgId),
+        eq(payrollRuns.id, runId),
+        inArray(payrollRuns.status, ["approved", "paid"]),
+        isNull(payrollRuns.releasedAt),
+      ),
+    )
+    .returning({ id: payrollRuns.id });
+  // Released already by a concurrent request: nothing to do, and nobody is notified twice.
+  if (!claimed.length) return;
   await tx
     .update(payrollPayslips)
     .set({ releasedAt: now })
@@ -1093,16 +1190,108 @@ export async function markPaid(deps: AppDeps, actor: PayrollActor, runId: string
   if (run.status !== "approved")
     conflict(run.status === "paid" ? "This run is already marked paid." : "Approve the run before marking it paid.");
   await deps.db.transaction(async (tx) => {
-    await payrollPorts(deps).reimbursements.markPaid(tx, actor.orgId, run.id, run.payDate);
-    await tx
-      .update(payrollRuns)
-      .set({ status: "paid", paidAt: deps.clock.now(), paidBy: actor.userId, updatedAt: deps.clock.now() })
-      .where(eq(payrollRuns.id, run.id));
+    await transition(
+      tx,
+      actor.orgId,
+      run.id,
+      ["approved"],
+      { status: "paid", paidAt: deps.clock.now(), paidBy: actor.userId, updatedAt: deps.clock.now() },
+      undefined,
+      (current) =>
+        conflict(
+          current.status === "paid" ? "This run is already marked paid." : "Approve the run before marking it paid.",
+        ),
+    );
+    const carryFromRunIds = run.kind === "adjustment" ? await replacedChain(tx, actor.orgId, run) : [];
+    await payrollPorts(deps).reimbursements.markPaid(tx, actor.orgId, run.id, run.payDate, { carryFromRunIds });
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.run_paid",
       targetType: "payroll_run",
       targetId: run.id,
       meta: { payDate: run.payDate },
+    });
+  });
+  return loadRun(deps.db, actor.orgId, runId);
+}
+
+/**
+ * Approved but not paid → draft, to recompute and approve again (finding #10: a payee's bank account
+ * changed after approval). Undoes approval's side effects: payslips are un-released, back-pay notices
+ * reopen, an adjustment stops superseding its original. Refused once a later run of the year was
+ * approved on top of this one (its CPF year-to-date figures): reopen the run instead.
+ */
+export async function returnToDraft(deps: AppDeps, actor: PayrollActor, runId: string, reason: string) {
+  const run = await loadRun(deps.db, actor.orgId, runId);
+  if (run.status !== "approved")
+    conflict(
+      run.status === "paid"
+        ? "This run is marked paid. Reopen it to make an adjustment instead."
+        : "Only an approved run can be returned to draft.",
+    );
+  if (!reason.trim())
+    throw new AppError("validation_failed", "Say why the run is returned to draft.", {
+      issues: [{ path: "reason", message: "Add a reason, e.g. 'Ravi's new bank account'." }],
+    });
+  if (run.supersededByRunId) conflict("A later adjustment already replaced this run.");
+  const later = await deps.db
+    .select({ id: payrollRuns.id, month: payrollRuns.month, decidedAt: payrollRuns.decidedAt })
+    .from(payrollRuns)
+    .where(
+      and(
+        eq(payrollRuns.orgId, actor.orgId),
+        inArray(payrollRuns.status, ["approved", "paid", "in_review"]),
+        ne(payrollRuns.id, run.id),
+      ),
+    );
+  const blocker = later.find(
+    (r) =>
+      r.month.slice(0, 4) === run.month.slice(0, 4) &&
+      r.month >= run.month &&
+      (r.decidedAt === null || (run.decidedAt !== null && r.decidedAt > run.decidedAt)),
+  );
+  if (blocker)
+    conflict(
+      `${monthLabel(blocker.month)} payroll was approved or submitted after this run and used its CPF year-to-date figures. Reopen this run to make an adjustment instead.`,
+      { runId: blocker.id },
+    );
+  const now = deps.clock.now();
+  await deps.db.transaction(async (tx) => {
+    await transition(tx, actor.orgId, run.id, ["approved"], {
+      status: "draft",
+      approvalRequestId: null,
+      decidedBy: null,
+      decidedAt: null,
+      selfApproved: false,
+      decisionComment: `Returned to draft: ${reason.trim()}`,
+      releasedAt: null,
+      releasedBy: null,
+      updatedAt: now,
+    });
+    await tx
+      .update(payrollPayslips)
+      .set({ releasedAt: null })
+      .where(and(eq(payrollPayslips.orgId, actor.orgId), eq(payrollPayslips.runId, run.id)));
+    await tx
+      .update(payrollBackpayNotices)
+      .set({ resolvedRunId: null })
+      .where(and(eq(payrollBackpayNotices.orgId, actor.orgId), eq(payrollBackpayNotices.resolvedRunId, run.id)));
+    if (run.kind === "adjustment" && run.adjustsRunId) {
+      await tx
+        .update(payrollRuns)
+        .set({ supersededByRunId: null, updatedAt: now })
+        .where(
+          and(
+            eq(payrollRuns.orgId, actor.orgId),
+            eq(payrollRuns.id, run.adjustsRunId),
+            eq(payrollRuns.supersededByRunId, run.id),
+          ),
+        );
+    }
+    await recordAudit(tx, deps, actor.audit, {
+      action: "payroll.run_returned_to_draft",
+      targetType: "payroll_run",
+      targetId: run.id,
+      meta: { reason: reason.trim(), wasReleased: run.releasedAt !== null },
     });
   });
   return loadRun(deps.db, actor.orgId, runId);
@@ -1144,6 +1333,25 @@ export async function reopenRun(deps: AppDeps, actor: PayrollActor, runId: strin
   const id = deps.ids.newId();
   const now = deps.clock.now();
   await deps.db.transaction(async (tx) => {
+    // Re-check under the original's row lock: a concurrent reopen may have won.
+    const [locked] = await tx
+      .select()
+      .from(payrollRuns)
+      .where(and(eq(payrollRuns.orgId, actor.orgId), eq(payrollRuns.id, run.id)))
+      .for("update");
+    if (!locked || (locked.status !== "approved" && locked.status !== "paid") || locked.supersededByRunId)
+      conflict("This run changed while you were reopening it. Reload it and try again.");
+    const [raced] = await tx
+      .select({ id: payrollRuns.id })
+      .from(payrollRuns)
+      .where(
+        and(
+          eq(payrollRuns.orgId, actor.orgId),
+          eq(payrollRuns.adjustsRunId, run.id),
+          inArray(payrollRuns.status, [...ACTIVE]),
+        ),
+      );
+    if (raced) conflict("An adjustment of this run is already open.", { runId: raced.id });
     await tx.insert(payrollRuns).values({
       id,
       orgId: actor.orgId,
