@@ -42,6 +42,8 @@ export interface ServerConfig {
   /** Fixed first-run setup code for automated installs; null = a random code on every start. */
   SETUP_CODE: string | null;
   LOG_LEVEL: LogLevel;
+  CLAMAV_HOST: string | null;
+  CLAMAV_PORT: number;
 }
 
 export class ConfigError extends Error {
@@ -286,6 +288,8 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     SETUP_GATE: bool("SETUP_GATE", true),
     SETUP_CODE,
     LOG_LEVEL: logLevel as LogLevel,
+    CLAMAV_HOST: get("CLAMAV_HOST") ?? null,
+    CLAMAV_PORT: int("CLAMAV_PORT", 3310, 1, 65535),
   };
   if (problems.length) throw new ConfigError(problems);
   return config;

@@ -10,6 +10,7 @@ import {
   systemClock,
 } from "@crowhr/core";
 import { createArgon2Hasher } from "./argon2-hasher.ts";
+import { createClamAvScanner } from "./clamav.ts";
 import type { ServerConfig } from "./config.ts";
 import type { Database } from "./db.ts";
 import { createDiskFileStore } from "./disk-file-store.ts";
@@ -24,7 +25,11 @@ export function createServerDeps(
   secretKey: Uint8Array,
   extra: Partial<AppDeps> = {},
 ): AppDeps {
+  const fileScanner = config.CLAMAV_HOST
+    ? createClamAvScanner({ host: config.CLAMAV_HOST, port: config.CLAMAV_PORT })
+    : undefined;
   return {
+    ...{ fileScanner },
     db: database.db,
     passwordHasher: createArgon2Hasher(),
     fileStore: createDiskFileStore(config.FILE_STORAGE_DIR),

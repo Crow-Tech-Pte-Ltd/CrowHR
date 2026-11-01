@@ -17,7 +17,7 @@
 - [x] 3.1 packages/core: write `claims/approval.test.ts` (submit creates `claim` request with amount and type codes; threshold policy adds owner step; approve sets payout; reject stores comment; withdraw while submitted; copy rejected to draft) then implement the `SubjectAdapter`
 - [x] 3.2 packages/core: write `claims/reimbursement.test.ts` (listPayable by approval date ≤ periodEnd; reserve excludes from other runs; double reserve fails; release on discard; markPaid sets payment date; never paid twice) then implement `ReimbursementSource` — `createClaimsReimbursementSource(deps)` implements payroll's `ReimbursementSource` port (WS4 `payroll/ports.ts`) structurally; the lead wires it as `deps.payroll.reimbursements` at merge
 - [x] 3.3 packages/core: write `claims/paid-outside.http.test.ts` (payroll_admin/owner only, bulk with reference, reserved claim refused, audit) then implement — covered in `claims/reimbursement.test.ts` ("paid outside payroll")
-- [ ] 3.4 apps/server: write `src/clamav-scanner.test.ts` against a fake clamd TCP responder then implement the optional ClamAV adapter behind `CLAMAV_HOST` — NOT IMPLEMENTED: the `FileScanner` hook and sweep exist in core; the server adapter and its env variable (WS7 owns `.env.example`) are open
+- [x] 3.4 apps/server: optional ClamAV INSTREAM adapter behind CLAMAV_HOST / CLAMAV_PORT, wired into server deps; fake TCP responder tests in src/clamav.test.ts; configuration and upload scan states documented.
 
 ## 4. Reports and access
 
