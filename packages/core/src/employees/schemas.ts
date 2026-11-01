@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CONTROL_CHARS } from "../export/csv.ts";
 import { WORK_PASS_TYPES } from "../organisation/statutory.ts";
 import { SG_BANKS } from "./banks.ts";
 import { isIsoDate } from "./dates.ts";
@@ -10,6 +11,7 @@ export const isoDate = z
   .trim()
   .refine(isIsoDate, { message: "Use the date format YYYY-MM-DD, like 2026-10-31." });
 
+const nameText = z.string().refine((v) => !CONTROL_CHARS.test(v), "Remove control characters from the name.");
 const blankToNull = (v: unknown) => (typeof v === "string" && v.trim() === "" ? null : v);
 const optText = (max = 200) => z.preprocess(blankToNull, z.string().trim().max(max).nullish());
 const optDate = z.preprocess(blankToNull, isoDate.nullish());
@@ -71,8 +73,8 @@ export const addressInput = z
 
 const personBase = z.object({
   employeeNumber: optText(20),
-  legalName: z.string().trim().min(1, "Enter the legal name as on the NRIC, FIN card or passport.").max(200),
-  preferredName: optText(100),
+  legalName: nameText.trim().min(1, "Enter the legal name as on the NRIC, FIN card or passport.").max(200),
+  preferredName: nameText.trim().max(100).nullish(),
   idType: z.enum(["nric", "fin", "other"]),
   idNumber: z.string().trim().min(1, "Enter the NRIC, FIN or passport number."),
   dob: isoDate,
@@ -123,7 +125,7 @@ export const personPatch = personBase.partial();
 export type PersonInput = z.output<typeof personInput>;
 
 export const emergencyContactInput = z.object({
-  name: z.string().trim().min(1, "Enter the contact's name.").max(120),
+  name: nameText.trim().min(1, "Enter the contact's name.").max(120),
   relationship: z.string().trim().min(1, "Say how they are related, like Spouse or Parent.").max(60),
   phone: z.string().trim().min(1, "Enter a phone number."),
 });
@@ -179,7 +181,7 @@ const bankCodes = SG_BANKS.map((b) => b.code) as [string, ...string[]];
 export const bankAccountInput = z.object({
   bankCode: z.enum(bankCodes),
   accountNumber: z.string().trim().min(1, "Enter the account number."),
-  holderName: z.string().trim().min(1, "Enter the account holder's name as the bank has it.").max(140),
+  holderName: nameText.trim().min(1, "Enter the account holder's name as the bank has it.").max(140),
   effectiveFrom: isoDate,
 });
 export type BankAccountInput = z.output<typeof bankAccountInput>;

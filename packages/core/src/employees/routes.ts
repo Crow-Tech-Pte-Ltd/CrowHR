@@ -628,6 +628,7 @@ export const peopleModule = defineModule({
     defineRoute({
       method: "post",
       path: "/imports/:kind/preview",
+      maxBodyBytes: 10 * 1024 * 1024,
       summary: "Upload a CSV and preview the import (nothing is written)",
       example: { body: { fileName: "staff.csv", content: "legal_name\nTan Mei Ling\n" } },
       access: { permission: "employment:read" },

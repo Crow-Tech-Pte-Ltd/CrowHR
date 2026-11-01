@@ -50,6 +50,26 @@ export function formatCsvCell(value: CellValue, type: CellType): string {
   }
 }
 
+/**
+ * One cell of a hand-built CSV (leave, attendance, roster, people import templates, IR8A): numbers
+ * as plain numbers, everything else as text through `formatCsvCell` (formula neutralising, quoting
+ * on `" , CR LF`). Every CSV writer in core goes through this or `formatCsvCell` (review finding #13).
+ */
+export function csvCell(value: unknown): string {
+  if (typeof value === "number" && Number.isFinite(value)) return formatCsvCell(value, "decimal");
+  if (value === null || value === undefined) return "";
+  return formatCsvCell(String(value), "text");
+}
+
+/** A small CSV document (no BOM) from a header and rows of plain values, CRLF line ends. */
+export function simpleCsv(header: readonly unknown[], rows: readonly (readonly unknown[])[]): string {
+  return `${[header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n")}\r\n`;
+}
+
+/** C0 controls and DEL (tab, CR and LF included): never valid in a person's or company's name. */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: explicitly reject unsafe control characters.
+export const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+
 export function csvHeader(columns: readonly ExportColumn[]): string {
   return `${columns.map((c) => quote(c.title)).join(",")}\r\n`;
 }

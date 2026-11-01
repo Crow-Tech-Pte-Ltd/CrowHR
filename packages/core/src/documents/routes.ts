@@ -250,6 +250,7 @@ export const documentsModule = defineModule({
     defineRoute({
       method: "post",
       path: "/upload",
+      maxBodyBytes: MAX_DOCUMENT_BYTES,
       summary:
         "Upload a document for an employee (raw bytes in the body; PDF, JPEG, PNG, WebP, DOCX or XLSX, at most 20 MB)",
       description:
@@ -551,6 +552,7 @@ export const documentsModule = defineModule({
     defineRoute({
       method: "post",
       path: "/:id/versions",
+      maxBodyBytes: 20 * 1024 * 1024,
       summary: "Replace the file (raw bytes in the body): a new version; the old one is kept for HR",
       access: { permission: "documents:update" },
       request: { params: idParam, query: replaceQuery },

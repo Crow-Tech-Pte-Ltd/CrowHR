@@ -3,6 +3,7 @@ import { files } from "../db/schema/files.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
+import { contentDisposition } from "./disposition.ts";
 import { fileScannerOf } from "./scanner.ts";
 import {
   EXTENSION_FOR,
@@ -155,11 +156,10 @@ export function fileResponseHeaders(
   row: { mime: string; originalName: string; sizeBytes: number },
   opts: { inline: boolean },
 ) {
-  const name = row.originalName.replace(/["\\\r\n]/g, "_");
   return {
     "content-type": row.mime,
     "content-length": String(row.sizeBytes),
-    "content-disposition": `${opts.inline ? "inline" : "attachment"}; filename="${name}"`,
+    "content-disposition": contentDisposition(row.originalName, opts.inline),
     "x-content-type-options": "nosniff",
     "content-security-policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
     "cache-control": "private, no-store",
