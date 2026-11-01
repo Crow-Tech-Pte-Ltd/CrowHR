@@ -196,6 +196,37 @@ describe("concurrent payroll transitions", () => {
     expect(new Set(notes.map((n) => n.subjectId)).size).toBe(notes.length);
   });
 
+  it("release cannot succeed after a concurrent return to draft", async () => {
+    const id = await approvedRun();
+    const db = p.co.h.deps.db as unknown as { transaction: (...args: unknown[]) => Promise<unknown> };
+    const original = db.transaction;
+    let arrived: () => void = () => {};
+    const entered = new Promise<void>((r) => {
+      arrived = r;
+    });
+    let resume: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      resume = r;
+    });
+    db.transaction = async (...args: unknown[]) => {
+      db.transaction = original;
+      arrived();
+      await gate;
+      return original.apply(db, args);
+    };
+    const releasing = p.admin.post(`${api}/runs/${id}/release`);
+    try {
+      await entered;
+      await p.ok(p.admin.post(`${api}/runs/${id}/return-to-draft`, { reason: "Correct bank details" }));
+    } finally {
+      db.transaction = original;
+      resume();
+    }
+    expect((await releasing).status).toBe(409);
+    expect((await runOf(id)).status).toBe("draft");
+    expect(await auditCount("payslip.released", id)).toBe(0);
+  });
+
   it("reopen twice: one adjustment, one 409", async () => {
     const id = await approvedRun();
     const done = holdTransactions(2);

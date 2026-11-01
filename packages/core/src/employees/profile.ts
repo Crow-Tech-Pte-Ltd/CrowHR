@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { orgScope } from "../access/org-scope.ts";
 import { memberships } from "../db/schema/access.ts";
@@ -311,7 +311,9 @@ async function notifyBankChange(
   const members = await tx
     .select({ id: memberships.id })
     .from(memberships)
-    .where(and(eq(memberships.orgId, orgId), eq(memberships.employeeId, employeeId), eq(memberships.status, "active")));
+    .where(
+      orgScope(tx, orgId).where(memberships, eq(memberships.employeeId, employeeId), eq(memberships.status, "active")),
+    );
   if (!members.length) return;
   const detail = `Salary will be paid into the account ending ${last4} from ${effectiveFrom}. If you did not ask for this, tell your employer's owner or HR straight away.`;
   await notify(tx, deps, {

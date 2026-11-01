@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { orgScope } from "../access/org-scope.ts";
 import { type PayrollRun, payrollFeedReservations, payrollPayslips, payrollRuns } from "../db/schema/payroll.ts";
 import type { Db } from "../db/types.ts";
 import { AppError } from "../errors.ts";
@@ -9,8 +10,9 @@ export const isPayFeed = (id: string, kind: string) =>
 
 /** Includes legacy snapshots, so upgrading does not make previously paid OT payable again. */
 export async function unavailableFeeds(db: Db, run: PayrollRun, chain: string[]): Promise<Set<string>> {
+  const org = orgScope(db, run.orgId);
   const allowed = new Set([run.id, ...chain]);
-  const rows = await db.select().from(payrollFeedReservations).where(eq(payrollFeedReservations.orgId, run.orgId));
+  const rows = await db.select().from(payrollFeedReservations).where(org.where(payrollFeedReservations));
   const unavailable = new Set(rows.filter((r) => !allowed.has(r.runId)).map((r) => r.sourceId));
   const legacy = await db
     .select({ runId: payrollPayslips.runId, input: payrollPayslips.input })
@@ -19,7 +21,7 @@ export async function unavailableFeeds(db: Db, run: PayrollRun, chain: string[])
       payrollRuns,
       and(eq(payrollRuns.orgId, payrollPayslips.orgId), eq(payrollRuns.id, payrollPayslips.runId)),
     )
-    .where(and(eq(payrollPayslips.orgId, run.orgId), isNull(payrollRuns.supersededByRunId)));
+    .where(org.where(payrollPayslips, isNull(payrollRuns.supersededByRunId)));
   for (const s of legacy)
     if (!allowed.has(s.runId))
       for (const item of s.input.items) if (isPayFeed(item.id, item.kind)) unavailable.add(item.id);
@@ -27,6 +29,7 @@ export async function unavailableFeeds(db: Db, run: PayrollRun, chain: string[])
 }
 
 export async function reserveFeeds(tx: Db, run: PayrollRun, inputs: PayInput[], chain: string[]) {
+  const org = orgScope(tx, run.orgId);
   const feeds = inputs.flatMap((i) =>
     i.items
       .filter((item) => isPayFeed(item.id, item.kind))
@@ -34,7 +37,7 @@ export async function reserveFeeds(tx: Db, run: PayrollRun, inputs: PayInput[], 
   );
   await tx
     .delete(payrollFeedReservations)
-    .where(and(eq(payrollFeedReservations.orgId, run.orgId), eq(payrollFeedReservations.runId, run.id)));
+    .where(org.where(payrollFeedReservations, eq(payrollFeedReservations.runId, run.id)));
   if (!feeds.length) return;
   // Deterministic lock order; a conflicting reservation makes the whole computation roll back.
   await tx
@@ -49,8 +52,8 @@ export async function reserveFeeds(tx: Db, run: PayrollRun, inputs: PayInput[], 
     .select()
     .from(payrollFeedReservations)
     .where(
-      and(
-        eq(payrollFeedReservations.orgId, run.orgId),
+      org.where(
+        payrollFeedReservations,
         inArray(
           payrollFeedReservations.sourceId,
           feeds.map((f) => f.sourceId),

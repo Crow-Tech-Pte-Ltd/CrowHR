@@ -187,7 +187,10 @@ export async function payableForPeriod(db: Db, orgId: string, periodEnd: string)
   return entries.map((e) => {
     const r = byId.get(e.claimId);
     return {
-      ...e,
+      claimId: e.claimId,
+      employeeId: e.employeeId,
+      typeName: e.typeName,
+      amountCents: e.amountCents,
       claimNumber: r?.claimNumber ?? null,
       employeeName: r?.name ?? "",
       approvedOn: r?.approvedOn ?? null,

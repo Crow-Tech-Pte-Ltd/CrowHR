@@ -50,6 +50,9 @@ describe("backup warning on Home", () => {
       return { ...h, backups: { ...h.backups, encrypted: false } };
     };
     w = await createWorkflowWorld({ clock, systemHost: plain });
+    await w.deps.db
+      .insert(backupRuns)
+      .values({ id: w.deps.ids.newId(), trigger: "manual", status: "succeeded", startedAt: clock.now() });
     expect((await kinds(w.m.owner)).map((i) => i.title)).toEqual(["Scheduled backups are disabled"]);
   });
 

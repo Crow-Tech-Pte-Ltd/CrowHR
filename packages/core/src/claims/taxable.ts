@@ -1,4 +1,5 @@
 import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { orgScope } from "../access/org-scope.ts";
 import { claimLines, claims, claimTypes } from "../db/schema/claims.ts";
 import type { Db } from "../db/types.ts";
 
@@ -10,8 +11,8 @@ export async function taxableCashClaims(db: Db, orgId: string, year: number, leg
     .innerJoin(claimLines, and(eq(claimLines.orgId, claims.orgId), eq(claimLines.claimId, claims.id)))
     .innerJoin(claimTypes, and(eq(claimTypes.orgId, claimLines.orgId), eq(claimTypes.id, claimLines.claimTypeId)))
     .where(
-      and(
-        eq(claims.orgId, orgId),
+      orgScope(db, orgId).where(
+        claims,
         eq(claimTypes.taxable, true),
         or(
           and(

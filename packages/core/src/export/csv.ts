@@ -66,12 +66,11 @@ export function simpleCsv(header: readonly unknown[], rows: readonly (readonly u
   return `${[header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n")}\r\n`;
 }
 
-/** C0 controls and DEL (tab, CR and LF included): never valid in a person's or company's name. */
-// biome-ignore lint/suspicious/noControlCharactersInRegex: explicitly reject unsafe control characters.
-export const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+/** Unicode controls (including C0, DEL and C1): never valid in a name. */
+export const CONTROL_CHARS = /\p{Cc}/u;
 
 export function csvHeader(columns: readonly ExportColumn[]): string {
-  return `${columns.map((c) => quote(c.title)).join(",")}\r\n`;
+  return `${columns.map((c) => formatCsvCell(c.title, "text")).join(",")}\r\n`;
 }
 
 export function csvLine(columns: readonly ExportColumn[], row: ExportRow): string {

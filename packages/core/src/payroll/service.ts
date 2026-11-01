@@ -1138,8 +1138,13 @@ async function doRelease(
       ),
     )
     .returning({ id: payrollRuns.id });
-  // Released already by a concurrent request: nothing to do, and nobody is notified twice.
-  if (!claimed.length) return;
+  if (!claimed.length) {
+    const current = await loadRun(tx, orgId, runId);
+    if (current.status !== "approved" && current.status !== "paid")
+      conflict("This run is no longer approved. Reload it before releasing payslips.");
+    // A concurrent release already notified employees.
+    return;
+  }
   await tx
     .update(payrollPayslips)
     .set({ releasedAt: now })
