@@ -26,6 +26,7 @@ function slip(input: PayInput): PayrollPayslip {
     blockingCount: 0,
     warningCount: 0,
     releasedAt: null,
+    payee: null,
     createdAt: new Date(0),
   };
 }

@@ -93,6 +93,13 @@ beforeAll(async () => {
       basicCents: 400_000,
     },
   ]);
+  await p.ok(
+    p.admin.put(`${api}/allowance-settings/${p.co.allowances.transport}`, {
+      cpfLiable: true,
+      prorate: true,
+      grossRateIncluded: false,
+    }),
+  );
 }, 60_000);
 afterAll(() => t.close());
 
@@ -129,6 +136,37 @@ describe("concurrent payroll transitions", () => {
     done();
     expect([s.status, i.status].filter((x) => x < 300)).toHaveLength(1);
     expect([s.status, i.status].filter((x) => x === 409)).toHaveLength(1);
+  });
+
+  it("refuses a computation that reaches its write after the run was submitted", async () => {
+    const id = await newRun();
+    const db = p.co.h.deps.db as unknown as { transaction: (...args: unknown[]) => Promise<unknown> };
+    const original = db.transaction;
+    let arrived: () => void = () => {};
+    const entered = new Promise<void>((r) => {
+      arrived = r;
+    });
+    let resume: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      resume = r;
+    });
+    db.transaction = async (...args: unknown[]) => {
+      db.transaction = original;
+      arrived();
+      await gate;
+      return original.apply(db, args);
+    };
+    const computation = p.admin.post(`${api}/runs/${id}/compute`);
+    try {
+      await entered;
+      await p.ok(p.admin.post(`${api}/runs/${id}/submit`));
+    } finally {
+      db.transaction = original;
+      resume();
+    }
+    expect((await computation).status).toBe(409);
+    expect((await runOf(id)).status).toBe("in_review");
+    expect(await auditCount("payroll.run_computed", id)).toBe(1);
   });
 
   it("mark paid twice: one 200, one 409, one audit event", async () => {

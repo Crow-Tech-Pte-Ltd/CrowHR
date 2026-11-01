@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { clientAs, createTestDb, seedMember, type TestDb } from "../../testing/index.ts";
 import { decideRun, type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
 import { notifications } from "../db/schema/notifications.ts";
+import { payrollPayslips } from "../db/schema/payroll.ts";
 
 /**
  * Review finding #10: the bank file pays the accounts snapshotted at compute. A bank change after
@@ -128,5 +129,24 @@ describe("payee bank accounts are fixed at compute", () => {
     expect(bank).toHaveLength(1);
     expect(bank[0]?.kind).toBe("security_notice");
     expect(bank[0]?.body).toContain("6666");
+  });
+  it("downloads a payslip with a Unicode employee number using RFC 5987", async () => {
+    const run = await p.ok<{ id: string }>(
+      p.admin.post(`${api}/runs`, { kind: "regular", month: "2027-03", payDate: "2027-03-30" }),
+      201,
+    );
+    await p.ok(p.admin.post(`${api}/runs/${run.id}/compute`));
+    const [slip] = await t.db
+      .update(payrollPayslips)
+      .set({ employeeNumber: "员工-ரவி" })
+      .where(eq(payrollPayslips.runId, run.id))
+      .returning();
+    if (!slip) throw new Error("Missing payslip");
+    const res = await p.admin.get(`${api}/runs/${run.id}/payslips/${slip.id}/pdf`);
+    expect(res.status).toBe(200);
+    const disposition = res.headers.get("content-disposition") ?? "";
+    expect(disposition).toMatch(/^[\x20-\x7e]+$/);
+    expect(disposition).toContain("filename*=UTF-8''payslip-2027-03-%E5%91%98%E5%B7%A5-");
+    expect(disposition).toContain('filename="payslip-2027-03-__-___.pdf"');
   });
 });

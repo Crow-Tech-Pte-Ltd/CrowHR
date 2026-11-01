@@ -63,6 +63,7 @@ export interface CompensationSegment {
 }
 
 export interface AllowanceInput {
+  grossRateIncluded?: boolean | null;
   id: string;
   code: string;
   name: string;
@@ -74,6 +75,8 @@ export interface AllowanceInput {
 }
 
 export interface ReimbursementInput {
+  /** Snapshotted at compute: taxable cash reimbursement (IR8A d1), independent of CPF wages. */
+  taxable?: boolean;
   claimId: string;
   typeName: string;
   amountCents: number;

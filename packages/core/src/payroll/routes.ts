@@ -10,6 +10,7 @@ import {
   payrollRuns,
 } from "../db/schema/payroll.ts";
 import { AppError } from "../errors.ts";
+import { contentDisposition } from "../files/disposition.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 import {
   createRunSchema,
@@ -133,6 +134,8 @@ export function toItemDto(i: PayrollRunItem) {
     deductionCategory: i.deductionCategory,
     source: i.source,
     copiedFromItemId: i.copiedFromItemId,
+    overtimeSourceId: i.overtimeSourceId,
+    holidayDate: i.holidayDate,
   };
 }
 
@@ -174,7 +177,7 @@ export async function payslipPdfResponse(slip: PayrollPayslip, run: PayrollRun):
   return new Response(bytes as BodyInit, {
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="${name}"`,
+      "content-disposition": contentDisposition(name),
       "cache-control": "no-store",
       "x-content-type-options": "nosniff",
     },
@@ -218,6 +221,7 @@ export const payrollModule = defineModule({
               name: z.string(),
               cpfLiable: z.boolean(),
               prorate: z.boolean(),
+              grossRateIncluded: z.boolean().nullable(),
             }),
           ),
         }),
@@ -231,7 +235,11 @@ export const payrollModule = defineModule({
       access: { permission: "payroll:update" },
       request: {
         params: z.object({ allowanceTypeId: z.uuid() }),
-        body: z.object({ cpfLiable: z.boolean(), prorate: z.boolean() }),
+        body: z.object({
+          cpfLiable: z.boolean(),
+          prorate: z.boolean(),
+          grossRateIncluded: z.boolean().nullable().optional(),
+        }),
       },
       example: { body: { cpfLiable: true, prorate: true } },
       responses: {
@@ -241,6 +249,7 @@ export const payrollModule = defineModule({
           name: z.string(),
           cpfLiable: z.boolean(),
           prorate: z.boolean(),
+          grossRateIncluded: z.boolean().nullable(),
         }),
       },
       errors: ["not_found"],
