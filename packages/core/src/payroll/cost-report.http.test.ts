@@ -149,8 +149,19 @@ describe("payroll cost report", () => {
     expect(report.rows.some((r) => r.month === "2026-11")).toBe(false);
     expect(report.summary).toEqual([
       expect.objectContaining({ label: "No finalised payroll", value: "Nov 2026" }),
-      { label: "Months with no payroll run", value: 9, type: "integer" },
+      // Jan–Oct 2026 (today is 31 Oct): 10 months, less Sep and Oct paid. Nov and Dec are not counted yet.
+      { label: "Months with no payroll run", value: 8, type: "integer" },
     ]);
+  });
+
+  it("defaults to the year to date and counts no future months as missing", async () => {
+    const report = await p.ok<Report & { params: Record<string, unknown> }>(
+      p.admin.get("/api/v1/reports/payroll.cost?by=month"),
+    );
+    expect(report.params).toMatchObject({ from: "2026-01", to: "2026-10" });
+    expect(report.summary.find((s) => s.label === "Months with no payroll run")?.value).toBe(8);
+    const future = await p.ok<Report>(p.admin.get("/api/v1/reports/payroll.cost?from=2026-12&to=2027-03"));
+    expect(future.summary.find((s) => s.label === "Months with no payroll run")).toBeUndefined();
   });
 
   it("shows a note for a month with only a draft run", async () => {

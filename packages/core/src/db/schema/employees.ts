@@ -266,6 +266,12 @@ export const employmentRecords = pgTable(
     probationEnd: date("probation_end"),
     eaCovered: boolean("ea_covered").notNull().default(true),
     isWorkman: boolean("is_workman").notNull().default(false),
+    /**
+     * Manager or executive (Employment Act s 2: executive and supervisory or managerial
+     * responsibilities). Never covered by Part 4 (overtime, rest days, hours), whatever the pay.
+     * https://www.mom.gov.sg/employment-practices/employment-act/who-is-covered
+     */
+    isManagerOrExecutive: boolean("is_manager_executive").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

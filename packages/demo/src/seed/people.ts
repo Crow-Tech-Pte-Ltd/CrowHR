@@ -8,6 +8,7 @@ import {
   hire,
   nricCheckLetter,
   type SeededPeople,
+  seedContactName,
   seedPeople,
   setBankAccount,
 } from "@crowhr/core/seed";
@@ -143,9 +144,7 @@ export async function seedDemoPeople(deps: AppDeps, orgId: string, ownerUserId: 
       compensation: { payBasis: "monthly", amountCents: p.basicCents },
       allowances: [{ allowanceTypeId: people.allowances.shift as string, amountCents: 15_000 }],
       workPass: null,
-      emergencyContacts: [
-        { name: `${p.legalName.split(" ")[0]} family`, relationship: "Parent", phone: `9${3_200_000 + n * 7}` },
-      ],
+      emergencyContacts: [{ name: seedContactName(n + 3), relationship: "Parent", phone: `9${3_200_000 + n * 7}` }],
       invite: false,
     });
     people.employees[p.key] = employeeId;

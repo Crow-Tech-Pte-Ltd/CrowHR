@@ -15,6 +15,15 @@ export function formatDateTime(iso: string | null | undefined): string {
     .replace(" at ", ", ");
 }
 
+/**
+ * The name to greet someone by: the preferred name they gave, else their full name. Never the
+ * first word of a name: "Goh Jun Jie" is surname-first, and "Muhammad Hafiz bin Ismail" may go by
+ * Hafiz.
+ */
+export function greetingName(user: { preferredName?: string | null; fullName?: string; displayName: string }): string {
+  return user.preferredName?.trim() || user.fullName?.trim() || user.displayName;
+}
+
 /** "3 min ago", "2 h ago", or the date. */
 export function relativeTime(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return "Never";

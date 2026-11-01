@@ -2,6 +2,7 @@ import { Button, Card, CardHeader, CardTitle, EmptyState, formatDate, Skeleton, 
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, CalendarPlus, CheckCircle2, ReceiptText } from "lucide-react";
+import { greetingName } from "../auth/format.ts";
 import { useMe } from "../auth/session.ts";
 import { PageHeader } from "../components/page-header.tsx";
 import { ErrorNote } from "../components/section.tsx";
@@ -15,7 +16,7 @@ export function EmployeeHome() {
   const me = useMe();
   const inbox = useQuery(inboxQuery);
   const mine = useQuery(myRequestsQuery);
-  const first = me.user.displayName.split(" ")[0] ?? me.user.displayName;
+  const name = greetingName(me.user);
   const todo = inbox.data?.items ?? [];
   const today = inbox.data?.today ?? "";
   return (
@@ -28,7 +29,7 @@ export function EmployeeHome() {
             </span>
           ) : null
         }
-        title={`Hi, ${first}`}
+        title={`Hi, ${name}`}
         description={
           inbox.isPending ? (
             <Skeleton className="h-4 w-48" />

@@ -399,7 +399,8 @@ export async function hire(
           orgId: ctx.actor.orgId,
           employeeId,
           email: normaliseEmail(email),
-          displayName: input.person.preferredName || input.person.legalName,
+          // The member's name is the full name; greetings read the preferred name from this record.
+          displayName: input.person.legalName,
         },
         ctx.actor.auditCtx,
       );
@@ -541,6 +542,7 @@ async function startTenure(
     probationEnd: job.probationEnd ?? null,
     eaCovered: job.eaCovered ?? true,
     isWorkman: job.isWorkman ?? false,
+    isManagerOrExecutive: job.isManagerOrExecutive ?? false,
   });
   if (compensation) {
     await insertCompensationVersion(tx, ctx, employeeId, eventId, job.hireDate, compensation, { newTenure: true });

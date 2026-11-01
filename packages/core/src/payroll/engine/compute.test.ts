@@ -80,6 +80,26 @@ describe("computeEmployeePay", () => {
     expect(contractual.totals.overtimeCents).toBe(6_000);
   });
 
+  it("gives managers and executives no statutory OT rate, whatever their pay (EA Part 4)", () => {
+    const manager = computeEmployeePay(
+      payInput({
+        employee: { isManagerOrExecutive: true },
+        compensation: [{ from: "2020-01-01", to: null, payBasis: "monthly", amountCents: 260_000 }],
+        items: [item({ kind: "overtime", label: "Overtime", minutes: 120 })],
+      }),
+    );
+    expect(blocking(manager)).toEqual(["OT_NOT_STATUTORY"]);
+    const contractual = computeEmployeePay(
+      payInput({
+        employee: { isManagerOrExecutive: true },
+        compensation: [{ from: "2020-01-01", to: null, payBasis: "monthly", amountCents: 260_000 }],
+        items: [item({ kind: "overtime", minutes: 120, amountCents: 5_000 })],
+      }),
+    );
+    expect(contractual.totals.overtimeCents).toBe(5_000);
+    expect(blocking(contractual)).toEqual([]);
+  });
+
   it("pays reimbursements outside wages", () => {
     const r = computeEmployeePay(
       payInput({ reimbursements: [{ claimId: "c1", typeName: "Transport", amountCents: 5_000 }] }),

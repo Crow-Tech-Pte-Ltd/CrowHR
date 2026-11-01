@@ -202,6 +202,7 @@ export interface EmployeeDetail {
     probationEnd: string | null;
     eaCovered: boolean;
     isWorkman: boolean;
+    isManagerOrExecutive: boolean;
     tenures: {
       id: string;
       hireDate: string;
@@ -365,6 +366,7 @@ export async function getEmployee(deps: AppDeps, actor: Actor, employeeId: strin
       probationEnd: current?.probationEnd ?? null,
       eaCovered: current?.eaCovered ?? true,
       isWorkman: current?.isWorkman ?? false,
+      isManagerOrExecutive: current?.isManagerOrExecutive ?? false,
       tenures: ten.map((t) => ({
         id: t.id,
         hireDate: t.hireDate,

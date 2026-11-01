@@ -187,7 +187,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
           date: item.periodEnd ?? run.periodEnd,
           monthlyBasicCents: monthlyBasicAtEnd,
           isWorkman: employee.isWorkman,
-          isManagerOrExecutive: false,
+          isManagerOrExecutive: employee.isManagerOrExecutive ?? false,
           overtimeMinutes: minutes,
         });
         working.push(...mapSteps("overtime", ot.working));

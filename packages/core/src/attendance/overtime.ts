@@ -103,10 +103,13 @@ export async function part4On(db: Db, orgId: string, employeeId: string, date: s
     const weekly = (scheduleOn(t, date)?.version.weeklyMinutes ?? 44 * 60) / 60;
     monthly = Math.round((comp.amountCents * weekly * 52) / 12);
   }
-  // NOT IMPLEMENTED (people): employment records have no manager/executive flag, so everyone is
-  // treated as not a manager or executive. Managers and executives are never Part 4.
-  return isPart4Covered({ date, monthlyBasicCents: monthly, isWorkman: emp.isWorkman, isManagerOrExecutive: false })
-    .covered;
+  // Managers and executives are never Part 4, whatever their pay.
+  return isPart4Covered({
+    date,
+    monthlyBasicCents: monthly,
+    isWorkman: emp.isWorkman,
+    isManagerOrExecutive: emp.isManagerOrExecutive,
+  }).covered;
 }
 
 function nextMonthStart(month: string): string {

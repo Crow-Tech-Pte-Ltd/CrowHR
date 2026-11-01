@@ -39,6 +39,25 @@ function fakeId(prefix: NricPrefix, n: number): string {
   return `${prefix}${digits}${nricCheckLetter(prefix, digits)}`;
 }
 
+/**
+ * Fictional emergency contacts, picked by index. Whole names on purpose: deriving a "family name"
+ * from a legal name is wrong for surname-first Chinese names and for bin/binte/s/o names.
+ */
+export const SEED_CONTACT_NAMES = [
+  "Lim Siew Hong",
+  "Rahman bin Ali",
+  "Muthu s/o Krishnan",
+  "Tan Boon Keng",
+  "Norhayati binte Salleh",
+  "Lakshmi d/o Pillai",
+  "Ong Mei Fong",
+  "Grace Pereira",
+] as const;
+
+export function seedContactName(n: number): string {
+  return SEED_CONTACT_NAMES[n % SEED_CONTACT_NAMES.length] as string;
+}
+
 type Seed = {
   key: string;
   legalName: string;
@@ -66,6 +85,8 @@ type Seed = {
   payBasis?: "monthly" | "hourly";
   pass?: { type: string; expiresOn: string; issuedOn: string };
   isWorkman?: boolean;
+  /** Manager or executive (never EA Part 4). */
+  isManagerOrExecutive?: boolean;
   bank?: string;
 };
 
@@ -85,6 +106,7 @@ export const SEED_PEOPLE: Seed[] = [
     religion: "buddhism",
     hireDate: "2019-04-01",
     jobTitle: "Managing Director",
+    isManagerOrExecutive: true,
     department: "Management",
     location: "hq",
     employmentType: "full_time",
@@ -126,6 +148,7 @@ export const SEED_PEOPLE: Seed[] = [
     religion: "hinduism",
     hireDate: "2019-06-03",
     jobTitle: "Operations Manager",
+    isManagerOrExecutive: true,
     department: "Operations",
     location: "hq",
     manager: "owner",
@@ -283,6 +306,7 @@ export const SEED_PEOPLE: Seed[] = [
     religion: "christianity",
     hireDate: "2019-05-02",
     jobTitle: "Head Chef",
+    isManagerOrExecutive: true,
     department: "Operations",
     team: "Central kitchen",
     location: "ck",
@@ -417,6 +441,7 @@ export const SEED_PEOPLE: Seed[] = [
     religion: "christianity",
     hireDate: "2024-05-06",
     jobTitle: "Head of Growth",
+    isManagerOrExecutive: true,
     department: "Marketing",
     location: "hq",
     manager: "owner",
@@ -438,6 +463,7 @@ export const SEED_PEOPLE: Seed[] = [
     religion: "hinduism",
     hireDate: "2025-09-01",
     jobTitle: "Finance Manager",
+    isManagerOrExecutive: true,
     department: "Finance",
     location: "hq",
     manager: "owner",
@@ -710,6 +736,7 @@ export async function seedPeople(deps: AppDeps, ports: PeoplePorts, owner: Actor
         employmentType: p.employmentType,
         workScheduleId: out.schedules[p.schedule ?? "office"] as string,
         isWorkman: p.isWorkman ?? false,
+        isManagerOrExecutive: p.isManagerOrExecutive ?? false,
       },
       compensation: { payBasis: p.payBasis ?? "monthly", amountCents: p.basicCents },
       allowances:
@@ -726,7 +753,7 @@ export async function seedPeople(deps: AppDeps, ports: PeoplePorts, owner: Actor
         : null,
       emergencyContacts: [
         {
-          name: `${p.legalName.split(" ").slice(-1)[0]} family`,
+          name: seedContactName(n),
           relationship: "Spouse",
           phone: `8${String(2_000_000 + n * 4_441).slice(0, 7)}`,
         },
