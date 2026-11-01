@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ClaimsWorld, createClaimsWorld, decide, json, line, managerOnlyPolicy } from "../../testing/claims.ts";
+import { employees } from "../db/schema/employees.ts";
 
 describe("claim reports and export", () => {
   let w: ClaimsWorld;
@@ -7,6 +9,7 @@ describe("claim reports and export", () => {
   let medical: string;
   beforeEach(async () => {
     w = await createClaimsWorld({ now: "2026-11-03T02:00:00.000Z" });
+    await w.deps.db.update(employees).set({ preferredName: "Ravi" }).where(eq(employees.id, w.emp.staff));
     transport = await w.type({ code: "TRANSPORT", name: "Transport" });
     medical = await w.type({ code: "MEDICAL", name: "Medical", category: "medical" });
     await managerOnlyPolicy(w);
@@ -108,6 +111,7 @@ describe("claim reports and export", () => {
       await (await w.as("hr")).get("/api/v1/claims/reports/export?report=lines&from=2026-10-01&to=2026-10-31")
     ).text();
     expect(hrCsv.split("\r\n")[0]).toMatch(/^Claim,Status,Employee no\.,Employee,Department,Type code/);
+    expect(hrCsv).toContain("Ravi Kumar");
     expect(hrCsv).toContain("Raffles Medical");
     expect(hrCsv).toContain("10.90,0.90");
     const res = await (await w.as("payroll")).get(
@@ -129,6 +133,7 @@ describe("claim reports and export", () => {
     const payouts = await (
       await hr.get("/api/v1/claims/reports/export?report=payouts&from=2026-11-01&to=2026-11-30")
     ).text();
+    expect(payouts).toContain("Ravi Kumar");
     expect(payouts).toContain("C-0001");
     expect(payouts).toContain("FAST 3 Nov");
     const x = await hr.get(

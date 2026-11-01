@@ -178,7 +178,7 @@ export async function payableForPeriod(db: Db, orgId: string, periodEnd: string)
           claimNumber: claims.claimNumber,
           approvedOn: claims.approvedOn,
           payrollRunId: claims.payrollRunId,
-          name: sql<string>`(select coalesce(e.preferred_name, e.legal_name) from employees e where e.org_id = ${claims.orgId} and e.id = ${claims.employeeId})`,
+          name: sql<string>`(select e.legal_name from employees e where e.org_id = ${claims.orgId} and e.id = ${claims.employeeId})`,
         })
         .from(claims)
         .where(and(eq(claims.orgId, orgId), inArray(claims.id, ids)))

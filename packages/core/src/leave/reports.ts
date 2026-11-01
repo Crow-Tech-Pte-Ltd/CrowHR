@@ -77,7 +77,7 @@ export const leaveTakenReport: ReportDefinition<z.output<ReturnType<typeof taken
         typeName: leaveTypes.name,
         unit: leaveRequests.unit,
         hundredths: leaveRequestDays.hundredths,
-        employeeName: sql<string>`(select coalesce(e.preferred_name, e.legal_name) from employees e where e.org_id = ${leaveRequestDays.orgId} and e.id = ${leaveRequestDays.employeeId})`,
+        employeeName: sql<string>`(select e.legal_name from employees e where e.org_id = ${leaveRequestDays.orgId} and e.id = ${leaveRequestDays.employeeId})`,
       })
       .from(leaveRequestDays)
       .innerJoin(

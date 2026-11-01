@@ -165,7 +165,7 @@ describe("audit log target labels", () => {
       ["membership", null], // another organisation's member is never named
       ["user", "Tan Mei Ling"],
       ["user", null], // users are global; only members of this organisation are named
-      ["employee", "Hafiz"],
+      ["employee", "Muhammad Hafiz bin Rahman"],
       ["employee", "Lim Wei Jie"],
       ["employee", null],
       ["department", "Roastery"],

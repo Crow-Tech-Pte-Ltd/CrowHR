@@ -50,7 +50,7 @@ const RESOLVERS: Record<string, Resolver> = {
       .select({ id: employees.id, legalName: employees.legalName, preferredName: employees.preferredName })
       .from(employees)
       .where(orgScope(db, orgId).where(employees, inArray(employees.id, ids)));
-    return rows.map((r) => [r.id, r.preferredName || r.legalName]);
+    return rows.map((r) => [r.id, r.legalName]);
   },
   sso_provider: async (db, orgId, ids) => {
     const rows = await db

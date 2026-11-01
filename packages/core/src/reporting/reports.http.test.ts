@@ -6,7 +6,7 @@ import { clientAs, type TestClient } from "../../testing/http.ts";
 import { createLeaveWorld, type LeaveWorld } from "../../testing/leave.ts";
 import { createApp } from "../app.ts";
 import { auditEvents } from "../db/schema/audit.ts";
-import { tenures } from "../db/schema/employees.ts";
+import { employees, tenures } from "../db/schema/employees.ts";
 import { readXlsxSheet } from "../export/xlsx-read.ts";
 import { leaveReportSource } from "../leave/reports.ts";
 import { CORE_REPORT_SOURCES } from "./registry.ts";
@@ -20,6 +20,7 @@ describe("reports", () => {
   let hrPay: TestClient;
   beforeAll(async () => {
     w = await createLeaveWorld({ now: "2026-11-13T02:00:00.000Z" });
+    await w.deps.db.update(employees).set({ preferredName: "Ravi" }).where(eq(employees.id, w.emp.staff));
     hrPay = await clientAs(w.app, w.deps, await seedMember(w.deps, w.orgId, { roles: ["hr_admin", "payroll_admin"] }));
     // Farah leaves on 31 Oct 2026 (resignation).
     await w.deps.db
@@ -210,6 +211,10 @@ describe("reports", () => {
       rows: { leaveType: string; people: number; taken: number }[];
     };
     expect(body.rows).toEqual([{ leaveType: "Annual leave", unit: "Days", people: 2, taken: 3 }]);
+    const byEmployee = (await (
+      await (await w.as("hr")).get("/api/v1/reports/leave.taken?from=2026-11-01&to=2026-11-30&by=employee")
+    ).json()) as { rows: { employee: string }[] };
+    expect(byEmployee.rows.map((r) => r.employee)).toEqual(["Ravi Kumar"]);
     const empty = (await (
       await (await w.as("hr")).get("/api/v1/reports/leave.taken?from=2026-01-01&to=2026-01-31")
     ).json()) as {

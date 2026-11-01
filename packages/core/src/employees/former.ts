@@ -100,7 +100,7 @@ async function alertOwners(deps: AppDeps, t: typeof tenures.$inferSelect, err: u
       .select({ legalName: employees.legalName, preferredName: employees.preferredName })
       .from(employees)
       .where(org.whereId(employees, t.employeeId));
-    const name = emp?.preferredName || emp?.legalName || "A leaver";
+    const name = emp?.legalName || "A leaver";
     const why =
       err instanceof AppError && err.code === "last_owner"
         ? "They are the only active owner: make someone else an owner first."

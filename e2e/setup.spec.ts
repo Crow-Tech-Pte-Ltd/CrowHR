@@ -73,7 +73,7 @@ test.describe("first-run setup wizard", () => {
     await expect(page.getByRole("heading", { level: 1, name: "System" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Database" })).toContainText("Connected");
     await expect(page.getByTestId("backup-stale")).toContainText("No successful backup yet");
-    await expect(page.getByTestId("backup-unencrypted")).toContainText("Backups are not encrypted");
+    await expect(page.getByTestId("backup-unencrypted")).toContainText("Scheduled backups require encryption");
     // Through Docker's published port the peer is the bridge gateway, not 127.0.0.1.
     await expect(page.getByTestId("client-ip")).toHaveText(SELFHOST ? /^\d+\.\d+\.\d+\.\d+$/ : "127.0.0.1");
     await expect(page.getByTestId("proxy-trust")).toHaveText("Direct");
