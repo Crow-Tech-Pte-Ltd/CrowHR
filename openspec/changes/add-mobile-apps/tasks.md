@@ -3,7 +3,7 @@ All tasks are milestone M4. Prerequisites: `add-api-platform` complete; attendan
 ## 1. Server-side support
 
 - [ ] 1.1 apps/web: write `e2e/mobile-qr.spec.ts` (My profile → Mobile app shows QR encoding `crowhr://connect?server=…&org=…`, no credentials in payload) then build the page
-- [ ] 1.2 packages/core: write `notifications/since-cursor.http.test.ts` (`GET /api/v1/notifications?since=<cursor>` returns only newer items, stable cursor) then add the cursor if workflows did not ship it
+- [x] 1.2 packages/core: write `notifications/since-cursor.http.test.ts` (`GET /api/v1/notifications?since=<cursor>` returns only newer items, stable cursor) then add the cursor if workflows did not ship it — `notifications/cursor.ts` (opaque base64url position over (created_at, id)); the list response gains `cursor` and the `since` filter (additive to the v1 snapshot); documented in apps/docs developers/api-conventions
 
 ## 2. Android (apps/android)
 

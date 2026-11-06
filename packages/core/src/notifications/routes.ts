@@ -1,9 +1,10 @@
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { emailOutbox, notificationPrefs, notifications } from "../db/schema/notifications.ts";
 import { AppError } from "../errors.ts";
 import { listQuery, pageOf, toLimitOffset } from "../http/list.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
+import { decodeNotificationCursor, encodeNotificationCursor } from "./cursor.ts";
 import { CATEGORY_LABEL, NOTIFICATION_CATEGORIES, type NotificationCategory } from "./kinds.ts";
 import { outboxStatus } from "./outbox.ts";
 
@@ -44,32 +45,70 @@ export const notificationsModule = defineModule({
       method: "get",
       path: "/",
       summary: "List my notifications",
+      description:
+        "Every response carries `cursor`, the position of the newest item in this view. Pass it back as `since` to get only newer notifications, oldest first (`sort` is then ignored); `cursor` then points at the last item returned, so a client pages forward with it until `items` is empty. `cursor` is null only when there is nothing to point at.",
       access: "authenticated",
       request: {
         query: listQuery({
           sort: ["createdAt"],
           defaultSort: "-createdAt",
-          filters: { unread: z.enum(["true", "false"]).optional() },
+          filters: {
+            unread: z.enum(["true", "false"]).optional(),
+            since: z.string().max(200).optional().meta({ description: "A `cursor` from an earlier response." }),
+          },
         }),
       },
-      responses: { 200: pageOf(notificationOut).extend({ unread: z.int() }) },
+      responses: {
+        200: pageOf(notificationOut).extend({
+          unread: z.int(),
+          cursor: z.string().nullable().meta({ description: "Opaque. Pass as `since` for newer notifications." }),
+        }),
+      },
+      errors: ["validation_failed"],
       handler: async ({ deps, auth, query }) => {
         const mine = and(
           eq(notifications.orgId, auth.orgId),
           eq(notifications.recipientMembershipId, auth.membershipId),
         );
-        const where = query.unread === "true" ? and(mine, isNull(notifications.readAt)) : mine;
+        const since = query.since ? decodeNotificationCursor(query.since) : null;
+        const filtered = query.unread === "true" ? and(mine, isNull(notifications.readAt)) : mine;
+        // (created_at, id) after the cursor: ties in the same millisecond are ordered by id.
+        const where = since
+          ? and(
+              filtered,
+              sql`(date_trunc('milliseconds', ${notifications.createdAt}), ${notifications.id}) > (${since.at.toISOString()}::timestamptz, ${since.id}::uuid)`,
+            )
+          : filtered;
         const { limit, offset } = toLimitOffset(query);
         const rows = await deps.db
           .select()
           .from(notifications)
           .where(where)
           .orderBy(
-            query.sort === "createdAt" ? notifications.createdAt : desc(notifications.createdAt),
-            desc(notifications.id),
+            ...(since
+              ? [asc(notifications.createdAt), asc(notifications.id)]
+              : [
+                  query.sort === "createdAt" ? notifications.createdAt : desc(notifications.createdAt),
+                  desc(notifications.id),
+                ]),
           )
           .limit(limit)
           .offset(offset);
+        let cursor: string | null;
+        if (since) {
+          const last = rows.at(-1);
+          cursor = last
+            ? encodeNotificationCursor({ at: last.createdAt, id: last.id })
+            : encodeNotificationCursor(since);
+        } else {
+          const [newest] = await deps.db
+            .select({ at: notifications.createdAt, id: notifications.id })
+            .from(notifications)
+            .where(filtered)
+            .orderBy(desc(notifications.createdAt), desc(notifications.id))
+            .limit(1);
+          cursor = newest ? encodeNotificationCursor(newest) : null;
+        }
         const [total] = await deps.db.select({ n: count() }).from(notifications).where(where);
         const [unread] = await deps.db
           .select({ n: count() })
@@ -90,6 +129,7 @@ export const notificationsModule = defineModule({
           pageSize: query.pageSize,
           total: Number(total?.n ?? 0),
           unread: Number(unread?.n ?? 0),
+          cursor,
         };
       },
     }),

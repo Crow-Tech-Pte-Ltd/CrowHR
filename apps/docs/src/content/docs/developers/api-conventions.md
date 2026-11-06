@@ -39,6 +39,17 @@ GET /api/v1/members?page=2&pageSize=50&sort=-createdAt&q=tan&status=active,invit
 - `q` is free-text search where the endpoint supports it.
 - Filters are query parameters named after the field; multi-value filters are comma-separated; date ranges are `<field>From` / `<field>To`, inclusive.
 
+### New notifications since a cursor
+
+`GET /api/v1/notifications` also returns `cursor`, an opaque string for the newest notification in the response's view (`null` when you have none). Send it back as `since` to get only newer notifications, oldest first:
+
+```
+GET /api/v1/notifications?since=bjEuMTc5...&pageSize=50
+200 { "items": [...], "total": 2, "unread": 5, "cursor": "bjEuMTc5..." }
+```
+
+With `since`, `cursor` points at the last item returned, so keep calling with the new cursor until `items` is empty. The cursor doesn't move when nothing is new or when you read items. A cursor the server didn't issue answers `400 validation_failed`. The mobile apps use this for background refresh.
+
 ## Errors
 
 ```json
