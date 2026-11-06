@@ -77,6 +77,7 @@ struct RootView: View {
         }
         .font(CrowFont.body())
         .foregroundStyle(Crow.ink)
+        .preferredColorScheme(model.env.forceDark ? .dark : nil)
     }
 }
 

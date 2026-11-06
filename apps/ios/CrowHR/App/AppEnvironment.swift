@@ -11,6 +11,8 @@ struct AppEnvironment: Sendable {
     let outage: SimulatedOutage?
     let isUITest: Bool
     let cameraStub: Bool
+    /// UI-test QA only: render in dark mode regardless of the simulator setting.
+    var forceDark = false
 
     static func live(arguments: [String] = ProcessInfo.processInfo.arguments) -> AppEnvironment {
         #if DEBUG
@@ -27,7 +29,7 @@ struct AppEnvironment: Sendable {
             let transport = RecordingTransport(inner: OutageTransport(inner: URLSessionTransport(), outage: outage), recorder: recorder)
             return AppEnvironment(transport: transport, tokens: KeychainTokenStore(service: KeychainTokenStore.service + ".uitest"),
                                   kv: UserDefaultsStore(defaults), recorder: recorder, outage: outage, isUITest: true,
-                                  cameraStub: arguments.contains("-uitest-camera-stub"))
+                                  cameraStub: arguments.contains("-uitest-camera-stub"), forceDark: arguments.contains("-uitest-dark"))
         }
         #endif
         return AppEnvironment(transport: URLSessionTransport(), tokens: KeychainTokenStore(), kv: UserDefaultsStore(),

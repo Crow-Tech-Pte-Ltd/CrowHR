@@ -65,36 +65,54 @@ struct InboxItemRef: Equatable, Sendable {
     let readAt: String?
 }
 
-protocol InboxFetching: Sendable {
-    func unreadItems() async throws -> [InboxItemRef]
+/// One page walk of `GET /api/v1/notifications`: the items and the server's opaque cursor.
+struct InboxPage: Equatable, Sendable {
+    let items: [InboxItemRef]
+    let cursor: String?
 }
 
-/// Cursor rules shared with Android (apps/mobile-fixtures/background-refresh-cases.json): the
-/// cursor is the newest `createdAt` already seen; new = unread items strictly later than it; no
-/// cursor yet means nothing is new; the cursor never moves backwards and moves even when nothing
-/// is posted.
+protocol InboxFetching: Sendable {
+    /// `since == nil`: the newest page, and the cursor pointing at the newest item.
+    /// `since != nil`: every item after `since`, oldest first, and the cursor after the last one.
+    func fetch(since: String?) async throws -> InboxPage
+}
+
+/// Item rules shared with Android (apps/mobile-fixtures/background-refresh-cases.json): only
+/// unread items count, the text holds only the count, approvals open the approvals inbox, and
+/// nothing is posted when the user turned notifications off.
 enum InboxCursor {
     struct Outcome: Equatable, Sendable {
         let notice: LocalNotice?
         let cursor: String?
     }
 
+    static func notice(for fresh: [InboxItemRef], notificationsEnabled: Bool) -> LocalNotice? {
+        let unread = fresh.filter { $0.readAt == nil }
+        guard !unread.isEmpty, notificationsEnabled else { return nil }
+        let route: LocalNotice.Route = unread.contains { $0.category == "approvals" } ? .approvals : .notifications
+        return LocalNotice(title: BackgroundRefresh.notificationTitle, body: BackgroundRefresh.notificationBody(newItems: unread.count), route: route)
+    }
+
+    /// The fixture's device-side form of the cursor (newest `createdAt` seen). Kept to run the
+    /// shared cases; the app itself uses the server's opaque `since` cursor (InboxRefresher).
     static func evaluate(items: [InboxItemRef], cursor: String?, notificationsEnabled: Bool) -> Outcome {
         let cursorDate = cursor.flatMap(Fmt.parseInstant)
         let newest = items.compactMap { i in Fmt.parseInstant(i.createdAt).map { (i.createdAt, $0) } }.max { $0.1 < $1.1 }
         var nextCursor = cursor
         if let newest, cursorDate.map({ newest.1 > $0 }) ?? true { nextCursor = newest.0 }
         guard let cursorDate else { return Outcome(notice: nil, cursor: nextCursor) }
-        let fresh = items.filter { i in
-            i.readAt == nil && (Fmt.parseInstant(i.createdAt).map { $0 > cursorDate } ?? false)
-        }
-        guard !fresh.isEmpty, notificationsEnabled else { return Outcome(notice: nil, cursor: nextCursor) }
-        let route: LocalNotice.Route = fresh.contains { $0.category == "approvals" } ? .approvals : .notifications
-        return Outcome(notice: LocalNotice(title: BackgroundRefresh.notificationTitle, body: BackgroundRefresh.notificationBody(newItems: fresh.count), route: route), cursor: nextCursor)
+        let fresh = items.filter { Fmt.parseInstant($0.createdAt).map { $0 > cursorDate } ?? false }
+        return Outcome(notice: notice(for: fresh, notificationsEnabled: notificationsEnabled), cursor: nextCursor)
     }
 }
 
+/// Background refresh with the server's `since` cursor (add-approvals-and-notifications).
+/// First refresh after sign-in: nothing is new, the cursor is set. Afterwards: everything after the
+/// cursor is new. The cursor moves whether or not a notification is posted.
 actor InboxRefresher {
+    /// Stored when the inbox was empty at the first refresh (the server has no cursor yet): the
+    /// next refresh reads from the start and counts what it finds.
+    static let emptyInbox = "empty"
     private let fetcher: any InboxFetching
     private let poster: any LocalNotifying
     private let store: any KeyValueStore
@@ -115,37 +133,55 @@ actor InboxRefresher {
         store.set(cursor.map { Data($0.utf8) }, forKey: key)
     }
 
-    /// The user opened the app: everything currently there counts as seen, nothing is posted.
+    /// The user opened the app: what's there now counts as seen, nothing is posted.
     func markAllSeen() async {
-        guard let items = try? await fetcher.unreadItems() else { return }
-        save(InboxCursor.evaluate(items: items, cursor: cursor, notificationsEnabled: false).cursor ?? cursor)
+        guard let page = try? await fetcher.fetch(since: nil) else { return }
+        save(page.cursor ?? Self.emptyInbox)
     }
 
-    /// Fetches unread items and posts one content-free notification for new ones.
     @discardableResult
     func refresh() async throws -> LocalNotice? {
-        let items = try await fetcher.unreadItems()
-        let outcome = InboxCursor.evaluate(items: items, cursor: cursor, notificationsEnabled: enabled())
-        save(outcome.cursor)
-        if let notice = outcome.notice { await poster.post(notice) }
-        return outcome.notice
+        let current = cursor
+        let page = try await fetcher.fetch(since: current == Self.emptyInbox ? nil : current)
+        save(page.cursor ?? current ?? Self.emptyInbox)
+        guard let current else { return nil } // first refresh: nothing is new
+        let notice = InboxCursor.notice(for: page.items, notificationsEnabled: enabled())
+        if let notice { await poster.post(notice) }
+        return notice
     }
 }
 
 struct APIInboxFetcher: InboxFetching {
     let api: APIClient
+    /// Safety bound on paging forward in one background run.
+    static let maxPages = 10
 
     private struct Page: Decodable {
         struct Item: Decodable { let id: String; let category: String; let createdAt: String; let readAt: String? }
         let items: [Item]
+        let cursor: String?
     }
 
-    func unreadItems() async throws -> [InboxItemRef] {
-        let page: Page = try await api.get("/api/v1/notifications", query: [
-            URLQueryItem(name: "unread", value: "true"), URLQueryItem(name: "pageSize", value: "50"),
-            URLQueryItem(name: "sort", value: "-createdAt"),
-        ])
-        return page.items.map { InboxItemRef(id: $0.id, category: $0.category, createdAt: $0.createdAt, readAt: $0.readAt) }
+    func fetch(since: String?) async throws -> InboxPage {
+        guard let since else {
+            let page: Page = try await api.get("/api/v1/notifications", query: [URLQueryItem(name: "pageSize", value: "50")])
+            return InboxPage(items: page.items.map(ref), cursor: page.cursor)
+        }
+        var cursor = since
+        var all: [InboxItemRef] = []
+        for _ in 0..<Self.maxPages {
+            let page: Page = try await api.get("/api/v1/notifications", query: [
+                URLQueryItem(name: "since", value: cursor), URLQueryItem(name: "pageSize", value: "50"),
+            ])
+            if let c = page.cursor { cursor = c }
+            if page.items.isEmpty { break }
+            all += page.items.map(ref)
+        }
+        return InboxPage(items: all, cursor: cursor)
+    }
+
+    private func ref(_ i: Page.Item) -> InboxItemRef {
+        InboxItemRef(id: i.id, category: i.category, createdAt: i.createdAt, readAt: i.readAt)
     }
 }
 

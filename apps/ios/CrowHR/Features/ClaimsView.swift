@@ -108,14 +108,14 @@ struct ClaimRow: View {
     let claim: ClaimSummary
     var body: some View {
         let (label, tone) = claim.statusLabel
-        HStack(alignment: .firstTextBaseline) {
+        AdaptiveRow {
             VStack(alignment: .leading, spacing: 2) {
-                Text(claim.title ?? claim.typeNames.joined(separator: ", ")).font(CrowFont.body(.body, weight: .medium))
+                Text(claim.title ?? claim.typeNames.joined(separator: ", ")).font(CrowFont.body(.body, weight: .medium)).fixedSize(horizontal: false, vertical: true)
                 Text([claim.claimNumber, claim.expenseFrom.map(Fmt.dayString)].compactMap { $0 }.joined(separator: " · "))
-                    .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
+                    .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted).fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
+        } trailing: {
+            VStack(alignment: .leading, spacing: 4) {
                 MoneyText(cents: claim.totalCents, weight: .semibold)
                 StatusChip(text: label, tone: tone)
             }
@@ -288,13 +288,13 @@ struct ScheduleView: View {
 struct ShiftRow: View {
     let shift: ScheduleMe.Shift
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
+        AdaptiveRow {
             VStack(alignment: .leading, spacing: 2) {
                 Text(Fmt.parseDay(shift.date).map(Fmt.dayShort) ?? shift.date).font(CrowFont.mono(.body, weight: .semibold))
                 Text(shift.scopeLabel).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
                 if let note = shift.note { Text(note).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted) }
             }
-            Spacer()
+        } trailing: {
             if shift.kind == "rest" {
                 StatusChip(text: "Rest day", tone: .neutral)
             } else {
