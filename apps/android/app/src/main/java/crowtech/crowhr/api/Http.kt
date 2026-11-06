@@ -99,8 +99,11 @@ class OkHttpMetaFetcher : MetaFetcher {
                 HttpResult.Response(r.code, r.header("Content-Type"), r.body?.string() ?: "")
             }
         } catch (e: SSLException) {
+            android.util.Log.i("CrowHR", "meta check: TLS failure (${e.javaClass.simpleName})")
             HttpResult.NetworkFailure("tls_error")
         } catch (e: IOException) {
+            // Exception class only: never the URL or any response content.
+            android.util.Log.i("CrowHR", "meta check: unreachable (${e.javaClass.simpleName}: ${e.message?.take(120)})")
             HttpResult.NetworkFailure("unreachable")
         }
     }

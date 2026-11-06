@@ -163,6 +163,33 @@ class ConnectViewModelTest {
         assertEquals("http://192.168.1.20:8080|kampong-kopi", store.active()?.key)
     }
 
+    @Test fun localNetworkServerAsksForAccessBeforeAnyRequest() = runTest(dispatcher) {
+        val fetcher = StaticFetcher(HttpResult.Response(200, "application/json", okMeta()))
+        var allowed = false
+        val vm = ConnectViewModel(ConnectCheck(fetcher), ConnectionStore(InMemoryKeyValueStore())) { allowed }
+        vm.onAddressChange("http://192.168.1.20:8080")
+        vm.submit()
+        advanceUntilIdle()
+        assertEquals(ConnectPhase.NeedsLocalNetwork, vm.state.value.phase)
+        assertEquals(0, fetcher.calls)
+        vm.localNetworkDenied()
+        assertEquals("local_network_denied", (vm.state.value.phase as ConnectPhase.Failed).code)
+        allowed = true
+        vm.submit()
+        advanceUntilIdle()
+        assertTrue(vm.state.value.phase is ConnectPhase.Confirm)
+        assertEquals(1, fetcher.calls)
+    }
+
+    @Test fun localHostClassification() {
+        assertTrue(LocalNetwork.isLocalHost("192.168.1.20"))
+        assertTrue(LocalNetwork.isLocalHost("crowhr.local"))
+        assertTrue(LocalNetwork.isLocalHost("[fd00::1]"))
+        assertFalse(LocalNetwork.isLocalHost("127.0.0.1"))
+        assertFalse(LocalNetwork.isLocalHost("localhost"))
+        assertFalse(LocalNetwork.isLocalHost("hr.example.com"))
+    }
+
     @Test fun httpsHasNoWarning() = runTest(dispatcher) {
         val vm = ConnectViewModel(
             ConnectCheck(StaticFetcher(HttpResult.Response(200, "application/json", okMeta()))),

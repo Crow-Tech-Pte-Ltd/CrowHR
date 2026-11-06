@@ -90,6 +90,8 @@ object ConnectMessages {
         "org_not_found" to "This server has no organisation with that code. Scan the QR code from Crow HR on the web (My profile → Mobile app).",
         "no_sign_in_methods" to "Your organisation has not enabled any sign-in method yet. Ask HR to check Settings → Security.",
         "too_many_connections" to "You can save up to 5 connections. Remove one before adding another.",
+        // Android-only: Android 17's local network permission was refused.
+        "local_network_denied" to "Crow HR needs permission to reach devices on your local network, because your company's server is on this network. Allow it when asked, or in Settings → Apps → Crow HR → Permissions.",
         // Android-only: a scanned code that is not a Crow HR connect code.
         "invalid_qr" to "This QR code is not a Crow HR code. In Crow HR on the web, open My profile → Mobile app and scan the code shown there.",
     )

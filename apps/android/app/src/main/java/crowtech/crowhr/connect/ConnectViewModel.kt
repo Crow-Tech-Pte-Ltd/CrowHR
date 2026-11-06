@@ -12,6 +12,8 @@ import kotlinx.coroutines.launch
 sealed interface ConnectPhase {
     data object Idle : ConnectPhase
     data object Checking : ConnectPhase
+    /** Android 17+: the server is on the local network and the app must ask for access first. */
+    data object NeedsLocalNetwork : ConnectPhase
     /** Show the organisation and ask the user to confirm; [warning] for unencrypted HTTP. */
     data class Confirm(val outcome: ConnectOutcome.Ok, val warning: String?) : ConnectPhase
     data class Failed(val code: String, val message: String) : ConnectPhase
@@ -28,6 +30,8 @@ data class ConnectUiState(
 class ConnectViewModel(
     private val check: ConnectCheck,
     private val store: ConnectionStore,
+    /** False when [host] is on the local network and the app may not reach it yet (Android 17+). */
+    private val localNetworkAllowed: (host: String) -> Boolean = { true },
 ) : ViewModel() {
     private val _state = MutableStateFlow(ConnectUiState())
     val state: StateFlow<ConnectUiState> = _state.asStateFlow()
@@ -37,6 +41,11 @@ class ConnectViewModel(
 
     fun submit() {
         val current = _state.value
+        val address = ServerAddress.normalize(current.address)
+        if (address is ServerAddress.Result.Ok && !localNetworkAllowed(address.host)) {
+            _state.update { it.copy(phase = ConnectPhase.NeedsLocalNetwork) }
+            return
+        }
         job?.cancel()
         _state.update { it.copy(phase = ConnectPhase.Checking) }
         job = viewModelScope.launch {
@@ -86,4 +95,8 @@ class ConnectViewModel(
     }
 
     fun back() = _state.update { it.copy(phase = ConnectPhase.Idle) }
+
+    fun localNetworkDenied() = _state.update {
+        it.copy(phase = ConnectPhase.Failed("local_network_denied", ConnectMessages.forCode("local_network_denied")))
+    }
 }

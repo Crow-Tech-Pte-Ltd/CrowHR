@@ -5,6 +5,9 @@
     <!-- Only ever used to reach the company's own Crow HR server (README "Zero data collection"). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Android 17+: needed to reach a company server on the local network (192.168.x.x,
+         10.x, .local), e.g. a LAN-only self-hosted install. Requested only for such addresses. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- QR code scanning (on-device) and receipt photos (system camera app). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Content-free local notifications after a background refresh. -->
