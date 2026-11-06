@@ -9,6 +9,16 @@
     "When the user turned local notifications off, nothing is posted (the cursor still moves).",
     "Android schedules the refresh with WorkManager at the minimum interval of 15 minutes, requiring a network connection; iOS uses BGAppRefreshTask (the OS decides the timing)."
   ],
+  "serverCursor": {
+    "description": "Servers from Nov 2026 add an opaque `cursor` to every GET /api/v1/notifications response (task 1.2). Prefer it; the createdAt cases below remain the rule for older servers whose response has no `cursor` field.",
+    "rules": [
+      "First refresh after sign-in (nothing stored): GET /api/v1/notifications?pageSize=1 and store its `cursor`; post nothing.",
+      "Later refreshes: GET /api/v1/notifications?since=<stored>&pageSize=50 returns only newer items, oldest first, with `cursor` pointing at the last item returned; repeat with that cursor until `items` is empty (the apps stop after 10 pages).",
+      "Count the returned items with readAt null; the text, opens and notifications-off rules are the same as above. Store the last cursor even when nothing is posted.",
+      "Opening the notifications inbox stores the `cursor` of that list response (no since), so items already seen are not announced later.",
+      "Android stores the server cursor prefixed with 'srv:' to tell it apart from a createdAt value; that prefix is a storage detail, not part of the contract."
+    ]
+  },
   "texts": {
     "one": "You have 1 new item in Crow HR",
     "many": "You have {count} new items in Crow HR",

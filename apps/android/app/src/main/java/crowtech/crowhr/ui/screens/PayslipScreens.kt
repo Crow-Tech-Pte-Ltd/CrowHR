@@ -59,7 +59,7 @@ private val PAYSLIP_LIST = Items.serializer(PayslipSummary.serializer())
 /** FLAG_SECURE while a payslip screen is visible: no screenshots, blank in the app switcher. */
 @Composable
 fun SecureScreen() {
-    val activity = LocalContext.current as? Activity ?: return
+    val activity = androidx.activity.compose.LocalActivity.current ?: return
     DisposableEffect(Unit) {
         activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         onDispose { activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }

@@ -29,6 +29,14 @@ object RefreshLogic {
         return Decision(text(fresh.size), nextCursor, opens, fresh.size)
     }
 
+    /** Server-cursor mode: every item given is newer than the cursor; unread ones count. */
+    fun newItems(items: List<AppNotification>, enabled: Boolean): Decision {
+        val fresh = items.filter { it.readAt == null }
+        if (fresh.isEmpty() || !enabled) return Decision(null, null, null)
+        val opens = if (fresh.any { it.category == "approvals" }) "approvals" else "notifications"
+        return Decision(text(fresh.size), null, opens, fresh.size)
+    }
+
     private fun instant(value: String): Instant = Formats.parseInstant(value) ?: Instant.EPOCH
 }
 

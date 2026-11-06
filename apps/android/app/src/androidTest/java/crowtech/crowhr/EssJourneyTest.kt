@@ -69,6 +69,7 @@ class EssJourneyTest {
         NetworkObserver.sink = null
         shell("cmd connectivity airplane-mode disable")
         // Network allow-list: the app talked to the test server and nothing else.
+        if (scenario == null) return // the test failed before the app started; keep its own error
         assertTrue("the app made no requests", recorder.hosts.isNotEmpty())
         assertEquals("hosts contacted", setOf(TestServer.host), recorder.hosts.toSet())
         assertTrue("socket addresses", recorder.addresses.all { it == TestServer.host })
@@ -84,7 +85,12 @@ class EssJourneyTest {
     private fun waitForText(text: String, timeout: Long = 20_000, substring: Boolean = true) =
         compose.waitUntil(timeout) { compose.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty() }
 
-    private fun tap(tag: String): SemanticsNodeInteraction = compose.onNodeWithTag(tag).performScrollTo().performClick()
+    /** Scrolls the node into view when it lives in a scrolling column (tabs don't), then taps. */
+    private fun tap(tag: String): SemanticsNodeInteraction {
+        val node = compose.onNodeWithTag(tag)
+        runCatching { node.performScrollTo() }
+        return node.performClick()
+    }
 
     private fun currentActivity(): Activity? {
         var found: Activity? = null
@@ -151,14 +157,28 @@ class EssJourneyTest {
     }
 
     private fun secure(): Boolean {
+        val activity = currentActivity() ?: return false
         var flags = 0
-        instrumentation.runOnMainSync { flags = currentActivity()?.window?.attributes?.flags ?: 0 }
+        instrumentation.runOnMainSync { flags = activity.window.attributes.flags }
         return flags and WindowManager.LayoutParams.FLAG_SECURE != 0
     }
 
+    private fun untilTexts(what: String, timeout: Long = 20_000, ok: (List<String>) -> Boolean) {
+        runCatching { compose.waitUntil(timeout) { ok(screenTexts()) } }
+            .onFailure { throw AssertionError("$what; on screen: ${screenTexts()}") }
+    }
+
+    /** Every text on screen, for failure messages. */
+    private fun screenTexts(): List<String> = compose.onAllNodes(androidx.compose.ui.test.isRoot()).fetchSemanticsNodes()
+        .flatMap { root -> collect(root) }
+
+    private fun collect(node: androidx.compose.ui.semantics.SemanticsNode): List<String> =
+        (node.config.getOrElseNullable(androidx.compose.ui.semantics.SemanticsProperties.Text) { null }?.map { it.text } ?: emptyList()) +
+            node.children.flatMap { collect(it) }
+
     @Test fun leaveBalancesApplyAndHistory() {
         // The form starts on the next working day; free it from earlier runs of this test.
-        TestServer.withdrawPendingLeave(crowtech.crowhr.ui.screens.nextWorkingDay(java.time.LocalDate.now(Formats.SINGAPORE)))
+        TestServer.withdrawPendingLeave(TestServer.nextWorkingDay())
         connectAndSignIn(TestServer.NADIA)
         tap("tab-leave")
         waitForText("Annual leave")
@@ -167,7 +187,7 @@ class EssJourneyTest {
         tap("leave-type")
         compose.onNodeWithText("Annual leave").performClick()
         waitFor("leave-quote")
-        assertTrue(compose.onAllNodesWithText("1 day").fetchSemanticsNodes().isNotEmpty())
+        untilTexts("quote of 1 day") { it.contains("1 day") }
         compose.onNodeWithTag("leave-reason").performScrollTo().performTextInput("Family day")
         tap("send-leave")
         waitFor("leave-done")
@@ -245,7 +265,9 @@ class EssJourneyTest {
     @Test fun clockInOfflineIsQueuedThenSynced() {
         connectAndSignIn(TestServer.AHMAD)
         waitFor("clock-button")
-        waitForText("Not clocked in")
+        runCatching { compose.waitUntil(20_000) { screenTexts().any { it == "Not clocked in" || it == "Clocked in" } } }
+            .onFailure { throw AssertionError("clock status not shown: ${screenTexts()}") }
+        val wasIn = screenTexts().contains("Clocked in")
         shell("cmd connectivity airplane-mode enable")
         Thread.sleep(2_000)
         tap("clock-button")
@@ -263,7 +285,8 @@ class EssJourneyTest {
         val sent = graph.punchQueue(graph.connections.active()!!).find(queued.key)!!
         assertTrue(sent.state == "synced" || sent.state == "flagged")
         assertTrue("one key, retried", sent.attempts >= 2)
-        waitForText("Clocked in")
+        assertEquals(if (wasIn) "out" else "in", sent.kind)
+        untilTexts("status flipped") { it.contains(if (wasIn) "Not clocked in" else "Clocked in") }
     }
 
     @Test fun signOutDeletesLocalData() {

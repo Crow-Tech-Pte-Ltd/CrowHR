@@ -3,7 +3,7 @@ package crowtech.crowhr.auth
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Bundle
 
 /** Opens the sign-in page. Never an embedded web view (spec "Native sign-in"). */
@@ -23,7 +23,7 @@ object CustomTabsLauncher : BrowserLauncher {
     private const val SHARE_STATE_OFF = 2
 
     override fun open(context: Context, url: String): Boolean {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+        val intent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
             putExtras(Bundle().apply { putBinder(EXTRA_SESSION, null) })
             putExtra(EXTRA_SHARE_STATE, SHARE_STATE_OFF)

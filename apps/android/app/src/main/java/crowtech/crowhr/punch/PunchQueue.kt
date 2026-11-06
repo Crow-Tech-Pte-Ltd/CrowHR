@@ -113,6 +113,9 @@ class PunchQueue(private val store: PunchStore) {
     private val mutex = Mutex()
     private val lock = Any()
 
+    /** Bumps on every change, so screens notice punches sent by the background worker. */
+    val changes = kotlinx.coroutines.flow.MutableStateFlow(0)
+
     fun all(): List<QueuedPunch> = synchronized(lock) { store.load() }
     fun pending(): List<QueuedPunch> = all().filter { it.isPending }
     fun find(key: String): QueuedPunch? = all().firstOrNull { it.key == key }
@@ -132,6 +135,7 @@ class PunchQueue(private val store: PunchStore) {
             utcOffsetMinutes = utcOffsetMinutes, location = location,
         )
         store.save(trim(list + punch))
+        changes.value++
         EnqueueResult.Queued(punch)
     }
 
@@ -140,6 +144,7 @@ class PunchQueue(private val store: PunchStore) {
         val list = store.load()
         if (list.none { it.key == key }) return false
         store.save(list.filterNot { it.key == key })
+        changes.value++
         true
     }
 
@@ -213,6 +218,7 @@ class PunchQueue(private val store: PunchStore) {
 
     private fun replace(punch: QueuedPunch) = synchronized(lock) {
         store.save(trim(store.load().map { if (it.key == punch.key) punch else it }))
+        changes.value++
     }
 
     /** Keeps every pending punch and the newest [HISTORY_LIMIT] settled ones. */

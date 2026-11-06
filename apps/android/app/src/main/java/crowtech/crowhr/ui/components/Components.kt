@@ -72,7 +72,7 @@ fun PrimaryButton(
                     drawRoundRect(colors.shadow, topLeft = Offset(o, o), size = size, cornerRadius = CornerRadius(6.dp.toPx()))
                 }
             }
-            .offset(x = if (pressed) 2.dp else 0.dp, y = if (pressed) 2.dp else 0.dp)
+            .offset { val d = if (pressed) 2.dp.roundToPx() else 0; androidx.compose.ui.unit.IntOffset(d, d) }
             .background(if (enabled) colors.accent else colors.hairline, Radius)
             .border(2.dp, if (focused) colors.focus else if (enabled) colors.shadow else colors.muted, Radius)
             .clickable(interactionSource = interaction, indication = null, enabled = active, role = Role.Button, onClick = onClick)

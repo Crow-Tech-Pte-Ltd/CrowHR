@@ -39,7 +39,10 @@ class QaScreenshotTest {
     private fun waitFor(tag: String, timeout: Long = 20_000) =
         compose.waitUntil(timeout) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
 
-    private fun tap(tag: String) = compose.onNodeWithTag(tag).performScrollTo().performClick()
+    private fun tap(tag: String) = compose.onNodeWithTag(tag).let { node ->
+        runCatching { node.performScrollTo() }
+        node.performClick()
+    }
 
     private var index = 0
     private fun shot(name: String) {
@@ -69,7 +72,7 @@ class QaScreenshotTest {
     private fun run() {
         TestServer.ensureReleasedPayslip()
         TestServer.ensurePublishedShift()
-        runCatching { TestServer.requestLeaveAsNadia(TestServer.freeWeekday(8, offsetDays = (0..20).random().toLong())) }
+        val taskTitle = runCatching { TestServer.requestLeaveAsNadia(TestServer.freeWeekday(8, offsetDays = (0..20).random().toLong())) }.getOrNull()
         graph.resetForTests()
         graph.receiptCamera = StubCamera()
         graph.browser = TestBrowser(TestServer.KAIWEN)
@@ -104,8 +107,8 @@ class QaScreenshotTest {
         tap("tab-tasks")
         Thread.sleep(2_500)
         shot("approvals")
-        compose.onAllNodes(hasText("Annual leave", substring = true)).fetchSemanticsNodes().firstOrNull()?.let {
-            compose.onNode(hasText(it.config[androidx.compose.ui.semantics.SemanticsProperties.Text].first().text)).performScrollTo().performClick()
+        taskTitle?.let { title ->
+            compose.onNode(hasText(title)).also { runCatching { it.performScrollTo() } }.performClick()
             waitFor("reject")
             tap("reject")
             Thread.sleep(800)

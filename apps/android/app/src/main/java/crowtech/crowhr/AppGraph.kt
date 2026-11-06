@@ -122,6 +122,8 @@ class AppGraph private constructor(val context: Context) {
     }
 
     companion object {
+        // Holds the application context only (never an Activity), so nothing leaks.
+        @android.annotation.SuppressLint("StaticFieldLeak")
         @Volatile private var instance: AppGraph? = null
 
         fun get(context: Context): AppGraph = instance ?: synchronized(this) {

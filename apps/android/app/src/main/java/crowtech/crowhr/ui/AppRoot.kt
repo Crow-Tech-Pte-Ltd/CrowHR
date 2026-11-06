@@ -139,7 +139,7 @@ private fun SignInScreen(
 
 @Composable
 private fun LockScreen(onUnlocked: () -> Unit) {
-    val activity = LocalContext.current as Activity
+    val activity = androidx.activity.compose.LocalActivity.current ?: return
     var message by remember { mutableStateOf<String?>(null) }
     SinglePane {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {

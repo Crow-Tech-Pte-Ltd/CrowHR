@@ -48,23 +48,51 @@ object RefreshScheduler {
  */
 class RefreshRunner(
     private val graph: AppGraph,
-    private val fetch: suspend (SavedConnection) -> List<AppNotification> = { c ->
-        graph.api(c).get(
-            "/api/v1/notifications",
-            NotificationPage.serializer(),
-            mapOf("unread" to "true", "sort" to "-createdAt", "pageSize" to "50"),
-        ).items
+    /** `GET /api/v1/notifications` with the given query (replaced in tests). */
+    private val list: suspend (SavedConnection, Map<String, String?>) -> NotificationPage = { c, query ->
+        graph.api(c).get("/api/v1/notifications", NotificationPage.serializer(), query)
     },
 ) {
+    /**
+     * Servers with the `since` cursor: the stored value is "srv:<cursor>" and only newer items
+     * come back, oldest first, paged until empty. Older servers (no `cursor` field): the newest
+     * createdAt seen is stored and compared (background-refresh-cases.json).
+     */
+    private suspend fun decide(connection: SavedConnection, stored: String?, enabled: Boolean): RefreshLogic.Decision {
+        if (stored != null && stored.startsWith(SERVER_PREFIX)) {
+            var cursor = stored.removePrefix(SERVER_PREFIX)
+            val fresh = mutableListOf<AppNotification>()
+            for (page in 1..MAX_PAGES) {
+                val r = list(connection, mapOf("since" to cursor, "pageSize" to "50"))
+                if (r.supportsCursor && r.cursor != null) cursor = r.cursor
+                fresh += r.items
+                if (r.items.isEmpty() || !r.supportsCursor) break
+            }
+            return RefreshLogic.newItems(fresh, enabled).copy(cursor = SERVER_PREFIX + cursor)
+        }
+        val r = list(connection, mapOf("unread" to "true", "sort" to "-createdAt", "pageSize" to "50"))
+        if (r.supportsCursor && stored == null) {
+            // First refresh after sign-in: start from here; what's already there isn't news.
+            val baseline = list(connection, mapOf("pageSize" to "1"))
+            return RefreshLogic.Decision(null, baseline.cursor?.let { SERVER_PREFIX + it }, null)
+        }
+        val legacy = RefreshLogic.evaluate(stored, enabled, r.items)
+        if (!r.supportsCursor) return legacy
+        // Upgraded server: decide this once by date, then switch to its cursor.
+        val baseline = list(connection, mapOf("pageSize" to "1"))
+        return legacy.copy(cursor = baseline.cursor?.let { SERVER_PREFIX + it } ?: legacy.cursor)
+    }
+
     suspend fun run(): Boolean {
         var ok = true
         var total = 0
         var opens: String? = null
         for (connection in graph.connections.all()) {
             if (!graph.isSignedIn(connection)) continue
-            val items = runCatching { fetch(connection) }.getOrElse { ok = false; continue }
-            val decision = RefreshLogic.evaluate(graph.settings.refreshCursor(connection.key), graph.settings.notificationsEnabled, items)
-            graph.settings.setRefreshCursor(connection.key, decision.cursor)
+            val decision = runCatching {
+                decide(connection, graph.settings.refreshCursor(connection.key), graph.settings.notificationsEnabled)
+            }.getOrElse { ok = false; continue }
+            if (decision.cursor != null) graph.settings.setRefreshCursor(connection.key, decision.cursor)
             if (decision.text != null) {
                 total += decision.count
                 opens = if (opens == "approvals" || decision.opens == "approvals") "approvals" else decision.opens
@@ -73,6 +101,11 @@ class RefreshRunner(
         if (total > 0) Notifications.post(graph.context, RefreshLogic.text(total), opens ?: "notifications")
         runCatching { PunchSync.drainAll(graph) }
         return ok
+    }
+
+    companion object {
+        const val SERVER_PREFIX = "srv:"
+        private const val MAX_PAGES = 10
     }
 }
 
@@ -96,7 +129,11 @@ object Notifications {
     }
 
     fun canPost(context: Context): Boolean =
-        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        } else {
+            context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
+        }
 
     /** Title "Crow HR", text a count only: no names, no amounts, no dates. */
     fun post(context: Context, text: String, opens: String) {

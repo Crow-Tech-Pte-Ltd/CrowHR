@@ -9,6 +9,7 @@ import androidx.work.NetworkType
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import crowtech.crowhr.api.AppNotification
+import crowtech.crowhr.api.NotificationPage
 import crowtech.crowhr.auth.StoredTokens
 import crowtech.crowhr.connect.MetaSignInMethod
 import crowtech.crowhr.connect.SavedConnection
@@ -29,7 +30,8 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Task 2.6 on a device: WorkManager holds a periodic refresh of at least 15 minutes that needs a
- * network, and a refresh with new items posts one local notification whose text is only a count.
+ * network; a refresh with new items posts one local notification whose text is only a count.
+ * Covers servers with the `since` cursor and older ones without it.
  */
 @RunWith(AndroidJUnit4::class)
 class BackgroundRefreshWorkerTest {
@@ -41,6 +43,7 @@ class BackgroundRefreshWorkerTest {
         server = "https://hr.example.com", orgSlug = "acme", displayName = "Acme Pte. Ltd.",
         signInMethods = listOf(MetaSignInMethod("password", "Email and password")),
     )
+    private val requests = mutableListOf<Map<String, String?>>()
 
     @Before fun setUp() {
         graph.resetForTests()
@@ -56,6 +59,21 @@ class BackgroundRefreshWorkerTest {
         graph.resetForTests()
     }
 
+    /** A fake server: [pages] answers by `since` (null key = no `since`). */
+    private fun runner(pages: Map<String?, NotificationPage>) = RefreshRunner(graph) { _, query ->
+        requests += query
+        pages[query["since"]] ?: error("unexpected query $query")
+    }
+
+    private fun page(cursor: String?, vararg items: AppNotification) = NotificationPage(items.toList(), cursor = cursor)
+
+    private val approval = AppNotification(
+        id = "n2", category = "approvals", title = "Nadia Rahman asked for annual leave on 9 Nov", body = "1 day",
+        createdAt = "2026-11-02T03:15:00.000Z",
+    )
+
+    private fun posted() = manager.activeNotifications.singleOrNull { it.id == Notifications.ID }
+
     @Test fun periodicRefreshIsScheduledEvery15MinutesWithNetwork() {
         RefreshScheduler.schedule(context)
         val infos = WorkManager.getInstance(context).getWorkInfosForUniqueWork(RefreshSchedule.spec().uniqueName).get(10, TimeUnit.SECONDS)
@@ -64,15 +82,12 @@ class BackgroundRefreshWorkerTest {
         assertEquals(NetworkType.CONNECTED, info.constraints.requiredNetworkType)
     }
 
-    @Test fun newItemsPostOneContentFreeNotification() = runBlocking {
-        graph.settings.setRefreshCursor(connection.key, "2026-11-02T01:00:00.000Z")
-        val items = listOf(
-            AppNotification(id = "n2", category = "approvals", title = "Nadia Rahman asked for annual leave on 9 Nov", body = "1 day", createdAt = "2026-11-02T03:15:00.000Z"),
-            AppNotification(id = "n1", category = "approvals", title = "Old", createdAt = "2026-11-02T01:00:00.000Z"),
-        )
-        assertTrue(RefreshRunner(graph) { items }.run())
-        val posted = manager.activeNotifications.single { it.id == Notifications.ID }
-        val extras = posted.notification.extras
+    @Test fun serverCursorNewItemsPostOneContentFreeNotification() = runBlocking {
+        graph.settings.setRefreshCursor(connection.key, "srv:A")
+        assertTrue(runner(mapOf("A" to page("B", approval), "B" to page("B"))).run())
+        assertEquals(listOf("A", "B"), requests.map { it["since"] })
+        val n = posted()!!.notification
+        val extras = n.extras
         assertEquals("Crow HR", extras.getCharSequence(Notification.EXTRA_TITLE).toString())
         assertEquals("You have 1 new item in Crow HR", extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         // Nothing else that could carry personal data.
@@ -81,21 +96,36 @@ class BackgroundRefreshWorkerTest {
         assertNull(extras.getCharSequence(Notification.EXTRA_INFO_TEXT))
         val all = extras.keySet().joinToString { extras.get(it).toString() }
         assertFalse(all.contains("Nadia") || all.contains("annual"))
-        assertEquals(Notification.VISIBILITY_PUBLIC, posted.notification.visibility)
+        assertEquals(Notification.VISIBILITY_PUBLIC, n.visibility)
+        assertEquals("srv:B", graph.settings.refreshCursor(connection.key))
+    }
+
+    @Test fun firstRefreshAfterSignInOnlySetsTheCursor() = runBlocking {
+        runner(mapOf(null to page("X", approval))).run()
+        assertNull(posted())
+        assertEquals("srv:X", graph.settings.refreshCursor(connection.key))
+    }
+
+    @Test fun serverCursorNothingNewPostsNothing() = runBlocking {
+        graph.settings.setRefreshCursor(connection.key, "srv:A")
+        runner(mapOf("A" to page("A"))).run()
+        assertNull(posted())
+        assertEquals("srv:A", graph.settings.refreshCursor(connection.key))
+    }
+
+    @Test fun olderServerWithoutCursorUsesCreatedAt() = runBlocking {
+        graph.settings.setRefreshCursor(connection.key, "2026-11-02T01:00:00.000Z")
+        val legacy = NotificationPage(listOf(approval))
+        runner(mapOf(null to legacy)).run()
+        assertEquals("You have 1 new item in Crow HR", posted()!!.notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertEquals("2026-11-02T03:15:00.000Z", graph.settings.refreshCursor(connection.key))
     }
 
-    @Test fun nothingNewPostsNothing() = runBlocking {
-        graph.settings.setRefreshCursor(connection.key, "2026-11-02T04:00:00.000Z")
-        RefreshRunner(graph) { listOf(AppNotification(id = "n4", title = "x", createdAt = "2026-11-02T04:00:00.000Z")) }.run()
-        assertTrue(manager.activeNotifications.none { it.id == Notifications.ID })
-    }
-
-    @Test fun turnedOffPostsNothing() = runBlocking {
+    @Test fun turnedOffPostsNothingButMovesOn() = runBlocking {
         graph.settings.notificationsEnabled = false
-        graph.settings.setRefreshCursor(connection.key, "2026-11-02T01:00:00.000Z")
-        RefreshRunner(graph) { listOf(AppNotification(id = "n5", title = "x", createdAt = "2026-11-02T06:00:00.000Z")) }.run()
-        assertTrue(manager.activeNotifications.none { it.id == Notifications.ID })
-        assertEquals("2026-11-02T06:00:00.000Z", graph.settings.refreshCursor(connection.key))
+        graph.settings.setRefreshCursor(connection.key, "srv:A")
+        runner(mapOf("A" to page("C", approval), "C" to page("C"))).run()
+        assertNull(posted())
+        assertEquals("srv:C", graph.settings.refreshCursor(connection.key))
     }
 }

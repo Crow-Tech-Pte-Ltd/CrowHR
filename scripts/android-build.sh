@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Crow HR Android build entry point (add-mobile-apps tasks 2.1-2.7).
 #   scripts/android-build.sh check   debug APK + unit tests + lint
-#   ANDROID_SERIAL=emulator-NNNN CROWHR_TEST_SERVER=http://10.0.2.2:3100 \
+#   ANDROID_SERIAL=emulator-NNNN CROWHR_TEST_SERVER=http://10.0.2.2:3197 \
 #     scripts/android-build.sh ui    Compose UI tests on a project-owned emulator
 #   scripts/android-build.sh clean   remove build outputs and stop the Gradle daemon
 # Release builds and uploads live in scripts/android-release.sh (approval-gated).
@@ -20,10 +20,13 @@ case "$mode" in
       printf '%s\n' 'Set ANDROID_SERIAL to the project-owned test emulator (never a shared or release-test device).' >&2
       exit 1
     fi
-    server="${CROWHR_TEST_SERVER:-http://10.0.2.2:3100}"
+    server="${CROWHR_TEST_SERVER:-http://10.0.2.2:3197}"
     args=("-Pandroid.testInstrumentationRunnerArguments.crowhrServer=$server")
     if [[ -n "${CROWHR_TEST_CLASS:-}" ]]; then
       args+=("-Pandroid.testInstrumentationRunnerArguments.class=$CROWHR_TEST_CLASS")
+    else
+      # Screenshot capture runs only on request (scripts/android-qa.sh shots <variant>).
+      args+=("-Pandroid.testInstrumentationRunnerArguments.notClass=crowtech.crowhr.QaScreenshotTest")
     fi
     if [[ -n "${CROWHR_SHOTS:-}" ]]; then
       args+=("-Pandroid.testInstrumentationRunnerArguments.crowhrShots=$CROWHR_SHOTS")
