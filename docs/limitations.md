@@ -194,3 +194,25 @@ The demo is the real web app and the real core API running in the visitor's brow
 - **PDF coverage**: Noto Sans SC and Tamil are loaded only when needed, subsetted per document. Characters outside the embedded fonts show `?` and a visible warning; other scripts still need font support. The font source/size record is in `packages/core/src/pdf/fonts.md`.
 - **Bank correction workflow**: returning an approved unpaid run to draft is API-only; a later run relying on its CPF state may require an adjustment. Re-authentication and employee bank-change notifications are enforced on the server.
 - **Audit integrity**: verification compares the event chain with `audit_heads` and detects tail truncation. A database superuser who rewrites both history and its head can still forge an internally consistent chain; external checkpoints are not implemented.
+
+## Mobile apps (add-mobile-apps, M4)
+
+Both apps:
+
+- **App icons are placeholders** (Android vector in `apps/android`, iOS from `scripts/ios-make-placeholder-icon.py`). They need Daniel's approval before any release.
+- **Release uploads are not implemented.** `scripts/android-release.sh` and `scripts/ios-release.sh` check the approval record and plan the steps. Signing and the upload to Play internal or TestFlight stop with "not implemented" until the store apps and keys exist. The Android application id and iOS bundle id are not registered.
+- **Remote push is not implemented** by design (design decision 6). The apps refresh in the background and post content-free local notifications instead.
+- **Not in the apps, done on the web:** the leave team calendar for managers, and shift swaps and open-shift pickup.
+
+Android (`apps/android`):
+
+- Claim drafts can be saved but not edited, submitted later, withdrawn or copied in the app.
+- The live QR camera preview (CameraX + ZXing) has not run in an automated test; the emulator has no QR to point at. The tests open the same `crowhr://connect` link it produces. Leave attachments from the camera or files are not covered by a device test.
+- Device tests install with all runtime permissions granted. The permission prompts (camera, location, notifications, Android 17 local network) are covered by unit tests of the decision logic only.
+- Signing in from a fresh Chrome on the Play emulator image: see `apps/android/README.md` "Real browser sign-in" for what was verified on the emulator.
+
+iOS (`apps/ios`):
+
+- Not in the app, done on the web: leave types that need a child, foreign-currency and multi-line claims, and payslip PDF download outside the share sheet.
+- The QR scanner (AVFoundation) and Face ID are not exercised by tests, because the simulator has neither a camera nor biometrics. The camera is stubbed with `-uitest-camera-stub` (DEBUG only).
+- iOS has not yet adopted the additive shared-fixture rules from Nov 2026: `featureGates.modernGating`, and the punch `source`, `elapsedMs` and `refusedOld` rules in `apps/mobile-fixtures`.
