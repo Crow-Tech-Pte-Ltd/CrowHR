@@ -18,6 +18,7 @@ import { createApp } from "../app.ts";
 import { userIdentities } from "../db/schema/auth.ts";
 import type { Mailer } from "../deps.ts";
 import type { ErrorEnvelope } from "../errors.ts";
+import { sweepOutbox } from "../notifications/outbox.ts";
 import { totpAt } from "./totp.ts";
 
 const PASSWORD = "roti prata with curry";
@@ -121,7 +122,8 @@ describe("SSO linking and MFA (security review)", () => {
     idp.nextUser = { sub: "boss-okta", email: "boss@kopi.sg", email_verified: true };
     expect((await ssoRoundTrip(browser, idp, pid, "?purpose=link")).location).toBe("/me/sessions?link=ok");
     expect(await identitiesOf(m.userId)).toHaveLength(1);
-    expect(sent.some((x) => x.to === "boss@kopi.sg" && /sign-in method/i.test(x.subject))).toBe(true);
+    await sweepOutbox(deps, clock.now()); // security notices are emailed through the outbox
+    expect(sent.some((x) => x.to === "boss@kopi.sg" && /sign-in method/i.test(x.text))).toBe(true);
   });
 
   it("requires the same live, recently authenticated user at the link callback", async () => {
@@ -273,7 +275,8 @@ describe("SSO linking and MFA (security review)", () => {
     const before = sent.length;
     idp.nextUser = { sub: "notify-okta", email: "notify@kopi.sg", email_verified: true };
     expect((await ssoRoundTrip(testClient(app, deps), idp, pid)).location).toBe("/");
-    expect(sent.slice(before).some((x) => x.to === "notify@kopi.sg" && /sign-in method/i.test(x.subject))).toBe(true);
+    await sweepOutbox(deps, clock.now());
+    expect(sent.slice(before).some((x) => x.to === "notify@kopi.sg" && /sign-in method/i.test(x.text))).toBe(true);
   });
 
   describe("Entra email trust (mock IdP)", () => {
