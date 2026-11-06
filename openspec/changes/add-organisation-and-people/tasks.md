@@ -42,7 +42,7 @@
 
 ## 7. Web UI
 
-- [ ] 7.1 apps/web: write `e2e/company-setup.spec.ts` (setup checklist on Home, company profile with UEN error message, department, default work schedule) then build Settings → Company, Structure, Work schedules — DONE: Settings → Company (UEN error), Structure (departments etc.), Work schedules; e2e `e2e/people/people.people.ts` covers the UEN error; setup checklist on Home done by WS3 ("Finish setting up", asserted in `e2e/home-inbox.spec.ts`)
+- [x] 7.1 apps/web: write `e2e/company-setup.spec.ts` (setup checklist on Home, company profile with UEN error message, department, default work schedule) then build Settings → Company, Structure, Work schedules — `e2e/company-setup.spec.ts` runs in a fresh seeded organisation (`E2E.freshOrg`): the checklist goes 4 → 3 → 1 steps as the company profile (after the UEN error), a department and the default schedule are added
 - [x] 7.2 apps/web: write `e2e/people.spec.ts` (hire wizard, profile tabs, NRIC masked, transfer with future date shows "Scheduled", resignation shows "Leaving on") then build People list and profile (e2e in `e2e/people/people.people.ts` against the dev-only persona server until sign-in lands)
 - [x] 7.3 apps/web: write `e2e/import.spec.ts` (upload file with 2 errors, preview table, fix and re-upload, confirm) then build the import wizard (e2e in `e2e/people/people.people.ts`)
 - [x] 7.4 apps/web: write `e2e/self-service.spec.ts` (employee edits mobile directly, submits bank change, sees "Awaiting approval") then build My profile (e2e in `e2e/people/people.people.ts`)

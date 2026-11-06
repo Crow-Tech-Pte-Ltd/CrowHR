@@ -12,11 +12,12 @@ import { organisations } from "../../db/schema/organisations.ts";
 import { users } from "../../db/schema/users.ts";
 import { AppError } from "../../errors.ts";
 import { defineRoute } from "../../http/route.ts";
-import { createMfaChallenge, normaliseEmail, notifyUser } from "../credentials.ts";
+import { createMfaChallenge, normaliseEmail } from "../credentials.ts";
 import { requireRecentAuth } from "../guards.ts";
 import { rememberDevice } from "../known-device.ts";
 import { isConfigured } from "../methods.ts";
 import { completeNativeSignIn } from "../native/complete.ts";
+import { noticeNewBrowserSignIn, sendSecurityNotice } from "../security-notices.ts";
 import { startBrowserSession } from "../sessions.ts";
 import { MINUTE, sessionCookie } from "../settings.ts";
 import { setMfaCookie } from "../sign-in-routes.ts";
@@ -329,14 +330,12 @@ export const oidcRoutes = [
       const idpMfa = idpAssertsMfa(claims);
       /** "New sign-in method linked" email (finding 1): the member learns about every link. */
       const notifyLinked = async (userId: string) => {
-        const [u] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId));
-        if (!u) return;
-        await notifyUser(
-          deps,
-          u.email,
-          "A new sign-in method was linked",
-          `${provider.displayName} was linked to your Crow HR account as a way to sign in. If this wasn't you, sign in, choose "Sign out everywhere" in your profile (this also removes linked sign-in methods), change your password and tell your administrator.`,
-        );
+        await sendSecurityNotice(db, deps, {
+          orgId: provider.orgId,
+          to: { userId },
+          title: "A new sign-in method was linked",
+          body: `${provider.displayName} was linked to your Crow HR account as a way to sign in. If this wasn't you, sign in, choose "Sign out everywhere" in My sessions (this also removes linked sign-in methods), change your password and tell your administrator.`,
+        });
       };
 
       const [existing] = await db
@@ -437,7 +436,15 @@ export const oidcRoutes = [
             targetId: membershipId,
             meta: { email, providerId: provider.id },
           });
-          // NOT IMPLEMENTED: in-app notification to HR ("link or remove this member"); the audit event is the record for now.
+          // Spec "JIT provisioning": HR is told to link the new member to an employee record or remove them.
+          await sendSecurityNotice(db, deps, {
+            orgId: provider.orgId,
+            to: { hrAdmins: true },
+            title: "A new member joined through single sign-on",
+            body: `${email} signed in with ${provider.displayName} and was added as a member automatically (sign-up for allowed domains is on). Link them to an employee record, or remove them, in Settings → Members.`,
+            link: "/settings/members",
+            actionLabel: "Open Members",
+          });
           linkedVia = "jit";
         }
       }
@@ -539,6 +546,7 @@ export const oidcRoutes = [
         });
         return c.redirect(redirect, 302);
       }
+      await noticeNewBrowserSignIn(c, { orgId: provider.orgId, userId, membershipId: membership.id, authMethod });
       await startBrowserSession(c, {
         userId,
         orgId: provider.orgId,
