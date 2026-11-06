@@ -149,6 +149,23 @@ if (!freshOrg) {
   console.error(`Seeded ${E2E.freshOrg.name} with its owner only.`);
 }
 
+// A fourth organisation for the generic-OIDC round trip (e2e/security-settings.spec.ts).
+const oidcOrg = (await db.select().from(schema.organisations)).find((o) => o.slug === E2E.oidcOrg.slug);
+if (!oidcOrg) {
+  const orgId = ids.newId();
+  await db.insert(schema.organisations).values({ id: orgId, name: E2E.oidcOrg.name, slug: E2E.oidcOrg.slug });
+  await db.insert(schema.orgSecuritySettings).values({ orgId });
+  for (const [m, roles] of [
+    [E2E.oidcOrg.owner, ["owner"]],
+    [E2E.oidcOrg.hr, ["hr_admin"]],
+    [E2E.oidcOrg.staff, []],
+  ] as const) {
+    // biome-ignore lint/suspicious/noExplicitAny: seedMember only needs db/ids/clock/passwordHasher.
+    await seedMember(deps as any, orgId, { email: m.email, displayName: m.name, password: E2E.password, roles });
+  }
+  console.error(`Seeded ${E2E.oidcOrg.name} for the OIDC round trip.`);
+}
+
 // Backups (e2e/system-page.spec.ts): the last successful backup ran three days ago, so Home warns
 // owners that it is more than 48 hours old. No archive file exists; only the run is recorded.
 if (!(await db.select().from(schema.backupRuns)).length) {

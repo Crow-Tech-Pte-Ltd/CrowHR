@@ -3,6 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 /** A second, fresh server for the first-run setup wizard (it must start without an organisation). */
 const SETUP_PORT = PORT + 1;
+/** The mock OpenID provider (e2e/mock-idp-server.ts); PORT + 2 is left free. */
+const IDP_PORT = PORT + 3;
 /** Fixed one-time code for the setup server only (SETUP_CODE is meant for automated installs). */
 export const E2E_SETUP_CODE = "ACDE-FGHJ-KMNP-QRTU";
 const E2E_SECRET_KEY = "ZTJlLW9ubHktdGhyb3dhd2F5LWtleS0zMi1ieXRlcyE";
@@ -34,6 +36,14 @@ export default defineConfig({
   ],
   globalSetup: "./e2e/global-setup.ts",
   webServer: [
+    {
+      // The mock OpenID provider for the generic-OIDC round trip (test only; no external IdP).
+      command: "node e2e/mock-idp-server.ts",
+      url: `http://127.0.0.1:${IDP_PORT}/realms/kopi/.well-known/openid-configuration`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+      env: { E2E_PORT: String(PORT) },
+    },
     {
       // Serves the built web app (`bun run build` first; `bun run e2e` does both). The seed step
       // creates the fictional organisation and members through the normal schema (no backdoor).
