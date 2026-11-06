@@ -1,10 +1,10 @@
 # Crow HR — engineering report
 
-**Status as of 1 November 2026, `main` @ the commit that adds this file.** Nothing has been pushed, deployed or published.
+**Status as of 7 November 2026.** `main` is pushed to the private repository `Crow-Tech-Pte-Ltd/CrowHR` and CI is green. Nothing has been deployed, published or submitted to an app store.
 
 ## Summary
 
-Crow HR is a working, self-hostable HR and payroll platform for Singapore SMEs, MIT-licensed and built from scratch in TypeScript. Every web module in the original brief is implemented, integrated and tested end to end. Statutory calculations are checked against CPF Board's own calculator and an independent second model. An independent security review found 25 defects, and every confirmed one is fixed and re-verified against the reviewer's own probes. The mobile apps (milestone M4) are specified but not started.
+Crow HR is a working, self-hostable HR and payroll platform for Singapore SMEs, MIT-licensed and built from scratch in TypeScript. Every web module in the original brief is implemented, integrated and tested end to end. Statutory calculations are checked against CPF Board's own calculator and an independent second model. An independent security review found 25 defects, and every confirmed one is fixed and re-verified against the reviewer's own probes. Native iOS and Android apps (milestone M4) are built and tested against a real server; they are not yet in the app stores.
 
 ## What exists
 
@@ -22,11 +22,12 @@ Crow HR is a working, self-hostable HR and payroll platform for Singapore SMEs, 
 | Self-hosting | One image (211 MB) + Postgres 17; `docker compose up -d`; generated secrets; any reverse proxy; auto-migrations with lock; setup wizard; `crowhr` CLI (backup / restore / doctor); encrypted scheduled backups |
 | Docs | Starlight site (82 pages, searchable, API reference for 276 operations), checked against code by tests (env vars, CLI, permission matrix) |
 | Demo | The real app + real API in the browser on PGlite, fictional café group, all modules seeded, ~1.2 s first load, per-visitor and resettable, Cloudflare Pages config ready |
+| Mobile apps | `apps/ios` (SwiftUI) and `apps/android` (Kotlin + Compose): connect by QR or address, system-browser sign-in with PKCE, biometric unlock, payslips, leave, offline clock-in (monotonic elapsed time, so a changed phone clock can't move a punch), claims with camera receipts, schedule, approvals, background refresh with content-free local notifications. Zero data collection: no analytics, crash reporting or third-party SDKs; tests assert every connection goes to the company's server only |
 | Landing page | `/apps/crow-hr` in crow-tech-landing on branch `crow-hr-product-page`, unlisted behind `CROW_HR_LAUNCHED = false`, noindex |
 
 ## Verification
 
-- **Automated:** 2,182 core/integration tests + 419 statutory-engine tests (99.7% line coverage, ≥95% enforced), 41 Playwright end-to-end tests, 3 demo end-to-end tests, docs build with link check. All green on `main`.
+- **Automated:** 2,227 core/integration tests + 419 statutory-engine tests (99.7% line coverage, ≥95% enforced), 52 Playwright end-to-end tests (also run in UTC), 3 demo end-to-end tests, docs build with link check; iOS 72 unit + 3 UI journey tests on the s5 simulator; Android 62 unit + 17 device tests on a 16 KB-page emulator. All green; GitHub Actions runs the web suite, Docker install and Android unit tests + lint on every push.
 - **Statutory correctness:** 91 researched test vectors; 15/15 cases match CPF Board's online calculator (automated, screenshots kept); all 16 of CPF's official AW-ceiling examples reproduce month by month. Two independent verification passes by a second model (Codex `gpt-6.1-sol`) found errors in the research and the payroll choices; all were fixed with citations (`packages/sg-rules/VERIFICATION.md`, `research/verification/`).
 - **Security:** an independent review found 8 high, 12 medium and several low issues (privilege paths around hr_admin, approval escalation, MFA edge cases, payroll adjustment runs, CSV injection, body limits, backups). All confirmed findings are fixed, each with a regression test, and re-checked by re-running the reviewer's probes against merged `main`.
 
@@ -39,9 +40,11 @@ Crow HR is a working, self-hostable HR and payroll platform for Singapore SMEs, 
 - **CI** is green on GitHub Actions in the private repo (lint, typecheck, four test shards, build, docs, audit, Playwright against Postgres 17, Docker install smoke). Its first runs found a timezone bug in the date picker, now fixed.
 - The Singpass button uses text, not the official logo (not redistributable under MIT).
 
-## Not started
+## Mobile apps: what remains
 
-- **Mobile apps (M4):** native SwiftUI + Kotlin/Compose, zero data collection, specified in `openspec/changes/add-mobile-apps`. Building and publishing follows `/home/daniel/Gremia/AGENTS.md` and needs the s5 Mac and the store accounts.
+- **Store release:** placeholder icons; bundle id `crowtech.crowhr` not registered with Apple or Google; release scripts refuse to upload without an approval record. Store metadata and the "Data Not Collected" answers are drafted for review.
+- **iOS accessibility sign-off (task 3.7):** Xcode's audit flags one Dynamic Type item per run, changing between runs; needs a manual pass on a real device.
+- Privacy and support pages are written on the landing branch (noindex until launch).
 
 ## Needs Daniel
 
@@ -49,7 +52,7 @@ Crow HR is a working, self-hostable HR and payroll platform for Singapore SMEs, 
 2. **Placeholders:** the repo is `github.com/Crow-Tech-Pte-Ltd/CrowHR` (private); `security@crow.sg` and `conduct@crow.sg` are assumed in docs and README.
 3. **Deploy hr.crow.sg:** demo at `/` and docs at `/docs` on Cloudflare Pages, following `docs/deploy-demo.md`. Needs approval and a DNS change.
 4. **Landing page:** pushing `crow-hr-product-page` and opening a PR publishes a Cloudflare preview at a public pages.dev URL. Flipping `CROW_HR_LAUNCHED` launches it.
-5. **Mobile apps:** go-ahead to start M4, and a decision on push notifications (none, a Crow-run relay, or UnifiedPush).
+5. **Mobile app release:** approve an app icon; approve registering `crowtech.crowhr` and creating the App Store Connect and Play Console entries; review the "Data Not Collected" / Data safety answers (the design asks for a policy check); decide how store reviewers get a server and account (a reviewer server, or the public demo exposing its API). Push notifications stay off in v1 (in-app inbox, background refresh, local notifications); a relay or UnifiedPush is a later, opt-in decision.
 6. **Optional:** ask IRAS (data_mgmt@iras.gov.sg) whether a self-hosted product can use the AIS API; a real company's Singpass staging test.
 
 ## How it was built
