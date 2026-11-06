@@ -8,7 +8,7 @@ All tasks are milestone M4. Prerequisites: `add-api-platform` complete; attendan
 ## 2. Android (apps/android)
 
 - [x] 2.1 apps/android: project skeleton (Kotlin, Compose, pinned Gradle wrapper with checksum, stable AGP/Kotlin/Compose verified from official sources) — verified by `scripts/android-build.sh check` (debug build + unit tests + lint) — AGP 9.4.1, Kotlin 2.4.21, Compose BOM 2026.09.00, Gradle 9.8.1 (distribution and wrapper-jar SHA-256 match services.gradle.org); min API 29, target 37
-- [ ] 2.2 apps/android: write `ConnectViewModelTest` (meta parsing, HTTPS rule, private-range HTTP warning, incompatible server message, 5 saved connections) then implement connect + QR scan
+- [x] 2.2 apps/android: write `ConnectViewModelTest` (meta parsing, HTTPS rule, private-range HTTP warning, incompatible server message, 5 saved connections) then implement connect + QR scan — runs every case in `apps/mobile-fixtures/connect-cases.json` (+ `DeepLinkTest` for `deeplink-cases.json`); QR scanning is CameraX + ZXing on-device (no Play Services); the scanned text goes through the same tested `crowhr://connect` parser
 - [ ] 2.3 apps/android: write `NativeAuthTest` (PKCE pair, state check, token storage encrypted with Keystore key, backup exclusion rules present) then implement Custom Tabs sign-in, refresh and biometric unlock
 - [ ] 2.4 apps/android: write `PunchQueueTest` (FIFO, idempotency key reuse on retry, 200 cap, late-send label, never drops) then implement the queue and clock-in screen
 - [ ] 2.5 apps/android: write Compose UI tests `EssJourneyTest` against the local seeded server (payslips, leave apply, claim with camera stub, schedule, approve/reject, notifications) with the network allow-list assertion, then implement the screens
