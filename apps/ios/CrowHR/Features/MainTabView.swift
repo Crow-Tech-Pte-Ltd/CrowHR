@@ -64,6 +64,7 @@ struct TodayView: View {
         }
         .crowScreen()
         .navigationTitle("Today")
+        .navigationBarTitleDisplayMode(.inline)
         .refreshable { await reload() }
         .task { await reload() }
     }
@@ -131,7 +132,10 @@ struct TodayView: View {
     }
 
     @ViewBuilder private var phonePunches: some View {
-        let shown = session.punches.suffix(10).reversed()
+        // Refused punches stay until dismissed; otherwise the latest ten.
+        let attention = session.punches.filter(\.needsAttention)
+        let recent = session.punches.filter { !$0.needsAttention && $0.dismissedAt == nil }.suffix(10)
+        let shown = (attention + recent).sorted { $0.deviceTime > $1.deviceTime }
         if !shown.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
@@ -143,7 +147,11 @@ struct TodayView: View {
                             .accessibilityIdentifier("clock.sendNow")
                     }
                 }
-                ForEach(Array(shown)) { p in PunchRow(punch: p, ownerMatches: p.membershipId == (session.me?.membershipId ?? session.connection.membershipId)) }
+                ForEach(shown) { p in
+                    PunchRow(punch: p, ownerMatches: p.membershipId == (session.me?.membershipId ?? session.connection.membershipId)) {
+                        Task { await session.queue.dismiss(p.id); await session.reloadPunches() }
+                    }
+                }
             }
         }
     }
@@ -188,6 +196,7 @@ struct TodayView: View {
 struct PunchRow: View {
     let punch: QueuedPunch
     let ownerMatches: Bool
+    var onDismiss: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -207,10 +216,16 @@ struct PunchRow: View {
                 Text("Made by someone else on this phone. It's sent when they sign in again.")
                     .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
             }
+            if punch.needsAttention {
+                Button("Dismiss", action: onDismiss)
+                    .font(CrowFont.mono(.footnote, weight: .medium))
+                    .accessibilityLabel("Dismiss this refused punch")
+                    .accessibilityIdentifier("punch.dismiss")
+            }
         }
         .padding(12)
         .overlay(RoundedRectangle(cornerRadius: Crow.radius).strokeBorder(Crow.hairline, lineWidth: 1))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: punch.needsAttention ? .contain : .combine)
         .accessibilityIdentifier("punch.row")
     }
 

@@ -40,10 +40,6 @@ struct LeaveView: View {
                                     Button("Cancel leave") { cancelling = r }.tint(Crow.warning)
                                 }
                             }
-                            .contextMenu {
-                                if r.status == "pending" { Button("Withdraw", role: .destructive) { Task { await withdraw(r) } } }
-                                if r.status == "approved" { Button("Cancel leave") { cancelling = r } }
-                            }
                     }
                 } header: { SectionLabel("My leave") }
             }
@@ -52,6 +48,7 @@ struct LeaveView: View {
         }
         .crowScreen()
         .navigationTitle("Leave")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { applying = true } label: { Label("Apply for leave", systemImage: "plus") }
@@ -180,6 +177,7 @@ struct ApplyLeaveView: View {
     @State private var error: String?
     @State private var showCamera = false
     @State private var pickedPhoto: PhotosPickerItem?
+    @State private var choosingPhoto = false
 
     private var selectedType: LeaveType? { types.value?.first { $0.id == typeID } }
 
@@ -197,11 +195,8 @@ struct ApplyLeaveView: View {
             AsyncContent(state: $types, load: loadTypes) { list in
                 Form {
                     Section {
-                        Picker("Leave type", selection: $typeID) {
-                            ForEach(list) { Text($0.name).tag($0.id) }
-                        }
-                        .adaptivePickerStyle()
-                        .accessibilityIdentifier("leave.type")
+                        ChoiceField(title: "Leave type", options: list.map { (id: $0.id, name: $0.name) }, selection: $typeID)
+                            .accessibilityIdentifier("leave.type")
                         DatePicker("From", selection: $start, displayedComponents: .date)
                             .accessibilityIdentifier("leave.start")
                         DatePicker("To", selection: $end, in: start..., displayedComponents: .date)
@@ -232,7 +227,7 @@ struct ApplyLeaveView: View {
                                 }
                             } else {
                                 Button { showCamera = true } label: { Label("Take a photo", systemImage: "camera") }
-                                PhotosPicker(selection: $pickedPhoto, matching: .images) { Label("Choose a photo", systemImage: "photo").font(CrowFont.body()) }
+                                Button { choosingPhoto = true } label: { Label("Choose a photo", systemImage: "photo") }
                             }
                         } header: {
                             Text((t.attachmentLabel ?? "Supporting document") + (t.attachment == "required" ? " (required)" : " (optional)"))
@@ -268,6 +263,7 @@ struct ApplyLeaveView: View {
             .sheet(isPresented: $showCamera) {
                 CameraCapture(stub: model.env.cameraStub) { attachment = $0; showCamera = false }
             }
+            .photosPicker(isPresented: $choosingPhoto, selection: $pickedPhoto, matching: .images)
             .onChange(of: pickedPhoto) { _, item in
                 guard let item else { return }
                 Task {

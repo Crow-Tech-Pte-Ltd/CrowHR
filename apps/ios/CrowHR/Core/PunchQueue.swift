@@ -32,6 +32,9 @@ struct QueuedPunch: Codable, Identifiable, Equatable, Sendable {
     let deviceTime: Date
     /// Monotonic seconds since boot at the tap (elapsed-time measurement only).
     let uptimeAtTap: TimeInterval
+    /// The boot session at the tap: `elapsedMs` is only meaningful within the same boot.
+    var bootSession: String? = nil
+    /// Kept on the phone only; the server has no time-zone field.
     let timeZoneOffsetSeconds: Int
     let location: PunchLocation?
     var attempts: Int = 0
@@ -43,8 +46,13 @@ struct QueuedPunch: Codable, Identifiable, Equatable, Sendable {
     var settledAt: Date? = nil
     var outcome: PunchOutcome = .pending
     var replayed: Bool = false
+    /// Set when the user dismissed a punch the server refused (explicit action only).
+    var dismissedAt: Date? = nil
 
     var isPending: Bool { !outcome.isSettled }
+    var isRejected: Bool { if case .rejected = outcome { true } else { false } }
+    /// Refused punches stay on screen, with the server's reason, until the user dismisses them.
+    var needsAttention: Bool { isRejected && dismissedAt == nil }
 
     /// Labels shared word for word with Android (apps/mobile-fixtures/punch-queue-cases.json).
     enum Labels {
@@ -100,7 +108,20 @@ enum PunchSendResult: Equatable, Sendable {
 }
 
 protocol PunchSending: Sendable {
-    func send(_ punch: QueuedPunch, sentAt: Date, queued: Bool) async -> PunchSendResult
+    /// `elapsedMs`: monotonic milliseconds since the tap, nil when the phone restarted since.
+    func send(_ punch: QueuedPunch, sentAt: Date, queued: Bool, elapsedMs: Int?) async -> PunchSendResult
+}
+
+/// The kernel's boot session id: changes on every restart, so a stored uptime is comparable only
+/// while it stays the same.
+enum BootSession {
+    static func current() -> String? {
+        var size = 0
+        guard sysctlbyname("kern.bootsessionuuid", nil, &size, nil, 0) == 0, size > 0 else { return nil }
+        var buffer = [CChar](repeating: 0, count: size)
+        guard sysctlbyname("kern.bootsessionuuid", &buffer, &size, nil, 0) == 0 else { return nil }
+        return String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
 }
 
 protocol PunchQueueStoring: Sendable {
@@ -129,19 +150,24 @@ actor PunchQueue {
     static let lateThreshold: TimeInterval = 7 * 86_400
     static let settledRetention: TimeInterval = 30 * 86_400
     static let maxBackoff: TimeInterval = 15 * 60
+    /// The server accepts `elapsedMs` up to 8 days; beyond that it's left out.
+    static let maxElapsedMs = 8 * 86_400_000
 
     private let store: any PunchQueueStoring
     private let now: @Sendable () -> Date
     private let uptime: @Sendable () -> TimeInterval
+    private let bootSession: @Sendable () -> String?
     private var items: [QueuedPunch]
     private var draining = false
 
     init(store: any PunchQueueStoring,
          now: @escaping @Sendable () -> Date = { Date() },
-         uptime: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+         uptime: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+         bootSession: @escaping @Sendable () -> String? = { BootSession.current() }) {
         self.store = store
         self.now = now
         self.uptime = uptime
+        self.bootSession = bootSession
         self.items = store.load()
     }
 
@@ -174,9 +200,27 @@ actor PunchQueue {
             id: UUID(), idempotencyKey: idempotencyKey ?? Self.newIdempotencyKey(), kind: kind, membershipId: membershipId,
             deviceTime: tap, uptimeAtTap: uptime(), timeZoneOffsetSeconds: timeZone.secondsFromGMT(for: tap),
             location: location)
-        items.append(punch)
+        var tapped = punch
+        tapped.bootSession = bootSession()
+        items.append(tapped)
         persist()
-        return punch
+        return tapped
+    }
+
+    /// Monotonic time since the tap, only within the same boot session.
+    func elapsedMs(for punch: QueuedPunch) -> Int? {
+        guard let tapBoot = punch.bootSession, let nowBoot = bootSession(), tapBoot == nowBoot else { return nil }
+        let up = uptime()
+        guard up >= punch.uptimeAtTap else { return nil }
+        let ms = Int(((up - punch.uptimeAtTap) * 1000).rounded())
+        return ms <= Self.maxElapsedMs ? ms : nil
+    }
+
+    /// The user acknowledged a refused punch (it stops being shown). Pending punches can't be dismissed.
+    func dismiss(_ id: UUID) {
+        guard let i = items.firstIndex(where: { $0.id == id }), items[i].outcome.isSettled else { return }
+        items[i].dismissedAt = now()
+        persist()
     }
 
     /// Sends due punches for `membershipId` oldest first. Stops at the first punch that can't be
@@ -202,7 +246,7 @@ actor PunchQueue {
             }
             // queued = retried before, or sent a minute or more after the tap.
             let queued = punch.attempts > 0 || attemptAt.timeIntervalSince(punch.deviceTime) >= 60
-            let result = await sender.send(punch, sentAt: attemptAt, queued: queued)
+            let result = await sender.send(punch, sentAt: attemptAt, queued: queued, elapsedMs: elapsedMs(for: punch))
             // Re-find: the array may have been appended to while awaiting.
             guard let i = items.firstIndex(where: { $0.id == punch.id }) else { break }
             items[i].attempts += 1
@@ -246,12 +290,13 @@ actor PunchQueue {
         return summary
     }
 
-    /// Drops settled punches older than 30 days. Pending punches are never pruned.
+    /// Drops settled punches older than 30 days. Pending punches, and refused ones the user hasn't
+    /// dismissed, are never pruned.
     func pruneSettled() {
         let cutoff = now().addingTimeInterval(-Self.settledRetention)
         let before = items.count
         items.removeAll { p in
-            guard let settled = p.settledAt else { return false }
+            guard let settled = p.settledAt, !p.needsAttention else { return false }
             return settled < cutoff
         }
         if items.count != before { persist() }
@@ -330,6 +375,7 @@ struct APIPunchSender: PunchSending {
         let sentAt: String
         let queued: Bool
         let source: String
+        let elapsedMs: Int?
         let location: Location?
         struct Location: Encodable { let latitude: Double; let longitude: Double; let accuracyMetres: Double? }
     }
@@ -350,13 +396,10 @@ struct APIPunchSender: PunchSending {
         return f.string(from: d)
     }
 
-    func send(_ punch: QueuedPunch, sentAt: Date, queued: Bool) async -> PunchSendResult {
+    func send(_ punch: QueuedPunch, sentAt: Date, queued: Bool, elapsedMs: Int?) async -> PunchSendResult {
         let body = Body(
             kind: punch.kind.rawValue, idempotencyKey: punch.idempotencyKey, deviceTime: Self.iso(punch.deviceTime),
-            sentAt: Self.iso(sentAt), queued: queued,
-            // NOT IMPLEMENTED (server): the punch API has no native-app source yet; "mobile_web" is
-            // the closest existing value. Requested: "ios"/"android" (reported to the lead).
-            source: "mobile_web",
+            sentAt: Self.iso(sentAt), queued: queued, source: "ios", elapsedMs: elapsedMs,
             location: punch.location.map { .init(latitude: $0.latitude, longitude: $0.longitude, accuracyMetres: $0.accuracyMetres) })
         let data: Data
         do {
