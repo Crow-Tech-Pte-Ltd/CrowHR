@@ -23,6 +23,8 @@ export const E2E = {
     // Scheduling (WS5b): rostered café crew at HQ reporting to Kai Wen (e2e/seed-schedules.ts).
     crewA: { email: "nurul@kampongkopi.example", name: "Nurul Huda", roles: [] },
     crewB: { email: "marcus@kampongkopi.example", name: "Marcus Lim", roles: [] },
+    // Mobile device sessions (e2e/device-sessions.spec.ts).
+    device: { email: "meixin@kampongkopi.example", name: "Goh Mei Xin", roles: [] },
   },
   /** Second organisation with every SSO method on (screenshots / multi-org). */
   ssoOrg: {
