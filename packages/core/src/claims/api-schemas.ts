@@ -13,7 +13,12 @@ export const claimTypeInputSchema = z.object({
   category: z.enum(CLAIM_CATEGORIES),
   receiptRule: z.enum(RECEIPT_RULES),
   receiptAboveCents: cents.nullable().optional(),
-  capCents: z.int().min(1).max(Number.MAX_SAFE_INTEGER).nullable().optional(),
+  capCents: z
+    .int()
+    .min(1, "A cap must be more than S$0.00. Enter the cap amount, or choose No cap.")
+    .max(Number.MAX_SAFE_INTEGER)
+    .nullable()
+    .optional(),
   capPeriod: z.enum(CAP_PERIODS),
   eligibleEmploymentTypes: z.array(employmentType).max(4).optional(),
   availableDuringProbation: z.boolean().optional(),

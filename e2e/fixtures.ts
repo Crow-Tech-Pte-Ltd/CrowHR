@@ -32,6 +32,15 @@ export const E2E = {
     slug: "tanjong-tech",
     owner: { email: "owner@tanjongtech.example", name: "Daniel Ong" },
   },
+  /**
+   * Third organisation, just its owner, as a company looks right after the setup wizard: no
+   * company profile, structure, schedule, people or claim types (company-setup, claim-types specs).
+   */
+  freshOrg: {
+    name: "Kedai Runcit Ah Huat Pte. Ltd.",
+    slug: "kedai-runcit",
+    owner: { email: "owner@kedairuncit.example", name: "Tan Ah Huat" },
+  },
 } as const;
 
 export const SHOTS = process.env.SHOTS_DIR;
