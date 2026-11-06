@@ -130,7 +130,8 @@ class PunchQueueTest {
         val sender = FixtureSender(listOf(Json.parseToJsonElement("""{"status":201,"body":{"status":"accepted","flags":[]}}""").jsonObject))
         queue.drain(Instant.parse("2026-11-02T00:58:20Z"), sender)
         val json = Json.parseToJsonElement(PunchQueue.encode(sender.sent.single())).jsonObject
-        assertEquals(setOf("kind", "idempotencyKey", "deviceTime", "sentAt", "queued", "location"), json.keys)
+        assertEquals(setOf("kind", "idempotencyKey", "deviceTime", "sentAt", "queued", "location", "source"), json.keys)
+        assertEquals("android", json["source"]!!.jsonPrimitive.content)
         assertEquals("2026-11-02T00:58:00Z", json["deviceTime"]!!.jsonPrimitive.content)
         assertEquals(12.0, json["location"]!!.jsonObject["accuracyMetres"]!!.jsonPrimitive.content.toDouble(), 0.0)
 
@@ -190,6 +191,56 @@ class PunchQueueTest {
         queue.enqueue("out", Instant.parse("2026-11-02T00:59:00Z"), key = "hist-pending-1")
         assertEquals(PunchQueue.HISTORY_LIMIT + 1, queue.all().size)
         assertEquals("hist-pending-1", queue.pending().single().key)
+    }
+
+    private class FakeMonotonic(override val bootCount: Int?, private val elapsed: Long) : MonotonicClock {
+        override fun elapsedMillis() = elapsed
+    }
+
+    private val accepted = Json.parseToJsonElement("""{"status":201,"body":{"status":"accepted","flags":[]}}""").jsonObject
+
+    private suspend fun sentElapsed(tapBoot: Int?, tapAt: Long?, clock: MonotonicClock): Long? {
+        val queue = PunchQueue(KvPunchStore(InMemoryKeyValueStore(), "c"))
+        queue.enqueue("in", Instant.parse("2026-11-02T00:58:00Z"), key = "mono-key-0001", monotonicMillis = tapAt, bootCount = tapBoot, utcOffsetMinutes = 480)
+        val sender = FixtureSender(listOf(accepted))
+        queue.drain(Instant.parse("2026-11-02T01:20:00Z"), sender, clock)
+        val body = Json.parseToJsonElement(PunchQueue.encode(sender.sent.single())).jsonObject
+        assertFalse("no time-zone field is sent", body.keys.any { it.contains("offset", ignoreCase = true) || it.contains("zone", ignoreCase = true) })
+        return body["elapsedMs"]?.jsonPrimitive?.content?.toLong()
+    }
+
+    @Test fun elapsedTimeIsSentWithinTheSameBoot() = runTest {
+        assertEquals(1_320_000L, sentElapsed(tapBoot = 12, tapAt = 5_000_000, clock = FakeMonotonic(12, 6_320_000)))
+    }
+
+    @Test fun elapsedTimeIsOmittedAfterARebootOrWhenUnknown() = runTest {
+        assertNull("rebooted since the tap", sentElapsed(tapBoot = 12, tapAt = 5_000_000, clock = FakeMonotonic(13, 9_000)))
+        assertNull("boot count unknown at the tap", sentElapsed(tapBoot = null, tapAt = 5_000_000, clock = FakeMonotonic(12, 6_000_000)))
+        assertNull("no monotonic reading", sentElapsed(tapBoot = 12, tapAt = null, clock = FakeMonotonic(12, 6_000_000)))
+        assertNull("clock went backwards", sentElapsed(tapBoot = 12, tapAt = 5_000_000, clock = FakeMonotonic(12, 4_000_000)))
+        assertNull("no clock given", sentElapsed(tapBoot = 12, tapAt = 5_000_000, clock = MonotonicClock.None))
+    }
+
+    @Test fun refusedPunchesStayUntilDismissed() = runTest {
+        val queue = PunchQueue(KvPunchStore(InMemoryKeyValueStore(), "c"))
+        queue.enqueue("in", Instant.parse("2026-10-20T00:58:00Z"), key = "old-key-0001")
+        val refusal = Json.parseToJsonElement(
+            """{"status":422,"body":{"error":{"code":"punch_rejected","message":"This punch is more than 7 days old.","requestId":"r"}}}""",
+        ).jsonObject
+        queue.drain(Instant.parse("2026-11-02T01:00:00Z"), FixtureSender(listOf(refusal)))
+        // Many later punches don't push the refusal out of the history.
+        for (i in 1..(PunchQueue.HISTORY_LIMIT + 5)) {
+            queue.enqueue("in", Instant.parse("2026-11-02T00:58:00Z"), key = "newer-key-%04d".format(i))
+            queue.drain(Instant.parse("2026-11-02T00:58:10Z"), FixtureSender(listOf(accepted)))
+        }
+        val refused = queue.find("old-key-0001")!!
+        assertEquals("rejected", refused.state)
+        assertEquals(listOf("Not accepted: This punch is more than 7 days old.", PunchLabels.LATE), PunchLabels.of(refused))
+        queue.enqueue("out", Instant.parse("2026-11-02T01:00:00Z"), key = "pending-key-01")
+        assertFalse("pending punches are discarded, not dismissed", queue.dismiss("pending-key-01"))
+        assertFalse("synced punches aren't dismissable", queue.dismiss("newer-key-0105"))
+        assertTrue(queue.dismiss("old-key-0001"))
+        assertNull(queue.find("old-key-0001"))
     }
 
     @Test fun clockStateFollowsTheLastPunch() {

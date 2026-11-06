@@ -16,6 +16,14 @@ import crowtech.crowhr.api.OfflineException
 import crowtech.crowhr.connect.AppScreen
 import java.util.concurrent.TimeUnit
 
+/** SystemClock.elapsedRealtime (counts through sleep; resets on reboot) and the boot it belongs to. */
+class AndroidMonotonicClock(private val context: Context) : MonotonicClock {
+    override val bootCount: Int?
+        get() = runCatching { android.provider.Settings.Global.getInt(context.contentResolver, android.provider.Settings.Global.BOOT_COUNT) }.getOrNull()
+
+    override fun elapsedMillis(): Long = android.os.SystemClock.elapsedRealtime()
+}
+
 /** Sends queued punches through the bearer-token client. */
 class ApiPunchSender(private val api: ApiClient) : PunchSender {
     override suspend fun send(request: PunchRequest): SendOutcome = try {
@@ -54,7 +62,7 @@ object PunchSync {
             if (!connection.isAvailable(AppScreen.Clock) || !graph.isSignedIn(connection)) continue
             val queue = graph.punchQueue(connection)
             if (queue.pending().isEmpty()) continue
-            val result = queue.drain(graph.clock(), ApiPunchSender(graph.api(connection)))
+            val result = queue.drain(graph.clock(), ApiPunchSender(graph.api(connection)), AndroidMonotonicClock(graph.context))
             if (result.stopReason == StopReason.Network) allSent = false
         }
         return allSent

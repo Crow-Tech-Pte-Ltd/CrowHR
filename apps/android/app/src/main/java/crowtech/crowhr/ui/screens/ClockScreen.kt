@@ -74,6 +74,7 @@ fun ClockScreen(ctx: ScreenContext) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val queue = remember(ctx.connection.key) { ctx.graph.punchQueue(ctx.connection) }
+    val monotonic = remember { crowtech.crowhr.punch.AndroidMonotonicClock(context.applicationContext) }
     var version by remember { mutableIntStateOf(0) }
     val status = rememberLoader(ctx.connection.key) { ctx.api.get("/api/v1/attendance/me", AttendanceMe.serializer()) }
     var busy by remember { mutableStateOf(false) }
@@ -98,7 +99,7 @@ fun ClockScreen(ctx: ScreenContext) {
     val wantsLocation = me?.location?.mode?.let { it != "off" } ?: false
 
     suspend fun drain() {
-        val result = queue.drain(ctx.graph.clock(), ApiPunchSender(ctx.api))
+        val result = queue.drain(ctx.graph.clock(), ApiPunchSender(ctx.api), monotonic)
         version++
         when (result.stopReason) {
             StopReason.Network -> {
@@ -115,7 +116,8 @@ fun ClockScreen(ctx: ScreenContext) {
         val r = queue.enqueue(
             kind = nextKind,
             deviceTime = now,
-            monotonicMillis = SystemClock.elapsedRealtime(),
+            monotonicMillis = monotonic.elapsedMillis(),
+            bootCount = monotonic.bootCount,
             utcOffsetMinutes = ZoneId.systemDefault().rules.getOffset(now).totalSeconds / 60,
             location = location,
         )
@@ -183,7 +185,7 @@ fun ClockScreen(ctx: ScreenContext) {
                 style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted,
             )
             punches.asReversed().forEach { p ->
-                PunchRow(p, onDiscard = { discard = p })
+                PunchRow(p, onDiscard = { discard = p }, onDismiss = { queue.dismiss(p.key) })
                 Hairline()
             }
             if (queue.pending().isNotEmpty()) {
@@ -230,7 +232,7 @@ private fun ServerPunchRow(p: PunchView) {
 }
 
 @Composable
-private fun PunchRow(p: QueuedPunch, onDiscard: () -> Unit) {
+private fun PunchRow(p: QueuedPunch, onDiscard: () -> Unit, onDismiss: () -> Unit) {
     val labels = PunchLabels.of(p)
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -243,6 +245,8 @@ private fun PunchRow(p: QueuedPunch, onDiscard: () -> Unit) {
         }
         labels.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted) }
         if (p.isPending) LinkButton("Discard…", onDiscard)
+        // A refused punch stays with the server's reason until the employee has read it.
+        if (p.state == PunchQueue.REJECTED) LinkButton("Dismiss", onDismiss)
     }
 }
 
