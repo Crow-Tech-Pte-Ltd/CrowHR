@@ -1,0 +1,62 @@
+# Crow HR for iOS: App Store metadata (DRAFT)
+
+Status: draft for Daniel's review (add-mobile-apps task 4.3). Nothing has been submitted.
+App Store Connect needs a registered bundle id (`crowtech.crowhr`, not yet registered), the store
+account choice, and the privacy and support pages at `crow.sg/apps/crow-hr/{privacy,support}`
+(task 4.1).
+
+## Listing
+
+- **Name:** Crow HR
+- **Subtitle:** Payslips, leave and clock-in
+- **Category:** Business
+- **Price:** Free
+- **Promotional text:** Your company's own Crow HR, on your phone. Check payslips, apply for leave and clock in, even without signal.
+- **Description:**
+  Crow HR is the free, open-source HR and payroll system that Singapore companies run on their own server. This app connects to your company's Crow HR. Ask HR for the address, or scan the QR code in Crow HR on the web.
+  - See your payslips.
+  - Check leave balances and apply for leave.
+  - Clock in and out. With no signal, punches wait on your phone and are sent in order when you're back online.
+  - Make claims with a photo of the receipt.
+  - See your schedule.
+  - Managers approve or reject requests.
+  You sign in with your company's method (email and password, Google, Microsoft, Singpass or your company's single sign-on) in a secure browser window. The app talks only to your company's server. Crow Tech collects nothing: no analytics, no tracking, no advertising.
+- **Keywords:** HR,payroll,payslip,leave,clock in,attendance,Singapore,CPF,claims,roster
+- **Support URL:** https://crow.sg/apps/crow-hr/support/ (task 4.1, not live)
+- **Privacy policy URL:** https://crow.sg/apps/crow-hr/privacy/ (task 4.1, not live)
+- **Age rating:** 4+ (no objectionable content)
+- **Copyright:** Crow Tech Pte. Ltd.
+
+## App Privacy ("nutrition label")
+
+**Data Not Collected.** Answer "No, we do not collect data from this app".
+
+Why that's accurate:
+
+- The developer (Crow Tech) receives nothing. Every request goes to the employer's own server, at
+  the address the user enters. The UI tests prove this by recording every connection the app makes.
+- There are no third-party SDKs: no analytics, crash reporting or advertising.
+- The privacy manifest (`CrowHR/Resources/PrivacyInfo.xcprivacy`) declares no tracking, no
+  tracking domains and no collected data types. Its required-reason APIs are:
+  - UserDefaults, CA92.1;
+  - system boot time, 35F9.1. Elapsed time is measured between a clock-in tap and its send.
+
+Open question, already flagged in the design's Risks: Apple's definition of data a "third party"
+collects, when data goes to the user's employer. The policy review must happen before submission.
+
+## Review notes (draft)
+
+Crow HR is self-hosted, so reviewers need a server and an account. Options, which need Daniel's
+approval:
+
+- a reviewer server with fictional data;
+- the public demo, once it exposes the API.
+
+Sign-in uses ASWebAuthenticationSession. The camera is used for receipts and the connection QR
+code. Location is "while using" only, when the employer's attendance policy asks for it. There is
+no remote push.
+
+## Screenshots
+
+Use the simulator captures from the UI tests (`artifacts/ios/`), re-shot on the required device
+sizes before submission. The app icon is a placeholder and needs approval.

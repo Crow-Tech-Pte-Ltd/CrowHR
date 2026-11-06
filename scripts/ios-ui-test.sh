@@ -5,7 +5,7 @@
 #   3. sync and run the XCUITests on s5 with the socket allow-list check,
 #   4. stop the tunnel and the server, always.
 #
-#   CROWHR_SIM_UDID=<udid> scripts/ios-ui-test.sh [extra xcodebuild args]
+#   CROWHR_SIM_UDID=<udid> [CROWHR_UI_ONLY=CrowHRUITests/QAScreenshotsUITests] scripts/ios-ui-test.sh [extra xcodebuild args]
 # Build the web app first: bun run --cwd apps/web build
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -42,7 +42,7 @@ kill -0 "$TUNNEL_PID" 2>/dev/null || { echo "Tunnel failed (port $PORT busy on t
 scripts/ios-sync.sh
 set +e
 "${SSH[@]}" "$HOST" "cd ~/Developer/crowhr-ios && CROWHR_SIM_UDID=$UDID CROWHR_NET_ALLOW=127.0.0.1:$PORT \
-  TEST_RUNNER_CROWHR_TEST_SERVER=http://127.0.0.1:$PORT scripts/ios-mac-test.sh ui -only-testing:CrowHRUITests $*" | tee "$STATE/mac.log"
+  TEST_RUNNER_CROWHR_TEST_SERVER=http://127.0.0.1:$PORT scripts/ios-mac-test.sh ui -only-testing:${CROWHR_UI_ONLY:-CrowHRUITests} $*" | tee "$STATE/mac.log"
 STATUS=${PIPESTATUS[0]}
 set -e
 
