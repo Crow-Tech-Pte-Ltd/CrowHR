@@ -1,0 +1,6 @@
+# Generated on the Mac by xcodegen from project.yml.
+CrowHR.xcodeproj/
+CrowHR/Info.plist
+DerivedData*/
+*.xcresult
+build/

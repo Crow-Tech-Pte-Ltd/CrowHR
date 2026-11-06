@@ -1,0 +1,119 @@
+# Crow HR for iOS. Generate the Xcode project on the Mac (`xcodegen generate`); the generated
+# CrowHR.xcodeproj is not committed. Simulator builds only: ad-hoc "sign to run locally", no team.
+name: CrowHR
+configs:
+  Debug: debug
+  Release: release
+options:
+  bundleIdPrefix: crowtech
+  deploymentTarget:
+    iOS: '27.0'
+  xcodeVersion: '27.1'
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
+    IPHONEOS_DEPLOYMENT_TARGET: '27.0'
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    MARKETING_VERSION: '0.1.0'
+    CURRENT_PROJECT_VERSION: '1'
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: '-'
+    DEVELOPMENT_TEAM: ''
+targets:
+  CrowHR:
+    type: application
+    platform: iOS
+    sources:
+      - path: CrowHR
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: crowtech.crowhr
+        PRODUCT_NAME: CrowHR
+        INFOPLIST_FILE: CrowHR/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: '1,2'
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: YES
+    info:
+      path: CrowHR/Info.plist
+      properties:
+        CFBundleDisplayName: Crow HR
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.business
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIAppFonts:
+          - AzeretMono-Regular.ttf
+          - AzeretMono-Medium.ttf
+          - AzeretMono-SemiBold.ttf
+          - Ubuntu-400.ttf
+          - Ubuntu-500.ttf
+          - Ubuntu-700.ttf
+        # QR deep link from the web app (My profile → Mobile app). The sign-in redirect
+        # (crowtech.crowhr:/oauth2redirect) is received by ASWebAuthenticationSession and is
+        # deliberately not registered here.
+        CFBundleURLTypes:
+          - CFBundleURLName: crowtech.crowhr.connect
+            CFBundleURLSchemes: [crowhr]
+        # Background refresh of the notifications inbox (no remote push in v1).
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [crowtech.crowhr.refresh]
+        # HTTPS everywhere; plain HTTP only reaches LAN hosts (the app also refuses public HTTP).
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSCameraUsageDescription: Crow HR uses the camera to scan your company's connection QR code and to photograph claim receipts and leave documents.
+        NSFaceIDUsageDescription: Crow HR uses Face ID to unlock the app when you have turned on biometric unlock.
+        NSLocationWhenInUseUsageDescription: Your company asks for your location when you clock in or out. It is sent only to your company's Crow HR server, with that punch.
+        NSPhotoLibraryUsageDescription: Choose a photo of a receipt or document to attach to a claim or leave application.
+  CrowHRTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: CrowHRTests
+      - path: ../mobile-fixtures
+        buildPhase: resources
+        type: folder
+        optional: true
+    dependencies:
+      - target: CrowHR
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: crowtech.crowhr.tests
+  CrowHRUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [CrowHRUITests]
+    dependencies:
+      - target: CrowHR
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: crowtech.crowhr.uitests
+        TEST_TARGET_NAME: CrowHR
+schemes:
+  CrowHR:
+    build:
+      targets:
+        CrowHR: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - CrowHRTests
+        - CrowHRUITests
