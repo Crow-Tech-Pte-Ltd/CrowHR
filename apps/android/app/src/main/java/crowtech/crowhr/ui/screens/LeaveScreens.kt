@@ -132,7 +132,7 @@ fun LeaveScreen(ctx: ScreenContext) {
                             }
                             Text(detail, style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted)
                         }
-                        if (b.tracked && b.available != null) {
+                        if (b.eligible && b.tracked && b.available != null) {
                             Text(
                                 quantity(b.available, b.unit),
                                 style = Numeric.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize, fontWeight = FontWeight.SemiBold),

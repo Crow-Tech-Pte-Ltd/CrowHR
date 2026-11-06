@@ -125,7 +125,7 @@ private fun SignInScreen(
             loading = screen.busy,
         )
         if (screen.busy) SecondaryButton("Cancel", onStopWaiting, Modifier.fillMaxWidth())
-        Label("Other connections", Modifier.padding(top = 8.dp))
+        if (others.isNotEmpty()) Label("Other connections", Modifier.padding(top = 8.dp))
         others.forEach { other -> SecondaryButton("Switch to ${other.displayName}", { onSwitch(other) }, Modifier.fillMaxWidth()) }
         LinkButton("Add another connection", onAdd)
         if (confirmRemove) {
