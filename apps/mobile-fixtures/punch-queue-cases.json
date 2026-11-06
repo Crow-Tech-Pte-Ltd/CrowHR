@@ -14,7 +14,10 @@
       "network offline/timeout, 408, 429, 5xx, or a 2xx body that is not a punch": "stop; punch stays pending with the same key, attempts + 1; stopReason network"
     },
     "late": "when sentAt - deviceTime > 7 days (604800 s) at the send that settled the punch, the punch is marked late",
-    "neverDrop": "no operation removes or edits a pending punch; only the user can discard one, explicitly"
+    "neverDrop": "no operation removes or edits a pending punch; only the user can discard one, explicitly",
+    "source": "native apps send source 'android' or 'ios' (servers from Nov 2026); older servers ignore unknown fields",
+    "elapsedMs": "optional: monotonic milliseconds from the tap to this send (Android SystemClock.elapsedRealtime, iOS systemUptime), sent only when the device has not rebooted since the tap and the value is not negative; the server then records serverTime - elapsedMs and reports the difference from deviceTime as skew. No time-zone field is sent (the offset stays on the device)",
+    "refusedOld": "the server refuses punches recorded more than 7 days ago (422 with a reason). The punch is rejected with that reason and stays visible, with the late line, until the user dismisses it; rejected punches are never trimmed from the history"
   },
   "labels": {
     "pending": "Waiting to send",

@@ -102,6 +102,7 @@ class EssJourneyTest {
 
     /** Scan the QR link, confirm the organisation, sign in through the (test) browser. */
     private fun connectAndSignIn(email: String) {
+        TestServer.ensureLogo()
         val browser = TestBrowser(email)
         graph.browser = browser
         scenario = ActivityScenario.launch(
@@ -110,8 +111,15 @@ class EssJourneyTest {
         waitFor("confirm-connect")
         compose.onNodeWithText("Kampong Kopi Pte. Ltd.").assertExists()
         compose.onNodeWithText("This connection is not encrypted", substring = true).assertExists()
+        // The logo from meta.logoUrl (same host, so inside the network allow-list).
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Kampong Kopi Pte. Ltd. logo")).fetchSemanticsNodes().isNotEmpty()
+        }
         tap("confirm-connect")
         waitFor("sign-in")
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Kampong Kopi Pte. Ltd. logo")).fetchSemanticsNodes().isNotEmpty()
+        }
         tap("sign-in")
         waitFor("tab-more", 30_000)
         val url = browser.opened.single()
@@ -244,11 +252,11 @@ class EssJourneyTest {
         waitForText("Add a comment so Nadia Rahman knows why it was rejected.")
         compose.onNodeWithTag("decision-comment").performScrollTo().performTextInput("We are short-staffed that week, sorry.")
         tap("reject")
-        waitForText("Rejected: $rejectTitle")
+        untilTexts("rejected notice") { texts -> texts.any { it == "Rejected: $rejectTitle" } }
         compose.onNode(hasText(approveTitle)).performScrollTo().performClick()
         waitFor("approve")
         tap("approve")
-        waitForText("Approved: $approveTitle")
+        untilTexts("approved notice") { texts -> texts.any { it == "Approved: $approveTitle" } }
         compose.waitUntil(15_000) { compose.onAllNodes(hasText(approveTitle) and !hasText("Approved: ", substring = true)).fetchSemanticsNodes().isEmpty() }
     }
 
