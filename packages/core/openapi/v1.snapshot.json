@@ -36228,6 +36228,9 @@
                     },
                     "mailerConfigured": {
                       "type": "boolean"
+                    },
+                    "publicUrl": {
+                      "type": "string"
                     }
                   },
                   "required": [
@@ -36244,7 +36247,8 @@
                     "hasPassword",
                     "insecureTransport",
                     "demoMode",
-                    "mailerConfigured"
+                    "mailerConfigured",
+                    "publicUrl"
                   ],
                   "additionalProperties": false
                 }
