@@ -13,12 +13,15 @@ actor FakePoster: LocalNotifying {
     func post(_ notice: LocalNotice) async { posted.append(notice) }
 }
 
-/// Behaves like the server's `since` cursor: items in creation order; the cursor ("c:<n>") is the
-/// number of items already passed.
+/// A notifications endpoint with (`hasCursor`) or without the opaque server cursor. With a cursor,
+/// "c:<n>" means "after the first n items in creation order".
 final class FakeServerInbox: InboxFetching, @unchecked Sendable {
     private let lock = NSLock()
     private var items: [InboxItemRef] = []
-    private var calls: [String?] = []
+    private var calls: [InboxRequest] = []
+    let hasCursor: Bool
+
+    init(hasCursor: Bool = true) { self.hasCursor = hasCursor }
 
     func add(_ id: String, category: String, read: Bool = false) {
         lock.withLock {
@@ -26,20 +29,29 @@ final class FakeServerInbox: InboxFetching, @unchecked Sendable {
         }
     }
 
-    func recordedCalls() -> [String?] { lock.withLock { calls } }
+    func set(_ list: [InboxItemRef]) { lock.withLock { items = list } }
+    func recordedCalls() -> [InboxRequest] { lock.withLock { calls } }
 
-    func fetch(since: String?) async throws -> InboxPage {
+    func fetch(_ request: InboxRequest) async throws -> InboxPage {
         lock.withLock {
-            calls.append(since)
-            guard let since, let n = Int(since.dropFirst(2)) else {
-                return InboxPage(items: Array(items.reversed()), cursor: items.isEmpty ? nil : "c:\(items.count)")
+            calls.append(request)
+            let cursor = hasCursor ? (items.isEmpty ? nil : "c:\(items.count)") : nil
+            switch request {
+            case .latest(let size):
+                return InboxPage(items: Array(items.reversed().prefix(size)), cursor: cursor, serverHasCursor: hasCursor)
+            case .unreadNewest:
+                // Returned as the fixture gives them (a read item can still appear in the response).
+                return InboxPage(items: items.sorted { $0.createdAt > $1.createdAt }, cursor: cursor, serverHasCursor: hasCursor)
+            case .since(let since):
+                let n = Int(since.dropFirst(2)) ?? 0
+                return InboxPage(items: Array(items.dropFirst(n)), cursor: "c:\(max(items.count, n))", serverHasCursor: true)
             }
-            return InboxPage(items: Array(items.dropFirst(n)), cursor: "c:\(items.count)")
         }
     }
 }
 
-/// Task 3.6: BGAppRefreshTask scheduling and a content-free local notification.
+/// Task 3.6: BGAppRefreshTask scheduling and a content-free local notification, with the shared
+/// rules in apps/mobile-fixtures/background-refresh-cases.json.
 @Suite("BackgroundRefresh")
 struct BackgroundRefreshTests {
     static var root: [String: Any] { Fixtures.json("background-refresh-cases.json") as? [String: Any] ?? [:] }
@@ -61,10 +73,12 @@ struct BackgroundRefreshTests {
         #expect(BackgroundRefresh.notificationBody(newItems: 4) == texts["many"]?.replacingOccurrences(of: "{count}", with: "4"))
         #expect(BackgroundRefresh.notificationTitle == texts["title"])
         #expect(Double(Self.root["minimumIntervalMinutes"] as? Int ?? 0) * 60 == BackgroundRefresh.minimumInterval)
+        #expect(Self.root["serverCursor"] != nil)
     }
 
-    /// The shared cases, on the fixture's device-side (createdAt) form of the cursor.
-    @Test func sharedCursorCases() throws {
+    /// The shared createdAt cases: the rule for older servers whose response has no `cursor`,
+    /// run through the real refresher.
+    @Test func sharedCreatedAtCasesOnAServerWithoutCursor() async throws {
         let cases = try #require(Self.root["cases"] as? [[String: Any]])
         #expect(cases.count >= 8)
         for c in cases {
@@ -73,26 +87,35 @@ struct BackgroundRefreshTests {
                 InboxItemRef(id: $0["id"] as! String, category: $0["category"] as! String, createdAt: $0["createdAt"] as! String, readAt: $0["readAt"] as? String)
             }
             let expected = c["expected"] as! [String: Any]
-            let outcome = InboxCursor.evaluate(items: items, cursor: c["cursor"] as? String, notificationsEnabled: c["notificationsEnabled"] as! Bool)
-            #expect(outcome.notice?.body == expected["post"] as? String, "\(id) post")
-            #expect(outcome.notice?.route.rawValue == expected["opens"] as? String, "\(id) opens")
-            #expect(outcome.cursor == expected["cursor"] as? String, "\(id) cursor")
+            let enabled = c["notificationsEnabled"] as! Bool
+            let store = MemoryStore()
+            if let cursor = c["cursor"] as? String { store.set(Data(cursor.utf8), forKey: "inbox.cursor.conn-1") }
+            let inbox = FakeServerInbox(hasCursor: false)
+            inbox.set(items)
+            let poster = FakePoster()
+            let r = InboxRefresher(fetcher: inbox, poster: poster, store: store, account: "conn-1", enabled: { enabled })
+            let notice = try await r.refresh()
+            #expect(notice?.body == expected["post"] as? String, "\(id) post")
+            #expect(notice?.route.rawValue == expected["opens"] as? String, "\(id) opens")
+            #expect(await r.cursor == expected["cursor"] as? String, "\(id) cursor")
+            #expect(await poster.posted.count == (notice == nil ? 0 : 1), "\(id) posted")
         }
     }
 
-    // MARK: The app's refresher, on the server's `since` cursor
+    // MARK: Server cursor (serverCursor rules in the shared fixture)
 
     private func refresher(_ inbox: FakeServerInbox, _ poster: FakePoster, store: MemoryStore = MemoryStore(), enabled: Bool = true) -> InboxRefresher {
         InboxRefresher(fetcher: inbox, poster: poster, store: store, account: "conn-1", enabled: { enabled })
     }
 
-    @Test func firstRefreshSetsTheCursorAndPostsNothing() async throws {
+    @Test func firstRefreshReadsOneItemStoresTheCursorAndPostsNothing() async throws {
         let inbox = FakeServerInbox()
         inbox.add("n1", category: "approvals")
         let poster = FakePoster()
         let r = refresher(inbox, poster)
         #expect(try await r.refresh() == nil)
-        #expect(await r.cursor == "c:1")
+        #expect(inbox.recordedCalls() == [.latest(pageSize: 1)])
+        #expect(await r.cursor == "srv:c:1")
         #expect(await poster.posted.isEmpty)
     }
 
@@ -105,8 +128,8 @@ struct BackgroundRefreshTests {
         inbox.add("n2", category: "approvals")
         let notice = try await r.refresh()
         #expect(notice == LocalNotice(title: "Crow HR", body: "You have 1 new item in Crow HR", route: .approvals))
-        #expect(inbox.recordedCalls() == [nil, "c:1"])
-        #expect(await r.cursor == "c:2")
+        #expect(inbox.recordedCalls() == [.latest(pageSize: 1), .since("c:1")])
+        #expect(await r.cursor == "srv:c:2")
         #expect(try await r.refresh() == nil)
         #expect(await poster.posted.count == 1)
     }
@@ -132,7 +155,7 @@ struct BackgroundRefreshTests {
         inbox.add("n1", category: "approvals")
         let off = refresher(inbox, poster, store: store, enabled: false)
         #expect(try await off.refresh() == nil)
-        #expect(await off.cursor == "c:2")
+        #expect(await off.cursor == "srv:c:2")
         #expect(await poster.posted.isEmpty)
     }
 
@@ -141,19 +164,32 @@ struct BackgroundRefreshTests {
         let poster = FakePoster()
         let r = refresher(inbox, poster)
         #expect(try await r.refresh() == nil)
-        #expect(await r.cursor == InboxRefresher.emptyInbox)
+        #expect(await r.cursor == "srv:")
         inbox.add("n1", category: "approvals")
         #expect(try await r.refresh()?.route == .approvals)
-        #expect(await r.cursor == "c:1")
+        #expect(await r.cursor == "srv:c:1")
     }
 
-    @Test func itemsSeenInTheAppAreNotAnnounced() async throws {
+    @Test func openingTheInboxStoresThatListsCursor() async throws {
         let inbox = FakeServerInbox()
         inbox.add("n1", category: "approvals")
+        inbox.add("n2", category: "approvals")
         let poster = FakePoster()
         let r = refresher(inbox, poster)
-        await r.markAllSeen()
+        await r.markAllSeen(listCursor: "c:2", listHadCursor: true)
+        #expect(inbox.recordedCalls().isEmpty) // no extra request
         #expect(try await r.refresh() == nil)
+    }
+
+    @Test func upgradedServerSwitchesFromCreatedAtToItsCursor() async throws {
+        let store = MemoryStore()
+        store.set(Data("2026-11-07T00:00:00.000Z".utf8), forKey: "inbox.cursor.conn-1")
+        let inbox = FakeServerInbox(hasCursor: true)
+        inbox.add("n0", category: "updates") // 00:00, already seen
+        inbox.add("n1", category: "approvals") // 01:00, new
+        let r = refresher(inbox, FakePoster(), store: store)
+        #expect(try await r.refresh()?.route == .approvals)
+        #expect(await r.cursor == "srv:c:2")
     }
 
     @Test(arguments: [1, 2, 7, 120])
@@ -187,16 +223,26 @@ struct BackgroundRefreshTests {
         try tokens.save(TokenSet(accessToken: "a", refreshToken: "r", accessExpiresAt: Date().addingTimeInterval(600), deviceSessionId: "d"), account: "c")
         let api = APIClient(server: testServer, transport: stub, auth: AuthSession(server: testServer, account: "c", store: tokens, transport: stub))
         let store = MemoryStore()
-        store.set(Data("cur-1".utf8), forKey: "inbox.cursor.c")
+        store.set(Data("srv:cur-1".utf8), forKey: "inbox.cursor.c")
         let r = InboxRefresher(fetcher: APIInboxFetcher(api: api), poster: FakePoster(), store: store, account: "c", enabled: { true })
         let notice = try #require(try await r.refresh())
         #expect(notice == LocalNotice(title: "Crow HR", body: "You have 1 new item in Crow HR", route: .approvals))
         for word in ["Ahmad", "Leave", "annual", "3 days"] {
             #expect(!notice.body.contains(word) && !notice.title.contains(word))
         }
-        #expect(await r.cursor == "cur-2")
+        #expect(await r.cursor == "srv:cur-2")
         let sinces = stub.recorded().map { URLComponents(url: $0.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "since" }?.value }
         #expect(sinces == ["cur-1", "cur-2"]) // paged forward until a page came back empty
+    }
+
+    @Test func apiFetcherTellsAnOldServerWithoutCursorApart() async throws {
+        let stub = StubTransport()
+        stub.onJSON("GET /api/v1/notifications", #"{"items":[],"page":1,"pageSize":1,"total":0,"unread":0}"#)
+        let api = APIClient(server: testServer, transport: stub, auth: nil)
+        let page = try await APIInboxFetcher(api: api).fetch(.latest(pageSize: 1))
+        #expect(page.serverHasCursor == false)
+        stub.onJSON("GET /api/v1/notifications", #"{"items":[],"page":1,"pageSize":1,"total":0,"unread":0,"cursor":null}"#)
+        #expect(try await APIInboxFetcher(api: api).fetch(.latest(pageSize: 1)).serverHasCursor == true)
     }
 
     @Test(arguments: [(4.0, false), (5.0, false), (5.1, true), (60.0, true)])

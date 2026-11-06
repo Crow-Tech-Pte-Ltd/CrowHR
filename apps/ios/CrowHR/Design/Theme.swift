@@ -92,7 +92,9 @@ enum CrowAppearance {
         nav.configureWithOpaqueBackground()
         nav.backgroundColor = Crow.dynamicUI(0xFFFFFF, 0x0A0A0A)
         nav.shadowColor = Crow.dynamicUI(0xDEDEDE, 0x2E2E2E)
-        let ink = Crow.dynamicUI(0x0A0A0A, 0xF5F5F5)
+        // The system label colour: a custom dynamic colour in large-title attributes resolved to the
+        // dark-mode value in light mode (invisible title on Today and Leave).
+        let ink = UIColor.label
         nav.titleTextAttributes = [.font: CrowFont.uiMono(.headline, size: 17), .foregroundColor: ink]
         nav.largeTitleTextAttributes = [.font: CrowFont.uiMono(.largeTitle, size: 30), .foregroundColor: ink]
         UINavigationBar.appearance().standardAppearance = nav
@@ -259,25 +261,65 @@ struct AdaptiveRow<Leading: View, Trailing: View>: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                // The label wraps; the value (an amount, a balance, a status) never compresses.
                 leading()
-                Spacer(minLength: 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 trailing()
+                    .fixedSize()
             }
         }
     }
 }
 
-/// Menu pickers clip long values at accessibility sizes; there the choice opens its own list.
-struct AdaptivePickerStyle: ViewModifier {
+/// A single choice from a list. A menu picker at normal sizes. At accessibility sizes, an
+/// app-drawn row opens its own list: the system picker's label and value don't fully scale there.
+struct ChoiceField: View {
     @Environment(\.dynamicTypeSize) private var size
-    func body(content: Content) -> some View {
-        if size.isAccessibilitySize { content.pickerStyle(.navigationLink) } else { content.pickerStyle(.menu) }
-    }
-}
+    let title: String
+    let options: [(id: String, name: String)]
+    @Binding var selection: String
+    @State private var choosing = false
 
-extension View {
-    func adaptivePickerStyle() -> some View { modifier(AdaptivePickerStyle()) }
+    var body: some View {
+        if size.isAccessibilitySize {
+            Button { choosing = true } label: {
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title).font(CrowFont.body()).foregroundStyle(Crow.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(options.first { $0.id == selection }?.name ?? "Choose")
+                            .font(CrowFont.body(.body, weight: .medium)).foregroundStyle(Crow.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.right").foregroundStyle(Crow.muted).accessibilityHidden(true)
+                }
+            }
+            .navigationDestination(isPresented: $choosing) {
+                List(options, id: \.id) { option in
+                    Button {
+                        selection = option.id
+                        choosing = false
+                    } label: {
+                        HStack {
+                            Text(option.name).font(CrowFont.body()).foregroundStyle(Crow.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 8)
+                            if option.id == selection { Image(systemName: "checkmark").foregroundStyle(Crow.ink) }
+                        }
+                    }
+                    .accessibilityAddTraits(option.id == selection ? .isSelected : [])
+                }
+                .navigationTitle(title)
+            }
+        } else {
+            Picker(title, selection: $selection) {
+                ForEach(options, id: \.id) { Text($0.name).tag($0.id) }
+            }
+            .pickerStyle(.menu)
+        }
+    }
 }
 
 /// A notice block (info, warning, error) with an icon and text that wraps.
