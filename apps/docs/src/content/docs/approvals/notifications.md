@@ -32,7 +32,7 @@ Reminders are created once per subject and threshold, and stop when the conditio
 | --- | --- | --- |
 | Work pass expiry | 90, 60, 30 and 7 days before, and on the day | HR admins |
 | Probation ending | 14 days before | The employee's manager and HR admins |
-| Payroll cutoff | 3 days before the cutoff day in payroll settings (or the pay day), until the month's regular run is approved | Payroll admins |
+| Payroll cutoff | 3 days before the cutoff day in payroll settings (or the pay day), until the month's regular run is approved (a cutoff on the 1st to 3rd is reminded at the end of the month before) | Payroll admins |
 | Backups | Last successful scheduled backup more than 48 hours old (on Home) | Owners |
 | Document expiry | 30 and 7 days before, and on the day | HR admins, and the employee when the category is visible to them |
 | Acknowledgement | 3 and 7 days after HR asked, while not yet acknowledged | The employee |
