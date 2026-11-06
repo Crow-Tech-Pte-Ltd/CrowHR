@@ -200,6 +200,7 @@ struct ApplyLeaveView: View {
                         Picker("Leave type", selection: $typeID) {
                             ForEach(list) { Text($0.name).tag($0.id) }
                         }
+                        .adaptivePickerStyle()
                         .accessibilityIdentifier("leave.type")
                         DatePicker("From", selection: $start, displayedComponents: .date)
                             .accessibilityIdentifier("leave.start")
@@ -231,7 +232,7 @@ struct ApplyLeaveView: View {
                                 }
                             } else {
                                 Button { showCamera = true } label: { Label("Take a photo", systemImage: "camera") }
-                                PhotosPicker(selection: $pickedPhoto, matching: .images) { Label("Choose a photo", systemImage: "photo") }
+                                PhotosPicker(selection: $pickedPhoto, matching: .images) { Label("Choose a photo", systemImage: "photo").font(CrowFont.body()) }
                             }
                         } header: {
                             Text((t.attachmentLabel ?? "Supporting document") + (t.attachment == "required" ? " (required)" : " (optional)"))

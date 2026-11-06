@@ -163,6 +163,7 @@ struct NewClaimView: View {
                 Form {
                     Section {
                         Picker("Type", selection: $typeID) { ForEach(list) { Text($0.name).tag($0.id) } }
+                            .adaptivePickerStyle()
                             .accessibilityIdentifier("claim.type")
                         DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
                         TextField("Merchant", text: $merchant).accessibilityIdentifier("claim.merchant")
@@ -197,7 +198,7 @@ struct NewClaimView: View {
                         } else {
                             Button { showCamera = true } label: { Label("Photograph receipt", systemImage: "camera") }
                                 .accessibilityIdentifier("claim.camera")
-                            PhotosPicker(selection: $picked, matching: .images) { Label("Choose a photo", systemImage: "photo") }
+                            PhotosPicker(selection: $picked, matching: .images) { Label("Choose a photo", systemImage: "photo").font(CrowFont.body()) }
                         }
                     } header: {
                         Text(receiptRequired ? "Receipt (required)" : "Receipt")

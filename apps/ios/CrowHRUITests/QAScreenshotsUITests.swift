@@ -43,9 +43,21 @@ final class QAScreenshotsUITests: CrowUITestCase {
     /// Contrast and hit-region checks are reported by the full audit in the QA notes, not here:
     /// system controls in sheets trip them on the simulator independently of the app.
     private func audit(_ screen: String) throws {
+        let tabBarTop = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : .greatestFiniteMagnitude
+        let navBar = app.navigationBars.firstMatch.exists ? app.navigationBars.firstMatch.frame : .null
         try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped, .dynamicType]) { issue in
             // An issue with no element can't be located in the app's own UI.
             guard let element = issue.element else { return true }
+            let frame = element.frame
+            if issue.auditType == .dynamicType {
+                // iOS caps navigation-bar button text by design (Large Content Viewer covers it),
+                // and the audit can't measure text scrolled under the floating tab bar. Logged,
+                // not failed; clipping and missing descriptions are never excused.
+                if navBar.intersects(frame) || frame.maxY > tabBarTop {
+                    print("AUDIT (excused) \(screen): \(issue.compactDescription) — \(element.debugDescription.prefix(120))")
+                    return true
+                }
+            }
             print("AUDIT \(screen): \(issue.compactDescription) — \(element.debugDescription.prefix(160))")
             return false
         }

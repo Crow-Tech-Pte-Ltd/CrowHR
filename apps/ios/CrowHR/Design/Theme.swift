@@ -268,6 +268,18 @@ struct AdaptiveRow<Leading: View, Trailing: View>: View {
     }
 }
 
+/// Menu pickers clip long values at accessibility sizes; there the choice opens its own list.
+struct AdaptivePickerStyle: ViewModifier {
+    @Environment(\.dynamicTypeSize) private var size
+    func body(content: Content) -> some View {
+        if size.isAccessibilitySize { content.pickerStyle(.navigationLink) } else { content.pickerStyle(.menu) }
+    }
+}
+
+extension View {
+    func adaptivePickerStyle() -> some View { modifier(AdaptivePickerStyle()) }
+}
+
 /// A notice block (info, warning, error) with an icon and text that wraps.
 struct Notice: View {
     let text: String
