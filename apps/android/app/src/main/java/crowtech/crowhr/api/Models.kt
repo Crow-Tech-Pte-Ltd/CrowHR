@@ -246,7 +246,22 @@ import kotlinx.serialization.Serializable
     val createdAt: String,
     val readAt: String? = null,
 )
-@Serializable data class NotificationPage(val items: List<AppNotification>, val total: Int = 0, val unread: Int = 0)
+/**
+ * [cursor] (servers from Nov 2026): opaque position, passed back as `since`. Older servers don't
+ * send the field at all, which decodes to [NO_CURSOR_FIELD] so the app can fall back.
+ */
+@Serializable data class NotificationPage(
+    val items: List<AppNotification>,
+    val total: Int = 0,
+    val unread: Int = 0,
+    val cursor: String? = NO_CURSOR_FIELD,
+) {
+    val supportsCursor: Boolean get() = cursor != NO_CURSOR_FIELD
+
+    companion object {
+        const val NO_CURSOR_FIELD = "\u0000no-cursor-field"
+    }
+}
 
 // --- Attendance ---
 @Serializable data class PunchView(

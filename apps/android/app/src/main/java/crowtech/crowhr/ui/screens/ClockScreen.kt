@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -77,7 +79,19 @@ fun ClockScreen(ctx: ScreenContext) {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Pair<String, Tone>?>(null) }
     var discard by remember { mutableStateOf<QueuedPunch?>(null) }
-    val punches = remember(version) { queue.all() }
+    // Punches sent by PunchSync in the background update this screen too.
+    val changes by queue.changes.collectAsState()
+    var hadPending by remember { mutableStateOf(queue.pending().isNotEmpty()) }
+    LaunchedEffect(changes) {
+        version++
+        val pendingNow = queue.pending().isNotEmpty()
+        if (hadPending && !pendingNow) {
+            message = null
+            status.reload()
+        }
+        hadPending = pendingNow
+    }
+    val punches = remember(version, changes) { queue.all() }
     val me = (status.value as? LoadState.Ready)?.value
     val serverClockedIn = me?.clockedIn ?: false
     val nextKind = remember(version, serverClockedIn) { queue.nextKind(serverClockedIn) }

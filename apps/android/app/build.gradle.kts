@@ -40,6 +40,10 @@ android {
     sourceSets["test"].resources.directories.add(rootProject.file("../mobile-fixtures").path)
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     testOptions { unitTests.isReturnDefaultValues = true }
+    // Device tests can't press system permission dialogs: grant runtime permissions at install
+    // (notably Android 17's ACCESS_LOCAL_NETWORK, which a grant inside a running process doesn't
+    // apply to its sockets). The request flows themselves are covered by unit tests.
+    installation { installOptions += listOf("-g") }
     lint {
         warningsAsErrors = false
         abortOnError = true

@@ -111,9 +111,13 @@ fun NotificationsScreen(ctx: ScreenContext) {
         error?.let { Notice(it, Tone.Danger) }
         LoadContent(loader, "Loading notifications…") { page ->
             // The inbox is open: what's here now doesn't need a local notification later.
-            page.items.maxByOrNull { it.createdAt }?.let { newest ->
-                val cursor = ctx.graph.settings.refreshCursor(ctx.connection.key)
-                if (cursor == null || newest.createdAt > cursor) ctx.graph.settings.setRefreshCursor(ctx.connection.key, newest.createdAt)
+            if (page.supportsCursor) {
+                page.cursor?.let { ctx.graph.settings.setRefreshCursor(ctx.connection.key, crowtech.crowhr.notify.RefreshRunner.SERVER_PREFIX + it) }
+            } else {
+                page.items.maxByOrNull { it.createdAt }?.let { newest ->
+                    val cursor = ctx.graph.settings.refreshCursor(ctx.connection.key)
+                    if (cursor == null || newest.createdAt > cursor) ctx.graph.settings.setRefreshCursor(ctx.connection.key, newest.createdAt)
+                }
             }
             if (page.unread > 0) {
                 LinkButton("Mark all as read", {
@@ -244,7 +248,9 @@ fun SettingsScreen(ctx: ScreenContext) {
             "Checks about every 15 minutes. The message only says how many items are new, never what they are.",
             checked = notifications, tag = "toggle-notifications",
         ) { on ->
-            if (on && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            if (on && android.os.Build.VERSION.SDK_INT >= 33 &&
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
                 notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             } else {
                 notifications = on

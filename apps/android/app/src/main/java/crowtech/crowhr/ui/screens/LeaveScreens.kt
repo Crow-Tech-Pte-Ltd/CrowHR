@@ -194,11 +194,18 @@ fun LeaveScreen(ctx: ScreenContext) {
 }
 
 /** The next Monday–Friday after today in Singapore: a sensible first date to apply for. */
-fun nextWorkingDay(today: LocalDate): LocalDate {
+fun nextWorkingDay(today: LocalDate, holidays: Set<String> = emptySet()): LocalDate {
+    // Only a sensible default for the form; the server's quote decides what counts. A public
+    // holiday on a Sunday makes the Monday a holiday (Holidays Act 1998 s 4(3)).
+    val off = holidays + holidays.mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
+        .filter { it.dayOfWeek == DayOfWeek.SUNDAY }.map { it.plusDays(1).toString() }
     var d = today.plusDays(1)
-    while (d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY) d = d.plusDays(1)
+    while (d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY || d.toString() in off) d = d.plusDays(1)
     return d
 }
+
+@kotlinx.serialization.Serializable
+data class Holiday(val date: String, val name: String = "")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -210,6 +217,17 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
     val first = remember { nextWorkingDay(LocalDate.now(Formats.SINGAPORE)) }
     var start by remember { mutableStateOf(first) }
     var end by remember { mutableStateOf(first) }
+    // Skip public holidays for the default date (the user hasn't picked one yet).
+    LaunchedEffect(Unit) {
+        val today = LocalDate.now(Formats.SINGAPORE)
+        val holidays = runCatching {
+            listOf(today.year, today.year + 1).flatMap { y ->
+                ctx.api.get("/api/v1/leave/holidays", Items.serializer(Holiday.serializer()), mapOf("year" to y.toString())).items
+            }.map { it.date }.toSet()
+        }.getOrDefault(emptySet())
+        val better = nextWorkingDay(today, holidays)
+        if (start == first && end == first) { start = better; end = better }
+    }
     var startSession by remember { mutableStateOf("full") }
     var reason by remember { mutableStateOf("") }
     var attachment by remember { mutableStateOf<LeaveAttachment?>(null) }

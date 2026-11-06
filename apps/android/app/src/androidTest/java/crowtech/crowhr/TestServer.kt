@@ -147,17 +147,30 @@ object TestServer {
         return monday.toString()
     }
 
-    /** Nadia asks for a day of annual leave on [date] (for Kai Wen to decide); returns the task title. */
+    /**
+     * Nadia asks for a day of no-pay leave on [date] (for Kai Wen to decide); returns the task
+     * title. No-pay leave is unlimited, so reruns against the same server never run out of balance.
+     */
     fun requestLeaveAsNadia(date: LocalDate): String {
         val nadia = token(NADIA)
-        val annual = get("/api/v1/leave/types", nadia).items().first { it.jsonObject["code"]!!.jsonPrimitive.content == "annual" }
+        val type = get("/api/v1/leave/types", nadia).items().first { it.jsonObject["code"]!!.jsonPrimitive.content == "no_pay" }
+        val typeName = type.jsonObject["name"]!!.jsonPrimitive.content
         post("/api/v1/leave/requests", nadia, buildJsonObject {
-            put("leaveTypeId", annual.jsonObject["id"]!!.jsonPrimitive.content); put("startDate", date.toString()); put("endDate", date.toString())
+            put("leaveTypeId", type.jsonObject["id"]!!.jsonPrimitive.content); put("startDate", date.toString()); put("endDate", date.toString())
         })
         val kw = token(KAIWEN)
         val day = crowtech.crowhr.core.Formats.date(date)
         return get("/api/v1/approvals/tasks", kw).items().map { it.jsonObject["title"]!!.jsonPrimitive.content }
-            .first { it.startsWith("Annual leave") && it.contains(day) }
+            .first { it.startsWith(typeName) && it.contains(day) }
+    }
+
+    /** The app's default first day: next weekday that isn't a public holiday. */
+    fun nextWorkingDay(): LocalDate {
+        val today = LocalDate.now(ZoneId.of("Asia/Singapore"))
+        val holidays = listOf(today.year, today.year + 1).flatMap { y ->
+            get("/api/v1/leave/holidays?year=$y", token(NADIA)).items().map { it.jsonObject["date"]!!.jsonPrimitive.content }
+        }.toSet()
+        return crowtech.crowhr.ui.screens.nextWorkingDay(today, holidays)
     }
 
     /** Withdraws Nadia's pending requests that start on [date] (keeps reruns independent). */
