@@ -24,7 +24,7 @@
 
 - [x] 4.1 packages/core: write `jobs/tick.test.ts` (idempotent, `SKIP LOCKED` prevents double processing with two concurrent ticks on PGlite, catch-up after a 2-day gap) then implement `tick(now)` and the transition registry
 - [x] 4.2 packages/core: write `workflows/reminders.test.ts` (work pass 90/60/30/7/0, probation −14 to manager + hr, exactly once per threshold across 1 440 ticks, stops when resolved) then implement reminder sources for work pass and probation — the sources read `deps.peopleDates` (a `PeopleDates` interface, tested with a double); they stay inactive until the people module implements it (docs/limitations.md)
-- [ ] 4.3 packages/core: define the `ReminderSource` contract for payroll cutoff with a test double in `workflows/payroll-cutoff-reminder.test.ts`; the real source is implemented by the payroll change — leave this task unchecked until then (contract + double test done)
+- [x] 4.3 packages/core: define the `ReminderSource` contract for payroll cutoff with a test double in `workflows/payroll-cutoff-reminder.test.ts`; the real source is implemented by the payroll change — the real source is `payroll/approval.ts` `payrollCutoffReminder` (registered in `CORE_WORKFLOW_PLUGINS`); `workflows/payroll-cutoff-reminder.test.ts` now runs it through the tick sweep against real payroll settings and runs (active payroll admins only, once, not after the run is approved, cutoff day 31 in a 30-day month, a cutoff on the 1st–3rd reminded in the month before, no settings → quiet)
 - [x] 4.4 apps/server: write `src/scheduler.test.ts` (tick on start and every 60 s with fake timers, stops on shutdown) then implement
 
 ## 5. Inbox and UI

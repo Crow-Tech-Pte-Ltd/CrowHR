@@ -56,6 +56,26 @@ describe("backup warning on Home", () => {
     expect((await kinds(w.m.owner)).map((i) => i.title)).toEqual(["Scheduled backups are disabled"]);
   });
 
+  it("with plaintext schedules disabled, an old last backup is also reported", async () => {
+    const plain = host("02:00 Asia/Singapore");
+    const describe = plain.describe;
+    plain.describe = async () => {
+      const h = await describe();
+      return { ...h, backups: { ...h.backups, encrypted: false } };
+    };
+    w = await createWorkflowWorld({ clock, systemHost: plain });
+    await w.deps.db.insert(backupRuns).values({
+      id: w.deps.ids.newId(),
+      trigger: "manual",
+      status: "succeeded",
+      startedAt: new Date(clock.now().getTime() - 3 * 86_400_000),
+    });
+    expect((await kinds(w.m.owner)).map((i) => i.title)).toEqual([
+      "No backup in the last 48 hours",
+      "Scheduled backups are disabled",
+    ]);
+  });
+
   it("stays quiet where backups aren't expected (no host, or scheduled backups off)", async () => {
     w = await createWorkflowWorld({ clock, systemHost: host(null) });
     expect(await kinds(w.m.owner)).toEqual([]);

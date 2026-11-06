@@ -118,10 +118,13 @@ Claims whose types are paid **by transfer**, or any approved claim you choose to
 
 Owners and HR admins can also file a claim on an employee's behalf through the API; the web app files claims for yourself only. See the [permission matrix](/docs/roles-and-permissions/).
 
+## Claim reports
+
+**Reports → Claims** has five reports, each with CSV and Excel downloads: claims by type, department or month (with GST totals), claims waiting by age (more than 7 days flagged), cap usage by employee for a month, the payout register, and the claim lines register. Merchants, descriptions and receipt counts of medical lines are shown only to owners and HR admins; payroll admins see the amounts. See [Reports](/docs/reports/running-reports/) for how each figure is worked out.
+
 ## Not available
 
 - Automatic exchange rates, and a warning for unusual rates.
-- A per-employee cap-usage report.
 - Mileage or per-diem claim types, and corporate cards.
 - Cleanup of receipts uploaded but never attached to a claim.
 - Non-cash benefits require Appendix 8A outside Crow HR. The **Taxable benefit** flag covers cash reimbursement reporting in IR8A d1.

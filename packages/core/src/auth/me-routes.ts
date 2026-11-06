@@ -14,6 +14,7 @@ import { defineModule, defineRoute } from "../http/route.ts";
 import { audit, regenerateRecoveryCodes, remainingRecoveryCodes, verifyPasswordOrDummy } from "./credentials.ts";
 import { mfaPolicyStatus } from "./mfa-policy.ts";
 import { passwordProblem } from "./password-policy.ts";
+import { sendSecurityNotice, sgDateTimePhrase } from "./security-notices.ts";
 import {
   activeBrowserSessions,
   activeDeviceSessions,
@@ -151,6 +152,8 @@ const meResponse = z.object({
   insecureTransport: z.boolean(),
   demoMode: z.boolean(),
   mailerConfigured: z.boolean(),
+  /** The server's PUBLIC_URL (no trailing slash): what the mobile apps connect to. */
+  publicUrl: z.string(),
 });
 
 async function permissionsFor(_c: AppContext, roles: ReadonlySet<Role>, former: boolean) {
@@ -217,6 +220,7 @@ export const meModule = defineModule({
           insecureTransport: !sessionCookie(publicUrl).secure,
           demoMode: !!deps.demoMode,
           mailerConfigured: !!deps.mailer,
+          publicUrl: publicUrl.replace(/\/+$/, ""),
         };
       },
     }),
@@ -326,6 +330,12 @@ export const meModule = defineModule({
           now,
         });
         await audit(c, { action: "auth.password_changed", targetType: "user", targetId: auth.user.id });
+        await sendSecurityNotice(db, deps, {
+          orgId: auth.orgId,
+          to: { membershipIds: [auth.membershipId] },
+          title: "Your Crow HR password was changed",
+          body: `Your password was changed on ${sgDateTimePhrase(now)}, and every other browser and device was signed out. If this wasn't you, reset your password from the sign-in page now and tell your administrator.`,
+        });
         return undefined;
       },
     }),
@@ -406,6 +416,12 @@ export const meModule = defineModule({
           targetId: auth.user.id,
           meta: { method: "totp" },
         });
+        await sendSecurityNotice(db, deps, {
+          orgId: auth.orgId,
+          to: { membershipIds: [auth.membershipId] },
+          title: "Two-step verification was turned on",
+          body: "An authenticator app was set up for your Crow HR account; sign-ins now ask for its code. Keep your recovery codes somewhere safe. If this wasn't you, tell your administrator now.",
+        });
         // MFA completion rotates the session token.
         if (auth.session.kind === "browser") {
           await startBrowserSession(c, {
@@ -449,13 +465,19 @@ export const meModule = defineModule({
       access: "authenticated",
       recentAuth: true,
       responses: { 204: null },
-      handler: async ({ c, auth }) => {
+      handler: async ({ c, deps, auth }) => {
         await clearMfa(c, auth.user.id);
         await audit(c, {
           action: "auth.mfa_disabled",
           targetType: "user",
           targetId: auth.user.id,
           meta: { by: "self" },
+        });
+        await sendSecurityNotice(deps.db, deps, {
+          orgId: auth.orgId,
+          to: { membershipIds: [auth.membershipId] },
+          title: "Two-step verification was turned off",
+          body: "Two-step verification was turned off for your Crow HR account, so sign-ins no longer ask for a code. If this wasn't you, change your password, set it up again and tell your administrator.",
         });
         return undefined;
       },
@@ -536,6 +558,16 @@ export const meModule = defineModule({
           targetType: "user",
           targetId: auth.user.id,
           meta: { providerId: target.providerId },
+        });
+        const [provider] = await db
+          .select({ name: ssoProviders.displayName })
+          .from(ssoProviders)
+          .where(and(eq(ssoProviders.orgId, auth.orgId), eq(ssoProviders.id, target.providerId)));
+        await sendSecurityNotice(db, deps, {
+          orgId: auth.orgId,
+          to: { membershipIds: [auth.membershipId] },
+          title: "A sign-in method was unlinked",
+          body: `${provider?.name ?? "A single sign-on method"} can no longer be used to sign in to your Crow HR account. If this wasn't you, change your password and tell your administrator.`,
         });
         return undefined;
       },

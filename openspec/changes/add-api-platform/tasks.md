@@ -20,5 +20,5 @@
 
 ## 4. Docs and UI
 
-- [ ] 4.1 apps/web: write `e2e/device-sessions.spec.ts` (a device session created via the token endpoint appears in My sessions and can be revoked) then extend My sessions — NOT DONE as e2e: device sessions in My sessions (listing, mobile badge, revoke) are covered by `auth/native/native.http.test.ts`; the UI renders them
+- [x] 4.1 apps/web: write `e2e/device-sessions.spec.ts` (a device session created via the token endpoint appears in My sessions and can be revoked) then extend My sessions — `e2e/device-sessions.spec.ts` runs the app's flow (native authorize → sign-in → code → token), finds the "Mobile app" row and the new-device security notice, signs it out, and checks the access and refresh tokens are dead
 - [x] 4.2 apps/docs: API reference page rendered from `openapi/v1.snapshot.json` plus versioning policy — verified by the docs build including every path in the snapshot — one static page per tag (`apps/docs/src/pages/api/[tag].astro`), versioning policy on Developers → API conventions; `apps/docs/scripts/check-dist.ts` fails the build when any snapshot operation has no section

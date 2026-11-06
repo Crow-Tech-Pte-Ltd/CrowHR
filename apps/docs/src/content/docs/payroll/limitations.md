@@ -68,8 +68,7 @@ The independent review of the payroll choices marked these as **unclear**: the a
 ## Platform and sign-in
 
 - **Singpass** is not tested against real Singpass and its button lacks the official logo. See [Singpass](/docs/admin/sso/singpass/).
-- **Security emails bypass the outbox**: invitations and password resets are sent once, without retries. "Sign-in attempts blocked", "new MFA method" and "recovery code used" notices are not sent.
-- **JIT-provisioned members** are not reported to HR; only the audit log records them.
+- **Invitation and password-reset link emails bypass the outbox**: they are sent once, without retries, because their one-time links are never stored. Security notices (lockouts, new devices, two-step verification changes, recovery codes) go to the in-app inbox and the retryable email outbox.
 - **No email change** for a member's sign-in email yet.
 - **Org switcher** in the web app shows only the current organisation (the API supports switching).
 - **No row-level security** in the database: isolation is enforced by the application and composite foreign keys, with a test that every route refuses another organisation's IDs.

@@ -42,7 +42,7 @@ Someone without a membership sees "Your account has not been set up in (organisa
 
 ### Creating accounts on first sign-in (JIT)
 
-Off by default and not available for Singpass. When you switch on **Create accounts on first sign-in** for a provider, anyone with a verified email in that provider's allowed domains who has no membership gets one as a plain member with no role and no employee record. Emails outside the allowed domains are refused as if JIT were off. HR is not notified yet; the `member.jit_provisioned` audit event is the only record, so check the audit log or Settings → Members and link or remove such members.
+Off by default and not available for Singpass. When you switch on **Create accounts on first sign-in** for a provider, anyone with a verified email in that provider's allowed domains who has no membership gets one as a plain member with no role and no employee record. Emails outside the allowed domains are refused as if JIT were off. HR admins (or owners, when there are none) get a security notice for each one, and the `member.jit_provisioned` audit event records it; link such members to an employee record or remove them in Settings → Members.
 
 ## Turning off password sign-in
 
