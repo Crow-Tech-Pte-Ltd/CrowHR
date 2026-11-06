@@ -108,7 +108,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Polyglot detection is heuristic**: HTML/script/SVG/PHP markers in the first kilobyte and a ZIP end-of-central-directory record near the end are refused. Downloads are always served with the detected type, `nosniff` and a sandbox CSP; PDFs and HEIC as attachments.
 - **HEIC receipts** are accepted and stored but not previewed ("Preview not available. Download to view").
 - **Approval type code**: the workflows engine takes one `typeCode`, so a claim with several types sends its largest type by SGD amount (first on a tie). A `typeCodes` policy condition therefore matches on that type only.
-- **Reports NOT IMPLEMENTED in part** (task 4.1): totals by type/department/employee/month with GST, the line register and the payout register exist (JSON, CSV, XLSX); the claims summary is also in Reports (`claims.summary`); the per-employee cap-usage report is open. Ageing is shown as "N days" on waiting claims in the admin table.
+- **Reports**: registered with reporting as `claims.summary`, `claims.ageing`, `claims.cap_usage` (monthly and yearly caps; per-claim caps are checked on each claim and not listed), `claims.payouts` and `claims.lines`. Organisation scope only (no manager team view). The older `/claims/reports/*` export routes remain.
 - **FX sanity warning NOT IMPLEMENTED**: the design's "rate deviates more than 20% from the last rate" warning to approvers is not built; approvers see the original amount, rate and SGD amount.
 - **On-behalf claims**: owners and hr_admins can create claims for an employee through the API (`employeeId`); the web form only files claims for yourself.
 - **Uploaded but unattached receipts** are kept until the uploader deletes them; there is no cleanup sweep.
@@ -171,7 +171,7 @@ The demo is the real web app and the real core API running in the visitor's brow
 - **CSV export** is for editors only; staff see the published roster on screen.
 ## Reports (add-reporting, WS6b)
 
-- **Report set is fixed**: headcount, headcount over time, joiners/leavers/turnover, work-pass expiry, leave taken, leave balances and liability, attendance exceptions, scheduled hours (published rosters), claims summary and payroll cost. No custom builder, saved views or scheduled reports (proposal non-goals).
+- **Report set is fixed**: headcount, headcount over time, joiners/leavers/turnover, work-pass expiry, leave taken, leave balances and liability, attendance exceptions, scheduled hours (published rosters), claims (summary, waiting by age, cap usage, payout register, line register) and payroll cost. No custom builder, saved views or scheduled reports (proposal non-goals).
 - **Charts** are a single bar chart under the table, drawn from the rows on the current page only, and hidden when a label repeats (e.g. a month split by department). The table is the accessible view.
 - **Exports** are streamed as CSV; XLSX is built in memory from 500-row batches (store-only ZIP, no compression). The runner holds at most 50 000 rows to sort; larger results answer 422 `too_many_rows`.
 - **Payroll cost SDL by department** is an allocation: payroll rounds SDL once for the employer per month, and the report splits that total across departments by SDL-liable wages (largest remainder), so departments add up exactly but a department's SDL is not a statutory figure. FWL is payroll's estimate.

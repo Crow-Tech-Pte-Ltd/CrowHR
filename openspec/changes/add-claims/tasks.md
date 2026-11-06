@@ -21,7 +21,7 @@
 
 ## 4. Reports and access
 
-- [ ] 4.1 packages/core: write `claims/reports.test.ts` (by type/department/month with GST totals; status ageing; cap usage; payout register; medical descriptions/receipts omitted without `medical` access) then register report definitions with reporting — PARTIAL: by type/department/employee/month with GST totals, the line register and the payout register are built and tested (`claims/reports.test.ts`, JSON + CSV/XLSX); status ageing is a `daysWaiting` column on the claims list; NOT IMPLEMENTED: the per-employee cap-usage report and registration with `reporting` (that module does not exist yet)
+- [x] 4.1 packages/core: write `claims/reports.test.ts` (by type/department/month with GST totals; status ageing; cap usage; payout register; medical descriptions/receipts omitted without `medical` access) then register report definitions with reporting — `claims/report-source.ts` registers `claims.summary`, `claims.ageing` (days waiting, more than 7 days flagged), `claims.cap_usage` (monthly and yearly caps), `claims.payouts` and `claims.lines` (medical merchant/description/receipt count hidden row by row without medical access); tested over `/api/v1/reports/*` in `claims/reports.test.ts`; the older `/claims/reports/*` export routes remain
 - [x] 4.2 packages/core: write `claims/access.http.test.ts` (matrix cells for claims incl. manager team scope, medical receipt only to current approver, cross-org 404) then fix any gaps — matrix row `claims:pay` (auto-tested by `access/matrix.http.test.ts`); team scope in `validation.test.ts`, medical receipt to current approver only in `receipts.http.test.ts`, cross-org via `access/cross-org.test.ts` seeding (`testing/claims-sweep.ts`) and `reimbursement.test.ts`
 
 ## 5. Web UI

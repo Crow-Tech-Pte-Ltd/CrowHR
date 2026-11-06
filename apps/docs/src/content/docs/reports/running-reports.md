@@ -18,6 +18,10 @@ description: The reports Crow HR ships, who can run each one, the exact formulas
 | Lateness, missing punches and overtime | Days worked, hours, late days and minutes, early outs, missing punches, timesheet and approved overtime hours (up to 62 days) | Owner, HR admin; managers for their team |
 | Scheduled hours | Shifts, rest days and paid hours per employee from published rosters (up to 62 days); drafts never count | Owner, HR admin; managers for their team |
 | Claims by type, department or month | Claim amounts and GST by expense date, per status | Owner, HR admin, payroll admin |
+| Claims waiting, by age | Claims waiting for approval or payment and how many days each has waited; waiting more than 7 days is flagged | Owner, HR admin, payroll admin |
+| Cap usage by employee | For each employee and capped claim type in a month (yearly caps: that year): cap, used, pending, remaining and the share taken up | Owner, HR admin, payroll admin |
+| Claims payout register | Paid claims with the payment date, payroll or outside payroll, and the reference | Owner, HR admin, payroll admin |
+| Claim lines register | Every submitted claim line with merchant, description, amount, SGD, GST and receipt count | Owner, HR admin, payroll admin |
 | Payroll cost | Gross pay, employer CPF, SDL, FWL estimate and total employer cost by month and department | Owner, payroll admin |
 
 The permissions come from the server's [permission matrix](/docs/roles-and-permissions/) (`reports_people`, `reports_leave`, `reports_attendance`, `reports_claims`, `reports_payroll_cost`, `work_pass` for the expiry list, and `rosters` for scheduled hours). A report you may not run answers `403`; a report from a module that isn't installed answers `404`. Reports never run at "own" scope: an employee's own data is on their own pages.
@@ -46,7 +50,7 @@ FWL is an estimate from the levy settings, as on the [SHG, SDL and FWL](/docs/pa
 
 **Leave liability** = available annual leave days × daily basic rate, where the daily rate is 12 × monthly basic salary ÷ (52 × working days a week), the Employment Act formula, rounded half-up to the cent. Hourly and daily-rated employees show no liability. Balances are for the leave year of the date, and pending requests are not counted as available.
 
-**Leave taken** counts approved leave days in the period (half days as 0.5), with the department on each leave day. **Claims** leave out drafts, take the department on each expense date and count medical claims in every total.
+**Leave taken** counts approved leave days in the period (half days as 0.5), with the department on each leave day. **Claims** leave out drafts, take the department on each expense date and count medical claims in every total. In the claim lines register, merchants, descriptions and receipt counts of medical lines are shown only to owners and HR admins (a payroll admin sees "Medical, hidden" and the amount). **Cap usage** counts approved and paid claims as used and submitted claims as pending, by expense date; remaining = cap − used − pending, never below zero. **Days waiting** counts whole days since submission, or since approval for claims approved but not yet paid.
 
 ## Exports
 
