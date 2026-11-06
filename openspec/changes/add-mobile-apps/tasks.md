@@ -17,12 +17,12 @@ All tasks are milestone M4. Prerequisites: `add-api-platform` complete; attendan
 
 ## 3. iOS (apps/ios)
 
-- [ ] 3.1 apps/ios: SwiftUI project skeleton synced to s5 via `scripts/ios-sync.sh` — verified by `xcodebuild test` on s5 (unit test target green)
-- [ ] 3.2 apps/ios: write `ConnectTests` (same cases as 2.2) then implement connect + QR scan
-- [ ] 3.3 apps/ios: write `NativeAuthTests` (ASWebAuthenticationSession callback handling, PKCE, Keychain this-device-only, no iCloud backup) then implement sign-in, refresh and biometric unlock
-- [ ] 3.4 apps/ios: write `PunchQueueTests` (same cases as 2.4) then implement
+- [x] 3.1 apps/ios: SwiftUI project skeleton synced to s5 via `scripts/ios-sync.sh` — verified by `xcodebuild test` on s5 (unit test target green) — `scripts/ios-mac-test.sh` (Xcode 27.1, own simulator shut down in a trap); `SkeletonTests` cover bundle id, fonts, privacy manifest, URL schemes, no remote-push mode
+- [x] 3.2 apps/ios: write `ConnectTests` (same cases as 2.2) then implement connect + QR scan — every case in `apps/mobile-fixtures/connect-cases.json` and `deeplink-cases.json` (`connect`); the AVFoundation scanner itself is untested on the simulator (no camera)
+- [x] 3.3 apps/ios: write `NativeAuthTests` (ASWebAuthenticationSession callback handling, PKCE, Keychain this-device-only, no iCloud backup) then implement sign-in, refresh and biometric unlock — biometric unlock (LocalAuthentication, 5-minute rule in `AppLockPolicy`) has a policy test only; Face ID itself is not exercised in tests
+- [x] 3.4 apps/ios: write `PunchQueueTests` (same cases as 2.4) then implement — every case in `punch-queue-cases.json`, run through the real `APIPunchSender`
 - [ ] 3.5 apps/ios: write XCUITest `EssJourneyUITests` against the seeded server over SSH reverse tunnel with network allow-list assertion, then implement the screens
-- [ ] 3.6 apps/ios: write `BackgroundRefreshTests` (BGAppRefreshTask scheduling, content-free local notification) then implement
+- [x] 3.6 apps/ios: write `BackgroundRefreshTests` (BGAppRefreshTask scheduling, content-free local notification) then implement — shared cursor cases from `background-refresh-cases.json`; the OS-run task itself is not triggered in tests
 - [ ] 3.7 apps/ios: QA with Dynamic Type XXXL, dark mode, VoiceOver labels — verified by simulator screenshots from xcresult (not mock-ups)
 
 ## 4. Release (requires Daniel's approval at each external step)
