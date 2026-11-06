@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "description": "Singapore display conventions shared with the web (packages/ui/src/lib/format.ts). Money is integer cents and never goes through floating point.",
+  "money": [
+    { "cents": 0, "text": "S$0.00" },
+    { "cents": 5, "text": "S$0.05" },
+    { "cents": 123456, "text": "S$1,234.56" },
+    { "cents": 100000000, "text": "S$1,000,000.00" },
+    { "cents": -500, "text": "-S$5.00" },
+    { "cents": 9007199254740991, "text": "S$90,071,992,547,409.91" }
+  ],
+  "moneyParse": [
+    { "input": "1234", "cents": 123400 },
+    { "input": "1,234.5", "cents": 123450 },
+    { "input": "S$1,234.56", "cents": 123456 },
+    { "input": "$12", "cents": 1200 },
+    { "input": " 0.05 ", "cents": 5 },
+    { "input": "", "error": "empty" },
+    { "input": "12.345", "error": "too_many_decimals" },
+    { "input": "12a", "error": "invalid" }
+  ],
+  "dates": [
+    { "iso": "2026-10-31", "text": "31 Oct 2026" },
+    { "iso": "2026-01-05", "text": "5 Jan 2026" },
+    { "iso": "2026-12-25T09:00:00+08:00", "text": "25 Dec 2026" }
+  ],
+  "dateTimes": {
+    "description": "Instants are shown in Singapore time (UTC+08:00), 24-hour clock.",
+    "cases": [
+      { "instant": "2026-11-02T00:58:00Z", "time": "08:58", "dateTime": "2 Nov 2026, 08:58" },
+      { "instant": "2026-11-01T16:30:00Z", "time": "00:30", "dateTime": "2 Nov 2026, 00:30" }
+    ]
+  },
+  "nric": [
+    { "value": "S1234567D", "masked": "S****567D" },
+    { "value": "t7654321a", "masked": "T****321A" },
+    { "value": "G1234567X", "masked": "G****567X" },
+    { "value": "12345", "masked": "*********" },
+    { "value": "", "masked": "*********" }
+  ]
+}
