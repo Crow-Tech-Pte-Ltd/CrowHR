@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "description": "Background refresh and local notifications (mobile-apps spec 'Notifications without remote push'). The refresh reads GET /api/v1/notifications?unread=true&sort=-createdAt&pageSize=50 and compares each item's createdAt with the cursor saved on the device (the newest createdAt already seen).",
+  "rules": [
+    "New = unread items whose createdAt is strictly later than the cursor.",
+    "No cursor yet (first refresh after sign-in) = nothing is new; the cursor is set to the newest createdAt.",
+    "The cursor always moves to the newest createdAt in the response, whether or not a notification is posted. It never moves backwards.",
+    "The notification text contains no personal data: only the count. Tapping it opens the approvals inbox when any new item has category 'approvals', otherwise the notifications inbox.",
+    "When the user turned local notifications off, nothing is posted (the cursor still moves).",
+    "Android schedules the refresh with WorkManager at the minimum interval of 15 minutes, requiring a network connection; iOS uses BGAppRefreshTask (the OS decides the timing)."
+  ],
+  "serverCursor": {
+    "description": "Servers from Nov 2026 add an opaque `cursor` to every GET /api/v1/notifications response (task 1.2). Prefer it; the createdAt cases below remain the rule for older servers whose response has no `cursor` field.",
+    "rules": [
+      "First refresh after sign-in (nothing stored): GET /api/v1/notifications?pageSize=1 and store its `cursor`; post nothing.",
+      "Later refreshes: GET /api/v1/notifications?since=<stored>&pageSize=50 returns only newer items, oldest first, with `cursor` pointing at the last item returned; repeat with that cursor until `items` is empty (the apps stop after 10 pages).",
+      "Count the returned items with readAt null; the text, opens and notifications-off rules are the same as above. Store the last cursor even when nothing is posted.",
+      "Opening the notifications inbox stores the `cursor` of that list response (no since), so items already seen are not announced later.",
+      "Android stores the server cursor prefixed with 'srv:' to tell it apart from a createdAt value; that prefix is a storage detail, not part of the contract."
+    ]
+  },
+  "texts": {
+    "one": "You have 1 new item in Crow HR",
+    "many": "You have {count} new items in Crow HR",
+    "title": "Crow HR"
+  },
+  "minimumIntervalMinutes": 15,
+  "cases": [
+    {
+      "id": "first-refresh-sets-cursor",
+      "cursor": null,
+      "notificationsEnabled": true,
+      "items": [
+        { "id": "n1", "category": "approvals", "createdAt": "2026-11-02T01:00:00.000Z", "readAt": null }
+      ],
+      "expected": { "post": null, "cursor": "2026-11-02T01:00:00.000Z", "opens": null }
+    },
+    {
+      "id": "one-new-approval",
+      "cursor": "2026-11-02T01:00:00.000Z",
+      "notificationsEnabled": true,
+      "items": [
+        { "id": "n2", "category": "approvals", "createdAt": "2026-11-02T03:15:00.000Z", "readAt": null },
+        { "id": "n1", "category": "approvals", "createdAt": "2026-11-02T01:00:00.000Z", "readAt": null }
+      ],
+      "expected": { "post": "You have 1 new item in Crow HR", "cursor": "2026-11-02T03:15:00.000Z", "opens": "approvals" }
+    },
+    {
+      "id": "two-new-mixed",
+      "cursor": "2026-11-02T01:00:00.000Z",
+      "notificationsEnabled": true,
+      "items": [
+        { "id": "n4", "category": "leave", "createdAt": "2026-11-02T04:00:00.000Z", "readAt": null },
+        { "id": "n3", "category": "payroll", "createdAt": "2026-11-02T02:00:00.000Z", "readAt": null }
+      ],
+      "expected": { "post": "You have 2 new items in Crow HR", "cursor": "2026-11-02T04:00:00.000Z", "opens": "notifications" }
+    },
+    {
+      "id": "nothing-new",
+      "cursor": "2026-11-02T04:00:00.000Z",
+      "notificationsEnabled": true,
+      "items": [
+        { "id": "n4", "category": "leave", "createdAt": "2026-11-02T04:00:00.000Z", "readAt": null }
+      ],
+      "expected": { "post": null, "cursor": "2026-11-02T04:00:00.000Z", "opens": null }
+    },
+    {
+      "id": "empty-inbox",
+      "cursor": "2026-11-02T04:00:00.000Z",
+      "notificationsEnabled": true,
+      "items": [],
+      "expected": { "post": null, "cursor": "2026-11-02T04:00:00.000Z", "opens": null }
+    },
+    {
+      "id": "read-elsewhere-not-counted",
+      "cursor": "2026-11-02T01:00:00.000Z",
+      "notificationsEnabled": true,
+      "items": [
+        { "id": "n6", "category": "claims", "createdAt": "2026-11-02T05:00:00.000Z", "readAt": "2026-11-02T05:01:00.000Z" },
+        { "id": "n5", "category": "claims", "createdAt": "2026-11-02T04:30:00.000Z", "readAt": null }
+      ],
+      "expected": { "post": "You have 1 new item in Crow HR", "cursor": "2026-11-02T05:00:00.000Z", "opens": "notifications" }
+    },
+    {
+      "id": "turned-off-posts-nothing",
+      "cursor": "2026-11-02T01:00:00.000Z",
+      "notificationsEnabled": false,
+      "items": [
+        { "id": "n7", "category": "approvals", "createdAt": "2026-11-02T06:00:00.000Z", "readAt": null }
+      ],
+      "expected": { "post": null, "cursor": "2026-11-02T06:00:00.000Z", "opens": null }
+    },
+    {
+      "id": "cursor-never-moves-back",
+      "cursor": "2026-11-03T00:00:00.000Z",
+      "notificationsEnabled": true,
+      "items": [
+        { "id": "n8", "category": "leave", "createdAt": "2026-11-02T06:00:00.000Z", "readAt": null }
+      ],
+      "expected": { "post": null, "cursor": "2026-11-03T00:00:00.000Z", "opens": null }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window theme only; everything on screen is drawn by Compose (ui/theme/Theme.kt). -->
+    <style name="Theme.CrowHR" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/surface_50</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:colorAccent">@color/ink</item>
+    </style>
+</resources>

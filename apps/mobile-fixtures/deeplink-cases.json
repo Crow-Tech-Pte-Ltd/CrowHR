@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "description": "Deep-link parsing. 'connect' cases are the QR code / link from Crow HR on the web (crowhr://connect?server=<PUBLIC_URL>&org=<slug>). 'oauthRedirect' cases are the native sign-in callback (crowtech.crowhr:/oauth2redirect?code=&state=). Parsing only: the server URL is checked afterwards by the connect rules in connect-cases.json.",
+  "connectRules": [
+    "Scheme 'crowhr' and host 'connect', compared case-insensitively; no path other than empty or '/'.",
+    "'server' is required, exactly once, and is percent-decoded. Its value must start with http:// or https:// (case-insensitive). It is returned as given after decoding and trimming; normalisation happens in the connect step.",
+    "'org' is optional, at most once; it is lower-cased and must match ^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$.",
+    "Any other parameter is ignored and never stored (the QR code must not carry credentials)."
+  ],
+  "oauthRedirectRules": [
+    "The URI must start with exactly 'crowtech.crowhr:/oauth2redirect' (scheme case-insensitive), followed by '?' or the end.",
+    "'state' must be present and equal to the state the app sent; otherwise the result is state_mismatch and no code is exchanged.",
+    "If 'error' is present (with a matching state) the result is error with that code.",
+    "Otherwise 'code' must be present and non-empty."
+  ],
+  "connect": [
+    { "id": "encoded-server-and-org", "uri": "crowhr://connect?server=https%3A%2F%2Fhr.kampongkopi.example&org=kampong-kopi", "expected": { "result": "ok", "server": "https://hr.kampongkopi.example", "org": "kampong-kopi" } },
+    { "id": "unencoded-server", "uri": "crowhr://connect?server=https://hr.example.com&org=acme", "expected": { "result": "ok", "server": "https://hr.example.com", "org": "acme" } },
+    { "id": "server-with-path-and-port", "uri": "crowhr://connect?server=https%3A%2F%2Fexample.com%3A8443%2Fcrowhr&org=acme", "expected": { "result": "ok", "server": "https://example.com:8443/crowhr", "org": "acme" } },
+    { "id": "no-org", "uri": "crowhr://connect?server=https%3A%2F%2Fhr.example.com", "expected": { "result": "ok", "server": "https://hr.example.com", "org": null } },
+    { "id": "org-upper-case-lowered", "uri": "crowhr://connect?server=https%3A%2F%2Fhr.example.com&org=Kampong-Kopi", "expected": { "result": "ok", "server": "https://hr.example.com", "org": "kampong-kopi" } },
+    { "id": "scheme-and-host-case-insensitive", "uri": "CROWHR://Connect?server=https%3A%2F%2Fhr.example.com&org=acme", "expected": { "result": "ok", "server": "https://hr.example.com", "org": "acme" } },
+    { "id": "trailing-slash-path", "uri": "crowhr://connect/?server=https%3A%2F%2Fhr.example.com&org=acme", "expected": { "result": "ok", "server": "https://hr.example.com", "org": "acme" } },
+    { "id": "private-http-passes-parsing", "uri": "crowhr://connect?server=http%3A%2F%2F192.168.1.20%3A8080&org=acme", "expected": { "result": "ok", "server": "http://192.168.1.20:8080", "org": "acme" } },
+    { "id": "extra-params-ignored", "uri": "crowhr://connect?server=https%3A%2F%2Fhr.example.com&org=acme&token=abc&password=x&v=2", "expected": { "result": "ok", "server": "https://hr.example.com", "org": "acme" } },
+    { "id": "missing-server", "uri": "crowhr://connect?org=acme", "expected": { "result": "invalid" } },
+    { "id": "empty-server", "uri": "crowhr://connect?server=&org=acme", "expected": { "result": "invalid" } },
+    { "id": "server-twice", "uri": "crowhr://connect?server=https%3A%2F%2Fa.example.com&server=https%3A%2F%2Fb.example.com", "expected": { "result": "invalid" } },
+    { "id": "org-twice", "uri": "crowhr://connect?server=https%3A%2F%2Fa.example.com&org=a&org=b", "expected": { "result": "invalid" } },
+    { "id": "server-without-scheme", "uri": "crowhr://connect?server=hr.example.com&org=acme", "expected": { "result": "invalid" } },
+    { "id": "server-javascript", "uri": "crowhr://connect?server=javascript%3Aalert(1)", "expected": { "result": "invalid" } },
+    { "id": "bad-org-characters", "uri": "crowhr://connect?server=https%3A%2F%2Fhr.example.com&org=acme%20corp", "expected": { "result": "invalid" } },
+    { "id": "org-trailing-hyphen", "uri": "crowhr://connect?server=https%3A%2F%2Fhr.example.com&org=acme-", "expected": { "result": "invalid" } },
+    { "id": "unknown-action", "uri": "crowhr://signin?server=https%3A%2F%2Fhr.example.com", "expected": { "result": "invalid" } },
+    { "id": "unexpected-path", "uri": "crowhr://connect/extra?server=https%3A%2F%2Fhr.example.com", "expected": { "result": "invalid" } },
+    { "id": "wrong-scheme", "uri": "https://hr.example.com/connect?server=https%3A%2F%2Fhr.example.com", "expected": { "result": "invalid" } },
+    { "id": "not-a-uri", "uri": "Kampong Kopi HR", "expected": { "result": "invalid" } }
+  ],
+  "oauthRedirect": [
+    { "id": "code-and-state", "uri": "crowtech.crowhr:/oauth2redirect?code=Zx3kLq9a&state=st-8f2c1d9e", "expectedState": "st-8f2c1d9e", "expected": { "result": "code", "code": "Zx3kLq9a" } },
+    { "id": "params-in-any-order", "uri": "crowtech.crowhr:/oauth2redirect?state=st-8f2c1d9e&code=Zx3kLq9a", "expectedState": "st-8f2c1d9e", "expected": { "result": "code", "code": "Zx3kLq9a" } },
+    { "id": "encoded-code", "uri": "crowtech.crowhr:/oauth2redirect?code=a%2Bb%2Fc_-&state=st-8f2c1d9e", "expectedState": "st-8f2c1d9e", "expected": { "result": "code", "code": "a+b/c_-" } },
+    { "id": "state-mismatch", "uri": "crowtech.crowhr:/oauth2redirect?code=Zx3kLq9a&state=attacker", "expectedState": "st-8f2c1d9e", "expected": { "result": "state_mismatch" } },
+    { "id": "state-missing", "uri": "crowtech.crowhr:/oauth2redirect?code=Zx3kLq9a", "expectedState": "st-8f2c1d9e", "expected": { "result": "state_mismatch" } },
+    { "id": "no-pending-sign-in", "uri": "crowtech.crowhr:/oauth2redirect?code=Zx3kLq9a&state=st-8f2c1d9e", "expectedState": null, "expected": { "result": "state_mismatch" } },
+    { "id": "error-returned", "uri": "crowtech.crowhr:/oauth2redirect?error=access_denied&state=st-8f2c1d9e", "expectedState": "st-8f2c1d9e", "expected": { "result": "error", "error": "access_denied" } },
+    { "id": "code-missing", "uri": "crowtech.crowhr:/oauth2redirect?state=st-8f2c1d9e", "expectedState": "st-8f2c1d9e", "expected": { "result": "invalid" } },
+    { "id": "code-empty", "uri": "crowtech.crowhr:/oauth2redirect?code=&state=st-8f2c1d9e", "expectedState": "st-8f2c1d9e", "expected": { "result": "invalid" } },
+    { "id": "wrong-path", "uri": "crowtech.crowhr:/other?code=Zx3kLq9a&state=st-8f2c1d9e", "expectedState": "st-8f2c1d9e", "expected": { "result": "invalid" } },
+    { "id": "authority-form-not-accepted", "uri": "crowtech.crowhr://oauth2redirect?code=Zx3kLq9a&state=st-8f2c1d9e", "expectedState": "st-8f2c1d9e", "expected": { "result": "invalid" } },
+    { "id": "wrong-scheme", "uri": "crowhr:/oauth2redirect?code=Zx3kLq9a&state=st-8f2c1d9e", "expectedState": "st-8f2c1d9e", "expected": { "result": "invalid" } }
+  ],
+  "pkce": {
+    "description": "RFC 7636 Appendix B test vector (code_challenge = BASE64URL(SHA256(ASCII(code_verifier))), no padding). Generated verifiers are 43-128 characters from [A-Za-z0-9-._~]; the apps use 32 random bytes base64url-encoded (43 characters). State is at least 16 random bytes base64url-encoded; the server accepts 8-200 characters.",
+    "vectors": [
+      { "verifier": "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk", "challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM" }
+    ],
+    "authorizeUrl": {
+      "server": "https://hr.example.com",
+      "org": "kampong-kopi",
+      "client": "android",
+      "redirectUri": "crowtech.crowhr:/oauth2redirect",
+      "challenge": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+      "state": "st-8f2c1d9e",
+      "expected": "https://hr.example.com/api/v1/native/authorize?org=kampong-kopi&client=android&redirect_uri=crowtech.crowhr%3A%2Foauth2redirect&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&state=st-8f2c1d9e",
+      "note": "iOS uses client=ios; otherwise identical. Query parameters in this order, percent-encoded with RFC 3986 unreserved characters left as is."
+    }
+  }
+}
