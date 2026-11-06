@@ -1,0 +1,287 @@
+{
+  "version": 1,
+  "description": "Connect-to-server cases (mobile-apps spec 'Connect to a company server'). Each case: what the user typed or scanned, the meta response the server returns, and the expected outcome. Both apps run every case.",
+  "messages": {
+    "invalid_url": "Enter your company's Crow HR address, such as hr.yourcompany.com.",
+    "credentials_in_url": "Remove the user name and password from the address. Crow HR asks you to sign in after connecting.",
+    "https_required": "This address uses http://, which is not encrypted. Crow HR needs https:// for addresses on the internet. Ask HR for the https:// address.",
+    "insecure_warning": "This connection is not encrypted. Only continue on your company's own network.",
+    "unreachable": "Could not reach the server. Check your internet connection and the address, then try again.",
+    "tls_error": "The server's security certificate could not be verified, so the app did not connect. Ask your administrator to check the server's HTTPS certificate.",
+    "not_crowhr": "Could not find Crow HR at this address. Check the address with HR.",
+    "app_too_old": "Your company's Crow HR server is newer than this app. Update the Crow HR app to connect.",
+    "server_too_old": "Your company's Crow HR server is older than this app. Ask your administrator to upgrade Crow HR.",
+    "org_required": "This server hosts more than one organisation. Scan the QR code from Crow HR on the web (My profile → Mobile app) to connect.",
+    "org_not_found": "This server has no organisation with that code. Scan the QR code from Crow HR on the web (My profile → Mobile app).",
+    "no_sign_in_methods": "Your organisation has not enabled any sign-in method yet. Ask HR to check Settings → Security.",
+    "feature_unavailable": "Your company's Crow HR server is older than this app. {feature} is available after your administrator upgrades.",
+    "too_many_connections": "You can save up to 5 connections. Remove one before adding another."
+  },
+  "supportedApiVersions": ["v1"],
+  "featureGates": {
+    "description": "Screen -> server features it needs (from meta.features). An empty list means the screen is part of the v1 baseline and is always shown. The server currently advertises only 'leave' and 'attendance.offlinePunch'.",
+    "screens": {
+      "payslips": { "label": "Payslips", "requires": [] },
+      "leave": { "label": "Leave", "requires": ["leave"] },
+      "clock": { "label": "Clock in", "requires": ["attendance.offlinePunch"] },
+      "claims": { "label": "Claims", "requires": [] },
+      "schedule": { "label": "Schedule", "requires": [] },
+      "approvals": { "label": "Approvals", "requires": [] },
+      "notifications": { "label": "Notifications", "requires": [] }
+    }
+  },
+  "urlRules": {
+    "description": "Normalisation: trim; add https:// when no scheme; only http/https; lower-case scheme and host; keep port and path; drop query, fragment and trailing slashes. Plain http is allowed only for these hosts, after the insecure warning.",
+    "httpAllowedHosts": [
+      "IPv4 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 (RFC 1918)",
+      "IPv4 127.0.0.0/8 and the name localhost (loopback)",
+      "IPv4 169.254.0.0/16 (link-local)",
+      "IPv6 ::1, fc00::/7 (unique local), fe80::/10 (link-local)",
+      "names ending in .local (mDNS)"
+    ],
+    "metaPath": "/api/v1/meta",
+    "metaQuery": "?org=<slug> only when an organisation slug is known"
+  },
+  "cases": [
+    {
+      "id": "plain-host-gets-https",
+      "input": "hr.kampongkopi.example",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave", "attendance.offlinePunch"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "kampong-kopi", "displayName": "Kampong Kopi Pte. Ltd.", "logoUrl": null, "signInMethods": [{ "kind": "password", "displayName": "Email and password" }] }] } },
+      "expected": { "outcome": "ok", "server": "https://hr.kampongkopi.example", "metaUrl": "https://hr.kampongkopi.example/api/v1/meta", "insecure": false, "orgSlug": "kampong-kopi", "displayName": "Kampong Kopi Pte. Ltd.", "signInMethodKinds": ["password"], "hiddenScreens": [] }
+    },
+    {
+      "id": "upper-case-and-trailing-slash",
+      "input": "  HTTPS://HR.Example.com/  ",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave", "attendance.offlinePunch"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "acme", "displayName": "Acme Pte. Ltd.", "logoUrl": null, "signInMethods": [{ "kind": "password", "displayName": "Email and password" }] }] } },
+      "expected": { "outcome": "ok", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta", "insecure": false, "orgSlug": "acme", "displayName": "Acme Pte. Ltd.", "signInMethodKinds": ["password"], "hiddenScreens": [] }
+    },
+    {
+      "id": "path-prefix-kept-query-dropped",
+      "input": "https://example.com/crowhr/?utm=x#top",
+      "org": "acme",
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave", "attendance.offlinePunch"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "acme", "displayName": "Acme Pte. Ltd.", "logoUrl": "https://example.com/crowhr/logo.png", "signInMethods": [{ "kind": "password", "displayName": "Email and password" }, { "kind": "google", "displayName": "Google" }] }] } },
+      "expected": { "outcome": "ok", "server": "https://example.com/crowhr", "metaUrl": "https://example.com/crowhr/api/v1/meta?org=acme", "insecure": false, "orgSlug": "acme", "displayName": "Acme Pte. Ltd.", "signInMethodKinds": ["password", "google"], "hiddenScreens": [] }
+    },
+    {
+      "id": "port-kept",
+      "input": "https://hr.example.com:8443",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave", "attendance.offlinePunch"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "acme", "displayName": "Acme Pte. Ltd.", "logoUrl": null, "signInMethods": [{ "kind": "entra", "displayName": "Microsoft" }] }] } },
+      "expected": { "outcome": "ok", "server": "https://hr.example.com:8443", "metaUrl": "https://hr.example.com:8443/api/v1/meta", "insecure": false, "orgSlug": "acme", "displayName": "Acme Pte. Ltd.", "signInMethodKinds": ["entra"], "hiddenScreens": [] }
+    },
+    {
+      "id": "http-public-host-refused",
+      "input": "http://hr.example.com",
+      "org": null,
+      "meta": null,
+      "expected": { "outcome": "https_required", "server": null, "metaUrl": null }
+    },
+    {
+      "id": "http-172-32-is-public",
+      "input": "http://172.32.0.1",
+      "org": null,
+      "meta": null,
+      "expected": { "outcome": "https_required", "server": null, "metaUrl": null }
+    },
+    {
+      "id": "http-cgnat-is-not-private",
+      "input": "http://100.64.1.1:8080",
+      "org": null,
+      "meta": null,
+      "expected": { "outcome": "https_required", "server": null, "metaUrl": null }
+    },
+    {
+      "id": "http-public-ipv6-refused",
+      "input": "http://[2001:db8::1]:8080",
+      "org": null,
+      "meta": null,
+      "expected": { "outcome": "https_required", "server": null, "metaUrl": null }
+    },
+    {
+      "id": "http-192-168-allowed-with-warning",
+      "input": "http://192.168.1.20:8080",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave", "attendance.offlinePunch"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "kampong-kopi", "displayName": "Kampong Kopi Pte. Ltd.", "logoUrl": null, "signInMethods": [{ "kind": "password", "displayName": "Email and password" }] }] } },
+      "expected": { "outcome": "ok", "server": "http://192.168.1.20:8080", "metaUrl": "http://192.168.1.20:8080/api/v1/meta", "insecure": true, "orgSlug": "kampong-kopi", "displayName": "Kampong Kopi Pte. Ltd.", "signInMethodKinds": ["password"], "hiddenScreens": [] }
+    },
+    {
+      "id": "http-emulator-host-allowed-with-warning",
+      "input": "http://10.0.2.2:3100",
+      "org": "kampong-kopi",
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave", "attendance.offlinePunch"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "kampong-kopi", "displayName": "Kampong Kopi Pte. Ltd.", "logoUrl": null, "signInMethods": [{ "kind": "password", "displayName": "Email and password" }] }] } },
+      "expected": { "outcome": "ok", "server": "http://10.0.2.2:3100", "metaUrl": "http://10.0.2.2:3100/api/v1/meta?org=kampong-kopi", "insecure": true, "orgSlug": "kampong-kopi", "displayName": "Kampong Kopi Pte. Ltd.", "signInMethodKinds": ["password"], "hiddenScreens": [] }
+    },
+    {
+      "id": "http-172-31-allowed-with-warning",
+      "input": "http://172.31.255.1",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave", "attendance.offlinePunch"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "acme", "displayName": "Acme Pte. Ltd.", "logoUrl": null, "signInMethods": [{ "kind": "password", "displayName": "Email and password" }] }] } },
+      "expected": { "outcome": "ok", "server": "http://172.31.255.1", "metaUrl": "http://172.31.255.1/api/v1/meta", "insecure": true, "orgSlug": "acme", "displayName": "Acme Pte. Ltd.", "signInMethodKinds": ["password"], "hiddenScreens": [] }
+    },
+    {
+      "id": "http-dot-local-allowed-with-warning",
+      "input": "http://crowhr.local:8080",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave", "attendance.offlinePunch"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "acme", "displayName": "Acme Pte. Ltd.", "logoUrl": null, "signInMethods": [{ "kind": "password", "displayName": "Email and password" }] }] } },
+      "expected": { "outcome": "ok", "server": "http://crowhr.local:8080", "metaUrl": "http://crowhr.local:8080/api/v1/meta", "insecure": true, "orgSlug": "acme", "displayName": "Acme Pte. Ltd.", "signInMethodKinds": ["password"], "hiddenScreens": [] }
+    },
+    {
+      "id": "http-ipv6-unique-local-allowed-with-warning",
+      "input": "http://[fd00::1]:8080",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave", "attendance.offlinePunch"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "acme", "displayName": "Acme Pte. Ltd.", "logoUrl": null, "signInMethods": [{ "kind": "password", "displayName": "Email and password" }] }] } },
+      "expected": { "outcome": "ok", "server": "http://[fd00::1]:8080", "metaUrl": "http://[fd00::1]:8080/api/v1/meta", "insecure": true, "orgSlug": "acme", "displayName": "Acme Pte. Ltd.", "signInMethodKinds": ["password"], "hiddenScreens": [] }
+    },
+    {
+      "id": "empty-input",
+      "input": "   ",
+      "org": null,
+      "meta": null,
+      "expected": { "outcome": "invalid_url", "server": null, "metaUrl": null }
+    },
+    {
+      "id": "unsupported-scheme",
+      "input": "ftp://hr.example.com",
+      "org": null,
+      "meta": null,
+      "expected": { "outcome": "invalid_url", "server": null, "metaUrl": null }
+    },
+    {
+      "id": "javascript-scheme",
+      "input": "javascript:alert(1)",
+      "org": null,
+      "meta": null,
+      "expected": { "outcome": "invalid_url", "server": null, "metaUrl": null }
+    },
+    {
+      "id": "spaces-inside-host",
+      "input": "hr example com",
+      "org": null,
+      "meta": null,
+      "expected": { "outcome": "invalid_url", "server": null, "metaUrl": null }
+    },
+    {
+      "id": "credentials-in-url",
+      "input": "https://ravi:secret@hr.example.com",
+      "org": null,
+      "meta": null,
+      "expected": { "outcome": "credentials_in_url", "server": null, "metaUrl": null }
+    },
+    {
+      "id": "html-page-is-not-crowhr",
+      "input": "https://www.example.com",
+      "org": null,
+      "meta": { "status": 200, "contentType": "text/html; charset=utf-8", "body": "<!doctype html><html><body>Welcome</body></html>" },
+      "expected": { "outcome": "not_crowhr", "server": "https://www.example.com", "metaUrl": "https://www.example.com/api/v1/meta" }
+    },
+    {
+      "id": "not-found-is-not-crowhr",
+      "input": "https://www.example.com",
+      "org": null,
+      "meta": { "status": 404, "contentType": "application/json", "body": { "error": "Not Found" } },
+      "expected": { "outcome": "not_crowhr", "server": "https://www.example.com", "metaUrl": "https://www.example.com/api/v1/meta" }
+    },
+    {
+      "id": "json-without-meta-fields-is-not-crowhr",
+      "input": "https://api.example.com",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "status": "ok" } },
+      "expected": { "outcome": "not_crowhr", "server": "https://api.example.com", "metaUrl": "https://api.example.com/api/v1/meta" }
+    },
+    {
+      "id": "server-only-speaks-v2",
+      "input": "https://hr.example.com",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "3.0.0", "apiVersions": ["v2", "v3"], "features": [], "demo": false, "orgSlugRequired": false, "organisations": [] } },
+      "expected": { "outcome": "app_too_old", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta" }
+    },
+    {
+      "id": "server-speaks-no-version",
+      "input": "https://hr.example.com",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.1.0", "apiVersions": [], "features": [], "demo": false, "orgSlugRequired": false, "organisations": [] } },
+      "expected": { "outcome": "server_too_old", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta" }
+    },
+    {
+      "id": "server-speaks-v1-and-v2",
+      "input": "https://hr.example.com",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "2.0.0", "apiVersions": ["v1", "v2"], "features": ["leave", "attendance.offlinePunch", "claims.fx"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "acme", "displayName": "Acme Pte. Ltd.", "logoUrl": null, "signInMethods": [{ "kind": "password", "displayName": "Email and password" }] }] } },
+      "expected": { "outcome": "ok", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta", "insecure": false, "orgSlug": "acme", "displayName": "Acme Pte. Ltd.", "signInMethodKinds": ["password"], "hiddenScreens": [] }
+    },
+    {
+      "id": "multi-org-without-slug",
+      "input": "https://hr.example.com",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave"], "demo": false, "orgSlugRequired": true, "organisations": [] } },
+      "expected": { "outcome": "org_required", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta" }
+    },
+    {
+      "id": "unknown-org-slug",
+      "input": "https://hr.example.com",
+      "org": "no-such-org",
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave"], "demo": false, "orgSlugRequired": false, "organisations": [] } },
+      "expected": { "outcome": "org_not_found", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta?org=no-such-org" }
+    },
+    {
+      "id": "org-without-sign-in-methods",
+      "input": "https://hr.example.com",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.9.0", "apiVersions": ["v1"], "features": ["leave"], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "acme", "displayName": "Acme Pte. Ltd.", "logoUrl": null, "signInMethods": [] }] } },
+      "expected": { "outcome": "no_sign_in_methods", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta" }
+    },
+    {
+      "id": "old-server-hides-leave-and-clock",
+      "input": "https://hr.example.com",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "0.5.0", "apiVersions": ["v1"], "features": [], "demo": false, "orgSlugRequired": false, "organisations": [{ "slug": "acme", "displayName": "Acme Pte. Ltd.", "logoUrl": null, "signInMethods": [{ "kind": "password", "displayName": "Email and password" }] }] } },
+      "expected": { "outcome": "ok", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta", "insecure": false, "orgSlug": "acme", "displayName": "Acme Pte. Ltd.", "signInMethodKinds": ["password"], "hiddenScreens": ["leave", "clock"], "featureNotices": ["Your company's Crow HR server is older than this app. Leave is available after your administrator upgrades.", "Your company's Crow HR server is older than this app. Clock in is available after your administrator upgrades."] }
+    },
+    {
+      "id": "unknown-fields-and-sign-in-kinds-tolerated",
+      "input": "https://hr.example.com",
+      "org": null,
+      "meta": { "status": 200, "contentType": "application/json", "body": { "serverVersion": "1.4.0", "apiVersions": ["v1"], "features": ["leave", "attendance.offlinePunch", "future.thing"], "demo": true, "orgSlugRequired": false, "newTopLevelField": { "x": 1 }, "organisations": [{ "slug": "acme", "displayName": "Acme Pte. Ltd.", "logoUrl": null, "brandColour": "#000000", "signInMethods": [{ "kind": "password", "displayName": "Email and password" }, { "kind": "passkey", "displayName": "Passkey" }, { "kind": "singpass", "displayName": "Singpass" }] }] } },
+      "expected": { "outcome": "ok", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta", "insecure": false, "orgSlug": "acme", "displayName": "Acme Pte. Ltd.", "signInMethodKinds": ["password", "passkey", "singpass"], "hiddenScreens": [] }
+    },
+    {
+      "id": "server-unreachable",
+      "input": "https://hr.example.com",
+      "org": null,
+      "meta": { "network": "unreachable" },
+      "expected": { "outcome": "unreachable", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta" }
+    },
+    {
+      "id": "bad-certificate",
+      "input": "https://hr.example.com",
+      "org": null,
+      "meta": { "network": "tls_error" },
+      "expected": { "outcome": "tls_error", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta" }
+    },
+    {
+      "id": "server-error-is-unreachable",
+      "input": "https://hr.example.com",
+      "org": null,
+      "meta": { "status": 503, "contentType": "text/plain", "body": "Service Unavailable" },
+      "expected": { "outcome": "unreachable", "server": "https://hr.example.com", "metaUrl": "https://hr.example.com/api/v1/meta" }
+    }
+  ],
+  "savedConnectionCases": {
+    "description": "Saved connections are keyed by (server, orgSlug). At most 5. Re-adding an existing key updates it in place and makes it active; it never duplicates. Adding a sixth is refused with messages.too_many_connections and nothing changes.",
+    "limit": 5,
+    "steps": [
+      { "op": "add", "server": "https://a.example.com", "orgSlug": "a", "displayName": "A Pte. Ltd.", "expect": { "result": "added", "count": 1, "active": "https://a.example.com|a" } },
+      { "op": "add", "server": "https://b.example.com", "orgSlug": "b", "displayName": "B Pte. Ltd.", "expect": { "result": "added", "count": 2, "active": "https://b.example.com|b" } },
+      { "op": "add", "server": "https://a.example.com", "orgSlug": "a", "displayName": "A Renamed Pte. Ltd.", "expect": { "result": "updated", "count": 2, "active": "https://a.example.com|a" } },
+      { "op": "add", "server": "https://a.example.com", "orgSlug": "a2", "displayName": "A Two Pte. Ltd.", "expect": { "result": "added", "count": 3, "active": "https://a.example.com|a2" } },
+      { "op": "add", "server": "https://c.example.com", "orgSlug": "c", "displayName": "C Pte. Ltd.", "expect": { "result": "added", "count": 4, "active": "https://c.example.com|c" } },
+      { "op": "add", "server": "https://d.example.com", "orgSlug": "d", "displayName": "D Pte. Ltd.", "expect": { "result": "added", "count": 5, "active": "https://d.example.com|d" } },
+      { "op": "add", "server": "https://e.example.com", "orgSlug": "e", "displayName": "E Pte. Ltd.", "expect": { "result": "too_many_connections", "count": 5, "active": "https://d.example.com|d" } },
+      { "op": "switch", "key": "https://b.example.com|b", "expect": { "result": "switched", "count": 5, "active": "https://b.example.com|b" } },
+      { "op": "remove", "key": "https://b.example.com|b", "expect": { "result": "removed", "count": 4, "active": null } },
+      { "op": "add", "server": "https://e.example.com", "orgSlug": "e", "displayName": "E Pte. Ltd.", "expect": { "result": "added", "count": 5, "active": "https://e.example.com|e" } }
+    ]
+  }
+}

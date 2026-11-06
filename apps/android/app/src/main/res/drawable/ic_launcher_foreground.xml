@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PLACEHOLDER ICON (needs Daniel's approval before release): an ink "C" ring with a square
+  "eye" on kuning yellow, drawn inside the adaptive-icon safe zone (66 dp circle).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M69.32,41.14 A20,20 0 1,0 69.32,66.86"
+        android:strokeWidth="9"
+        android:strokeColor="#0A0A0A"
+        android:strokeLineCap="butt"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M49,49 L59,49 L59,59 L49,59 Z"
+        android:fillColor="#0A0A0A" />
+</vector>

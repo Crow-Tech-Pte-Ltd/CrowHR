@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Crow Tech tokens from packages/ui/src/styles/globals.css (HSL converted to hex). -->
+<resources>
+    <color name="surface_50">#FFFFFF</color>
+    <color name="ink">#0A0A0A</color>
+    <color name="kuning_200">#FED56C</color>
+    <color name="night_surface">#111111</color>
+    <color name="launcher_background">#FED56C</color>
+</resources>
