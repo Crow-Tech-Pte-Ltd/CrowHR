@@ -152,6 +152,8 @@ const meResponse = z.object({
   insecureTransport: z.boolean(),
   demoMode: z.boolean(),
   mailerConfigured: z.boolean(),
+  /** The server's PUBLIC_URL (no trailing slash): what the mobile apps connect to. */
+  publicUrl: z.string(),
 });
 
 async function permissionsFor(_c: AppContext, roles: ReadonlySet<Role>, former: boolean) {
@@ -218,6 +220,7 @@ export const meModule = defineModule({
           insecureTransport: !sessionCookie(publicUrl).secure,
           demoMode: !!deps.demoMode,
           mailerConfigured: !!deps.mailer,
+          publicUrl: publicUrl.replace(/\/+$/, ""),
         };
       },
     }),
