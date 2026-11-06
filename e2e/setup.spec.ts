@@ -66,6 +66,17 @@ test.describe("first-run setup wizard", () => {
     await page.getByRole("link", { name: "Later, go to Home" }).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("heading", { level: 1, name: "Work to do" })).toBeVisible();
+    // Home leads with the organisation setup checklist.
+    const checklist = page.getByTestId("home-setup");
+    await expect(checklist).toContainText("Finish setting up");
+    await expect(checklist).toContainText("4 steps left before your first payroll");
+    await expect(checklist.getByRole("listitem")).toHaveText([
+      /Company profile/,
+      /Departments/,
+      /Work schedule/,
+      /First employee/,
+    ]);
+    await expect(checklist.getByRole("link", { name: "Set up" }).first()).toHaveAttribute("href", "/settings/company");
 
     // The new owner is signed in, so Settings → System shows real status (read-only).
     await page.goto("/settings");

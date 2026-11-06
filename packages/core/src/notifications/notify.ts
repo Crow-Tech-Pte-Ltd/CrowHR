@@ -38,10 +38,11 @@ export async function notify(db: Db, deps: Pick<AppDeps, "clock" | "ids" | "mail
     .from(memberships)
     .innerJoin(users, eq(users.id, memberships.userId))
     .where(and(eq(memberships.orgId, input.orgId), inArray(memberships.id, recipients)));
-  const live = active.filter((m) => m.status === "active");
+  const category = categoryOf(input.kind);
+  // Former members can still sign in (payslips, documents), so security notices reach them too.
+  const live = active.filter((m) => m.status === "active" || (category === "security" && m.status === "former"));
   if (!live.length) return { inApp: 0, emails: 0 };
   const now = deps.clock.now();
-  const category = categoryOf(input.kind);
   await db.insert(notifications).values(
     live.map((m) => ({
       id: deps.ids.newId(),
