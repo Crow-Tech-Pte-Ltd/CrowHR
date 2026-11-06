@@ -46,6 +46,12 @@ class QaScreenshotTest {
 
     private var index = 0
     private fun shot(name: String) {
+        // Wait out loading states so each capture shows the screen's real content.
+        runCatching {
+            compose.waitUntil(15_000) {
+                compose.onAllNodes(hasText("Loading", substring = true) or hasText("Checking", substring = true)).fetchSemanticsNodes().isEmpty()
+            }
+        }
         compose.waitForIdle()
         Thread.sleep(700)
         val bitmap: Bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return

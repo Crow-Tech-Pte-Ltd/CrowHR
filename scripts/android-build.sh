@@ -30,6 +30,8 @@ case "$mode" in
     fi
     if [[ -n "${CROWHR_SHOTS:-}" ]]; then
       args+=("-Pandroid.testInstrumentationRunnerArguments.crowhrShots=$CROWHR_SHOTS")
+      # Keep the app installed so scripts/android-qa.sh can pull the captures from its files dir.
+      args+=("-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true")
     fi
     exec "${gradle[@]}" :app:connectedDebugAndroidTest "${args[@]}" ;;
   clean)

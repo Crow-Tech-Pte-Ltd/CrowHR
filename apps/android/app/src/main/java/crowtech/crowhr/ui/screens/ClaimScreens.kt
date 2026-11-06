@@ -248,17 +248,30 @@ private fun ClaimLineEditor(ctx: ScreenContext, index: Int, line: LineDraft, typ
         DateField("Date of expense", line.date, Modifier.padding(top = 8.dp)) { line.date = it }
         OutlinedTextField(line.merchant, { line.merchant = it }, label = { Text("Paid to") }, placeholder = { Text("Grab, Kopitiam…") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("claim-merchant-$index"))
         OutlinedTextField(line.description, { line.description = it }, label = { Text("What for (optional)") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+        // Side by side normally; stacked at large font sizes so labels never wrap mid-word.
+        val stacked = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f
+        val currencyField = @Composable { m: Modifier ->
             OutlinedTextField(
                 line.currency, { line.currency = it.take(3).uppercase() }, label = { Text("Currency") }, singleLine = true,
-                modifier = Modifier.weight(1f),
+                modifier = m,
             )
+        }
+        val amountField = @Composable { m: Modifier ->
             OutlinedTextField(
                 line.amount, { line.amount = it }, label = { Text("Amount") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.weight(2f).testTag("claim-amount-$index"),
+                modifier = m.testTag("claim-amount-$index"),
                 textStyle = Numeric,
             )
+        }
+        if (stacked) {
+            currencyField(Modifier.fillMaxWidth().padding(top = 8.dp))
+            amountField(Modifier.fillMaxWidth().padding(top = 8.dp))
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                currencyField(Modifier.weight(1f))
+                amountField(Modifier.weight(2f))
+            }
         }
         if (line.currency.uppercase() != "SGD") {
             OutlinedTextField(
