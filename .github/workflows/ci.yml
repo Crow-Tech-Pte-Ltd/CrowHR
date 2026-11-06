@@ -192,3 +192,62 @@ jobs:
           name: selfhost-traces
           path: test-results/selfhost/
           retention-days: 7
+
+  android-changes:
+    # A job-level filter rather than `on.paths`: on.paths would skip the whole CI workflow, and the
+    # web/server jobs must keep running on every push. dorny/paths-filter is pinned to a commit
+    # SHA (v3.0.4) because it is third-party code reading the repository.
+    name: Android files changed?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      android: ${{ steps.filter.outputs.android }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        with:
+          filters: |
+            android:
+              - 'apps/android/**'
+              - 'apps/mobile-fixtures/**'
+              - 'scripts/android-*'
+              - '.github/workflows/ci.yml'
+
+  android:
+    # JVM unit tests (shared mobile fixtures included) and Android lint on the runner's preinstalled
+    # SDK. No emulator: the device journeys need the seeded server and an emulator and run locally
+    # (apps/android/README.md). Gradle's dependency and wrapper caches come from setup-gradle.
+    name: Android unit tests + lint
+    needs: android-changes
+    if: needs.android-changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Android SDK platform and build tools the app compiles against
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.2" "build-tools;37.0.0" > /dev/null
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          # Verifies apps/android/gradle/wrapper/gradle-wrapper.jar against Gradle's published checksums.
+          validate-wrappers: true
+      - name: Unit tests and lint
+        working-directory: apps/android
+        run: ./gradlew --console=plain :app:testDebugUnitTest :app:lintDebug
+      - name: Upload test and lint reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-reports
+          path: |
+            apps/android/app/build/reports/
+            apps/android/app/build/test-results/
+          retention-days: 7
