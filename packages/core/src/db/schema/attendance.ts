@@ -60,7 +60,7 @@ export const attendanceSettings = pgTable("attendance_settings", {
 });
 
 export type PunchKind = "in" | "out";
-export type PunchSource = "web" | "mobile_web" | "correction";
+export type PunchSource = "web" | "mobile_web" | "ios" | "android" | "correction";
 export type PunchFlag = "clock_skew" | "late_sync" | "outside_location" | "no_location" | "ip_not_allowed";
 
 export const attendancePunches = pgTable(

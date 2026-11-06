@@ -570,6 +570,7 @@ export const payrollModule = defineModule({
 /** Employee self-service: Me → Payslips (also for former members, read-only). */
 export const payslipsModule = defineModule({
   name: "payslips",
+  feature: "payslips",
   basePath: "/payslips",
   tag: "Payslips",
   routes: [

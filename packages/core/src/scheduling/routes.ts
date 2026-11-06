@@ -342,6 +342,7 @@ const scopeOption = z.object({ id: z.uuid(), name: z.string() });
 
 export const schedulingModule = defineModule({
   name: "scheduling",
+  feature: "scheduling",
   basePath: "/scheduling",
   tag: "Scheduling",
   routes: [
