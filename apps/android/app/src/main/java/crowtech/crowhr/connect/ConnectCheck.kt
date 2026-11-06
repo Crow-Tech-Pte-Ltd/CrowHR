@@ -27,16 +27,30 @@ data class MetaOrganisation(
 data class MetaSignInMethod(val kind: String, val displayName: String)
 
 /** Screens and the meta features they need (connect-cases.json "featureGates"). */
-enum class AppScreen(val id: String, val label: String, val requires: List<String>) {
-    Payslips("payslips", "Payslips", emptyList()),
-    Leave("leave", "Leave", listOf("leave")),
-    Clock("clock", "Clock in", listOf("attendance.offlinePunch")),
-    Claims("claims", "Claims", emptyList()),
-    Schedule("schedule", "Schedule", emptyList()),
-    Approvals("approvals", "Approvals", emptyList()),
-    Notifications("notifications", "Notifications", emptyList());
+/**
+ * [requires]: what a server from before Nov 2026 must list (its meta advertised only `leave` and
+ * `attendance.offlinePunch`; everything else was baseline). [feature]: the module key current
+ * servers list for this screen. connect-cases.json "featureGates" and "modernGating".
+ */
+enum class AppScreen(val id: String, val label: String, val requires: List<String>, val feature: String) {
+    Payslips("payslips", "Payslips", emptyList(), "payslips"),
+    Leave("leave", "Leave", listOf("leave"), "leave"),
+    Clock("clock", "Clock in", listOf("attendance.offlinePunch"), "attendance.offlinePunch"),
+    Claims("claims", "Claims", emptyList(), "claims"),
+    Schedule("schedule", "Schedule", emptyList(), "scheduling"),
+    Approvals("approvals", "Approvals", emptyList(), "approvals"),
+    Notifications("notifications", "Notifications", emptyList(), "notifications");
 
-    fun isAvailable(features: List<String>) = requires.all { it in features }
+    /**
+     * A server that lists any of the per-module keys ([MODERN_MARKERS]) is gated strictly on
+     * [feature]; an older server (none of them listed) falls back to [requires].
+     */
+    fun isAvailable(features: List<String>) =
+        if (features.any { it in MODERN_MARKERS }) feature in features else requires.all { it in features }
+
+    companion object {
+        val MODERN_MARKERS = setOf("payslips", "claims", "scheduling", "approvals", "notifications")
+    }
 
     /** Shown in Settings when the server is too old for this screen. */
     val unavailableNotice: String get() = ConnectMessages.featureUnavailable(label)

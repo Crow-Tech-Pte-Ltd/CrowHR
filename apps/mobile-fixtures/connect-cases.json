@@ -28,6 +28,47 @@
       "schedule": { "label": "Schedule", "requires": [] },
       "approvals": { "label": "Approvals", "requires": [] },
       "notifications": { "label": "Notifications", "requires": [] }
+    },
+    "modernGating": {
+      "description": "Servers from Nov 2026 list a feature key per module. When meta.features contains any of `markers`, a screen is shown only if its `screenFeature` is listed. Otherwise (an older server) the `requires` lists above apply, so screens that predate the keys stay visible. Additive: `requires` keeps its meaning.",
+      "markers": ["payslips", "claims", "scheduling", "approvals", "notifications"],
+      "screenFeature": {
+        "payslips": "payslips",
+        "leave": "leave",
+        "clock": "attendance.offlinePunch",
+        "claims": "claims",
+        "schedule": "scheduling",
+        "approvals": "approvals",
+        "notifications": "notifications"
+      },
+      "cases": [
+        {
+          "id": "current-server-everything",
+          "features": [
+            "approvals",
+            "attendance.offlinePunch",
+            "claims",
+            "leave",
+            "notifications",
+            "payslips",
+            "scheduling"
+          ],
+          "hiddenScreens": []
+        },
+        {
+          "id": "current-server-without-claims-and-scheduling",
+          "features": ["approvals", "attendance.offlinePunch", "leave", "notifications", "payslips"],
+          "hiddenScreens": ["claims", "schedule"]
+        },
+        {
+          "id": "current-server-notifications-only",
+          "features": ["notifications"],
+          "hiddenScreens": ["payslips", "leave", "clock", "claims", "schedule", "approvals"]
+        },
+        { "id": "older-server-leave-and-clock", "features": ["leave", "attendance.offlinePunch"], "hiddenScreens": [] },
+        { "id": "older-server-nothing", "features": [], "hiddenScreens": ["leave", "clock"] },
+        { "id": "unrelated-keys-are-not-markers", "features": ["leave", "claims.fx"], "hiddenScreens": ["clock"] }
+      ]
     }
   },
   "urlRules": {
