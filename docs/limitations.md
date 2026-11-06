@@ -215,4 +215,4 @@ iOS (`apps/ios`):
 
 - Not in the app, done on the web: leave types that need a child, foreign-currency and multi-line claims, and payslip PDF download outside the share sheet.
 - The QR scanner (AVFoundation) and Face ID are not exercised by tests, because the simulator has neither a camera nor biometrics. The camera is stubbed with `-uitest-camera-stub` (DEBUG only).
-- iOS has not yet adopted the additive shared-fixture rules from Nov 2026: `featureGates.modernGating`, and the punch `source`, `elapsedMs` and `refusedOld` rules in `apps/mobile-fixtures`.
+- Accessibility QA (task 3.7) is not signed off. Xcode's accessibility audit reports "Dynamic Type partially unsupported" for one text inside a SwiftUI List or Form row at the largest sizes, and which text it flags changes between runs with unchanged code. Clipping and missing-label checks pass. The screenshots in `artifacts/ios/qa-*.png` show the text readable at XXXL. Needs a manual VoiceOver and Dynamic Type pass on a real device before release.
