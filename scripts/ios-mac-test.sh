@@ -19,7 +19,9 @@ DERIVED="${CROWHR_DERIVED:-$ROOT/DerivedData}"
 mkdir -p "$ROOT/results"
 RESULT="$ROOT/results/$(date +%Y%m%d-%H%M%S)-$LABEL.xcresult"
 
+SAMPLER=""
 cleanup() {
+  if [[ -n "$SAMPLER" ]]; then kill "$SAMPLER" >/dev/null 2>&1 || true; fi
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT INT TERM
@@ -29,6 +31,23 @@ xcodebuild -project CrowHR.xcodeproj -scheme CrowHR -sdk iphonesimulator \
   -destination "id=$UDID" -derivedDataPath "$DERIVED" -jobs 4 -quiet build-for-testing
 
 if [[ -n "${CROWHR_TEST_DRIVER_DIR:-}" ]]; then export DEVELOPER_DIR="$CROWHR_TEST_DRIVER_DIR"; fi
+
+# Network allow-list, seen by the OS: sample every socket the CrowHR app process holds while the
+# tests run (simulator apps are Mac processes), then require every remote end to be the test server.
+NETLOG=""
+if [[ -n "${CROWHR_NET_ALLOW:-}" ]]; then
+  NETLOG="$ROOT/results/$(basename "$RESULT" .xcresult)-sockets.log"
+  : > "$NETLOG"
+  ( set +e +o pipefail
+    while true; do
+      PIDS=$(pgrep -f '/CrowHR.app/CrowHR' || true)
+      echo "$(date +%T) pids=$(echo $PIDS)" >> "$NETLOG.pids"
+      for pid in $PIDS; do lsof -nP -a -p "$pid" -i 2>/dev/null | tail -n +2; done
+      sleep 0.2
+    done ) >> "$NETLOG" &
+  SAMPLER=$!
+fi
+
 set +e
 xcodebuild test-without-building -project CrowHR.xcodeproj -scheme CrowHR \
   -destination "id=$UDID" -derivedDataPath "$DERIVED" -resultBundlePath "$RESULT" \
@@ -36,4 +55,23 @@ xcodebuild test-without-building -project CrowHR.xcodeproj -scheme CrowHR \
 STATUS=$?
 set -e
 echo "RESULT_BUNDLE=$RESULT"
+
+if [[ -n "$NETLOG" ]]; then
+  kill "$SAMPLER" >/dev/null 2>&1 || true
+  SAMPLER=""
+  REMOTES=$(grep -o -- '->[^ ]*' "$NETLOG" | sed 's/^->//' | sort -u || true)
+  SAMPLES=$(wc -l < "$NETLOG" | tr -d ' ')
+  echo "NETWORK_SAMPLES=$SAMPLES"
+  echo "NETWORK_REMOTES=$(echo "$REMOTES" | tr '\n' ' ')"
+  if [[ -z "$REMOTES" ]]; then
+    echo "NETWORK_ALLOWLIST=no-connections-observed"
+    STATUS=${STATUS:-1}
+    [[ $STATUS -eq 0 ]] && STATUS=1
+  elif [[ -n "$(echo "$REMOTES" | grep -v -x -F "$CROWHR_NET_ALLOW" || true)" ]]; then
+    echo "NETWORK_ALLOWLIST=FAILED (only $CROWHR_NET_ALLOW is allowed)"
+    STATUS=1
+  else
+    echo "NETWORK_ALLOWLIST=passed (every connection went to $CROWHR_NET_ALLOW)"
+  fi
+fi
 exit $STATUS

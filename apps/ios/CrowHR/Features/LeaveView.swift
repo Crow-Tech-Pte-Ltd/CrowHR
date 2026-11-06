@@ -106,13 +106,13 @@ struct BalanceRow: View {
 
     var body: some View {
         let unit = balance.unit == "hours" ? "h" : "d"
-        HStack(alignment: .firstTextBaseline) {
+        AdaptiveRow {
             VStack(alignment: .leading, spacing: 2) {
-                Text(balance.name).font(CrowFont.body(.body, weight: .medium))
+                Text(balance.name).font(CrowFont.body(.body, weight: .medium)).fixedSize(horizontal: false, vertical: true)
                 Text("Taken \(Fmt.quantity(balance.taken))\(unit) · Pending \(Fmt.quantity(balance.pending))\(unit)")
-                    .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
+                    .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted).fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
+        } trailing: {
             if let available = balance.available, balance.tracked {
                 Text("\(Fmt.quantity(available))\(unit)").font(CrowFont.mono(.title3, weight: .semibold))
             } else {
@@ -137,13 +137,13 @@ struct LeaveRequestRow: View {
 
     var body: some View {
         let (label, tone) = request.statusLabel
-        HStack(alignment: .firstTextBaseline) {
+        AdaptiveRow {
             VStack(alignment: .leading, spacing: 2) {
-                Text(request.type.name).font(CrowFont.body(.body, weight: .medium))
-                Text(dates).font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
+                Text(request.type.name).font(CrowFont.body(.body, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+                Text(dates).font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted).fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
+        } trailing: {
+            VStack(alignment: .leading, spacing: 4) {
                 StatusChip(text: label, tone: tone)
                 Text("\(Fmt.quantity(request.quantity)) \(request.unit == "hours" ? "h" : request.quantity == 1 ? "day" : "days")")
                     .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
@@ -168,8 +168,8 @@ struct ApplyLeaveView: View {
 
     @State private var types: LoadState<[LeaveType]> = .loading
     @State private var typeID: String = ""
-    @State private var start = Date()
-    @State private var end = Date()
+    @State private var start = ApplyLeaveView.nextWorkingDay()
+    @State private var end = ApplyLeaveView.nextWorkingDay()
     @State private var halfDay = false
     @State private var halfDaySession = "am"
     @State private var reason = ""
@@ -182,6 +182,15 @@ struct ApplyLeaveView: View {
     @State private var pickedPhoto: PhotosPickerItem?
 
     private var selectedType: LeaveType? { types.value?.first { $0.id == typeID } }
+
+    /// The first Monday-to-Friday after today (Singapore), a sensible default for a new application.
+    static func nextWorkingDay(from now: Date = Date()) -> Date {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = Fmt.singapore
+        var d = cal.date(byAdding: .day, value: 1, to: now)!
+        while cal.isDateInWeekend(d) { d = cal.date(byAdding: .day, value: 1, to: d)! }
+        return d
+    }
 
     var body: some View {
         NavigationStack {

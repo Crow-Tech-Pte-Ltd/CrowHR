@@ -30,13 +30,13 @@ struct PayslipsView: View {
 struct PayslipRow: View {
     let payslip: PayslipSummary
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
+        AdaptiveRow {
             VStack(alignment: .leading, spacing: 2) {
                 Text(Fmt.monthKey(payslip.month)).font(CrowFont.body(.body, weight: .medium))
                 Text("Paid \(Fmt.dayString(payslip.payDate))\(payslip.revised ? " · revised" : "")")
-                    .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
+                    .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted).fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
+        } trailing: {
             MoneyText(cents: payslip.netPayableCents, weight: .semibold)
         }
         .padding(.vertical, 4)
@@ -63,12 +63,13 @@ struct PayslipDetailView: View {
                             .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
                         Text("\(p.employee.name) · \(p.employee.employeeNumber) · \(p.employee.idMasked)")
                             .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
+                            .fixedSize(horizontal: false, vertical: true)
                             .accessibilityLabel("\(p.employee.name), employee \(p.employee.employeeNumber), ID ending \(String(p.employee.idMasked.suffix(4)))")
                     }
                     VStack(alignment: .leading, spacing: 10) {
-                        HStack {
+                        AdaptiveRow {
                             Text("Net pay").font(CrowFont.mono(.headline, weight: .semibold))
-                            Spacer()
+                        } trailing: {
                             MoneyText(cents: p.netPayableCents, style: .title2, weight: .semibold).accessibilityIdentifier("payslip.net")
                         }
                     }
@@ -132,18 +133,18 @@ struct PayGroup: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel(title)
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                HStack(alignment: .firstTextBaseline) {
+                AdaptiveRow {
                     Text(line.0).font(CrowFont.body(.subheadline)).fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 12)
+                } trailing: {
                     MoneyText(cents: line.1, style: .subheadline)
                 }
                 .accessibilityElement(children: .combine)
             }
             if let total {
                 Divider().overlay(Crow.hairline)
-                HStack {
+                AdaptiveRow {
                     Text(total.0).font(CrowFont.body(.subheadline, weight: .medium))
-                    Spacer()
+                } trailing: {
                     MoneyText(cents: total.1, style: .subheadline, weight: .semibold)
                 }
                 .accessibilityElement(children: .combine)

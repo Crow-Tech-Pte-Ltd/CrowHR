@@ -244,6 +244,30 @@ struct MoneyText: View {
     }
 }
 
+/// Label and value side by side, stacked at accessibility text sizes so nothing breaks
+/// mid-word or truncates (spec: text scales to 200% without truncating).
+struct AdaptiveRow<Leading: View, Trailing: View>: View {
+    @Environment(\.dynamicTypeSize) private var size
+    @ViewBuilder let leading: () -> Leading
+    @ViewBuilder let trailing: () -> Trailing
+
+    var body: some View {
+        if size.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 4) {
+                leading()
+                trailing()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            HStack(alignment: .firstTextBaseline) {
+                leading()
+                Spacer(minLength: 12)
+                trailing()
+            }
+        }
+    }
+}
+
 /// A notice block (info, warning, error) with an icon and text that wraps.
 struct Notice: View {
     let text: String

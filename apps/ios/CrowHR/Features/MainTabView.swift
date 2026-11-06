@@ -89,11 +89,12 @@ struct TodayView: View {
             case .failed(let e) where e != .offline:
                 Notice(text: e.message, tone: .danger, systemImage: "exclamationmark.triangle")
             default:
-                HStack(alignment: .firstTextBaseline) {
+                AdaptiveRow {
                     Text(clockedIn ? "Clocked in" : "Not clocked in")
                         .font(CrowFont.mono(.title3, weight: .semibold))
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("clock.status")
-                    Spacer()
+                } trailing: {
                     if let last = state.value?.today.last(where: { !$0.voided }), let d = Fmt.parseInstant(last.recordedAt) {
                         Text("\(last.kind == "in" ? "In" : "Out") \(Fmt.time(d))").font(CrowFont.mono(.subheadline)).foregroundStyle(Crow.muted)
                     }
@@ -190,10 +191,10 @@ struct PunchRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(punch.kind == .in ? "In" : "Out").font(CrowFont.mono(.body, weight: .semibold))
-                Text(Fmt.dateTime(punch.deviceTime)).font(CrowFont.mono(.subheadline)).foregroundStyle(Crow.muted)
-                Spacer()
+            AdaptiveRow {
+                Text("\(punch.kind == .in ? "In" : "Out")  \(Fmt.dateTime(punch.deviceTime))").font(CrowFont.mono(.body, weight: .semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+            } trailing: {
                 StatusChip(text: chipText, tone: tone)
             }
             Text(punch.statusLabel()).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
