@@ -74,10 +74,11 @@ async function recipientsOf(db: Db, orgId: string, to: NoticeRecipients): Promis
  * change it reports; with `deps.db` a failure is logged and the request carries on.
  */
 export async function sendSecurityNotice(db: Db, deps: AppDeps, notice: SecurityNotice): Promise<void> {
-  const write = async () => {
-    const recipients = await recipientsOf(db, notice.orgId, notice.to);
+  const write = async (tx: Db) => {
+    const recipients = await recipientsOf(tx, notice.orgId, notice.to);
     const link = notice.link ?? SECURITY_LINK;
-    await notify(db, deps, {
+    // The in-app notification and its outbox email commit together.
+    await notify(tx, deps, {
       orgId: notice.orgId,
       recipients,
       kind: "security_notice",
@@ -92,9 +93,9 @@ export async function sendSecurityNotice(db: Db, deps: AppDeps, notice: Security
       },
     });
   };
-  if (db !== deps.db) return write();
+  if (db !== deps.db) return write(db);
   try {
-    await write();
+    await deps.db.transaction((tx) => write(tx));
   } catch (err) {
     deps.logger.error("Security notice could not be recorded", { title: notice.title, error: String(err) });
   }
