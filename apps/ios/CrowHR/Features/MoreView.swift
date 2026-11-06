@@ -21,6 +21,7 @@ struct MoreView: View {
         .font(CrowFont.body())
         .crowScreen()
         .navigationTitle("More")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -132,7 +133,7 @@ struct SettingsView: View {
             if !unavailable.isEmpty {
                 Section {
                     ForEach(unavailable, id: \.self) { Text($0).font(CrowFont.body(.footnote)) }
-                } header: { SectionLabel("Not available yet") }
+                } header: { SectionLabel("Not available") }
             }
 
             Section {

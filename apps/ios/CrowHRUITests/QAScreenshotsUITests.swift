@@ -43,7 +43,10 @@ final class QAScreenshotsUITests: CrowUITestCase {
     /// Contrast and hit-region checks are reported by the full audit in the QA notes, not here:
     /// system controls in sheets trip them on the simulator independently of the app.
     private func audit(_ screen: String) throws {
-        let tabBarTop = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : .greatestFiniteMagnitude
+        // The floating tab bar isn't exposed as `tabBars`: locate it from its tab buttons.
+        let tabButton = app.buttons["More"].firstMatch
+        let tabBarTop = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY
+            : tabButton.exists ? tabButton.frame.minY - 8 : .greatestFiniteMagnitude
         let navBar = app.navigationBars.firstMatch.exists ? app.navigationBars.firstMatch.frame : .null
         try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped, .dynamicType]) { issue in
             // An issue with no element can't be located in the app's own UI.

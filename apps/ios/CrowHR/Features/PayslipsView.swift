@@ -24,6 +24,7 @@ struct PayslipsView: View {
         }
         .crowScreen()
         .navigationTitle("Payslips")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

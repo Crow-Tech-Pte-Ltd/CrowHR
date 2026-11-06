@@ -9,7 +9,7 @@ import UserNotifications
 @MainActor
 @Observable
 final class Session {
-    let connection: SavedConnection
+    var connection: SavedConnection
     let api: APIClient
     let auth: AuthSession
     let queue: PunchQueue
@@ -99,7 +99,7 @@ final class AppModel {
     }
 
     func connect(server: ServerAddress, organisation: ServerMeta.Organisation, meta: ServerMeta) throws(ConnectionStoreError) {
-        let saved = try connectionsStore.save(server: server, orgSlug: organisation.slug, orgName: organisation.displayName, features: meta.features, now: Date())
+        let saved = try connectionsStore.save(server: server, orgSlug: organisation.slug, orgName: organisation.displayName, features: meta.features, logoUrl: organisation.logoUrl, now: Date())
         connectionsStore.setActive(saved.id)
         pendingLink = nil
         reloadConnections()
@@ -198,6 +198,12 @@ final class AppModel {
         var c = s.connection
         c.membershipId = me.membershipId
         c.displayName = me.user.displayName
+        // The server may have been upgraded since connecting: refresh its feature list.
+        if case .compatible(let meta, let org) = await check(server: c.server, org: c.orgSlug) {
+            c.features = meta.features
+            c.logoUrl = org.logoUrl
+        }
+        s.connection = c
         connectionsStore.update(c)
         reloadConnections()
         await s.drainPunches()
@@ -238,10 +244,7 @@ final class AppModel {
         }
         backgroundedAt = nil
         if let s = session {
-            Task {
-                await s.drainPunches(force: true)
-                await self.refresher(for: s).markAllSeen()
-            }
+            Task { await s.drainPunches(force: true) }
         }
     }
 

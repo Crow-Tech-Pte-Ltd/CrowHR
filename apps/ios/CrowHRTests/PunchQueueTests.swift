@@ -39,14 +39,14 @@ struct PunchCase: CustomTestStringConvertible, @unchecked Sendable {
 
 /// Scripted punch server for the cases the fixture doesn't cover.
 actor FakePunchServer: PunchSending {
-    struct Sent: Equatable { let key: String; let kind: PunchKind; let deviceTime: Date; let sentAt: Date; let queued: Bool }
+    struct Sent: Equatable { let key: String; let kind: PunchKind; let deviceTime: Date; let sentAt: Date; let queued: Bool; let elapsedMs: Int? }
     private(set) var sent: [Sent] = []
     var script: [PunchSendResult] = []
 
     func setScript(_ s: [PunchSendResult]) { script = s }
 
-    func send(_ punch: QueuedPunch, sentAt: Date, queued: Bool) async -> PunchSendResult {
-        sent.append(Sent(key: punch.idempotencyKey, kind: punch.kind, deviceTime: punch.deviceTime, sentAt: sentAt, queued: queued))
+    func send(_ punch: QueuedPunch, sentAt: Date, queued: Bool, elapsedMs: Int?) async -> PunchSendResult {
+        sent.append(Sent(key: punch.idempotencyKey, kind: punch.kind, deviceTime: punch.deviceTime, sentAt: sentAt, queued: queued, elapsedMs: elapsedMs))
         if !script.isEmpty { return script.removeFirst() }
         return .recorded(serverPunchId: "srv-\(sent.count)", recordedAt: "2026-11-07T00:58:00.000Z", status: "accepted", flags: [], replayed: false)
     }
@@ -84,7 +84,9 @@ struct PunchQueueTests {
         let transport = ScriptedPunchTransport()
         let api = APIClient(server: testServer, transport: transport, auth: nil)
         let sender = APIPunchSender(api: api)
-        let q = PunchQueue(store: MemoryPunchQueueStore(), now: { clock.now }, uptime: { 1 })
+        let start = clock.now
+        // One boot session for the whole case; the monotonic clock advances with the wall clock.
+        let q = PunchQueue(store: MemoryPunchQueueStore(), now: { clock.now }, uptime: { 1_000 + clock.now.timeIntervalSince(start) }, bootSession: { "boot-1" })
         let kinds: [String: PunchKind] = ["in": .in, "out": .out]
 
         for (n, step) in c.steps.enumerated() {
@@ -117,7 +119,14 @@ struct PunchQueueTests {
                     let sent = transport.sentBodies()
                     #expect(sent.map { $0["idempotencyKey"] as? String } == requests.map { $0["key"] as? String }, "\(at)")
                     #expect(sent.map { $0["queued"] as? Bool } == requests.map { $0["queued"] as? Bool }, "\(at)")
-                    for b in sent { #expect(Fmt.parseInstant(b["sentAt"] as! String) == now, "\(at) sentAt") }
+                    for b in sent {
+                        #expect(Fmt.parseInstant(b["sentAt"] as! String) == now, "\(at) sentAt")
+                        #expect(b["source"] as? String == "ios", "\(at) source")
+                        // Same boot: elapsedMs is the real time since the tap (up to 8 days).
+                        let tap = Fmt.parseInstant(b["deviceTime"] as! String)!
+                        let expected = Int((now.timeIntervalSince(tap) * 1000).rounded())
+                        #expect(b["elapsedMs"] as? Int == (expected <= PunchQueue.maxElapsedMs ? expected : nil), "\(at) elapsedMs")
+                    }
                 }
                 if expect.keys.contains("stopReason") {
                     #expect(summary.stop?.rawValue == expect["stopReason"] as? String, "\(at) stop")
@@ -219,14 +228,86 @@ struct PunchQueueTests {
         let transport = ScriptedPunchTransport()
         transport.load([["status": 201, "body": ["status": "accepted", "flags": [String]()]], ["status": 201, "body": ["status": "accepted", "flags": [String]()]]])
         let sender = APIPunchSender(api: APIClient(server: testServer, transport: transport, auth: nil))
-        let q = PunchQueue(store: MemoryPunchQueueStore())
+        let q = PunchQueue(store: MemoryPunchQueueStore(), bootSession: { "boot-1" })
         try await q.enqueue(kind: .in, membershipId: me, location: PunchLocation(latitude: 1.2834, longitude: 103.8607, accuracyMetres: 12))
         try await q.enqueue(kind: .out, membershipId: me, location: nil)
         _ = await q.drain(membershipId: me, using: sender)
         let bodies = transport.sentBodies()
         #expect((bodies[0]["location"] as? [String: Double])?["accuracyMetres"] == 12)
         #expect(bodies[1]["location"] == nil)
-        #expect(Set(bodies[0].keys) == ["kind", "idempotencyKey", "deviceTime", "sentAt", "queued", "source", "location"])
+        #expect(Set(bodies[0].keys) == ["kind", "idempotencyKey", "deviceTime", "sentAt", "queued", "source", "elapsedMs", "location"])
+        #expect(bodies[0]["source"] as? String == "ios")
+        #expect(bodies[0]["timeZoneOffsetSeconds"] == nil) // kept on the phone; the server has no such field
+    }
+
+    @Test func elapsedTimeIsSentOnlyWithinTheSameBoot() async throws {
+        let clock = TestClock()
+        let boot = BootBox("boot-1")
+        var up: TimeInterval = 500
+        let upBox = UptimeBox(500)
+        let q = PunchQueue(store: MemoryPunchQueueStore(), now: { clock.now }, uptime: { upBox.value }, bootSession: { boot.value })
+        let server = FakePunchServer()
+        await server.setScript([.retryLater("offline")])
+        try await q.enqueue(kind: .in, membershipId: me, location: nil)
+        // The user moves the wall clock back an hour; monotonic time still says 90 s passed.
+        clock.advance(-3_600)
+        up += 90
+        upBox.value = up
+        _ = await q.drain(membershipId: me, using: server)
+        #expect(await server.sent.last?.elapsedMs == 90_000)
+        // After a restart the stored uptime means nothing: elapsedMs is left out.
+        boot.value = "boot-2"
+        upBox.value = 30
+        _ = await q.drain(membershipId: me, using: server, force: true)
+        #expect(await server.sent.count == 2)
+        #expect(await server.sent.last?.elapsedMs == nil)
+    }
+
+    @Test func elapsedOverEightDaysIsLeftOut() async throws {
+        let upBox = UptimeBox(0)
+        let q = PunchQueue(store: MemoryPunchQueueStore(), uptime: { upBox.value }, bootSession: { "b" })
+        let p = try await q.enqueue(kind: .in, membershipId: me, location: nil)
+        upBox.value = 8 * 86_400 + 1
+        #expect(await q.elapsedMs(for: p) == nil)
+        upBox.value = 8 * 86_400
+        #expect(await q.elapsedMs(for: p) == PunchQueue.maxElapsedMs)
+    }
+
+    @Test func refusedPunchStaysVisibleUntilDismissed() async throws {
+        let clock = TestClock()
+        let q = PunchQueue(store: MemoryPunchQueueStore(), now: { clock.now }, uptime: { 1 })
+        let server = FakePunchServer()
+        await server.setScript([.rejected(code: "punch_rejected", message: "This punch is more than 7 days old, so it can't be recorded automatically. Ask your manager to add it to your timesheet.")])
+        let p = try await q.enqueue(kind: .in, membershipId: me, location: nil)
+        clock.advance(8 * 86_400)
+        _ = await q.drain(membershipId: me, using: server)
+        var stored = try #require(await q.all().first)
+        #expect(stored.needsAttention)
+        #expect(stored.labels.first?.contains("Ask your manager to add it to your timesheet") == true)
+        // Never pruned while it needs attention, however old.
+        clock.advance(60 * 86_400)
+        await q.pruneSettled()
+        #expect(await q.all().count == 1)
+        await q.dismiss(p.id)
+        stored = try #require(await q.all().first)
+        #expect(!stored.needsAttention)
+        clock.advance(31 * 86_400)
+        await q.pruneSettled()
+        #expect(await q.all().isEmpty)
+    }
+
+    @Test func bootSessionIsReadableAndStoredWithThePunch() async throws {
+        let current = try #require(BootSession.current())
+        #expect(!current.isEmpty)
+        let p = try await PunchQueue(store: MemoryPunchQueueStore()).enqueue(kind: .in, membershipId: me, location: nil)
+        #expect(p.bootSession == current)
+    }
+
+    @Test func pendingPunchCannotBeDismissed() async throws {
+        let q = PunchQueue(store: MemoryPunchQueueStore())
+        let p = try await q.enqueue(kind: .in, membershipId: me, location: nil)
+        await q.dismiss(p.id)
+        #expect(await q.all().first?.dismissedAt == nil)
     }
 
     @Test func survivesRestartFromDisk() async throws {
@@ -250,4 +331,18 @@ struct PunchQueueTests {
         #expect(values.fileProtection == .complete)
         #endif
     }
+}
+
+final class BootBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var v: String
+    init(_ v: String) { self.v = v }
+    var value: String { get { lock.withLock { v } } set { lock.withLock { v = newValue } } }
+}
+
+final class UptimeBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var v: TimeInterval
+    init(_ v: TimeInterval) { self.v = v }
+    var value: TimeInterval { get { lock.withLock { v } } set { lock.withLock { v = newValue } } }
 }

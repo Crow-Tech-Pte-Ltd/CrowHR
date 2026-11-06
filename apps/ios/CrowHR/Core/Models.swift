@@ -249,7 +249,7 @@ struct ApprovalTask: Decodable, Sendable, Identifiable, Equatable {
 struct Decision: Encodable, Sendable { let decision: String; let comment: String? }
 struct DecisionResult: Decodable, Sendable { let outcome: String; let replayed: Bool }
 
-struct NotificationPage: Decodable, Sendable { let items: [InboxNotification]; let total: Int; let unread: Int }
+struct NotificationPage: Decodable, Sendable { let items: [InboxNotification]; let total: Int; let unread: Int; let cursor: String? }
 
 struct InboxNotification: Decodable, Sendable, Identifiable, Equatable {
     let id: String

@@ -142,6 +142,7 @@ struct NewClaimView: View {
     @State private var receipt: CapturedImage?
     @State private var showCamera = false
     @State private var picked: PhotosPickerItem?
+    @State private var choosingPhoto = false
     @State private var busy = false
     @State private var error: String?
 
@@ -162,8 +163,7 @@ struct NewClaimView: View {
             AsyncContent(state: $types, load: loadTypes) { list in
                 Form {
                     Section {
-                        Picker("Type", selection: $typeID) { ForEach(list) { Text($0.name).tag($0.id) } }
-                            .adaptivePickerStyle()
+                        ChoiceField(title: "Type", options: list.map { (id: $0.id, name: $0.name) }, selection: $typeID)
                             .accessibilityIdentifier("claim.type")
                         DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
                         TextField("Merchant", text: $merchant).accessibilityIdentifier("claim.merchant")
@@ -198,7 +198,7 @@ struct NewClaimView: View {
                         } else {
                             Button { showCamera = true } label: { Label("Photograph receipt", systemImage: "camera") }
                                 .accessibilityIdentifier("claim.camera")
-                            PhotosPicker(selection: $picked, matching: .images) { Label("Choose a photo", systemImage: "photo").font(CrowFont.body()) }
+                            Button { choosingPhoto = true } label: { Label("Choose a photo", systemImage: "photo") }
                         }
                     } header: {
                         Text(receiptRequired ? "Receipt (required)" : "Receipt")
@@ -227,6 +227,7 @@ struct NewClaimView: View {
             .sheet(isPresented: $showCamera) {
                 CameraCapture(stub: model.env.cameraStub) { receipt = $0; showCamera = false }
             }
+            .photosPicker(isPresented: $choosingPhoto, selection: $picked, matching: .images)
             .onChange(of: picked) { _, item in
                 guard let item else { return }
                 Task {

@@ -162,14 +162,19 @@ enum AppFeature: String, CaseIterable, Sendable, Codable {
 }
 
 enum FeatureGate {
-    /// Modules that shipped in the first `/api/v1` release without a meta feature flag. Every v1
-    /// server has them, so they need no flag; the app still honours the flag once servers list it.
-    /// NOT IMPLEMENTED (server): meta should list `payslips`, `claims`, `scheduling`, `approvals`
-    /// and `notifications` so a server can switch them off; reported to the lead.
+    /// Modules that shipped in the first `/api/v1` release before meta listed them. Servers from
+    /// Nov 2026 list them; a server that lists none of them predates that, so they are assumed
+    /// present there. Once a server lists any of them, every screen is gated strictly.
     static let v1Baseline: Set<String> = ["payslips", "claims", "scheduling", "approvals", "notifications"]
 
+    /// Whether this server lists the baseline modules (and so can switch them off).
+    static func listsBaseline(_ serverFeatures: [String]) -> Bool {
+        !v1Baseline.isDisjoint(with: serverFeatures)
+    }
+
     static func isAvailable(_ feature: AppFeature, serverFeatures: [String]) -> Bool {
-        serverFeatures.contains(feature.serverFeature) || v1Baseline.contains(feature.serverFeature)
+        if serverFeatures.contains(feature.serverFeature) { return true }
+        return !listsBaseline(serverFeatures) && v1Baseline.contains(feature.serverFeature)
     }
 
     static func available(serverFeatures: [String]) -> [AppFeature] {
@@ -178,8 +183,12 @@ enum FeatureGate {
 
     /// Settings copy for each screen hidden because the server is older than the app.
     static func unavailableMessages(serverFeatures: [String]) -> [String] {
-        AppFeature.allCases.filter { !isAvailable($0, serverFeatures: serverFeatures) }.map {
-            ConnectMessages.featureUnavailable($0.title)
+        AppFeature.allCases.filter { !isAvailable($0, serverFeatures: serverFeatures) }.map { f in
+            // A server that lists its modules and leaves this one out has it switched off;
+            // otherwise the server predates it.
+            listsBaseline(serverFeatures) && v1Baseline.contains(f.serverFeature)
+                ? "\(f.title) is turned off on your company's Crow HR server."
+                : ConnectMessages.featureUnavailable(f.title)
         }
     }
 }

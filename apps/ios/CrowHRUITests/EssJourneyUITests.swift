@@ -86,9 +86,14 @@ class CrowUITestCase: XCTestCase {
         XCTAssertEqual(wait(app.staticTexts["confirm.orgName"]).label, "Kampong Kopi Pte. Ltd.")
         XCTAssertTrue(app.staticTexts["confirm.insecure"].exists || app.otherElements["confirm.insecure"].exists,
                       "Plain-http private address must show the not-encrypted warning")
+        // The organisation's logo, served by the same server (meta logoUrl).
+        wait(app.images["org.logo"], 10)
         shot("01-confirm-server")
         app.buttons["confirm.connect"].tap()
-        wait(app.buttons["signin.start"]).tap()
+        wait(app.buttons["signin.start"])
+        wait(app.images["org.logo"], 10)
+        shot("01b-sign-in")
+        app.buttons["signin.start"].tap()
 
         // The system browser session (SafariViewService), showing the server's own sign-in page.
         let browser = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
