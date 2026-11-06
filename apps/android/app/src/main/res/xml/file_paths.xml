@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Receipt photos and the payslip PDF being shared live in cache/ only while in use. -->
+<paths>
+    <cache-path name="receipts" path="receipts/" />
+    <cache-path name="share" path="share/" />
+</paths>

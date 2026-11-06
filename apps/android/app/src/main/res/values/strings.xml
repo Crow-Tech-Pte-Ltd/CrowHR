@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Crow HR</string>
+    <string name="notification_channel_updates">Updates</string>
+    <string name="notification_channel_updates_description">A count of new items in Crow HR. The text never includes personal details.</string>
+</resources>

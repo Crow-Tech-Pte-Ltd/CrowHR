@@ -1,0 +1,6 @@
+# Large binaries stay local; screenshots and small JSON evidence are committed.
+*.apk
+*.aab
+*.idsig
+*.log
+logcat*.txt
