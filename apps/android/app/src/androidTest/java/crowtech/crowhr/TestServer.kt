@@ -165,12 +165,13 @@ object TestServer {
     }
 
     /** The app's default first day: next weekday that isn't a public holiday. */
-    fun nextWorkingDay(): LocalDate {
+    fun nextWorkingDay(): LocalDate = crowtech.crowhr.ui.screens.nextWorkingDay(LocalDate.now(ZoneId.of("Asia/Singapore")), holidays())
+
+    private fun holidays(): Set<String> {
         val today = LocalDate.now(ZoneId.of("Asia/Singapore"))
-        val holidays = listOf(today.year, today.year + 1).flatMap { y ->
+        return listOf(today.year, today.year + 1).flatMap { y ->
             get("/api/v1/leave/holidays?year=$y", token(NADIA)).items().map { it.jsonObject["date"]!!.jsonPrimitive.content }
         }.toSet()
-        return crowtech.crowhr.ui.screens.nextWorkingDay(today, holidays)
     }
 
     /** Withdraws Nadia's pending requests that start on [date] (keeps reruns independent). */
@@ -181,13 +182,16 @@ object TestServer {
             .forEach { post("/api/v1/leave/requests/${it["id"]!!.jsonPrimitive.content}/withdraw", nadia) }
     }
 
-    /** A weekday at least [weeksAhead] weeks out that Nadia has no leave on. */
+    /** A working day (no weekend, no public holiday) at least [weeksAhead] weeks out that Nadia has no leave on. */
     fun freeWeekday(weeksAhead: Long, offsetDays: Long = 0): LocalDate {
-        var d = LocalDate.now(ZoneId.of("Asia/Singapore")).plusWeeks(weeksAhead).plusDays(offsetDays)
+        val holidays = holidays()
         val taken = get("/api/v1/leave/requests?limit=100", token(NADIA)).items()
             .filter { it.jsonObject["status"]!!.jsonPrimitive.content in setOf("pending", "approved") }
             .map { it.jsonObject["startDate"]!!.jsonPrimitive.content }.toSet()
-        while (d.dayOfWeek == DayOfWeek.SATURDAY || d.dayOfWeek == DayOfWeek.SUNDAY || d.toString() in taken) d = d.plusDays(1)
+        var d = LocalDate.now(ZoneId.of("Asia/Singapore")).plusWeeks(weeksAhead).plusDays(offsetDays).minusDays(1)
+        do {
+            d = crowtech.crowhr.ui.screens.nextWorkingDay(d, holidays)
+        } while (d.toString() in taken)
         return d
     }
 }
