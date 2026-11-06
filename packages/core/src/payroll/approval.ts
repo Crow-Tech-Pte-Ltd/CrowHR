@@ -154,12 +154,18 @@ export function payrollCutoffReminder(): ReminderSource {
   return {
     id: "payroll_cutoff",
     async due(db, { today }) {
-      const month = today.slice(0, 7);
+      // This month's cutoff, and next month's when it falls in its first 3 days (cutoff day 1–3).
+      const thisMonth = today.slice(0, 7);
+      const nextMonth = shiftDays(`${thisMonth}-28`, 7).slice(0, 7);
       const settings = await db.select().from(payrollSettings);
       const out: DueReminder[] = [];
       for (const s of settings) {
+        const month = [thisMonth, nextMonth].find((m) => {
+          const on = cutoffFor(m, s);
+          return today >= shiftDays(on, -3) && today <= on;
+        });
+        if (!month) continue;
         const cutoffOn = cutoffFor(month, s);
-        if (today < shiftDays(cutoffOn, -3) || today > cutoffOn) continue;
         const [done] = await db
           .select({ id: payrollRuns.id })
           .from(payrollRuns)

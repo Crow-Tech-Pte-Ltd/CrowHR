@@ -15,6 +15,7 @@ import { auditEvents } from "../db/schema/audit.ts";
 import { authThrottle } from "../db/schema/auth.ts";
 import type { Mailer } from "../deps.ts";
 import type { ErrorEnvelope } from "../errors.ts";
+import { sweepOutbox } from "../notifications/outbox.ts";
 import { totpAt } from "./totp.ts";
 
 const PASSWORD = "teh tarik kurang manis";
@@ -118,6 +119,7 @@ describe("sign-in throttling and lockout", () => {
       headers: { "x-crowhr-client-ip": "192.0.2.77" },
     });
     expect(again.status).toBe(200);
+    await sweepOutbox(deps, clock.now()); // security notices are emailed through the outbox
     expect(sent.some((m) => m.to === "boss@example.sg" && /new devices/i.test(m.text))).toBe(true);
     clock.advance(15 * 60_000);
     expect((await attempt("boss@example.sg", PASSWORD, "192.0.2.99")).status).toBe(200);
@@ -231,7 +233,8 @@ describe("MFA guess budget (finding 12)", () => {
     const ok = await http.post("/api/v1/auth/mfa/verify", { mfaToken: token, code: await totpAt(secret, clock.now()) });
     expect(ok.status).toBe(401);
     expect(((await ok.json()) as ErrorEnvelope).error.code).toBe("invalid_mfa_code");
-    expect(sent.some((m) => m.to === "mfa@example.sg" && /two-step/i.test(m.subject))).toBe(true);
+    await sweepOutbox(deps, clock.now());
+    expect(sent.some((m) => m.to === "mfa@example.sg" && /two-step/i.test(m.text))).toBe(true);
     clock.advance(15 * 60_000 + 31_000);
     const later = await passwordStep("mfa@example.sg", "10.9.1.2");
     expect(

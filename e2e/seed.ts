@@ -6,6 +6,7 @@
 // Relative imports: the repo root has no workspace links (bun's isolated installs).
 
 import { createArgon2Hasher } from "../apps/server/src/argon2-hasher.ts";
+import { backupFileName } from "../apps/server/src/backup/backup.ts";
 import { openDatabase } from "../apps/server/src/db.ts";
 import { singaporeDate } from "../packages/core/src/access/scope.ts";
 import { systemAuditContext } from "../packages/core/src/audit/audit.ts";
@@ -130,6 +131,56 @@ if (!ssoOrg) {
     },
   ]);
   console.error(`Seeded ${E2E.ssoOrg.name} with every sign-in method.`);
+}
+
+// A third organisation with only its owner, like a company straight after the setup wizard.
+const freshOrg = (await db.select().from(schema.organisations)).find((o) => o.slug === E2E.freshOrg.slug);
+if (!freshOrg) {
+  const orgId = ids.newId();
+  await db.insert(schema.organisations).values({ id: orgId, name: E2E.freshOrg.name, slug: E2E.freshOrg.slug });
+  await db.insert(schema.orgSecuritySettings).values({ orgId });
+  // biome-ignore lint/suspicious/noExplicitAny: seedMember only needs db/ids/clock/passwordHasher.
+  await seedMember(deps as any, orgId, {
+    email: E2E.freshOrg.owner.email,
+    displayName: E2E.freshOrg.owner.name,
+    password: E2E.password,
+    roles: ["owner"],
+  });
+  console.error(`Seeded ${E2E.freshOrg.name} with its owner only.`);
+}
+
+// A fourth organisation for the generic-OIDC round trip (e2e/security-settings.spec.ts).
+const oidcOrg = (await db.select().from(schema.organisations)).find((o) => o.slug === E2E.oidcOrg.slug);
+if (!oidcOrg) {
+  const orgId = ids.newId();
+  await db.insert(schema.organisations).values({ id: orgId, name: E2E.oidcOrg.name, slug: E2E.oidcOrg.slug });
+  await db.insert(schema.orgSecuritySettings).values({ orgId });
+  for (const [m, roles] of [
+    [E2E.oidcOrg.owner, ["owner"]],
+    [E2E.oidcOrg.hr, ["hr_admin"]],
+    [E2E.oidcOrg.staff, []],
+  ] as const) {
+    // biome-ignore lint/suspicious/noExplicitAny: seedMember only needs db/ids/clock/passwordHasher.
+    await seedMember(deps as any, orgId, { email: m.email, displayName: m.name, password: E2E.password, roles });
+  }
+  console.error(`Seeded ${E2E.oidcOrg.name} for the OIDC round trip.`);
+}
+
+// Backups (e2e/system-page.spec.ts): the last successful backup ran three days ago, so Home warns
+// owners that it is more than 48 hours old. No archive file exists; only the run is recorded.
+if (!(await db.select().from(schema.backupRuns)).length) {
+  const started = new Date(Date.now() - 3 * 86_400_000);
+  await db.insert(schema.backupRuns).values({
+    id: ids.newId(),
+    trigger: "scheduled",
+    status: "succeeded",
+    startedAt: started,
+    finishedAt: new Date(started.getTime() + 42_000),
+    fileName: backupFileName(started, "scheduled", false),
+    sizeBytes: 18_734_592,
+    encrypted: false,
+    includesKey: true,
+  });
 }
 await database.close();
 

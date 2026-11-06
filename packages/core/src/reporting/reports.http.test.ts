@@ -65,6 +65,10 @@ describe("reports", () => {
       "leave.balances",
       "attendance.exceptions",
       "claims.summary",
+      "claims.ageing",
+      "claims.cap_usage",
+      "claims.payouts",
+      "claims.lines",
       "payroll.cost",
       "scheduling.hours",
     ]);
@@ -74,6 +78,10 @@ describe("reports", () => {
     expect((await ids(await w.as("payroll"))).map((r) => r.id)).toEqual([
       "people.work_pass_expiry",
       "claims.summary",
+      "claims.ageing",
+      "claims.cap_usage",
+      "claims.payouts",
+      "claims.lines",
       "payroll.cost",
     ]);
     // Manager catalogue: leave, attendance and scheduled hours, team-scoped; no payroll cost or headcount.

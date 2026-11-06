@@ -24,6 +24,8 @@ export interface Me {
   insecureTransport: boolean;
   demoMode: boolean;
   mailerConfigured: boolean;
+  /** PUBLIC_URL without a trailing slash (the mobile app connects to it). */
+  publicUrl: string;
 }
 
 export interface SignInMethods {

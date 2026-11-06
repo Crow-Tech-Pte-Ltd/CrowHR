@@ -11,6 +11,7 @@ import { isConfigured } from "./methods.ts";
 import { callbackUrl, discover, jwksUrl } from "./oidc/client.ts";
 import { generateRpKeys, publicOnly } from "./oidc/keys.ts";
 import { ENTRA_FORBIDDEN_TENANTS, entraIssuer, GOOGLE_ISSUER, PRESETS, SINGPASS_ISSUERS } from "./oidc/presets.ts";
+import { noticeSignInSettingsChanged } from "./security-notices.ts";
 import { loadSecuritySettings, sessionCookie } from "./settings.ts";
 
 const kind = z.enum(["google", "entra", "singpass", "oidc"]);
@@ -196,6 +197,16 @@ const AUDIT_SAFE_FIELDS = [
   "enabled",
 ] as const;
 
+/** "turned password sign-in off", "changed session timeouts"… for the owners' security notice. */
+function settingsChangePhrases(changedKeys: readonly string[], patch: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  const has = (k: string) => changedKeys.includes(k);
+  if (has("passwordEnabled")) out.push(`turned password sign-in ${patch.passwordEnabled ? "on" : "off"}`);
+  if (has("mfaRequiredRoles")) out.push("changed which roles must use two-step verification");
+  if (has("idleTimeoutMin") || has("absoluteTimeoutH") || has("deviceIdleDays")) out.push("changed session timeouts");
+  return out;
+}
+
 export const securityModule = defineModule({
   name: "security",
   basePath: "/security",
@@ -256,6 +267,7 @@ export const securityModule = defineModule({
         }
         const patch = Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined));
         if (body.mfaRequiredRoles) patch.mfaRequiredRoles = [...new Set(body.mfaRequiredRoles)];
+        const diff = diffFields(before as unknown as Record<string, unknown>, { ...before, ...patch });
         await deps.db.transaction(async (tx) => {
           await tx
             .update(orgSecuritySettings)
@@ -265,8 +277,16 @@ export const securityModule = defineModule({
             action: "security_settings.updated",
             targetType: "organisation",
             targetId: auth.orgId,
-            diff: diffFields(before as unknown as Record<string, unknown>, { ...before, ...patch }),
+            diff,
           });
+          const changed = settingsChangePhrases(Object.keys(diff ?? {}), patch);
+          if (changed.length) {
+            await noticeSignInSettingsChanged(tx, deps, {
+              orgId: auth.orgId,
+              actorName: auth.user.displayName || auth.user.email,
+              what: changed.join(" and "),
+            });
+          }
         });
         return settingsView(c, auth.orgId);
       },
@@ -362,7 +382,13 @@ export const securityModule = defineModule({
               diff: { enabled: { from: false, to: true } },
             });
         }
-        return present(deps, await getProvider(c, auth.orgId, id));
+        const created = await getProvider(c, auth.orgId, id);
+        await noticeSignInSettingsChanged(deps.db, deps, {
+          orgId: auth.orgId,
+          actorName: auth.user.displayName || auth.user.email,
+          what: `added the single sign-on method ${created.displayName}${created.enabled ? " and turned it on" : ""}`,
+        });
+        return present(deps, created);
       },
     }),
 
@@ -455,6 +481,17 @@ export const securityModule = defineModule({
             targetId: current.id,
             diff,
           });
+          if (Object.keys(diff).length) {
+            const toggled =
+              diff.enabled && Object.keys(diff).length === 1
+                ? `turned the single sign-on method ${current.displayName} ${next.enabled ? "on" : "off"}`
+                : `changed the single sign-on method ${current.displayName}`;
+            await noticeSignInSettingsChanged(tx, deps, {
+              orgId: auth.orgId,
+              actorName: auth.user.displayName || auth.user.email,
+              what: toggled,
+            });
+          }
         });
         return present(deps, await getProvider(c, auth.orgId, current.id));
       },
@@ -480,6 +517,11 @@ export const securityModule = defineModule({
             targetType: "sso_provider",
             targetId: current.id,
             meta: { kind: current.kind },
+          });
+          await noticeSignInSettingsChanged(tx, deps, {
+            orgId: auth.orgId,
+            actorName: auth.user.displayName || auth.user.email,
+            what: `removed the single sign-on method ${current.displayName}`,
           });
         });
         return undefined;
