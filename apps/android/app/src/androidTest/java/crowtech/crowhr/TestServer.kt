@@ -109,15 +109,39 @@ object TestServer {
 
     private fun JsonElement.items(): JsonArray = (this as? JsonObject)?.get("items")?.jsonArray ?: jsonArray
 
+    /** Legal name, UEN, CSN and address: payroll and the logo need them. */
+    fun ensureCompanyProfile() {
+        val reply = call("PUT", "/api/v1/organisation/profile", token(OWNER), buildJsonObject {
+            put("legalName", "Kampong Kopi Pte. Ltd."); put("uen", "202600001K"); put("csn", "202600001KPTE01")
+            put("addressBlock", "1"); put("addressStreet", "Kampong Bahru Road"); put("postalCode", "169341")
+        })
+        check(reply.status in 200..299) { "company profile → ${reply.status} ${reply.body}" }
+    }
+
+    /** The organisation has a logo (meta then links it publicly; same host as the server). */
+    fun ensureLogo() {
+        val meta = call("GET", "/api/v1/meta?org=$ORG", null).body.jsonObject
+        val org = meta["organisations"]!!.jsonArray.first().jsonObject
+        if (org["logoUrl"] !is JsonNull) return
+        ensureCompanyProfile()
+        val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
+        Canvas(bitmap).apply {
+            drawColor(Color.rgb(0xFE, 0xD5, 0x6C))
+            drawRect(30f, 30f, 66f, 66f, Paint().apply { color = Color.rgb(0x0A, 0x0A, 0x0A) })
+        }
+        val png = java.io.ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+        val reply = call("PUT", "/api/v1/organisation/profile/logo", token(OWNER), buildJsonObject {
+            put("contentType", "image/png"); put("dataBase64", android.util.Base64.encodeToString(png, android.util.Base64.NO_WRAP))
+        })
+        check(reply.status in 200..299) { "logo upload → ${reply.status} ${reply.body}" }
+    }
+
     /** Nadia gets a released payslip: last month's run, computed, approved by the owner, released. */
     fun ensureReleasedPayslip(): JsonObject {
         get("/api/v1/payslips", token(NADIA)).items().firstOrNull()?.let { return it.jsonObject }
         val owner = token(OWNER)
         val payroll = token(PAYROLL)
-        call("PUT", "/api/v1/organisation/profile", owner, buildJsonObject {
-            put("legalName", "Kampong Kopi Pte. Ltd."); put("uen", "202600001K"); put("csn", "202600001KPTE01")
-            put("addressBlock", "1"); put("addressStreet", "Kampong Bahru Road"); put("postalCode", "169341")
-        })
+        ensureCompanyProfile()
         val month = LocalDate.now(ZoneId.of("Asia/Singapore")).minusMonths(1).toString().take(7)
         val run = post("/api/v1/payroll/runs", payroll, buildJsonObject { put("kind", "regular"); put("month", month) }).jsonObject["id"]!!.jsonPrimitive.content
         post("/api/v1/payroll/runs/$run/compute", payroll)

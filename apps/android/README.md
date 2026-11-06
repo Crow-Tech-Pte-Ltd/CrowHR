@@ -38,12 +38,13 @@ Notes for this machine:
 
 | Area | Where | Notes |
 | --- | --- | --- |
-| Connect | `connect/` | Address or QR, then `/api/v1/meta`, then confirm. HTTPS only, except private-range or `.local` hosts, which show a warning. Up to 5 saved connections. Screens are gated on meta `features`. Android 17 local-network permission is requested only for LAN servers |
+| Connect | `connect/` | Address or QR, then `/api/v1/meta`, then confirm, showing the organisation logo from `logoUrl` when it is on the server's host. HTTPS only, except private-range or `.local` hosts, which show a warning. Up to 5 saved connections. Screens are gated on the per-module meta `features` (`payslips`, `claims`, `scheduling`, `approvals`, `notifications`, `leave`, `attendance.offlinePunch`); a server that lists none of the module keys falls back to the old baseline. Android 17 local-network permission is requested only for LAN servers |
 | Sign-in | `auth/` | Custom Tabs via the documented intent extras (no WebView, no androidx.browser), PKCE S256 and state, then `/native/token`. One refresh and retry on 401; a refused refresh ends the session |
 | Storage | `security/` | One AES-256-GCM key in the Android Keystore (non-exportable). Every value is its own encrypted file in `noBackupFilesDir`. Backups and device transfer exclude everything |
 | Lock | `security/AppLock.kt`, `Biometric.kt` | Optional. Platform BiometricPrompt with screen-lock fallback, on a cold start and after more than 5 minutes away |
 | HTTP | `api/` | One OkHttp client. A network interceptor allows only the configured server's host (and http only to private hosts). No cache, redirects off |
-| Clock in | `punch/` | Append-only encrypted queue: FIFO, idempotency key reused, 200 cap, never drops. Sent by WorkManager when online (exponential backoff) |
+| Clock in | `punch/` | Append-only encrypted queue: FIFO, idempotency key reused, 200 cap, never drops. Sent by WorkManager when online (exponential backoff), with `source: "android"` and `elapsedMs` from `elapsedRealtime` when the phone hasn't rebooted since the tap (checked with `Settings.Global.BOOT_COUNT`). No time-zone field is sent. A punch the server refuses (for example, more than 7 days old) keeps its reason on screen until the employee dismisses it |
+| Time | `core/Formats.kt` | Every date and time is shown in Singapore time (Asia/Singapore), whatever the phone's zone, like the web. `FormatsTest` checks this under other default zones and guards the sources. Captures with the emulator set to New York: `artifacts/android/screenshots/phone-new-york-tz/` |
 | Refresh | `notify/` | WorkManager every 15 min with a network constraint. Uses the server's notifications `since` cursor, or createdAt on older servers. Posts a local notification whose text is only the count |
 | Screens | `ui/` | Clock, Leave (balances, apply with live quote, withdraw/cancel), Pay (FLAG_SECURE; PDF only on request, never cached), Tasks (approve/reject; rejecting requires a comment), More (claims with camera receipts, schedule, notifications, profile, settings) |
 
@@ -55,6 +56,27 @@ deleted on sign-out. Unsent clock-ins are deleted only after the user confirms.
 claim drafts after saving; shift swaps and open-shift pickup (web only); leave attachments from
 the camera are wired but not covered by a device test. The release signing and Play upload steps
 are also not implemented (see `scripts/android-release.sh`).
+
+## Real browser sign-in (verified on the emulator, 7 Nov 2026)
+
+The device tests stand in for the browser (`TestBrowser` signs in through the same server API
+and hands the callback to the app). The real path was also run on `CrowHR_QA`. The Play image
+ships Chrome, and the server serves the built web app (`bun run build` first). The run used a
+fresh install with no pre-granted permissions, driven by `scripts/android-qa.sh` (`link`, `dump`,
+`tap`, `text`, `screenshot`). Evidence is in `artifacts/android/screenshots/real-browser-sign-in/`:
+
+1. Opening `crowhr://connect?server=http%3A%2F%2F10.0.2.2%3A3197&org=kampong-kopi` asks for
+   Android 17's local network access (shown as "nearby devices"): Allow.
+2. The confirm screen shows the organisation logo from meta: Connect, then Sign in.
+3. A Chrome Custom Tab opens at `/api/v1/native/authorize…`, which redirects to the server's
+   "Sign in to connect the Crow HR app" page. A fresh Chrome first shows its own first-run
+   screen ("Stay signed out").
+4. After email and password, the page redirects to `crowtech.crowhr:/oauth2redirect?code=…&state=…`.
+   Android hands that to the app, which exchanges the code and opens Clock, signed in.
+
+This is not an automated test. Chrome's first-run and keyboard screens differ by Chrome version
+and need UI Automator on another app's views, which would be brittle. Re-run it by hand with the
+steps above.
 
 ## App icon
 
