@@ -72,7 +72,14 @@ class BackgroundRefreshWorkerTest {
         createdAt = "2026-11-02T03:15:00.000Z",
     )
 
-    private fun posted() = manager.activeNotifications.singleOrNull { it.id == Notifications.ID }
+    /** notify() is asynchronous: give the notification manager a moment to list it. */
+    private fun posted(): android.service.notification.StatusBarNotification? {
+        repeat(25) {
+            manager.activeNotifications.singleOrNull { it.id == Notifications.ID }?.let { return it }
+            Thread.sleep(200)
+        }
+        return null
+    }
 
     @Test fun periodicRefreshIsScheduledEvery15MinutesWithNetwork() {
         RefreshScheduler.schedule(context)

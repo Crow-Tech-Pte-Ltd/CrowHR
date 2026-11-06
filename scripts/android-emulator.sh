@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Project-owned QA emulator for Crow HR (add-mobile-apps task 2.7). Touches only the AVD named
 # CrowHR_QA and the serial it runs on; never another project's device.
+#   scripts/android-emulator.sh create    make the AVD (in CROWHR_AVD_HOME); delete removes it
 #   scripts/android-emulator.sh start     boot CrowHR_QA headless on port $CROWHR_EMU_PORT (5604)
 #   scripts/android-emulator.sh wait      wait for boot, verify the AVD name and 16 KB pages
 #   scripts/android-emulator.sh restore   reset font scale and night mode overrides
@@ -25,6 +26,19 @@ verify() {
 }
 
 case "${1:-}" in
+  create)
+    # Pixel 8 profile on the installed API 37 Google Play 16 KB-page image (no download).
+    mkdir -p "$ANDROID_AVD_HOME"
+    echo no | JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}" "$sdk/cmdline-tools/latest/bin/avdmanager" create avd \
+      -n "$avd" -k "system-images;android-37.0;google_apis_playstore_ps16k;x86_64" -d pixel_8 >/dev/null
+    # 6 GB data partition, the image's minimum (the device profile defaults to more); it is a
+    # sparse file, but the emulator wants 1.2 x this free before it boots.
+    sed -i -E 's/^disk\.dataPartition\.size ?=.*/disk.dataPartition.size = 6442450944/' "$ANDROID_AVD_HOME/$avd.avd/config.ini"
+    sed -i -E 's/^hw\.ramSize ?=.*/hw.ramSize = 4096/' "$ANDROID_AVD_HOME/$avd.avd/config.ini"
+    printf 'created %s in %s\n' "$avd" "$ANDROID_AVD_HOME" ;;
+  delete)
+    rm -rf "${ANDROID_AVD_HOME:?}/$avd.avd" "${ANDROID_AVD_HOME:?}/$avd.ini"
+    printf 'deleted %s from %s\n' "$avd" "$ANDROID_AVD_HOME" ;;
   start)
     "$sdk/emulator/emulator" -avd "$avd" -port "$port" -no-window -no-audio -no-boot-anim \
       -gpu swiftshader_indirect -no-snapshot -memory 4096 -cores 4 ;;

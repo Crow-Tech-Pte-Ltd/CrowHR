@@ -209,7 +209,7 @@ Android (`apps/android`):
 - Claim drafts can be saved but not edited, submitted later, withdrawn or copied in the app.
 - The live QR camera preview (CameraX + ZXing) has not run in an automated test; the emulator has no QR to point at. The tests open the same `crowhr://connect` link it produces. Leave attachments from the camera or files are not covered by a device test.
 - Device tests install with all runtime permissions granted. The permission prompts (camera, location, notifications, Android 17 local network) are covered by unit tests of the decision logic only.
-- Signing in from a fresh Chrome on the Play emulator image: see `apps/android/README.md` "Real browser sign-in" for what was verified on the emulator.
+- The real Chrome Custom Tabs sign-in was verified by hand on the emulator (`apps/android/README.md` "Real browser sign-in", with screenshots), not by an automated test. The device tests stand in for the browser through the same server API.
 
 iOS (`apps/ios`):
 
