@@ -40316,6 +40316,7 @@
       "get": {
         "operationId": "notifications.get",
         "summary": "List my notifications",
+        "description": "Every response carries `cursor`, the position of the newest item in this view. Pass it back as `since` to get only newer notifications, oldest first (`sort` is then ignored); `cursor` then points at the last item returned, so a client pages forward with it until `items` is empty. `cursor` is null only when there is nothing to point at.",
         "tags": [
           "Notifications"
         ],
@@ -40373,6 +40374,17 @@
                 "true",
                 "false"
               ]
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "A `cursor` from an earlier response.",
+            "schema": {
+              "description": "A `cursor` from an earlier response.",
+              "type": "string",
+              "maxLength": 200
             }
           }
         ],
@@ -40462,6 +40474,13 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "cursor": {
+                      "description": "Opaque. Pass as `since` for newer notifications.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -40469,7 +40488,8 @@
                     "page",
                     "pageSize",
                     "total",
-                    "unread"
+                    "unread",
+                    "cursor"
                   ],
                   "additionalProperties": false
                 }
