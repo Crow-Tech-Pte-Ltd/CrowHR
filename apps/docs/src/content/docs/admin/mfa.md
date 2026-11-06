@@ -29,5 +29,5 @@ In **Settings → Security → Two-step verification policy**, owners choose whi
 
 ## Not available yet
 
-- New authenticator enrolment notifications and in-app security notifications are not implemented. Recovery-code use and MFA lockout send best-effort email when SMTP is configured, without outbox retries; recovery-code use is also audited.
+- Turning two-step verification on or off, an owner resetting it, a recovery code being used and a lockout after wrong codes each send you a [security notice](/docs/approvals/notifications/#security-notices) in the app, and by email when SMTP is set. Recovery-code use is also audited.
 - Only TOTP is supported. There are no passkeys, WebAuthn security keys or SMS codes.
