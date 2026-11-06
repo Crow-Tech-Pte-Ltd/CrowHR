@@ -47,7 +47,8 @@ export function AdminHome() {
   const probation = data?.items.filter((i) => i.source === "probation") ?? [];
   const other = data?.items.filter((i) => !SECTION_SOURCES.has(i.source)) ?? [];
   const setup = data?.items.filter((i) => i.source === "setup") ?? [];
-  const backup = data?.items.find((i) => i.source === "backups") ?? null;
+  // Usually one; with plaintext schedules disabled and an old last backup, both are shown.
+  const backups = data?.items.filter((i) => i.source === "backups") ?? [];
   const payroll = data?.items.filter((i) => i.source === "payroll") ?? [];
   const sourceStatus = (id: string) => data?.sources.find((s) => s.id === id)?.status ?? "not_set_up";
   const isHr = me.roles.includes("owner") || me.roles.includes("hr_admin");
@@ -58,7 +59,7 @@ export function AdminHome() {
     approvals.length ? plural(approvals.length, "approval") : null,
     other.length ? plural(other.length, "to-do") : null,
     setup.length ? plural(setup.length, "setup step") : null,
-    backup ? "backups" : null,
+    backups.length ? "backups" : null,
     passes.length ? plural(passes.length, "work pass", "work passes") : null,
     probation.length ? plural(probation.length, "probation review") : null,
   ].filter(Boolean);
@@ -95,16 +96,20 @@ export function AdminHome() {
         </Card>
       ) : null}
 
-      {backup ? (
+      {backups.length ? (
         <Alert variant="warning" className="mb-6" data-testid="home-backup-warning">
           <DatabaseBackup aria-hidden />
           <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <AlertTitle>{backup.title}</AlertTitle>
-              <AlertDescription>{backup.detail}</AlertDescription>
+            <div className="flex flex-col gap-2">
+              {backups.map((b) => (
+                <div key={b.id}>
+                  <AlertTitle>{b.title}</AlertTitle>
+                  <AlertDescription>{b.detail}</AlertDescription>
+                </div>
+              ))}
             </div>
             <Button asChild size="sm" variant="secondary">
-              <Link to="/settings/system">{backup.actionLabel}</Link>
+              <Link to="/settings/system">{backups[0]?.actionLabel ?? "Check backups"}</Link>
             </Button>
           </div>
         </Alert>

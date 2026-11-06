@@ -20,7 +20,7 @@ One file in the `backups` volume, `crowhr-backup-<UTC time>[-scheduled|-pre-migr
 
 **First set `BACKUP_PASSPHRASE` (at least 12 characters) in `.env`, save it outside this server, and restart Crow HR.** The scheduler records an actionable failure without dumping data when it is unset. This keeps a restore-ready archive, including the master key, encrypted as one unit.
 
-Daily at `BACKUP_TIME` (default 02:00 Singapore time), keeping the newest `BACKUP_KEEP` (default 14). A backup is also taken before any database upgrade (`BACKUP_BEFORE_MIGRATE`). Results, sizes and failures appear in Settings → System; Owners see a warning on Home when the last successful scheduled backup is more than 48 hours old.
+Daily at `BACKUP_TIME` (default 02:00 Singapore time), keeping the newest `BACKUP_KEEP` (default 14). A backup is also taken before any database upgrade (`BACKUP_BEFORE_MIGRATE`). Results, sizes and failures appear in Settings → System; Owners see a warning on Home when the last successful backup is more than 48 hours old, and when scheduled backups are disabled because `BACKUP_PASSPHRASE` is not set (both, if both apply).
 
 ## Manual backup
 

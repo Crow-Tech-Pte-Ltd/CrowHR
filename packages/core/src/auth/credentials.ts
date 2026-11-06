@@ -11,6 +11,7 @@ import { users } from "../db/schema/users.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps, PasswordHasher } from "../deps.ts";
 import { AppError } from "../errors.ts";
+import { sendSecurityNotice } from "./security-notices.ts";
 import { MINUTE } from "./settings.ts";
 import { mfaLockedUntil, recordMfaFailure } from "./throttle.ts";
 import { verifyTotp } from "./totp.ts";
@@ -230,28 +231,12 @@ export async function checkSecondFactor(
     return { ok: false, locked: lockedNow };
   });
   if (causedLock) {
-    const [user] = await deps.db.select({ email: users.email }).from(users).where(eq(users.id, input.userId));
-    if (user) {
-      await notifyUser(
-        deps,
-        user.email,
-        "Two-step verification paused",
-        "Several wrong two-step verification codes were entered for your Crow HR account, so codes are not accepted for 15 minutes. Whoever entered them knew your password or had a signed-in session. If this wasn't you, change your password now and tell your administrator.",
-      );
-    }
+    await sendSecurityNotice(deps.db, deps, {
+      orgId: input.orgId,
+      to: { membershipIds: [input.membershipId] },
+      title: "Two-step verification paused",
+      body: "Several wrong two-step verification codes were entered for your Crow HR account, so codes are not accepted for 15 minutes. Whoever entered them knew your password or had a signed-in session. If this wasn't you, change your password now and tell your administrator.",
+    });
   }
   return result;
-}
-
-/** Best-effort security notification by email (no-op without a mailer). */
-export async function notifyUser(deps: AppDeps, to: string, subject: string, text: string) {
-  if (!deps.mailer) {
-    // NOT IMPLEMENTED: in-app notification (the notifications workstream owns the inbox).
-    return;
-  }
-  try {
-    await deps.mailer.send({ to, subject, text });
-  } catch (err) {
-    deps.logger.warn("Security notification email failed", { err, subject });
-  }
 }

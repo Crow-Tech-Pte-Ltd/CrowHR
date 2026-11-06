@@ -21,6 +21,7 @@ import { Clock, Pencil, Plus, Trash2, UserRound } from "lucide-react";
 import * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ApiError } from "../../../lib/api.ts";
+import { MobileAppSection } from "../../../me/mobile-app-section.tsx";
 import { api, errorMessage, fieldErrors, invalidatePeople, meQuery, referenceQuery } from "../people/-lib/api.ts";
 import { ErrorPanel, Field, label, PanelSkeleton, Section, SelectInput, TextInput } from "../people/-lib/ui.tsx";
 
@@ -35,7 +36,13 @@ function MyProfilePage() {
   if (q.isPending) return <PanelSkeleton rows={6} />;
   if (q.isError) {
     return q.error instanceof ApiError && q.error.status === 404 ? (
-      <EmptyState icon={<UserRound />} title="No employee record linked" description={errorMessage(q.error)} />
+      <>
+        <PageHeader title="My profile" />
+        <EmptyState icon={<UserRound />} title="No employee record linked" description={errorMessage(q.error)} />
+        <div className="mt-6">
+          <MobileAppSection />
+        </div>
+      </>
     ) : (
       <ErrorPanel error={q.error} onRetry={() => void q.refetch()} />
     );
@@ -136,6 +143,9 @@ function MyProfilePage() {
             </p>
           )}
         </Section>
+      </div>
+      <div className="mt-6">
+        <MobileAppSection />
       </div>
       {editing ? <EditContactDialog e={e} onClose={() => setEditing(false)} /> : null}
       {requesting ? <RequestDialog kind={requesting} onClose={() => setRequesting(null)} /> : null}

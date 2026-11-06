@@ -23,6 +23,8 @@ export const E2E = {
     // Scheduling (WS5b): rostered café crew at HQ reporting to Kai Wen (e2e/seed-schedules.ts).
     crewA: { email: "nurul@kampongkopi.example", name: "Nurul Huda", roles: [] },
     crewB: { email: "marcus@kampongkopi.example", name: "Marcus Lim", roles: [] },
+    // Mobile device sessions (e2e/device-sessions.spec.ts).
+    device: { email: "meixin@kampongkopi.example", name: "Goh Mei Xin", roles: [] },
   },
   /** Second organisation with every SSO method on (screenshots / multi-org). */
   ssoOrg: {
@@ -30,7 +32,45 @@ export const E2E = {
     slug: "tanjong-tech",
     owner: { email: "owner@tanjongtech.example", name: "Daniel Ong" },
   },
+  /**
+   * Third organisation, just its owner, as a company looks right after the setup wizard: no
+   * company profile, structure, schedule, people or claim types (company-setup, claim-types specs).
+   */
+  freshOrg: {
+    name: "Kedai Runcit Ah Huat Pte. Ltd.",
+    slug: "kedai-runcit",
+    owner: { email: "owner@kedairuncit.example", name: "Tan Ah Huat" },
+  },
+  /**
+   * Fourth organisation for the generic-OIDC round trip against the mock IdP
+   * (security-settings spec), which turns password sign-in off here and nowhere else.
+   */
+  oidcOrg: {
+    name: "Bukit Batok Bakery Pte. Ltd.",
+    slug: "bukit-batok-bakery",
+    owner: { email: "owner@bbbakery.example", name: "Chua Siew Lan" },
+    hr: { email: "hr@bbbakery.example", name: "Priya Nair" },
+    staff: { email: "baker@bbbakery.example", name: "Hafiz Rahman" },
+  },
 } as const;
+
+const IDP_PORT = Number(process.env.E2E_PORT ?? 3100) + 3;
+/** The mock OpenID provider served by e2e/mock-idp-server.ts (test only). */
+export const MOCK_IDP = {
+  origin: `http://127.0.0.1:${IDP_PORT}`,
+  issuer: `http://127.0.0.1:${IDP_PORT}/realms/kopi`,
+  clientId: "crowhr-e2e",
+  clientSecret: "e2e-only-client-secret",
+} as const;
+
+/** Who the mock IdP signs in on its next authorize request. */
+export async function mockIdpNextUser(
+  request: APIRequestContext,
+  user: { sub: string; email?: string; email_verified?: boolean; name?: string },
+) {
+  const res = await request.post(`${MOCK_IDP.origin}/_control/next-user`, { data: user });
+  if (res.status() !== 204) throw new Error(`mock IdP control failed: ${res.status()}`);
+}
 
 export const SHOTS = process.env.SHOTS_DIR;
 
