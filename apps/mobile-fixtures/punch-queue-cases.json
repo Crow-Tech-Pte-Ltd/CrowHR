@@ -40,113 +40,471 @@
       "id": "basement-clock-in",
       "description": "Spec scenario 'Punch in a basement': tapped 08:58 SGT offline, sent 09:20 SGT.",
       "steps": [
-        { "op": "enqueue", "kind": "in", "key": "basement-0001", "deviceTime": "2026-11-02T00:58:00Z", "expect": { "result": "queued", "pending": ["basement-0001"] } },
-        { "op": "drain", "now": "2026-11-02T00:59:00Z", "responses": [{ "network": "offline" }], "expect": { "requests": [{ "key": "basement-0001", "queued": true }], "pending": ["basement-0001"], "stopReason": "network", "labels": { "basement-0001": ["Not sent yet. The app will retry automatically."] } } },
-        { "op": "drain", "now": "2026-11-02T01:20:00Z", "responses": [{ "status": 201, "body": { "status": "accepted", "flags": ["late_sync"], "replayed": false } }], "expect": { "requests": [{ "key": "basement-0001", "queued": true }], "pending": [], "stopReason": null, "states": { "basement-0001": "flagged" }, "labels": { "basement-0001": ["Synced. Flagged: sent late"] } } }
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "basement-0001",
+          "deviceTime": "2026-11-02T00:58:00Z",
+          "expect": { "result": "queued", "pending": ["basement-0001"] }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T00:59:00Z",
+          "responses": [{ "network": "offline" }],
+          "expect": {
+            "requests": [{ "key": "basement-0001", "queued": true }],
+            "pending": ["basement-0001"],
+            "stopReason": "network",
+            "labels": { "basement-0001": ["Not sent yet. The app will retry automatically."] }
+          }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T01:20:00Z",
+          "responses": [{ "status": 201, "body": { "status": "accepted", "flags": ["late_sync"], "replayed": false } }],
+          "expect": {
+            "requests": [{ "key": "basement-0001", "queued": true }],
+            "pending": [],
+            "stopReason": null,
+            "states": { "basement-0001": "flagged" },
+            "labels": { "basement-0001": ["Synced. Flagged: sent late"] }
+          }
+        }
       ]
     },
     {
       "id": "fifo-order",
       "description": "Three punches drain in the order they were tapped.",
       "steps": [
-        { "op": "enqueue", "kind": "in", "key": "fifo-key-1", "deviceTime": "2026-11-02T00:58:00Z", "expect": { "result": "queued" } },
-        { "op": "enqueue", "kind": "out", "key": "fifo-key-2", "deviceTime": "2026-11-02T04:00:00Z", "expect": { "result": "queued" } },
-        { "op": "enqueue", "kind": "in", "key": "fifo-key-3", "deviceTime": "2026-11-02T05:00:00Z", "expect": { "result": "queued", "pending": ["fifo-key-1", "fifo-key-2", "fifo-key-3"], "labels": { "fifo-key-1": ["Waiting to send"] } } },
-        { "op": "drain", "now": "2026-11-02T05:00:10Z", "responses": [{ "status": 201, "body": { "status": "accepted", "flags": [] } }, { "status": 201, "body": { "status": "accepted", "flags": [] } }, { "status": 201, "body": { "status": "accepted", "flags": [] } }], "expect": { "requests": [{ "key": "fifo-key-1", "queued": true }, { "key": "fifo-key-2", "queued": true }, { "key": "fifo-key-3", "queued": false }], "pending": [], "stopReason": null, "states": { "fifo-key-1": "synced", "fifo-key-2": "synced", "fifo-key-3": "synced" }, "labels": { "fifo-key-3": ["Synced"] } } }
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "fifo-key-1",
+          "deviceTime": "2026-11-02T00:58:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "enqueue",
+          "kind": "out",
+          "key": "fifo-key-2",
+          "deviceTime": "2026-11-02T04:00:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "fifo-key-3",
+          "deviceTime": "2026-11-02T05:00:00Z",
+          "expect": {
+            "result": "queued",
+            "pending": ["fifo-key-1", "fifo-key-2", "fifo-key-3"],
+            "labels": { "fifo-key-1": ["Waiting to send"] }
+          }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T05:00:10Z",
+          "responses": [
+            { "status": 201, "body": { "status": "accepted", "flags": [] } },
+            { "status": 201, "body": { "status": "accepted", "flags": [] } },
+            { "status": 201, "body": { "status": "accepted", "flags": [] } }
+          ],
+          "expect": {
+            "requests": [
+              { "key": "fifo-key-1", "queued": true },
+              { "key": "fifo-key-2", "queued": true },
+              { "key": "fifo-key-3", "queued": false }
+            ],
+            "pending": [],
+            "stopReason": null,
+            "states": { "fifo-key-1": "synced", "fifo-key-2": "synced", "fifo-key-3": "synced" },
+            "labels": { "fifo-key-3": ["Synced"] }
+          }
+        }
       ]
     },
     {
       "id": "failure-blocks-later-punches",
       "description": "When the head punch fails, later punches are not sent (no overtaking).",
       "steps": [
-        { "op": "enqueue", "kind": "in", "key": "block-key-1", "deviceTime": "2026-11-02T00:58:00Z", "expect": { "result": "queued" } },
-        { "op": "enqueue", "kind": "out", "key": "block-key-2", "deviceTime": "2026-11-02T01:30:00Z", "expect": { "result": "queued" } },
-        { "op": "drain", "now": "2026-11-02T01:31:00Z", "responses": [{ "status": 503 }], "expect": { "requests": [{ "key": "block-key-1", "queued": true }], "pending": ["block-key-1", "block-key-2"], "stopReason": "network", "labels": { "block-key-1": ["Not sent yet. The app will retry automatically."], "block-key-2": ["Waiting to send"] } } },
-        { "op": "drain", "now": "2026-11-02T01:40:00Z", "responses": [{ "status": 201, "body": { "status": "accepted", "flags": [] } }, { "status": 201, "body": { "status": "accepted", "flags": [] } }], "expect": { "requests": [{ "key": "block-key-1", "queued": true }, { "key": "block-key-2", "queued": true }], "pending": [], "stopReason": null } }
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "block-key-1",
+          "deviceTime": "2026-11-02T00:58:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "enqueue",
+          "kind": "out",
+          "key": "block-key-2",
+          "deviceTime": "2026-11-02T01:30:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T01:31:00Z",
+          "responses": [{ "status": 503 }],
+          "expect": {
+            "requests": [{ "key": "block-key-1", "queued": true }],
+            "pending": ["block-key-1", "block-key-2"],
+            "stopReason": "network",
+            "labels": {
+              "block-key-1": ["Not sent yet. The app will retry automatically."],
+              "block-key-2": ["Waiting to send"]
+            }
+          }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T01:40:00Z",
+          "responses": [
+            { "status": 201, "body": { "status": "accepted", "flags": [] } },
+            { "status": 201, "body": { "status": "accepted", "flags": [] } }
+          ],
+          "expect": {
+            "requests": [{ "key": "block-key-1", "queued": true }, { "key": "block-key-2", "queued": true }],
+            "pending": [],
+            "stopReason": null
+          }
+        }
       ]
     },
     {
       "id": "duplicate-send-reuses-key",
       "description": "Spec scenario 'Duplicate send': the response is lost, the retry uses the same key, the server replays the original result.",
       "steps": [
-        { "op": "enqueue", "kind": "in", "key": "dup-key-0001", "deviceTime": "2026-11-02T00:58:00Z", "expect": { "result": "queued" } },
-        { "op": "drain", "now": "2026-11-02T00:58:05Z", "responses": [{ "network": "timeout" }], "expect": { "requests": [{ "key": "dup-key-0001", "queued": false }], "pending": ["dup-key-0001"], "stopReason": "network" } },
-        { "op": "drain", "now": "2026-11-02T00:58:40Z", "responses": [{ "status": 200, "body": { "status": "accepted", "flags": [], "replayed": true } }], "expect": { "requests": [{ "key": "dup-key-0001", "queued": true }], "pending": [], "stopReason": null, "states": { "dup-key-0001": "synced" }, "labels": { "dup-key-0001": ["Synced"] } } }
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "dup-key-0001",
+          "deviceTime": "2026-11-02T00:58:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T00:58:05Z",
+          "responses": [{ "network": "timeout" }],
+          "expect": {
+            "requests": [{ "key": "dup-key-0001", "queued": false }],
+            "pending": ["dup-key-0001"],
+            "stopReason": "network"
+          }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T00:58:40Z",
+          "responses": [{ "status": 200, "body": { "status": "accepted", "flags": [], "replayed": true } }],
+          "expect": {
+            "requests": [{ "key": "dup-key-0001", "queued": true }],
+            "pending": [],
+            "stopReason": null,
+            "states": { "dup-key-0001": "synced" },
+            "labels": { "dup-key-0001": ["Synced"] }
+          }
+        }
       ]
     },
     {
       "id": "rejected-continues-with-next",
       "description": "A 422 rejection is shown with the server's reason and the queue moves on.",
       "steps": [
-        { "op": "enqueue", "kind": "out", "key": "rej-key-0001", "deviceTime": "2026-11-02T00:58:00Z", "expect": { "result": "queued" } },
-        { "op": "enqueue", "kind": "in", "key": "rej-key-0002", "deviceTime": "2026-11-02T01:00:00Z", "expect": { "result": "queued" } },
-        { "op": "drain", "now": "2026-11-02T01:00:20Z", "responses": [{ "status": 422, "body": { "error": { "code": "punch_rejected", "message": "You are not clocked in.", "requestId": "r1" } } }, { "status": 201, "body": { "status": "flagged", "flags": ["outside_location", "clock_skew"] } }], "expect": { "requests": [{ "key": "rej-key-0001", "queued": true }, { "key": "rej-key-0002", "queued": false }], "pending": [], "stopReason": null, "states": { "rej-key-0001": "rejected", "rej-key-0002": "flagged" }, "labels": { "rej-key-0001": ["Not accepted: You are not clocked in."], "rej-key-0002": ["Synced. Flagged: outside the office area, device clock differs from the server"] } } }
+        {
+          "op": "enqueue",
+          "kind": "out",
+          "key": "rej-key-0001",
+          "deviceTime": "2026-11-02T00:58:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "rej-key-0002",
+          "deviceTime": "2026-11-02T01:00:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T01:00:20Z",
+          "responses": [
+            {
+              "status": 422,
+              "body": { "error": { "code": "punch_rejected", "message": "You are not clocked in.", "requestId": "r1" } }
+            },
+            { "status": 201, "body": { "status": "flagged", "flags": ["outside_location", "clock_skew"] } }
+          ],
+          "expect": {
+            "requests": [{ "key": "rej-key-0001", "queued": true }, { "key": "rej-key-0002", "queued": false }],
+            "pending": [],
+            "stopReason": null,
+            "states": { "rej-key-0001": "rejected", "rej-key-0002": "flagged" },
+            "labels": {
+              "rej-key-0001": ["Not accepted: You are not clocked in."],
+              "rej-key-0002": ["Synced. Flagged: outside the office area, device clock differs from the server"]
+            }
+          }
+        }
       ]
     },
     {
       "id": "rejected-without-message",
       "steps": [
-        { "op": "enqueue", "kind": "in", "key": "rej-nomsg-01", "deviceTime": "2026-11-02T00:58:00Z", "expect": { "result": "queued" } },
-        { "op": "drain", "now": "2026-11-02T00:58:10Z", "responses": [{ "status": 403, "body": "Forbidden" }], "expect": { "requests": [{ "key": "rej-nomsg-01", "queued": false }], "pending": [], "states": { "rej-nomsg-01": "rejected" }, "labels": { "rej-nomsg-01": ["Not accepted: the server refused this punch."] } } }
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "rej-nomsg-01",
+          "deviceTime": "2026-11-02T00:58:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T00:58:10Z",
+          "responses": [{ "status": 403, "body": "Forbidden" }],
+          "expect": {
+            "requests": [{ "key": "rej-nomsg-01", "queued": false }],
+            "pending": [],
+            "states": { "rej-nomsg-01": "rejected" },
+            "labels": { "rej-nomsg-01": ["Not accepted: the server refused this punch."] }
+          }
+        }
       ]
     },
     {
       "id": "auth-required-keeps-punch",
       "description": "A 401 stops the drain without counting an attempt; the punch waits for sign-in.",
       "steps": [
-        { "op": "enqueue", "kind": "in", "key": "auth-key-0001", "deviceTime": "2026-11-02T00:58:00Z", "expect": { "result": "queued" } },
-        { "op": "drain", "now": "2026-11-02T00:58:10Z", "responses": [{ "status": 401, "body": { "error": { "code": "session_revoked", "message": "Sign in again.", "requestId": "r2" } } }], "expect": { "requests": [{ "key": "auth-key-0001", "queued": false }], "pending": ["auth-key-0001"], "stopReason": "auth_required", "labels": { "auth-key-0001": ["Waiting to send"] } } },
-        { "op": "drain", "now": "2026-11-02T00:59:30Z", "responses": [{ "status": 201, "body": { "status": "accepted", "flags": [] } }], "expect": { "requests": [{ "key": "auth-key-0001", "queued": true }], "pending": [] } }
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "auth-key-0001",
+          "deviceTime": "2026-11-02T00:58:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T00:58:10Z",
+          "responses": [
+            {
+              "status": 401,
+              "body": { "error": { "code": "session_revoked", "message": "Sign in again.", "requestId": "r2" } }
+            }
+          ],
+          "expect": {
+            "requests": [{ "key": "auth-key-0001", "queued": false }],
+            "pending": ["auth-key-0001"],
+            "stopReason": "auth_required",
+            "labels": { "auth-key-0001": ["Waiting to send"] }
+          }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T00:59:30Z",
+          "responses": [{ "status": 201, "body": { "status": "accepted", "flags": [] } }],
+          "expect": { "requests": [{ "key": "auth-key-0001", "queued": true }], "pending": [] }
+        }
       ]
     },
     {
       "id": "unreadable-success-is-retried",
       "description": "A 2xx whose body is not a punch might have been stored; the punch is kept and retried with the same key (the server's idempotency makes this safe).",
       "steps": [
-        { "op": "enqueue", "kind": "in", "key": "garbled-0001", "deviceTime": "2026-11-02T00:58:00Z", "expect": { "result": "queued" } },
-        { "op": "drain", "now": "2026-11-02T00:58:10Z", "responses": [{ "status": 200, "body": "<html>captive portal</html>" }], "expect": { "requests": [{ "key": "garbled-0001", "queued": false }], "pending": ["garbled-0001"], "stopReason": "network" } },
-        { "op": "drain", "now": "2026-11-02T01:05:00Z", "responses": [{ "status": 200, "body": { "status": "accepted", "flags": [], "replayed": true } }], "expect": { "requests": [{ "key": "garbled-0001", "queued": true }], "pending": [], "states": { "garbled-0001": "synced" } } }
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "garbled-0001",
+          "deviceTime": "2026-11-02T00:58:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T00:58:10Z",
+          "responses": [{ "status": 200, "body": "<html>captive portal</html>" }],
+          "expect": {
+            "requests": [{ "key": "garbled-0001", "queued": false }],
+            "pending": ["garbled-0001"],
+            "stopReason": "network"
+          }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T01:05:00Z",
+          "responses": [{ "status": 200, "body": { "status": "accepted", "flags": [], "replayed": true } }],
+          "expect": {
+            "requests": [{ "key": "garbled-0001", "queued": true }],
+            "pending": [],
+            "states": { "garbled-0001": "synced" }
+          }
+        }
       ]
     },
     {
       "id": "late-over-seven-days-still-sent",
       "description": "A punch tapped 13 days ago is still sent. Today's server refuses punches over 7 days old; the app shows the refusal and the late label.",
       "steps": [
-        { "op": "enqueue", "kind": "in", "key": "late-key-0001", "deviceTime": "2026-10-20T00:58:00Z", "expect": { "result": "queued" } },
-        { "op": "drain", "now": "2026-11-02T01:00:00Z", "responses": [{ "status": 422, "body": { "error": { "code": "punch_rejected", "message": "This punch is more than 7 days old, so it can't be recorded automatically. Ask your manager to add it to your timesheet.", "requestId": "r3" } } }], "expect": { "requests": [{ "key": "late-key-0001", "queued": true }], "pending": [], "states": { "late-key-0001": "rejected" }, "late": ["late-key-0001"], "labels": { "late-key-0001": ["Not accepted: This punch is more than 7 days old, so it can't be recorded automatically. Ask your manager to add it to your timesheet.", "Sent late. Your manager may need to review it"] } } }
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "late-key-0001",
+          "deviceTime": "2026-10-20T00:58:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T01:00:00Z",
+          "responses": [
+            {
+              "status": 422,
+              "body": {
+                "error": {
+                  "code": "punch_rejected",
+                  "message": "This punch is more than 7 days old, so it can't be recorded automatically. Ask your manager to add it to your timesheet.",
+                  "requestId": "r3"
+                }
+              }
+            }
+          ],
+          "expect": {
+            "requests": [{ "key": "late-key-0001", "queued": true }],
+            "pending": [],
+            "states": { "late-key-0001": "rejected" },
+            "late": ["late-key-0001"],
+            "labels": {
+              "late-key-0001": [
+                "Not accepted: This punch is more than 7 days old, so it can't be recorded automatically. Ask your manager to add it to your timesheet.",
+                "Sent late. Your manager may need to review it"
+              ]
+            }
+          }
+        }
       ]
     },
     {
       "id": "late-accepted-by-server",
       "description": "If a server accepts a punch older than 7 days, it is synced and still labelled late.",
       "steps": [
-        { "op": "enqueue", "kind": "out", "key": "late-key-0002", "deviceTime": "2026-10-25T10:00:00Z", "expect": { "result": "queued" } },
-        { "op": "drain", "now": "2026-11-02T10:00:01Z", "responses": [{ "status": 201, "body": { "status": "flagged", "flags": ["late_sync"] } }], "expect": { "requests": [{ "key": "late-key-0002", "queued": true }], "pending": [], "late": ["late-key-0002"], "labels": { "late-key-0002": ["Synced. Flagged: sent late", "Sent late. Your manager may need to review it"] } } }
+        {
+          "op": "enqueue",
+          "kind": "out",
+          "key": "late-key-0002",
+          "deviceTime": "2026-10-25T10:00:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T10:00:01Z",
+          "responses": [{ "status": 201, "body": { "status": "flagged", "flags": ["late_sync"] } }],
+          "expect": {
+            "requests": [{ "key": "late-key-0002", "queued": true }],
+            "pending": [],
+            "late": ["late-key-0002"],
+            "labels": {
+              "late-key-0002": ["Synced. Flagged: sent late", "Sent late. Your manager may need to review it"]
+            }
+          }
+        }
       ]
     },
     {
       "id": "exactly-seven-days-is-not-late",
       "steps": [
-        { "op": "enqueue", "kind": "in", "key": "edge-key-0001", "deviceTime": "2026-10-26T01:00:00Z", "expect": { "result": "queued" } },
-        { "op": "drain", "now": "2026-11-02T01:00:00Z", "responses": [{ "status": 201, "body": { "status": "flagged", "flags": ["late_sync"] } }], "expect": { "requests": [{ "key": "edge-key-0001", "queued": true }], "pending": [], "late": [], "labels": { "edge-key-0001": ["Synced. Flagged: sent late"] } } }
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "edge-key-0001",
+          "deviceTime": "2026-10-26T01:00:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T01:00:00Z",
+          "responses": [{ "status": 201, "body": { "status": "flagged", "flags": ["late_sync"] } }],
+          "expect": {
+            "requests": [{ "key": "edge-key-0001", "queued": true }],
+            "pending": [],
+            "late": [],
+            "labels": { "edge-key-0001": ["Synced. Flagged: sent late"] }
+          }
+        }
       ]
     },
     {
       "id": "flagged-unknown-flag-and-no-flags",
       "steps": [
-        { "op": "enqueue", "kind": "in", "key": "flag-key-0001", "deviceTime": "2026-11-02T00:58:00Z", "expect": { "result": "queued" } },
-        { "op": "enqueue", "kind": "out", "key": "flag-key-0002", "deviceTime": "2026-11-02T00:58:30Z", "expect": { "result": "queued" } },
-        { "op": "drain", "now": "2026-11-02T00:58:40Z", "responses": [{ "status": 201, "body": { "status": "flagged", "flags": ["no_location", "new_future_flag"] } }, { "status": 201, "body": { "status": "flagged", "flags": [] } }], "expect": { "pending": [], "labels": { "flag-key-0001": ["Synced. Flagged: no location, new_future_flag"], "flag-key-0002": ["Synced. Flagged for review"] } } }
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "flag-key-0001",
+          "deviceTime": "2026-11-02T00:58:00Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "enqueue",
+          "kind": "out",
+          "key": "flag-key-0002",
+          "deviceTime": "2026-11-02T00:58:30Z",
+          "expect": { "result": "queued" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-02T00:58:40Z",
+          "responses": [
+            { "status": 201, "body": { "status": "flagged", "flags": ["no_location", "new_future_flag"] } },
+            { "status": 201, "body": { "status": "flagged", "flags": [] } }
+          ],
+          "expect": {
+            "pending": [],
+            "labels": {
+              "flag-key-0001": ["Synced. Flagged: no location, new_future_flag"],
+              "flag-key-0002": ["Synced. Flagged for review"]
+            }
+          }
+        }
       ]
     },
     {
       "id": "capacity-200",
       "description": "The 201st pending punch is refused (nothing is dropped); after one is sent there is room again.",
       "steps": [
-        { "op": "enqueueMany", "count": 200, "keyPrefix": "bulk-punch-", "keyDigits": 3, "kinds": ["in", "out"], "deviceTimeStart": "2026-11-01T00:00:00Z", "stepSeconds": 60, "expect": { "result": "queued", "pendingCount": 200, "firstPending": "bulk-punch-001", "lastPending": "bulk-punch-200" } },
-        { "op": "enqueue", "kind": "in", "key": "bulk-punch-201", "deviceTime": "2026-11-01T04:00:00Z", "expect": { "result": "queue_full", "pendingCount": 200, "lastPending": "bulk-punch-200" } },
-        { "op": "drain", "now": "2026-11-01T04:00:30Z", "responses": [{ "status": 201, "body": { "status": "accepted", "flags": [] } }, { "network": "offline" }], "expect": { "requests": [{ "key": "bulk-punch-001", "queued": true }, { "key": "bulk-punch-002", "queued": true }], "pendingCount": 199, "firstPending": "bulk-punch-002", "stopReason": "network" } },
-        { "op": "enqueue", "kind": "in", "key": "bulk-punch-201", "deviceTime": "2026-11-01T04:01:00Z", "expect": { "result": "queued", "pendingCount": 200, "lastPending": "bulk-punch-201" } }
+        {
+          "op": "enqueueMany",
+          "count": 200,
+          "keyPrefix": "bulk-punch-",
+          "keyDigits": 3,
+          "kinds": ["in", "out"],
+          "deviceTimeStart": "2026-11-01T00:00:00Z",
+          "stepSeconds": 60,
+          "expect": {
+            "result": "queued",
+            "pendingCount": 200,
+            "firstPending": "bulk-punch-001",
+            "lastPending": "bulk-punch-200"
+          }
+        },
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "bulk-punch-201",
+          "deviceTime": "2026-11-01T04:00:00Z",
+          "expect": { "result": "queue_full", "pendingCount": 200, "lastPending": "bulk-punch-200" }
+        },
+        {
+          "op": "drain",
+          "now": "2026-11-01T04:00:30Z",
+          "responses": [{ "status": 201, "body": { "status": "accepted", "flags": [] } }, { "network": "offline" }],
+          "expect": {
+            "requests": [{ "key": "bulk-punch-001", "queued": true }, { "key": "bulk-punch-002", "queued": true }],
+            "pendingCount": 199,
+            "firstPending": "bulk-punch-002",
+            "stopReason": "network"
+          }
+        },
+        {
+          "op": "enqueue",
+          "kind": "in",
+          "key": "bulk-punch-201",
+          "deviceTime": "2026-11-01T04:01:00Z",
+          "expect": { "result": "queued", "pendingCount": 200, "lastPending": "bulk-punch-201" }
+        }
       ]
     }
   ]

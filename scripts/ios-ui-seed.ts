@@ -8,6 +8,7 @@
 import { openDatabase } from "../apps/server/src/db.ts";
 import { E2E } from "../e2e/fixtures.ts";
 import { systemAuditContext } from "../packages/core/src/audit/audit.ts";
+import { createUuidV7Generator, schema, systemClock } from "../packages/core/src/index.ts";
 import {
   computeRun,
   createRun,
@@ -17,7 +18,6 @@ import {
   submitRun,
 } from "../packages/core/src/payroll/service.ts";
 import { approveThroughEngine } from "../packages/core/src/testing/seed-payroll.ts";
-import { createUuidV7Generator, schema, systemClock } from "../packages/core/src/index.ts";
 import { createTestDeps } from "../packages/core/testing/index.ts";
 
 const url = process.env.DATABASE_URL;
@@ -25,7 +25,11 @@ if (!url) throw new Error("DATABASE_URL is required");
 const database = await openDatabase(url);
 const db = database.db;
 const ids = createUuidV7Generator(systemClock);
-const deps = createTestDeps(db, { ids, clock: systemClock, publicUrl: process.env.PUBLIC_URL ?? "http://127.0.0.1:3100" });
+const deps = createTestDeps(db, {
+  ids,
+  clock: systemClock,
+  publicUrl: process.env.PUBLIC_URL ?? "http://127.0.0.1:3100",
+});
 
 const org = (await db.select().from(schema.organisations)).find((o) => o.slug === E2E.org.slug);
 if (!org) throw new Error("Run e2e/seed.ts first");
