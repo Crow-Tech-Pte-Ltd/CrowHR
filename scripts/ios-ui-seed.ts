@@ -5,7 +5,9 @@
  *
  *   DATABASE_URL=pglite:<dir> node scripts/ios-ui-seed.ts
  */
+import zlib from "node:zlib";
 import { openDatabase } from "../apps/server/src/db.ts";
+import { createDiskFileStore } from "../apps/server/src/disk-file-store.ts";
 import { E2E } from "../e2e/fixtures.ts";
 import { systemAuditContext } from "../packages/core/src/audit/audit.ts";
 import { createUuidV7Generator, schema, systemClock } from "../packages/core/src/index.ts";
@@ -72,6 +74,17 @@ if (existing.length) {
   } else {
     await db.insert(schema.companyProfiles).values({ orgId: org.id, ...profile });
   }
+  // A fictional square logo (kuning with an ink frame) so meta advertises `logoUrl`.
+  const fileRoot = process.env.FILE_STORAGE_DIR;
+  if (fileRoot) {
+    const key = `org/${org.id}/company/logo.png`;
+    await createDiskFileStore(fileRoot).put(key, squarePng(96), { contentType: "image/png" });
+    const { eq } = await import("../packages/core/node_modules/drizzle-orm/index.js");
+    await db
+      .update(schema.companyProfiles)
+      .set({ logoFileKey: key, logoContentType: "image/png" })
+      .where(eq(schema.companyProfiles.orgId, org.id));
+  }
   const prep = actor(E2E.members.payroll.email, false);
   const boss = actor(E2E.members.owner.email, true);
   const run = await createRun(deps, prep, { kind: "regular", month });
@@ -83,3 +96,38 @@ if (existing.length) {
   console.error(`iOS seed: released ${month} payslips for ${E2E.org.name}.`);
 }
 await database.close();
+
+/** A minimal RGB PNG: kuning-200 square with a 6 px ink frame (fictional test logo). */
+function squarePng(size: number): Uint8Array {
+  const kuning = [0xfe, 0xd5, 0x6c];
+  const ink = [0x0a, 0x0a, 0x0a];
+  const raw = Buffer.alloc((size * 3 + 1) * size);
+  for (let y = 0; y < size; y++) {
+    raw[y * (size * 3 + 1)] = 0;
+    for (let x = 0; x < size; x++) {
+      const frame = x < 6 || y < 6 || x >= size - 6 || y >= size - 6;
+      const c = frame ? ink : kuning;
+      raw.set(c, y * (size * 3 + 1) + 1 + x * 3);
+    }
+  }
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(zlib.crc32(body) >>> 0);
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // RGB
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", zlib.deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+  return new Uint8Array(png);
+}

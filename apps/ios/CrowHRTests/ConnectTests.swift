@@ -155,6 +155,19 @@ struct ConnectTests {
         #expect(v6.isSameOrigin(URL(string: "http://[fd00::1]:8080/api/v1/me")!))
     }
 
+    @Test func serversThatListTheBaselineModulesAreGatedStrictly() {
+        // Today's server lists everything: all screens.
+        let all = ["leave", "attendance.offlinePunch", "claims", "notifications", "approvals", "scheduling", "payslips"]
+        #expect(FeatureGate.available(serverFeatures: all) == AppFeature.allCases)
+        // A server that lists modules but not claims has claims switched off.
+        let noClaims = all.filter { $0 != "claims" }
+        #expect(!FeatureGate.isAvailable(.claims, serverFeatures: noClaims))
+        #expect(FeatureGate.isAvailable(.payslips, serverFeatures: noClaims))
+        #expect(FeatureGate.unavailableMessages(serverFeatures: noClaims) == ["Claims is turned off on your company's Crow HR server."])
+        // An older server that lists none of them: they are assumed present.
+        #expect(FeatureGate.isAvailable(.claims, serverFeatures: ["leave"]))
+    }
+
     @Test func hostWithPortNeedsNoScheme() throws {
         #expect(try ServerAddress.parse("hr.example.sg:8443").url.absoluteString == "https://hr.example.sg:8443")
     }

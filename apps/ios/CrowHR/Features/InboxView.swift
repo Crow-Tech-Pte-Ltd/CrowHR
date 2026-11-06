@@ -27,6 +27,7 @@ struct InboxView: View {
         }
         .crowScreen()
         .navigationTitle("Inbox")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear { applyRoute() }
         .onChange(of: model.route) { _, _ in applyRoute() }
         .onChange(of: session.me) { _, me in if me?.mayApprove == true && model.route == nil { segment = .approvals } }
@@ -164,6 +165,7 @@ struct DecisionSheet: View {
 }
 
 struct NotificationsView: View {
+    @Environment(AppModel.self) private var model
     @Environment(Session.self) private var session
     @State private var state: LoadState<NotificationPage> = .loading
 
@@ -192,7 +194,10 @@ struct NotificationsView: View {
     }
 
     private func load() async throws -> NotificationPage {
-        try await session.api.get("/api/v1/notifications", query: [URLQueryItem(name: "pageSize", value: "50"), URLQueryItem(name: "sort", value: "-createdAt")])
+        let page: NotificationPage = try await session.api.get("/api/v1/notifications", query: [URLQueryItem(name: "pageSize", value: "50"), URLQueryItem(name: "sort", value: "-createdAt")])
+        // What the user has seen here is not announced later by the background refresh.
+        await model.refresher(for: session).markAllSeen(listCursor: page.cursor, listHadCursor: page.cursor != nil)
+        return page
     }
 
     private func reload() async {

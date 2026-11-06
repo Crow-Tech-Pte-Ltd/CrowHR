@@ -226,12 +226,13 @@ struct ServerLogo: View {
         Group {
             if let image {
                 Image(uiImage: image).resizable().scaledToFit()
+                    .accessibilityLabel("Organisation logo")
+                    .accessibilityIdentifier("org.logo")
             } else {
                 CrowMark(size: 48)
             }
         }
         .frame(width: 48, height: 48)
-        .accessibilityHidden(true)
         .task {
             guard let raw = logoUrl, let url = URL(string: raw, relativeTo: server.url)?.absoluteURL, server.isSameOrigin(url) else { return }
             if let (data, res) = try? await model.env.transport.send(URLRequest(url: url)), res.statusCode == 200 {
@@ -280,7 +281,7 @@ struct SignInView: View {
             VStack(alignment: .leading, spacing: 20) {
                 if let c = model.active {
                     VStack(alignment: .leading, spacing: 8) {
-                        CrowMark()
+                        ServerLogo(server: c.server, logoUrl: c.logoUrl)
                         Text(c.orgName).font(CrowFont.mono(.title2, weight: .semibold)).accessibilityIdentifier("signin.orgName")
                         Text(c.server.display).font(CrowFont.mono(.footnote)).foregroundStyle(Crow.muted)
                     }

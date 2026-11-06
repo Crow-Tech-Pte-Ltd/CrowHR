@@ -11,6 +11,8 @@ struct SavedConnection: Codable, Identifiable, Hashable, Sendable {
     /// Set after a successful sign-in; used to bind queued punches to the person who made them.
     var membershipId: String?
     var displayName: String?
+    /// From meta; shown only when it's on the same origin as the server.
+    var logoUrl: String? = nil
 }
 
 enum ConnectionStoreError: Error, Equatable, Sendable {
@@ -77,17 +79,18 @@ struct ConnectionStore: Sendable {
     /// Adds or updates (same server and organisation → same entry). A sixth connection is refused,
     /// never silently replacing one the user saved.
     @discardableResult
-    func save(server: ServerAddress, orgSlug: String, orgName: String, features: [String], now: Date) throws(ConnectionStoreError) -> SavedConnection {
+    func save(server: ServerAddress, orgSlug: String, orgName: String, features: [String], logoUrl: String? = nil, now: Date) throws(ConnectionStoreError) -> SavedConnection {
         var list = all()
         if let i = list.firstIndex(where: { $0.server == server && $0.orgSlug == orgSlug }) {
             list[i].orgName = orgName
             list[i].features = features
+            list[i].logoUrl = logoUrl
             list[i].lastUsedAt = now
             write(list)
             return list[i]
         }
         guard list.count < Self.maxConnections else { throw .full }
-        let c = SavedConnection(id: UUID(), server: server, orgSlug: orgSlug, orgName: orgName, features: features, lastUsedAt: now, membershipId: nil, displayName: nil)
+        let c = SavedConnection(id: UUID(), server: server, orgSlug: orgSlug, orgName: orgName, features: features, lastUsedAt: now, membershipId: nil, displayName: nil, logoUrl: logoUrl)
         list.append(c)
         write(list)
         return c
