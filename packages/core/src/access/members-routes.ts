@@ -1,8 +1,9 @@
 import { and, asc, desc, eq, ilike, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type AuditContext, auditContext, recordAudit } from "../audit/audit.ts";
-import { audit, emailInput, notifyUser } from "../auth/credentials.ts";
+import { audit, emailInput } from "../auth/credentials.ts";
 import { clearMfa, listSessionsFor, revokeOneSession, sessionItem } from "../auth/me-routes.ts";
+import { sendSecurityNotice } from "../auth/security-notices.ts";
 import { removeLinkedIdentities, revokeMembershipSessions, revokeUserSessions } from "../auth/sessions.ts";
 import { accountLockedUntil, clearAccountThrottle } from "../auth/throttle.ts";
 import type { AppContext, AuthContext } from "../context.ts";
@@ -626,7 +627,7 @@ export const membersModule = defineModule({
       request: { params: idParams },
       responses: { 204: null },
       errors: ["not_found"],
-      handler: async ({ c, auth, params }) => {
+      handler: async ({ c, deps, auth, params }) => {
         const target = await getMember(c, auth.orgId, params.id);
         await clearMfa(c, target.userId);
         await audit(c, {
@@ -634,6 +635,12 @@ export const membersModule = defineModule({
           targetType: "membership",
           targetId: target.id,
           meta: { by: "owner" },
+        });
+        await sendSecurityNotice(deps.db, deps, {
+          orgId: auth.orgId,
+          to: { membershipIds: [target.id] },
+          title: "Your two-step verification was reset",
+          body: "An owner reset two-step verification for your Crow HR account, so your authenticator app no longer works for it. Set it up again from My sessions. If you didn't ask for this, tell your administrator.",
         });
         return undefined;
       },
@@ -715,12 +722,12 @@ export const membersModule = defineModule({
           }
         }
         if (delivery === "link") {
-          await notifyUser(
-            deps,
-            target.email,
-            "A password reset link was created for you",
-            "An owner created a one-time link to reset your Crow HR password. If you didn't ask for this, tell your administrator.",
-          );
+          await sendSecurityNotice(deps.db, deps, {
+            orgId: auth.orgId,
+            to: { membershipIds: [target.id] },
+            title: "A password reset link was created for you",
+            body: "An owner created a one-time link to reset your Crow HR password. If you didn't ask for this, tell your administrator.",
+          });
         }
         return { url: delivery === "link" ? url : null, delivery, expiresAt: expiresAt.toISOString() };
       },

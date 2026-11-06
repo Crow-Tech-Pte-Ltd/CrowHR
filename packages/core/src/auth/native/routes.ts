@@ -8,6 +8,7 @@ import { AppError } from "../../errors.ts";
 import { defineModule, defineRoute } from "../../http/route.ts";
 import { audit, findOrgBySlug } from "../credentials.ts";
 import { mfaPolicyStatus } from "../mfa-policy.ts";
+import { sendSecurityNotice, sgDateTimePhrase } from "../security-notices.ts";
 import { loadMember } from "../sessions.ts";
 import { DAY, loadSecuritySettings, MINUTE } from "../settings.ts";
 import { DEFAULT_NATIVE_REDIRECT_URIS, NATIVE_REQUEST_TTL_MS } from "./complete.ts";
@@ -242,6 +243,12 @@ export const nativeModule = defineModule({
             targetId: tokens.deviceSessionId,
             meta: { platform: request.client, deviceName: body.deviceName },
           });
+          await sendSecurityNotice(db, deps, {
+            orgId: request.orgId,
+            to: { membershipIds: [request.membershipId] },
+            title: "A new device signed in to your account",
+            body: `The Crow HR app on "${body.deviceName}" signed in to your account on ${sgDateTimePhrase(now)}. If this wasn't you, remove the device in My sessions, change your password and tell your administrator.`,
+          });
           return tokens;
         }
 
@@ -264,6 +271,12 @@ export const nativeModule = defineModule({
                 meta: { deviceName: reused.deviceName, membershipId: reused.membershipId },
               },
             );
+            await sendSecurityNotice(tx, deps, {
+              orgId: reused.orgId,
+              to: { membershipIds: [reused.membershipId] },
+              title: "An app session was signed out",
+              body: `The Crow HR app on "${reused.deviceName}" was signed out because an old sign-in token for it was used again, which can mean the token was copied. Sign in to the app again. If this keeps happening, change your password and tell your administrator.`,
+            });
           });
           return invalidGrant("This session has ended. Sign in again.");
         };

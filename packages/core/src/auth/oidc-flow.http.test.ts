@@ -16,6 +16,7 @@ import {
 import { createApp } from "../app.ts";
 import { auditEvents } from "../db/schema/audit.ts";
 import { userIdentities } from "../db/schema/auth.ts";
+import { notifications } from "../db/schema/notifications.ts";
 
 const TENANT = "11111111-2222-3333-4444-555555555555";
 
@@ -244,6 +245,12 @@ describe("OIDC sign-in flow (Google, Entra, generic) against the mock IdP", () =
     expect((await ssoRoundTrip(http, generic, ids.generic as string)).location).toBe("/");
     const me = (await (await http.get("/api/v1/me")).json()) as { roles: string[]; employeeId: string | null };
     expect(me).toMatchObject({ roles: [], employeeId: null });
+    // HR (here the owner: the org has no hr_admin) is told to link or remove the new member.
+    const told = await deps.db.select().from(notifications).where(eq(notifications.kind, "security_notice"));
+    expect(told.find((n) => n.title === "A new member joined through single sign-on")).toMatchObject({
+      link: "/settings/members",
+      body: expect.stringContaining("jit@kampongkopi.sg"),
+    });
     generic.nextUser = { sub: "okta-gmail", email: "x@gmail.com", email_verified: true };
     expect((await ssoRoundTrip(testClient(app, deps), generic, ids.generic as string)).location).toContain(
       "not_provisioned",

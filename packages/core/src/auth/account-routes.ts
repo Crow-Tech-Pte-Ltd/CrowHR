@@ -15,11 +15,11 @@ import {
   findMemberByEmail,
   findOrgBySlug,
   MFA_LOCKED_MESSAGE,
-  notifyUser,
   verifyPasswordOrDummy,
 } from "./credentials.ts";
 import { isKnownDevice, rememberDevice } from "./known-device.ts";
 import { passwordProblem } from "./password-policy.ts";
+import { sendSecurityNotice } from "./security-notices.ts";
 import { removeLinkedIdentities, revokeUserSessions, startBrowserSession } from "./sessions.ts";
 import { loadSecuritySettings } from "./settings.ts";
 import { clearNetworkThrottle, passwordLocked, passwordLockState, recordPasswordFailure } from "./throttle.ts";
@@ -157,12 +157,12 @@ export const accountRoutes = [
         );
         return unlinked;
       });
-      await notifyUser(
-        deps,
-        user.email,
-        "Your Crow HR password was reset",
-        `The password for your Crow HR account was reset${reset.createdBy ? " with a link from your administrator" : ""}. You were signed out everywhere${unlinked ? " and your single sign-on links were removed (they link again at your next sign-in by verified email, or from your profile)" : ""}. If this wasn't you, tell your administrator now.`,
-      );
+      await sendSecurityNotice(db, deps, {
+        orgId: reset.orgId,
+        to: { userId: user.id },
+        title: "Your Crow HR password was reset",
+        body: `The password for your Crow HR account was reset${reset.createdBy ? " with a link from your administrator" : ""}. You were signed out everywhere${unlinked ? " and your single sign-on links were removed (they link again at your next sign-in by verified email, or from your profile)" : ""}. If this wasn't you, tell your administrator now.`,
+      });
       const [org] = await db
         .select({ slug: organisations.slug })
         .from(organisations)

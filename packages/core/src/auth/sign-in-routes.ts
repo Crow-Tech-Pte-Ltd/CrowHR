@@ -19,13 +19,13 @@ import {
   MFA_CHALLENGE_TTL_MS,
   MFA_LOCKED_MESSAGE,
   MFA_MAX_ATTEMPTS,
-  notifyUser,
   rolesOf,
   verifyPasswordOrDummy,
 } from "./credentials.ts";
 import { isKnownDevice, rememberDevice } from "./known-device.ts";
 import { publicSignInMethods } from "./methods.ts";
 import { completeNativeSignIn } from "./native/complete.ts";
+import { noticeNewBrowserSignIn, sendSecurityNotice } from "./security-notices.ts";
 import { clearSessionCookie, revokeSessionById, startBrowserSession } from "./sessions.ts";
 import { loadSecuritySettings, sessionCookie } from "./settings.ts";
 import {
@@ -135,6 +135,13 @@ async function finishSignIn(
     await rememberDevice(c, input.userId);
     return { mfaRequired: false, redirectTo };
   }
+  // Before the session row exists, so a member's first sign-in is not reported.
+  await noticeNewBrowserSignIn(c, {
+    orgId: input.orgId,
+    userId: input.userId,
+    membershipId: input.membershipId,
+    authMethod,
+  });
   await startBrowserSession(c, {
     userId: input.userId,
     orgId: input.orgId,
@@ -243,12 +250,12 @@ export const signInRoutes = [
           return triggered;
         });
         if (triggered.accountLocked) {
-          await notifyUser(
-            deps,
-            user.email,
-            "Sign-in attempts blocked",
-            `There were many wrong passwords for your ${org.name} account on Crow HR from several networks, so sign-in from new devices is paused for at most 30 seconds. Browsers you have signed in with before still work. If this wasn't you, tell your administrator and consider changing your password.`,
-          );
+          await sendSecurityNotice(db, deps, {
+            orgId: org.id,
+            to: { membershipIds: [membership.id] },
+            title: "Sign-in attempts blocked",
+            body: `There were many wrong passwords for your ${org.name} account on Crow HR from several networks, so sign-in from new devices is paused for at most 30 seconds. Browsers you have signed in with before still work. If this wasn't you, tell your administrator and consider changing your password.`,
+          });
         }
         await recordIpFailure(db, ip, now);
         throw invalidCredentials();
@@ -405,15 +412,12 @@ export const signInRoutes = [
           },
           { orgId: challenge.orgId },
         );
-        const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, challenge.userId));
-        if (user) {
-          await notifyUser(
-            deps,
-            user.email,
-            "A recovery code was used",
-            `A recovery code was used to sign in to Crow HR. You have ${result.remainingRecoveryCodes} left. If this wasn't you, change your password and reset two-step verification now.`,
-          );
-        }
+        await sendSecurityNotice(db, deps, {
+          orgId: challenge.orgId,
+          to: { membershipIds: [challenge.membershipId] },
+          title: "A recovery code was used",
+          body: `A recovery code was used to sign in to Crow HR. You have ${result.remainingRecoveryCodes} left. If this wasn't you, change your password and reset two-step verification now.`,
+        });
       }
       return finishSignIn(c, {
         orgId: challenge.orgId,
