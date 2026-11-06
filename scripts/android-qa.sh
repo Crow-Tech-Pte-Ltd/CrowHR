@@ -21,6 +21,17 @@ case "${1:-}" in
   link) "$adb" -s "$serial" shell am start -W -a android.intent.action.VIEW -d "'$2'" "$pkg" ;;
   logcat) "$adb" -s "$serial" logcat -d -t "${2:-200}" ;;
   tap) "$adb" -s "$serial" shell input tap "$2" "$3" ;;
+  packages) "$adb" -s "$serial" shell pm list packages | grep -i "${2:-chrome}" ;;
+  dump) "$adb" -s "$serial" exec-out uiautomator dump /dev/tty | sed 's/<\/hierarchy>.*/<\/hierarchy>/' > "$2" ;;
+  text) "$adb" -s "$serial" shell input text "$2" ;;
+  key) "$adb" -s "$serial" shell input keyevent "$2" ;;
+  timezone)
+    # Device time zone for QA (e.g. America/New_York; Asia/Singapore to restore). The app must
+    # keep showing Singapore time whatever this is.
+    "$adb" -s "$serial" shell cmd alarm set-timezone "$2"
+    "$adb" -s "$serial" shell date ;;
+  select-all) "$adb" -s "$serial" shell input keycombination 113 29 ;;
+  install) "$adb" -s "$serial" install -r "$repo_dir/apps/android/app/build/outputs/apk/debug/app-debug.apk" ;;
   perms) "$adb" -s "$serial" shell pm list permissions -g -f | grep -i -B2 -A6 "${2:-local}" ;;
   appops) "$adb" -s "$serial" shell dumpsys package "$pkg" | grep -i -A3 "${2:-permission}" ;;
   reach)

@@ -92,6 +92,18 @@ class ConnectViewModelTest {
         assertEquals(fixture["supportedApiVersions"]!!.strings(), ConnectCheck.SUPPORTED_API_VERSIONS)
     }
 
+    @Test fun modernFeatureGatingFixture() {
+        val modern = fixture.obj("featureGates")!!.obj("modernGating")!!
+        assertEquals(modern["markers"]!!.strings().toSet(), AppScreen.MODERN_MARKERS)
+        val screenFeature = modern.obj("screenFeature")!!
+        for (screen in AppScreen.entries) assertEquals(screenFeature.str(screen.id), screen.feature)
+        for (case in modern.arr("cases").map { it.jsonObject }) {
+            val features = case["features"]!!.strings()
+            val hidden = AppScreen.entries.filterNot { it.isAvailable(features) }.map { it.id }
+            assertEquals(case.str("id"), case["hiddenScreens"]!!.strings(), hidden)
+        }
+    }
+
     @Test fun savedConnectionsFixture() {
         val spec = fixture.obj("savedConnectionCases")!!
         val store = ConnectionStore(InMemoryKeyValueStore())

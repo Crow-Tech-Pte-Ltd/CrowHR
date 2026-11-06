@@ -24,6 +24,9 @@ data class QueuedPunch(
     val kind: String,
     val deviceTime: String,
     val monotonicMillis: Long? = null,
+    /** Settings.Global.BOOT_COUNT at the tap: [monotonicMillis] is only comparable within one boot. */
+    val bootCount: Int? = null,
+    /** Kept on the device for display and support; never sent (the server has no such field). */
     val utcOffsetMinutes: Int? = null,
     val location: PunchLocation? = null,
     val state: String = PunchQueue.PENDING,
@@ -47,7 +50,22 @@ data class PunchRequest(
     val sentAt: String,
     val queued: Boolean,
     val location: PunchLocation? = null,
+    val source: String = "android",
+    /** Monotonic ms from the tap to this send; omitted when the phone rebooted in between. */
+    val elapsedMs: Long? = null,
 )
+
+/** The phone's monotonic clock (SystemClock.elapsedRealtime) and which boot it belongs to. */
+interface MonotonicClock {
+    val bootCount: Int?
+    fun elapsedMillis(): Long
+
+    /** Unknown boot: elapsed time is never sent. */
+    object None : MonotonicClock {
+        override val bootCount: Int? = null
+        override fun elapsedMillis(): Long = 0
+    }
+}
 
 sealed interface SendOutcome {
     data class Response(val status: Int, val body: String) : SendOutcome
@@ -126,13 +144,14 @@ class PunchQueue(private val store: PunchStore) {
         key: String = UUID.randomUUID().toString(),
         monotonicMillis: Long? = null,
         utcOffsetMinutes: Int? = null,
+        bootCount: Int? = null,
         location: PunchLocation? = null,
     ): EnqueueResult = synchronized(lock) {
         val list = store.load()
         if (list.count { it.isPending } >= CAPACITY) return EnqueueResult.QueueFull
         val punch = QueuedPunch(
             key = key, kind = kind, deviceTime = deviceTime.toString(), monotonicMillis = monotonicMillis,
-            utcOffsetMinutes = utcOffsetMinutes, location = location,
+            utcOffsetMinutes = utcOffsetMinutes, location = location, bootCount = bootCount,
         )
         store.save(trim(list + punch))
         changes.value++
@@ -148,13 +167,22 @@ class PunchQueue(private val store: PunchStore) {
         true
     }
 
+    /** The user read a refused punch's reason and dismisses it. Only refused punches can be dismissed. */
+    fun dismiss(key: String): Boolean = synchronized(lock) {
+        val list = store.load()
+        if (list.none { it.key == key && it.state == REJECTED }) return false
+        store.save(list.filterNot { it.key == key })
+        changes.value++
+        true
+    }
+
     /** Whether the next tap is a clock-in or a clock-out: the newest unsent punch wins. */
     fun nextKind(serverClockedIn: Boolean): String {
         val last = pending().lastOrNull() ?: return if (serverClockedIn) "out" else "in"
         return if (last.kind == "in") "out" else "in"
     }
 
-    suspend fun drain(now: Instant, sender: PunchSender): DrainResult = mutex.withLock {
+    suspend fun drain(now: Instant, sender: PunchSender, monotonic: MonotonicClock = MonotonicClock.None): DrainResult = mutex.withLock {
         var sent = 0
         while (true) {
             val head = pending().firstOrNull() ?: return DrainResult(sent, null)
@@ -166,6 +194,7 @@ class PunchQueue(private val store: PunchStore) {
                 sentAt = now.toString(),
                 queued = head.attempts > 0 || Duration.between(deviceTime, now) >= QUEUED_AFTER,
                 location = head.location,
+                elapsedMs = elapsedSinceTap(head, monotonic),
             )
             val outcome = sender.send(request)
             sent++
@@ -222,8 +251,20 @@ class PunchQueue(private val store: PunchStore) {
     }
 
     /** Keeps every pending punch and the newest [HISTORY_LIMIT] settled ones. */
+    private fun elapsedSinceTap(p: QueuedPunch, clock: MonotonicClock): Long? {
+        val tapped = p.monotonicMillis ?: return null
+        val boot = p.bootCount ?: return null
+        if (clock.bootCount != boot) return null
+        val elapsed = clock.elapsedMillis() - tapped
+        return elapsed.takeIf { it >= 0 }
+    }
+
+    /**
+     * Keeps every pending punch, every refused one (it shows the server's reason until the user
+     * dismisses it) and the newest [HISTORY_LIMIT] synced or flagged ones.
+     */
     private fun trim(list: List<QueuedPunch>): List<QueuedPunch> {
-        val settled = list.filterNot { it.isPending }
+        val settled = list.filter { it.state == SYNCED || it.state == FLAGGED }
         if (settled.size <= HISTORY_LIMIT) return list
         val drop = settled.take(settled.size - HISTORY_LIMIT).map { it.key }.toSet()
         return list.filterNot { it.key in drop }
