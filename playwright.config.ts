@@ -24,10 +24,11 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /setup\.spec\.ts/ },
+    // Only e2e/setup.spec.ts needs the fresh setup server (not company-setup.spec.ts).
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /(^|[\\/])setup\.spec\.ts$/ },
     {
       name: "setup",
-      testMatch: /setup\.spec\.ts/,
+      testMatch: /(^|[\\/])setup\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${SETUP_PORT}` },
     },
   ],

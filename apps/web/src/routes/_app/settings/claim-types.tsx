@@ -427,7 +427,8 @@ function TypeDialog({ type, onClose }: { type: ClaimTypeDto | null; onClose: () 
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Receipt" error={errors.receiptAboveCents}>
+          {/* Each error shows once: under the amount when it is shown, else under the rule. */}
+          <FormField label="Receipt" error={form.receiptRule === "above" ? undefined : errors.receiptAboveCents}>
             <Select
               value={form.receiptRule}
               onValueChange={(v) => set("receiptRule", v as ClaimTypeInputDto["receiptRule"])}
@@ -447,7 +448,7 @@ function TypeDialog({ type, onClose }: { type: ClaimTypeDto | null; onClose: () 
               <MoneyInput value={form.receiptAboveCents ?? null} onChange={(c) => set("receiptAboveCents", c)} />
             </FormField>
           ) : null}
-          <FormField label="Cap" error={errors.capCents}>
+          <FormField label="Cap" error={form.capPeriod === "none" ? errors.capCents : undefined}>
             <Select
               value={form.capPeriod}
               onValueChange={(v) =>

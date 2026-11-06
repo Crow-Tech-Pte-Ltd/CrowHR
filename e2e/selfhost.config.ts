@@ -6,7 +6,7 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: ".",
-  testMatch: /setup\.spec\.ts/,
+  testMatch: /(^|[\\/])setup\.spec\.ts$/,
   workers: 1,
   reporter: "list",
   use: {
