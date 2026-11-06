@@ -16,6 +16,8 @@
       "!openspec",
       "!.claude",
       "!.agents",
+      "!apps/ios",
+      "!apps/android",
       "!**/*.md"
     ]
   },

@@ -30,9 +30,7 @@
       "id": "first-refresh-sets-cursor",
       "cursor": null,
       "notificationsEnabled": true,
-      "items": [
-        { "id": "n1", "category": "approvals", "createdAt": "2026-11-02T01:00:00.000Z", "readAt": null }
-      ],
+      "items": [{ "id": "n1", "category": "approvals", "createdAt": "2026-11-02T01:00:00.000Z", "readAt": null }],
       "expected": { "post": null, "cursor": "2026-11-02T01:00:00.000Z", "opens": null }
     },
     {
@@ -43,7 +41,11 @@
         { "id": "n2", "category": "approvals", "createdAt": "2026-11-02T03:15:00.000Z", "readAt": null },
         { "id": "n1", "category": "approvals", "createdAt": "2026-11-02T01:00:00.000Z", "readAt": null }
       ],
-      "expected": { "post": "You have 1 new item in Crow HR", "cursor": "2026-11-02T03:15:00.000Z", "opens": "approvals" }
+      "expected": {
+        "post": "You have 1 new item in Crow HR",
+        "cursor": "2026-11-02T03:15:00.000Z",
+        "opens": "approvals"
+      }
     },
     {
       "id": "two-new-mixed",
@@ -53,15 +55,17 @@
         { "id": "n4", "category": "leave", "createdAt": "2026-11-02T04:00:00.000Z", "readAt": null },
         { "id": "n3", "category": "payroll", "createdAt": "2026-11-02T02:00:00.000Z", "readAt": null }
       ],
-      "expected": { "post": "You have 2 new items in Crow HR", "cursor": "2026-11-02T04:00:00.000Z", "opens": "notifications" }
+      "expected": {
+        "post": "You have 2 new items in Crow HR",
+        "cursor": "2026-11-02T04:00:00.000Z",
+        "opens": "notifications"
+      }
     },
     {
       "id": "nothing-new",
       "cursor": "2026-11-02T04:00:00.000Z",
       "notificationsEnabled": true,
-      "items": [
-        { "id": "n4", "category": "leave", "createdAt": "2026-11-02T04:00:00.000Z", "readAt": null }
-      ],
+      "items": [{ "id": "n4", "category": "leave", "createdAt": "2026-11-02T04:00:00.000Z", "readAt": null }],
       "expected": { "post": null, "cursor": "2026-11-02T04:00:00.000Z", "opens": null }
     },
     {
@@ -76,27 +80,32 @@
       "cursor": "2026-11-02T01:00:00.000Z",
       "notificationsEnabled": true,
       "items": [
-        { "id": "n6", "category": "claims", "createdAt": "2026-11-02T05:00:00.000Z", "readAt": "2026-11-02T05:01:00.000Z" },
+        {
+          "id": "n6",
+          "category": "claims",
+          "createdAt": "2026-11-02T05:00:00.000Z",
+          "readAt": "2026-11-02T05:01:00.000Z"
+        },
         { "id": "n5", "category": "claims", "createdAt": "2026-11-02T04:30:00.000Z", "readAt": null }
       ],
-      "expected": { "post": "You have 1 new item in Crow HR", "cursor": "2026-11-02T05:00:00.000Z", "opens": "notifications" }
+      "expected": {
+        "post": "You have 1 new item in Crow HR",
+        "cursor": "2026-11-02T05:00:00.000Z",
+        "opens": "notifications"
+      }
     },
     {
       "id": "turned-off-posts-nothing",
       "cursor": "2026-11-02T01:00:00.000Z",
       "notificationsEnabled": false,
-      "items": [
-        { "id": "n7", "category": "approvals", "createdAt": "2026-11-02T06:00:00.000Z", "readAt": null }
-      ],
+      "items": [{ "id": "n7", "category": "approvals", "createdAt": "2026-11-02T06:00:00.000Z", "readAt": null }],
       "expected": { "post": null, "cursor": "2026-11-02T06:00:00.000Z", "opens": null }
     },
     {
       "id": "cursor-never-moves-back",
       "cursor": "2026-11-03T00:00:00.000Z",
       "notificationsEnabled": true,
-      "items": [
-        { "id": "n8", "category": "leave", "createdAt": "2026-11-02T06:00:00.000Z", "readAt": null }
-      ],
+      "items": [{ "id": "n8", "category": "leave", "createdAt": "2026-11-02T06:00:00.000Z", "readAt": null }],
       "expected": { "post": null, "cursor": "2026-11-03T00:00:00.000Z", "opens": null }
     }
   ]
