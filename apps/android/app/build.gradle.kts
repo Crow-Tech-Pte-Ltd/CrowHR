@@ -86,5 +86,4 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.7.0")
     // Compose pulls an old Espresso that crashes on Android 17; pin the current one.
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
-    androidTestImplementation("androidx.work:work-testing:2.12.0")
 }

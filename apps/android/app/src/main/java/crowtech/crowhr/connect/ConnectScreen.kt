@@ -1,5 +1,7 @@
 package crowtech.crowhr.connect
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,8 +42,12 @@ fun ConnectScreen(
 ) {
     val state by vm.state.collectAsState()
     var scanning by remember { mutableStateOf(false) }
+    val localNetwork = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) vm.submit() else vm.localNetworkDenied()
+    }
     LaunchedEffect(state.phase) {
         (state.phase as? ConnectPhase.Connected)?.let { onConnected(it.connection) }
+        if (state.phase == ConnectPhase.NeedsLocalNetwork) localNetwork.launch(LocalNetwork.PERMISSION)
     }
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         ScreenTitle(
@@ -51,6 +57,11 @@ fun ConnectScreen(
         when (val phase = state.phase) {
             is ConnectPhase.Confirm -> ConfirmOrganisation(phase, vm::confirm, vm::back)
             ConnectPhase.Checking -> LoadingState("Checking the server…")
+            ConnectPhase.NeedsLocalNetwork -> Notice(
+                "Your company's server is on this local network. Android asks you to allow Crow HR to reach it.",
+                Tone.Neutral,
+                title = "Local network access",
+            )
             else -> {
                 if (scanning) {
                     QrScanner(
