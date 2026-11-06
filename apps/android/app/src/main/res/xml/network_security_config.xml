@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android's config can't express IP ranges, so cleartext is permitted here and the rule is
+  enforced in code instead: ServerAddress only accepts http:// for private-range and .local
+  hosts (after a warning), and TransportPolicyInterceptor refuses any request to a host other
+  than the configured server, and any http:// request to a public host. Only system CAs are
+  trusted (no user-installed CAs), so self-signed certificates fail with a clear message.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
