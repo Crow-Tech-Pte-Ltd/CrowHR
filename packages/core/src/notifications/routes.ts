@@ -38,6 +38,7 @@ function maskEmail(email: string): string {
 
 export const notificationsModule = defineModule({
   name: "notifications",
+  feature: "notifications",
   basePath: "/notifications",
   tag: "Notifications",
   routes: [

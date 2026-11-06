@@ -8,7 +8,7 @@ export interface Punch {
   id: string;
   employeeId: string;
   kind: "in" | "out";
-  source: "web" | "mobile_web" | "correction";
+  source: "web" | "mobile_web" | "ios" | "android" | "correction";
   deviceTime: string;
   sentAt: string;
   serverTime: string;

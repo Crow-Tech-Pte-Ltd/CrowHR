@@ -2,8 +2,10 @@ import { z } from "zod";
 import { findOrgBySlug } from "../auth/credentials.ts";
 import { publicSignInMethods } from "../auth/methods.ts";
 import { organisations } from "../db/schema/organisations.ts";
+import { AppError } from "../errors.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 import { SUPPORTED_API_VERSIONS } from "../openapi/generate.ts";
+import { getCompanyProfile, readCompanyLogo } from "../organisation/profile.ts";
 import { VERSION } from "../version.ts";
 
 const METHOD_NAMES = { password: "Email and password" } as const;
@@ -56,8 +58,9 @@ export function createMetaModule(features: () => readonly string[]) {
             entries.push({
               slug: org.slug,
               displayName: org.name,
-              // NOT IMPLEMENTED: logos arrive with the company profile (organisation module).
-              logoUrl: null,
+              logoUrl: (await getCompanyProfile(deps, org.id))?.logoFileKey
+                ? `${deps.publicUrl.replace(/\/$/, "")}/api/v1/meta/logo?${new URLSearchParams({ org: org.slug })}`
+                : null,
               signInMethods: [
                 ...(methods.password.enabled
                   ? [{ kind: "password" as const, displayName: METHOD_NAMES.password }]
@@ -75,6 +78,29 @@ export function createMetaModule(features: () => readonly string[]) {
             orgSlugRequired: !query.org && all.length > 1,
             organisations: entries,
           };
+        },
+      }),
+      defineRoute({
+        method: "get",
+        path: "/logo",
+        summary: "The organisation's logo, public like its name (sign-in page and mobile apps)",
+        access: "public",
+        request: { query: z.object({ org: z.string().trim().max(100).optional() }) },
+        responses: { 200: { description: "The logo image", contentType: "image/png" } },
+        errors: ["not_found"],
+        handler: async ({ deps, query }) => {
+          const all = await deps.db.select().from(organisations).limit(2);
+          const org = query.org ? await findOrgBySlug(deps.db, query.org) : all.length === 1 ? all[0] : null;
+          if (!org) throw new AppError("not_found", "No organisation with that address.");
+          // readCompanyLogo re-sniffs the stored file: only a real PNG is ever served.
+          const file = await readCompanyLogo(deps, org.id);
+          return new Response(file.data as BodyInit, {
+            headers: {
+              "content-type": "image/png",
+              "x-content-type-options": "nosniff",
+              "cache-control": "public, max-age=300",
+            },
+          });
         },
       }),
     ],

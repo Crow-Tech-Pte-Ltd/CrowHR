@@ -128,6 +128,7 @@ function fileResponse(out: { body: Uint8Array | string; contentType: string; fil
 /** Claims and expenses (openspec/changes/add-claims). Approvals are decided in the Inbox (workflows). */
 export const claimsModule = defineModule({
   name: "claims",
+  feature: "claims",
   basePath: "/claims",
   tag: "Claims",
   routes: [

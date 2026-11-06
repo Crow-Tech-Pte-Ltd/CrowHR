@@ -91,6 +91,49 @@ describe("attendance punches", () => {
     });
   });
 
+  it("native apps: elapsed time since the tap fixes the time even when the phone's clock was changed while offline", async () => {
+    const staff = await w.as("staff");
+    // Tapped at a real 08:50 SGT; the employee then moved the phone's clock back an hour, and the
+    // app sent the punch 30 minutes later. The monotonic elapsed time (30 min) gives the real tap.
+    const res = await punch(staff, "in", "2026-11-12T00:50:00.000Z", {
+      sentAt: "2026-11-12T00:20:00.000Z",
+      queued: true,
+      elapsedMs: 30 * 60_000,
+      source: "android",
+    });
+    expect(res.status, await res.clone().text()).toBe(201);
+    expect(await res.json()).toMatchObject({
+      recordedAt: "2026-11-12T00:50:00.000Z",
+      deviceTime: "2026-11-12T00:50:00.000Z",
+      source: "android",
+      skewSeconds: 0,
+      flags: ["late_sync"],
+    });
+    // Without elapsed time the same request is taken at its word: tap = send − 0, an hour off.
+    const naive = await punch(staff, "out", "2026-11-12T00:50:00.000Z", {
+      sentAt: "2026-11-12T00:20:00.000Z",
+      queued: true,
+      source: "ios",
+    });
+    expect(naive.status).toBe(422);
+  });
+
+  it("native apps: a device clock that disagrees with the elapsed time is flagged as clock skew", async () => {
+    const staff = await w.as("staff");
+    // Sent immediately (elapsed 0) but the device says 08:00: its clock is 80 minutes slow.
+    const res = await punch(staff, "in", "2026-11-12T00:00:00.000Z", {
+      sentAt: "2026-11-12T00:00:00.000Z",
+      elapsedMs: 0,
+      source: "ios",
+    });
+    expect(await res.json()).toMatchObject({
+      recordedAt: "2026-11-12T01:20:00.000Z",
+      skewSeconds: 4800,
+      flags: ["clock_skew"],
+      source: "ios",
+    });
+  });
+
   it("refuses punches more than 7 days old, tapped after sending, or with no employee record", async () => {
     const staff = await w.as("staff");
     const old = await punch(staff, "in", "2026-11-04T00:00:00.000Z", {

@@ -22,6 +22,11 @@ import { type AttendanceSettings, loadAttendanceSettings } from "./settings.ts";
  *
  * recordedAt = deviceTime + (serverTime − sentAt): the device's clock error is measured when the
  * punch arrives, so a queued punch from a device with a wrong clock still lands at the right time.
+ *
+ * Native apps also send `elapsedMs`, the time between the tap and sending from the phone's
+ * monotonic clock (which changing the clock doesn't move). Then recordedAt = serverTime − elapsedMs,
+ * so a clock changed while the phone was offline can't move the punch either, and the difference
+ * from `deviceTime` is reported as skew.
  */
 
 const DAY_MS = 86_400_000;
@@ -45,7 +50,17 @@ export const punchInput = z.object({
   deviceTime: z.iso.datetime({ offset: true, message: "Send the tap time as an ISO 8601 timestamp." }),
   sentAt: z.iso.datetime({ offset: true, message: "Send the sending time as an ISO 8601 timestamp." }),
   queued: z.boolean().default(false),
-  source: z.enum(["web", "mobile_web"]).default("web"),
+  source: z.enum(["web", "mobile_web", "ios", "android"]).default("web"),
+  elapsedMs: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_PUNCH_AGE_MS + DAY_MS)
+    .optional()
+    .meta({
+      description:
+        "Native apps: milliseconds between the tap and sending, from the device's monotonic clock. Leave out if the device restarted in between.",
+    }),
   location: z
     .object({
       latitude: z.number().min(-90).max(90),
@@ -60,7 +75,7 @@ export const punchView = z.object({
   id: z.uuid(),
   employeeId: z.uuid(),
   kind: z.enum(["in", "out"]),
-  source: z.enum(["web", "mobile_web", "correction"]),
+  source: z.enum(["web", "mobile_web", "ios", "android", "correction"]),
   deviceTime: z.string(),
   sentAt: z.string(),
   serverTime: z.string(),
@@ -229,9 +244,13 @@ export async function recordPunch(
   const serverTime = deps.clock.now();
   const deviceTime = new Date(punch.deviceTime);
   const sentAt = new Date(punch.sentAt);
-  const offsetMs = serverTime.getTime() - sentAt.getTime();
-  const recordedAt = new Date(deviceTime.getTime() + offsetMs);
-  if (deviceTime.getTime() > sentAt.getTime() + 60_000) {
+  const elapsed = punch.elapsedMs;
+  const recordedAt =
+    elapsed === undefined
+      ? new Date(deviceTime.getTime() + serverTime.getTime() - sentAt.getTime())
+      : new Date(serverTime.getTime() - elapsed);
+  const offsetMs = recordedAt.getTime() - deviceTime.getTime();
+  if (elapsed === undefined && deviceTime.getTime() > sentAt.getTime() + 60_000) {
     throw new AppError(
       "punch_rejected",
       "The punch was tapped after it was sent, so its time can't be trusted. Clock in again.",

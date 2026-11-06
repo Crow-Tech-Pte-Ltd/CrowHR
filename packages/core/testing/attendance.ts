@@ -17,6 +17,9 @@ export function punch(
     key?: string;
     location?: { latitude: number; longitude: number; accuracyMetres?: number } | null;
     headers?: Record<string, string>;
+    /** Milliseconds between the tap and sending, from the device's monotonic clock (native apps). */
+    elapsedMs?: number;
+    source?: "web" | "mobile_web" | "ios" | "android";
   } = {},
 ) {
   seq += 1;
@@ -28,8 +31,9 @@ export function punch(
       deviceTime: at,
       sentAt: opts.sentAt ?? at,
       queued: opts.queued ?? false,
-      source: "web",
+      source: opts.source ?? "web",
       location: opts.location ?? null,
+      ...(opts.elapsedMs === undefined ? {} : { elapsedMs: opts.elapsedMs }),
     },
     { headers: opts.headers },
   );

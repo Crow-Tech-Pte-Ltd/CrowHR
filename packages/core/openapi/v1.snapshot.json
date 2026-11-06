@@ -2669,6 +2669,8 @@
                       "enum": [
                         "web",
                         "mobile_web",
+                        "ios",
+                        "android",
                         "correction"
                       ]
                     },
@@ -2952,6 +2954,8 @@
                               "enum": [
                                 "web",
                                 "mobile_web",
+                                "ios",
+                                "android",
                                 "correction"
                               ]
                             },
@@ -3095,6 +3099,8 @@
                             "enum": [
                               "web",
                               "mobile_web",
+                              "ios",
+                              "android",
                               "correction"
                             ]
                           },
@@ -4343,6 +4349,8 @@
                       "enum": [
                         "web",
                         "mobile_web",
+                        "ios",
+                        "android",
                         "correction"
                       ]
                     },
@@ -4490,6 +4498,8 @@
                       "enum": [
                         "web",
                         "mobile_web",
+                        "ios",
+                        "android",
                         "correction"
                       ]
                     },
@@ -4706,8 +4716,16 @@
                     "type": "string",
                     "enum": [
                       "web",
-                      "mobile_web"
+                      "mobile_web",
+                      "ios",
+                      "android"
                     ]
+                  },
+                  "elapsedMs": {
+                    "description": "Native apps: milliseconds between the tap and sending, from the device's monotonic clock. Leave out if the device restarted in between.",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 691200000
                   },
                   "location": {
                     "anyOf": [
@@ -4811,6 +4829,8 @@
                       "enum": [
                         "web",
                         "mobile_web",
+                        "ios",
+                        "android",
                         "correction"
                       ]
                     },
@@ -6028,6 +6048,8 @@
                                         "enum": [
                                           "web",
                                           "mobile_web",
+                                          "ios",
+                                          "android",
                                           "correction"
                                         ]
                                       },
@@ -6516,6 +6538,8 @@
                                   "enum": [
                                     "web",
                                     "mobile_web",
+                                    "ios",
+                                    "android",
                                     "correction"
                                   ]
                                 },
@@ -40023,6 +40047,61 @@
             "description": "Error: validation_failed.",
             "x-error-codes": [
               "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meta/logo": {
+      "get": {
+        "operationId": "meta.getLogo",
+        "summary": "The organisation's logo, public like its name (sign-in page and mobile apps)",
+        "tags": [
+          "Meta"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "org",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The logo image",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
             ],
             "content": {
               "application/json": {

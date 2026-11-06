@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, createTestDeps, seedMember, seedOrg, type TestDb } from "../../testing/index.ts";
 import { allV1Modules, createApp } from "../app.ts";
 import { orgSecuritySettings, ssoProviders } from "../db/schema/auth.ts";
+import { companyProfiles } from "../db/schema/organisation.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 
 const leave = defineModule({
@@ -28,6 +29,55 @@ describe("GET /api/v1/meta", () => {
     t = await createTestDb();
   });
   afterEach(() => t.close());
+
+  it("links the company logo publicly once one is uploaded, for the sign-in screen and the apps", async () => {
+    const deps = createTestDeps(t.db);
+    const org = await seedOrg(deps, { name: "Kampong Kopi", slug: "kampong-kopi" });
+    const app = createApp(deps);
+    const meta = async () =>
+      ((await (await app.request("/api/v1/meta")).json()) as { organisations: { logoUrl: string | null }[] })
+        .organisations[0];
+    expect((await meta())?.logoUrl).toBeNull();
+    expect((await app.request("/api/v1/meta/logo?org=kampong-kopi")).status).toBe(404);
+
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+    await deps.fileStore.put("org/x/company/logo.png", png, { contentType: "image/png" });
+    const now = deps.clock.now();
+    await deps.db.insert(companyProfiles).values({
+      orgId: org.id,
+      legalName: "Kampong Kopi Pte. Ltd.",
+      uen: "201912345K",
+      logoFileKey: "org/x/company/logo.png",
+      logoContentType: "image/png",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const logoUrl = (await meta())?.logoUrl;
+    expect(logoUrl).toBe(`${deps.publicUrl}/api/v1/meta/logo?org=kampong-kopi`);
+    const res = await app.request(new URL(logoUrl ?? "").pathname + new URL(logoUrl ?? "").search);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/png");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(png);
+    expect((await app.request("/api/v1/meta/logo?org=nobody")).status).toBe(404);
+  });
+
+  it("lists every feature the mobile apps gate screens on", async () => {
+    const app = createApp(createTestDeps(t.db));
+    const body = (await (await app.request("/api/v1/meta")).json()) as { features: string[] };
+    // add-mobile-apps design decision 2: apps gate screens on these, never on version numbers.
+    expect(body.features).toEqual(
+      expect.arrayContaining([
+        "leave",
+        "attendance.offlinePunch",
+        "payslips",
+        "claims",
+        "scheduling",
+        "approvals",
+        "notifications",
+      ]),
+    );
+  });
 
   it("is public and includes the only organisation with its enabled methods, no secrets, cacheable", async () => {
     const deps = createTestDeps(t.db);

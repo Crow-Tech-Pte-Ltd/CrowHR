@@ -142,6 +142,7 @@ const inboxItemOut = z.object({
 
 export const approvalsModule = defineModule({
   name: "approvals",
+  feature: "approvals",
   basePath: "/approvals",
   tag: "Approvals",
   routes: [
