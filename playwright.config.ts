@@ -65,6 +65,11 @@ export default defineConfig({
         PUBLIC_URL: `http://127.0.0.1:${PORT}`,
         // Fixed throwaway key for e2e only.
         CROWHR_SECRET_KEY: E2E_SECRET_KEY,
+        // No nightly backup during the suite. On Postgres (CI) the scheduler runs once the daily
+        // time has passed, and without a passphrase that run fails and replaces the seeded backup
+        // e2e/system-page.spec.ts checks; PGlite (local) never schedules. Off keeps both the same.
+        // The no-passphrase failure itself is tested in apps/server/src/backup/schedule.test.ts.
+        BACKUP_TIME: "off",
       },
     },
     {

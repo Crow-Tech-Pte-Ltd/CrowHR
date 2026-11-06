@@ -33,7 +33,8 @@ test.describe("Settings → System", () => {
     await expect(backups.getByTestId("last-backup-status")).toHaveText("OK");
     await expect(backups.getByTestId("last-backup")).toContainText("(3 days ago)");
     await expect(backups).toContainText("18 MB");
-    await expect(backups).toContainText("Daily 02:00 Asia/Singapore");
+    // The e2e server runs with BACKUP_TIME=off (playwright.config.ts), the same on PGlite and Postgres.
+    await expect(backups).toContainText("Off");
 
     const request = page.getByRole("region", { name: "This request" });
     await expect(request.getByTestId("client-ip")).toHaveText("127.0.0.1");
