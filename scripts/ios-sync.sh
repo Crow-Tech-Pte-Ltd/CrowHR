@@ -15,5 +15,5 @@ rsync -az --delete \
 if [[ -d apps/mobile-fixtures ]]; then
   rsync -az --delete -e "$SSH" apps/mobile-fixtures/ "$HOST:$REMOTE/apps/mobile-fixtures/"
 fi
-rsync -az -e "$SSH" scripts/ios-mac-test.sh scripts/ios-release.sh "$HOST:$REMOTE/scripts/"
+rsync -az -e "$SSH" scripts/ios-mac-test.sh scripts/ios-release.sh scripts/ios-store-register.py "$HOST:$REMOTE/scripts/"
 echo "Synced to $HOST:$REMOTE"

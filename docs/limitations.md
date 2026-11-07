@@ -199,8 +199,7 @@ The demo is the real web app and the real core API running in the visitor's brow
 
 Both apps:
 
-- **App icons are placeholders** (Android vector in `apps/android`, iOS from `scripts/ios-make-placeholder-icon.py`). They need Daniel's approval before any release.
-- **Release uploads are not implemented.** `scripts/android-release.sh` and `scripts/ios-release.sh` check the approval record and plan the steps. Signing and the upload to Play internal or TestFlight stop with "not implemented" until the store apps and keys exist. The Android application id and iOS bundle id are not registered.
+- **Release uploads are not implemented.** `scripts/android-release.sh` and `scripts/ios-release.sh` check the approval record and plan the steps. Signing and the upload to Play internal or TestFlight stop with "not implemented" until the store apps and keys exist. The iOS bundle id `crowtech.crowhr` is registered with Apple; the App Store Connect app record and the Play Console app are not created yet, and no upload key exists for Play.
 - **Remote push is not implemented** by design (design decision 6). The apps refresh in the background and post content-free local notifications instead.
 - **Not in the apps, done on the web:** the leave team calendar for managers, and shift swaps and open-shift pickup.
 
