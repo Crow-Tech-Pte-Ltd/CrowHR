@@ -42,7 +42,7 @@ Crow HR is a working, self-hostable HR and payroll platform for Singapore SMEs, 
 
 ## Mobile apps: what remains
 
-- **Store release:** the app icon is done (`design/app-icon/`); the iOS bundle id `crowtech.crowhr` is registered with Apple, the App Store Connect and Play Console app records are not created yet; release scripts refuse to upload without an approval record. Store metadata and the "Data Not Collected" answers are drafted for review.
+- **Store release:** the app icon is done (`design/app-icon/`); the iOS bundle id `crowtech.crowhr` is registered with Apple, the Play Console app exists as a draft (app id 4976368088435434771), the App Store Connect app record is not created yet; release scripts refuse to upload without an approval record. Store metadata and the "Data Not Collected" answers are drafted for review.
 - **iOS accessibility sign-off (task 3.7):** Xcode's audit flags one Dynamic Type item per run, changing between runs; needs a manual pass on a real device.
 - Privacy and support pages are written on the landing branch (noindex until launch).
 

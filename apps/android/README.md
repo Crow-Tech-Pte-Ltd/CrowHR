@@ -78,6 +78,12 @@ This is not an automated test. Chrome's first-run and keyboard screens differ by
 and need UI Automator on another app's views, which would be brittle. Re-run it by hand with the
 steps above.
 
+## Play Console
+
+App created 7 Nov 2026 in Crow Tech's Play account (7071629237355404162): "Crow HR", package
+`crowtech.crowhr`, English (United Kingdom), app, free. Console app id `4976368088435434771`, status
+draft. No upload key, AAB, store listing or Console declarations yet; nothing is published.
+
 ## App icon
 
 The Crow Tech crow standing on a kuning "HR" card on ivory, in the style of Crow Tech's other app
