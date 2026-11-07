@@ -199,7 +199,7 @@ The demo is the real web app and the real core API running in the visitor's brow
 
 Both apps:
 
-- **Release uploads are not implemented.** `scripts/android-release.sh` and `scripts/ios-release.sh` check the approval record and plan the steps. Signing and the upload to Play internal or TestFlight stop with "not implemented" until the store apps and keys exist. The iOS bundle id `crowtech.crowhr` is registered with Apple; the Play Console app exists as a draft (`crowtech.crowhr`, app id 4976368088435434771). The App Store Connect app record is not created yet, and no Play upload key exists.
+- **No release has been uploaded.** `scripts/android-release.sh` and `scripts/ios-release.sh` check the approval record and plan the steps. Android signing and the Play upload stop with "not implemented" until a Play upload key exists; the Play Console app exists as a draft (`crowtech.crowhr`, app id 4976368088435434771). The iOS archive and signed export work; the iOS upload is written but has never run (see iOS below).
 - **Remote push is not implemented** by design (design decision 6). The apps refresh in the background and post content-free local notifications instead.
 - **Not in the apps, done on the web:** the leave team calendar for managers, and shift swaps and open-shift pickup.
 
@@ -213,5 +213,6 @@ Android (`apps/android`):
 iOS (`apps/ios`):
 
 - Not in the app, done on the web: leave types that need a child, foreign-currency and multi-line claims, and payslip PDF download outside the share sheet.
+- **TestFlight upload is untested.** The unsigned Release archive and Apple cloud-signed export work: build 1 was exported and checked on 7 Nov 2026 (App Store distribution signature, team A8GBLXTNHB, `get-task-allow` false, no extra entitlements; receipt in `apps/ios/store/build1-verification.json`). It was not uploaded. `altool --validate-app` fails with "Unable to find Apple ID for Bundle ID 'crowtech.crowhr'" because the App Store Connect app record does not exist yet (owner creates it in the web UI). The upload runs only behind an approval record and has never run. Adding a build to the internal TestFlight group is done by hand in App Store Connect. App Store submission (`ios-release.sh production`) is not implemented.
 - The QR scanner (AVFoundation) and Face ID are not exercised by tests, because the simulator has neither a camera nor biometrics. The camera is stubbed with `-uitest-camera-stub` (DEBUG only).
 - Accessibility QA (task 3.7) is not signed off. Xcode's accessibility audit reports "Dynamic Type partially unsupported" for one text inside a SwiftUI List or Form row at the largest sizes, and which text it flags changes between runs with unchanged code. Clipping and missing-label checks pass. The screenshots in `artifacts/ios/qa-*.png` show the text readable at XXXL. Needs a manual VoiceOver and Dynamic Type pass on a real device before release.

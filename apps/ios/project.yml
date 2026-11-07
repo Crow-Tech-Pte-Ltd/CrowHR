@@ -1,5 +1,8 @@
 # Crow HR for iOS. Generate the Xcode project on the Mac (`xcodegen generate`); the generated
-# CrowHR.xcodeproj is not committed. Simulator builds only: ad-hoc "sign to run locally", no team.
+# CrowHR.xcodeproj is not committed. Debug (simulator tests) is ad-hoc "sign to run locally" with
+# no team. Release carries the Crow Tech team: scripts/ios-archive-on-mac.sh archives it unsigned
+# and scripts/ios-export-on-mac.sh has Apple cloud-sign it for App Store Connect. No entitlements
+# or special capabilities.
 name: CrowHR
 configs:
   Debug: debug
@@ -22,6 +25,11 @@ settings:
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: '-'
     DEVELOPMENT_TEAM: ''
+  configs:
+    Release:
+      CODE_SIGN_STYLE: Automatic
+      CODE_SIGN_IDENTITY[sdk=iphoneos*]: Apple Distribution
+      DEVELOPMENT_TEAM: A8GBLXTNHB
 targets:
   CrowHR:
     type: application

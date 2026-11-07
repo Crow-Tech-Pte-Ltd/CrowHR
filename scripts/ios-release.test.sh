@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # Dry-run tests of scripts/ios-release.sh: every path without Daniel's approval is refused, and
 # nothing is ever built or uploaded. Usage: scripts/ios-release.test.sh
+# The only non-dry-run cases must stop before any SSH; the Mac host is set to an unresolvable name
+# so a regression cannot reach s5 or Apple.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+unset CROWHR_BUILD_NUMBER
+export CROWHR_MAC_HOST="crowhr-release-test.invalid"
+export CROWHR_UPLOADED_BUILDS="$TMP/uploaded-builds.txt"
+printf '%s\n' "# test ledger" "7 0.1.0 2026-11-07T00:00:00Z internal" > "$CROWHR_UPLOADED_BUILDS"
 VERSION=$(grep -E "^\s*MARKETING_VERSION:" apps/ios/project.yml | head -1 | sed -E "s/.*'([^']+)'.*/\1/")
 PASS=0
 FAIL=0
@@ -35,7 +41,11 @@ expect 2 "no date" "an undated approval is refused" -- production --approval "$N
 expect 2 "say 'internal'" "an unknown command is refused" -- publish --dry-run
 expect 0 "INTERNAL TestFlight group only.*DRY RUN" "internal dry run plans an internal-only upload" -- internal --approval "$INTERNAL" --dry-run
 expect 0 "App Store review.*DRY RUN" "production dry run with a production approval only plans" -- production --approval "$PROD" --dry-run
-expect 3 "NOT IMPLEMENTED" "a real run stops before building or uploading" -- internal --approval "$INTERNAL"
+expect 3 "NOT IMPLEMENTED" "a real production run stops before building or submitting" -- production --approval "$PROD"
+expect 2 "set CROWHR_BUILD_NUMBER" "a real internal run without a build number stops before building" -- internal --approval "$INTERNAL"
+CROWHR_BUILD_NUMBER=1.2 expect 2 "positive whole number" "a non-numeric build number is refused" -- internal --approval "$INTERNAL" --dry-run
+CROWHR_BUILD_NUMBER=7 expect 2 "already uploaded" "a build number already uploaded is refused" -- internal --approval "$INTERNAL" --dry-run
+CROWHR_BUILD_NUMBER=8 expect 0 "build 8 on s5.*INTERNAL TestFlight group only.*DRY RUN" "a fresh build number is planned" -- internal --approval "$INTERNAL" --dry-run
 
 echo "$PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
