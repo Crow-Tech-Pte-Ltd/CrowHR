@@ -55,11 +55,18 @@ struct SkeletonTests {
         let ats = info["NSAppTransportSecurity"] as? [String: Any] ?? [:]
         #expect(ats["NSAllowsLocalNetworking"] as? Bool == true)
         #expect(ats["NSAllowsArbitraryLoads"] == nil)
-        #expect(ats["NSExceptionDomains"] == nil)
+        // From iOS 17 IP addresses need explicit entries: only the private IPv4 ranges (RFC 1918),
+        // each allowing plain HTTP and nothing else. No public host is ever exempt.
+        let domains = ats["NSExceptionDomains"] as? [String: [String: Any]] ?? [:]
+        #expect(Set(domains.keys) == ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"])
+        for (range, rules) in domains {
+            #expect(Set(rules.keys) == ["NSExceptionAllowsInsecureHTTPLoads"], "\(range) has extra rules")
+            #expect(rules["NSExceptionAllowsInsecureHTTPLoads"] as? Bool == true)
+        }
     }
 
     @Test func everyPermissionPromptExplainsItself() {
-        for key in ["NSCameraUsageDescription", "NSFaceIDUsageDescription", "NSLocationWhenInUseUsageDescription", "NSPhotoLibraryUsageDescription"] {
+        for key in ["NSCameraUsageDescription", "NSFaceIDUsageDescription", "NSLocalNetworkUsageDescription", "NSLocationWhenInUseUsageDescription", "NSPhotoLibraryUsageDescription"] {
             #expect(((info[key] as? String) ?? "").count > 30, "\(key) missing")
         }
         #expect(info["NSLocationAlwaysAndWhenInUseUsageDescription"] == nil)

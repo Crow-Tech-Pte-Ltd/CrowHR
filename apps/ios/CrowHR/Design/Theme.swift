@@ -38,6 +38,8 @@ enum Crow {
     static let dangerSoft = dynamic(0xFCE8E8, 0x3A1515)
 
     static let radius: CGFloat = 8
+    /// Buttons, like the web kit's `rounded-md` (6 px); cards and sheets use `radius`.
+    static let buttonRadius: CGFloat = 6
 }
 
 /// Azeret Mono for headings, labels and all numbers; Ubuntu for body text. Both scale with
@@ -119,18 +121,19 @@ struct PrimaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         let offset: CGFloat = configuration.isPressed || !isEnabled ? 0 : 3
+        let shape = RoundedRectangle(cornerRadius: Crow.buttonRadius)
         configuration.label
             .font(CrowFont.mono(.callout, weight: .semibold))
             .foregroundStyle(Crow.onKuning)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: 50)
             .padding(.horizontal, 16)
-            .background(isEnabled ? Crow.kuning : Crow.surfaceMuted)
-            .overlay(Rectangle().strokeBorder(Color(uiColor: Crow.dynamicUI(0x0A0A0A, 0x0A0A0A)), lineWidth: 2))
-            .background(Rectangle().fill(Crow.strongBorder).offset(x: offset, y: offset))
+            .background(shape.fill(isEnabled ? Crow.kuning : Crow.surfaceMuted))
+            .overlay(shape.strokeBorder(Color(uiColor: Crow.dynamicUI(0x0A0A0A, 0x0A0A0A)), lineWidth: 2))
+            .background(shape.fill(Crow.strongBorder).offset(x: offset, y: offset))
             .offset(x: configuration.isPressed ? 3 : 0, y: configuration.isPressed ? 3 : 0)
             .opacity(isEnabled ? 1 : 0.6)
-            .contentShape(Rectangle())
+            .contentShape(shape)
     }
 }
 
@@ -145,9 +148,9 @@ struct SecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: 46)
             .padding(.horizontal, 16)
             .background(configuration.isPressed ? Crow.surfaceMuted : Crow.surface)
-            .overlay(RoundedRectangle(cornerRadius: Crow.radius).strokeBorder(Crow.hairline, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: Crow.radius))
-            .contentShape(Rectangle())
+            .overlay(RoundedRectangle(cornerRadius: Crow.buttonRadius).strokeBorder(Crow.hairline, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: Crow.buttonRadius))
+            .contentShape(RoundedRectangle(cornerRadius: Crow.buttonRadius))
     }
 }
 
