@@ -95,6 +95,9 @@ ssh -F ~/.ssh/config s5 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CR
   It is marked internal-only.
 - The release gate runs the user-flow UI tests (`EssJourneyUITests`), not `QAScreenshotsUITests`:
   that class's accessibility audit is the open task 3.7 and fails on a different item each run.
-- After an upload, add the build to the internal TestFlight group in App Store Connect.
+- Internal TestFlight group **Crow HR Internal** (access to all builds) was created on 7 Nov 2026;
+  `apple@m.crow.sg` (the team's Account Holder) was invited at Daniel's request. Add testers with
+  `scripts/ios-store-register.py invite-internal EMAIL` on the Mac; internal testers must be
+  App Store Connect users on the team. `testers` lists users, groups and tester states.
 
 The store listing draft is `store/app-store-metadata.md`.

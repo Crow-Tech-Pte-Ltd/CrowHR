@@ -6,6 +6,12 @@
   create-app       create the App Store Connect app record "Crow HR" if missing (Apple refuses:
                    the record is made in the web UI)
   builds           read-only: uploaded builds, processing state and encryption answer
+  testers          read-only: team users (email, roles), pending user invitations, TestFlight
+                   groups and their testers
+  invite-internal EMAIL
+                   add EMAIL to the internal TestFlight group "Crow HR Internal" (created if
+                   missing, access to all builds) and send the TestFlight invitation. Internal
+                   testers must be App Store Connect users on the team.
 
 Uses the Crow Tech team API key kept on the Mac (APPLE_KEY_ID, APPLE_ISSUER_ID, optional
 APPLE_KEY_PATH). JWTs and key material are never printed. Nothing is uploaded or submitted.
@@ -84,7 +90,8 @@ class Apple:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("action", choices=["status", "register-bundle", "create-app", "builds"])
+    parser.add_argument("action", choices=["status", "register-bundle", "create-app", "builds", "testers", "invite-internal"])
+    parser.add_argument("email", nargs="?")
     args = parser.parse_args()
     key_id, issuer = os.environ["APPLE_KEY_ID"], os.environ["APPLE_ISSUER_ID"]
     key_path = Path(os.environ.get("APPLE_KEY_PATH", Path.home() / f"Documents/crow-reader-secrets/AuthKey_{key_id}.p8"))
@@ -110,6 +117,75 @@ def main() -> None:
         }
         apps = [api.call("/v1/apps", "POST", body)["data"]]
         print(f"Created App Store Connect app {NAME}.")
+
+    if args.action in ("testers", "invite-internal"):
+        if not apps:
+            raise SystemExit("No App Store Connect app record yet.")
+        app_id = apps[0]["id"]
+        users = [
+            {"email": u["attributes"].get("username"), "roles": u["attributes"].get("roles")}
+            for u in api.call("/v1/users?limit=200")["data"]
+        ]
+        invited = [
+            {"email": u["attributes"].get("email"), "roles": u["attributes"].get("roles"), "expires": u["attributes"].get("expirationDate")}
+            for u in api.call("/v1/userInvitations?limit=200")["data"]
+        ]
+        groups = api.call(f"/v1/apps/{app_id}/betaGroups?limit=50")["data"]
+        if args.action == "testers":
+            out = {"users": users, "pendingUserInvitations": invited, "groups": []}
+            for g in groups:
+                testers = api.call(f"/v1/betaGroups/{g['id']}/betaTesters?limit=200")["data"]
+                out["groups"].append(
+                    {
+                        "id": g["id"],
+                        "name": g["attributes"]["name"],
+                        "internal": g["attributes"].get("isInternalGroup"),
+                        "testers": [{"email": t["attributes"].get("email"), "state": t["attributes"].get("state")} for t in testers],
+                    }
+                )
+            print(json.dumps(out, indent=2))
+            return
+        email = (args.email or "").strip().lower()
+        if "@" not in email:
+            raise SystemExit("Give the tester's email.")
+        if email not in {(u["email"] or "").lower() for u in users}:
+            raise SystemExit(
+                f"{email} is not an App Store Connect user on the team, so it can't be an internal tester. "
+                "Invite it as a user first (Users and Access), or use an external group (needs Beta App Review)."
+            )
+        group = next((g for g in groups if g["attributes"].get("isInternalGroup") and g["attributes"]["name"] == "Crow HR Internal"), None)
+        if group is None:
+            body = {
+                "data": {
+                    "type": "betaGroups",
+                    "attributes": {"name": "Crow HR Internal", "isInternalGroup": True, "hasAccessToAllBuilds": True},
+                    "relationships": {"app": {"data": {"type": "apps", "id": app_id}}},
+                }
+            }
+            group = api.call("/v1/betaGroups", "POST", body)["data"]
+            print("Created internal TestFlight group Crow HR Internal.")
+        q = urllib.parse.urlencode({"filter[email]": email, "filter[apps]": app_id})
+        tester = next(iter(api.call(f"/v1/betaTesters?{q}")["data"]), None)
+        if tester is None:
+            body = {
+                "data": {
+                    "type": "betaTesters",
+                    "attributes": {"email": email},
+                    "relationships": {"betaGroups": {"data": [{"type": "betaGroups", "id": group["id"]}]}},
+                }
+            }
+            tester = api.call("/v1/betaTesters", "POST", body)["data"]
+        else:
+            api.call(f"/v1/betaGroups/{group['id']}/relationships/betaTesters", "POST", {"data": [{"type": "betaTesters", "id": tester["id"]}]})
+        body = {
+            "data": {
+                "type": "betaTesterInvitations",
+                "relationships": {"app": {"data": {"type": "apps", "id": app_id}}, "betaTester": {"data": {"type": "betaTesters", "id": tester["id"]}}},
+            }
+        }
+        api.call("/v1/betaTesterInvitations", "POST", body)
+        print(json.dumps({"group": group["id"], "tester": tester["id"], "email": email, "invited": True}, indent=2))
+        return
 
     if args.action == "builds":
         if not apps:
