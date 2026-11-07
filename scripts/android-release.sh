@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # Crow HR Android release (add-mobile-apps task 4.2). Approval-gated:
-#   scripts/android-release.sh internal [--dry-run]
-#       signed AAB for a Google Play *internal testing draft*. Needs the private upload-key
-#       properties (by path only: CROWHR_SIGNING_PROPERTIES, default
-#       /home/daniel/.config/gremia/android-signing/crow-hr.properties) and a fresh
-#       CROWHR_ANDROID_VERSION_CODE.
+#   scripts/android-release.sh internal [--upload --approval <record>] [--dry-run]
+#       builds the release AAB signed with the private upload key (by path only:
+#       CROWHR_SIGNING_PROPERTIES, default /home/daniel/.config/gremia/android-signing/crow-hr.properties)
+#       for a fresh CROWHR_ANDROID_VERSION_CODE, verifies it (package, versionCode, upload
+#       certificate, bundletool validate) and copies it to artifacts/android/. With --upload it
+#       then puts it on the Google Play *internal* track as a DRAFT release (scripts/android-play.py),
+#       which needs an approval record like production's.
 #   scripts/android-release.sh production --approval <record> [--dry-run]
-#       refuses unless <record> is an existing approval record file written for this
-#       release (it must name the package and version code and contain "Approved by Daniel").
-# Nothing here publishes on its own. The Play upload step is NOT IMPLEMENTED: the Play Console
-# app for crowtech.crowhr does not exist yet (owner step), so a real run stops after building
-# and prints the upload it would make. --dry-run checks every gate and builds nothing.
+#       checks the approval gates only. NOT IMPLEMENTED: promoting a reviewed internal release
+#       to production; do that in Play Console after review.
+# An approval record is a file that contains "Approved by Daniel", the package name and
+# "versionCode <N>". --dry-run checks every gate and builds nothing.
 set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 android_dir="$repo_dir/apps/android"
@@ -23,11 +24,13 @@ track="${1:-}"
 shift || true
 approval=""
 dry_run=false
+upload=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --approval) approval="${2:-}"; shift 2 ;;
     --dry-run) dry_run=true; shift ;;
-    *) die 2 "Unknown option $1. Usage: android-release.sh internal|production [--approval <record>] [--dry-run]" ;;
+    --upload) upload=true; shift ;;
+    *) die 2 "Unknown option $1. Usage: android-release.sh internal|production [--upload] [--approval <record>] [--dry-run]" ;;
   esac
 done
 
@@ -39,8 +42,8 @@ esac
 version_code="${CROWHR_ANDROID_VERSION_CODE:-}"
 [[ "$version_code" =~ ^[1-9][0-9]*$ ]] || die 4 "Set CROWHR_ANDROID_VERSION_CODE to a fresh positive integer (never reuse an uploaded one)."
 
-if [[ "$track" == production ]]; then
-  [[ -n "$approval" ]] || die 3 "Production needs --approval <record>: Daniel's written approval for this release."
+if [[ "$track" == production ]] || $upload; then
+  [[ -n "$approval" ]] || die 3 "Production and --upload need --approval <record>: Daniel's written approval for this release."
   [[ -f "$approval" ]] || die 3 "Approval record $approval does not exist."
   grep -q "Approved by Daniel" "$approval" || die 3 "Approval record $approval does not say \"Approved by Daniel\"."
   grep -q "$package" "$approval" || die 3 "Approval record $approval does not name $package."
@@ -54,13 +57,44 @@ if $dry_run; then
   printf 'Would build: gradlew :app:bundleRelease (signed with the key referenced by %s)\n' "$signing"
   if [[ "$track" == production ]]; then
     printf 'Would promote the reviewed internal release to production after the approval in %s.\n' "$approval"
-  else
+  elif $upload; then
     printf 'Would upload the AAB to Google Play internal testing as a draft (not rolled out).\n'
+  else
+    printf 'Would verify the AAB and stop (add --upload --approval <record> to put it on internal testing as a draft).\n'
   fi
   exit 0
 fi
 
-# NOT IMPLEMENTED: signing config injection and the Play upload. Both need the upload key and
-# the Play Console app for crowtech.crowhr, which don't exist yet; adding them is a separate,
-# approved step (reuse the shared Gremia publisher per /home/daniel/Gremia/AGENTS.md).
-die 6 "Real releases are not implemented yet: create the Play Console app and upload key first (owner step), then add the signing and upload steps. Use --dry-run to check the gates."
+if [[ "$track" == production ]]; then
+  die 6 "Production promotion is not implemented: promote the reviewed internal release in Play Console."
+fi
+
+java=/usr/lib/jvm/java-21-openjdk-amd64/bin/java
+bundletool=/home/daniel/.local/share/gremia/bundletool-all-1.18.3.jar
+cert="${signing%.properties}-upload-certificate.pem"
+[[ -f "$cert" ]] || die 5 "Upload certificate $cert not found (it sits next to the signing properties)."
+
+printf 'Building crowtech.crowhr versionCode %s (release, signed with the upload key)...\n' "$version_code"
+CROWHR_SIGNING_PROPERTIES="$signing" CROWHR_ANDROID_VERSION_CODE="$version_code" \
+  "$android_dir/gradlew" -p "$android_dir" --quiet :app:bundleRelease
+aab="$android_dir/app/build/outputs/bundle/release/app-release.aab"
+
+manifest="$("$java" -jar "$bundletool" dump manifest --bundle="$aab" --module=base)"
+[[ "$manifest" == *"package=\"$package\""* ]] || die 7 "The AAB's package is not $package."
+[[ "$manifest" == *"android:versionCode=\"$version_code\""* ]] || die 7 "The AAB's versionCode is not $version_code."
+"$java" -jar "$bundletool" validate --bundle="$aab" >/dev/null || die 7 "bundletool validate failed."
+signer="$("${java%/java}/keytool" -printcert -rfc -jarfile "$aab" 2>/dev/null | openssl x509 -noout -fingerprint -sha256 || true)"
+expected="$(openssl x509 -in "$cert" -noout -fingerprint -sha256)"
+[[ -n "$signer" && "$signer" == "$expected" ]] || die 7 "The AAB is not signed with the Crow HR upload certificate."
+
+out="$repo_dir/artifacts/android/crow-hr-$(grep -oE 'versionName = "[^"]+"' "$android_dir/app/build.gradle.kts" | cut -d'"' -f2)-$version_code.aab"
+mkdir -p "$(dirname "$out")"
+cp "$aab" "$out"
+printf 'Verified %s: package, versionCode %s, upload certificate (%s), bundletool validate.\n' "$out" "$version_code" "${expected#*=}"
+sha256sum "$out"
+
+if $upload; then
+  /usr/bin/python3 "$repo_dir/scripts/android-play.py" upload-internal-draft "$out" --expected-version-code "$version_code"
+else
+  printf 'Not uploaded. To put it on internal testing as a draft: add --upload --approval <record>.\n'
+fi

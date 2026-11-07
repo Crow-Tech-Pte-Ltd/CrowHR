@@ -5,6 +5,7 @@
 #   scripts/android-qa.sh logcat [lines]            recent logcat lines for the app
 #   scripts/android-qa.sh pull-shots <variant>      copy QaScreenshotTest captures to artifacts/android/screenshots/<variant>
 #   scripts/android-qa.sh shots <variant>           run QaScreenshotTest for phone|large|dark|large-dark and pull
+#   scripts/android-qa.sh store-shots               Play listing screenshots (1080x1920, demo status bar) into apps/android/store/screenshots
 set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 sdk="${ANDROID_HOME:-/home/daniel/Android/Sdk}"
@@ -46,5 +47,32 @@ case "${1:-}" in
     ANDROID_SERIAL="$serial" CROWHR_TEST_CLASS=crowtech.crowhr.QaScreenshotTest CROWHR_SHOTS="$2" \
       "$repo_dir/scripts/android-build.sh" ui
     "$0" pull-shots "$2" ;;
-  *) printf '%s\n' 'Usage: scripts/android-qa.sh screenshot|link|logcat|pull-shots|shots' >&2; exit 2 ;;
+  store-shots)
+    # Google Play listing screenshots: a 1080 x 1920 screen (Play allows at most 2:1) and the
+    # system demo-mode status bar, then the real app against the fictional seeded test server.
+    # The chosen screens are copied to apps/android/store/screenshots/.
+    "$adb" -s "$serial" shell wm size 1080x1920
+    "$adb" -s "$serial" shell settings put global sysui_demo_allowed 1
+    demo() { "$adb" -s "$serial" shell am broadcast -a com.android.systemui.demo -e command "$@" >/dev/null; }
+    demo enter
+    demo clock -e hhmm 0930
+    demo battery -e level 100 -e plugged false
+    demo network -e wifi show -e level 4
+    demo network -e mobile show -e datatype none -e level 4
+    demo notifications -e visible false
+    restore_screen() { demo exit || true; "$adb" -s "$serial" shell wm size reset || true; }
+    trap restore_screen EXIT
+    "$0" shots store
+    store="$repo_dir/apps/android/store/screenshots"
+    rm -rf "$store" && mkdir -p "$store"
+    n=0
+    # Only screens that look right with the e2e seed: its employee is on probation (no leave
+    # balances yet), has no published shifts, and its notifications name the test devices.
+    for name in clock leave-apply approvals claim-new; do
+      src="$(ls "$repo_dir/artifacts/android/screenshots/store/"*"-$name.png")"
+      n=$((n + 1))
+      cp "$src" "$store/$(printf '%02d' "$n")-$name.png"
+    done
+    ls "$store" ;;
+  *) printf '%s\n' 'Usage: scripts/android-qa.sh screenshot|link|logcat|pull-shots|shots|store-shots' >&2; exit 2 ;;
 esac
