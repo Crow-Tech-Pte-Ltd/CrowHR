@@ -54,8 +54,33 @@ deleted on sign-out. Unsent clock-ins are deleted only after the user confirms.
 
 **NOT IMPLEMENTED (yet):** the managers' team leave calendar; editing, withdrawing or copying
 claim drafts after saving; shift swaps and open-shift pickup (web only); leave attachments from
-the camera are wired but not covered by a device test. The release signing and Play upload steps
-are also not implemented (see `scripts/android-release.sh`).
+the camera are wired but not covered by a device test. Promoting a release to production is
+done in Play Console, not by a script.
+
+## Release
+
+- **Upload key:** a dedicated Crow HR key (RSA 4096, alias `crow-hr-upload`, certificate SHA-256
+  `00:36:3F:6F:B1:A9:F5:3A:81:CB:2F:B3:C7:D4:96:D9:FF:0B:C7:03:FE:89:DB:3E:6D:47:E6:3A:F0:38:57:10`)
+  at `/home/daniel/.config/gremia/android-signing/crow-hr-upload.jks`, with
+  `crow-hr.properties` and the certificate beside it (all 0600, never in the repo). Google Play
+  App Signing keeps the app signing key; this key only signs uploads.
+- `CROWHR_ANDROID_VERSION_CODE=N scripts/android-release.sh internal` builds the release AAB
+  signed with that key and checks the package, versionCode, signing certificate and
+  `bundletool validate`, then copies it to `artifacts/android/crow-hr-<version>-<N>.aab`.
+  Adding `--upload --approval <record>` puts it on the **internal** track as a **draft**
+  (`scripts/android-play.py upload-internal-draft`). Never reuse an uploaded versionCode.
+- `scripts/android-play.py status` (read-only) and `listing` (store listing, icon, feature
+  graphic and phone screenshots from `store/listing.json`) use the shared Gremia Play publisher.
+- Store screenshots: `scripts/android-qa.sh store-shots` (1080 x 1920, demo-mode status bar,
+  real app against the fictional test server). With the e2e seed only four screens look right
+  (clock, leave request, approvals, new claim); better ones need a curated demo employee.
+- **Checked on 7 Nov 2026:** versionCode 1 built, signed and verified (SHA-256
+  `771ce166...fe54c`). A universal APK made from that AAB installed on the Android 17 emulator,
+  read the server's details, signed in through Chrome and opened the home screen. The other tabs
+  were not walked through: the emulator was killed when the machine ran out of memory.
+- **Not done:** nothing is uploaded to Play; the listing is not sent (the shared Play login needs
+  renewing); Console forms (content rating, target audience, data safety, app access for
+  reviewers, ads) are not filled in.
 
 ## Real browser sign-in (verified on the emulator, 7 Nov 2026)
 

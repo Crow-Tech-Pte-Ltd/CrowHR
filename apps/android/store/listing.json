@@ -1,0 +1,22 @@
+{
+  "packageName": "crowtech.crowhr",
+  "consoleAppId": "4976368088435434771",
+  "defaultLanguage": "en-GB",
+  "title": "Crow HR",
+  "shortDescription": "Payslips, leave, clock-in and claims, on your company's own Crow HR server.",
+  "fullDescription": "Crow HR is the free, open-source HR and payroll system that Singapore companies run on their own server. This app connects to your company's Crow HR. Ask HR for the address, or scan the QR code in Crow HR on the web.\n\n• See your payslips.\n• Check leave balances and apply for leave.\n• Clock in and out. With no signal, punches wait on your phone and are sent in order when you're back online.\n• Make claims with a photo of the receipt.\n• See your schedule.\n• Managers approve or reject requests.\n\nYou sign in with your company's method (email and password, Google, Microsoft, Singpass or your company's single sign-on) in a secure browser window. The app talks only to your company's server. Crow Tech collects nothing: no analytics, no tracking, no advertising.\n\nCrow HR is made by Crow Tech Pte. Ltd. in Singapore and is MIT licensed.",
+  "contactEmail": "hello@crow.sg",
+  "contactWebsite": "https://crow.sg/apps/crow-hr/support/",
+  "privacyPolicy": "https://crow.sg/apps/crow-hr/privacy/",
+  "category": "BUSINESS",
+  "images": {
+    "icon": "icon-512.png",
+    "featureGraphic": "feature-graphic.png",
+    "phoneScreenshots": [
+      "screenshots/01-clock.png",
+      "screenshots/02-leave-apply.png",
+      "screenshots/03-approvals.png",
+      "screenshots/04-claim-new.png"
+    ]
+  }
+}

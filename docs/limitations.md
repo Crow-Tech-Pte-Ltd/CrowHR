@@ -199,7 +199,7 @@ The demo is the real web app and the real core API running in the visitor's brow
 
 Both apps:
 
-- **No release has been uploaded.** `scripts/android-release.sh` and `scripts/ios-release.sh` check the approval record and plan the steps. Android signing and the Play upload stop with "not implemented" until a Play upload key exists; the Play Console app exists as a draft (`crowtech.crowhr`, app id 4976368088435434771). The iOS archive and signed export work; the iOS upload is written but has never run (see iOS below).
+- **No release has been uploaded.** `scripts/android-release.sh` and `scripts/ios-release.sh` check the approval record and plan the steps. Android builds and verifies a release AAB signed with the Crow HR upload key; its Play upload (internal track, draft) is written but has never run, and the Play Console app (`crowtech.crowhr`, app id 4976368088435434771) has no listing, Console forms or build yet. The iOS archive and signed export work; the iOS upload is written but has never run (see iOS below).
 - **Remote push is not implemented** by design (design decision 6). The apps refresh in the background and post content-free local notifications instead.
 - **Not in the apps, done on the web:** the leave team calendar for managers, and shift swaps and open-shift pickup.
 

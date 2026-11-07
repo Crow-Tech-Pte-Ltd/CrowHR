@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -10,7 +11,7 @@ android {
     namespace = "crowtech.crowhr"
     compileSdk { version = release(37) { minorApiLevel = 2 } }
     defaultConfig {
-        // Proposed in add-mobile-apps design decision 3; confirm with Daniel before registering.
+        // Registered in Play Console (app 4976368088435434771) and with Apple, 7 Nov 2026.
         applicationId = "crowtech.crowhr"
         minSdk = 29
         targetSdk = 37
@@ -18,13 +19,28 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    // Release signing: scripts/android-release.sh sets CROWHR_SIGNING_PROPERTIES to the private
+    // upload-key properties (storeFile, storePassword, keyAlias, keyPassword), kept outside the
+    // repo. Without it, release builds are unsigned; debug builds never need it.
+    val signingProperties = providers.environmentVariable("CROWHR_SIGNING_PROPERTIES").orNull
+        ?.let { file(it) }?.takeIf { it.isFile }
+    signingConfigs {
+        if (signingProperties != null) {
+            create("upload") {
+                val secrets = Properties().apply { signingProperties.inputStream().use { load(it) } }
+                storeFile = file(secrets.getProperty("storeFile"))
+                storePassword = secrets.getProperty("storePassword")
+                keyAlias = secrets.getProperty("keyAlias")
+                keyPassword = secrets.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (signingProperties != null) signingConfig = signingConfigs.getByName("upload")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // No signing config here: scripts/android-release.sh reads the private upload-key
-            // properties by path at release time and refuses to run without them.
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -47,8 +63,6 @@ android {
     lint {
         warningsAsErrors = false
         abortOnError = true
-        // The icon is a placeholder pending owner approval (README "App icon").
-        disable += "MonochromeLauncherIcon"
     }
 }
 
