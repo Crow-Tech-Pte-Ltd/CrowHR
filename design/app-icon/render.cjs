@@ -6,9 +6,7 @@ const { chromium } = require("@playwright/test");
 (async () => {
   const [, , input, output, size = "1024"] = process.argv;
   const [width, height = width] = size.split("x").map(Number);
-  const svg = fs
-    .readFileSync(input, "utf8")
-    .replace(/width="\d+" height="\d+"/, `width="${width}" height="${height}"`);
+  const svg = fs.readFileSync(input, "utf8").replace(/width="\d+" height="\d+"/, `width="${width}" height="${height}"`);
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width, height } });
