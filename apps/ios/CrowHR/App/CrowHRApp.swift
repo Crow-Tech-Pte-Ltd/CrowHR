@@ -126,8 +126,9 @@ struct CrowMark: View {
             .font(.custom("AzeretMono-SemiBold", size: size * 0.38))
             .foregroundStyle(Crow.onKuning)
             .frame(width: size, height: size)
-            .background(Crow.kuning)
-            .overlay(Rectangle().strokeBorder(Color(red: 0.04, green: 0.04, blue: 0.04), lineWidth: 2))
+            // Rounded like the web wordmark's HR chip (4 px on an ~18 px chip).
+            .background(RoundedRectangle(cornerRadius: size * 0.22).fill(Crow.kuning))
+            .overlay(RoundedRectangle(cornerRadius: size * 0.22).strokeBorder(Color(red: 0.04, green: 0.04, blue: 0.04), lineWidth: 2))
             .accessibilityHidden(true)
     }
 }

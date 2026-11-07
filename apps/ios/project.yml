@@ -81,8 +81,20 @@ targets:
         UIBackgroundModes: [fetch]
         BGTaskSchedulerPermittedIdentifiers: [crowtech.crowhr.refresh]
         # HTTPS everywhere; plain HTTP only reaches LAN hosts (the app also refuses public HTTP).
+        # NSAllowsLocalNetworking covers .local and unqualified names. From iOS 17, ATS no longer
+        # allows IP addresses by default, so the private IPv4 ranges (RFC 1918) are listed too
+        # (https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowslocalnetworking).
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            10.0.0.0/8:
+              NSExceptionAllowsInsecureHTTPLoads: true
+            172.16.0.0/12:
+              NSExceptionAllowsInsecureHTTPLoads: true
+            192.168.0.0/16:
+              NSExceptionAllowsInsecureHTTPLoads: true
+        # Shown by iOS before the app first reaches a server on the local network (a LAN install).
+        NSLocalNetworkUsageDescription: Crow HR connects to your company's Crow HR server. If that server is on your office network, iOS asks you to allow local network access.
         NSCameraUsageDescription: Crow HR uses the camera to scan your company's connection QR code and to photograph claim receipts and leave documents.
         NSFaceIDUsageDescription: Crow HR uses Face ID to unlock the app when you have turned on biometric unlock.
         NSLocationWhenInUseUsageDescription: Your company asks for your location when you clock in or out. It is sent only to your company's Crow HR server, with that punch.
