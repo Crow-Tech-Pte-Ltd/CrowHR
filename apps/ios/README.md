@@ -61,6 +61,34 @@ The Crow Tech crow standing on a kuning "HR" card, in the style of Crow Tech's o
 - The QR scanner (AVFoundation) and Face ID are not exercised by tests, because the simulator has
   neither a camera nor biometrics. The camera is stubbed with `-uitest-camera-stub`, and dark mode
   is forced with `-uitest-dark` (both DEBUG and `-uitest` only).
-- Release: `scripts/ios-release.sh` checks the approval record and plans the steps. The real
-  archive and upload are not implemented, and the bundle id is not registered. The store listing
-  draft is `store/app-store-metadata.md`.
+- Release: the TestFlight upload has never run. It needs the App Store Connect app record (owner
+  creates it in the web UI) and an approval record. App Store submission is not implemented.
+
+## Release (TestFlight internal)
+
+Bundle id `crowtech.crowhr` is registered with Apple (`store/apple-resources.json`). Debug builds
+are ad-hoc signed with no team; Release carries team `A8GBLXTNHB` and no entitlements. The flow
+follows the Gremia cloud-signing workflow (credentials used in place on s5, never copied):
+
+```sh
+CROWHR_BUILD_NUMBER=<n> scripts/ios-release.sh internal --approval <record>   # whole flow, gated
+# The Mac steps it runs, usable alone for a dry rehearsal (no upload):
+ssh -F ~/.ssh/config s5 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> scripts/ios-archive-on-mac.sh'
+ssh -F ~/.ssh/config s5 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CROWHR_INTERNAL_ONLY=1 \
+  scripts/ios-export-on-mac.sh artifacts/CrowHR-build<n>.xcarchive artifacts/CrowHR-build<n>-export'
+```
+
+- `ios-archive-on-mac.sh` archives Release unsigned for a generic device with the given build number.
+- `ios-export-on-mac.sh` has Apple cloud-sign it with the App Store Connect API key, using the
+  dedicated build keychain and restoring the original keychain list afterwards. `ios-verify-ipa.py`
+  then checks bundle id, version, build, Apple Distribution signature, team, `get-task-allow`
+  false, no extra entitlements, an App Store profile, `PrivacyInfo.xcprivacy`, and an opaque
+  1024 px icon in `Assets.car`. It writes `verification.json` next to the IPA.
+- `ios-release.sh internal` then runs `altool --validate-app` and `altool --upload-app`, and appends
+  the build to `store/uploaded-builds.txt`. Never reuse a build number listed there.
+- Build 1 was archived, exported and verified on 7 Nov 2026 (`store/build1-verification.json`).
+  It was not uploaded. Validation failed as expected: "Unable to find Apple ID for Bundle ID
+  'crowtech.crowhr'", because the App Store Connect app record does not exist yet.
+- After an upload, add the build to the internal TestFlight group in App Store Connect.
+
+The store listing draft is `store/app-store-metadata.md`.
