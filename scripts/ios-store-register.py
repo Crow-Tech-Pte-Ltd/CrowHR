@@ -3,7 +3,9 @@
 
   status           read-only: bundle id + app record for crowtech.crowhr
   register-bundle  create the explicit bundle id crowtech.crowhr (no capabilities) if missing
-  create-app       create the App Store Connect app record "Crow HR" if missing
+  create-app       create the App Store Connect app record "Crow HR" if missing (Apple refuses:
+                   the record is made in the web UI)
+  builds           read-only: uploaded builds, processing state and encryption answer
 
 Uses the Crow Tech team API key kept on the Mac (APPLE_KEY_ID, APPLE_ISSUER_ID, optional
 APPLE_KEY_PATH). JWTs and key material are never printed. Nothing is uploaded or submitted.
@@ -82,7 +84,7 @@ class Apple:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("action", choices=["status", "register-bundle", "create-app"])
+    parser.add_argument("action", choices=["status", "register-bundle", "create-app", "builds"])
     args = parser.parse_args()
     key_id, issuer = os.environ["APPLE_KEY_ID"], os.environ["APPLE_ISSUER_ID"]
     key_path = Path(os.environ.get("APPLE_KEY_PATH", Path.home() / f"Documents/crow-reader-secrets/AuthKey_{key_id}.p8"))
@@ -108,6 +110,27 @@ def main() -> None:
         }
         apps = [api.call("/v1/apps", "POST", body)["data"]]
         print(f"Created App Store Connect app {NAME}.")
+
+    if args.action == "builds":
+        if not apps:
+            raise SystemExit("No App Store Connect app record yet.")
+        q = urllib.parse.urlencode({"filter[app]": apps[0]["id"], "sort": "-uploadedDate", "limit": 10, "include": "preReleaseVersion"})
+        res = api.call(f"/v1/builds?{q}")
+        versions = {i["id"]: i["attributes"].get("version") for i in res.get("included", []) if i["type"] == "preReleaseVersions"}
+        rows = [
+            {
+                "id": b["id"],
+                "version": versions.get(b["relationships"]["preReleaseVersion"]["data"]["id"]) if b["relationships"].get("preReleaseVersion", {}).get("data") else None,
+                "build": b["attributes"].get("version"),
+                "processingState": b["attributes"].get("processingState"),
+                "usesNonExemptEncryption": b["attributes"].get("usesNonExemptEncryption"),
+                "expired": b["attributes"].get("expired"),
+                "uploadedDate": b["attributes"].get("uploadedDate"),
+            }
+            for b in res["data"]
+        ]
+        print(json.dumps(rows, indent=2))
+        return
 
     report = {
         "bundleId": IDENTIFIER,

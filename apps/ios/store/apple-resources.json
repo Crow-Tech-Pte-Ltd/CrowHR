@@ -2,6 +2,13 @@
   "bundleId": "crowtech.crowhr",
   "bundleResourceId": "4T7KK78X45",
   "bundleName": "Crow HR",
-  "apps": [],
-  "checkedAt": "2026-11-07T11:26:48Z"
+  "apps": [
+    {
+      "id": "6831992308",
+      "name": "Crow HR",
+      "sku": "CROW-HR",
+      "primaryLocale": "en-GB"
+    }
+  ],
+  "checkedAt": "2026-11-07T14:19:37Z"
 }

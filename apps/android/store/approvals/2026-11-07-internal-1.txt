@@ -1,0 +1,3 @@
+Approved by Daniel on 7 Nov 2026: crowtech.crowhr versionCode 1 to the Google Play internal testing track as a draft.
+Daniel's words, after being asked for a go-ahead for the first TestFlight build and Play internal draft: "yeah of course go ahead".
+Not approved: production, closed or open testing, or rolling the release out beyond a draft.

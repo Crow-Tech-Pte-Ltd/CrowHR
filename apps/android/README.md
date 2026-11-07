@@ -78,9 +78,14 @@ done in Play Console, not by a script.
   `771ce166...fe54c`). A universal APK made from that AAB installed on the Android 17 emulator,
   read the server's details, signed in through Chrome and opened the home screen. The other tabs
   were not walked through: the emulator was killed when the machine ran out of memory.
-- **Not done:** nothing is uploaded to Play; the listing is not sent (the shared Play login needs
-  renewing); Console forms (content rating, target audience, data safety, app access for
-  reviewers, ads) are not filled in.
+- **Uploaded 7 Nov 2026** with Daniel's approval (`store/approvals/2026-11-07-internal-1.txt`):
+  versionCode 1 is a **draft** release "0.1.0 (1)" on internal testing (not rolled out, no testers);
+  Play App Signing is on. It went through the Play Console web UI because the shared Play API
+  login needs renewing, so `android-play.py upload-internal-draft` has not run yet. Receipt:
+  `store/receipts/internal-draft-1.json`. The default store listing (en-GB text, icon, feature
+  graphic, four screenshots) is saved as a draft in Console. versionCode 1 is used: next upload 2+.
+- **Not done:** Console app content forms (content rating, target audience, data safety, ads,
+  app access for reviewers), internal testers, and any production release.
 
 ## Real browser sign-in (verified on the emulator, 7 Nov 2026)
 
