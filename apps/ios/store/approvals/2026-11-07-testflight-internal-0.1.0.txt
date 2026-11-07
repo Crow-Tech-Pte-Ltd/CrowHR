@@ -1,0 +1,5 @@
+approved-by: Daniel
+scope: testflight-internal
+version: 0.1.0
+date: 2026-11-07
+note: Daniel, 7 Nov 2026, after being asked for a go-ahead for the first TestFlight build and Play internal draft: "yeah of course go ahead". Internal TestFlight only; no external testers, no App Store submission.

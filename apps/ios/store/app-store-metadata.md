@@ -3,9 +3,10 @@
 Status: draft for Daniel's review (add-mobile-apps task 4.3). Nothing has been submitted.
 The bundle id `crowtech.crowhr` is registered with Apple (resource `4T7KK78X45`, team
 Crow Tech Pte. Ltd., 7 Nov 2026; read-back in `apple-resources.json`, refreshed by
-`scripts/ios-store-register.py status` on the Mac). The App Store Connect app record must be
-created in the App Store Connect web UI, because Apple's API does not allow creating apps: New App,
-iOS, name "Crow HR", primary language English (U.K.), bundle id `crowtech.crowhr`, SKU `CROW-HR`.
+`scripts/ios-store-register.py status` on the Mac). Daniel created the App Store Connect app
+record in the web UI on 7 Nov 2026 (Apple's API does not allow creating apps): "Crow HR", Apple ID
+`6831992308`, English (U.K.), SKU `CROW-HR`. Build 2 (0.1.0) was uploaded for internal TestFlight
+testing the same day; nothing has been submitted for App Store review.
 The privacy and support pages at `crow.sg/apps/crow-hr/{privacy,support}` are on the unpublished
 landing branch (task 4.1).
 

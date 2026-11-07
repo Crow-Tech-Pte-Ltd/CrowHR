@@ -61,8 +61,8 @@ The Crow Tech crow standing on a kuning "HR" card, in the style of Crow Tech's o
 - The QR scanner (AVFoundation) and Face ID are not exercised by tests, because the simulator has
   neither a camera nor biometrics. The camera is stubbed with `-uitest-camera-stub`, and dark mode
   is forced with `-uitest-dark` (both DEBUG and `-uitest` only).
-- Release: the TestFlight upload has never run. It needs the App Store Connect app record (owner
-  creates it in the web UI) and an approval record. App Store submission is not implemented.
+- Release: App Store submission is not implemented (`ios-release.sh production`); TestFlight
+  internal uploads work (build 2, 7 Nov 2026).
 
 ## Release (TestFlight internal)
 
@@ -86,9 +86,15 @@ ssh -F ~/.ssh/config s5 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CR
   1024 px icon in `Assets.car`. It writes `verification.json` next to the IPA.
 - `ios-release.sh internal` then runs `altool --validate-app` and `altool --upload-app`, and appends
   the build to `store/uploaded-builds.txt`. Never reuse a build number listed there.
-- Build 1 was archived, exported and verified on 7 Nov 2026 (`store/build1-verification.json`).
-  It was not uploaded. Validation failed as expected: "Unable to find Apple ID for Bundle ID
-  'crowtech.crowhr'", because the App Store Connect app record does not exist yet.
+- Build 1 was archived, exported and verified on 7 Nov 2026 (`store/build1-verification.json`)
+  but not uploaded (the App Store Connect app record didn't exist yet).
+- **Build 2 (0.1.0) was uploaded on 7 Nov 2026** with Daniel's approval
+  (`store/approvals/2026-11-07-testflight-internal-0.1.0.txt`): unit tests and the user-flow UI
+  tests passed, the IPA checks passed (`store/build2-verification.json`), `altool` reported
+  "VERIFY SUCCEEDED" and "UPLOAD SUCCEEDED" (delivery `8ebcb36b-6259-44e1-92e3-cee63d65cd83`).
+  It is marked internal-only.
+- The release gate runs the user-flow UI tests (`EssJourneyUITests`), not `QAScreenshotsUITests`:
+  that class's accessibility audit is the open task 3.7 and fails on a different item each run.
 - After an upload, add the build to the internal TestFlight group in App Store Connect.
 
 The store listing draft is `store/app-store-metadata.md`.
