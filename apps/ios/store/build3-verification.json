@@ -1,0 +1,42 @@
+{
+  "ipa": "CrowHR.ipa",
+  "ipaSHA256": "71cacd6951c6174d63615a47edd5fccaa045ae882583bb18b97517dc879790af",
+  "ipaBytes": 1583729,
+  "bundleId": "crowtech.crowhr",
+  "version": "0.1.0",
+  "build": "3",
+  "sdk": "iphoneos27.1",
+  "xcodeBuild": "27A9275",
+  "minimumOS": "27.0",
+  "internalTestingOnly": true,
+  "signingAuthority": "Apple Distribution: Crow Tech Pte. Ltd. (A8GBLXTNHB)",
+  "certificateChain": [
+    "Apple Distribution: Crow Tech Pte. Ltd. (A8GBLXTNHB)",
+    "Apple Worldwide Developer Relations Certification Authority",
+    "Apple Root CA"
+  ],
+  "team": "A8GBLXTNHB",
+  "entitlements": {
+    "application-identifier": "A8GBLXTNHB.crowtech.crowhr",
+    "beta-reports-active": true,
+    "com.apple.developer.team-identifier": "A8GBLXTNHB",
+    "get-task-allow": false
+  },
+  "profile": {
+    "name": "iOS Team Store Provisioning Profile: crowtech.crowhr",
+    "uuid": "1d24c13b-e6d2-4cbb-af51-a4fa30edeb0d",
+    "expires": "2027-10-13 14:53:05",
+    "type": "app-store"
+  },
+  "privacyManifest": {
+    "present": true,
+    "tracking": false,
+    "collectedDataTypes": 0
+  },
+  "appIcon1024": {
+    "inAssetCatalog": true,
+    "opaque": true,
+    "sourceOpaquePNG": true
+  },
+  "uploaded": false
+}
