@@ -92,7 +92,7 @@ if (!ssoOrg) {
       id: ids.newId(),
       kind: "singpass",
       displayName: "Singpass",
-      issuer: "https://stg-id.singpass.gov.sg",
+      issuer: "https://stg-id.singpass.gov.sg/fapi",
       clientId: "fictional-singpass-client",
       environment: "staging",
       privateJwksEnc: await box.encrypt(SECRET_PURPOSES.ssoPrivateJwks, JSON.stringify(keys.privateJwks)),

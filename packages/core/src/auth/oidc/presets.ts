@@ -75,9 +75,15 @@ export const PRESETS: Record<ProviderKind, ProviderPreset> = {
 };
 
 export const GOOGLE_ISSUER = "https://accounts.google.com";
+/**
+ * Singpass FAPI 2.0 issuers (PAR, DPoP, private_key_jwt). Checked against live discovery on 9 Nov 2026:
+ * https://stg-id.singpass.gov.sg/fapi/.well-known/openid-configuration and
+ * https://id.singpass.gov.sg/fapi/.well-known/openid-configuration. The bare hosts are the older
+ * Singpass Login API, which advertises no PAR or DPoP.
+ */
 export const SINGPASS_ISSUERS = {
-  staging: "https://stg-id.singpass.gov.sg",
-  production: "https://id.singpass.gov.sg",
+  staging: "https://stg-id.singpass.gov.sg/fapi",
+  production: "https://id.singpass.gov.sg/fapi",
 } as const;
 
 /** Entra multi-tenant aliases are refused: the tenant restriction must name one tenant. */

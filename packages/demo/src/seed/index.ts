@@ -120,7 +120,7 @@ async function seedSsoProviders(deps: AppDeps, orgId: string) {
     {
       kind: "singpass" as const,
       displayName: "Singpass",
-      issuer: "https://stg-id.singpass.gov.sg",
+      issuer: "https://stg-id.singpass.gov.sg/fapi",
       environment: "staging" as const,
     },
   ];

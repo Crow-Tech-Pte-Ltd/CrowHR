@@ -116,7 +116,7 @@ describe("GET /api/v1/meta", () => {
         orgId: org.id,
         kind: "singpass",
         displayName: "Singpass",
-        issuer: "https://stg-id.singpass.gov.sg",
+        issuer: "https://stg-id.singpass.gov.sg/fapi",
         clientId: "s",
         enabled: true,
         createdAt: now,

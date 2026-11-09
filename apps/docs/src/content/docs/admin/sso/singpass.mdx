@@ -20,7 +20,7 @@ Singpass login is only available to organisations that Singpass has onboarded as
 - Pushed authorisation requests (PAR), PKCE, `private_key_jwt` client authentication and DPoP-bound tokens.
 - Decryption of the encrypted ID token with your relying-party key.
 - Keys: Crow HR generates an ES256 signing key and an ECDH-ES encryption key (P-256) and publishes the public halves at the provider's JWKS URL. The API also accepts your own private JWKS instead. Private keys are encrypted at rest.
-- Default issuers `https://stg-id.singpass.gov.sg` (staging) and `https://id.singpass.gov.sg` (production), with an optional override. Check both against Singpass's current documentation.
+- Default issuers are Singpass's FAPI 2.0 endpoints: `https://stg-id.singpass.gov.sg/fapi` (staging) and `https://id.singpass.gov.sg/fapi` (production), checked against their live discovery documents on 9 Nov 2026. There is an optional override. The bare hosts without `/fapi` are Singpass's older Login API, which has no PAR or DPoP, so don't use them.
 - Scope `openid` only. Crow HR stores the Singpass UUID from the subject, never the NRIC. There is no Myinfo data retrieval.
 
 ## Configure it
