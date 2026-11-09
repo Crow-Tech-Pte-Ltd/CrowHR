@@ -77,3 +77,15 @@ export function matchRedirect(rules: readonly RedirectRule[], path: string): { t
   }
   return null;
 }
+
+/**
+ * Cloudflare Pages' clean URLs: a request for `/x/index.html` or `/x.html` is answered with a 308 to
+ * `/x/` or `/x`. That includes the target of a 200 rewrite, so `/payroll /index.html 200` sends the
+ * browser to `/` (found on the first hr.crow.sg deploy, 9 Nov 2026). Rewrite to `/` instead.
+ * Returns the clean URL to redirect to, or null when the path is already clean.
+ */
+export function cleanUrlRedirect(path: string): string | null {
+  if (path.endsWith("/index.html")) return path.slice(0, -"index.html".length);
+  if (path.endsWith(".html") && !path.endsWith("/404.html")) return path.slice(0, -".html".length);
+  return null;
+}

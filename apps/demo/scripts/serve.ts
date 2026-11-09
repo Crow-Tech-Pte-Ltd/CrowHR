@@ -10,7 +10,7 @@ import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
-import { headersFor, matchRedirect, parseHeaders, parseRedirects } from "./pages-rules.ts";
+import { cleanUrlRedirect, headersFor, matchRedirect, parseHeaders, parseRedirects } from "./pages-rules.ts";
 
 const root = process.env.DEMO_E2E_DIST ?? process.argv[2] ?? fileURLToPath(new URL("../dist", import.meta.url));
 const port = Number(process.env.PORT ?? 5181);
@@ -53,6 +53,13 @@ createServer((req, res) => {
   const redirect = matchRedirect(redirectRules, path);
   if (redirect && redirect.status !== 200) {
     res.writeHead(redirect.status, { location: redirect.to });
+    res.end();
+    return;
+  }
+  // Pages' clean URLs, for the request and for a rewrite's target (see cleanUrlRedirect).
+  const clean = cleanUrlRedirect(redirect ? redirect.to : path);
+  if (clean !== null) {
+    res.writeHead(308, { location: clean });
     res.end();
     return;
   }
