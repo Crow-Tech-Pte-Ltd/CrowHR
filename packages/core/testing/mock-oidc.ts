@@ -20,6 +20,12 @@ export interface MockIdpOptions {
   dpop?: boolean;
   privateKeyJwt?: boolean;
   encryptIdToken?: boolean;
+  /**
+   * Singpass FAPI 2.0 rules on top of the above (docs.developer.singpass.gov.sg, checked 9 Nov 2026):
+   * PAR needs `authentication_context_type` (mandatory for Login apps); the client assertion needs
+   * header `typ: "JWT"`, `aud` equal to the issuer (a single string) and `exp - iat` <= 120 s.
+   */
+  singpass?: boolean;
   /** The RP's public JWKS (for private_key_jwt and ID-token encryption). */
   rpJwks?: () => Promise<{ keys: jose.JWK[] }>;
 }
@@ -57,6 +63,8 @@ export interface MockIdp {
     wrongNonce?: boolean;
     expired?: boolean;
     wrongIssuer?: boolean;
+    /** The PAR endpoint answers with this OAuth error (as Singpass does for a bad request). */
+    parError?: { error: string; error_description?: string; status?: 400 | 502 };
   };
   /** What the IdP saw, for assertions. */
   seen: {
@@ -71,6 +79,14 @@ export interface MockIdp {
 function form(body: string): Record<string, string> {
   return Object.fromEntries(new URLSearchParams(body));
 }
+
+/** A few of Singpass's predefined values; Crow HR sends APP_AUTHENTICATION_DEFAULT. */
+const SINGPASS_CONTEXT_TYPES = new Set([
+  "APP_AUTHENTICATION_DEFAULT",
+  "APP_PAYMENT_DEFAULT",
+  "APP_ACCOUNT_PASSWORD_RESET_DEFAULT",
+  "APP_ONBOARDING_DEFAULT",
+]);
 
 export async function createMockIdp(options: MockIdpOptions): Promise<MockIdp> {
   const issuer = options.issuer.replace(/\/$/, "");
@@ -112,10 +128,17 @@ export async function createMockIdp(options: MockIdpOptions): Promise<MockIdp> {
         throw new Error("private_key_jwt required");
       }
       const jwks = jose.createLocalJWKSet((await options.rpJwks?.()) ?? { keys: [] });
-      const { payload } = await jose.jwtVerify(params.client_assertion, jwks, {
+      const { payload, protectedHeader } = await jose.jwtVerify(params.client_assertion, jwks, {
         issuer: options.clientId,
         subject: options.clientId,
       });
+      if (options.singpass) {
+        if (protectedHeader.typ !== "JWT")
+          throw new Error(`client assertion typ must be "JWT", got ${protectedHeader.typ}`);
+        if (payload.aud !== issuer) throw new Error(`client assertion aud must be the issuer string ${issuer}`);
+        if (!payload.jti || !payload.iat || !payload.exp || payload.exp - payload.iat > 120)
+          throw new Error("client assertion needs jti, iat and exp <= iat + 120");
+      }
       const aud = ([] as string[]).concat(payload.aud ?? []);
       if (!aud.some((a) => a === issuer || a.startsWith(issuer))) throw new Error(`bad assertion audience ${aud}`);
       return "private_key_jwt";
@@ -161,10 +184,20 @@ export async function createMockIdp(options: MockIdpOptions): Promise<MockIdp> {
   app.post(`${prefix}/par`, async (c) => {
     idp.seen.parRequests++;
     const params = form(await c.req.text());
+    if (idp.tamper.parError) {
+      const { status = 400, ...body } = idp.tamper.parError;
+      return c.json(body, status);
+    }
     try {
       await verifyClient(params);
       const jkt = options.dpop ? await verifyDpop(c.req.header("dpop"), "POST", endpoint("/par")) : undefined;
       if (options.dpop && !jkt && !params.dpop_jkt) return c.json({ error: "invalid_dpop_proof" }, 400);
+      if (options.singpass && !SINGPASS_CONTEXT_TYPES.has(params.authentication_context_type ?? "")) {
+        return c.json(
+          { error: "invalid_request", error_description: "authentication_context_type is required for Login apps" },
+          400,
+        );
+      }
       const uri = `urn:mock:${crypto.randomUUID()}`;
       pars.set(uri, { ...params, ...(jkt || params.dpop_jkt ? { dpopJkt: jkt ?? params.dpop_jkt } : {}) });
       return c.json({ request_uri: uri, expires_in: 60 }, 201);

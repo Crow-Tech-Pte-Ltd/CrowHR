@@ -60,7 +60,53 @@ type FailureReason =
   | "not_provisioned"
   | "membership_inactive"
   | "invitation_invalid"
-  | "already_linked";
+  | "already_linked"
+  | "request_rejected";
+
+/**
+ * The OAuth error an identity provider answered with (`error`, `error_description`, HTTP status).
+ * Safe to log and audit: these never contain tokens, keys or personal data.
+ */
+async function oauthErrorDetail(err: unknown): Promise<Record<string, unknown>> {
+  if (err instanceof oidc.ResponseBodyError) {
+    return {
+      error: err.error,
+      ...(err.error_description ? { errorDescription: err.error_description.slice(0, 200) } : {}),
+      status: err.status,
+    };
+  }
+  const detail: Record<string, unknown> = { error: err instanceof Error ? err.message.slice(0, 200) : "unknown" };
+  // openid-client's ClientError keeps the provider's raw Response as `cause` (e.g. an unexpected status).
+  // Duck-typed: the injected fetch may return a Response from another implementation (undici).
+  if (err instanceof oidc.ClientError) {
+    if (err.code) detail.code = err.code;
+    const res = err.cause as
+      | {
+          status?: unknown;
+          headers?: { get?: (name: string) => string | null };
+          clone?: () => { json(): Promise<unknown> };
+        }
+      | undefined;
+    if (typeof res?.status === "number") {
+      detail.status = res.status;
+      const contentType = res.headers?.get?.("content-type") ?? null;
+      detail.contentType = contentType;
+      // oauth4webapi reads OAuth error bodies only for 4xx; Singpass also uses them on 5xx
+      // (e.g. 502 upstream_dependency_error when it cannot fetch the JWKS).
+      if (contentType?.includes("json") && typeof res.clone === "function") {
+        try {
+          const body = (await res.clone().json()) as { error?: unknown; error_description?: unknown };
+          if (typeof body.error === "string") detail.error = body.error.slice(0, 100);
+          if (typeof body.error_description === "string")
+            detail.errorDescription = body.error_description.slice(0, 200);
+        } catch {
+          // Not JSON after all: keep the status.
+        }
+      }
+    }
+  }
+  return detail;
+}
 
 async function loadProvider(c: AppContext, providerId: string): Promise<SsoProvider | null> {
   if (!/^[0-9a-f-]{36}$/i.test(providerId)) return null;
@@ -199,12 +245,23 @@ export const oidcRoutes = [
         nonce,
         code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
         code_challenge_method: "S256",
+        ...preset.authParams,
       };
       if (provider.kind === "google" && provider.allowedDomains.length === 1)
         parameters.hd = provider.allowedDomains[0] as string;
-      const url = preset.par
-        ? await oidc.buildAuthorizationUrlWithPAR(config, parameters, dpop ? { DPoP: dpop } : undefined)
-        : oidc.buildAuthorizationUrl(config, parameters);
+      let url: URL;
+      try {
+        url = preset.par
+          ? await oidc.buildAuthorizationUrlWithPAR(config, parameters, dpop ? { DPoP: dpop } : undefined)
+          : oidc.buildAuthorizationUrl(config, parameters);
+      } catch (err) {
+        // The provider refused or garbled the pushed authorisation request (e.g. Singpass: invalid_client
+        // for a JWKS or client assertion problem, invalid_request for a missing parameter).
+        if (!(err instanceof oidc.ResponseBodyError || err instanceof oidc.ClientError)) throw err;
+        const detail = await oauthErrorDetail(err);
+        c.var.logger.warn("OIDC authorisation request rejected", { ...detail, provider: provider.id });
+        return fail(c, provider, "request_rejected", query.purpose, detail);
+      }
       return c.redirect(url.toString(), 302);
     },
   }),
@@ -293,10 +350,9 @@ export const oidcRoutes = [
         if (!idClaims) throw new Error("no id token");
         claims = idClaims;
       } catch (err) {
-        c.var.logger.warn("OIDC token validation failed", { err, provider: provider.id });
-        return fail(c, provider, "token_validation_failed", tx.purpose, {
-          error: err instanceof Error ? err.message.slice(0, 200) : "unknown",
-        });
+        const detail = await oauthErrorDetail(err);
+        c.var.logger.warn("OIDC token validation failed", { err, ...detail, provider: provider.id });
+        return fail(c, provider, "token_validation_failed", tx.purpose, detail);
       }
 
       // Provider restrictions.

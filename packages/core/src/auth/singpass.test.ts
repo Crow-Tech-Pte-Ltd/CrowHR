@@ -40,6 +40,7 @@ describe("Singpass preset (mock IdP, FAPI 2.0 features on)", () => {
       dpop: true,
       privateKeyJwt: true,
       encryptIdToken: true,
+      singpass: true,
       rpJwks: async () =>
         (await (await app.request(`/api/v1/auth/oidc/${providerId}/jwks.json`)).json()) as { keys: never[] },
     });
@@ -98,6 +99,10 @@ describe("Singpass preset (mock IdP, FAPI 2.0 features on)", () => {
     expect(new URL(start.headers.get("location") as string).searchParams.get("request_uri")).toMatch(/^urn:mock:/);
     expect(idp.seen.parRequests).toBe(before.par + 1);
     expect(idp.seen.tokenRequests.slice(before.token)).toEqual([{ dpop: true, clientAuth: "private_key_jwt" }]);
+    expect(idp.seen.authorizeParams.at(-1)).toMatchObject({
+      authentication_context_type: "APP_AUTHENTICATION_DEFAULT",
+      scope: "openid",
+    });
     expect(location).toBe("/");
     expect(
       (await (await http.get("/api/v1/me")).json()) as { authMethod: string; user: { email: string } },
@@ -128,6 +133,47 @@ describe("Singpass preset (mock IdP, FAPI 2.0 features on)", () => {
     } finally {
       idp.tamper = {};
     }
+  });
+
+  it("a rejected authorisation request ends the owner's test on Settings → Security, with Singpass's error audited", async () => {
+    idp.tamper = {
+      parError: { error: "invalid_request", error_description: "authentication_context_type is invalid" },
+    };
+    try {
+      const res = await owner.get(`/api/v1/auth/oidc/${providerId}/start?purpose=test`);
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe(
+        `/settings/security?test=failed&provider=${providerId}&reason=request_rejected`,
+      );
+    } finally {
+      idp.tamper = {};
+    }
+    const [failed] = await deps.db.select().from(auditEvents).where(eq(auditEvents.action, "sso.test_failed"));
+    expect(failed?.meta).toMatchObject({
+      reason: "request_rejected",
+      error: "invalid_request",
+      errorDescription: "authentication_context_type is invalid",
+    });
+  });
+
+  it("records Singpass's error from a 5xx answer too (e.g. it could not fetch the JWKS)", async () => {
+    // Seen on staging when Cloudflare Bot Fight Mode challenged Singpass's JWKS fetch.
+    idp.tamper = {
+      parError: { error: "upstream_dependency_error", error_description: "JWKS unreachable", status: 502 },
+    };
+    try {
+      const res = await owner.get(`/api/v1/auth/oidc/${providerId}/start?purpose=test`);
+      expect(res.headers.get("location")).toContain("reason=request_rejected");
+    } finally {
+      idp.tamper = {};
+    }
+    const failed = await deps.db.select().from(auditEvents).where(eq(auditEvents.action, "sso.test_failed"));
+    expect(failed.at(-1)?.meta).toMatchObject({
+      reason: "request_rejected",
+      error: "upstream_dependency_error",
+      errorDescription: "JWKS unreachable",
+      status: 502,
+    });
   });
 
   it("JIT cannot be enabled for Singpass", async () => {
