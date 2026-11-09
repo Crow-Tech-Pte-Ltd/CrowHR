@@ -18,6 +18,9 @@ x-crowhr-image: &crowhr-image
   image: ${CROWHR_IMAGE:-ghcr.io/crow-tech-pte-ltd/crowhr:1}
   build:
     context: .
+    args:
+      # Optional: the commit being built, for error-monitoring releases (CROWHR_GIT_SHA=$(git rev-parse HEAD)).
+      CROWHR_GIT_SHA: ${CROWHR_GIT_SHA:-}
 
 services:
   # One-shot: writes a random database password into the shared secrets volume (first run only).

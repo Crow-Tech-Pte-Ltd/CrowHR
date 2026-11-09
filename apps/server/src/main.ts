@@ -23,6 +23,9 @@ import { createServerApp, createStartingApp } from "./http.ts";
 import { MailerConfigError, mailerFromEnv } from "./mailer.ts";
 import { currentSchemaTag, databaseHasData, planMigrations, readBundledMigrations } from "./migrate/runner.ts";
 import { migrateOnStart } from "./migrate/start.ts";
+import { browserMonitoringFrom } from "./monitoring/browser.ts";
+import { withMonitoring } from "./monitoring/logger.ts";
+import { activeMonitoring, type Monitoring, startMonitoring } from "./monitoring/sentry.ts";
 import { createIntervalScheduler } from "./scheduler.ts";
 import { readExistingKey } from "./secrets/existing.ts";
 import { resolveSecretKey } from "./secrets/key.ts";
@@ -61,8 +64,32 @@ export async function startServer(options: StartOptions = {}) {
     throw err;
   }
 
-  const logger = createJsonConsoleLogger({ level: config.LOG_LEVEL, base: { service: "crowhr" } });
+  const consoleLogger = createJsonConsoleLogger({ level: config.LOG_LEVEL, base: { service: "crowhr" } });
+  // Normally already started by instrument.ts (node --import); started here otherwise.
+  const preloaded = activeMonitoring() !== null;
+  const monitoring: Monitoring | null = config.monitoring?.dsn
+    ? (activeMonitoring() ?? (await startMonitoring(config.monitoring)))
+    : null;
+  const logger =
+    monitoring && config.monitoring
+      ? withMonitoring(consoleLogger, monitoring, { logs: config.monitoring.logs, minLevel: config.LOG_LEVEL })
+      : consoleLogger;
   logger.info("Crow HR starting", { version: VERSION, publicUrl: config.PUBLIC_URL, node: process.version });
+  if (config.monitoring) {
+    logger.info("Error monitoring is on", {
+      server: monitoring !== null,
+      browser: config.monitoring.browserDsn !== null,
+      environment: config.monitoring.environment,
+      release: config.monitoring.release,
+      tracesSampleRate: config.monitoring.tracesSampleRate,
+      logs: config.monitoring.logs,
+    });
+    if (monitoring && !preloaded) {
+      logger.warn(
+        "Monitoring started late: requests and database queries are not traced. Start the server with node --import ./apps/server/src/instrument.ts (the Docker image does).",
+      );
+    }
+  }
 
   // Listen straight away so health checks see `starting` (503) instead of connection refused
   // while we wait for the database and run migrations.
@@ -93,6 +120,7 @@ export async function startServer(options: StartOptions = {}) {
     server.close(async () => {
       await stopScheduler?.();
       await database?.close().catch(() => undefined);
+      await monitoring?.flush(2000).catch(() => false);
       process.exit(0);
     });
     // Idle keep-alive sockets would otherwise hold close() open.
@@ -157,6 +185,7 @@ export async function startServer(options: StartOptions = {}) {
       webDistDir: config.WEB_DIST_DIR,
       maintenance,
       modules: options.modules ?? [],
+      browserMonitoring: browserMonitoringFrom(config.monitoring),
       ...(config.SETUP_GATE ? { setupGate: createSetupGate(database.db) } : {}),
     });
     handler = app.fetch as Fetch;
@@ -235,8 +264,13 @@ function scheduledBackups(config: ServerConfig, database: Database, logger: Logg
 }
 
 if (import.meta.main) {
-  startServer().catch((err: unknown) => {
+  startServer().catch(async (err: unknown) => {
     console.error("Crow HR failed to start:", err instanceof Error ? err.message : err);
+    const monitoring = activeMonitoring();
+    if (monitoring) {
+      monitoring.captureException(err);
+      await monitoring.flush(2000).catch(() => false);
+    }
     process.exit(1);
   });
 }

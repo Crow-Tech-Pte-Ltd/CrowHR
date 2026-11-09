@@ -97,6 +97,7 @@ You do not set these in `.env`; they are listed so nothing the app reads is undo
 | `CROWHR_IMAGE` | `docker-compose.yml` | Image to run, default `ghcr.io/crow-tech-pte-ltd/crowhr:1` (not published yet; compose builds it from the checkout). Override to pin a tag or use a local build. |
 | `CROWHR_CONTAINER` | Dockerfile (`1`) | Tells `crowhr restore` it runs inside the container, so it can restart the app afterwards by signalling PID 1. Outside Docker it prints "restart the app" instead. |
 | `NODE_OPTIONS` | Dockerfile | Silences Node's experimental-feature warnings in the logs. |
+| `CROWHR_GIT_SHA` | build argument (Dockerfile, `docker-compose.yml`) | Commit the image was built from, added to the error-monitoring release (`crowhr@<version>+<commit>`). Empty unless you build with `CROWHR_GIT_SHA=$(git rev-parse HEAD) docker compose build`. |
 
 ## Optional virus scanning
 
@@ -110,3 +111,20 @@ Configure these on the **app container** (for example an `environment` entry in 
 Receipt, document and medical certificate uploads are initially `pending_scan`; the existing background sweep scans them and records `clean` or `infected`. Infected bytes are removed, the uploader is notified, and an audit event is written. Transport errors never mark a file clean: three failed attempts produce `scan_failed`. Medical certificates are unavailable until a configured scanner returns clean. Without configuration, files remain explicitly `unscanned` and the scanning-off notice remains visible.
 
 Requests default to a 1 MB body limit. Dedicated receipt/document uploads, CSV import previews, company logos and leave attachment requests have explicit larger limits, with each file's own size validation still enforced.
+
+## Optional error monitoring
+
+Off by default: without a DSN no monitoring code is loaded and nothing is sent anywhere. Set a DSN to report errors and slow requests to **your own** [GlitchTip](https://glitchtip.com) or Sentry project (any Sentry-compatible service). Crow Tech receives nothing.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SENTRY_DSN` | empty (off) | The server project's DSN (GlitchTip: project settings, *Client keys (DSN)*). Reports unhandled errors and every `error` log entry (for example a failed scheduled backup) as issues, traces API requests, and forwards the app's log entries. |
+| `SENTRY_BROWSER_DSN` | empty (off) | DSN for the web app; may be the same project or a separate browser project. Browsers can read it (that is how browser reporting works), so use a DSN whose only right is sending events. The server puts it in the page at runtime (no rebuild) and allows its origin in the page's Content-Security-Policy. |
+| `SENTRY_ENVIRONMENT` | `production` in the image | Environment name shown in the monitoring service, for example `staging`. At most 64 characters, no spaces or slashes. |
+| `SENTRY_RELEASE` | `crowhr@<version>` (`+<commit>` with `CROWHR_GIT_SHA`) | Release name for both server and browser events. |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.2` | Share of API requests and page loads traced, `0` to `1`. `0` turns tracing off. Health checks and static files are never traced. |
+| `SENTRY_ENABLE_LOGS` | `true` | Forward the app's log entries (at `LOG_LEVEL` and above) as logs. The console output does not change. |
+
+Crow HR holds NRIC/FIN, salaries, bank and medical details, so events carry no request or response bodies, cookies, query strings, IP addresses, user details, database query values or local variables, and no session replay. Request headers are limited to `User-Agent`, `Accept`, `Content-Type`, `Content-Length` and `X-Request-Id` (the ID shown to users with an error, also in the app's logs). Expected failures (validation, permission, not found) are not reported; 4xx answers in the browser are not either. Error messages and log entries can still name records (IDs, file names), so keep the monitoring service as private as the app.
+
+Set the variables in `.env` and run `docker compose up -d`: a restart applies them, no rebuild is needed. A wrong value stops the app with a message, like every other setting.

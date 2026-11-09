@@ -1,11 +1,12 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type ApiModule, type AppDeps, createApp, VERSION } from "@crowhr/core";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { secureHeaders } from "hono/secure-headers";
 import { type MaintenanceInfo, maintenanceMessage } from "./backup/maintenance.ts";
+import { type BrowserMonitoring, connectSrc, injectMonitoringMeta } from "./monitoring/browser.ts";
 import { type SetupGate, setupGateMiddleware } from "./setup/gate.ts";
 
 /** Sets cache-control on successful responses produced further down the chain. */
@@ -23,6 +24,8 @@ export interface ServerAppOptions {
   maintenance?: () => MaintenanceInfo | null;
   /** Extra API modules mounted under /api/v1 (the e2e server adds a test-only request type). */
   modules?: readonly ApiModule[];
+  /** Browser error reporting (SENTRY_BROWSER_DSN): settings go into index.html, the DSN's origin into the CSP. */
+  browserMonitoring?: BrowserMonitoring | null;
 }
 
 /** Minimal self-contained page for 503s (no external assets: the app may be mid-restore). */
@@ -52,7 +55,8 @@ function maintenanceGuard(probe: () => MaintenanceInfo | null) {
  * `/payroll` survives a reload. `/api/*` never falls back: core answers it.
  */
 export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
-  const { webDistDir } = options;
+  const { webDistDir, browserMonitoring } = options;
+  const pageCsp = `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src ${connectSrc(browserMonitoring)}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'`;
   // Security headers wrap everything, so they must be registered before core's routes.
   const app = new Hono<{ Bindings: { incoming?: { socket?: { remoteAddress?: string } } } }>();
   // Core reads the client IP (throttling, audit) from x-crowhr-client-ip. Never trust a value the
@@ -77,11 +81,7 @@ export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
   // a file handler's stricter sandbox policy survives the outer middleware.
   app.use("*", async (c, next) => {
     await next();
-    if (!c.res.headers.has("content-security-policy"))
-      c.res.headers.set(
-        "content-security-policy",
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
-      );
+    if (!c.res.headers.has("content-security-policy")) c.res.headers.set("content-security-policy", pageCsp);
   });
   if (options.maintenance) app.use("*", maintenanceGuard(options.maintenance));
   if (options.setupGate) app.use("*", setupGateMiddleware(options.setupGate));
@@ -95,6 +95,19 @@ export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
   // Vite fingerprints everything under /assets; index.html must always revalidate.
   app.use("/assets/*", cacheControl("public, max-age=31536000, immutable"));
   app.use("/assets/*", serveStatic({ root: webDistDir }));
+  if (browserMonitoring) {
+    // index.html carries this install's monitoring settings, so it is served from memory.
+    const indexHtml = injectMonitoringMeta(readFileSync(join(webDistDir, "index.html"), "utf8"), browserMonitoring);
+    const serveIndex = (c: Context) => {
+      c.header("cache-control", "no-cache");
+      return c.html(indexHtml);
+    };
+    app.get("/", serveIndex);
+    app.get("/index.html", serveIndex);
+    app.use("*", cacheControl("no-cache"), serveStatic({ root: webDistDir }));
+    app.get("*", serveIndex);
+    return app;
+  }
   app.use("*", cacheControl("no-cache"), serveStatic({ root: webDistDir, index: "index.html" }));
   app.get("*", serveStatic({ root: webDistDir, path: "index.html" }));
   return app;
