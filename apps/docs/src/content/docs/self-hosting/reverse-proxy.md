@@ -17,8 +17,8 @@ Two settings matter:
 | No proxy (LAN) | <span class="crow-pill crow-pill--tested">Tested</span> | The default compose install in `e2e/self-host.sh`. |
 | Caddy | <span class="crow-pill crow-pill--tested">Tested</span> | `e2e/self-host.sh` runs a Caddy container on the compose network, over HTTP only: trusted versus untrusted proxy, spoofed `X-Forwarded-For` ignored. Caddy's automatic HTTPS itself was not exercised. |
 | nginx | <span class="crow-pill crow-pill--untested">Not tested</span> | A standard configuration that has not been run against Crow HR yet. |
-| Traefik | <span class="crow-pill crow-pill--untested">Not tested</span> | Same. |
-| Cloudflare Tunnel | <span class="crow-pill crow-pill--untested">Not tested</span> | Same. |
+| Traefik | <span class="crow-pill crow-pill--tested">Tested</span> | On a staging server (9 Nov 2026): Cloudflare Tunnel → Traefik v3.7 with a file-provider route → Crow HR with `TRUSTED_PROXIES=private`. Client IP, `https` scheme and host were right, and a spoofed `X-Forwarded-For` was ignored. The label example below, with Let's Encrypt, was not run as written. |
+| Cloudflare Tunnel | <span class="crow-pill crow-pill--tested">Tested</span> | The same staging server: a remote-managed tunnel (cloudflared 2026.10.4, token) in front of Traefik. Routing the hostname straight to `http://app:8080`, as below, was not run. |
 
 If you run one of the untested setups, please report what worked (or did not) so this table can be updated.
 
@@ -90,7 +90,7 @@ server {
 
 `.env`: `PUBLIC_URL=https://hr.example.sg`, `BIND_ADDRESS=127.0.0.1`, `TRUSTED_PROXIES=loopback` (or `private` if the peer shows as the Docker gateway). nginx in a container on the compose network: `proxy_pass http://app:8080;` and `TRUSTED_PROXIES=private`.
 
-## Traefik (not tested)
+## Traefik
 
 Add labels to the `app` service in `docker-compose.override.yml`, with Traefik on the same Docker network:
 
@@ -107,7 +107,7 @@ services:
 
 `.env`: `PUBLIC_URL=https://hr.example.sg`, `TRUSTED_PROXIES=private`, and stop publishing the app port to the world with `BIND_ADDRESS=127.0.0.1`. Traefik sets `X-Forwarded-*` itself; configure its entrypoint `forwardedHeaders.trustedIPs` only for proxies in front of Traefik.
 
-## Cloudflare Tunnel (not tested)
+## Cloudflare Tunnel
 
 No open ports needed. Add `cloudflared` to `docker-compose.override.yml`:
 
