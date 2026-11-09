@@ -57,6 +57,8 @@ export async function providerConfig(deps: AppDeps, provider: SsoProvider): Prom
     auth = oidc.PrivateKeyJwt(key, {
       [oidc.modifyAssertion]: (header: Record<string, unknown>) => {
         header.kid = kid;
+        // Singpass: the client assertion header "Must be the string `JWT`" (oauth4webapi sets none).
+        header.typ = "JWT";
       },
     });
     metadata.token_endpoint_auth_method = "private_key_jwt";

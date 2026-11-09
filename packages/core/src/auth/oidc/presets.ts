@@ -2,10 +2,9 @@
  * Provider presets (design decision 9): one OIDC implementation, behaviour as data.
  *
  * Singpass values follow the Singpass developer docs for the FAPI 2.0 login flow (PAR, PKCE,
- * private_key_jwt, DPoP-bound tokens, encrypted ID tokens). NOT VERIFIED against real Singpass:
- * they are exercised only against the in-process mock IdP. Check the current docs at
- * https://docs.developer.singpass.gov.sg before onboarding, and record the doc version checked in
- * the setup guide.
+ * private_key_jwt, DPoP-bound tokens, encrypted ID tokens). A test sign-in against Singpass STAGING
+ * passed on 9 Nov 2026; production has not been tried. Check the current docs at
+ * https://docs.developer.singpass.gov.sg before onboarding.
  */
 export type ProviderKind = "google" | "entra" | "singpass" | "oidc";
 
@@ -25,6 +24,8 @@ export interface ProviderPreset {
   emailLinking: boolean;
   /** JIT provisioning may be enabled. */
   jitAllowed: boolean;
+  /** Extra provider-specific parameters for the authorisation request (sent in the PAR body). */
+  authParams?: Readonly<Record<string, string>>;
 }
 
 export const PRESETS: Record<ProviderKind, ProviderPreset> = {
@@ -58,6 +59,9 @@ export const PRESETS: Record<ProviderKind, ProviderPreset> = {
     dpop: true,
     privateKeyJwt: true,
     idTokenEncrypted: true,
+    // "Mandatory and only allowed for Login apps"; the Developer Portal shows this value for the
+    // "General Authentication" scenario (Singpass authorization request docs, checked 9 Nov 2026).
+    authParams: { authentication_context_type: "APP_AUTHENTICATION_DEFAULT" },
     emailLinking: false,
     jitAllowed: false,
   },
