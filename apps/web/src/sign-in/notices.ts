@@ -6,9 +6,20 @@ export interface SignInNotice {
 }
 
 export function noticeFor(
-  search: { error?: string; reason?: string; provider?: string; reset?: string },
+  search: { error?: string; reason?: string; provider?: string; reset?: string; singpass?: string },
   orgName: string,
 ): SignInNotice | null {
+  // Demo only: back from the Singpass round trip (`ok` shows the HR admin / Employee choice instead).
+  if (search.singpass === "ok") return null;
+  if (search.singpass === "failed")
+    return {
+      tone: "warning",
+      title: "Singpass login didn't finish",
+      body:
+        search.reason === "busy"
+          ? "The demo has had a lot of Singpass logins. Try again later, or pick someone below to look around without Singpass."
+          : "Try again, or pick someone below to look around without Singpass.",
+    };
   if (search.reason === "expired")
     return {
       tone: "info",

@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { secureHeaders } from "hono/secure-headers";
 import { type MaintenanceInfo, maintenanceMessage } from "./backup/maintenance.ts";
+import { SINGPASS_LOGO_PATH, singpassLogoHandler } from "./branding.ts";
 import { type SetupGate, setupGateMiddleware } from "./setup/gate.ts";
 
 /** Sets cache-control on successful responses produced further down the chain. */
@@ -23,6 +24,8 @@ export interface ServerAppOptions {
   maintenance?: () => MaintenanceInfo | null;
   /** Extra API modules mounted under /api/v1 (the e2e server adds a test-only request type). */
   modules?: readonly ApiModule[];
+  /** `<DATA_DIR>/branding`: the deployer-supplied official Singpass logo is served from here. */
+  brandingDir?: string;
 }
 
 /** Minimal self-contained page for 503s (no external assets: the app may be mid-restore). */
@@ -86,6 +89,7 @@ export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
   if (options.maintenance) app.use("*", maintenanceGuard(options.maintenance));
   if (options.setupGate) app.use("*", setupGateMiddleware(options.setupGate));
   app.route("/", createApp(deps, { modules: options.modules ?? [] }));
+  if (options.brandingDir) app.get(SINGPASS_LOGO_PATH, singpassLogoHandler(options.brandingDir));
 
   if (!existsSync(join(webDistDir, "index.html"))) {
     deps.logger.warn("Web app build not found; serving the API only. Run `bun run build`.", { webDistDir });

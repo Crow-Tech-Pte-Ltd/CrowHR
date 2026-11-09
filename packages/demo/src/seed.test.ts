@@ -219,6 +219,13 @@ describe("demo seed", () => {
     expect(report.rows.length).toBeGreaterThan(0);
   });
 
+  it("lists Google, Microsoft and Singpass on the sign-in page (Singpass has generated keys, so it counts as set up)", async () => {
+    const res = await demo.app.request("/api/v1/auth/methods?org=kopi-kaki");
+    const methods = (await res.json()) as { providers: { kind: string }[]; demoMode: boolean };
+    expect(methods.demoMode).toBe(true);
+    expect(methods.providers.map((p) => p.kind).sort()).toEqual(["entra", "google", "singpass"]);
+  });
+
   it("sent its emails to the Demo outbox", async () => {
     const outbox = await demo.outbox();
     expect(outbox.length).toBeGreaterThan(0);

@@ -16,12 +16,24 @@ interface Persona {
 
 const ROLE_LABEL: Record<string, string> = { owner: "Owner", hr_admin: "HR admin", payroll_admin: "Payroll admin" };
 
+/** After a demo Singpass login the visitor picks one of these (persona keys from the demo build). */
+export const DEMO_SINGPASS_PERSONAS = ["hr", "employee"] as const;
+
 /**
  * Demo mode only (auth spec "Demo-mode sign-in"): one click signs in as a seeded, fictional
  * account. The server answers these routes with 404 outside demo mode, so this cannot be used
- * on a real install even if rendered.
+ * on a real install even if rendered. `only` limits the list to those persona keys (after a demo
+ * Singpass login: HR admin or Employee).
  */
-export function DemoPersonaPicker() {
+export function DemoPersonaPicker({
+  only,
+  title = "Pick someone to be",
+  intro = "One click signs you in as a fictional Kopi Kaki employee. Each sees what their role allows.",
+}: {
+  only?: readonly string[];
+  title?: string;
+  intro?: string;
+} = {}) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -33,9 +45,9 @@ export function DemoPersonaPicker() {
   const described = shellExtensions.demoPersonas ?? {};
   const all = q.data?.items ?? [];
   const featured = all
-    .filter((p) => described[p.email])
+    .filter((p) => described[p.email] && (!only || only.includes(described[p.email]?.key ?? "")))
     .sort((a, b) => (described[a.email]?.order ?? 0) - (described[b.email]?.order ?? 0));
-  const others = all.filter((p) => !described[p.email]);
+  const others = only ? [] : all.filter((p) => !described[p.email]);
 
   const signIn = async (p: Persona) => {
     setBusy(p.membershipId);
@@ -58,22 +70,20 @@ export function DemoPersonaPicker() {
         id="demo-personas-title"
         className="mb-1 font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300"
       >
-        Pick someone to be
+        {title}
       </h2>
-      <p className="mb-3 text-ui text-primary-300">
-        One click signs you in as a fictional Kopi Kaki employee. Each sees what their role allows.
-      </p>
+      <p className="mb-3 text-ui text-primary-300">{intro}</p>
       {q.isPending ? (
         <div className="flex flex-col gap-2">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-14 w-full" />
+          {(only ?? ["0", "1", "2", "3", "4"]).map((k) => (
+            <Skeleton key={k} className="h-14 w-full" />
           ))}
         </div>
       ) : q.isError ? (
         <p className="text-ui text-danger-300">The personas didn't load. Reload the page to try again.</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {(featured.length ? featured : all).map((p) => {
+          {(featured.length || only ? featured : all).map((p) => {
             const meta = described[p.email];
             return (
               <li key={p.membershipId}>
@@ -129,7 +139,7 @@ export function DemoPersonaPicker() {
         </details>
       ) : null}
       {error ? <p className="mt-2 text-ui text-danger-300">{error}</p> : null}
-      {shellExtensions.demoSignInNote ? (
+      {shellExtensions.demoSignInNote && !only ? (
         <p className="mt-3 text-2xs text-primary-300">{shellExtensions.demoSignInNote}</p>
       ) : null}
     </section>

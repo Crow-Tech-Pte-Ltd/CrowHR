@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import {
   type ApiModule,
   type AppDeps,
@@ -155,6 +156,7 @@ export async function startServer(options: StartOptions = {}) {
     if (!mailer) logger.info("Email is not configured (SMTP_URL); notifications are in-app only.");
     const app = createServerApp(deps, {
       webDistDir: config.WEB_DIST_DIR,
+      brandingDir: join(config.DATA_DIR, "branding"),
       maintenance,
       modules: options.modules ?? [],
       ...(config.SETUP_GATE ? { setupGate: createSetupGate(database.db) } : {}),
