@@ -30,7 +30,7 @@ The code is MIT-licensed: you may use, change and redistribute it, including com
 Crow HR runs as one app container and a PostgreSQL 17 database on your machine, in your office or with the cloud provider you choose. Crow Tech does not run a hosted service for it and receives nothing from your install:
 
 - no analytics, telemetry or usage reporting;
-- no calls to third-party services unless you configure them (your SMTP server, your identity provider);
+- no calls to third-party services unless you configure them (your SMTP server, your identity provider, optionally your own error-monitoring service);
 - fonts, icons and the web app are served from your server, not from a CDN.
 
 Sensitive identifiers (NRIC/FIN, passport and work pass numbers, bank account numbers) and secrets (two-step verification, SSO) are encrypted in the database with a key that stays in your data volume and your backups. Your company remains the organisation responsible for the personal data under the PDPA; see [privacy and PDPA](/docs/help/privacy-pdpa/).

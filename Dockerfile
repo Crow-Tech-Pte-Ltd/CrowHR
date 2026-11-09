@@ -59,9 +59,12 @@ COPY packages/core/testing/migrations-folder.ts packages/core/testing/migrations
 COPY packages/sg-rules/src packages/sg-rules/src
 COPY --from=build /src/apps/web/dist apps/web/dist
 # PGlite is only loaded for pglite: development URLs (dynamic import); type packages are unused.
+# The Sentry SDK's bundler plugins and CLI are build-time tools (the runtime hook has its own parser).
 RUN find apps packages -name '*.test.ts' -delete \
  && rm -rf node_modules/.bun/@electric-sql+pglite@* node_modules/.bun/@types+* \
       node_modules/.bun/@node-rs+argon2-linux-*-gnu@* \
+      node_modules/.bun/@sentry+bundler-plugins@* node_modules/.bun/sentry@* \
+      node_modules/.bun/oxc-parser@* node_modules/.bun/@oxc-parser+* node_modules/.bun/@oxc-project+* \
  && find apps/server/src -name 'test-helpers.ts' -delete \
  && find apps/web/dist -name '*.map' -delete
 
@@ -84,6 +87,10 @@ RUN apk add --no-cache postgresql17-client tini \
 WORKDIR /app
 COPY --from=deps --chown=root:root /app /app
 
+# Commit the image is built from, for error-monitoring releases (crowhr@<version>+<commit>):
+#   CROWHR_GIT_SHA=$(git rev-parse HEAD) docker compose build
+# Declared here, after the slow layers, so a new commit only rebuilds the ones below.
+ARG CROWHR_GIT_SHA=""
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8080 \
@@ -91,6 +98,7 @@ ENV NODE_ENV=production \
     BACKUP_DIR=/backups \
     WEB_DIST_DIR=/app/apps/web/dist \
     CROWHR_CONTAINER=1 \
+    CROWHR_GIT_SHA=${CROWHR_GIT_SHA} \
     NODE_OPTIONS=--disable-warning=ExperimentalWarning
 
 USER 10001:10001
@@ -99,7 +107,8 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=4 \
   CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/api/health" || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "apps/server/src/main.ts"]
+# instrument.ts starts optional error monitoring (SENTRY_DSN) before the app loads; without it, it does nothing.
+CMD ["node", "--import", "./apps/server/src/instrument.ts", "apps/server/src/main.ts"]
 
 LABEL org.opencontainers.image.title="Crow HR" \
       org.opencontainers.image.description="Self-hostable HR and payroll for Singapore SMEs" \

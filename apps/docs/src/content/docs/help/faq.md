@@ -13,7 +13,7 @@ No. Crow Tech does not run Crow HR for customers. You host it yourself: on a sma
 
 ## Does Crow Tech see our data?
 
-No. The app sends nothing to Crow Tech: no analytics, telemetry or crash reports. It only contacts services you configure (your SMTP server, your identity provider).
+No. The app sends nothing to Crow Tech: no analytics, telemetry or crash reports. It only contacts services you configure (your SMTP server, your identity provider and, optionally, your own error-monitoring service).
 
 ## Is Crow HR approved by CPF Board, IRAS or MOM?
 

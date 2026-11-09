@@ -1,6 +1,8 @@
 import { Alert, AlertDescription, AlertTitle, Button, EmptyState, Skeleton } from "@crowhr/ui";
 import { type ErrorComponentProps, Link, useRouter } from "@tanstack/react-router";
 import { AlertTriangle, Compass } from "lucide-react";
+import { useEffect } from "react";
+import { reportError } from "../monitoring.ts";
 
 export function RoutePending() {
   return (
@@ -14,6 +16,7 @@ export function RoutePending() {
 
 export function RouteError({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
+  useEffect(() => reportError(error), [error]);
   return (
     <Alert variant="danger" className="max-w-xl">
       <AlertTriangle aria-hidden />
