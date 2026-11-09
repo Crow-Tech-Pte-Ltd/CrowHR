@@ -156,6 +156,7 @@ describe("Singpass preset (mock IdP, FAPI 2.0 features on)", () => {
     expect(res.status, await res.clone().text()).toBe(201);
     const saved = (await res.json()) as {
       id: string;
+      issuer: string;
       clientId: string;
       configured: boolean;
       privateKeysSet: boolean;
@@ -163,6 +164,8 @@ describe("Singpass preset (mock IdP, FAPI 2.0 features on)", () => {
       jwksUrl: string;
     };
     expect(saved).toMatchObject({
+      // The FAPI 2.0 issuer (PAR + DPoP), not the older https://stg-id.singpass.gov.sg one.
+      issuer: "https://stg-id.singpass.gov.sg/fapi",
       clientId: "",
       configured: false,
       privateKeysSet: true,

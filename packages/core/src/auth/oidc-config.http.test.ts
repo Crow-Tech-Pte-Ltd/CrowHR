@@ -146,7 +146,7 @@ describe("SSO provider configuration", () => {
       orgId,
       kind: "singpass",
       displayName: "Singpass",
-      issuer: "https://stg-id.singpass.gov.sg",
+      issuer: "https://stg-id.singpass.gov.sg/fapi",
       clientId: "sp",
       createdAt: now,
       updatedAt: now,
