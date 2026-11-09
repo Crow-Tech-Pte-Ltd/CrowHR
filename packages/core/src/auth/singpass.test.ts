@@ -14,7 +14,8 @@ import {
 } from "../../testing/index.ts";
 import { createApp } from "../app.ts";
 import { auditEvents } from "../db/schema/audit.ts";
-import { userIdentities } from "../db/schema/auth.ts";
+import { ssoProviders, userIdentities } from "../db/schema/auth.ts";
+import type { ErrorEnvelope } from "../errors.ts";
 
 /**
  * Singpass preset (FAPI 2.0) against the mock IdP with PAR required, private_key_jwt, DPoP and
@@ -135,5 +136,50 @@ describe("Singpass preset (mock IdP, FAPI 2.0 features on)", () => {
       allowedDomains: ["kopi.sg"],
     });
     expect(res.status).toBe(400);
+  });
+
+  it("can be saved before Singpass issues a client ID, so the redirect URI and keys come first", async () => {
+    // The Singpass Developer Portal asks for the redirect URL and JWKS before it issues a client ID.
+    const other = await seedOrg(deps, { slug: "teh" });
+    const ownerB = await clientAs(app, deps, await seedMember(deps, other.id, { roles: ["owner"] }));
+    const premature = await ownerB.post("/api/v1/security/providers", {
+      kind: "singpass",
+      issuer: ISSUER,
+      environment: "staging",
+      enabled: true,
+    });
+    expect(premature.status).toBe(409);
+    expect(((await premature.json()) as ErrorEnvelope).error.message).toContain("Singpass is not configured yet");
+    expect((await deps.db.select().from(ssoProviders).where(eq(ssoProviders.orgId, other.id))).length).toBe(0);
+
+    const res = await ownerB.post("/api/v1/security/providers", { kind: "singpass", environment: "staging" });
+    expect(res.status, await res.clone().text()).toBe(201);
+    const saved = (await res.json()) as {
+      id: string;
+      clientId: string;
+      configured: boolean;
+      privateKeysSet: boolean;
+      callbackUrl: string;
+      jwksUrl: string;
+    };
+    expect(saved).toMatchObject({
+      clientId: "",
+      configured: false,
+      privateKeysSet: true,
+      callbackUrl: `https://hr.test/api/v1/auth/oidc/${saved.id}/callback`,
+      jwksUrl: `https://hr.test/api/v1/auth/oidc/${saved.id}/jwks.json`,
+    });
+    const jwks = (await (await app.request(`/api/v1/auth/oidc/${saved.id}/jwks.json`)).json()) as { keys: unknown[] };
+    expect(jwks.keys).toHaveLength(2);
+    const methods = (await (await app.request("/api/v1/auth/methods?org=teh")).json()) as { providers: unknown[] };
+    expect(methods.providers).toEqual([]);
+    expect((await ownerB.patch(`/api/v1/security/providers/${saved.id}`, { enabled: true })).status).toBe(409);
+
+    const withClient = await ownerB.patch(`/api/v1/security/providers/${saved.id}`, {
+      issuer: ISSUER,
+      clientId: "crowhr-rp",
+    });
+    expect(withClient.status, await withClient.clone().text()).toBe(200);
+    expect(await withClient.json()).toMatchObject({ clientId: "crowhr-rp", configured: true, enabled: false });
   });
 });

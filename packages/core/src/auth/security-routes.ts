@@ -97,7 +97,11 @@ async function settingsView(c: AppContext, orgId: string): Promise<z.input<typeo
 const providerInput = z.object({
   kind,
   displayName: z.string().trim().min(1).max(60).optional(),
-  clientId: z.string().trim().min(1, "Paste the client ID from your identity provider.").max(500),
+  /**
+   * Required except for Singpass, which may be saved first: the Singpass Developer Portal asks for the
+   * redirect URI and JWKS before it issues a client ID. Such a provider stays unconfigured (off).
+   */
+  clientId: z.string().trim().min(1, "Paste the client ID from your identity provider.").max(500).optional(),
   clientSecret: z.string().min(1).max(2000).optional(),
   /** Generic OIDC only: the issuer URL (discovery at <issuer>/.well-known/openid-configuration). */
   issuer: z.url({ error: "Enter the issuer URL, like https://login.example.com/realms/acme." }).max(500).optional(),
@@ -306,13 +310,21 @@ export const securityModule = defineModule({
       handler: async ({ c, deps, auth, body }) => {
         const preset = PRESETS[body.kind];
         const issuer = resolveIssuer(body);
+        if (!body.clientId && body.kind !== "singpass")
+          throw fieldError("clientId", "Paste the client ID from your identity provider.");
+        if (body.enabled && !body.clientId)
+          throw new AppError(
+            "conflict",
+            "Singpass is not configured yet: add the client ID and relying-party keys first.",
+          );
         if (!preset.privateKeyJwt && !body.clientSecret)
           throw fieldError("clientSecret", "Paste the client secret from your identity provider.");
         if (body.jitEnabled && !preset.jitAllowed)
           throw fieldError("jitEnabled", "Just-in-time accounts are not available for Singpass.");
         if (body.jitEnabled && !(body.allowedDomains ?? []).length)
           throw fieldError("allowedDomains", "Add at least one allowed domain to turn on just-in-time accounts.");
-        await checkDiscovery(deps, issuer, body.clientId);
+        // Without a client ID (Singpass, not yet issued) discovery is checked when the client ID is added.
+        if (body.clientId) await checkDiscovery(deps, issuer, body.clientId);
         const now = deps.clock.now();
         let privateJwksEnc: string | null = null;
         let publicJwks: unknown = null;
@@ -341,7 +353,7 @@ export const securityModule = defineModule({
                 ? "Single sign-on"
                 : preset.label.replace(" Workspace", "").replace(" Entra ID", "")),
             issuer,
-            clientId: body.clientId,
+            clientId: body.clientId ?? "",
             clientSecretEnc: body.clientSecret
               ? await deps.secretBox.encrypt(SECRET_PURPOSES.ssoClientSecret, body.clientSecret)
               : null,
@@ -425,7 +437,8 @@ export const securityModule = defineModule({
               })
             : current.issuer;
         const clientId = body.clientId ?? current.clientId;
-        if (issuer !== current.issuer || clientId !== current.clientId) await checkDiscovery(deps, issuer, clientId);
+        if (clientId && (issuer !== current.issuer || clientId !== current.clientId))
+          await checkDiscovery(deps, issuer, clientId);
         const allowedDomains = body.allowedDomains ?? current.allowedDomains;
         const jitEnabled = body.jitEnabled ?? current.jitEnabled;
         if (jitEnabled && !preset.jitAllowed)

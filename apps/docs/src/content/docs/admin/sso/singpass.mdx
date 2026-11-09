@@ -12,7 +12,7 @@ Crow HR's Singpass login is implemented to Singpass's published FAPI 2.0 login p
 Singpass login is only available to organisations that Singpass has onboarded as a **relying party**. Crow HR cannot do this for you, and Crow Tech does not hold a Singpass client you can share.
 
 - Your company applies through the [Singpass developer documentation and portal](https://docs.developer.singpass.gov.sg/) and goes through Singpass's own onboarding, review and testing. Eligibility, agreements, fees and timelines are set by Singpass and can change; read their current documentation before you start.
-- You register Crow HR as your application, with the **redirect URI** and **JWKS URL** that Crow HR shows after saving the provider (step 3 below). Both must be reachable by Singpass over HTTPS, so `PUBLIC_URL` must be your final public HTTPS address.
+- You register Crow HR as your application, with the **redirect URI** and **JWKS URL** that Crow HR shows after saving the provider (steps 1 and 2 below). Singpass requires HTTPS, so `PUBLIC_URL` must be your final HTTPS address.
 - Singpass issues you a **client ID** for staging and, after their checks, for production.
 
 ## What Crow HR implements
@@ -25,9 +25,9 @@ Singpass login is only available to organisations that Singpass has onboarded as
 
 ## Configure it
 
-1. In **Settings → Security** choose **Add a method → Singpass**. Choose **Staging**, enter the client ID Singpass issued, and leave the issuer override empty unless Singpass tells you otherwise. Save.
+1. In **Settings → Security** choose **Add a method → Singpass**. Choose **Staging** and leave the issuer override empty unless Singpass tells you otherwise. Leave the client ID empty: Singpass only issues it after you register the redirect URI and keys. Save. Crow HR generates the relying-party keys and shows the two values for the next step. Until it has a client ID, Singpass stays off and the sign-in page doesn't show it.
 
-2. Copy the **Redirect URI** (`<PUBLIC_URL>/api/v1/auth/oidc/<provider id>/callback`) and the **JWKS URL** (`<PUBLIC_URL>/api/v1/auth/oidc/<provider id>/jwks.json`) into your Singpass application registration.
+2. In the Singpass Developer Portal, create a **Login** app in Staging and enter the **Redirect URI** (`<PUBLIC_URL>/api/v1/auth/oidc/<provider id>/callback`) and the **JWKS URL** (`<PUBLIC_URL>/api/v1/auth/oidc/<provider id>/jwks.json`). Keep the scopes to OpenID only. If Singpass can't reach your server, choose **JWKS object** instead and paste the contents of the JWKS URL (public keys only). When Singpass issues the client ID, edit the method in Crow HR and add it.
 
 3. Run **Test sign-in** against staging with a Singpass test account. Record the result. Settings → Security shows "Tested against a simulated Singpass only" until a real test passes.
 

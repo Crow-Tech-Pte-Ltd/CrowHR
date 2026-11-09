@@ -64162,8 +64162,7 @@
                   }
                 },
                 "required": [
-                  "kind",
-                  "clientId"
+                  "kind"
                 ]
               }
             }
