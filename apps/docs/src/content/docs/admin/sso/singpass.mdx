@@ -4,7 +4,7 @@ description: What Crow HR's Singpass login does, what your company must do to be
 ---
 
 :::caution[Tested against Singpass staging only]
-Crow HR's Singpass login follows Singpass's FAPI 2.0 login profile. A test sign-in against **Singpass staging** passed on 9 Nov 2026 (see Status below). It has **not** been run against Singpass production, and the sign-in button does not yet meet Singpass's button design specification (see below). Run your own staging test before you go live.
+Crow HR's Singpass login follows Singpass's FAPI 2.0 login profile. A test sign-in against **Singpass staging** passed on 9 Nov 2026 (see Status below). It has **not** been run against Singpass production, and the Singpass button meets Singpass's design specification only once you add the official logo (see below). Run your own staging test before you go live.
 :::
 
 ## What your company has to do first
@@ -51,7 +51,29 @@ Just-in-time account creation is not available for Singpass.
 
 ## The Singpass button
 
-Singpass's [button design specification](https://docs.developer.singpass.gov.sg/docs/getting-started/singpass-button-design-specification) (effective 1 September 2026) requires the official Singpass logo inside the button. That logo is not published under a licence that allows redistribution in an MIT repository, so Crow HR does not bundle it: the button shows the plain text "Log in with Singpass". The web component accepts a deployer-supplied official logo (`singpassLogoSrc`), but there is no setting for it yet. **Do not go live with Singpass until the button meets Singpass's specification.**
+Singpass's [button design specification](https://docs.developer.singpass.gov.sg/docs/getting-started/singpass-button-design-specification) (effective 1 September 2026) requires the official Singpass logo inside the button. Singpass publishes the logo for its partners, not under a licence that allows redistribution in an MIT repository, so Crow HR does not bundle it. As a Singpass partner, you add it yourself:
+
+1. Download the Singpass logo from the button specification page (the "Download Singpass logo" file). Use the full-colour logo for the default white button.
+2. Save it as `branding/singpass-logo.svg` (or `.png`, at most 200 KB) in the app's data volume, for example:
+
+   ```sh
+   docker compose exec app mkdir -p /data/branding
+   docker compose cp singpass-logo.svg app:/data/branding/singpass-logo.svg
+   ```
+
+3. Reload the sign-in page: the Singpass button now shows the logo. No restart is needed. Crow HR serves the file at `/branding/singpass-logo` as an image only (an SVG cannot run script).
+
+Without the file, the button shows the plain text "Log in with Singpass". **Do not go live with Singpass until the button shows the official logo.**
+
+## Public demo
+
+Crow Tech's public demo runs entirely in the visitor's browser, so it cannot hold Singpass keys. To let demo visitors log in with Singpass for real, a Crow HR server acts as the relying party for it:
+
+1. On that server, add a Singpass method as above (in its own organisation) and register it with Singpass. It does not need to be switched on.
+2. Set `DEMO_SINGPASS_PROVIDER_ID` (the method's id, as in its redirect URI) and `DEMO_SINGPASS_RETURN_URL` (the demo's sign-in page, for example `https://hr.crow.sg/sign-in/kopi-kaki`) and restart.
+3. Build the demo with `VITE_DEMO_SINGPASS_START_URL=<server>/api/v1/auth/oidc/<id>/start?purpose=demo` and, for the logo, `VITE_SINGPASS_LOGO_SRC`.
+
+The visitor logs in with Singpass, the server checks Singpass's answer and then forgets the person: no account, session, link or Singpass ID is stored (the audit log records only that a demo login happened). Back in the demo, they choose **HR admin** or **Employee** and look around their own fictional copy. Each network can start 20 demo logins an hour and the server 1,000 a day; Singpass Login is free for the first 50,000 logins a month per UEN. Real visitors need a **production** Singpass app; Singpass staging accepts only its test accounts.
 
 ## Status
 

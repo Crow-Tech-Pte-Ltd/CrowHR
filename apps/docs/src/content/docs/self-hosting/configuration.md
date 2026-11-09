@@ -87,6 +87,8 @@ Invitations and password-reset emails are currently sent directly by the sign-in
 | `WEB_DIST_DIR` | `/app/apps/web/dist` in the image | Built web app. |
 | `SETUP_GATE` | `true` | Redirect every page to `/setup` until setup is done. Tests only. |
 | `NODE_ENV` | `production` in the image | Outside the image (development) `PUBLIC_URL` defaults to `http://localhost:8080` and the database to `pglite:./data/pglite`. |
+| `DEMO_SINGPASS_PROVIDER_ID` | unset | Only for hosting the public demo's Singpass login: the id of this server's Singpass method (as in its redirect URI). Set together with `DEMO_SINGPASS_RETURN_URL`. Nobody is signed in on this server and nothing about the person is kept. See [Singpass login](/docs/admin/sso/singpass/#public-demo). |
+| `DEMO_SINGPASS_RETURN_URL` | unset | The demo sign-in page (full `https://` address, for example `https://hr.crow.sg/sign-in/kopi-kaki`) that demo visitors return to after Singpass. Set together with `DEMO_SINGPASS_PROVIDER_ID`. |
 
 ## Set by the image or compose file
 

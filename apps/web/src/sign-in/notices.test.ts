@@ -18,4 +18,16 @@ describe("sign-in notices", () => {
     );
   });
   it("is empty without a reason", () => expect(noticeFor({}, "X")).toBeNull());
+  it("explains a demo Singpass login that didn't finish, and a busy demo", () => {
+    expect(noticeFor({ singpass: "failed", reason: "token_validation_failed" }, "Kopi Kaki")).toEqual({
+      tone: "warning",
+      title: "Singpass login didn't finish",
+      body: "Try again, or pick someone below to look around without Singpass.",
+    });
+    expect(noticeFor({ singpass: "failed", reason: "busy" }, "Kopi Kaki")?.body).toBe(
+      "The demo has had a lot of Singpass logins. Try again later, or pick someone below to look around without Singpass.",
+    );
+    // Back from Singpass successfully: the HR admin / Employee choice is shown instead of a notice.
+    expect(noticeFor({ singpass: "ok" }, "Kopi Kaki")).toBeNull();
+  });
 });

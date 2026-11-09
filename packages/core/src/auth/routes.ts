@@ -22,6 +22,8 @@ const methodsResponse = z.object({
     }),
   ),
   demoMode: z.boolean(),
+  /** The official Singpass logo for the Singpass button, when the deployer supplied it; else null. */
+  singpassLogoUrl: z.string().nullable(),
 });
 
 export const authModule = defineModule({
@@ -53,6 +55,7 @@ export const authModule = defineModule({
             password: { enabled: false },
             providers: [],
             demoMode: !!deps.demoMode,
+            singpassLogoUrl: deps.singpassLogoUrl?.() ?? null,
           };
         }
         const methods = await publicSignInMethods(deps.db, org.id);
@@ -61,6 +64,7 @@ export const authModule = defineModule({
           organisation: { name: org.name, slug: org.slug },
           ...methods,
           demoMode: !!deps.demoMode,
+          singpassLogoUrl: deps.singpassLogoUrl?.() ?? null,
         };
       },
     }),

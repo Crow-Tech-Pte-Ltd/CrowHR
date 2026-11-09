@@ -84,6 +84,22 @@ describe("sign-in method configuration", () => {
     expect((await app.request("/api/v1/auth/methods?org=nope")).status).toBe(404);
   });
 
+  it("names the deployer-supplied official Singpass logo, if there is one", async () => {
+    const plain = (await (await app.request("/api/v1/auth/methods?org=kopi")).json()) as { singpassLogoUrl: unknown };
+    expect(plain.singpassLogoUrl).toBeNull();
+    let file: string | null = null;
+    const withLogo = createApp(createTestDeps(t.db, { singpassLogoUrl: () => file }));
+    expect(
+      ((await (await withLogo.request("/api/v1/auth/methods?org=kopi")).json()) as { singpassLogoUrl: unknown })
+        .singpassLogoUrl,
+    ).toBeNull();
+    file = "/branding/singpass-logo";
+    expect(
+      ((await (await withLogo.request("/api/v1/auth/methods?org=kopi")).json()) as { singpassLogoUrl: unknown })
+        .singpassLogoUrl,
+    ).toBe("/branding/singpass-logo");
+  });
+
   it("once passwords are off: staff are refused with the SSO names; the owner's break-glass sign-in works with MFA and is audited", async () => {
     const owner = await seedMember(deps, org.id, { roles: ["owner"], email: "owner@kopi.sg", password: PASSWORD });
     const ownerWeb = await clientAs(app, deps, owner);

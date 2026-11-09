@@ -29,7 +29,10 @@ function OutboxFooterLink({ onNavigate }: { onNavigate: () => void }) {
 export function configureWebForDemo() {
   shellExtensions.NotificationsFooter = OutboxFooterLink;
   shellExtensions.demoPersonas = Object.fromEntries(
-    PERSONAS.map((p, i) => [p.email, { label: p.label, blurb: p.blurb, order: i }]),
+    PERSONAS.map((p, i) => [p.email, { key: p.key, label: p.label, blurb: p.blurb, order: i }]),
   );
+  // Build-time: a Crow HR server's demo Singpass start URL (see the Singpass guide). Unset: disabled.
+  const singpassStart = import.meta.env.VITE_DEMO_SINGPASS_START_URL;
+  if (singpassStart) shellExtensions.demoSingpassStartUrl = singpassStart;
   shellExtensions.demoSignInNote = `Prefer typing? Every demo account's password is ${DEMO_PASSWORD}. Emails the app would send appear in the Demo outbox.`;
 }

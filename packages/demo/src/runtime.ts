@@ -37,6 +37,8 @@ export interface OpenDemoInput {
   onOutbox?: (count: number) => void;
   /** Persists the database (IndexedDB). Awaited after every write so a reload never loses it. */
   flush?: () => Promise<void>;
+  /** Deployer-supplied official Singpass logo URL (build-time VITE_SINGPASS_LOGO_SRC; not in the repository). */
+  singpassLogoUrl?: string | null;
 }
 
 const b64 = {
@@ -127,6 +129,7 @@ export async function openDemo(input: OpenDemoInput) {
     mailer,
     secretKey: b64.decode(meta.secretKey),
     publicUrl: input.origin,
+    singpassLogoUrl: input.singpassLogoUrl ?? null,
   });
   const app = createApp(deps);
   const jar = createCookieJar((await kv.get<StoredCookie[]>("cookies")) ?? []);
