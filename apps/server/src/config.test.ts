@@ -47,3 +47,46 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ DATABASE_URL: "mysql://x" })).toThrow(/postgres:\/\/crowhr:password@db:5432\/crowhr/);
   });
 });
+
+describe("demo Singpass round trip settings", () => {
+  const id = "01a1c086-96f9-793c-ac3e-aef0f1f4aae5";
+  it("is off by default", () => {
+    expect(loadConfig({ PUBLIC_URL: "https://hr.example.sg" })).toMatchObject({
+      DEMO_SINGPASS_PROVIDER_ID: null,
+      DEMO_SINGPASS_RETURN_URL: null,
+    });
+  });
+
+  it("takes a provider id and an absolute return URL together", () => {
+    expect(
+      loadConfig({
+        PUBLIC_URL: "https://hr.example.sg",
+        DEMO_SINGPASS_PROVIDER_ID: id,
+        DEMO_SINGPASS_RETURN_URL: "https://hr.crow.sg/sign-in/kopi-kaki",
+      }),
+    ).toMatchObject({
+      DEMO_SINGPASS_PROVIDER_ID: id,
+      DEMO_SINGPASS_RETURN_URL: "https://hr.crow.sg/sign-in/kopi-kaki",
+    });
+  });
+
+  it("says what is wrong", () => {
+    expect(() => loadConfig({ PUBLIC_URL: "https://hr.example.sg", DEMO_SINGPASS_PROVIDER_ID: id })).toThrow(
+      /DEMO_SINGPASS_PROVIDER_ID and DEMO_SINGPASS_RETURN_URL go together/,
+    );
+    expect(() =>
+      loadConfig({
+        PUBLIC_URL: "https://hr.example.sg",
+        DEMO_SINGPASS_PROVIDER_ID: "not-a-uuid",
+        DEMO_SINGPASS_RETURN_URL: "https://hr.crow.sg/sign-in/kopi-kaki",
+      }),
+    ).toThrow(/DEMO_SINGPASS_PROVIDER_ID must be the id of a Singpass method/);
+    expect(() =>
+      loadConfig({
+        PUBLIC_URL: "https://hr.example.sg",
+        DEMO_SINGPASS_PROVIDER_ID: id,
+        DEMO_SINGPASS_RETURN_URL: "/sign-in/kopi-kaki",
+      }),
+    ).toThrow(/DEMO_SINGPASS_RETURN_URL must be a full http:\/\/ or https:\/\/ address/);
+  });
+});

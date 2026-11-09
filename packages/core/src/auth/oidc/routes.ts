@@ -2,7 +2,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import * as oidc from "openid-client";
 import { z } from "zod";
-import { auditContext, recordAudit } from "../../audit/audit.ts";
+import { auditContext, clientIp, recordAudit } from "../../audit/audit.ts";
 import type { AppContext, AuthMethod } from "../../context.ts";
 import { SECRET_PURPOSES } from "../../crypto/secret-box.ts";
 import { sha256Hex } from "../../crypto/tokens.ts";
@@ -19,8 +19,9 @@ import { isConfigured } from "../methods.ts";
 import { completeNativeSignIn } from "../native/complete.ts";
 import { noticeNewBrowserSignIn, sendSecurityNotice } from "../security-notices.ts";
 import { startBrowserSession } from "../sessions.ts";
-import { MINUTE, sessionCookie } from "../settings.ts";
+import { DAY, HOUR, MINUTE, sessionCookie } from "../settings.ts";
 import { setMfaCookie } from "../sign-in-routes.ts";
+import { hitWindow } from "../throttle.ts";
 import { callbackUrl, providerConfig } from "./client.ts";
 import { entraEmailVerified, idpAssertsMfa } from "./mfa.ts";
 import { PRESETS, singpassSubject } from "./presets.ts";
@@ -62,6 +63,16 @@ type FailureReason =
   | "invitation_invalid"
   | "already_linked"
   | "request_rejected";
+
+/** Where the demo round trip ends: the configured demo page, with `singpass=ok|failed` added. */
+function demoReturnUrl(base: string, params: Record<string, string>): string {
+  const url = new URL(base);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  return url.toString();
+}
+
+const DEMO_HOURLY_LIMIT_PER_NETWORK = 20;
+const DEMO_DAILY_LIMIT = 1000;
 
 /**
  * The OAuth error an identity provider answered with (`error`, `error_description`, HTTP status).
@@ -135,8 +146,10 @@ async function fail(
     action: purpose === "test" ? "sso.test_failed" : "auth.sso_failed",
     targetType: "sso_provider",
     targetId: provider.id,
-    meta: { reason, provider: provider.displayName, ...detail },
+    meta: { reason, provider: provider.displayName, ...(purpose === "demo" ? { purpose } : {}), ...detail },
   });
+  if (purpose === "demo" && deps.demoSingpass)
+    return c.redirect(demoReturnUrl(deps.demoSingpass.returnUrl, { singpass: "failed", reason }), 302);
   if (purpose === "test")
     return c.redirect(`/settings/security?test=failed&provider=${provider.id}&reason=${reason}`, 302);
   if (purpose === "link") return c.redirect(`/me/sessions?link=failed&reason=${reason}`, 302);
@@ -156,12 +169,12 @@ export const oidcRoutes = [
     path: "/oidc/:providerId/start",
     summary: "Start single sign-on with a provider",
     description:
-      "Redirects to the identity provider (authorization code + PKCE S256, state and nonce kept server-side for 10 minutes). `purpose=test` is an owner's test sign-in; `purpose=link` links the provider to the signed-in user.",
+      "Redirects to the identity provider (authorization code + PKCE S256, state and nonce kept server-side for 10 minutes). `purpose=test` is an owner's test sign-in; `purpose=link` links the provider to the signed-in user. `purpose=demo` (only on a server configured with `DEMO_SINGPASS_PROVIDER_ID` and `DEMO_SINGPASS_RETURN_URL`, only for that Singpass provider) is the in-browser demo's Singpass round trip: nobody is signed in or linked, and the browser returns to the demo with `singpass=ok` or `singpass=failed`.",
     access: "public",
     request: {
       params: z.object({ providerId: z.uuid() }),
       query: z.object({
-        purpose: z.enum(["sign_in", "test", "link"]).default("sign_in"),
+        purpose: z.enum(["sign_in", "test", "link", "demo"]).default("sign_in"),
         invitation: z.string().min(20).max(200).optional(),
         native: z.uuid().optional(),
       }),
@@ -177,7 +190,21 @@ export const oidcRoutes = [
       }
       const provider = await loadProvider(c, params.providerId);
       if (!provider || !isConfigured(provider)) throw new AppError("not_found", "That sign-in method isn't set up.");
-      if (query.purpose === "test") {
+      const demo = deps.demoSingpass;
+      if (query.purpose === "demo") {
+        if (!demo || demo.providerId !== provider.id || provider.kind !== "singpass")
+          throw new AppError("not_found", "That sign-in method isn't set up.");
+        // Fixed windows in auth_throttle: per network per hour and for the whole server per day.
+        const now = deps.clock.now();
+        const perNetwork = await hitWindow(deps.db, `demo-singpass:ip:${clientIp(c) ?? "unknown"}`, HOUR, now);
+        const perDay = await hitWindow(deps.db, "demo-singpass:day", DAY, now);
+        if (
+          perNetwork.count > (demo.hourlyLimitPerNetwork ?? DEMO_HOURLY_LIMIT_PER_NETWORK) ||
+          perDay.count > (demo.dailyLimit ?? DEMO_DAILY_LIMIT)
+        ) {
+          return c.redirect(demoReturnUrl(demo.returnUrl, { singpass: "failed", reason: "busy" }), 302);
+        }
+      } else if (query.purpose === "test") {
         if (!auth || auth.orgId !== provider.orgId || !auth.roles.includes("owner")) {
           throw new AppError("forbidden", "Only an owner of this organisation can test a sign-in method.");
         }
@@ -192,7 +219,7 @@ export const oidcRoutes = [
         throw new AppError("not_found", "That sign-in method isn't enabled.");
       }
       let invitationId: string | null = null;
-      if (query.invitation) {
+      if (query.invitation && query.purpose !== "demo") {
         const [invite] = await deps.db
           .select()
           .from(invitations)
@@ -231,8 +258,8 @@ export const oidcRoutes = [
         codeVerifierEnc: await deps.secretBox.encrypt(SECRET_PURPOSES.oidcTransaction, verifier),
         dpopJwkEnc,
         invitationId,
-        linkUserId: query.purpose !== "sign_in" ? (auth?.user.id ?? null) : null,
-        nativeRequestId: query.native ?? null,
+        linkUserId: query.purpose === "test" || query.purpose === "link" ? (auth?.user.id ?? null) : null,
+        nativeRequestId: query.purpose === "demo" ? null : (query.native ?? null),
         expiresAt: new Date(now.getTime() + OIDC_TRANSACTION_TTL_MS),
         createdAt: now,
       });
@@ -364,6 +391,19 @@ export const oidcRoutes = [
         return fail(c, provider, "tid_mismatch", tx.purpose, {
           tid: typeof claims.tid === "string" ? claims.tid : null,
         });
+      }
+
+      if (tx.purpose === "demo") {
+        // In-browser demo: Singpass's answer was valid. Keep nothing about the person (no subject in
+        // the audit event, no session, no identity) and send the browser back to the demo.
+        const demo = deps.demoSingpass;
+        if (!demo || demo.providerId !== provider.id) return fail(c, provider, "expired", "sign_in");
+        await recordAudit(db, deps, auditContext(c, provider.orgId), {
+          action: "sso.demo_sign_in",
+          targetType: "sso_provider",
+          targetId: provider.id,
+        });
+        return c.redirect(demoReturnUrl(demo.returnUrl, { singpass: "ok" }), 302);
       }
 
       if (tx.purpose === "test") {

@@ -13,13 +13,14 @@ import { cn } from "../lib/cn.ts";
  *   ("White with outline" variant: #FFFFFF, #AAABAD border, #141414 text, hover #F5F5F7;
  *   min height 40px desktop / 44px mobile; 16px side padding; approved label "Log in with Singpass").
  *
- * NOT COMPLIANT YET (Singpass): the specification requires the official
- * Singpass logo inside the button and forbids replacing it with text. The logo
- * is published without a licence that permits redistribution in an MIT repo,
- * so it is NOT bundled; the button renders plain text "Log in with Singpass"
- * (deliberately no imitation of the wordmark's colouring) until a deployer
- * supplies the official asset via `singpassLogoSrc`. Do not go live with
- * Singpass without it. Tracked in docs/limitations.md.
+ * Singpass logo: the specification requires the official Singpass logo inside
+ * the button and forbids replacing it with text. The logo is published for
+ * Singpass partners, not under a licence that permits redistribution in an MIT
+ * repo, so it is NOT bundled. The deployer supplies it (server:
+ * <DATA_DIR>/branding/singpass-logo.svg, served as `singpassLogoUrl`; demo:
+ * VITE_SINGPASS_LOGO_SRC) and it arrives here as `singpassLogoSrc`. Without it
+ * the button renders plain text "Log in with Singpass" (deliberately no
+ * imitation of the wordmark's colouring): not compliant, don't go live so.
  */
 export type IdentityProvider = "google" | "microsoft" | "singpass" | "oidc";
 

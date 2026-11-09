@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import {
   type AppDeps,
   createApproverDirectory,
@@ -10,6 +11,7 @@ import {
   systemClock,
 } from "@crowhr/core";
 import { createArgon2Hasher } from "./argon2-hasher.ts";
+import { findSingpassLogo, SINGPASS_LOGO_PATH } from "./branding.ts";
 import { createClamAvScanner } from "./clamav.ts";
 import type { ServerConfig } from "./config.ts";
 import type { Database } from "./db.ts";
@@ -47,6 +49,17 @@ export function createServerDeps(
     peopleDates,
     resolveClient: createClientResolver({ trusted: config.TRUSTED_PROXIES, logger, dataDir: config.DATA_DIR }),
     systemHost: createSystemHost(config, database.driver),
+    // The official Singpass logo, when the deployer put it in <DATA_DIR>/branding (checked per request).
+    singpassLogoUrl: () => (findSingpassLogo(join(config.DATA_DIR, "branding")) ? SINGPASS_LOGO_PATH : null),
+    // The in-browser demo's Singpass round trip (DEMO_SINGPASS_*), off unless both are set.
+    ...(config.DEMO_SINGPASS_PROVIDER_ID && config.DEMO_SINGPASS_RETURN_URL
+      ? {
+          demoSingpass: {
+            providerId: config.DEMO_SINGPASS_PROVIDER_ID,
+            returnUrl: config.DEMO_SINGPASS_RETURN_URL,
+          },
+        }
+      : {}),
     // `mailer` (SMTP_URL / MAIL_FROM, see mailer.ts) arrives in `extra` when configured; without it,
     // notifications are in-app only and invitations and password resets offer a copyable link.
     ...extra,

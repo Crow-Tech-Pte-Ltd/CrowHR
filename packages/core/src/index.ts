@@ -18,6 +18,8 @@ export {
 } from "./audit/audit.ts";
 export { createDemoPasswordHasher, DEMO_HASH_PREFIX } from "./auth/demo-hasher.ts";
 export { requireRecentAuth } from "./auth/guards.ts";
+/** Singpass relying-party keys (ES256 signing + ECDH-ES encryption); the demo seed uses it too. */
+export { generateRpKeys } from "./auth/oidc/keys.ts";
 export { newResetLinkForCli } from "./auth/owner-recovery.ts";
 export { passwordProblem } from "./auth/password-policy.ts";
 export { revokeUserSessions } from "./auth/sessions.ts";

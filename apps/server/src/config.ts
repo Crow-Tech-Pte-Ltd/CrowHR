@@ -44,6 +44,12 @@ export interface ServerConfig {
   LOG_LEVEL: LogLevel;
   CLAMAV_HOST: string | null;
   CLAMAV_PORT: number;
+  /**
+   * Demo Singpass round trip: the id of this server's Singpass method that the in-browser demo
+   * uses, and the demo page Singpass visitors are sent back to. Both or neither. Off by default.
+   */
+  DEMO_SINGPASS_PROVIDER_ID: string | null;
+  DEMO_SINGPASS_RETURN_URL: string | null;
 }
 
 export class ConfigError extends Error {
@@ -258,6 +264,35 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     }
   }
 
+  const DEMO_SINGPASS_PROVIDER_ID = get("DEMO_SINGPASS_PROVIDER_ID") ?? null;
+  const DEMO_SINGPASS_RETURN_URL = get("DEMO_SINGPASS_RETURN_URL") ?? null;
+  if ((DEMO_SINGPASS_PROVIDER_ID === null) !== (DEMO_SINGPASS_RETURN_URL === null)) {
+    fail(
+      "DEMO_SINGPASS_PROVIDER_ID and DEMO_SINGPASS_RETURN_URL go together: set both to let the public demo use this server's Singpass method, or neither. Set it in .env.",
+    );
+  }
+  if (
+    DEMO_SINGPASS_PROVIDER_ID !== null &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(DEMO_SINGPASS_PROVIDER_ID)
+  ) {
+    fail(
+      `DEMO_SINGPASS_PROVIDER_ID must be the id of a Singpass method on this server (a UUID, as in its redirect URI /api/v1/auth/oidc/<id>/callback), not "${DEMO_SINGPASS_PROVIDER_ID}". Set it in .env.`,
+    );
+  }
+  if (DEMO_SINGPASS_RETURN_URL !== null) {
+    let ok = false;
+    try {
+      const u = new URL(DEMO_SINGPASS_RETURN_URL);
+      ok = (u.protocol === "https:" || u.protocol === "http:") && !u.hash && !u.username && !u.password;
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      fail(
+        `DEMO_SINGPASS_RETURN_URL must be a full http:// or https:// address of the demo's sign-in page, without a #fragment, for example DEMO_SINGPASS_RETURN_URL=https://hr.crow.sg/sign-in/kopi-kaki (got "${DEMO_SINGPASS_RETURN_URL}"). Set it in .env.`,
+      );
+    }
+  }
   const logLevel = (get("LOG_LEVEL") ?? "info").toLowerCase();
   if (!["debug", "info", "warn", "error"].includes(logLevel)) {
     fail("LOG_LEVEL must be debug, info, warn or error, for example LOG_LEVEL=info. Set it in .env.");
@@ -290,6 +325,8 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     LOG_LEVEL: logLevel as LogLevel,
     CLAMAV_HOST: get("CLAMAV_HOST") ?? null,
     CLAMAV_PORT: int("CLAMAV_PORT", 3310, 1, 65535),
+    DEMO_SINGPASS_PROVIDER_ID,
+    DEMO_SINGPASS_RETURN_URL,
   };
   if (problems.length) throw new ConfigError(problems);
   return config;

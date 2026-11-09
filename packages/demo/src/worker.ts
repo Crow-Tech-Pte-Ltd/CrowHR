@@ -130,6 +130,8 @@ async function start(origin: string, dataVersion: string) {
     onStage: progress,
     onOutbox: (count) => post({ event: "outbox", count }),
     flush,
+    // Deployer-supplied official Singpass logo (not in the repository), set at build time.
+    singpassLogoUrl: import.meta.env.VITE_SINGPASS_LOGO_SRC || null,
   });
   // Persist the fresh seed and run the first scheduled sweep just after the app is on screen
   // (doing it first would add ~100 ms to the first load). Requests wait for the flush's lock.
