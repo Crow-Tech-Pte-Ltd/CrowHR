@@ -36,6 +36,7 @@ import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote, Section } from "../../../components/section.tsx";
 import { ApiError, apiDelete, apiGet, apiPatch } from "../../../lib/api.ts";
 import { ProviderDialog } from "../../../settings/provider-setup.tsx";
+import { singpassNote } from "../../../settings/singpass-note.ts";
 
 export const Route = createFileRoute("/_app/settings/security")({
   validateSearch: (s: Record<string, unknown>): { test?: string; provider?: string; reason?: string } => ({
@@ -284,11 +285,16 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
                       </>
                     )}
                   </span>
-                  {p.kind === "singpass" ? (
-                    <span className="block text-2xs text-warning-400">
-                      Tested against a simulated Singpass only. Complete a staging test before production.
-                    </span>
-                  ) : null}
+                  {(() => {
+                    const note = p.kind === "singpass" ? singpassNote(p) : null;
+                    return note ? (
+                      <span
+                        className={`block text-2xs ${note.tone === "warning" ? "text-warning-400" : "text-primary-300"}`}
+                      >
+                        {note.text}
+                      </span>
+                    ) : null;
+                  })()}
                 </span>
               </span>
               <span className="flex items-center gap-2">

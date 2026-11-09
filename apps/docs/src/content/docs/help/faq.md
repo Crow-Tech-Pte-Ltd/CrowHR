@@ -45,7 +45,7 @@ An [in-browser demo](/docs/demo/) is built but not published yet. You can build 
 
 ## Do we need Singpass?
 
-No. Singpass login is optional and requires your company's own Singpass onboarding. It is not tested against real Singpass yet. Email and password, Google Workspace, Microsoft Entra ID and other OpenID Connect providers work without it.
+No. Singpass login is optional and requires your company's own Singpass onboarding. It has been tested against Singpass staging, not production yet. Email and password, Google Workspace, Microsoft Entra ID and other OpenID Connect providers work without it.
 
 ## How do we get support?
 

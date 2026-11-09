@@ -12,7 +12,7 @@ Crow HR is designed to run without any external service. Everything below is opt
 | Google Workspace sign-in | OpenID Connect | [Google Workspace](/docs/admin/sso/google-workspace/) |
 | Microsoft Entra ID sign-in | OpenID Connect, single tenant | [Microsoft Entra ID](/docs/admin/sso/microsoft-entra-id/) |
 | Okta, Keycloak, Authentik and other OIDC providers | OpenID Connect with discovery | [Generic OIDC](/docs/admin/sso/generic-oidc/) |
-| Singpass login | FAPI 2.0 profile; needs your own relying-party onboarding; not tested against real Singpass | [Singpass](/docs/admin/sso/singpass/) |
+| Singpass login | FAPI 2.0 profile; needs your own relying-party onboarding; tested against Singpass staging, not production yet | [Singpass](/docs/admin/sso/singpass/) |
 | Email | Any SMTP server (`SMTP_URL`, `MAIL_FROM`) | [Configuration](/docs/self-hosting/configuration/#email) |
 | CPF Board | CPF EZPay (FTP) file, uploaded by you | [CPF EZPay file](/docs/payroll/cpf-ezpay-file/) |
 | Banks | Generic ISO 20022 `pain.001.001.03` file, uploaded by you | [Bank file](/docs/payroll/bank-file/) |

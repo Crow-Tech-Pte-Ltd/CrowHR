@@ -15,7 +15,7 @@ Owners choose the sign-in methods in **Settings → Security**. Each organisatio
 | Google Workspace | OpenID Connect with Google; can be restricted to your Workspace domains. | [Google Workspace](/docs/admin/sso/google-workspace/) |
 | Microsoft Entra ID | OpenID Connect restricted to one tenant. | [Microsoft Entra ID](/docs/admin/sso/microsoft-entra-id/) |
 | OpenID Connect | Any provider with discovery: Okta, Keycloak, Authentik and others. | [Generic OIDC](/docs/admin/sso/generic-oidc/) |
-| Singpass | Needs your company to be onboarded as a Singpass relying party. Not tested against real Singpass yet. | [Singpass](/docs/admin/sso/singpass/) |
+| Singpass | Needs your company to be onboarded as a Singpass relying party. Tested against Singpass staging; not against production yet. | [Singpass](/docs/admin/sso/singpass/) |
 
 All SSO methods use one OpenID Connect implementation (authorisation code flow with PKCE, `state` and `nonce`), with provider presets. Client secrets and private keys are encrypted at rest and never shown again after saving; the API only says whether one is set.
 

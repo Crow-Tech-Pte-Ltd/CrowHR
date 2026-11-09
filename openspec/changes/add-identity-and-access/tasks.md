@@ -52,9 +52,9 @@
 
 ## 8. Singpass (milestone M3)
 
-- [x] 8.1 packages/core: extend the mock IdP with PAR, DPoP and JWE ID tokens; write `auth/singpass.test.ts` (PAR used, `private_key_jwt` assertion valid, DPoP proof bound, encrypted ID token decrypted, link only by invitation or profile) then enable the Singpass preset — tested only against the mock IdP; NOT verified against real Singpass (8.3 open)
+- [x] 8.1 packages/core: extend the mock IdP with PAR, DPoP and JWE ID tokens; write `auth/singpass.test.ts` (PAR used, `private_key_jwt` assertion valid, DPoP proof bound, encrypted ID token decrypted, link only by invitation or profile) then enable the Singpass preset — tested against the mock IdP; verified against Singpass staging on 9 Nov 2026 (8.3); production not yet
 - [x] 8.2 packages/core: write `auth/jwks.http.test.ts` (public keys only, no private members) then implement RP key generation and the JWKS route
-- [ ] 8.3 apps/docs: Singpass relying-party setup guide — verified by review; manual staging sign-in recorded in the guide before this task is ticked — PARTIAL: guide written (`apps/docs/src/content/docs/admin/sso/singpass.mdx`, onboarding requirements, keys/JWKS, linking, button limitation, "not verified against real Singpass"); the staging sign-in has not been done
+- [x] 8.3 apps/docs: Singpass relying-party setup guide — verified by review; manual staging sign-in recorded in the guide before this task is ticked — guide in `apps/docs/src/content/docs/admin/sso/singpass.mdx`; staging sign-in passed 9 Nov 2026 on hr-staging.crow.sg (Crow Tech's staging Login app, test account, password login) and is recorded in the guide's Status table. It found and fixed: the issuer (`/fapi`), the mandatory `authentication_context_type`, the client assertion `typ: JWT`, and Cloudflare Bot Fight Mode blocking the JWKS fetch (JWKS object used). Production Singpass and the button design specification remain open (see docs/limitations.md)
 
 ## 9. Web UI
 
