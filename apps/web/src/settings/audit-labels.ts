@@ -79,6 +79,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "sso.provider_deleted": "Sign-in method removed",
   "sso.test_succeeded": "Sign-in method test passed",
   "sso.test_failed": "Sign-in method test failed",
+  "sso.demo_sign_in": "Demo Singpass login (person not kept)",
   "sso.identity_linked": "Sign-in account linked",
   "sso.identity_unlinked": "Sign-in account unlinked",
   // Organisation

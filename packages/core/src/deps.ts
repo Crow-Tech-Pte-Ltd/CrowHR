@@ -77,6 +77,26 @@ export interface AppDeps {
   httpFetch?: typeof fetch;
   /** Browser demo: SSO disabled with an explanation, persona sign-in offered. */
   demoMode?: boolean;
+  /**
+   * Demo Singpass round trip (server settings DEMO_SINGPASS_PROVIDER_ID / DEMO_SINGPASS_RETURN_URL):
+   * this server is the Singpass relying party for the in-browser demo. `purpose=demo` on that one
+   * Singpass provider validates Singpass's answer, keeps nothing about the person and redirects to
+   * `returnUrl` with `singpass=ok|failed`. Off when absent.
+   */
+  /**
+   * URL of the official Singpass logo for the Singpass button, if the deployer supplied one (the
+   * repository has no Singpass artwork). Server: `/branding/singpass-logo` when the file exists in
+   * the data directory; demo: the build-time `VITE_SINGPASS_LOGO_SRC`.
+   */
+  singpassLogoUrl?: () => string | null;
+  demoSingpass?: {
+    providerId: string;
+    returnUrl: string;
+    /** Starts per network per hour (default 20). */
+    hourlyLimitPerNetwork?: number;
+    /** Starts per day overall (default 1,000; Singpass Login is free up to 50,000 a month per UEN). */
+    dailyLimit?: number;
+  };
   /** Allowed native-app redirect URIs (api-platform). Defaults to the official app schemes. */
   nativeRedirectUris?: readonly string[];
   /**

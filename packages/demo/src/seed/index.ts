@@ -1,4 +1,4 @@
-import { type AppDeps, type AssignedRole, createApp, schema } from "@crowhr/core";
+import { type AppDeps, type AssignedRole, createApp, generateRpKeys, SECRET_PURPOSES, schema } from "@crowhr/core";
 import { eq } from "drizzle-orm";
 import type { SeedClock } from "../clock.ts";
 import { DEMO_PASSWORD, OTHER_MEMBERS, PERSONAS } from "../personas.ts";
@@ -101,6 +101,8 @@ export async function seedDemo(deps: AppDeps, clock: SeedClock, origin: string):
  * Google, Microsoft and Singpass appear on the sign-in page so visitors see what staff would see;
  * in demo mode core refuses to start them ("Not available in the demo …"), with no network call.
  * The client IDs are placeholders and the secret is a throwaway string, encrypted like a real one.
+ * Singpass gets generated relying-party keys so it counts as configured and is listed; a demo build
+ * with VITE_DEMO_SINGPASS_START_URL sends its button to a real server instead (see the Singpass guide).
  */
 async function seedSsoProviders(deps: AppDeps, orgId: string) {
   const now = deps.clock.now();
@@ -134,6 +136,13 @@ async function seedSsoProviders(deps: AppDeps, orgId: string) {
       clientId: `demo-${r.kind}-client`,
       clientSecretEnc:
         r.kind === "singpass" ? null : await deps.secretBox.encrypt("sso-client-secret", "demo-not-a-secret"),
+      privateJwksEnc:
+        r.kind === "singpass"
+          ? await deps.secretBox.encrypt(
+              SECRET_PURPOSES.ssoPrivateJwks,
+              JSON.stringify((await generateRpKeys()).privateJwks),
+            )
+          : null,
       allowedDomains: "allowedDomains" in r ? r.allowedDomains : [],
       tenantId: "tenantId" in r ? r.tenantId : null,
       environment: "environment" in r ? r.environment : null,

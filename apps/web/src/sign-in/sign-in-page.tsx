@@ -21,7 +21,8 @@ import { meQuery } from "../auth/session.ts";
 import type { SignInMethods, SignInResult } from "../auth/types.ts";
 import { Wordmark } from "../components/wordmark.tsx";
 import { ApiError, apiPost } from "../lib/api.ts";
-import { DemoPersonaPicker } from "./demo-personas.tsx";
+import { shellExtensions } from "../shell/extensions.ts";
+import { DEMO_SINGPASS_PERSONAS, DemoPersonaPicker } from "./demo-personas.tsx";
 import type { SignInNotice } from "./notices.ts";
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
@@ -35,12 +36,15 @@ export function SignInPage({
   nativeRequestId,
   initialNotice,
   ssoMfaPending = false,
+  demoSingpassOk = false,
 }: {
   methods: SignInMethods;
   orgSlug: string;
   nativeRequestId?: string;
   initialNotice: SignInNotice | null;
   ssoMfaPending?: boolean;
+  /** Demo only: back from a real Singpass login, so offer HR admin or Employee. */
+  demoSingpassOk?: boolean;
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -58,6 +62,7 @@ export function SignInPage({
   const [resetOpen, setResetOpen] = React.useState(false);
 
   const providers = methods.providers;
+  const demoSingpassStartUrl = methods.demoMode ? shellExtensions.demoSingpassStartUrl : undefined;
   const passwordVisible = methods.password.enabled || showOwnerLogin;
   const googleDomains = providers.find((p) => p.kind === "google")?.allowedDomains ?? [];
 
@@ -210,30 +215,40 @@ export function SignInPage({
             </form>
           ) : (
             <>
-              {methods.demoMode && !nativeRequestId ? <DemoPersonaPicker /> : null}
+              {methods.demoMode && !nativeRequestId && demoSingpassOk ? (
+                <DemoPersonaPicker
+                  only={DEMO_SINGPASS_PERSONAS}
+                  title="Logged in with Singpass"
+                  intro="The demo doesn't keep who you are. Choose how you want to look around:"
+                />
+              ) : methods.demoMode && !nativeRequestId ? (
+                <DemoPersonaPicker />
+              ) : null}
               {providers.length ? (
                 <div className="flex flex-col gap-3" data-testid="sso-methods">
-                  {providers.map((p) =>
-                    methods.demoMode ? (
-                      <ProviderButton
-                        key={p.id}
-                        provider={p.kind === "entra" ? "microsoft" : p.kind}
-                        oidcName={p.kind === "oidc" ? p.displayName : undefined}
-                        disabled
-                        title="Not available in the demo."
-                      />
+                  {providers.map((p) => {
+                    const common = {
+                      provider: p.kind === "entra" ? ("microsoft" as const) : p.kind,
+                      oidcName: p.kind === "oidc" ? p.displayName : undefined,
+                      singpassLogoSrc: p.kind === "singpass" ? (methods.singpassLogoUrl ?? undefined) : undefined,
+                    };
+                    if (!methods.demoMode)
+                      return (
+                        <ProviderButton key={p.id} {...common} onClick={() => window.location.assign(ssoHref(p.id))} />
+                      );
+                    // Demo: only Singpass can work, through a real Crow HR server (see demoSingpassStartUrl).
+                    const startUrl = p.kind === "singpass" ? demoSingpassStartUrl : undefined;
+                    return startUrl ? (
+                      <ProviderButton key={p.id} {...common} onClick={() => window.location.assign(startUrl)} />
                     ) : (
-                      <ProviderButton
-                        key={p.id}
-                        provider={p.kind === "entra" ? "microsoft" : p.kind}
-                        oidcName={p.kind === "oidc" ? p.displayName : undefined}
-                        onClick={() => window.location.assign(ssoHref(p.id))}
-                      />
-                    ),
-                  )}
+                      <ProviderButton key={p.id} {...common} disabled title="Not available in the demo." />
+                    );
+                  })}
                   {methods.demoMode ? (
                     <p className="text-2xs text-primary-300">
-                      Not available in the demo. Self-hosted installs can enable this in Settings → Security.
+                      {demoSingpassStartUrl && providers.some((p) => p.kind === "singpass")
+                        ? "Singpass works in the demo: log in for real, then choose HR admin or Employee. The demo doesn't keep who you are. The other methods are not available in the demo."
+                        : "Not available in the demo. Self-hosted installs can enable this in Settings → Security."}
                     </p>
                   ) : null}
                   {googleDomains.length ? (

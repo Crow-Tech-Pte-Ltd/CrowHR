@@ -67,7 +67,7 @@ The independent review of the payroll choices marked these as **unclear**: the a
 
 ## Platform and sign-in
 
-- **Singpass** is tested against Singpass staging only (not production) and its button lacks the official logo. See [Singpass](/docs/admin/sso/singpass/).
+- **Singpass** is tested against Singpass staging only (not production) and its button needs the official logo, which you add yourself. See [Singpass](/docs/admin/sso/singpass/).
 - **Invitation and password-reset link emails bypass the outbox**: they are sent once, without retries, because their one-time links are never stored. Security notices (lockouts, new devices, two-step verification changes, recovery codes) go to the in-app inbox and the retryable email outbox.
 - **No email change** for a member's sign-in email yet.
 - **Org switcher** in the web app shows only the current organisation (the API supports switching).

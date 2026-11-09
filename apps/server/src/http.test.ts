@@ -136,6 +136,44 @@ describe("server HTTP surface", () => {
   });
 });
 
+describe("official Singpass logo (deployer-supplied)", () => {
+  let dir: string;
+  let testDb: TestDb;
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "crowhr-branding-"));
+    testDb = await createTestDb();
+  });
+  afterAll(async () => {
+    await testDb.close();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("serves branding/singpass-logo.svg from the data directory, sandboxed, and is 404 without it", async () => {
+    const app = createServerApp(createTestDeps(testDb.db), { webDistDir: dir, brandingDir: join(dir, "branding") });
+    expect((await app.request("/branding/singpass-logo")).status).toBe(404);
+    await mkdir(join(dir, "branding"));
+    await writeFile(join(dir, "branding", "singpass-logo.svg"), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+    const res = await app.request("/branding/singpass-logo");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/svg+xml");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("content-security-policy")).toContain("sandbox");
+    expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
+    expect(await res.text()).toContain("<svg");
+  });
+
+  it("refuses a logo over 200 KB", async () => {
+    const big = await mkdtemp(join(tmpdir(), "crowhr-branding-big-"));
+    try {
+      await writeFile(join(big, "singpass-logo.png"), Buffer.alloc(201 * 1024));
+      const app = createServerApp(createTestDeps(testDb.db), { webDistDir: dir, brandingDir: big });
+      expect((await app.request("/branding/singpass-logo")).status).toBe(404);
+    } finally {
+      await rm(big, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("client IP", () => {
   it("drops a client-supplied x-crowhr-client-ip header", async () => {
     const testDb = await createTestDb();

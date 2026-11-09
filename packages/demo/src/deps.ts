@@ -36,6 +36,8 @@ export interface DemoDepsInput {
   secretKey: Uint8Array;
   publicUrl: string;
   logger?: Logger;
+  /** The official Singpass logo URL for the Singpass button (build-time VITE_SINGPASS_LOGO_SRC). */
+  singpassLogoUrl?: string | null;
 }
 
 export function createDemoDeps(input: DemoDepsInput): AppDeps {
@@ -50,6 +52,7 @@ export function createDemoDeps(input: DemoDepsInput): AppDeps {
     publicUrl: input.publicUrl,
     mailer: input.mailer,
     demoMode: true,
+    singpassLogoUrl: () => input.singpassLogoUrl ?? null,
     reportingScope: createReportingScopeResolver(input.db),
     approverDirectory: createApproverDirectory({ managers: peopleManagerResolver }),
     peopleDates,

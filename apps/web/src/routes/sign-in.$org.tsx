@@ -8,17 +8,26 @@ import { RoutePending } from "../components/route-states.tsx";
 import { ApiError, apiGet } from "../lib/api.ts";
 import { noticeFor, SignInPage } from "../sign-in/sign-in-page.tsx";
 
-type Search = { mfa?: string; native?: string; reason?: string; error?: string; provider?: string; reset?: string };
+type Search = {
+  mfa?: string;
+  native?: string;
+  reason?: string;
+  error?: string;
+  provider?: string;
+  reset?: string;
+  singpass?: string;
+};
 
 export const Route = createFileRoute("/sign-in/$org")({
   validateSearch: (s: Record<string, unknown>): Search =>
     Object.fromEntries(
       Object.entries(s).filter(
-        ([k, v]) => ["mfa", "native", "reason", "error", "provider", "reset"].includes(k) && typeof v === "string",
+        ([k, v]) =>
+          ["mfa", "native", "reason", "error", "provider", "reset", "singpass"].includes(k) && typeof v === "string",
       ),
     ) as Search,
   beforeLoad: async ({ context, search }) => {
-    if (search.mfa || search.native || search.reason || search.error) return;
+    if (search.mfa || search.native || search.reason || search.error || search.singpass) return;
     // Already signed in: go home instead of showing the form.
     const me = await context.queryClient.fetchQuery(meQuery).catch(() => null);
     if (me) throw redirect({ to: "/" });
@@ -63,6 +72,7 @@ function SignInRoute() {
       orgSlug={org}
       nativeRequestId={search.native}
       ssoMfaPending={search.mfa === "1"}
+      demoSingpassOk={search.singpass === "ok"}
       initialNotice={noticeFor(search, methods.organisation?.name ?? org)}
     />
   );

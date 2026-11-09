@@ -34,6 +34,8 @@ export interface SignInMethods {
   password: { enabled: boolean };
   providers: { id: string; kind: ProviderKind; displayName: string; allowedDomains: string[] }[];
   demoMode: boolean;
+  /** The official Singpass logo for the Singpass button, when the deployer supplied it. */
+  singpassLogoUrl: string | null;
 }
 
 export interface SignInResult {

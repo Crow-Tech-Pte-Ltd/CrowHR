@@ -7781,6 +7781,12 @@
                     },
                     "demoMode": {
                       "type": "boolean"
+                    },
+                    "singpassLogoUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -7788,7 +7794,8 @@
                     "organisation",
                     "password",
                     "providers",
-                    "demoMode"
+                    "demoMode",
+                    "singpassLogoUrl"
                   ],
                   "additionalProperties": false
                 }
@@ -8097,7 +8104,7 @@
       "get": {
         "operationId": "auth.getOidcByProviderIdStart",
         "summary": "Start single sign-on with a provider",
-        "description": "Redirects to the identity provider (authorization code + PKCE S256, state and nonce kept server-side for 10 minutes). `purpose=test` is an owner's test sign-in; `purpose=link` links the provider to the signed-in user.",
+        "description": "Redirects to the identity provider (authorization code + PKCE S256, state and nonce kept server-side for 10 minutes). `purpose=test` is an owner's test sign-in; `purpose=link` links the provider to the signed-in user. `purpose=demo` (only on a server configured with `DEMO_SINGPASS_PROVIDER_ID` and `DEMO_SINGPASS_RETURN_URL`, only for that Singpass provider) is the in-browser demo's Singpass round trip: nobody is signed in or linked, and the browser returns to the demo with `singpass=ok` or `singpass=failed`.",
         "tags": [
           "Authentication"
         ],
@@ -8123,7 +8130,8 @@
               "enum": [
                 "sign_in",
                 "test",
-                "link"
+                "link",
+                "demo"
               ]
             }
           },

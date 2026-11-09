@@ -217,8 +217,11 @@ export const oidcTransactions = pgTable(
       .notNull()
       .references(() => organisations.id),
     providerId: uuid("provider_id").notNull(),
-    /** sign_in | test (owner test sign-in) | link (signed-in user links an identity) | invite. */
-    purpose: text("purpose", { enum: ["sign_in", "test", "link", "invite"] }).notNull(),
+    /**
+     * sign_in | test (owner test sign-in) | link (signed-in user links an identity) | invite |
+     * demo (Singpass round trip for the in-browser demo: validated, then the identity is discarded).
+     */
+    purpose: text("purpose", { enum: ["sign_in", "test", "link", "invite", "demo"] }).notNull(),
     nonce: text("nonce").notNull(),
     codeVerifierEnc: text("code_verifier_enc").notNull(),
     dpopJwkEnc: text("dpop_jwk_enc"),
