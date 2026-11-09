@@ -29,7 +29,7 @@
 - [x] 4.2 Pre-compressed PGlite binaries
 - [x] 4.3 `_headers`, `_redirects`, `404.html`, `wrangler.toml`, site build with docs at /docs, local Pages-like preview server
 - [x] 4.4 docs/deploy-demo.md
-- [ ] 4.5 Deploy to Cloudflare Pages and point hr.crow.sg at it — needs Daniel's approval
+- [x] 4.5 Deploy to Cloudflare Pages and point hr.crow.sg at it — needs Daniel's approval — approved and deployed 9 Nov 2026 (project `crowhr-demo`, main account). The first upload showed deep links 308-redirecting to `/` (Pages' clean URLs on a rewrite to `/index.html`); `_redirects` now rewrites to `/`
 
 ## 5. Tests
 
