@@ -126,6 +126,18 @@ describe("SSO provider configuration", () => {
     }
   });
 
+  it("still needs a client ID for providers other than Singpass", async () => {
+    const res = await owner.post("/api/v1/security/providers", {
+      kind: "oidc",
+      issuer: "https://idp.example.test",
+      clientSecret: "s3cr3t-value",
+    });
+    expect(res.status).toBe(400);
+    expect((await issues(res)).issues).toEqual([
+      { path: "clientId", message: "Paste the client ID from your identity provider." },
+    ]);
+  });
+
   it("refuses to enable a provider that isn't configured", async () => {
     const now = deps.clock.now();
     const id = deps.ids.newId();

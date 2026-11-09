@@ -52,7 +52,8 @@ const GUIDE: Record<ProviderKind, { steps: string[]; link?: { href: string; labe
   singpass: {
     steps: [
       "Your company must first be onboarded as a Singpass relying party (Singpass Developer Portal). Crow HR can't do that for you.",
-      "Enter the client ID Singpass issued. Crow HR generates the signing and encryption keys; give Singpass the JWKS URL and redirect URI shown after saving.",
+      "Save without a client ID first. Crow HR generates the signing and encryption keys and shows the redirect URI and JWKS URL to enter in the Singpass Developer Portal.",
+      "When Singpass issues the client ID, edit this method and add it.",
       "Run a test sign-in on staging before switching to production.",
     ],
     link: { href: "https://docs.developer.singpass.gov.sg/", label: "Singpass developer documentation" },
@@ -121,7 +122,7 @@ export function ProviderDialog({
       .split(/[,\s]+/)
       .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
       .filter(Boolean);
-    if (!form.clientId.trim()) errs.clientId = "Paste the client ID from your identity provider.";
+    if (!form.clientId.trim() && k !== "singpass") errs.clientId = "Paste the client ID from your identity provider.";
     if (k !== "singpass" && !existing && !form.clientSecret)
       errs.clientSecret = "Paste the client secret from your identity provider.";
     if (k === "entra" && !form.tenantId.trim())
@@ -136,7 +137,7 @@ export function ProviderDialog({
     setErrors(errs);
     if (Object.keys(errs).length) return;
     const body: Record<string, unknown> = {
-      clientId: form.clientId.trim(),
+      ...(form.clientId.trim() ? { clientId: form.clientId.trim() } : {}),
       ...(form.displayName.trim() ? { displayName: form.displayName.trim() } : {}),
       ...(form.clientSecret ? { clientSecret: form.clientSecret } : {}),
       ...(k === "entra" ? { tenantId: form.tenantId.trim() } : {}),
@@ -254,7 +255,15 @@ export function ProviderDialog({
                   </FormField>
                 </>
               ) : null}
-              <FormField label="Client ID" error={errors.clientId}>
+              <FormField
+                label={k === "singpass" ? "Client ID (optional until Singpass issues it)" : "Client ID"}
+                error={errors.clientId}
+                hint={
+                  k === "singpass"
+                    ? "Singpass issues it after you register the redirect URI and JWKS URL shown when you save."
+                    : undefined
+                }
+              >
                 <Input
                   value={form.clientId}
                   onChange={(e) => set({ clientId: e.target.value })}

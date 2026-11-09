@@ -262,7 +262,10 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
                   <span className="block text-2xs text-primary-300">
                     {p.kind === "singpass" && !p.configured ? (
                       <>
-                        Singpass is not configured: add the client ID Singpass issued you.{" "}
+                        Waiting for the client ID from Singpass. In the Singpass Developer Portal, enter the redirect
+                        URI <span className="num break-all">{p.callbackUrl}</span> and the JWKS URL{" "}
+                        <span className="num break-all">{p.jwksUrl}</span>, then edit this method to add the client ID
+                        Singpass issues.{" "}
                         <a
                           className="text-biru-400 underline"
                           href="https://docs.developer.singpass.gov.sg/"
