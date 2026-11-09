@@ -39,7 +39,7 @@ Early and under active development; not yet used for a real company's payroll.
 | Built | Not built yet |
 | --- | --- |
 | Self-hosting (compose, setup wizard, migrations, backups, encrypted once you set `BACKUP_PASSPHRASE` (strongly recommended), `crowhr` CLI) | Mobile apps |
-| Sign-in: password + TOTP, Google Workspace, Microsoft Entra ID, generic OIDC; Singpass implemented but not tested against real Singpass | Direct submission to CPF, IRAS or banks |
+| Sign-in: password + TOTP, Google Workspace, Microsoft Entra ID, generic OIDC; Singpass tested against Singpass staging, not production | Direct submission to CPF, IRAS or banks |
 | Members, roles, server-enforced permission matrix, append-only audit log with hash chaining | Virus scanning of uploads (a hook only; no scanner ships) |
 | Company, structure, employees, CSV import, lifecycle, work passes, change requests | |
 | Approvals, notifications, Home work-to-do list | |

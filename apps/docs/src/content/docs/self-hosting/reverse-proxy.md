@@ -132,6 +132,8 @@ CLOUDFLARE_TUNNEL_TOKEN=…
 
 cloudflared sends `X-Forwarded-For` with the visitor's address (Cloudflare also sends `CF-Connecting-IP`, which Crow HR does not read) and `X-Forwarded-Proto: https`.
 
+Using Singpass login? Cloudflare's **Bot Fight Mode** challenges Singpass's servers when they fetch your JWKS URL, and Singpass then refuses the sign-in. See [Singpass login](/docs/admin/sso/singpass/), step 2.
+
 ## Checking it
 
 1. Open `PUBLIC_URL`, sign in as an owner, go to **Settings → System → This request**: "Your IP as seen" should be your own public or LAN address, scheme `https` behind TLS, and the badge "Trusted proxy".
