@@ -26,7 +26,7 @@ Docs: `bun run --cwd apps/docs dev` serves this site at `http://localhost:4321/d
 bun run check
 ```
 
-It must pass: Biome (format and lint), TypeScript, all tests, sg-rules coverage, the OpenAPI snapshot, and the docs build with its link check. If you changed routes, run `bun run openapi:generate` and commit the snapshot. If you changed the database schema, run `bun run db:generate` and commit `packages/core/drizzle/`.
+It must pass: Biome (format and lint), the third-party licence check, TypeScript, all tests, sg-rules coverage, the OpenAPI snapshot, and the docs build with its link check. If you changed routes, run `bun run openapi:generate` and commit the snapshot. If you changed the database schema, run `bun run db:generate` and commit `packages/core/drizzle/`. If you added or upgraded a dependency, run `bun run licences` and commit `THIRD-PARTY-NOTICES.md`: shipped dependencies must use a permissive licence.
 
 ## What we look for
 

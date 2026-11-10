@@ -58,6 +58,7 @@ COPY packages/core/drizzle packages/core/drizzle
 COPY packages/core/testing/migrations-folder.ts packages/core/testing/migrations-folder.ts
 COPY packages/sg-rules/src packages/sg-rules/src
 COPY --from=build /src/apps/web/dist apps/web/dist
+COPY LICENSE THIRD-PARTY-NOTICES.md ./
 # PGlite is only loaded for pglite: development URLs (dynamic import); type packages are unused.
 RUN find apps packages -name '*.test.ts' -delete \
  && rm -rf node_modules/.bun/@electric-sql+pglite@* node_modules/.bun/@types+* \
