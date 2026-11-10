@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs ON THE MAC (s5) from the synced checkout: generates the project, builds for testing with the
+# Runs ON THE MAC from the synced checkout: generates the project, builds for testing with the
 # pinned Xcode, runs the tests on Crow HR's own simulator, and always shuts that simulator down
 # (never `simctl shutdown all`: the Mac is shared).
 #

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { checkModuleIds } from "./forbidden-modules.ts";
-import { headersFor, matchRedirect, parseHeaders, parseRedirects } from "./pages-rules.ts";
+import { cleanUrlRedirect, headersFor, matchRedirect, parseHeaders, parseRedirects } from "./pages-rules.ts";
 
 const read = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8");
 const headers = parseHeaders(read("../public/_headers"));
@@ -17,7 +17,7 @@ describe("Cloudflare Pages rules", () => {
     for (const p of [...paths, "/about-demo"]) {
       const sample = p.replace(/\$\w+/g, "x").replace(/\/$/, "");
       expect(matchRedirect(redirects, sample), `${p} needs a line in apps/demo/public/_redirects`).toEqual({
-        to: "/index.html",
+        to: "/",
         status: 200,
       });
     }
@@ -25,6 +25,15 @@ describe("Cloudflare Pages rules", () => {
       expect(matchRedirect(redirects, p)).toBeNull();
     }
     expect(matchRedirect(redirects, "/docs")).toEqual({ to: "/docs/", status: 301 });
+  });
+
+  it("never rewrite to an .html path: Pages would answer it with a 308 to the clean URL and lose the deep link", () => {
+    for (const r of redirects) if (r.status === 200) expect(cleanUrlRedirect(r.to), `${r.from} -> ${r.to}`).toBeNull();
+    expect(cleanUrlRedirect("/index.html")).toBe("/");
+    expect(cleanUrlRedirect("/docs/quick-start/index.html")).toBe("/docs/quick-start/");
+    expect(cleanUrlRedirect("/about.html")).toBe("/about");
+    expect(cleanUrlRedirect("/payroll")).toBeNull();
+    expect(cleanUrlRedirect("/404.html")).toBeNull();
   });
 
   it("send a strict CSP with only this origin, WebAssembly and workers allowed", () => {

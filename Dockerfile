@@ -58,6 +58,7 @@ COPY packages/core/drizzle packages/core/drizzle
 COPY packages/core/testing/migrations-folder.ts packages/core/testing/migrations-folder.ts
 COPY packages/sg-rules/src packages/sg-rules/src
 COPY --from=build /src/apps/web/dist apps/web/dist
+COPY LICENSE THIRD-PARTY-NOTICES.md ./
 # PGlite is only loaded for pglite: development URLs (dynamic import); type packages are unused.
 # The Sentry SDK's bundler plugins and CLI are build-time tools (the runtime hook has its own parser).
 RUN find apps packages -name '*.test.ts' -delete \
@@ -88,7 +89,7 @@ WORKDIR /app
 COPY --from=deps --chown=root:root /app /app
 
 # Commit the image is built from, for error-monitoring releases (crowhr@<version>+<commit>):
-#   CROWHR_GIT_SHA=$(git rev-parse HEAD) docker compose build
+#   docker build --build-arg CROWHR_GIT_SHA=$(git rev-parse HEAD) -t crowhr:local .   (release.yml passes it)
 # Declared here, after the slow layers, so a new commit only rebuilds the ones below.
 ARG CROWHR_GIT_SHA=""
 ENV NODE_ENV=production \

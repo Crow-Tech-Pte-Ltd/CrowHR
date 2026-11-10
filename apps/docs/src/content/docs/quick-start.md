@@ -26,7 +26,7 @@ PUBLIC_URL=https://hr.example.sg        # behind a reverse proxy with HTTPS
 docker compose up -d
 ```
 
-That is all that is required. The database password, the encryption key and a one-time setup code are generated on first start. Until images are published, this first start builds the image from the checkout (a few minutes).
+That is all that is required. Compose pulls the published image (`ghcr.io/crow-tech-pte-ltd/crowhr:1`, amd64 or arm64), and the database password, the encryption key and a one-time setup code are generated on first start.
 
 ## Then finish in the browser
 

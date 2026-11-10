@@ -13,14 +13,9 @@
 # (source: apps/docs/src/content/docs/self-hosting/reverse-proxy.md).
 
 x-crowhr-image: &crowhr-image
-  # NOT PUBLISHED YET: the registry name is unconfirmed and nothing is pushed without approval.
-  # Until then `docker compose up -d` builds this image from the repository checkout.
+  # The published multi-arch image; `:1` follows the newest 1.x release. To run an image built from
+  # a checkout instead: `docker build -t crowhr:local .` and set CROWHR_IMAGE=crowhr:local in .env.
   image: ${CROWHR_IMAGE:-ghcr.io/crow-tech-pte-ltd/crowhr:1}
-  build:
-    context: .
-    args:
-      # Optional: the commit being built, for error-monitoring releases (CROWHR_GIT_SHA=$(git rev-parse HEAD)).
-      CROWHR_GIT_SHA: ${CROWHR_GIT_SHA:-}
 
 services:
   # One-shot: writes a random database password into the shared secrets volume (first run only).

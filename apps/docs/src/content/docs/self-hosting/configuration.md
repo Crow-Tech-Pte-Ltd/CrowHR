@@ -96,10 +96,10 @@ You do not set these in `.env`; they are listed so nothing the app reads is undo
 
 | Variable | Set by | Meaning |
 | --- | --- | --- |
-| `CROWHR_IMAGE` | `docker-compose.yml` | Image to run, default `ghcr.io/crow-tech-pte-ltd/crowhr:1` (not published yet; compose builds it from the checkout). Override to pin a tag or use a local build. |
+| `CROWHR_IMAGE` | `docker-compose.yml` | Image to run, default `ghcr.io/crow-tech-pte-ltd/crowhr:1` (the newest 1.x release). The one exception to this table: set it in `.env` to stay on one release (`…:1.0.0`) or to run your own build (`crowhr:local`, see [build the image yourself](/docs/self-hosting/install/#build-the-image-yourself)). |
 | `CROWHR_CONTAINER` | Dockerfile (`1`) | Tells `crowhr restore` it runs inside the container, so it can restart the app afterwards by signalling PID 1. Outside Docker it prints "restart the app" instead. |
 | `NODE_OPTIONS` | Dockerfile | Silences Node's experimental-feature warnings in the logs. |
-| `CROWHR_GIT_SHA` | build argument (Dockerfile, `docker-compose.yml`) | Commit the image was built from, added to the error-monitoring release (`crowhr@<version>+<commit>`). Empty unless you build with `CROWHR_GIT_SHA=$(git rev-parse HEAD) docker compose build`. |
+| `CROWHR_GIT_SHA` | build argument (Dockerfile) | Commit the image was built from, added to the error-monitoring release (`crowhr@<version>+<commit>`). Set in the published images; empty in your own build unless you run `docker build --build-arg CROWHR_GIT_SHA=$(git rev-parse HEAD) -t crowhr:local .`. |
 
 ## Optional virus scanning
 

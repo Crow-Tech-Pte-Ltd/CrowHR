@@ -18,11 +18,11 @@ docker compose up -d            # 3. start
 docker compose logs app | grep -A3 'SETUP CODE'   # then open PUBLIC_URL and finish setup
 ```
 
-Images are not published to a registry yet, so the first start builds the image from the checkout.
+Compose pulls the published image, [`ghcr.io/crow-tech-pte-ltd/crowhr:1`](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/pkgs/container/crowhr) (amd64 and arm64), and upgrades are `docker compose pull && docker compose up -d`. Only `docker-compose.yml` and `.env.example` are needed from the checkout. To build the image yourself instead: `docker build -t crowhr:local .` and set `CROWHR_IMAGE=crowhr:local` in `.env`.
 
 ## Documentation
 
-The documentation site lives in [`apps/docs`](apps/docs) and will be published at **https://hr.crow.sg/docs** (not deployed yet). Build it locally:
+The documentation site lives in [`apps/docs`](apps/docs) and is published at **https://hr.crow.sg/docs/**. Build it locally:
 
 ```sh
 bun install
@@ -30,15 +30,15 @@ bun run docs:build              # static site in apps/docs/dist
 bun run docs:dev                # http://localhost:4321/docs/
 ```
 
-Start with the install guide (`apps/docs/src/content/docs/self-hosting/install.md`) and the [limitations](docs/limitations.md).
+Start with the [install guide](https://hr.crow.sg/docs/self-hosting/install/) and the [limitations](docs/limitations.md).
 
 ## Status
 
-Early and under active development; not yet used for a real company's payroll.
+Version 1.0.0 ([changelog](CHANGELOG.md)). Crow HR has not yet been used for a real company's payroll: check its results before you pay or file.
 
 | Built | Not built yet |
 | --- | --- |
-| Self-hosting (compose, setup wizard, migrations, backups, encrypted once you set `BACKUP_PASSPHRASE` (strongly recommended), `crowhr` CLI) | Mobile apps |
+| Self-hosting (compose, setup wizard, migrations, backups, encrypted once you set `BACKUP_PASSPHRASE` (strongly recommended), `crowhr` CLI) | Mobile apps in the App Store and Google Play (built; internal test builds only) |
 | Sign-in: password + TOTP, Google Workspace, Microsoft Entra ID, generic OIDC; Singpass tested against Singpass staging, not production | Direct submission to CPF, IRAS or banks |
 | Members, roles, server-enforced permission matrix, append-only audit log with hash chaining | Virus scanning of uploads (a hook only; no scanner ships) |
 | Company, structure, employees, CSV import, lifecycle, work passes, change requests | |
@@ -49,7 +49,7 @@ Early and under active development; not yet used for a real company's payroll.
 | Scheduling: shift templates, weekly rosters, conflicts and hour warnings, publishing, swaps and open shifts | |
 | Payroll: CPF/SHG/SDL/FWL estimate, inputs fed from leave, attendance, rosters and claims, payslips, CPF EZPay file, ISO 20022 bank file, IR8A export | |
 | Documents, HR letters and KETs, acknowledgements; reports with CSV/XLSX export | |
-| In-browser demo (built, not deployed yet) | |
+| In-browser demo, live at https://hr.crow.sg | |
 
 The statutory engine (`packages/sg-rules`) carries cited, effective-dated rules and is checked against CPF's published examples and its online calculator ([verification record](packages/sg-rules/VERIFICATION.md)). Crow HR is not approved or endorsed by CPF Board, IRAS or MOM, and it is not legal or tax advice: check results before you pay or file. Known gaps are listed in [docs/limitations.md](docs/limitations.md).
 
@@ -69,4 +69,4 @@ Please report vulnerabilities privately; see [SECURITY.md](SECURITY.md).
 
 ## Licence
 
-[MIT](LICENSE) © Crow Tech Pte. Ltd. and contributors.
+[MIT](LICENSE) © Crow Tech Pte. Ltd. and contributors. The open-source packages and fonts Crow HR ships with, and their licences, are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) (also in the Docker image at `/app/THIRD-PARTY-NOTICES.md`).

@@ -9,7 +9,7 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 android_dir="$repo_dir/apps/android"
 export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}"
-export ANDROID_HOME="${ANDROID_HOME:-/home/daniel/Android/Sdk}"
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
 gradle=("$android_dir/gradlew" -p "$android_dir" --console=plain)
 mode="${1:-check}"
 case "$mode" in

@@ -1,34 +1,35 @@
 # Cloudflare Pages: the demo is a single-page app at /, the docs (apps/docs) live under /docs.
 # Every client-side route of apps/web (and /about-demo) is rewritten to the app shell. The rules
-# list the routes explicitly instead of a catch-all `/* /index.html 200`, so /docs/*, /assets/*,
+# list the routes explicitly instead of a catch-all `/* / 200`, so /docs/*, /assets/*,
 # /demo-sw.js and the seed snapshot are never rewritten. scripts/site.test.ts fails when a new
-# top-level route in apps/web is missing here.
-/about-demo     /index.html  200
-/attendance     /index.html  200
-/attendance/*   /index.html  200
-/claims         /index.html  200
-/claims/*       /index.html  200
-/documents      /index.html  200
-/documents/*    /index.html  200
-/inbox          /index.html  200
-/inbox/*        /index.html  200
-/invite/*       /index.html  200
-/leave          /index.html  200
-/leave/*        /index.html  200
-/me             /index.html  200
-/me/*           /index.html  200
-/payroll        /index.html  200
-/payroll/*      /index.html  200
-/people         /index.html  200
-/people/*       /index.html  200
-/reports        /index.html  200
-/reports/*      /index.html  200
-/reset/*        /index.html  200
-/schedules      /index.html  200
-/schedules/*    /index.html  200
-/settings       /index.html  200
-/settings/*     /index.html  200
-/setup          /index.html  200
-/sign-in        /index.html  200
-/sign-in/*      /index.html  200
+# top-level route in apps/web is missing here. The target is `/`, not `/index.html`: Pages answers
+# a rewrite to `/index.html` with a 308 to `/` (clean URLs), which loses the deep link.
+/about-demo     /            200
+/attendance     /            200
+/attendance/*   /            200
+/claims         /            200
+/claims/*       /            200
+/documents      /            200
+/documents/*    /            200
+/inbox          /            200
+/inbox/*        /            200
+/invite/*       /            200
+/leave          /            200
+/leave/*        /            200
+/me             /            200
+/me/*           /            200
+/payroll        /            200
+/payroll/*      /            200
+/people         /            200
+/people/*       /            200
+/reports        /            200
+/reports/*      /            200
+/reset/*        /            200
+/schedules      /            200
+/schedules/*    /            200
+/settings       /            200
+/settings/*     /            200
+/setup          /            200
+/sign-in        /            200
+/sign-in/*      /            200
 /docs           /docs/       301

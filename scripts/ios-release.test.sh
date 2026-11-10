@@ -2,12 +2,12 @@
 # Dry-run tests of scripts/ios-release.sh: every path without Daniel's approval is refused, and
 # nothing is ever built or uploaded. Usage: scripts/ios-release.test.sh
 # The only non-dry-run cases must stop before any SSH; the Mac host is set to an unresolvable name
-# so a regression cannot reach s5 or Apple.
+# so a regression cannot reach the release Mac or Apple.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-unset CROWHR_BUILD_NUMBER
+unset CROWHR_BUILD_NUMBER CROWHR_SIM_UDID APPLE_KEY_ID APPLE_ISSUER_ID APPLE_SIGNING_SECRET_DIR
 export CROWHR_MAC_HOST="crowhr-release-test.invalid"
 export CROWHR_UPLOADED_BUILDS="$TMP/uploaded-builds.txt"
 printf '%s\n' "# test ledger" "7 0.1.0 2026-11-07T00:00:00Z internal" > "$CROWHR_UPLOADED_BUILDS"
@@ -45,7 +45,11 @@ expect 3 "NOT IMPLEMENTED" "a real production run stops before building or submi
 expect 2 "set CROWHR_BUILD_NUMBER" "a real internal run without a build number stops before building" -- internal --approval "$INTERNAL"
 CROWHR_BUILD_NUMBER=1.2 expect 2 "positive whole number" "a non-numeric build number is refused" -- internal --approval "$INTERNAL" --dry-run
 CROWHR_BUILD_NUMBER=7 expect 2 "already uploaded" "a build number already uploaded is refused" -- internal --approval "$INTERNAL" --dry-run
-CROWHR_BUILD_NUMBER=8 expect 0 "build 8 on s5.*INTERNAL TestFlight group only.*DRY RUN" "a fresh build number is planned" -- internal --approval "$INTERNAL" --dry-run
+CROWHR_BUILD_NUMBER=8 expect 0 "build 8 on the Mac.*INTERNAL TestFlight group only.*DRY RUN" "a fresh build number is planned" -- internal --approval "$INTERNAL" --dry-run
+CROWHR_BUILD_NUMBER=8 expect 2 "set CROWHR_SIM_UDID" "a real internal run without the simulator stops before SSH" -- internal --approval "$INTERNAL"
+CROWHR_BUILD_NUMBER=8 CROWHR_SIM_UDID=TEST-UDID expect 2 "set APPLE_KEY_ID" "a real internal run without the API key stops before SSH" -- internal --approval "$INTERNAL"
+CROWHR_BUILD_NUMBER=8 CROWHR_SIM_UDID=TEST-UDID APPLE_KEY_ID=ABCDE12345 APPLE_ISSUER_ID=00000000-0000-0000-0000-000000000000 \
+  expect 2 "set APPLE_SIGNING_SECRET_DIR" "a real internal run without the signing directory stops before SSH" -- internal --approval "$INTERNAL"
 
 echo "$PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

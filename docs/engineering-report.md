@@ -1,5 +1,7 @@
 # Crow HR — engineering report
 
+> A snapshot from 7 November 2026, before the 1.0.0 release, kept as a record. For the current state see [CHANGELOG.md](../CHANGELOG.md), [limitations](limitations.md) and the [project status](https://hr.crow.sg/docs/status/) page.
+
 **Status as of 7 November 2026.** `main` is pushed to the private repository `Crow-Tech-Pte-Ltd/CrowHR` and CI is green. Nothing has been deployed, published or submitted to an app store.
 
 ## Summary
@@ -27,7 +29,7 @@ Crow HR is a working, self-hostable HR and payroll platform for Singapore SMEs, 
 
 ## Verification
 
-- **Automated:** 2,227 core/integration tests + 419 statutory-engine tests (99.7% line coverage, ≥95% enforced), 52 Playwright end-to-end tests (also run in UTC), 3 demo end-to-end tests, docs build with link check; iOS 72 unit + 3 UI journey tests on the s5 simulator; Android 62 unit + 17 device tests on a 16 KB-page emulator. All green; GitHub Actions runs the web suite, Docker install and Android unit tests + lint on every push.
+- **Automated:** 2,227 core/integration tests + 419 statutory-engine tests (99.7% line coverage, ≥95% enforced), 52 Playwright end-to-end tests (also run in UTC), 3 demo end-to-end tests, docs build with link check; iOS 72 unit + 3 UI journey tests on a Mac simulator; Android 62 unit + 17 device tests on a 16 KB-page emulator. All green; GitHub Actions runs the web suite, Docker install and Android unit tests + lint on every push.
 - **Statutory correctness:** 91 researched test vectors; 15/15 cases match CPF Board's online calculator (automated, screenshots kept); all 16 of CPF's official AW-ceiling examples reproduce month by month. Two independent verification passes by a second model (Codex `gpt-6.1-sol`) found errors in the research and the payroll choices; all were fixed with citations (`packages/sg-rules/VERIFICATION.md`, `research/verification/`).
 - **Security:** an independent review found 8 high, 12 medium and several low issues (privilege paths around hr_admin, approval escalation, MFA edge cases, payroll adjustment runs, CSV injection, body limits, backups). All confirmed findings are fixed, each with a regression test, and re-checked by re-running the reviewer's probes against merged `main`.
 
