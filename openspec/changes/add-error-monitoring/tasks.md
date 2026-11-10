@@ -6,5 +6,10 @@
 - [x] 1.5 `instrument.ts` preload in the Dockerfile CMD and `bun run dev`; flush on shutdown (manual run against a local fake ingest server).
 ## 2. Web
 - [x] 2.1 `apps/web` reads the page settings, lazy-loads the SDK, skips API errors, scrubs events (`monitoring.test.ts`).
+## 2a. Review fixes
+- [x] 2a.1 Mask failed-query values, PostgreSQL quoted input, NRIC/FIN and emails in events and forwarded logs; no console breadcrumbs; no trace headers to third parties (`monitoring/redact.ts`, `sentry.test.ts`, `logger.test.ts`).
+- [x] 2a.2 Browser: remove `/invite/$token` and `/reset/$token` tokens from URLs, spans and breadcrumbs; mask element labels; no console breadcrumbs or INP spans (`monitoring.test.ts`).
+- [x] 2a.3 DSN validation as strict as the SDK's parser (numeric project ID, no trailing slash) (`config.test.ts`).
+- [x] 2a.4 The demo build replaces the SDK module with a stub and its bundle guard rejects `@sentry/*` (`apps/demo/scripts/site.test.ts`).
 ## 3. Documentation
 - [x] 3.1 Configuration reference, `.env.example`, privacy pages (`apps/docs/tests/env-vars.test.ts`).

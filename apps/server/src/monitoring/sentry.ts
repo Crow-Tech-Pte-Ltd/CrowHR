@@ -6,10 +6,12 @@
  * Personal data: Crow HR holds NRIC, salaries, bank and medical details, so the SDK collects
  * no request bodies, cookies, query strings, IP addresses, user info, database parameters or
  * stack-frame variables (SDK 11 collects all of these by default), and `scrubEvent` removes
- * them again before anything is sent.
+ * them again before anything is sent. Free text (error messages, breadcrumbs, span data) is
+ * masked by `redactText`: a failed query's bound values, NRIC/FIN numbers, email addresses.
  */
 import type { Breadcrumb, ErrorEvent, NodeOptions } from "@sentry/node";
 import type { MonitoringConfig } from "./config.ts";
+import { redactDeep, redactText } from "./redact.ts";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 type TransactionEvent = Parameters<NonNullable<NodeOptions["beforeSendTransaction"]>>[0];
@@ -42,6 +44,14 @@ export const DATA_COLLECTION = {
   mcp: { inputs: false, outputs: false },
 } satisfies NonNullable<NodeOptions["dataCollection"]>;
 
+/**
+ * Default integrations replaced or left out. Http, Hono and OnUnhandledRejection are re-added
+ * with our options; GlitchTip has no release-health sessions (ProcessSession); Console would
+ * attach every log line, unfiltered, to each event as a breadcrumb (the logger bridge forwards
+ * logs instead, and SENTRY_ENABLE_LOGS=false must mean no log content leaves).
+ */
+export const DROPPED_INTEGRATIONS = ["Http", "Hono", "ProcessSession", "Console", "OnUnhandledRejection"];
+
 let active: Monitoring | null = null;
 
 /** The running SDK, or null when monitoring is off. */
@@ -63,11 +73,16 @@ export async function startMonitoring(config: MonitoringConfig): Promise<Monitor
       ? { tracesSampler: (ctx: SamplingContext) => sampleTrace(ctx, config.tracesSampleRate) }
       : {}),
     dataCollection: DATA_COLLECTION,
+    // Outgoing calls go to third parties (identity providers): never send them `sentry-trace`
+    // or `baggage` headers, which carry this DSN's public key, the release and the route.
+    tracePropagationTargets: [],
     integrations: (defaults) => [
-      // GlitchTip has no release-health sessions; Hono is re-added with our error filter.
-      ...defaults.filter((i) => !["Http", "Hono", "ProcessSession"].includes(i.name)),
+      ...defaults.filter((i) => !DROPPED_INTEGRATIONS.includes(i.name)),
       Sentry.httpIntegration({ sessions: false }),
       Sentry.honoIntegration({ shouldHandleError: shouldReportError }),
+      // Report, then exit like Node does without the SDK ("warn", the SDK default, would keep a
+      // process running after an unhandled rejection only because monitoring is on).
+      Sentry.onUnhandledRejectionIntegration({ mode: "strict" }),
     ],
     beforeSend: (event) => scrubEvent(event),
     beforeSendTransaction: (event) => scrubEvent(event),
@@ -138,17 +153,30 @@ export function scrubEvent<T extends ErrorEvent | TransactionEvent>(event: T): T
     }
   }
   delete event.user;
+  if (typeof event.message === "string") event.message = redactText(event.message);
+  if (event.logentry) event.logentry = redactDeep(event.logentry);
+  for (const exception of event.exception?.values ?? []) {
+    if (exception.value) exception.value = redactText(exception.value);
+  }
+  if (event.extra) event.extra = redactDeep(event.extra);
+  const trace = event.contexts?.trace;
+  if (trace?.data) trace.data = redactDeep(trace.data);
+  for (const span of event.spans ?? []) {
+    if (span.description) span.description = redactText(span.description);
+    if (span.data) span.data = redactDeep(span.data);
+  }
   if (event.breadcrumbs) event.breadcrumbs = event.breadcrumbs.map(scrubBreadcrumb);
   return event;
 }
 
 export function scrubBreadcrumb(crumb: Breadcrumb): Breadcrumb {
-  if (!crumb.data) return crumb;
-  const data = { ...crumb.data };
+  const scrubbed = crumb.message ? { ...crumb, message: redactText(crumb.message) } : crumb;
+  if (!crumb.data) return scrubbed;
+  const data = redactDeep({ ...crumb.data });
   for (const key of ["url", "from", "to"]) {
     if (typeof data[key] === "string") data[key] = withoutQuery(data[key]);
   }
-  return { ...crumb, data };
+  return { ...scrubbed, data };
 }
 
 function withoutQuery(url: string): string {
