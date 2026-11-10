@@ -183,9 +183,10 @@ jobs:
         run: bunx vitest run apps/server/src/migrate/migrate.test.ts apps/server/src/backup/restore.test.ts
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
-      - name: Build image, docker compose install, setup wizard, backup, restore, Caddy
+      - name: Build image, docker compose install, setup wizard, backup, restore, Caddy, nginx, Traefik
         # Builds the image from the checkout (amd64 only; release.yml builds and publishes amd64 and
-        # arm64) and tears down only its own compose project.
+        # arm64) and tears down only its own compose project and proxy containers. The proxies run
+        # the examples from the reverse-proxy docs page (needs curl, jq and openssl, on the runner).
         run: e2e/self-host.sh
       - name: Upload Playwright traces
         if: failure()
