@@ -107,6 +107,35 @@ describe("browser monitoring", () => {
     expect(redactText("/api/v1/auth/password-reset/inspect")).toBe("/api/v1/auth/password-reset/inspect");
   });
 
+  it("removes query strings from fetch spans", () => {
+    const event = scrubEvent({
+      type: "transaction",
+      spans: [
+        {
+          span_id: "a",
+          trace_id: "t",
+          start_timestamp: 0,
+          status: "ok",
+          op: "http.client",
+          description: "GET /api/v1/employees?search=Tan%20Ah%20Kow",
+          data: {
+            url: "/api/v1/employees?search=Tan%20Ah%20Kow",
+            "http.url": "https://hr.acme.sg/api/v1/employees?search=Tan%20Ah%20Kow",
+            "http.query": "?search=Tan%20Ah%20Kow",
+            "http.method": "GET",
+          },
+        },
+      ],
+    });
+    expect(JSON.stringify(event)).not.toContain("Tan");
+    expect(event.spans?.[0]?.description).toBe("GET /api/v1/employees");
+    expect(event.spans?.[0]?.data).toEqual({
+      url: "/api/v1/employees",
+      "http.url": "https://hr.acme.sg/api/v1/employees",
+      "http.method": "GET",
+    });
+  });
+
   it("masks element labels in click breadcrumbs and drops console breadcrumbs", () => {
     const event = scrubEvent({
       type: undefined,

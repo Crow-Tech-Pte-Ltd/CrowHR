@@ -13,7 +13,8 @@ export function initSdk(config: BrowserMonitoringConfig, router: unknown): void 
     dsn: config.dsn,
     environment: config.environment,
     release: config.release,
-    // SDK 11 streams spans by default; GlitchTip reads classic transactions.
+    // Classic transactions (the 10.x default, stated so an upgrade cannot switch to span streaming,
+    // which GlitchTip does not read).
     traceLifecycle: "static",
     ...(tracing ? { tracesSampleRate: config.tracesSampleRate } : {}),
     dataCollection: {

@@ -11,5 +11,6 @@
 - [x] 2a.2 Browser: remove `/invite/$token` and `/reset/$token` tokens from URLs, spans and breadcrumbs; mask element labels; no console breadcrumbs or INP spans (`monitoring.test.ts`).
 - [x] 2a.3 DSN validation as strict as the SDK's parser (numeric project ID, no trailing slash) (`config.test.ts`).
 - [x] 2a.4 The demo build replaces the SDK module with a stub and its bundle guard rejects `@sentry/*` (`apps/demo/scripts/site.test.ts`).
+- [x] 2a.5 Sentry SDKs pinned to 10.78.0: every `@sentry/node` 11.x pulls in the FSL-licensed Sentry CLI, which `bun run licences:check` rejects. API transactions are named after their route by a hook in `apps/server/src/http.ts` (`http.test.ts`); unhandled request errors reach monitoring through the logger bridge, which skips `AppError` (`logger.test.ts`).
 ## 3. Documentation
 - [x] 3.1 Configuration reference, `.env.example`, privacy pages (`apps/docs/tests/env-vars.test.ts`).

@@ -7,7 +7,7 @@
   "description": "Crow HR Node server: serves the API and the built web app.",
   "scripts": {
     "dev": "node --watch --env-file-if-exists=../../.env --import ./src/instrument.ts src/main.ts",
-    "start": "node src/main.ts",
+    "start": "node --import ./src/instrument.ts src/main.ts",
     "migrate": "node src/migrate-cli.ts",
     "typecheck": "tsc -p .",
     "test": "vitest run"
@@ -17,7 +17,7 @@
     "@electric-sql/pglite": "^0.5.13",
     "@hono/node-server": "^2.1.5",
     "@node-rs/argon2": "^2.2.2",
-    "@sentry/node": "^11.11.0",
+    "@sentry/node": "10.78.0",
     "age-encryption": "^0.3.1",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.14",

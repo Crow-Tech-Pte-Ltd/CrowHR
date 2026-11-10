@@ -1,6 +1,6 @@
 import type { LogFields, Logger, LogLevel } from "@crowhr/core";
 import { redactText } from "./redact.ts";
-import type { Monitoring } from "./sentry.ts";
+import { type Monitoring, shouldReportError } from "./sentry.ts";
 
 const ORDER: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 const MAX_ATTRIBUTE_LENGTH = 2000;
@@ -12,8 +12,10 @@ const MAX_ATTRIBUTE_LENGTH = 2000;
  * The console output is unchanged. Monitoring failures never break logging. Messages and
  * attributes are masked with `redactText` (failed-query values, NRIC/FIN, email addresses).
  *
- * Errors are captured one tick later: for a failed request the Hono integration reports the
- * same Error first, named after the route, and the SDK then skips the second capture.
+ * This is how unexpected request errors are reported: core logs each one as "Unhandled error"
+ * with the Error (AppError and 4xx are answers, not logged, and `shouldReportError` drops them
+ * here too). They are captured one tick later, still inside the request's scope, once the Hono
+ * integration has named the transaction after the route.
  */
 export function withMonitoring(
   logger: Logger,
@@ -31,6 +33,7 @@ export function withMonitoring(
         const errorKey = Object.keys(all).find((k) => all[k] instanceof Error);
         if (errorKey) {
           const { [errorKey]: err, ...rest } = all;
+          if (!shouldReportError(err)) return;
           const extra = { message: redactText(message), ...toAttributes(rest) };
           if (typeof all.requestId === "string") monitoring.tagRequest(all.requestId);
           setImmediate(() => {

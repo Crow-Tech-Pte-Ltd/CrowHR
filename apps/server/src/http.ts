@@ -4,6 +4,7 @@ import { type ApiModule, type AppDeps, createApp, VERSION } from "@crowhr/core";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { type Context, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
+import { routePath } from "hono/route";
 import { secureHeaders } from "hono/secure-headers";
 import { type MaintenanceInfo, maintenanceMessage } from "./backup/maintenance.ts";
 import { SINGPASS_LOGO_PATH, singpassLogoHandler } from "./branding.ts";
@@ -29,6 +30,8 @@ export interface ServerAppOptions {
   brandingDir?: string;
   /** Browser error reporting (SENTRY_BROWSER_DSN): settings go into index.html, the DSN's origin into the CSP. */
   browserMonitoring?: BrowserMonitoring | null;
+  /** Server monitoring (SENTRY_DSN): told each API request's route, e.g. `GET /api/v1/employees/:id`. */
+  onApiRoute?: ((method: string, route: string) => void) | null;
 }
 
 /** Minimal self-contained page for 503s (no external assets: the app may be mid-restore). */
@@ -86,6 +89,14 @@ export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
     await next();
     if (!c.res.headers.has("content-security-policy")) c.res.headers.set("content-security-policy", pageCsp);
   });
+  if (options.onApiRoute) {
+    // Names the request's transaction after the route that answered it, not its raw path (IDs).
+    const onApiRoute = options.onApiRoute;
+    app.use("/api/*", async (c, next) => {
+      await next();
+      onApiRoute(c.req.method, routePath(c));
+    });
+  }
   if (options.maintenance) app.use("*", maintenanceGuard(options.maintenance));
   if (options.setupGate) app.use("*", setupGateMiddleware(options.setupGate));
   app.route("/", createApp(deps, { modules: options.modules ?? [] }));

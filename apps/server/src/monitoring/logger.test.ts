@@ -1,5 +1,5 @@
 import { setImmediate as tick } from "node:timers/promises";
-import { createMemoryLogger } from "@crowhr/core";
+import { AppError, createMemoryLogger } from "@crowhr/core";
 import { describe, expect, it, vi } from "vitest";
 import { toAttributes, withMonitoring } from "./logger.ts";
 import type { Monitoring } from "./sentry.ts";
@@ -9,6 +9,7 @@ function fakeMonitoring() {
     captureException: vi.fn(),
     captureMessage: vi.fn(),
     tagRequest: vi.fn(),
+    nameRequest: vi.fn(),
     log: vi.fn(),
     flush: vi.fn(async () => true),
   } satisfies Monitoring;
@@ -32,7 +33,7 @@ describe("logger to monitoring", () => {
     const err = new Error("connection reset");
     logger.child({ requestId: "r2" }).error("Unhandled error", { err, path: "/api/v1/payroll", method: "POST" });
     expect(monitoring.tagRequest).toHaveBeenCalledWith("r2");
-    // One tick later, so the framework integration can report a request's error first.
+    // One tick later, still in the request's scope, once the transaction is named after the route.
     expect(monitoring.captureException).not.toHaveBeenCalled();
     await tick();
     expect(monitoring.captureException).toHaveBeenCalledWith(err, {
@@ -44,6 +45,15 @@ describe("logger to monitoring", () => {
     logger.error("Scheduled backup failed", { error: "disk full" });
     expect(monitoring.captureMessage).toHaveBeenCalledWith("Scheduled backup failed", { error: "disk full" });
     expect(monitoring.log).not.toHaveBeenCalled();
+  });
+
+  it("never turns an AppError into an issue, even when it is logged as an error", async () => {
+    const monitoring = fakeMonitoring();
+    const logger = withMonitoring(createMemoryLogger(), monitoring, { logs: false, minLevel: "info" });
+    logger.error("Unhandled error", { err: new AppError("forbidden", "No.") });
+    await tick();
+    expect(monitoring.captureException).not.toHaveBeenCalled();
+    expect(monitoring.captureMessage).not.toHaveBeenCalled();
   });
 
   it("respects LOG_LEVEL and warn entries never become issues", async () => {

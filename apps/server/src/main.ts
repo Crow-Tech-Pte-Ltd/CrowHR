@@ -188,6 +188,7 @@ export async function startServer(options: StartOptions = {}) {
       maintenance,
       modules: options.modules ?? [],
       browserMonitoring: browserMonitoringFrom(config.monitoring),
+      onApiRoute: monitoring ? (method, route) => monitoring.nameRequest(method, route) : null,
       ...(config.SETUP_GATE ? { setupGate: createSetupGate(database.db) } : {}),
     });
     handler = app.fetch as Fetch;

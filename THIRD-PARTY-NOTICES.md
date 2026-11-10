@@ -14,7 +14,7 @@ Development tools (test runners, linters, type checkers, Vite, the documentation
 
 The Docker image is built on the official `node:24-alpine` image (Node.js, MIT, with its bundled third-party licences in the Node.js distribution) and adds two Alpine packages: `postgresql17-client` (PostgreSQL Licence) for backups, and `tini` (MIT). Each published image also carries an SBOM with the full package list.
 
-Licences: MIT (137), Apache-2.0 (11), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BSD-3-Clause (1), MIT-0 (1), OFL-1.1 (1), UFL-1.0 (1), Unlicense (1).
+Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BSD-3-Clause (1), MIT-0 (1), OFL-1.1 (1), UFL-1.0 (1), Unlicense (1).
 
 ## Packages
 
@@ -36,6 +36,15 @@ Licences: MIT (137), Apache-2.0 (11), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `@noble/hashes` | 2.4.0 | MIT | server | <https://github.com/paulmillr/noble-hashes> |
 | `@noble/post-quantum` | 0.5.4 | MIT | server | <https://github.com/paulmillr/noble-post-quantum> |
 | `@node-rs/argon2` | 2.2.2 | MIT | server | <https://github.com/napi-rs/node-rs> |
+| `@opentelemetry/api` | 1.10.0 | Apache-2.0 | server | <https://github.com/open-telemetry/opentelemetry-js> |
+| `@opentelemetry/api` | 1.9.1 | Apache-2.0 | server | <https://github.com/open-telemetry/opentelemetry-js> |
+| `@opentelemetry/api-logs` | 0.220.0 | Apache-2.0 | server | <https://github.com/open-telemetry/opentelemetry-js> |
+| `@opentelemetry/core` | 2.12.0 | Apache-2.0 | server | <https://github.com/open-telemetry/opentelemetry-js> |
+| `@opentelemetry/instrumentation` | 0.220.0 | Apache-2.0 | server | <https://github.com/open-telemetry/opentelemetry-js> |
+| `@opentelemetry/resources` | 2.12.0 | Apache-2.0 | server | <https://github.com/open-telemetry/opentelemetry-js> |
+| `@opentelemetry/sdk-trace` | 2.12.0 | Apache-2.0 | server | <https://github.com/open-telemetry/opentelemetry-js> |
+| `@opentelemetry/sdk-trace-base` | 2.12.0 | Apache-2.0 | server | <https://github.com/open-telemetry/opentelemetry-js> |
+| `@opentelemetry/semantic-conventions` | 1.45.0 | Apache-2.0 | server | <https://github.com/open-telemetry/opentelemetry-js> |
 | `@pdf-lib/fontkit` | 1.1.1 | MIT | server, demo | <https://github.com/Hopding/fontkit> |
 | `@pdf-lib/standard-fonts` | 1.0.0 | MIT | server, demo | <https://github.com/Hopding/standard-fonts> |
 | `@pdf-lib/upng` | 1.0.1 | MIT | server, demo | <https://github.com/Hopding/upng> |
@@ -81,6 +90,18 @@ Licences: MIT (137), Apache-2.0 (11), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `@radix-ui/react-visually-hidden` | 1.2.13 | MIT | web, demo | <https://github.com/radix-ui/primitives/tree/HEAD/packages/react/visually-hidden> |
 | `@radix-ui/rect` | 1.1.3 | MIT | web, demo | <https://github.com/radix-ui/primitives/tree/HEAD/packages/core/rect> |
 | `@scure/base` | 2.4.0 | MIT | server | <https://github.com/paulmillr/scure-base> |
+| `@sentry/browser` | 10.78.0 | MIT | web, demo | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/browser-utils` | 10.78.0 | MIT | web, demo | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/conventions` | 0.16.0 | MIT | server, web, demo | <https://github.com/getsentry/sentry-conventions> |
+| `@sentry/core` | 10.78.0 | MIT | server, web, demo | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/feedback` | 10.78.0 | MIT | web, demo | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/node` | 10.78.0 | MIT | server | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/node-core` | 10.78.0 | MIT | server | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/opentelemetry` | 10.78.0 | MIT | server | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/react` | 10.78.0 | MIT | web, demo | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/replay` | 10.78.0 | MIT | web, demo | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/replay-canvas` | 10.78.0 | MIT | web, demo | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/server-utils` | 10.78.0 | MIT | server | <https://github.com/getsentry/sentry-javascript> |
 | `@tabby_ai/hijri-converter` | 1.0.5 | MIT | web, demo | <https://www.npmjs.com/package/@tabby_ai/hijri-converter> |
 | `@tanstack/history` | 1.162.5 | MIT | web, demo | <https://github.com/TanStack/router/tree/HEAD/packages/history> |
 | `@tanstack/query-core` | 5.105.0 | MIT | web, demo | <https://github.com/TanStack/query/tree/HEAD/packages/query-core> |
@@ -102,6 +123,7 @@ Licences: MIT (137), Apache-2.0 (11), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `bare-stream` | 2.13.4 | Apache-2.0 | server | <https://github.com/holepunchto/bare-stream> |
 | `bare-url` | 2.5.5 | Apache-2.0 | server | <https://github.com/holepunchto/bare-url> |
 | `camelcase` | 5.3.1 | MIT | web, demo | <https://github.com/sindresorhus/camelcase> |
+| `cjs-module-lexer` | 2.3.0 | MIT | server | <https://github.com/nodejs/cjs-module-lexer> |
 | `class-variance-authority` | 0.7.1 | Apache-2.0 | web, demo | <https://github.com/joe-bell/cva> |
 | `cliui` | 6.0.0 | ISC | web, demo | http://github.com/yargs/cliui |
 | `clsx` | 2.1.1 | MIT | web, demo | <https://github.com/lukeed/clsx> |
@@ -111,22 +133,27 @@ Licences: MIT (137), Apache-2.0 (11), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `cookie-es` | 3.1.1 | MIT | web, demo | <https://github.com/unjs/cookie-es> |
 | `date-fns` | 4.4.0 | MIT | web, demo | <https://github.com/date-fns/date-fns> |
 | `date-fns-jalali` | 4.1.0-0 | MIT | web, demo | <https://github.com/date-fns-jalali/date-fns-jalali> |
+| `debug` | 4.4.3 | MIT | server | <https://github.com/debug-js/debug> |
 | `decamelize` | 1.2.0 | MIT | web, demo | <https://github.com/sindresorhus/decamelize> |
 | `detect-node-es` | 1.1.0 | MIT | web, demo | <https://github.com/thekashey/detect-node> |
 | `dijkstrajs` | 1.0.3 | MIT | web, demo | <https://github.com/tcort/dijkstrajs> |
 | `drizzle-orm` | 0.45.4 | Apache-2.0 | server, demo | <https://github.com/drizzle-team/drizzle-orm> |
 | `emoji-regex` | 8.0.0 | MIT | web, demo | <https://github.com/mathiasbynens/emoji-regex> |
+| `es-module-lexer` | 3.0.4 | MIT | server | <https://github.com/guybedford/es-module-lexer> |
 | `events-universal` | 1.0.1 | Apache-2.0 | server | <https://github.com/holepunchto/events-universal> |
 | `fast-fifo` | 1.3.2 | MIT | server | <https://github.com/mafintosh/fast-fifo> |
 | `find-up` | 4.1.0 | MIT | web, demo | <https://github.com/sindresorhus/find-up> |
 | `get-caller-file` | 2.0.5 | ISC | web, demo | <https://github.com/stefanpenner/get-caller-file> |
 | `get-nonce` | 1.0.1 | MIT | web, demo | <https://github.com/theKashey/get-nonce> |
 | `hono` | 4.13.14 | MIT | server, demo | <https://github.com/honojs/hono> |
+| `import-in-the-middle` | 3.6.0 | Apache-2.0 | server | <https://github.com/nodejs/import-in-the-middle> |
 | `is-fullwidth-code-point` | 3.0.0 | MIT | web, demo | <https://github.com/sindresorhus/is-fullwidth-code-point> |
 | `isbot` | 5.2.2 | Unlicense | web, demo | <https://github.com/omrilotan/isbot> |
 | `jose` | 6.2.14 | MIT | server, demo | <https://github.com/panva/jose> |
 | `locate-path` | 5.0.0 | MIT | web, demo | <https://github.com/sindresorhus/locate-path> |
 | `lucide-react` | 1.66.0 | ISC | web, demo | <https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react> |
+| `module-details-from-path` | 1.0.4 | MIT | server | <https://github.com/watson/module-details-from-path> |
+| `ms` | 2.1.3 | MIT | server | <https://github.com/vercel/ms> |
 | `nodemailer` | 10.3.1 | MIT-0 | server | <https://github.com/nodemailer/nodemailer> |
 | `oauth4webapi` | 3.8.8 | MIT | server, demo | <https://github.com/panva/oauth4webapi> |
 | `openid-client` | 6.8.8 | MIT | server, demo | <https://github.com/panva/openid-client> |
@@ -158,6 +185,7 @@ Licences: MIT (137), Apache-2.0 (11), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `react-style-singleton` | 2.2.3 | MIT | web, demo | <https://github.com/theKashey/react-style-singleton> |
 | `regenerator-runtime` | 0.14.1 | MIT | server, demo | <https://github.com/facebook/regenerator/tree/main/packages/runtime> |
 | `require-directory` | 2.1.1 | MIT | web, demo | <https://github.com/troygoode/node-require-directory> |
+| `require-in-the-middle` | 8.0.1 | MIT | server | <https://github.com/nodejs/require-in-the-middle> |
 | `require-main-filename` | 2.0.0 | ISC | web, demo | <https://github.com/yargs/require-main-filename> |
 | `scheduler` | 0.28.0 | MIT | web, demo | <https://github.com/react/react/tree/HEAD/packages/scheduler> |
 | `seroval` | 1.7.5 | MIT | web, demo | <https://github.com/lxsmnsyc/seroval> |
