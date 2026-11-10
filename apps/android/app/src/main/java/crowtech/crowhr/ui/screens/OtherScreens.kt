@@ -306,7 +306,7 @@ fun LicencesScreen() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenTitle("Open-source licences", "Crow HR is MIT-licensed. It bundles these fonts and libraries.")
         Text(
-            "Libraries (Apache 2.0): AndroidX (Activity, Compose, Lifecycle, CameraX, WorkManager, Room via WorkManager), Kotlin and kotlinx.serialization / coroutines, OkHttp and Okio, ZXing.",
+            "ThirdParty-Notices lists every library in the app with its version and licence. Tap an entry to read it.",
             style = MaterialTheme.typography.bodyMedium,
         )
         files.forEach { name ->

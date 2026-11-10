@@ -1,6 +1,6 @@
 ---
 title: Mobile apps
-description: Native iOS and Android apps for Crow HR are built and tested but not in the app stores yet. How connecting a phone to your company's server works.
+description: Native iOS and Android apps for Crow HR, version 1.0.0, are on their way to the App Store and Google Play. How connecting a phone to your company's server works.
 sidebar:
   badge:
     text: Soon
@@ -9,7 +9,7 @@ sidebar:
 
 <span class="crow-pill crow-pill--soon">Coming soon</span>
 
-Native iOS (SwiftUI, `apps/ios`) and Android (Kotlin and Jetpack Compose, `apps/android`) apps are built and tested against a real Crow HR server, but are **not published** in the App Store or Google Play yet. Until then, the web app works on phones, with a bottom tab bar for employees.
+Native iOS (SwiftUI, `apps/ios`) and Android (Kotlin and Jetpack Compose, `apps/android`) apps are built and tested against a real Crow HR server. Version 1.0.0 of both is being submitted to the App Store and Google Play, but they are **not in either store yet**: store review comes first. Until they are, the web app works on phones, with a bottom tab bar for employees. The iOS app is for iPhone; on an iPad it runs in iPhone mode.
 
 The apps cover what employees and managers do most: payslips, leave, clock in and out (also offline), claims with a photo of the receipt, your schedule, approvals and notifications. Everything else stays on the web.
 
@@ -23,7 +23,7 @@ Each person finds their connection code in **My profile → Mobile app**:
 - the **server address** (your `PUBLIC_URL`) to type into the app instead, with a copy button, and the organisation's short name;
 - the store listings, marked "coming soon" until the apps are published.
 
-The app then checks the server, shows your organisation's name for you to confirm, and signs you in through your phone's browser with the same methods you use on the web (password, Google, Microsoft, Singpass or your identity provider).
+If you type the address and the server hosts more than one organisation, the app also asks for the organisation's short name (its ID). The app then checks the server, shows your organisation's name for you to confirm, and signs you in through your phone's browser with the same methods you use on the web (password, Google, Microsoft, Singpass or your identity provider).
 
 The app needs HTTPS. On a plain-HTTP server (a LAN install without a certificate), My profile says so: the app will connect over HTTP only to a private network address or a `.local` name, after warning that the connection is not encrypted. See [reverse proxy](/docs/self-hosting/reverse-proxy/) to add HTTPS.
 

@@ -287,17 +287,19 @@ struct ChoiceField: View {
     var body: some View {
         if size.isAccessibilitySize {
             Button { choosing = true } label: {
-                HStack(spacing: 8) {
-                    VStack(alignment: .leading, spacing: 4) {
+                // The chevron sits beside the title, so the chosen value gets the row's full width.
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(title).font(CrowFont.body()).foregroundStyle(Crow.muted)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text(options.first { $0.id == selection }?.name ?? "Choose")
-                            .font(CrowFont.body(.body, weight: .medium)).foregroundStyle(Crow.ink)
-                            .fixedSize(horizontal: false, vertical: true)
+                        Image(systemName: "chevron.right").font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                            .accessibilityHidden(true)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "chevron.right").foregroundStyle(Crow.muted).accessibilityHidden(true)
+                    Text(options.first { $0.id == selection }?.name ?? "Choose")
+                        .font(CrowFont.body(.body, weight: .medium)).foregroundStyle(Crow.ink)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .navigationDestination(isPresented: $choosing) {
                 List(options, id: \.id) { option in

@@ -129,6 +129,7 @@ struct ClaimRow: View {
 /// One-line claim in SGD with a camera receipt. Saved as a draft or submitted.
 struct NewClaimView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(Session.self) private var session
     @Environment(AppModel.self) private var model
     let onDone: () -> Void
@@ -166,19 +167,28 @@ struct NewClaimView: View {
                         ChoiceField(title: "Type", options: list.map { (id: $0.id, name: $0.name) }, selection: $typeID)
                             .accessibilityIdentifier("claim.type")
                         DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
-                        TextField("Merchant", text: $merchant).accessibilityIdentifier("claim.merchant")
+                        // A business name: no autocorrect (or spell-check marks) on names like "Kopi Kaki".
+                        TextField("Merchant", text: $merchant)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.words)
+                            .accessibilityIdentifier("claim.merchant")
                         TextField("What was it for?", text: $detail).accessibilityIdentifier("claim.description")
-                        HStack {
-                            Text("Amount")
-                            Spacer()
-                            Text("S$").font(CrowFont.mono(.body)).foregroundStyle(Crow.muted)
-                            TextField("0.00", text: $amount)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
-                                .font(CrowFont.mono(.body))
-                                .frame(maxWidth: 140)
-                                .accessibilityLabel("Amount in Singapore dollars")
-                                .accessibilityIdentifier("claim.amount")
+                        if typeSize.isAccessibilitySize {
+                            // Stacked so "Amount" doesn't break mid-word beside the field.
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Amount").fixedSize(horizontal: false, vertical: true)
+                                HStack {
+                                    Text("S$").font(CrowFont.mono(.body)).foregroundStyle(Crow.muted)
+                                    amountField(alignment: .leading)
+                                }
+                            }
+                        } else {
+                            HStack {
+                                Text("Amount")
+                                Spacer()
+                                Text("S$").font(CrowFont.mono(.body)).foregroundStyle(Crow.muted)
+                                amountField(alignment: .trailing).frame(maxWidth: 140)
+                            }
                         }
                         if !amount.isEmpty && cents == nil {
                             Text("Enter an amount like 12.50 (dollars and cents).").font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
@@ -235,6 +245,15 @@ struct NewClaimView: View {
                 }
             }
         }
+    }
+
+    private func amountField(alignment: TextAlignment) -> some View {
+        TextField("0.00", text: $amount)
+            .keyboardType(.decimalPad)
+            .multilineTextAlignment(alignment)
+            .font(CrowFont.mono(.body))
+            .accessibilityLabel("Amount in Singapore dollars")
+            .accessibilityIdentifier("claim.amount")
     }
 
     private var valid: Bool {

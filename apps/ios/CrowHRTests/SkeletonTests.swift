@@ -38,6 +38,16 @@ struct SkeletonTests {
         ])
     }
 
+    /// 1.0.0 ships for iPhone only (project.yml TARGETED_DEVICE_FAMILY); iPad runs it in iPhone mode.
+    @Test func iPhoneOnly() {
+        #expect(info["UIDeviceFamily"] as? [Int] == [1])
+    }
+
+    /// Export compliance: HTTPS through the system's URLSession only, no own encryption.
+    @Test func usesNoNonExemptEncryption() {
+        #expect(info["ITSAppUsesNonExemptEncryption"] as? Bool == false)
+    }
+
     @Test func connectSchemeIsRegisteredButNotTheSignInRedirect() {
         let types = info["CFBundleURLTypes"] as? [[String: Any]] ?? []
         let schemes = types.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }

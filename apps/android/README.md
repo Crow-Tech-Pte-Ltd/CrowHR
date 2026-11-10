@@ -4,8 +4,8 @@ Native Kotlin + Jetpack Compose app for employees and managers of a company that
 Crow HR (`openspec/changes/add-mobile-apps`). It talks **only** to that company's server. There
 is no Crow Tech backend, analytics, crash reporting or remote push.
 
-- applicationId `crowtech.crowhr` (debug `crowtech.crowhr.debug`). Proposed in design decision 3;
-  confirm with Daniel before registering anything.
+- applicationId `crowtech.crowhr` (debug `crowtech.crowhr.debug`), registered in Play Console.
+  Version **1.0.0 (versionCode 2)**; the release script sets the versionCode explicitly.
 - Native sign-in redirect `crowtech.crowhr:/oauth2redirect`, QR deep link `crowhr://connect?server=…&org=…`.
 - Min API 29, target/compile API 37. Toolchain: AGP 9.4.1, Kotlin 2.4.21, Compose BOM
   2026.09.00, Gradle 9.8.1 (wrapper with the official SHA-256 checksum), JDK 21.
@@ -14,7 +14,8 @@ is no Crow Tech backend, analytics, crash reporting or remote push.
 
 | Command | What it does |
 | --- | --- |
-| `scripts/android-build.sh check` | Debug APK, unit tests (JVM, shared fixtures in `apps/mobile-fixtures`), lint |
+| `scripts/android-build.sh check` | Licence notices current, debug APK, unit tests (JVM, shared fixtures in `apps/mobile-fixtures`), lint |
+| `apps/android/gradlew -p apps/android :app:generateLicenceNotices` | Rewrites `assets/licences/ThirdParty-Notices.txt` from the release dependencies (after any dependency change) |
 | `scripts/android-test-server.sh` | Local seeded server (e2e seed, PGlite in a temp dir) on 127.0.0.1:3197 |
 | `scripts/android-emulator.sh start` / `wait` / `stop` | The project-owned `CrowHR_QA` AVD only (API 37, 16 KB pages) |
 | `ANDROID_SERIAL=emulator-5604 scripts/android-build.sh ui` | Device tests: `EssJourneyTest`, `KeystoreStorageTest`, `BackgroundRefreshWorkerTest` |
@@ -38,7 +39,7 @@ Notes:
 
 | Area | Where | Notes |
 | --- | --- | --- |
-| Connect | `connect/` | Address or QR, then `/api/v1/meta`, then confirm, showing the organisation logo from `logoUrl` when it is on the server's host. HTTPS only, except private-range or `.local` hosts, which show a warning. Up to 5 saved connections. Screens are gated on the per-module meta `features` (`payslips`, `claims`, `scheduling`, `approvals`, `notifications`, `leave`, `attendance.offlinePunch`); a server that lists none of the module keys falls back to the old baseline. Android 17 local-network permission is requested only for LAN servers |
+| Connect | `connect/` | Address or QR, then `/api/v1/meta`, then confirm, showing the organisation logo from `logoUrl` when it is on the server's host. When a typed address hosts several organisations, an "Organisation ID" field appears (as on iOS) and the check is repeated with `?org=`. HTTPS only, except private-range or `.local` hosts, which show a warning. Up to 5 saved connections. Screens are gated on the per-module meta `features` (`payslips`, `claims`, `scheduling`, `approvals`, `notifications`, `leave`, `attendance.offlinePunch`); a server that lists none of the module keys falls back to the old baseline. Android 17 local-network permission is requested only for LAN servers |
 | Sign-in | `auth/` | Custom Tabs via the documented intent extras (no WebView, no androidx.browser), PKCE S256 and state, then `/native/token`. One refresh and retry on 401; a refused refresh ends the session |
 | Storage | `security/` | One AES-256-GCM key in the Android Keystore (non-exportable). Every value is its own encrypted file in `noBackupFilesDir`. Backups and device transfer exclude everything |
 | Lock | `security/AppLock.kt`, `Biometric.kt` | Optional. Platform BiometricPrompt with screen-lock fallback, on a cold start and after more than 5 minutes away |
@@ -54,8 +55,8 @@ deleted on sign-out. Unsent clock-ins are deleted only after the user confirms.
 
 **NOT IMPLEMENTED (yet):** the managers' team leave calendar; editing, withdrawing or copying
 claim drafts after saving; shift swaps and open-shift pickup (web only); leave attachments from
-the camera are wired but not covered by a device test. Promoting a release to production is
-done in Play Console, not by a script.
+the camera are wired but not covered by a device test. Uploading to Google Play and releasing
+to production are done in Play Console, not by a script.
 
 ## Release
 
@@ -70,6 +71,10 @@ done in Play Console, not by a script.
   `bundletool validate`, then copies it to `artifacts/android/crow-hr-<version>-<N>.aab`.
   Adding `--upload --approval <record>` puts it on the **internal** track as a **draft**
   (`scripts/android-play.py upload-internal-draft`). Never reuse an uploaded versionCode.
+- `CROWHR_ANDROID_VERSION_CODE=N scripts/android-release.sh production --approval <record> [--out DIR]`
+  builds and verifies the same signed AAB for a production release (the record must say
+  "Approved by Daniel", name the package and "versionCode N") and copies it into `DIR` as well.
+  It never uploads; `--upload` is refused for production.
 - `scripts/android-play.py status` (read-only) and `listing` (store listing, icon, feature
   graphic and phone screenshots from `store/listing.json`) use the maintainers' Play publisher
   service account (`CROWHR_PLAY_CREDENTIALS`, a Google credentials file) and the `google-auth`
@@ -77,6 +82,8 @@ done in Play Console, not by a script.
 - Store screenshots: `scripts/android-qa.sh store-shots` (1080 x 1920, demo-mode status bar,
   real app against the fictional test server). With the e2e seed only four screens look right
   (clock, leave request, approvals, new claim); better ones need a curated demo employee.
+  Checked on 10 Nov 2026 for 1.0.0: the app's screens haven't changed since those four were taken
+  (7 Nov), so they still show the current UI.
 - **Checked on 7 Nov 2026:** versionCode 1 built, signed and verified (SHA-256
   `771ce166...fe54c`). A universal APK made from that AAB installed on the Android 17 emulator,
   read the server's details, signed in through Chrome and opened the home screen. The other tabs
@@ -87,8 +94,27 @@ done in Play Console, not by a script.
   credentials needed renewing, so `android-play.py upload-internal-draft` has not run yet. Receipt:
   `store/receipts/internal-draft-1.json`. The default store listing (en-GB text, icon, feature
   graphic, four screenshots) is saved as a draft in Console. versionCode 1 is used: next upload 2+.
-- **Not done:** Console app content forms (content rating, target audience, data safety, ads,
-  app access for reviewers), internal testers, and any production release.
+- **Production 1.0.0 (versionCode 2), 10 Nov 2026.** Daniel approved a public release of both apps
+  ("Submit both"; record `store/approvals/2026-11-10-production-1.0.0.txt`).
+  `CROWHR_ANDROID_VERSION_CODE=2 scripts/android-release.sh production --approval <record> --out <dir>`
+  built the AAB signed with the upload key and verified the package, versionCode 2, the upload
+  certificate and `bundletool validate` (SHA-256
+  `540c7e4cdd38f54464ff31e79989962fcaec5e2c2857a8eed843a20dff40ba66`). The AAB is kept outside the
+  repository for the Play Console upload; it is not in git. Universal APKs built from it
+  (`bundletool build-apks --mode=universal`, debug-signed for the emulator) were run by hand on
+  `CrowHR_QA` (Android 17, 16 KB pages):
+  - against the seeded test server, with the build just before the organisation ID field was
+    added: the local-network prompt, the confirm screen, sign-in in a Chrome Custom Tab, clock in,
+    leave balances, payslips, approvals, More, the schedule, Settings (version 1.0.0) and the
+    licences screen with the third-party notices (`artifacts/android/screenshots/release-1.0.0-smoke/`);
+  - with the final AAB, against the store reviewer server: typing `https://hr-demo.crow.sg`
+    asked for the organisation ID, `kopi-kaki` showed "Kopi Kaki" to confirm, and Sign in opened
+    the server's sign-in page in a Custom Tab. It stopped there, without signing in
+    (`artifacts/android/screenshots/release-1.0.0-reviewer-connect/`).
+- **Not done (Play Console, by hand):** uploading the 1.0.0 AAB, the production release and
+  sending it for review, and the app content forms (content rating, target audience, data
+  safety, ads, app access for reviewers). The scripted upload (`android-play.py`) still needs the
+  Play publisher login renewed.
 
 ## Real browser sign-in (verified on the emulator, 7 Nov 2026)
 
@@ -114,8 +140,9 @@ steps above.
 ## Play Console
 
 App created 7 Nov 2026 in Crow Tech's Play account (7071629237355404162): "Crow HR", package
-`crowtech.crowhr`, English (United Kingdom), app, free. Console app id `4976368088435434771`, status
-draft. No upload key, AAB, store listing or Console declarations yet; nothing is published.
+`crowtech.crowhr`, English (United Kingdom), app, free. Console app id `4976368088435434771`. Play
+App Signing is on with the upload key above; versionCode 1 (0.1.0) is a draft on internal testing,
+and the default store listing is saved as a draft. Nothing is published yet.
 
 ## App icon
 
@@ -141,6 +168,16 @@ can send data:
 | ZXing core 3.5.3 | On-device QR decoding | No |
 | OkHttp 4.12.0 + Okio | The single HTTP client, restricted to the company's server host | Only the requests the app makes |
 | Fonts: Azeret Mono (OFL 1.1), Ubuntu (Ubuntu Font Licence 1.0) | Bundled in `res/font`; licences in `assets/licences` | No |
+
+**Licences.** Every library above is Apache-2.0. Settings → Open-source licences shows the
+files in `app/src/main/assets/licences`: Crow HR's MIT licence, the two font licences, the
+Apache-2.0 text, and `ThirdParty-Notices.txt`, which lists all 100 libraries in the release APK
+with their versions and repeats the one NOTICE file they ship (OkHttp's note that its public
+suffix data is under MPL 2.0). That list is generated from the release runtime classpath by the
+`generateLicenceNotices` task in `app/build.gradle.kts`, which reads each library's licence from
+its Maven POM. `checkLicenceNotices` runs before every release build, in `check` and in
+`scripts/android-build.sh check`. It fails when the list no longer matches the dependencies, or
+when a library's licence is not a reviewed one (only Apache-2.0 today; copyleft is not accepted).
 
 Permissions: INTERNET, ACCESS_NETWORK_STATE, ACCESS_LOCAL_NETWORK (LAN servers only), CAMERA
 (QR and receipts), POST_NOTIFICATIONS, ACCESS_COARSE/FINE_LOCATION (only when the organisation's
