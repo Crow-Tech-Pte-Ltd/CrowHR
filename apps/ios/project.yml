@@ -20,7 +20,7 @@ settings:
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
     IPHONEOS_DEPLOYMENT_TARGET: '27.0'
     ENABLE_USER_SCRIPT_SANDBOXING: YES
-    MARKETING_VERSION: '0.1.0'
+    MARKETING_VERSION: '1.0.0'
     CURRENT_PROJECT_VERSION: '1'
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: '-'
@@ -42,7 +42,10 @@ targets:
         PRODUCT_NAME: CrowHR
         INFOPLIST_FILE: CrowHR/Info.plist
         GENERATE_INFOPLIST_FILE: NO
-        TARGETED_DEVICE_FAMILY: '1,2'
+        # iPhone only (1.0.0): the layouts are phone layouts and iPad isn't a goal yet. An app
+        # can add iPad later but can never drop it once released with it. On iPad the App Store
+        # still offers it, running in iPhone compatibility mode.
+        TARGETED_DEVICE_FAMILY: '1'
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_EMIT_LOC_STRINGS: YES
     info:
@@ -59,11 +62,6 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        UISupportedInterfaceOrientations~ipad:
-          - UIInterfaceOrientationPortrait
-          - UIInterfaceOrientationPortraitUpsideDown
-          - UIInterfaceOrientationLandscapeLeft
-          - UIInterfaceOrientationLandscapeRight
         UIAppFonts:
           - AzeretMono-Regular.ttf
           - AzeretMono-Medium.ttf

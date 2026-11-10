@@ -1,7 +1,7 @@
 # Crow HR for iOS
 
-SwiftUI app (Swift 6, iOS 27, bundle id `crowtech.crowhr`) for employee self-service and manager
-approvals against a company's own Crow HR server. No third-party dependencies, no analytics, no
+SwiftUI app (Swift 6, iOS 27, bundle id `crowtech.crowhr`, iPhone only) for employee
+self-service and manager approvals against a company's own Crow HR server. Version 1.0.0. No third-party dependencies, no analytics, no
 crash reporting, no remote push. Spec: `openspec/changes/add-mobile-apps/`.
 
 ## Build and test (on a Mac over SSH, from Linux)
@@ -30,7 +30,10 @@ shut it down in a trap. Screenshots from the last UI run are in `artifacts/ios/`
 - **Network allow-list:** two checks prove it, the app's own transport recorder and an `lsof`
   sampler of the app process on the Mac.
 - **QA** (`QAScreenshotsUITests`) runs light XXXL, dark and dark XXXL with Xcode's accessibility
-  audit. It checks element descriptions, clipped text and Dynamic Type.
+  audit. It checks element descriptions, clipped text and Dynamic Type. It still fails on text in
+  `List` and `Form` rows (task 3.7): `A11yAuditLabUITests` audits the same rows built three ways
+  and shows the audit flags them in a `List` or `Form` but never in a `ScrollView`.
+- **Store screenshots** (`StoreScreenshotsUITests`) on the 6.9-inch simulator; see Release.
 
 ## Server contract the app relies on
 
@@ -65,10 +68,13 @@ The Crow Tech crow standing on a kuning "HR" card, in the style of Crow Tech's o
 - The QR scanner (AVFoundation) and Face ID are not exercised by tests, because the simulator has
   neither a camera nor biometrics. The camera is stubbed with `-uitest-camera-stub`, and dark mode
   is forced with `-uitest-dark` (both DEBUG and `-uitest` only).
-- Release: App Store submission is not implemented (`ios-release.sh production`); TestFlight
-  internal uploads work (build 2, 7 Nov 2026).
+- iPad: the app is iPhone only (`TARGETED_DEVICE_FAMILY` 1). On an iPad it runs in iPhone
+  compatibility mode. An app can add iPad support in a later version, but can't drop it once
+  released with it.
+- Submitting for App Review is done by hand in App Store Connect, after the App Review details
+  and the App Privacy answers.
 
-## Release (TestFlight internal)
+## Release
 
 Bundle id `crowtech.crowhr` is registered with Apple (`store/apple-resources.json`). Debug builds
 are ad-hoc signed with no team; Release carries team `A8GBLXTNHB` and no entitlements. Signing
@@ -77,7 +83,8 @@ never copied: `APPLE_KEY_ID`, `APPLE_ISSUER_ID` and `APPLE_SIGNING_SECRET_DIR` (
 Mac with `AuthKey_<key id>.p8` and the build keychain) must be set for the release scripts:
 
 ```sh
-CROWHR_BUILD_NUMBER=<n> scripts/ios-release.sh internal --approval <record>   # whole flow, gated
+CROWHR_BUILD_NUMBER=<n> scripts/ios-release.sh internal --approval <record>     # TestFlight internal only
+CROWHR_BUILD_NUMBER=<n> scripts/ios-release.sh production --approval <record>   # App Store build
 # The Mac steps it runs, usable alone for a dry rehearsal (no upload):
 ssh "$CROWHR_MAC_HOST" 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> scripts/ios-archive-on-mac.sh'
 ssh "$CROWHR_MAC_HOST" 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CROWHR_INTERNAL_ONLY=1 \
@@ -90,8 +97,14 @@ ssh "$CROWHR_MAC_HOST" 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CRO
   then checks bundle id, version, build, Apple Distribution signature, team, `get-task-allow`
   false, no extra entitlements, an App Store profile, `PrivacyInfo.xcprivacy`, and an opaque
   1024 px icon in `Assets.car`. It writes `verification.json` next to the IPA.
-- `ios-release.sh internal` then runs `altool --validate-app` and `altool --upload-app`, and appends
-  the build to `store/uploaded-builds.txt`. Never reuse a build number listed there.
+- `ios-release.sh` then runs `altool --validate-app` and `altool --upload-app`, appends the build
+  to `store/uploaded-builds.txt` and saves the IPA receipt, marked uploaded with altool's delivery
+  id, as `store/build<n>-verification.json`. Never reuse a build number listed there.
+- `internal` exports with "TestFlight internal testing only" set. `production` exports for App
+  Store distribution (the flag absent; `ios-verify-ipa.py` checks it, and that
+  `ITSAppUsesNonExemptEncryption` is false and the app is iPhone only). `production` also needs an
+  approval record with `scope: production` and `build: <n>` matching `CROWHR_BUILD_NUMBER`. It
+  uploads the build and stops: it never submits for review.
 - Build 1 was archived, exported and verified on 7 Nov 2026 (`store/build1-verification.json`)
   but not uploaded (the App Store Connect app record didn't exist yet).
 - **Build 2 (0.1.0) was uploaded on 7 Nov 2026** with Daniel's approval
@@ -99,11 +112,44 @@ ssh "$CROWHR_MAC_HOST" 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CRO
   tests passed, the IPA checks passed (`store/build2-verification.json`), `altool` reported
   "VERIFY SUCCEEDED" and "UPLOAD SUCCEEDED" (delivery `8ebcb36b-6259-44e1-92e3-cee63d65cd83`).
   It is marked internal-only.
+- **Build 4 (1.0.0) was uploaded for the App Store on 10 Nov 2026** with Daniel's approval
+  (`store/approvals/2026-11-10-app-store-1.0.0.txt`, "Submit both") through
+  `ios-release.sh production`: unit tests and the user-flow UI tests passed, the IPA checks passed
+  (`store/build4-verification.json`, not internal-only), and altool reported "VERIFY
+  SUCCEEDED" and "UPLOAD SUCCEEDED" (delivery `ccbbf84b-c37f-4b31-a657-d756bdf078be`). App Store
+  Connect processed it (VALID), and `ios-store-listing.py attach-build 4` attached it to the 1.0.0
+  version. Nothing has been submitted for review.
 - The release gate runs the user-flow UI tests (`EssJourneyUITests`), not `QAScreenshotsUITests`:
-  that class's accessibility audit is the open task 3.7 and fails on a different item each run.
+  that class's accessibility audit is the open task 3.7 (text in `List`/`Form` rows).
 - Internal TestFlight group **Crow HR Internal** (access to all builds) was created on 7 Nov 2026;
   the team's Account Holder was invited at Daniel's request. Add testers with
   `scripts/ios-store-register.py invite-internal EMAIL` on the Mac; internal testers must be
   App Store Connect users on the team. `testers` lists users, groups and tester states.
 
-The store listing draft is `store/app-store-metadata.md`.
+### App Store listing
+
+`scripts/ios-store-listing.py` (on the Mac, same API key variables) fills what App Store
+Connect's API allows from the approved copy in `store/app-store-metadata.md`:
+
+```sh
+ssh "$CROWHR_MAC_HOST" 'cd ~/Developer/crowhr-ios && APPLE_KEY_ID=… APPLE_ISSUER_ID=… APPLE_SIGNING_SECRET_DIR=… \
+  /usr/bin/python3 scripts/ios-store-listing.py status|apply|screenshots [DIR]|attach-build <n>'
+```
+
+`apply` names the version 1.0.0 and sets the description, keywords, promotional text, subtitle,
+support, marketing and privacy URLs, category (Business), copyright, the age rating answers (all
+none or no) and the price (free, every territory). `screenshots` replaces the 6.9-inch iPhone
+screenshots with `store/screenshots/*.png`, and `attach-build` attaches a processed build. App
+Review contact and demo account, the App Privacy answers and the submission stay in the web UI.
+
+Store screenshots come from `StoreScreenshotsUITests` on Crow HR's own 6.9-inch simulator
+(`CrowHR · Store 6.9`, iPhone 17 Pro Max, 1320 x 2868) with a 9:41 demo status bar:
+
+```sh
+CROWHR_SIM_UDID=<store simulator> CROWHR_UI_ONLY=CrowHRUITests/StoreScreenshotsUITests \
+  CROWHR_UI_STORE_SEED=1 CROWHR_STATUS_BAR=demo scripts/ios-ui-test.sh
+```
+
+`CROWHR_UI_STORE_SEED=1` runs `scripts/ios-store-seed.ts`, which publishes Nurul's shifts through
+the API so Today shows a schedule. The chosen captures are copied from `artifacts/ios/store-*.png`
+to `store/screenshots/`.

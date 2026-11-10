@@ -9,6 +9,9 @@ object DeepLinks {
     private const val REDIRECT_SCHEME = "crowtech.crowhr"
     private const val REDIRECT_PATH = "/oauth2redirect"
     private val ORG = Regex("^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$")
+
+    /** An organisation ID (slug) as the server issues them: lower-case letters, digits and hyphens. */
+    fun isValidOrgSlug(slug: String): Boolean = ORG.matches(slug)
     private val HIERARCHICAL = Regex("^([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)([^?#]*)(?:\\?([^#]*))?(?:#.*)?$")
 
     sealed interface Connect {

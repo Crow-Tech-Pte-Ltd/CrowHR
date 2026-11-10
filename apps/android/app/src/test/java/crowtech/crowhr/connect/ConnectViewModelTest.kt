@@ -290,4 +290,103 @@ class ConnectViewModelTest {
         advanceUntilIdle()
         assertEquals("invalid_qr", (bad.state.value.phase as ConnectPhase.Failed).code)
     }
+
+    /** A server hosting several organisations: meta without `org` names none; with `org`, that one. */
+    private class MultiOrgFetcher : MetaFetcher {
+        val requested = mutableListOf<String>()
+        override suspend fun fetch(url: String): HttpResult {
+            requested += url
+            val orgs = when {
+                url.endsWith("?org=kampong-kopi") ->
+                    """[{"slug":"kampong-kopi","displayName":"Kampong Kopi Pte. Ltd.","logoUrl":null,"signInMethods":[{"kind":"password","displayName":"Email and password"}]}]"""
+                else -> "[]"
+            }
+            val required = !url.contains("?org=")
+            return HttpResult.Response(
+                200, "application/json",
+                """{"serverVersion":"1.0.0","apiVersions":["v1"],"features":["leave"],"demo":false,"orgSlugRequired":$required,"organisations":$orgs}""",
+            )
+        }
+    }
+
+    // Same flow and wording as iOS ConnectView: the address alone, then an "Organisation ID" field.
+    @Test fun multiOrgServerAsksForTheOrganisationIdThenConnects() = runTest(dispatcher) {
+        val fetcher = MultiOrgFetcher()
+        val store = ConnectionStore(InMemoryKeyValueStore())
+        val vm = ConnectViewModel(ConnectCheck(fetcher), store)
+        assertFalse("no organisation field before the server asks", vm.state.value.needsOrg)
+        vm.onAddressChange("https://hr.example.com")
+        vm.submit()
+        advanceUntilIdle()
+        val failed = vm.state.value.phase as ConnectPhase.Failed
+        assertEquals("org_required", failed.code)
+        assertEquals(messages.str("org_required"), failed.message)
+        assertTrue("the organisation field appears", vm.state.value.needsOrg)
+
+        vm.onOrgChange(" Kampong-Kopi ")
+        assertTrue("typing clears the error", vm.state.value.phase is ConnectPhase.Idle)
+        vm.submit()
+        advanceUntilIdle()
+        assertEquals(
+            listOf("https://hr.example.com/api/v1/meta", "https://hr.example.com/api/v1/meta?org=kampong-kopi"),
+            fetcher.requested,
+        )
+        val confirm = vm.state.value.phase as ConnectPhase.Confirm
+        assertEquals("Kampong Kopi Pte. Ltd.", confirm.outcome.org.displayName)
+        // A trailing space or different capitals is the same ID and address: the result stays.
+        vm.onOrgChange(" Kampong-Kopi  ")
+        vm.onAddressChange("https://hr.example.com ")
+        assertTrue(vm.state.value.phase is ConnectPhase.Confirm)
+        vm.confirm()
+        advanceUntilIdle()
+        assertEquals("https://hr.example.com|kampong-kopi", store.active()?.key)
+    }
+
+    @Test fun organisationIdIsCheckedBeforeAnyRequest() = runTest(dispatcher) {
+        val fetcher = MultiOrgFetcher()
+        val vm = ConnectViewModel(ConnectCheck(fetcher), ConnectionStore(InMemoryKeyValueStore()))
+        vm.onAddressChange("https://hr.example.com")
+        vm.submit()
+        advanceUntilIdle()
+        vm.onOrgChange("kampong kopi!")
+        vm.submit()
+        advanceUntilIdle()
+        val failed = vm.state.value.phase as ConnectPhase.Failed
+        assertEquals("org_not_found", failed.code)
+        assertEquals(messages.str("org_not_found"), failed.message)
+        assertEquals("only the first, address-only request", 1, fetcher.requested.size)
+    }
+
+    @Test fun unknownOrBlankOrganisationId() = runTest(dispatcher) {
+        val fetcher = MultiOrgFetcher()
+        val vm = ConnectViewModel(ConnectCheck(fetcher), ConnectionStore(InMemoryKeyValueStore()))
+        vm.onAddressChange("https://hr.example.com")
+        vm.submit()
+        advanceUntilIdle()
+        vm.onOrgChange("no-such-org")
+        vm.submit()
+        advanceUntilIdle()
+        assertEquals("org_not_found", (vm.state.value.phase as ConnectPhase.Failed).code)
+        assertEquals("https://hr.example.com/api/v1/meta?org=no-such-org", fetcher.requested.last())
+        vm.onOrgChange("   ")
+        vm.submit()
+        advanceUntilIdle()
+        assertEquals("org_required", (vm.state.value.phase as ConnectPhase.Failed).code)
+        assertEquals("https://hr.example.com/api/v1/meta", fetcher.requested.last())
+        // Correcting the address keeps the organisation field and what was typed in it.
+        vm.onOrgChange("kampong-kopi")
+        vm.onAddressChange("https://hr.example.com/")
+        assertTrue(vm.state.value.needsOrg)
+        assertEquals("kampong-kopi", vm.state.value.org)
+    }
+
+    @Test fun linkWithAnOrganisationShowsItInTheField() = runTest(dispatcher) {
+        val fetcher = MultiOrgFetcher()
+        val vm = ConnectViewModel(ConnectCheck(fetcher), ConnectionStore(InMemoryKeyValueStore()))
+        vm.onLink("crowhr://connect?server=https%3A%2F%2Fhr.example.com&org=kampong-kopi")
+        advanceUntilIdle()
+        assertTrue(vm.state.value.needsOrg)
+        assertEquals("kampong-kopi", vm.state.value.org)
+        assertTrue(vm.state.value.phase is ConnectPhase.Confirm)
+    }
 }

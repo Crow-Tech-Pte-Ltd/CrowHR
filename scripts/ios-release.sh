@@ -1,35 +1,37 @@
 #!/usr/bin/env bash
 # Crow HR iOS release gate (add-mobile-apps task 4.2).
 #
-#   CROWHR_BUILD_NUMBER=<n> scripts/ios-release.sh internal --approval <record> [--dry-run]   TestFlight internal only
-#   scripts/ios-release.sh production --approval <record> [--dry-run]                       App Store submission
+#   CROWHR_BUILD_NUMBER=<n> scripts/ios-release.sh internal --approval <record> [--dry-run]     TestFlight internal only
+#   CROWHR_BUILD_NUMBER=<n> scripts/ios-release.sh production --approval <record> [--dry-run]   App Store build
 #
 # Every external step needs Daniel's written approval (AGENTS.md hard rule 1). An approval record
 # is a file with these lines:
 #   approved-by: Daniel
 #   scope: testflight-internal | production
 #   version: <MARKETING_VERSION from apps/ios/project.yml>
+#   build: <CROWHR_BUILD_NUMBER>          (required for production)
 #   date: YYYY-MM-DD
-# `production` refuses unless the record's scope is `production`; `internal` accepts either scope.
-# Uploads never target external TestFlight groups.
+# `production` refuses unless the record's scope is `production` and its build is this build;
+# `internal` accepts either scope. Uploads never target external TestFlight groups.
 #
-# `internal` (real run), all on the release Mac over SSH: sync, unit + UI tests, unsigned Release archive
-# (scripts/ios-archive-on-mac.sh), Apple cloud-signed export marked "TestFlight internal testing
-# only" plus IPA checks (scripts/ios-export-on-mac.sh, scripts/ios-verify-ipa.py), then
-# `altool --validate-app` and `altool --upload-app`. CROWHR_BUILD_NUMBER must be numeric and higher
-# than every build in apps/ios/store/uploaded-builds.txt; a successful upload is appended there.
-# Archive and export were run and verified for build 1 on 7 Nov 2026 (not uploaded). The upload
-# itself has never run: it needs the App Store Connect app record (owner step) and an approval.
-# Adding the build to the internal TestFlight group is done in App Store Connect, not here.
+# Both commands run, all on the release Mac over SSH: sync, unit tests and the user-flow UI tests,
+# an unsigned Release archive (scripts/ios-archive-on-mac.sh), an Apple cloud-signed export with
+# IPA checks (scripts/ios-export-on-mac.sh, scripts/ios-verify-ipa.py), then
+# `altool --validate-app` and `altool --upload-app`. `internal` exports with "TestFlight internal
+# testing only" set, so that build can never reach external testers or App Review. `production`
+# exports for App Store distribution (the flag absent, which ios-verify-ipa.py checks) and uploads
+# the build to App Store Connect. It does not submit anything for review: attaching the build to
+# the App Store version and submitting it are done in App Store Connect after the listing is
+# complete. CROWHR_BUILD_NUMBER must be numeric and higher than every build in
+# apps/ios/store/uploaded-builds.txt; a successful upload is appended there, and the IPA receipt
+# is saved as apps/ios/store/build<n>-verification.json.
 #
-# A real `internal` run needs, in the environment here: CROWHR_MAC_HOST (SSH host of the release
-# Mac), CROWHR_SIM_UDID (the Crow HR simulator on it), APPLE_KEY_ID and APPLE_ISSUER_ID (the App
-# Store Connect API key) and APPLE_SIGNING_SECRET_DIR (the directory on the Mac with
-# AuthKey_<key id>.p8 and the build keychain; see scripts/ios-export-on-mac.sh). Optional:
-# CROWHR_MAC_DIR (checkout on the Mac, default ~/Developer/crowhr-ios) and DEVELOPER_DIR (Xcode on
-# the Mac, default ~/Applications/Xcode-27.1.app/Contents/Developer).
-#
-# NOT IMPLEMENTED: `production` (App Store submission) stops after the approval checks with exit 3.
+# A real run needs, in the environment here: CROWHR_MAC_HOST (SSH host of the release Mac),
+# CROWHR_SIM_UDID (the Crow HR simulator on it), APPLE_KEY_ID and APPLE_ISSUER_ID (the App Store
+# Connect API key) and APPLE_SIGNING_SECRET_DIR (the directory on the Mac with AuthKey_<key id>.p8
+# and the build keychain; see scripts/ios-export-on-mac.sh). Optional: CROWHR_MAC_DIR (checkout on
+# the Mac, default ~/Developer/crowhr-ios) and DEVELOPER_DIR (Xcode on the Mac, default
+# ~/Applications/Xcode-27.1.app/Contents/Developer).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -62,20 +64,24 @@ SCOPE="$(field scope)"
 [[ "$SCOPE" =~ ^($WANT_SCOPE)$ ]] || refuse "the approval record's scope is '${SCOPE:-missing}', which does not allow '$COMMAND'."
 [[ "$(field version)" == "$VERSION" ]] || refuse "the approval record is for version '$(field version)', not $VERSION."
 [[ "$(field date)" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || refuse "the approval record has no date (YYYY-MM-DD)."
+if [[ "$COMMAND" == production ]]; then
+  [[ "$(field build)" =~ ^[1-9][0-9]*$ ]] || refuse "the production approval record names no build ('build: <n>')."
+fi
 
 # Build numbers: numeric, and never one App Store Connect has already received.
 LEDGER="${CROWHR_UPLOADED_BUILDS:-apps/ios/store/uploaded-builds.txt}"
 BUILD="${CROWHR_BUILD_NUMBER:-}"
-if [[ "$COMMAND" == internal ]]; then
-  if [[ -z "$BUILD" && $DRY_RUN -eq 0 ]]; then
-    refuse "set CROWHR_BUILD_NUMBER to a fresh numeric build number (higher than any in $LEDGER)."
+if [[ -z "$BUILD" && $DRY_RUN -eq 0 ]]; then
+  refuse "set CROWHR_BUILD_NUMBER to a fresh numeric build number (higher than any in $LEDGER)."
+fi
+if [[ -n "$BUILD" ]]; then
+  [[ "$BUILD" =~ ^[1-9][0-9]*$ ]] || refuse "CROWHR_BUILD_NUMBER must be a positive whole number, not '$BUILD'."
+  HIGHEST=$( (grep -E '^[0-9]+' "$LEDGER" 2>/dev/null || true) | awk '{print $1}' | sort -n | tail -1)
+  if [[ -n "$HIGHEST" && "$BUILD" -le "$HIGHEST" ]]; then
+    refuse "build $BUILD is not higher than build $HIGHEST, already uploaded (see $LEDGER)."
   fi
-  if [[ -n "$BUILD" ]]; then
-    [[ "$BUILD" =~ ^[1-9][0-9]*$ ]] || refuse "CROWHR_BUILD_NUMBER must be a positive whole number, not '$BUILD'."
-    HIGHEST=$( (grep -E '^[0-9]+' "$LEDGER" 2>/dev/null || true) | awk '{print $1}' | sort -n | tail -1)
-    if [[ -n "$HIGHEST" && "$BUILD" -le "$HIGHEST" ]]; then
-      refuse "build $BUILD is not higher than build $HIGHEST, already uploaded (see $LEDGER)."
-    fi
+  if [[ "$COMMAND" == production && "$(field build)" != "$BUILD" ]]; then
+    refuse "the production approval record is for build $(field build), not build $BUILD."
   fi
 fi
 
@@ -84,14 +90,21 @@ PLAN=(
   "sync apps/ios to the release Mac (scripts/ios-sync.sh)"
   "run unit tests and the user-flow UI tests on the Mac (scripts/ios-mac-test.sh, scripts/ios-ui-test.sh)"
 )
+PLAN+=("archive Release unsigned with build ${BUILD:-<CROWHR_BUILD_NUMBER>} on the Mac (scripts/ios-archive-on-mac.sh)")
 if [[ "$COMMAND" == internal ]]; then
+  INTERNAL_ONLY=1
+  SCOPE_LABEL=internal
   PLAN+=(
-    "archive Release unsigned with build ${BUILD:-<CROWHR_BUILD_NUMBER>} on the Mac (scripts/ios-archive-on-mac.sh)"
     "cloud-sign and export an internal-only IPA, verify bundle id crowtech.crowhr, team and entitlements (scripts/ios-export-on-mac.sh)"
     "validate, then upload to App Store Connect for the INTERNAL TestFlight group only (altool)"
   )
 else
-  PLAN+=("submit the approved TestFlight build for App Store review (privacy label: Data Not Collected)")
+  INTERNAL_ONLY=0
+  SCOPE_LABEL=app-store
+  PLAN+=(
+    "cloud-sign and export for App Store distribution (not internal-only), verify bundle id crowtech.crowhr, team, entitlements and export compliance (scripts/ios-export-on-mac.sh)"
+    "validate, then upload build ${BUILD:-<CROWHR_BUILD_NUMBER>} to App Store Connect (altool). Not submitted for App Review: that is done in App Store Connect"
+  )
 fi
 for step in "${PLAN[@]}"; do echo "  - $step"; done
 
@@ -99,12 +112,8 @@ if [[ $DRY_RUN -eq 1 ]]; then
   echo "DRY RUN: nothing was built, signed or uploaded."
   exit 0
 fi
-if [[ "$COMMAND" == production ]]; then
-  echo "NOT IMPLEMENTED: App Store submission (see header). Nothing was built or submitted." >&2
-  exit 3
-fi
 
-# ---- internal: real run, approval checked above ----
+# ---- real run, approval checked above ----
 SSH=(ssh -F "$HOME/.ssh/config")
 HOST="${CROWHR_MAC_HOST:-}"
 REMOTE="${CROWHR_MAC_DIR:-Developer/crowhr-ios}"
@@ -127,14 +136,31 @@ altool_args="-f $EXPORT/CrowHR.ipa -t ios --apiKey $KEY_ID --apiIssuer $ISSUER_I
 scripts/ios-sync.sh
 on_mac "CROWHR_SIM_UDID=$UDID scripts/ios-mac-test.sh release-unit -only-testing:CrowHRTests"
 # The release gate runs the user-flow UI tests. QAScreenshotsUITests is left out: its Xcode
-# accessibility audit reports a different Dynamic Type item on each run (add-mobile-apps task 3.7,
-# docs/limitations.md) and needs a manual pass on a real device, which a TestFlight build allows.
+# accessibility audit flags Dynamic Type on text inside SwiftUI List/Form rows, which
+# A11yAuditLabUITests shows is how the audit reads those cells (add-mobile-apps task 3.7,
+# docs/limitations.md); a manual pass on a real device covers it.
 CROWHR_SIM_UDID="$UDID" CROWHR_UI_ONLY=CrowHRUITests/EssJourneyUITests scripts/ios-ui-test.sh
 on_mac "CROWHR_BUILD_NUMBER=$BUILD CROWHR_ARCHIVE_PATH=\$PWD/$ARCHIVE scripts/ios-archive-on-mac.sh"
-on_mac "CROWHR_BUILD_NUMBER=$BUILD CROWHR_INTERNAL_ONLY=1 scripts/ios-export-on-mac.sh $ARCHIVE $EXPORT"
+on_mac "CROWHR_BUILD_NUMBER=$BUILD CROWHR_INTERNAL_ONLY=$INTERNAL_ONLY scripts/ios-export-on-mac.sh $ARCHIVE $EXPORT"
 on_mac "xcrun altool --validate-app $altool_args"
-on_mac "xcrun altool --upload-app $altool_args"
-echo "$BUILD $VERSION $(date -u +%Y-%m-%dT%H:%M:%SZ) internal" >> "$LEDGER"
-"${SSH[@]}" "$HOST" "cat $REMOTE/$EXPORT/verification.json" > "apps/ios/store/build$BUILD-verification.json"
-echo "Uploaded build $BUILD (internal-only). Recorded in $LEDGER. Upload is not processing: check"
-echo "App Store Connect until the build is processed, then add it to the internal TestFlight group."
+UPLOAD_LOG="$(mktemp)"
+on_mac "xcrun altool --upload-app $altool_args" 2>&1 | tee "$UPLOAD_LOG"
+UPLOADED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "$BUILD $VERSION $UPLOADED_AT $SCOPE_LABEL" >> "$LEDGER"
+# The IPA receipt (public facts only), marked uploaded with the delivery id altool printed.
+DELIVERY="$(grep -oiE 'delivery uuid:? *[0-9a-f-]{36}' "$UPLOAD_LOG" | grep -oiE '[0-9a-f-]{36}' | tail -1 || true)"
+rm -f "$UPLOAD_LOG"
+RECEIPT="apps/ios/store/build$BUILD-verification.json"
+"${SSH[@]}" "$HOST" "cat $REMOTE/$EXPORT/verification.json" | python3 -c '
+import json, sys
+receipt = json.load(sys.stdin)
+receipt.update(uploaded=True, uploadedAt=sys.argv[1], distribution=sys.argv[2], approval=sys.argv[3])
+if sys.argv[4]:
+    receipt["deliveryUuid"] = sys.argv[4]
+print(json.dumps(receipt, indent=2))' "$UPLOADED_AT" "$SCOPE_LABEL" "$APPROVAL" "$DELIVERY" > "$RECEIPT"
+echo "Uploaded build $BUILD ($SCOPE_LABEL). Recorded in $LEDGER and $RECEIPT. App Store Connect"
+if [[ "$COMMAND" == internal ]]; then
+  echo "processes it next; then add it to the internal TestFlight group."
+else
+  echo "processes it next; then attach it to the $VERSION App Store version. Nothing was submitted for review."
+fi
