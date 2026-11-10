@@ -4,11 +4,15 @@ SwiftUI app (Swift 6, iOS 27, bundle id `crowtech.crowhr`) for employee self-ser
 approvals against a company's own Crow HR server. No third-party dependencies, no analytics, no
 crash reporting, no remote push. Spec: `openspec/changes/add-mobile-apps/`.
 
-## Build and test (on the `s5` Mac, from Linux)
+## Build and test (on a Mac over SSH, from Linux)
+
+Set `CROWHR_MAC_HOST` to the Mac's SSH host (and `CROWHR_MAC_DIR` if its checkout is not
+`~/Developer/crowhr-ios`). On the Mac, Xcode comes from `DEVELOPER_DIR` (default
+`~/Applications/Xcode-27.1.app`).
 
 ```sh
-scripts/ios-sync.sh                                     # rsync apps/ios + apps/mobile-fixtures to s5
-ssh -F ~/.ssh/config s5 'cd ~/Developer/crowhr-ios && CROWHR_SIM_UDID=<udid> scripts/ios-mac-test.sh unit -only-testing:CrowHRTests'
+scripts/ios-sync.sh                                     # rsync apps/ios + apps/mobile-fixtures to the Mac
+ssh "$CROWHR_MAC_HOST" 'cd ~/Developer/crowhr-ios && CROWHR_SIM_UDID=<udid> scripts/ios-mac-test.sh unit -only-testing:CrowHRTests'
 bun run --cwd apps/web build                            # the server serves the sign-in page
 CROWHR_SIM_UDID=<udid> scripts/ios-ui-test.sh           # seeded server + SSH reverse tunnel + XCUITests
 CROWHR_UI_ONLY=CrowHRUITests/QAScreenshotsUITests CROWHR_SIM_UDID=<udid> scripts/ios-ui-test.sh   # QA only
@@ -67,14 +71,16 @@ The Crow Tech crow standing on a kuning "HR" card, in the style of Crow Tech's o
 ## Release (TestFlight internal)
 
 Bundle id `crowtech.crowhr` is registered with Apple (`store/apple-resources.json`). Debug builds
-are ad-hoc signed with no team; Release carries team `A8GBLXTNHB` and no entitlements. The flow
-follows the Gremia cloud-signing workflow (credentials used in place on s5, never copied):
+are ad-hoc signed with no team; Release carries team `A8GBLXTNHB` and no entitlements. Signing
+is Apple cloud signing with the team's App Store Connect API key, used in place on the Mac and
+never copied: `APPLE_KEY_ID`, `APPLE_ISSUER_ID` and `APPLE_SIGNING_SECRET_DIR` (the directory on the
+Mac with `AuthKey_<key id>.p8` and the build keychain) must be set for the release scripts:
 
 ```sh
 CROWHR_BUILD_NUMBER=<n> scripts/ios-release.sh internal --approval <record>   # whole flow, gated
 # The Mac steps it runs, usable alone for a dry rehearsal (no upload):
-ssh -F ~/.ssh/config s5 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> scripts/ios-archive-on-mac.sh'
-ssh -F ~/.ssh/config s5 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CROWHR_INTERNAL_ONLY=1 \
+ssh "$CROWHR_MAC_HOST" 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> scripts/ios-archive-on-mac.sh'
+ssh "$CROWHR_MAC_HOST" 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CROWHR_INTERNAL_ONLY=1 \
   scripts/ios-export-on-mac.sh artifacts/CrowHR-build<n>.xcarchive artifacts/CrowHR-build<n>-export'
 ```
 
@@ -96,7 +102,7 @@ ssh -F ~/.ssh/config s5 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CR
 - The release gate runs the user-flow UI tests (`EssJourneyUITests`), not `QAScreenshotsUITests`:
   that class's accessibility audit is the open task 3.7 and fails on a different item each run.
 - Internal TestFlight group **Crow HR Internal** (access to all builds) was created on 7 Nov 2026;
-  `apple@m.crow.sg` (the team's Account Holder) was invited at Daniel's request. Add testers with
+  the team's Account Holder was invited at Daniel's request. Add testers with
   `scripts/ios-store-register.py invite-internal EMAIL` on the Mac; internal testers must be
   App Store Connect users on the team. `testers` lists users, groups and tester states.
 

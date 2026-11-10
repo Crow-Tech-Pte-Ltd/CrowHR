@@ -10,7 +10,7 @@
   "aabSha256": "771ce16674021f59ae9053626239438d5b160db7b15b95ebc521fdd63dcfe54c",
   "uploadCertificateSha256": "00:36:3F:6F:B1:A9:F5:3A:81:CB:2F:B3:C7:D4:96:D9:FF:0B:C7:03:FE:89:DB:3E:6D:47:E6:3A:F0:38:57:10",
   "playConsole": "API levels 29+, target SDK 37; Play App Signing on (Google-held app signing key)",
-  "method": "Play Console web UI in the shared Gremia publishing browser (the shared API login needs renewing)",
+  "method": "Play Console web UI (the Play API credentials needed renewing)",
   "approval": "apps/android/store/approvals/2026-11-07-internal-1.txt",
   "at": "2026-11-07"
 }

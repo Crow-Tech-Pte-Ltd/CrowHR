@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Runs ON THE MAC (s5) from the synced checkout: archives the Release app for a generic iOS device,
-# unsigned, ready for Apple cloud signing by scripts/ios-export-on-mac.sh. Adapted from Learning
-# TA's archive-on-mac.sh. Nothing is signed or uploaded here.
+# Runs ON THE RELEASE MAC from the synced checkout: archives the Release app for a generic iOS
+# device, unsigned, ready for Apple cloud signing by scripts/ios-export-on-mac.sh. Nothing is
+# signed or uploaded here.
 #
 #   CROWHR_BUILD_NUMBER=<n> [CROWHR_ARCHIVE_PATH=...] scripts/ios-archive-on-mac.sh
 #

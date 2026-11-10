@@ -35,6 +35,7 @@ check "production with missing record" 3 "does not exist" env CROWHR_ANDROID_VER
 check "production with a non-approval" 3 "Approved by Daniel" env CROWHR_ANDROID_VERSION_CODE=7 "$script" production --approval "$tmp/not-an-approval.txt" --dry-run
 check "production approval for another version" 3 "versionCode 8" env CROWHR_ANDROID_VERSION_CODE=8 "$script" production --approval "$tmp/approval-7.txt" --dry-run
 check "missing signing key" 5 "upload-key properties not found" env CROWHR_ANDROID_VERSION_CODE=7 CROWHR_SIGNING_PROPERTIES="$tmp/none.properties" "$script" internal --dry-run
+check "signing key not configured" 5 "Set CROWHR_SIGNING_PROPERTIES" env -u CROWHR_SIGNING_PROPERTIES CROWHR_ANDROID_VERSION_CODE=7 "$script" internal --dry-run
 check "internal dry run passes gates" 0 "Would build" env CROWHR_ANDROID_VERSION_CODE=7 "$script" internal --dry-run
 check "approved production dry run" 0 "Would promote" env CROWHR_ANDROID_VERSION_CODE=7 "$script" production --approval "$tmp/approval-7.txt" --dry-run
 check "upload without approval" 3 "need --approval" env CROWHR_ANDROID_VERSION_CODE=7 "$script" internal --upload --dry-run

@@ -23,7 +23,7 @@ is no Crow Tech backend, analytics, crash reporting or remote push.
 | `scripts/android-release.sh` | Approval-gated release. `scripts/android-release.test.sh` tests the refusals with dry runs |
 | `scripts/android-build.sh clean` | Removes build outputs and stops the Gradle daemon |
 
-Notes for this machine:
+Notes:
 - **Start the test server and the emulator outside any command sandbox.** The emulator reaches
   the host's loopback at `10.0.2.2`, and a sandboxed network namespace hides it.
 - The API 37 image needs 1.2 x 6 GB free for its data partition check. When the disk is
@@ -61,16 +61,19 @@ done in Play Console, not by a script.
 
 - **Upload key:** a dedicated Crow HR key (RSA 4096, alias `crow-hr-upload`, certificate SHA-256
   `00:36:3F:6F:B1:A9:F5:3A:81:CB:2F:B3:C7:D4:96:D9:FF:0B:C7:03:FE:89:DB:3E:6D:47:E6:3A:F0:38:57:10`)
-  at `/home/daniel/.config/gremia/android-signing/crow-hr-upload.jks`, with
-  `crow-hr.properties` and the certificate beside it (all 0600, never in the repo). Google Play
-  App Signing keeps the app signing key; this key only signs uploads.
+  kept by the maintainers outside the repository: `CROWHR_SIGNING_PROPERTIES` points to its
+  `crow-hr.properties`, with the keystore and `crow-hr-upload-certificate.pem` beside it (all
+  0600, never in the repo). Google Play App Signing keeps the app signing key; this key only signs
+  uploads. A release build also needs JDK 21 (`JAVA_HOME`) and bundletool (`CROWHR_BUNDLETOOL_JAR`).
 - `CROWHR_ANDROID_VERSION_CODE=N scripts/android-release.sh internal` builds the release AAB
   signed with that key and checks the package, versionCode, signing certificate and
   `bundletool validate`, then copies it to `artifacts/android/crow-hr-<version>-<N>.aab`.
   Adding `--upload --approval <record>` puts it on the **internal** track as a **draft**
   (`scripts/android-play.py upload-internal-draft`). Never reuse an uploaded versionCode.
 - `scripts/android-play.py status` (read-only) and `listing` (store listing, icon, feature
-  graphic and phone screenshots from `store/listing.json`) use the shared Gremia Play publisher.
+  graphic and phone screenshots from `store/listing.json`) use the maintainers' Play publisher
+  service account (`CROWHR_PLAY_CREDENTIALS`, a Google credentials file) and the `google-auth`
+  Python package.
 - Store screenshots: `scripts/android-qa.sh store-shots` (1080 x 1920, demo-mode status bar,
   real app against the fictional test server). With the e2e seed only four screens look right
   (clock, leave request, approvals, new claim); better ones need a curated demo employee.
@@ -80,8 +83,8 @@ done in Play Console, not by a script.
   were not walked through: the emulator was killed when the machine ran out of memory.
 - **Uploaded 7 Nov 2026** with Daniel's approval (`store/approvals/2026-11-07-internal-1.txt`):
   versionCode 1 is a **draft** release "0.1.0 (1)" on internal testing (not rolled out, no testers);
-  Play App Signing is on. It went through the Play Console web UI because the shared Play API
-  login needs renewing, so `android-play.py upload-internal-draft` has not run yet. Receipt:
+  Play App Signing is on. It went through the Play Console web UI because the Play API
+  credentials needed renewing, so `android-play.py upload-internal-draft` has not run yet. Receipt:
   `store/receipts/internal-draft-1.json`. The default store listing (en-GB text, icon, feature
   graphic, four screenshots) is saved as a draft in Console. versionCode 1 is used: next upload 2+.
 - **Not done:** Console app content forms (content rating, target audience, data safety, ads,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runs ON THE MAC (s5): verifies an exported Crow HR IPA before validation or upload and prints a
+"""Runs ON THE RELEASE MAC: verifies an exported Crow HR IPA before validation or upload and prints a
 JSON receipt (also written next to the IPA as verification.json). Reads no credentials.
 
   scripts/ios-verify-ipa.py PATH.ipa --build N [--internal-only]
