@@ -11,7 +11,7 @@ Run from the repository root after `bun install`:
 
 | Command | What it runs |
 | --- | --- |
-| `bun run check` | Everything below except e2e: Biome, TypeScript for every package, all Vitest suites, sg-rules coverage (≥ 95% lines), the OpenAPI snapshot check, and the docs build with its link check. |
+| `bun run check` | Everything below except e2e: Biome, the third-party licence check (`scripts/third-party-notices.ts`), TypeScript for every package, all Vitest suites, sg-rules coverage (≥ 95% lines), the OpenAPI snapshot check, and the docs build with its link check. |
 | `bun run test` | Vitest across every package and app. |
 | `bun run typecheck` | `tsc` for each package. |
 | `bun run coverage:sg-rules` | sg-rules tests with the coverage threshold. |

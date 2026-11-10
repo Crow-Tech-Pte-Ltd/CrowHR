@@ -2,17 +2,18 @@
 # iOS UI tests (task 3.5) end to end, from Linux:
 #   1. start the seeded Crow HR server here (127.0.0.1 only; scripts/ios-ui-server.sh),
 #   2. open an SSH reverse tunnel bound to the Mac's loopback (no public port),
-#   3. sync and run the XCUITests on s5 with the socket allow-list check,
+#   3. sync and run the XCUITests on the Mac with the socket allow-list check,
 #   4. stop the tunnel and the server, always.
 #
-#   CROWHR_SIM_UDID=<udid> [CROWHR_UI_ONLY=CrowHRUITests/QAScreenshotsUITests] scripts/ios-ui-test.sh [extra xcodebuild args]
+#   CROWHR_MAC_HOST=<ssh host> CROWHR_SIM_UDID=<udid> [CROWHR_UI_ONLY=CrowHRUITests/QAScreenshotsUITests] scripts/ios-ui-test.sh [extra xcodebuild args]
 # Build the web app first: bun run --cwd apps/web build
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PORT="${CROWHR_UI_PORT:-3190}"
 UDID="${CROWHR_SIM_UDID:?Set CROWHR_SIM_UDID}"
 SSH=(ssh -F "$HOME/.ssh/config")
-HOST="${CROWHR_MAC_HOST:-s5}"
+HOST="${CROWHR_MAC_HOST:?Set CROWHR_MAC_HOST to the SSH host of the release Mac}"
+REMOTE="${CROWHR_MAC_DIR:-Developer/crowhr-ios}"
 STATE="$(mktemp -d "${TMPDIR:-/tmp}/crowhr-ios-ui.XXXXXX")"
 SERVER_PID=""
 TUNNEL_PID=""
@@ -41,7 +42,7 @@ kill -0 "$TUNNEL_PID" 2>/dev/null || { echo "Tunnel failed (port $PORT busy on t
 
 scripts/ios-sync.sh
 set +e
-"${SSH[@]}" "$HOST" "cd ~/Developer/crowhr-ios && CROWHR_SIM_UDID=$UDID CROWHR_NET_ALLOW=127.0.0.1:$PORT \
+"${SSH[@]}" "$HOST" "cd $REMOTE && CROWHR_SIM_UDID=$UDID CROWHR_NET_ALLOW=127.0.0.1:$PORT \
   TEST_RUNNER_CROWHR_TEST_SERVER=http://127.0.0.1:$PORT scripts/ios-mac-test.sh ui -only-testing:${CROWHR_UI_ONLY:-CrowHRUITests} $*" | tee "$STATE/mac.log"
 STATUS=${PIPESTATUS[0]}
 set -e
@@ -49,7 +50,7 @@ set -e
 # Copy only the named screenshots (small PNGs) from the result bundle to artifacts/ios/.
 RESULT=$(grep -o 'RESULT_BUNDLE=.*' "$STATE/mac.log" | tail -1 | cut -d= -f2)
 if [[ -n "$RESULT" ]]; then
-  "${SSH[@]}" "$HOST" "export DEVELOPER_DIR=\$HOME/Applications/Xcode-27.1.app/Contents/Developer
+  "${SSH[@]}" "$HOST" "export DEVELOPER_DIR=\${DEVELOPER_DIR:-\$HOME/Applications/Xcode-27.1.app/Contents/Developer}
     OUT=\"$RESULT-att\"; rm -rf \"\$OUT\" \"\$OUT-shots\"; mkdir -p \"\$OUT\" \"\$OUT-shots\"
     xcrun xcresulttool export attachments --path \"$RESULT\" --output-path \"\$OUT\" >/dev/null
     python3 - \"\$OUT\" <<'PY'

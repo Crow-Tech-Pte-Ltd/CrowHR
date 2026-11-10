@@ -7,12 +7,12 @@ description: How to report a vulnerability in Crow HR, and the security measures
 
 Please **do not open a public issue** for a security problem.
 
-- Use GitHub's private vulnerability reporting on the repository (**Security → Report a vulnerability**) once the repository is public, or
-- email **security@crow.sg** (address to be confirmed by Crow Tech before the repository is public).
+- Use GitHub's private vulnerability reporting on the repository ([**Security → Report a vulnerability**](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/security/advisories/new)), or
+- email **hello@crow.sg**.
 
 Include what you found, the version or commit, steps to reproduce and the impact you expect. Do not include real personal data. We aim to acknowledge reports within 5 working days and will tell you when a fix is released. Please give us reasonable time to fix the issue before disclosing it. The same policy is in `SECURITY.md` in the repository.
 
-Only the latest release is supported with security fixes while the project is pre-1.0.
+Security fixes go into the latest release of the current major version (1.x); upgrade promptly with `docker compose pull && docker compose up -d`.
 
 ## Built-in protections
 

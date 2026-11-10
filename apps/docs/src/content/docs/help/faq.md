@@ -41,7 +41,7 @@ The web app works on phone screens, with a bottom tab bar for employees. Native 
 
 ## Is there a demo?
 
-An [in-browser demo](/docs/demo/) is built but not published yet. You can build and open it on your own machine, or install Crow HR with the [quick start](/docs/quick-start/).
+Yes: the [in-browser demo](/docs/demo/) at [hr.crow.sg](https://hr.crow.sg/) runs the real app with a fictional company, entirely in your browser. To try it with your own data, install Crow HR with the [quick start](/docs/quick-start/).
 
 ## Do we need Singpass?
 
