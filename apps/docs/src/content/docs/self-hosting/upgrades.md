@@ -24,11 +24,15 @@ Skipping versions is fine within a major version: an install on 1.1.0 can pull 1
 
 ## Image tags
 
-Images will be tagged `:<major>`, `:<major>.<minor>`, `:<major>.<minor>.<patch>` and `latest`. `docker-compose.yml` references `:1`, so `pull` brings the newest 1.x. A major upgrade (1 → 2) means editing the tag in `docker-compose.yml` and reading the release notes, which mark any manual step.
+Images are published to `ghcr.io/crow-tech-pte-ltd/crowhr` for amd64 and arm64, tagged `:<major>`, `:<major>.<minor>`, `:<major>.<minor>.<patch>` and `latest`. `docker-compose.yml` references `:1`, so `pull` brings the newest 1.x. A major upgrade (1 → 2) means editing the tag in `docker-compose.yml` and reading the [release notes](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/releases), which mark any manual step.
 
-:::caution[Images are not published yet]
-The registry and publishing still need approval. Until then compose builds the image from the checkout, so upgrade with `git pull && docker compose up -d --build`.
-:::
+To stay on one release, set `CROWHR_IMAGE=ghcr.io/crow-tech-pte-ltd/crowhr:1.0.0` (for example) in `.env`. If you run your own build (`CROWHR_IMAGE=crowhr:local`, see [build the image yourself](/docs/self-hosting/install/#build-the-image-yourself)), upgrade with `git pull`, `docker build -t crowhr:local .` and `docker compose up -d`.
+
+Each published image carries a software bill of materials (SBOM) and a signed build provenance attestation. To check that an image was built from this repository by its release workflow:
+
+```sh
+gh attestation verify oci://ghcr.io/crow-tech-pte-ltd/crowhr:1 --owner Crow-Tech-Pte-Ltd
+```
 
 ## Downgrades
 
@@ -42,10 +46,10 @@ To really go back, restore a backup taken before the upgrade (the pre-migrate ba
 
 ## Multi-arch builds (amd64 and arm64)
 
-The Dockerfile builds on both architectures (no native modules beyond `@node-rs/argon2`, which ships musl binaries for both). Local multi-arch build with QEMU:
+The Dockerfile builds on both architectures (no native modules beyond `@node-rs/argon2`, which ships musl binaries for both). Published images are built natively on an amd64 and an arm64 runner, and each is started against PostgreSQL 17 before it is pushed (`.github/workflows/release.yml`). A local multi-arch build uses QEMU:
 
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 -t crowhr:local .
 ```
 
-Building arm64 under QEMU is slow (several minutes). arm64 was verified once locally (build, argon2, start against PostgreSQL 17); CI builds amd64 only. Publishing multi-arch images to a registry is a separate step that waits for approval.
+Building arm64 under QEMU is slow (several minutes). Pull-request CI builds and tests amd64 only.
