@@ -24,10 +24,11 @@ bun run docs:dev   # documentation site on http://localhost:4321/docs/
 bun run check
 ```
 
-must pass before a pull request is merged: Biome, TypeScript, all Vitest suites, sg-rules coverage (≥ 95% lines), the OpenAPI snapshot check and the docs build with its link check. Also:
+must pass before a pull request is merged: Biome, the third-party licence check, TypeScript, all Vitest suites, sg-rules coverage (≥ 95% lines), the OpenAPI snapshot check and the docs build with its link check. Also:
 
 - Changed routes: `bun run openapi:generate` and commit `packages/core/openapi/v1.snapshot.json`.
 - Changed the database schema: `bun run db:generate` and commit `packages/core/drizzle/`.
+- Added or upgraded a dependency: `bun run licences` and commit `THIRD-PARTY-NOTICES.md`. Shipped dependencies must use a permissive licence; GPL-family and unknown licences are refused.
 - Changed environment variables or CLI commands: update the configuration or CLI page in `apps/docs` (a test fails otherwise).
 
 ## Ground rules

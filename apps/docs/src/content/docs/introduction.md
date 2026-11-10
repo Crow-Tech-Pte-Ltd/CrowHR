@@ -25,6 +25,10 @@ The exact rights of each role are on the [roles and permissions](/docs/roles-and
 
 The code is MIT-licensed: you may use, change and redistribute it, including commercially, without paying anyone. There is no paid tier hidden behind the open version and no feature flag that phones home. Contributions are welcome; see [contributing](/docs/developers/contributing/).
 
+### Licence
+
+Crow HR is © Crow Tech Pte. Ltd. and contributors, under the [MIT licence](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/blob/main/LICENSE). It ships with open-source packages under their own permissive licences (MIT, Apache-2.0, ISC, BSD and similar; no GPL-family licences) and with the Azeret Mono, Ubuntu and Noto fonts (SIL Open Font License 1.1 and Ubuntu Font Licence 1.0). Every package, version and licence is listed in [THIRD-PARTY-NOTICES.md](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/blob/main/THIRD-PARTY-NOTICES.md), which is also in the Docker image at `/app/THIRD-PARTY-NOTICES.md` next to `/app/LICENSE`.
+
 ## Self-hosted: you own the data
 
 Crow HR runs as one app container and a PostgreSQL 17 database on your machine, in your office or with the cloud provider you choose. Crow Tech does not run a hosted service for it and receives nothing from your install:
@@ -52,7 +56,7 @@ Crow HR is early software. Built and tested today:
 - [employee documents](/docs/documents/documents/), HR letters and KETs, and [reports](/docs/reports/running-reports/) with CSV and Excel export;
 - self-hosting with automatic migrations, scheduled backups (encrypted when you set `BACKUP_PASSPHRASE`, which you should) and a `crowhr` CLI.
 
-An [in-browser demo](/docs/demo/) is built but not deployed yet, and native mobile apps are planned but not built. The [project status](/docs/status/) page lists what is built and what is not.
+An [in-browser demo](/docs/demo/) runs at [hr.crow.sg](https://hr.crow.sg/), and native [iOS and Android apps](/docs/coming-soon/mobile-apps/) are built but not in the app stores yet. The [project status](/docs/status/) page lists what is built and what is not.
 
 ## Not legal advice
 

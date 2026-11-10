@@ -1,7 +1,9 @@
 # Deploying the public demo to hr.crow.sg
 
-**Status: not deployed. Every step that touches Cloudflare or DNS needs Daniel's explicit approval
-before it is run** (AGENTS.md hard rule 1). Nothing in the repository deploys automatically.
+**Status: deployed 9 Nov 2026** (Daniel approved): Pages project `crowhr-demo` in the main Cloudflare
+account, custom domain `hr.crow.sg` (proxied CNAME to `crowhr-demo.pages.dev`). Every further step
+that touches Cloudflare or DNS still needs Daniel's approval (AGENTS.md hard rule 1). Nothing in the
+repository deploys automatically.
 
 hr.crow.sg is one static Cloudflare Pages site: the in-browser demo at `/` and the documentation
 (apps/docs) at `/docs`. There is no backend, no Pages Function, no binding, no environment variable
@@ -26,12 +28,23 @@ it and loads it with PGlite `loadDataDir`; missing or invalid snapshots fall bac
 browser seed. The build checkpoints Postgres before dumping it so visitors skip replaying the seed's WAL history. The distribution also includes optional language fonts; they are fetched only
 when needed. Nothing is uploaded by the build.
 
+## Singpass in the demo (optional build settings)
+
+The demo can offer a real Singpass login (then HR admin or Employee; nothing about the person is kept). It needs a Crow HR server acting as the Singpass relying party (see the Singpass guide, "Public demo"); for hr.crow.sg that is `https://hr-demo.crow.sg` on S4.
+
+| Build-time variable | Value for hr.crow.sg | Effect |
+| --- | --- | --- |
+| `VITE_SINGPASS_LOGO_SRC` | `/branding/singpass-logo.svg` | The Singpass button shows the official logo. Copy Singpass's full-colour logo (from their button specification download) to `apps/demo/dist-site/branding/singpass-logo.svg` after building. It is never committed. |
+| `VITE_DEMO_SINGPASS_START_URL` | `https://hr-demo.crow.sg/api/v1/auth/oidc/<production method id>/start?purpose=demo` | Turns the demo's Singpass button on. Only set it once that method has a **production** client ID: Singpass staging accepts test accounts only. Unset, the button is shown disabled. |
+
 ## Before deploying (local, no approval needed)
 
 1. `bun install`
 2. `bun run check` (green)
-3. `REQUIRE_DOCS=1 bun run demo:site` — builds the demo (with the server-code bundle guard) and the
-   docs, and assembles `apps/demo/dist-site/`.
+3. `REQUIRE_DOCS=1 VITE_SINGPASS_LOGO_SRC=/branding/singpass-logo.svg bun run demo:site` (plus
+   `VITE_DEMO_SINGPASS_START_URL` once production Singpass is approved) — builds the demo (with the
+   server-code bundle guard) and the docs, and assembles `apps/demo/dist-site/`. Then copy the logo
+   to `apps/demo/dist-site/branding/singpass-logo.svg`.
 4. `bun run demo:e2e` twice (the second run proves a fresh visitor gets a fresh copy), then
    `node apps/demo/scripts/serve.ts apps/demo/dist-site` and check by hand at
    http://127.0.0.1:5181: first load, a persona, `/payroll`, `/about-demo`, `/docs/`, Reset.
@@ -45,14 +58,21 @@ without approval.
 1. **Create the Pages project** (once): in the Cloudflare dashboard, Workers & Pages → Create →
    Pages → "Upload assets" (Direct Upload), project name `crowhr-demo`, production branch `main`.
    Or with Wrangler, logged in as Daniel: `bunx wrangler pages project create crowhr-demo --production-branch main`.
-   Do not connect the GitHub repository (the repo is private until approved; Git integration would
-   also build on Cloudflare with a different toolchain).
-2. **Upload**: from `apps/demo/`, `bunx wrangler pages deploy` (reads `wrangler.toml`:
-   `pages_build_output_dir = "dist-site"`). Check the `*.crowhr-demo.pages.dev` preview URL first:
+   **Wrangler 4.159+** sends `pages` commands to the new Workers-based Pages and fails on this
+   folder ("Missing entry-point to Worker script or to assets directory"). Add `--force` to use
+   classic Pages, which this site is built for (`_headers`, `_redirects`). The project was created
+   with the API: `POST /accounts/<id>/pages/projects {"name":"crowhr-demo","production_branch":"main"}`.
+   Do not connect the GitHub repository (Git integration would build on Cloudflare with a
+   different toolchain and deploy without approval).
+2. **Upload**: from `apps/demo/`, `bunx wrangler pages deploy dist-site --project-name crowhr-demo --branch main --force`
+   (with `CLOUDFLARE_ACCOUNT_ID` and the account's key from the vault). Check the `*.crowhr-demo.pages.dev` preview URL first:
    - the demo loads its snapshot and signs in; no console errors; DevTools → Network shows requests to
      this origin only;
    - response headers on `/` include the CSP from `_headers`; `/docs/` has the docs CSP;
-   - `/payroll` (deep link) serves the app; `/docs/quick-start/` serves the docs; `/nope` is a 404.
+   - `/payroll` (deep link) serves the app with status 200, not a 308 to `/`; `/docs/quick-start/`
+     serves the docs; `/nope` is a 404. Pages answers a rewrite to `/index.html` with a 308 to `/`,
+     so `_redirects` rewrites to `/` (the preview server now does the same, and `site.test.ts`
+     refuses `.html` rewrite targets).
 3. **Custom domain**: Pages project → Custom domains → add `hr.crow.sg`. Cloudflare creates the
    `CNAME hr → crowhr-demo.pages.dev` record if crow.sg's DNS is on Cloudflare; otherwise add that
    CNAME at the DNS host. This is the only DNS change. Wait for the certificate, then repeat the

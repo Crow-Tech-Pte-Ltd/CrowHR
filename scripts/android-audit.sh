@@ -7,7 +7,7 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 android_dir="$repo_dir/apps/android"
 apk="${1:-$android_dir/app/build/outputs/apk/debug/app-debug.apk}"
-sdk="${ANDROID_HOME:-/home/daniel/Android/Sdk}"
+sdk="${ANDROID_HOME:-$HOME/Android/Sdk}"
 export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}"
 [[ -f "$apk" ]] || { printf '%s\n' "No APK at $apk. Run scripts/android-build.sh check first." >&2; exit 1; }
 

@@ -3,20 +3,20 @@ title: Install with Docker Compose
 description: Install Crow HR on your own server with Docker Compose, finish setup in the browser and take your first backup.
 ---
 
-These steps are what `e2e/self-host.sh` runs in a throwaway compose project, so they are tested as written. The short version is on the [quick start](/docs/quick-start/) page.
+These steps are what `e2e/self-host.sh` runs in a throwaway compose project (with an image built from the checkout), so they are tested as written. The short version is on the [quick start](/docs/quick-start/) page.
 
 You need a machine with Docker Engine 24+ and the Compose plugin (`docker compose version`), 2 GB of RAM and a few GB of disk. Crow HR runs as two containers, the app and PostgreSQL 17. There is no Redis and no queue.
 
 ## 1. Get the files
+
+You need two files from the repository, `docker-compose.yml` and `.env.example`. The simplest way to get them is to clone it:
 
 ```sh
 git clone https://github.com/Crow-Tech-Pte-Ltd/CrowHR.git
 cd CrowHR
 ```
 
-:::caution[Images are not published yet]
-The registry and image name (`ghcr.io/crow-tech-pte-ltd/crowhr:1` in `docker-compose.yml`) are not confirmed and nothing has been pushed. Until images are published, the first `docker compose up` builds the image from the checkout, which takes a few minutes. Once images are published you will only need `docker-compose.yml` and `.env.example`.
-:::
+Compose pulls the published image, `ghcr.io/crow-tech-pte-ltd/crowhr:1`, built for both amd64 and arm64 (Intel/AMD and 64-bit ARM servers). `:1` follows the newest 1.x release. To run an image you build yourself, see [build the image yourself](#build-the-image-yourself).
 
 ## 2. Configure
 
@@ -87,6 +87,18 @@ docker compose exec app crowhr backup
 | `secrets` (`/run/crowhr-secrets`) | generated database password | no: a restore works with a fresh one |
 
 Only the app's port is published (`HTTP_PORT`, default 8080, on `BIND_ADDRESS`, default all interfaces). PostgreSQL has no host port. The app runs as uid 10001 on a read-only root filesystem.
+
+## Build the image yourself
+
+To run your own build of the checkout instead of the published image:
+
+```sh
+docker build -t crowhr:local .
+echo 'CROWHR_IMAGE=crowhr:local' >> .env
+docker compose up -d
+```
+
+The build takes a few minutes. To upgrade, `git pull`, build again and run `docker compose up -d`; `docker compose pull` only updates published images.
 
 ## Next
 
