@@ -88,6 +88,10 @@ describe("monitoring configuration", () => {
     expect(isDsn("https://key@glitchtip.example.sg/")).toBe(false);
     expect(isDsn("ftp://key@glitchtip.example.sg/7")).toBe(false);
     expect(isDsn("https://key@glitchtip.example.sg/7?x=1")).toBe(false);
+    // The SDK parses these without complaint and then sends nothing: they must fail at startup.
+    expect(isDsn("https://key@glitchtip.example.sg/7/")).toBe(false);
+    expect(isDsn("https://key@glitchtip.example.sg/my-project")).toBe(false);
+    expect(isDsn("https://key-with-dash@glitchtip.example.sg/7")).toBe(false);
     expect(dsnOrigin(DSN)).toBe("https://glitchtip.example.sg");
   });
 

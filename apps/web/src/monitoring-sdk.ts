@@ -27,7 +27,8 @@ export function initSdk(config: BrowserMonitoringConfig, router: unknown): void 
     integrations: (defaults) => [
       // GlitchTip has no release-health sessions.
       ...defaults.filter((i) => i.name !== "BrowserSession"),
-      ...(tracing ? [tanstackRouterBrowserTracingIntegration(router)] : []),
+      // No INP spans: they are named after the element clicked, whose label can name a person.
+      ...(tracing ? [tanstackRouterBrowserTracingIntegration(router, { enableInp: false })] : []),
     ],
     beforeSend: (event, hint) => (isExpectedError(hint.originalException) ? null : scrubEvent(event)),
     beforeSendTransaction: (event) => scrubEvent(event),

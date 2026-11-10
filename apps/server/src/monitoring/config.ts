@@ -111,7 +111,11 @@ export function readMonitoringConfig(
   };
 }
 
-/** `https://<public key>@<host>[/<path>]/<project id>`, as issued by Sentry and GlitchTip. */
+/**
+ * `https://<public key>@<host>[/<path>]/<project id>`, as issued by Sentry and GlitchTip. As
+ * strict as the SDK's own parser: it silently sends nothing for a DSN it rejects (for example
+ * a trailing slash or a non-numeric project ID), so those must fail at startup instead.
+ */
 export function isDsn(value: string): boolean {
   let url: URL;
   try {
@@ -121,9 +125,9 @@ export function isDsn(value: string): boolean {
   }
   return (
     (url.protocol === "https:" || url.protocol === "http:") &&
-    url.username !== "" &&
+    /^\w+$/.test(url.username) &&
     url.hostname !== "" &&
-    /\/[A-Za-z0-9_-]+\/?$/.test(url.pathname) &&
+    /^(\/[^/]+)*\/\d+$/.test(url.pathname) &&
     !url.search &&
     !url.hash
   );

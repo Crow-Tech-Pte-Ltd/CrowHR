@@ -58,6 +58,29 @@ describe("logger to monitoring", () => {
     expect(monitoring.captureException).not.toHaveBeenCalled();
   });
 
+  it("masks failed-query values, NRIC/FIN and emails in forwarded logs and issues", async () => {
+    const inner = createMemoryLogger();
+    const monitoring = fakeMonitoring();
+    const logger = withMonitoring(inner, monitoring, { logs: true, minLevel: "info" });
+    const failed = "Error: Failed query: select * from users where email = $1\nparams: tan@acme.sg";
+    logger.error("Scheduled sweep failed for tan@acme.sg", { sweep: "outbox", error: failed });
+    logger.error("Unhandled error", { err: new Error('invalid input syntax for type integer: "S1234567D"') });
+    await tick();
+    const sent = JSON.stringify([
+      monitoring.log.mock.calls,
+      monitoring.captureMessage.mock.calls,
+      monitoring.captureException.mock.calls.map(([, extra]) => extra),
+    ]);
+    expect(sent).not.toContain("tan@acme.sg");
+    expect(sent).not.toContain("S1234567D");
+    expect(monitoring.captureMessage).toHaveBeenCalledWith("Scheduled sweep failed for [email]", {
+      sweep: "outbox",
+      error: "Error: Failed query: select * from users where email = $1\nparams: [redacted]",
+    });
+    // The console keeps the full entry: it stays on the operator's machine.
+    expect(inner.entries[0]?.message).toBe("Scheduled sweep failed for tan@acme.sg");
+  });
+
   it("never lets a monitoring failure break logging", () => {
     const inner = createMemoryLogger();
     const monitoring = fakeMonitoring();

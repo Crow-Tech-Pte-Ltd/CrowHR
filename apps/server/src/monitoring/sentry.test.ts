@@ -1,7 +1,15 @@
 import { AppError } from "@crowhr/core";
+import { DrizzleQueryError } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { describe, expect, it, vi } from "vitest";
-import { activeMonitoring, DATA_COLLECTION, sampleTrace, scrubEvent, shouldReportError } from "./sentry.ts";
+import {
+  activeMonitoring,
+  DATA_COLLECTION,
+  DROPPED_INTEGRATIONS,
+  sampleTrace,
+  scrubEvent,
+  shouldReportError,
+} from "./sentry.ts";
 
 type Ctx = Parameters<typeof sampleTrace>[0];
 const ctx = (fields: Partial<Ctx>): Ctx => ({
@@ -56,6 +64,53 @@ describe("server monitoring", () => {
     });
     expect(event.user).toBeUndefined();
     expect(event.breadcrumbs?.[0]?.data).toEqual({ url: "/api/v1/employees", status_code: 200 });
+  });
+
+  it("attaches no console output and keeps Node's crash on unhandled rejections", () => {
+    expect(DROPPED_INTEGRATIONS).toContain("Console");
+    // Replaced by a strict one: an unhandled rejection still ends the process, as without the SDK.
+    expect(DROPPED_INTEGRATIONS).toContain("OnUnhandledRejection");
+  });
+
+  it("removes a failed query's values, NRIC/FIN and emails from messages, breadcrumbs and spans", () => {
+    // What drizzle throws for any failed query: the SQL plus every bound value.
+    const failed = new DrizzleQueryError(
+      'insert into "employees" ("name", "email", "nric", "monthly_salary_cents") values ($1, $2, $3, $4)',
+      ["Tan Ah Kow", "tan@acme.sg", "S1234567D", 987654],
+      new Error('duplicate key value violates unique constraint "employees_email_key"'),
+    );
+    const leaked = ["Tan Ah Kow", "tan@acme.sg", "S1234567D", "987654"];
+    const event = scrubEvent({
+      type: undefined,
+      message: "Backup for tan@acme.sg failed",
+      exception: {
+        values: [
+          { type: "Error", value: 'invalid input syntax for type integer: "S1234567D"' },
+          { type: "DrizzleQueryError", value: failed.message },
+        ],
+      },
+      extra: { error: String(failed), nested: { list: ["G7654321X"] } },
+      contexts: { trace: { trace_id: "t", span_id: "s", data: { "db.query.text": "select 1", note: "T0123456A" } } },
+      spans: [
+        {
+          span_id: "s",
+          trace_id: "t",
+          start_timestamp: 0,
+          status: "ok",
+          description: "lookup F9876543K",
+          data: { "url.full": "https://hr.acme.sg/api/v1/x" },
+        },
+      ],
+      breadcrumbs: [{ category: "http", message: failed.message, data: { error: String(failed) } }],
+    });
+    const sent = JSON.stringify(event);
+    for (const value of [...leaked, "G7654321X", "T0123456A", "F9876543K"]) expect(sent).not.toContain(value);
+    expect(event.exception?.values?.[0]?.value).toBe('invalid input syntax for type integer: "[redacted]"');
+    expect(event.exception?.values?.[1]?.value).toBe(
+      'Failed query: insert into "employees" ("name", "email", "nric", "monthly_salary_cents") values ($1, $2, $3, $4)\nparams: [redacted]',
+    );
+    expect(event.message).toBe("Backup for [email] failed");
+    expect(event.spans?.[0]?.data).toEqual({ "url.full": "https://hr.acme.sg/api/v1/x" });
   });
 
   it("reports unexpected errors and 5xx, not AppError or client errors", () => {
