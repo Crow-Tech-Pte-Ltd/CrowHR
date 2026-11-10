@@ -18,7 +18,7 @@ docker compose up -d            # 3. start
 docker compose logs app | grep -A3 'SETUP CODE'   # then open PUBLIC_URL and finish setup
 ```
 
-Images are not published to a registry yet, so the first start builds the image from the checkout.
+Compose pulls the published image, [`ghcr.io/crow-tech-pte-ltd/crowhr:1`](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/pkgs/container/crowhr) (amd64 and arm64), and upgrades are `docker compose pull && docker compose up -d`. Only `docker-compose.yml` and `.env.example` are needed from the checkout. To build the image yourself instead: `docker build -t crowhr:local .` and set `CROWHR_IMAGE=crowhr:local` in `.env`.
 
 ## Documentation
 
@@ -30,11 +30,11 @@ bun run docs:build              # static site in apps/docs/dist
 bun run docs:dev                # http://localhost:4321/docs/
 ```
 
-Start with the install guide (`apps/docs/src/content/docs/self-hosting/install.md`) and the [limitations](docs/limitations.md).
+Start with the [install guide](https://hr.crow.sg/docs/self-hosting/install/) and the [limitations](docs/limitations.md).
 
 ## Status
 
-Early and under active development; not yet used for a real company's payroll.
+Version 1.0.0 ([changelog](CHANGELOG.md)). Crow HR has not yet been used for a real company's payroll: check its results before you pay or file.
 
 | Built | Not built yet |
 | --- | --- |
@@ -69,4 +69,4 @@ Please report vulnerabilities privately; see [SECURITY.md](SECURITY.md).
 
 ## Licence
 
-[MIT](LICENSE) © Crow Tech Pte. Ltd. and contributors.
+[MIT](LICENSE) © Crow Tech Pte. Ltd. and contributors. The open-source packages and fonts Crow HR ships with, and their licences, are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) (also in the Docker image at `/app/THIRD-PARTY-NOTICES.md`).
