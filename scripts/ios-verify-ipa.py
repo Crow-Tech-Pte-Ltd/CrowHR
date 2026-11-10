@@ -4,7 +4,9 @@ JSON receipt (also written next to the IPA as verification.json). Reads no crede
 
   scripts/ios-verify-ipa.py PATH.ipa --build N [--internal-only]
 
-Checks: bundle id, version and build; App Store distribution signature by the Crow Tech team;
+Checks: bundle id, version and build; the internal-only flag (present for --internal-only, absent
+for an App Store build); export compliance (ITSAppUsesNonExemptEncryption false); iPhone only;
+App Store distribution signature by the Crow Tech team;
 get-task-allow false and no entitlements beyond the ones Apple adds to every App Store app; an App
 Store (not ad hoc or development) provisioning profile; PrivacyInfo.xcprivacy present; an opaque
 1024 px app icon in the compiled asset catalog; no test bundles or secrets in the archive.
@@ -91,6 +93,12 @@ def main():
             fail("internal-only export but Info.plist has no TFInternalTestingOnly=true")
         if not args.internal_only and "TFInternalTestingOnly" in info:
             fail("TFInternalTestingOnly is set on an export meant for App Store review")
+        # Export compliance: HTTPS through the system only, answered in Info.plist so App Store
+        # Connect doesn't ask per build.
+        if info.get("ITSAppUsesNonExemptEncryption") is not False:
+            fail(f"ITSAppUsesNonExemptEncryption is {info.get('ITSAppUsesNonExemptEncryption')!r}, expected false")
+        if info.get("UIDeviceFamily") != [1]:
+            fail(f"UIDeviceFamily is {info.get('UIDeviceFamily')!r}, expected [1] (iPhone only)")
 
         run("codesign", "--verify", "--deep", "--strict", str(app))
         details = run("codesign", "-dv", "--verbose=4", str(app)).stderr
@@ -158,6 +166,8 @@ def main():
         "xcodeBuild": info.get("DTXcodeBuild"),
         "minimumOS": info.get("MinimumOSVersion"),
         "internalTestingOnly": info.get("TFInternalTestingOnly") is True,
+        "usesNonExemptEncryption": info.get("ITSAppUsesNonExemptEncryption"),
+        "deviceFamily": info.get("UIDeviceFamily"),
         "signingAuthority": authorities[0],
         "certificateChain": authorities,
         "team": signed_team,

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Crow HR Android build entry point (add-mobile-apps tasks 2.1-2.7).
-#   scripts/android-build.sh check   debug APK + unit tests + lint
+#   scripts/android-build.sh check   licence notices current + debug APK + unit tests + lint
 #   ANDROID_SERIAL=emulator-NNNN CROWHR_TEST_SERVER=http://10.0.2.2:3197 \
 #     scripts/android-build.sh ui    Compose UI tests on a project-owned emulator
 #   scripts/android-build.sh clean   remove build outputs and stop the Gradle daemon
@@ -14,7 +14,7 @@ gradle=("$android_dir/gradlew" -p "$android_dir" --console=plain)
 mode="${1:-check}"
 case "$mode" in
   check)
-    exec "${gradle[@]}" :app:assembleDebug :app:testDebugUnitTest :app:lintDebug ;;
+    exec "${gradle[@]}" :app:checkLicenceNotices :app:assembleDebug :app:testDebugUnitTest :app:lintDebug ;;
   ui)
     if [[ -z "${ANDROID_SERIAL:-}" ]]; then
       printf '%s\n' 'Set ANDROID_SERIAL to the project-owned test emulator (never a shared or release-test device).' >&2

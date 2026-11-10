@@ -121,7 +121,7 @@ struct TodayView: View {
                     Notice(text: m.0, tone: m.1, systemImage: m.1 == .danger ? "exclamationmark.triangle" : "checkmark.circle")
                         .accessibilityIdentifier("clock.message")
                 }
-                if model.env.isUITest, let outage = model.env.outage {
+                if model.env.isUITest, !model.env.storeScreenshots, let outage = model.env.outage {
                     Toggle("Simulate no signal (test only)", isOn: Binding(get: { outage.isOn }, set: { outage.isOn = $0 }))
                         .font(CrowFont.mono(.footnote))
                         .accessibilityIdentifier("debug.outage")

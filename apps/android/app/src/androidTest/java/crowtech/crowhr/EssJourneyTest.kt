@@ -128,6 +128,33 @@ class EssJourneyTest {
         assertNotNull(graph.tokens.get(graph.connections.active()!!.key))
     }
 
+    /**
+     * The test server hosts several organisations (the e2e seed), like the store reviewer server:
+     * a typed address asks for the organisation ID, as on iOS, then connects and signs in.
+     */
+    @Test fun typedAddressOnAMultiOrganisationServerAsksForTheOrganisationId() {
+        val browser = TestBrowser(TestServer.NURUL)
+        graph.browser = browser
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        waitFor("server-address")
+        compose.onAllNodesWithTag("organisation-id").fetchSemanticsNodes().isEmpty().let(::assertTrue)
+        compose.onNodeWithTag("server-address").performTextInput(TestServer.base)
+        tap("check-address")
+        waitFor("organisation-id")
+        compose.onNodeWithText("This server hosts more than one organisation", substring = true).assertExists()
+        compose.onNodeWithText("Enter your organisation's ID from HR", substring = true).assertExists()
+        compose.onNodeWithTag("organisation-id").performTextInput(TestServer.ORG)
+        tap("check-address")
+        waitFor("confirm-connect")
+        compose.onNodeWithText("Kampong Kopi Pte. Ltd.").assertExists()
+        tap("confirm-connect")
+        waitFor("sign-in")
+        tap("sign-in")
+        waitFor("tab-more", 30_000)
+        assertTrue(browser.opened.single().startsWith("${TestServer.base}/api/v1/native/authorize?org=kampong-kopi&"))
+        assertEquals("${TestServer.base}|kampong-kopi", graph.connections.active()!!.key)
+    }
+
     @Test fun payslipsListDetailAndPdfOnRequest() {
         val payslip = TestServer.ensureReleasedPayslip()
         connectAndSignIn(TestServer.NADIA)

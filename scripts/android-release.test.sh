@@ -37,12 +37,15 @@ check "production approval for another version" 3 "versionCode 8" env CROWHR_AND
 check "missing signing key" 5 "upload-key properties not found" env CROWHR_ANDROID_VERSION_CODE=7 CROWHR_SIGNING_PROPERTIES="$tmp/none.properties" "$script" internal --dry-run
 check "signing key not configured" 5 "Set CROWHR_SIGNING_PROPERTIES" env -u CROWHR_SIGNING_PROPERTIES CROWHR_ANDROID_VERSION_CODE=7 "$script" internal --dry-run
 check "internal dry run passes gates" 0 "Would build" env CROWHR_ANDROID_VERSION_CODE=7 "$script" internal --dry-run
-check "approved production dry run" 0 "Would promote" env CROWHR_ANDROID_VERSION_CODE=7 "$script" production --approval "$tmp/approval-7.txt" --dry-run
+check "approved production dry run" 0 "upload it in Play Console" env CROWHR_ANDROID_VERSION_CODE=7 "$script" production --approval "$tmp/approval-7.txt" --dry-run
+check "production upload is refused" 6 "Production uploads are not implemented" env CROWHR_ANDROID_VERSION_CODE=7 "$script" production --upload --approval "$tmp/approval-7.txt" --dry-run
+check "output directory must exist" 2 "not an existing directory" env CROWHR_ANDROID_VERSION_CODE=7 "$script" production --approval "$tmp/approval-7.txt" --out "$tmp/missing" --dry-run
+check "approval for versionCode 7 does not cover 70" 3 "versionCode 70" env CROWHR_ANDROID_VERSION_CODE=70 "$script" production --approval "$tmp/approval-7.txt" --dry-run
 check "upload without approval" 3 "need --approval" env CROWHR_ANDROID_VERSION_CODE=7 "$script" internal --upload --dry-run
 check "upload approved for another version" 3 "versionCode 8" env CROWHR_ANDROID_VERSION_CODE=8 "$script" internal --upload --approval "$tmp/approval-7.txt" --dry-run
 check "approved upload dry run" 0 "internal testing as a draft" env CROWHR_ANDROID_VERSION_CODE=7 "$script" internal --upload --approval "$tmp/approval-7.txt" --dry-run
 check "internal without upload only verifies" 0 "Would verify the AAB and stop" env CROWHR_ANDROID_VERSION_CODE=7 "$script" internal --dry-run
-check "real production run is not implemented" 6 "not implemented" env CROWHR_ANDROID_VERSION_CODE=7 "$script" production --approval "$tmp/approval-7.txt"
+check "real production run needs bundletool before building" 5 "CROWHR_BUNDLETOOL_JAR" env -u CROWHR_BUNDLETOOL_JAR CROWHR_ANDROID_VERSION_CODE=7 "$script" production --approval "$tmp/approval-7.txt"
 
 printf '%s passed, %s failed\n' "$pass" "$fail"
 [[ "$fail" == 0 ]]

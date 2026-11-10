@@ -6,6 +6,8 @@
 #   4. stop the tunnel and the server, always.
 #
 #   CROWHR_MAC_HOST=<ssh host> CROWHR_SIM_UDID=<udid> [CROWHR_UI_ONLY=CrowHRUITests/QAScreenshotsUITests] scripts/ios-ui-test.sh [extra xcodebuild args]
+# App Store screenshots: CROWHR_UI_ONLY=CrowHRUITests/StoreScreenshotsUITests CROWHR_UI_STORE_SEED=1
+# CROWHR_STATUS_BAR=demo with CROWHR_SIM_UDID set to the 6.9-inch store simulator.
 # Build the web app first: bun run --cwd apps/web build
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -34,6 +36,10 @@ for _ in $(seq 1 150); do
   sleep 1
 done
 curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null || { echo "Server did not start" >&2; exit 1; }
+# Store screenshots: Nurul's next week is rostered and published (scripts/ios-store-seed.ts).
+if [[ "${CROWHR_UI_STORE_SEED:-0}" == 1 ]]; then
+  node scripts/ios-store-seed.ts "http://127.0.0.1:$PORT"
+fi
 
 "${SSH[@]}" -N -o ExitOnForwardFailure=yes -R "127.0.0.1:$PORT:127.0.0.1:$PORT" "$HOST" &
 TUNNEL_PID=$!
@@ -42,7 +48,7 @@ kill -0 "$TUNNEL_PID" 2>/dev/null || { echo "Tunnel failed (port $PORT busy on t
 
 scripts/ios-sync.sh
 set +e
-"${SSH[@]}" "$HOST" "cd $REMOTE && CROWHR_SIM_UDID=$UDID CROWHR_NET_ALLOW=127.0.0.1:$PORT \
+"${SSH[@]}" "$HOST" "cd $REMOTE && CROWHR_SIM_UDID=$UDID CROWHR_NET_ALLOW=127.0.0.1:$PORT CROWHR_STATUS_BAR=${CROWHR_STATUS_BAR:-} \
   TEST_RUNNER_CROWHR_TEST_SERVER=http://127.0.0.1:$PORT scripts/ios-mac-test.sh ui -only-testing:${CROWHR_UI_ONLY:-CrowHRUITests} $*" | tee "$STATE/mac.log"
 STATUS=${PIPESTATUS[0]}
 set -e
