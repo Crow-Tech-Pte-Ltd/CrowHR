@@ -1,12 +1,14 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type ApiModule, type AppDeps, createApp, VERSION } from "@crowhr/core";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
+import { routePath } from "hono/route";
 import { secureHeaders } from "hono/secure-headers";
 import { type MaintenanceInfo, maintenanceMessage } from "./backup/maintenance.ts";
 import { SINGPASS_LOGO_PATH, singpassLogoHandler } from "./branding.ts";
+import { type BrowserMonitoring, connectSrc, injectMonitoringMeta } from "./monitoring/browser.ts";
 import { type SetupGate, setupGateMiddleware } from "./setup/gate.ts";
 
 /** Sets cache-control on successful responses produced further down the chain. */
@@ -26,6 +28,10 @@ export interface ServerAppOptions {
   modules?: readonly ApiModule[];
   /** `<DATA_DIR>/branding`: the deployer-supplied official Singpass logo is served from here. */
   brandingDir?: string;
+  /** Browser error reporting (SENTRY_BROWSER_DSN): settings go into index.html, the DSN's origin into the CSP. */
+  browserMonitoring?: BrowserMonitoring | null;
+  /** Server monitoring (SENTRY_DSN): told each API request's route, e.g. `GET /api/v1/employees/:id`. */
+  onApiRoute?: ((method: string, route: string) => void) | null;
 }
 
 /** Minimal self-contained page for 503s (no external assets: the app may be mid-restore). */
@@ -55,7 +61,8 @@ function maintenanceGuard(probe: () => MaintenanceInfo | null) {
  * `/payroll` survives a reload. `/api/*` never falls back: core answers it.
  */
 export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
-  const { webDistDir } = options;
+  const { webDistDir, browserMonitoring } = options;
+  const pageCsp = `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src ${connectSrc(browserMonitoring)}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'`;
   // Security headers wrap everything, so they must be registered before core's routes.
   const app = new Hono<{ Bindings: { incoming?: { socket?: { remoteAddress?: string } } } }>();
   // Core reads the client IP (throttling, audit) from x-crowhr-client-ip. Never trust a value the
@@ -80,12 +87,16 @@ export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
   // a file handler's stricter sandbox policy survives the outer middleware.
   app.use("*", async (c, next) => {
     await next();
-    if (!c.res.headers.has("content-security-policy"))
-      c.res.headers.set(
-        "content-security-policy",
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
-      );
+    if (!c.res.headers.has("content-security-policy")) c.res.headers.set("content-security-policy", pageCsp);
   });
+  if (options.onApiRoute) {
+    // Names the request's transaction after the route that answered it, not its raw path (IDs).
+    const onApiRoute = options.onApiRoute;
+    app.use("/api/*", async (c, next) => {
+      await next();
+      onApiRoute(c.req.method, routePath(c));
+    });
+  }
   if (options.maintenance) app.use("*", maintenanceGuard(options.maintenance));
   if (options.setupGate) app.use("*", setupGateMiddleware(options.setupGate));
   app.route("/", createApp(deps, { modules: options.modules ?? [] }));
@@ -99,6 +110,19 @@ export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
   // Vite fingerprints everything under /assets; index.html must always revalidate.
   app.use("/assets/*", cacheControl("public, max-age=31536000, immutable"));
   app.use("/assets/*", serveStatic({ root: webDistDir }));
+  if (browserMonitoring) {
+    // index.html carries this install's monitoring settings, so it is served from memory.
+    const indexHtml = injectMonitoringMeta(readFileSync(join(webDistDir, "index.html"), "utf8"), browserMonitoring);
+    const serveIndex = (c: Context) => {
+      c.header("cache-control", "no-cache");
+      return c.html(indexHtml);
+    };
+    app.get("/", serveIndex);
+    app.get("/index.html", serveIndex);
+    app.use("*", cacheControl("no-cache"), serveStatic({ root: webDistDir }));
+    app.get("*", serveIndex);
+    return app;
+  }
   app.use("*", cacheControl("no-cache"), serveStatic({ root: webDistDir, index: "index.html" }));
   app.get("*", serveStatic({ root: webDistDir, path: "index.html" }));
   return app;

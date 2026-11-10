@@ -80,10 +80,11 @@ describe("bundle guard", () => {
         "/repo/node_modules/.bun/pg@8/node_modules/pg/lib/index.js",
         "/repo/apps/server/src/main.ts",
         "/repo/packages/core/testing/index.ts",
+        "/repo/node_modules/.bun/@sentry+react@11.11.0/node_modules/@sentry/react/build/esm/index.js",
         "node:fs",
       ],
       (id) => (id === "node:fs" ? ["/repo/packages/demo/src/oops.ts"] : []),
     );
-    expect(bad).toHaveLength(5);
+    expect(bad).toHaveLength(6);
   });
 });

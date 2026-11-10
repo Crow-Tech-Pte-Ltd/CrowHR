@@ -120,6 +120,8 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: crowhr:smoke
+          # The commit goes into the error-monitoring release name (crowhr@<version>+<commit>).
+          build-args: CROWHR_GIT_SHA=${{ github.sha }}
           load: true
           provenance: false
           sbom: false
@@ -181,6 +183,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ env.IMAGE }}
+          build-args: CROWHR_GIT_SHA=${{ github.sha }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           provenance: mode=max
           sbom: true

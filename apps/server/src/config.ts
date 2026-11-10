@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { formatSetupCode, normaliseSetupCode, parseSecretKey, SETUP_CODE_ALPHABET } from "@crowhr/core";
+import { formatSetupCode, normaliseSetupCode, parseSecretKey, SETUP_CODE_ALPHABET, VERSION } from "@crowhr/core";
+import { type MonitoringConfig, readMonitoringConfig } from "./monitoring/config.ts";
 import { NO_TRUSTED_PROXIES, parseTrustedProxies, type TrustedProxies } from "./proxy/trust.ts";
 
 const defaultWebDist = fileURLToPath(new URL("../../web/dist", import.meta.url));
@@ -50,6 +51,8 @@ export interface ServerConfig {
    */
   DEMO_SINGPASS_PROVIDER_ID: string | null;
   DEMO_SINGPASS_RETURN_URL: string | null;
+  /** Optional error/performance monitoring (SENTRY_DSN, SENTRY_BROWSER_DSN); null = off. */
+  monitoring: MonitoringConfig | null;
 }
 
 export class ConfigError extends Error {
@@ -298,6 +301,9 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     fail("LOG_LEVEL must be debug, info, warn or error, for example LOG_LEVEL=info. Set it in .env.");
   }
 
+  const monitoring = readMonitoringConfig(env, { version: VERSION, production });
+  for (const problem of monitoring.problems) fail(problem);
+
   const config: ServerConfig = {
     NODE_ENV,
     PUBLIC_URL,
@@ -327,6 +333,7 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     CLAMAV_PORT: int("CLAMAV_PORT", 3310, 1, 65535),
     DEMO_SINGPASS_PROVIDER_ID,
     DEMO_SINGPASS_RETURN_URL,
+    monitoring: monitoring.config,
   };
   if (problems.length) throw new ConfigError(problems);
   return config;

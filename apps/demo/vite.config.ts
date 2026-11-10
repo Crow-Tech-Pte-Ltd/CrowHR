@@ -34,7 +34,13 @@ export default defineConfig({
   },
   // PGlite ships its own WASM and data files, resolved with `new URL(…, import.meta.url)`.
   optimizeDeps: { exclude: ["@electric-sql/pglite"] },
-  resolve: { alias: { "pglite-dist": pgliteDist } },
+  resolve: {
+    alias: [
+      { find: "pglite-dist", replacement: pgliteDist },
+      // apps/web lazy-loads the Sentry SDK from here only when the server enables it; the demo never does.
+      { find: /^\.\/monitoring-sdk\.ts$/, replacement: here("src/monitoring-off.ts") },
+    ],
+  },
   worker: { format: "es", plugins: () => [forbidServerModules(), precompressPgliteAssets()] },
   server: { port: 5180, strictPort: true },
   preview: { port: 5181, strictPort: true },

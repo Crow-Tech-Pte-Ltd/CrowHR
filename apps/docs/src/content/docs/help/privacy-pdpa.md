@@ -41,4 +41,4 @@ NRIC numbers: the PDPC's advisory guidelines limit collecting, using and disclos
 
 ## What Crow HR does not send anywhere
 
-The app does not send employee data to Crow Tech or to analytics or advertising services. It contacts only what you configure: your SMTP server (emails contain no salary, NRIC/FIN, bank or medical details) and your identity provider during sign-in.
+The app does not send employee data to Crow Tech or to analytics or advertising services. It contacts only what you configure: your SMTP server (emails contain no salary, NRIC/FIN, bank or medical details), your identity provider during sign-in and, if you set it up, your own error-monitoring service ([what it receives](/docs/self-hosting/configuration/#optional-error-monitoring)).

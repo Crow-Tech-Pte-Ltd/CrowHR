@@ -1,6 +1,7 @@
 /**
  * After `vite build`: reports the demo's size (raw, gzip, brotli) by kind and checks the output
- * once more for server-only code (the build plugin checks the module graph; this checks bytes).
+ * once more for server-only code and the Sentry SDK (the build plugin checks the module graph;
+ * this checks bytes).
  *
  *   node scripts/check-bundle.ts [distDir]
  */
@@ -11,13 +12,14 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 
 const dist = process.argv[2] ?? fileURLToPath(new URL("../dist", import.meta.url));
 
-/** Strings that only exist inside server-only packages. */
+/** Strings that only exist inside packages the demo must not ship (server-only code, the Sentry SDK). */
 const MARKERS: [string, string][] = [
   ["@node-rs/argon2", "argon2 binding"],
   ["argon2.node", "argon2 binding"],
   ["Client has already been connected. You cannot reuse a client.", "node-postgres"],
   ["nodemailer", "nodemailer"],
   ["@hono/node-server", "@hono/node-server"],
+  ["sentry.javascript.", "the Sentry SDK"],
   ["CROWHR_SECRET_KEY must", "apps/server config"],
 ];
 
