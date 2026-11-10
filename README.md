@@ -22,7 +22,7 @@ Images are not published to a registry yet, so the first start builds the image 
 
 ## Documentation
 
-The documentation site lives in [`apps/docs`](apps/docs) and will be published at **https://hr.crow.sg/docs** (not deployed yet). Build it locally:
+The documentation site lives in [`apps/docs`](apps/docs) and is published at **https://hr.crow.sg/docs/**. Build it locally:
 
 ```sh
 bun install
@@ -38,7 +38,7 @@ Early and under active development; not yet used for a real company's payroll.
 
 | Built | Not built yet |
 | --- | --- |
-| Self-hosting (compose, setup wizard, migrations, backups, encrypted once you set `BACKUP_PASSPHRASE` (strongly recommended), `crowhr` CLI) | Mobile apps |
+| Self-hosting (compose, setup wizard, migrations, backups, encrypted once you set `BACKUP_PASSPHRASE` (strongly recommended), `crowhr` CLI) | Mobile apps in the App Store and Google Play (built; internal test builds only) |
 | Sign-in: password + TOTP, Google Workspace, Microsoft Entra ID, generic OIDC; Singpass tested against Singpass staging, not production | Direct submission to CPF, IRAS or banks |
 | Members, roles, server-enforced permission matrix, append-only audit log with hash chaining | Virus scanning of uploads (a hook only; no scanner ships) |
 | Company, structure, employees, CSV import, lifecycle, work passes, change requests | |
@@ -49,7 +49,7 @@ Early and under active development; not yet used for a real company's payroll.
 | Scheduling: shift templates, weekly rosters, conflicts and hour warnings, publishing, swaps and open shifts | |
 | Payroll: CPF/SHG/SDL/FWL estimate, inputs fed from leave, attendance, rosters and claims, payslips, CPF EZPay file, ISO 20022 bank file, IR8A export | |
 | Documents, HR letters and KETs, acknowledgements; reports with CSV/XLSX export | |
-| In-browser demo (built, not deployed yet) | |
+| In-browser demo, live at https://hr.crow.sg | |
 
 The statutory engine (`packages/sg-rules`) carries cited, effective-dated rules and is checked against CPF's published examples and its online calculator ([verification record](packages/sg-rules/VERIFICATION.md)). Crow HR is not approved or endorsed by CPF Board, IRAS or MOM, and it is not legal or tax advice: check results before you pay or file. Known gaps are listed in [docs/limitations.md](docs/limitations.md).
 

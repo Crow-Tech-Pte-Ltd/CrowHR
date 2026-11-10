@@ -12,4 +12,4 @@ The self-hosting guides now live in the documentation site, `apps/docs`:
 | `crowhr` CLI | `apps/docs/src/content/docs/self-hosting/cli.md` | https://hr.crow.sg/docs/self-hosting/cli/ |
 | Troubleshooting | `apps/docs/src/content/docs/self-hosting/troubleshooting.md` | https://hr.crow.sg/docs/self-hosting/troubleshooting/ |
 
-The site is not deployed yet. Build it locally with `bun run --cwd apps/docs build` and open `apps/docs/dist/index.html` through `bun run --cwd apps/docs preview`.
+The site is live at https://hr.crow.sg/docs/. To build it locally, run `bun run --cwd apps/docs build` and open `apps/docs/dist/index.html` through `bun run --cwd apps/docs preview`.
