@@ -3,13 +3,13 @@ title: Project status
 description: Which Crow HR modules are built and tested, which are partly done, and what is not built yet.
 ---
 
-Status as of 10 November 2026. Requirements and task lists live in `openspec/changes/` in the repository; a module is listed as built only when its tasks are done and tested. Crow HR has not been used for a real company's payroll yet.
+Status as of 10 November 2026, version 1.0.0. Requirements and task lists live in `openspec/changes/` in the repository; a module is listed as built only when its tasks are done and tested. Crow HR has not been used for a real company's payroll yet.
 
 ## Built
 
 | Area | What works | Guide |
 | --- | --- | --- |
-| Self-hosting | Docker Compose install, setup wizard, automatic migrations with a lock, scheduled and manual backups (encrypted when `BACKUP_PASSPHRASE` is set, which is strongly recommended), restore, `crowhr` CLI, **Settings → System** | [Install](/docs/self-hosting/install/) |
+| Self-hosting | Docker Compose install with the published multi-arch image (amd64 and arm64), setup wizard, automatic migrations with a lock, scheduled and manual backups (encrypted when `BACKUP_PASSPHRASE` is set, which is strongly recommended), restore, `crowhr` CLI, **Settings → System** | [Install](/docs/self-hosting/install/) |
 | Sign-in and security | Email and password, TOTP two-step verification and recovery codes, MFA policy for privileged roles, sessions and device list, Google Workspace, Microsoft Entra ID and generic OpenID Connect SSO, an append-only audit log with hash chaining | [Sign-in methods](/docs/admin/sign-in-methods/) |
 | Members and roles | Invitations, owner / HR admin / payroll admin roles, derived manager and employee roles, permission matrix enforced on the server | [Roles and permissions](/docs/roles-and-permissions/) |
 | Company and people | Company profile, structure, work schedules, employee records with history, CSV import, export, lifecycle events, work passes, checklists, self-service change requests | [Adding employees](/docs/people/adding-employees/) |
@@ -30,7 +30,6 @@ Status as of 10 November 2026. Requirements and task lists live in `openspec/cha
 | Singpass login | Implemented to the published FAPI 2.0 profile. A test sign-in against **Singpass staging** passed on 9 Nov 2026; production Singpass has not been tried yet (the public demo's production Singpass app was submitted on 9 Nov 2026 and is under review), and the official Singpass logo for the button has to be added by whoever runs the server (it can't ship in the repository). See the [Singpass guide](/docs/admin/sso/singpass/). |
 | Virus scanning | A scanner hook exists for receipts and documents, but no scanner ships with Crow HR, so uploads are stored unscanned. |
 | Payroll inputs from other modules | Fed overtime can't be priced for staff outside Part 4 or paid by the hour; rest-day and public-holiday work premiums need separate inputs. Approved leave encashment feeds payroll at the gross rate; active allowances need classification through the payroll settings API. See [payroll limitations](/docs/payroll/limitations/#payroll-inputs). |
-| Docker images | Built from the checkout; nothing is published to a registry yet. |
 | Mobile apps | Native [iOS and Android apps](/docs/coming-soon/mobile-apps/) are built and tested against a real server. Only internal test builds exist (TestFlight internal testing, a Google Play internal draft); they are not in the App Store or Google Play. |
 
 ## Not built yet

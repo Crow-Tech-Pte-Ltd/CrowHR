@@ -49,17 +49,16 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 ## Self-hosting
 
-- **Images are not published.** `docker-compose.yml` names `ghcr.io/crow-tech-pte-ltd/crowhr:1` (registry unconfirmed) and builds it from the checkout; publishing needs Daniel's approval. arm64 was verified once locally under QEMU (build, argon2, start against PostgreSQL 17); CI builds amd64 only.
+- **Images**: `.github/workflows/release.yml` builds `ghcr.io/crow-tech-pte-ltd/crowhr` natively on amd64 and arm64 runners, smoke-tests each against PostgreSQL 17 (health, version, setup page, licence files) and publishes it when a version tag is pushed. Pull-request CI builds and tests amd64 only, and the full self-host test (`e2e/self-host.sh`: setup wizard, backup, restore, Caddy) runs on amd64 only.
 - **Reverse proxies:** only Caddy is exercised by an automated test, `e2e/self-host.sh` (HTTP, Caddy container on the compose network). Traefik (file-provider route) behind a remote-managed Cloudflare Tunnel was tested by hand on the staging server on 9 Nov 2026. The nginx example, the Traefik label example and the tunnel-straight-to-app example in the docs site's reverse-proxy page (`apps/docs/src/content/docs/self-hosting/reverse-proxy.md`) have not been run.
 - **Scheduled backups** are checked on the shared in-process scheduler (`apps/server/src/scheduler.ts`, every 60 s with the workflows sweep) but stay in `apps/server`: `pg_dump` is Node-only, so the backup is a host job rather than a core `tick` sweep. One attempt per day; a failed attempt is retried the next day.
 - **Restore restarts the app** by signalling PID 1 inside the container; under `docker compose run` (or outside Docker) it prints "restart the app" instead.
 - **Dependency audit**: `bun audit` reports one moderate, dev-only advisory (GHSA-67mh-4wv8-2f99, esbuild ≤ 0.24.2 dev server) via drizzle-kit's `@esbuild-kit` loader. It is never shipped or run as a server. CI fails on high/critical only.
-- **CI runs on GitHub-hosted runners** for now (private repo, free-plan minutes). The unit and integration suite is split into four shards because one 4-core runner takes over 15 minutes; a self-hosted runner with more cores can use fewer.
+- **CI runs on GitHub-hosted runners.** The unit and integration suite is split into four shards because one 4-core runner takes over 15 minutes; a self-hosted runner with more cores can use fewer.
 
 ## Documentation site (apps/docs)
 
-- **Deployed by hand.** It is published at `https://hr.crow.sg/docs/` with the demo (9 Nov 2026, docs/deploy-demo.md). Nothing deploys it automatically: a change reaches the site only when someone runs the deploy. The repository (`https://github.com/Crow-Tech-Pte-Ltd/CrowHR`) is private until Daniel approves making it public, so the install commands only work for collaborators until then.
-- **Placeholder contacts**: `security@crow.sg` (SECURITY.md) and `conduct@crow.sg` (CODE_OF_CONDUCT.md) are not confirmed.
+- **Deployed by hand.** It is published at `https://hr.crow.sg/docs/` with the demo (9 Nov 2026, docs/deploy-demo.md). Nothing deploys it automatically: a change reaches the site only when someone runs the deploy.
 - **Generated, not hand-kept**: the permission matrix and import-template columns are rendered from `packages/core` sources at build time, and the API reference from the OpenAPI snapshot. The configuration and CLI pages are hand-written and checked by `apps/docs/tests/` against the code.
 - **SSO guides** describe the provider consoles from their public documentation; apart from the mock identity provider, only Singpass staging has been exercised (9 Nov 2026). Google Workspace and Microsoft Entra ID have not been tried against the real providers.
 - **Starlight's `<Steps>` component is not used**: it renders with satteri, whose native binding cannot be resolved from Astro's prerender chunks under bun's isolated `node_modules`.

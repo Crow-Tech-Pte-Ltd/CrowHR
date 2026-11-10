@@ -62,8 +62,8 @@ without approval.
    folder ("Missing entry-point to Worker script or to assets directory"). Add `--force` to use
    classic Pages, which this site is built for (`_headers`, `_redirects`). The project was created
    with the API: `POST /accounts/<id>/pages/projects {"name":"crowhr-demo","production_branch":"main"}`.
-   Do not connect the GitHub repository (the repo is private until approved; Git integration would
-   also build on Cloudflare with a different toolchain).
+   Do not connect the GitHub repository (Git integration would build on Cloudflare with a
+   different toolchain and deploy without approval).
 2. **Upload**: from `apps/demo/`, `bunx wrangler pages deploy dist-site --project-name crowhr-demo --branch main --force`
    (with `CLOUDFLARE_ACCOUNT_ID` and the account's key from the vault). Check the `*.crowhr-demo.pages.dev` preview URL first:
    - the demo loads its snapshot and signs in; no console errors; DevTools → Network shows requests to
