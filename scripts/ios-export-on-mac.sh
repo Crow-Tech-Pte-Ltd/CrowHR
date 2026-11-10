@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Runs ON THE MAC (s5): has Apple cloud-sign an unsigned Crow HR archive for App Store Connect and
-# exports the IPA, then verifies it (scripts/ios-verify-ipa.py). Nothing is uploaded. Adapted from
-# Learning TA's export-on-mac.sh: it temporarily selects the dedicated build keychain and always
-# restores the original keychain search list and default keychain.
+# Runs ON THE RELEASE MAC: has Apple cloud-sign an unsigned Crow HR archive for App Store Connect
+# and exports the IPA, then verifies it (scripts/ios-verify-ipa.py). Nothing is uploaded. It
+# temporarily selects the dedicated build keychain and always restores the original keychain
+# search list and default keychain.
 #
 #   CROWHR_BUILD_NUMBER=<n> [CROWHR_INTERNAL_ONLY=1] scripts/ios-export-on-mac.sh ARCHIVE_PATH NEW_EXPORT_DIR
 #
 # CROWHR_INTERNAL_ONLY=1 marks the build "TestFlight internal testing only" (it can then never go to
-# external testers or App Review). Credentials are used in place, by path, and never printed.
+# external testers or App Review). Credentials are used in place, by path, and never printed:
+#   APPLE_KEY_ID, APPLE_ISSUER_ID   the App Store Connect API key (required)
+#   APPLE_SIGNING_SECRET_DIR        directory with AuthKey_<key id>.p8, build-signing.keychain-db and
+#                                   build-signing.password (or set APPLE_KEY_PATH,
+#                                   APPLE_BUILD_KEYCHAIN and APPLE_BUILD_KEYCHAIN_PASSWORD_FILE)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if [[ $# -ne 2 ]]; then
@@ -21,9 +25,13 @@ build=${CROWHR_BUILD_NUMBER:?Set CROWHR_BUILD_NUMBER to the archived build numbe
 team_id=${CROWHR_TEAM_ID:-A8GBLXTNHB}
 bundle_id=crowtech.crowhr
 internal_only=${CROWHR_INTERNAL_ONLY:-0}
-key_id=${APPLE_KEY_ID:-42R4538ML4}
-issuer_id=${APPLE_ISSUER_ID:-de0b1507-decc-4c9e-a7f9-0df008735b76}
-secret_dir=${APPLE_SIGNING_SECRET_DIR:-$HOME/Documents/crow-reader-secrets}
+key_id=${APPLE_KEY_ID:?Set APPLE_KEY_ID to the App Store Connect API key ID}
+issuer_id=${APPLE_ISSUER_ID:?Set APPLE_ISSUER_ID to the App Store Connect API issuer ID}
+secret_dir=${APPLE_SIGNING_SECRET_DIR:-}
+if [[ -z $secret_dir && ( -z ${APPLE_KEY_PATH:-} || -z ${APPLE_BUILD_KEYCHAIN:-} || -z ${APPLE_BUILD_KEYCHAIN_PASSWORD_FILE:-} ) ]]; then
+  echo "Set APPLE_SIGNING_SECRET_DIR to the directory on this Mac with AuthKey_${key_id}.p8 and the build keychain." >&2
+  exit 2
+fi
 key_path=${APPLE_KEY_PATH:-$secret_dir/AuthKey_${key_id}.p8}
 keychain=${APPLE_BUILD_KEYCHAIN:-$secret_dir/build-signing.keychain-db}
 password_file=${APPLE_BUILD_KEYCHAIN_PASSWORD_FILE:-$secret_dir/build-signing.password}
@@ -95,7 +103,7 @@ xcodebuild -exportArchive -archivePath "$prepared_archive" -exportPath "$export_
   -authenticationKeyIssuerID "$issuer_id"
 
 # Restore the keychain configuration before verifying (verification needs no secrets). The shared
-# build keychain is left unlocked, as in the Learning TA flow, so a concurrent export elsewhere
+# build keychain is left unlocked, so a concurrent export by another project
 # on the Mac is not broken.
 security default-keychain -d user -s "$original_default"
 security list-keychains -d user -s "${original_keychains[@]}"

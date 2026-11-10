@@ -2,7 +2,7 @@
 # Crow HR Android release (add-mobile-apps task 4.2). Approval-gated:
 #   scripts/android-release.sh internal [--upload --approval <record>] [--dry-run]
 #       builds the release AAB signed with the private upload key (by path only:
-#       CROWHR_SIGNING_PROPERTIES, default /home/daniel/.config/gremia/android-signing/crow-hr.properties)
+#       CROWHR_SIGNING_PROPERTIES, required, kept outside the repository)
 #       for a fresh CROWHR_ANDROID_VERSION_CODE, verifies it (package, versionCode, upload
 #       certificate, bundletool validate) and copies it to artifacts/android/. With --upload it
 #       then puts it on the Google Play *internal* track as a DRAFT release (scripts/android-play.py),
@@ -12,11 +12,13 @@
 #       to production; do that in Play Console after review.
 # An approval record is a file that contains "Approved by Daniel", the package name and
 # "versionCode <N>". --dry-run checks every gate and builds nothing.
+# A real build also needs JDK 21 (JAVA_HOME, default /usr/lib/jvm/java-21-openjdk-amd64) and
+# bundletool (CROWHR_BUNDLETOOL_JAR, the path to bundletool-all-<version>.jar).
 set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 android_dir="$repo_dir/apps/android"
 package=crowtech.crowhr
-signing="${CROWHR_SIGNING_PROPERTIES:-/home/daniel/.config/gremia/android-signing/crow-hr.properties}"
+signing="${CROWHR_SIGNING_PROPERTIES:-}"
 
 die() { printf 'REFUSED: %s\n' "$2" >&2; exit "$1"; }
 
@@ -50,6 +52,7 @@ if [[ "$track" == production ]] || $upload; then
   grep -q "versionCode $version_code" "$approval" || die 3 "Approval record $approval does not approve versionCode $version_code."
 fi
 
+[[ -n "$signing" ]] || die 5 "Set CROWHR_SIGNING_PROPERTIES to the private upload-key properties file (referenced by path only; never committed)."
 [[ -f "$signing" ]] || die 5 "Private upload-key properties not found at $signing (referenced by path only; never committed)."
 
 if $dry_run; then
@@ -69,8 +72,10 @@ if [[ "$track" == production ]]; then
   die 6 "Production promotion is not implemented: promote the reviewed internal release in Play Console."
 fi
 
-java=/usr/lib/jvm/java-21-openjdk-amd64/bin/java
-bundletool=/home/daniel/.local/share/gremia/bundletool-all-1.18.3.jar
+java="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}/bin/java"
+bundletool="${CROWHR_BUNDLETOOL_JAR:-}"
+[[ -x "$java" ]] || die 5 "JDK 21 not found at $java. Set JAVA_HOME to a JDK 21."
+[[ -n "$bundletool" && -f "$bundletool" ]] || die 5 "Set CROWHR_BUNDLETOOL_JAR to bundletool-all-<version>.jar (https://github.com/google/bundletool/releases)."
 cert="${signing%.properties}-upload-certificate.pem"
 [[ -f "$cert" ]] || die 5 "Upload certificate $cert not found (it sits next to the signing properties)."
 
