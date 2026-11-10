@@ -73,6 +73,6 @@ The independent review of the payroll choices marked these as **unclear**: the a
 - **Org switcher** in the web app shows only the current organisation (the API supports switching).
 - **No row-level security** in the database: isolation is enforced by the application and composite foreign keys, with a test that every route refuses another organisation's IDs.
 - **The common-password list** is a curated list of a few hundred entries plus patterns, not a breach corpus.
-- **Docker images are not published** and CI has not run on a hosted runner. Of the reverse proxies, only Caddy is tested.
-- **Not built**: the [mobile apps](/docs/coming-soon/mobile-apps/). The [in-browser demo](/docs/demo/) is built but not deployed.
+- **Docker images are not published.** Of the reverse proxies, Caddy, Traefik and Cloudflare Tunnel are tested; nginx is not ([reverse proxy](/docs/self-hosting/reverse-proxy/)).
+- **Not in the app stores yet**: the [mobile apps](/docs/coming-soon/mobile-apps/) (internal test builds only).
 - **Virus scanning is optional**: configure your own clamd via `CLAMAV_HOST` / `CLAMAV_PORT`; receipts, documents and medical certificates then use the shared scan sweep. Without it, uploads are explicitly unscanned.

@@ -3,7 +3,7 @@ title: Project status
 description: Which Crow HR modules are built and tested, which are partly done, and what is not built yet.
 ---
 
-Status as of 1 November 2026. Requirements and task lists live in `openspec/changes/` in the repository; a module is listed as built only when its tasks are done and tested. Crow HR has not been used for a real company's payroll yet.
+Status as of 10 November 2026. Requirements and task lists live in `openspec/changes/` in the repository; a module is listed as built only when its tasks are done and tested. Crow HR has not been used for a real company's payroll yet.
 
 ## Built
 
@@ -21,21 +21,20 @@ Status as of 1 November 2026. Requirements and task lists live in `openspec/chan
 | Payroll | Monthly, off-cycle and adjustment runs; CPF, SHG, SDL and FWL estimate; no-pay leave, overtime, scheduled days and claims fed from the other modules; review with CPF working; approval; payslips (web and PDF) with a notification on release; CPF EZPay file; ISO 20022 bank file; IR8A export | [Running payroll](/docs/payroll/running-payroll/) |
 | Documents | Per-employee documents in categories with access rules, versions, expiry reminders, soft delete; HR letters and KETs from templates; acknowledgements; employment letter requests; retention review flags | [Employee documents](/docs/documents/documents/) |
 | Reports | Headcount, headcount over time, turnover, work pass expiry, leave taken and balances with liability, attendance exceptions, scheduled hours, claims, payroll cost; CSV and XLSX export | [Reports](/docs/reports/running-reports/) |
-| In-browser demo | The real app and API running in the visitor's browser with a fictional company, personas and a resettable local database | [Demo](/docs/demo/) |
+| In-browser demo | The real app and API running in the visitor's browser with a fictional company, personas and a resettable local database, live at [hr.crow.sg](https://hr.crow.sg/) | [Demo](/docs/demo/) |
 
 ## Partly done
 
 | Item | State |
 | --- | --- |
-| In-browser demo | Built and tested, **not deployed**: it is not online anywhere yet. |
-| Singpass login | Implemented to the published FAPI 2.0 profile. A test sign-in against **Singpass staging** passed on 9 Nov 2026; production Singpass has not been tried, and the official Singpass logo for the button has to be added by whoever runs the server (it can't ship in the repository). See the [Singpass guide](/docs/admin/sso/singpass/). |
+| Singpass login | Implemented to the published FAPI 2.0 profile. A test sign-in against **Singpass staging** passed on 9 Nov 2026; production Singpass has not been tried yet (the public demo's production Singpass app was submitted on 9 Nov 2026 and is under review), and the official Singpass logo for the button has to be added by whoever runs the server (it can't ship in the repository). See the [Singpass guide](/docs/admin/sso/singpass/). |
 | Virus scanning | A scanner hook exists for receipts and documents, but no scanner ships with Crow HR, so uploads are stored unscanned. |
 | Payroll inputs from other modules | Fed overtime can't be priced for staff outside Part 4 or paid by the hour; rest-day and public-holiday work premiums need separate inputs. Approved leave encashment feeds payroll at the gross rate; active allowances need classification through the payroll settings API. See [payroll limitations](/docs/payroll/limitations/#payroll-inputs). |
 | Docker images | Built from the checkout; nothing is published to a registry yet. |
-| CI | The workflow exists but has not run on a hosted runner yet. |
+| Mobile apps | Native [iOS and Android apps](/docs/coming-soon/mobile-apps/) are built and tested against a real server. Only internal test builds exist (TestFlight internal testing, a Google Play internal draft); they are not in the App Store or Google Play. |
 
 ## Not built yet
 
-- [Mobile apps](/docs/coming-soon/mobile-apps/): native iOS and Android apps are a later milestone. The web app works on phones.
+- Direct submission to CPF, IRAS or banks: Crow HR produces the CPF EZPay file, the ISO 20022 bank file and the IR8A export for you to upload.
 
 The [limitations](/docs/payroll/limitations/) page lists the known gaps inside the built modules, and each module's guide ends with its own.

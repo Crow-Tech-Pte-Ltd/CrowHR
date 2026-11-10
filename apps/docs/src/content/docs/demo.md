@@ -1,11 +1,11 @@
 ---
 title: In-browser demo
-description: How Crow HR's in-browser demo works - the real app and API running in your browser against fictional data - what differs from a self-hosted install, and its status (built, not deployed yet).
+description: How Crow HR's in-browser demo works - the real app and API running in your browser against fictional data - what differs from a self-hosted install, and where to try it (hr.crow.sg).
 ---
 
-<span class="crow-pill crow-pill--soon">Not deployed yet</span>
+<span class="crow-pill crow-pill--tested">Live at hr.crow.sg</span>
 
-Crow HR has an in-browser demo: the same web app and the same API code that a self-hosted install runs, started inside the visitor's browser instead of on a server. It is built and tested, but **it is not published anywhere yet**. It is meant to live at hr.crow.sg, next to these docs; deploying it is a separate, manual step that has not happened. Until it does, you can build and open it on your own machine (see [running it locally](#running-it-locally)) or [install Crow HR](/docs/quick-start/).
+Crow HR has an in-browser demo: the same web app and the same API code that a self-hosted install runs, started inside the visitor's browser instead of on a server. Try it at **[hr.crow.sg](https://hr.crow.sg/)**, next to these docs. You can also build and open it on your own machine (see [running it locally](#running-it-locally)) or [install Crow HR](/docs/quick-start/).
 
 ![The demo's sign-in page: a banner saying it runs entirely in your browser, and five personas to sign in as with one click (fictional company)](../../assets/screens/demo-personas.webp)
 
@@ -37,7 +37,7 @@ Sign in with one click as one of five personas, or type any seeded account's ema
 | Area | In the demo | Self-hosted |
 | --- | --- | --- |
 | Signing in | One click on a persona, or the shared password. Two-step verification is not required. | Email and password, two-step verification (required for admin roles by default), SSO. |
-| Google, Microsoft, Singpass | Buttons are shown but disabled; no request is made to any identity provider. | Work once an owner configures them. |
+| Google, Microsoft, Singpass | Buttons are shown but disabled; no request is made to any identity provider. A demo build can switch on a real Singpass login: you log in, nothing about you is kept, and you then choose HR admin or Employee. On hr.crow.sg that waits for Singpass to approve the production app. | Work once an owner configures them. |
 | Email | Nothing is sent. Messages appear in the **Demo outbox** (from the banner), so invitation and reset links still work. | Sent over SMTP if configured. |
 | Passwords | PBKDF2 in a demo-only format that a real server refuses. | argon2id. |
 | Encryption at rest | NRIC/FIN and bank numbers are encrypted with a throwaway key included with the fictional snapshot and stored next to the database. The fallback seed creates a fresh key. Fine for invented data, never a pattern for real data. | Encrypted with the server's `CROWHR_SECRET_KEY`. |
