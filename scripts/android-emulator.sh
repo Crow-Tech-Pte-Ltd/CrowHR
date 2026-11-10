@@ -9,7 +9,7 @@
 # CROWHR_AVD_HOME: where the AVD lives (default ~/.android/avd). On a nearly full disk it can be
 # a tmpfs directory: the API 37 image needs 1.2 x 6 GB free for its data partition check.
 set -euo pipefail
-sdk="${ANDROID_HOME:-/home/daniel/Android/Sdk}"
+sdk="${ANDROID_HOME:-$HOME/Android/Sdk}"
 adb="$sdk/platform-tools/adb"
 port="${CROWHR_EMU_PORT:-5604}"
 serial="emulator-$port"

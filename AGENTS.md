@@ -50,7 +50,7 @@ Rules: one OIDC implementation (`openid-client`, runtime-agnostic) with provider
 The audience is an SME with one technical person, not a DevOps team.
 
 - **Install = copy `.env.example` → `.env`, set `PUBLIC_URL`, run `docker compose up -d`.** Nothing else is required. Secrets (session key, encryption key) are generated on first boot into the data volume if not provided.
-- **One app image** (multi-arch amd64 + arm64, published later to GHCR) + `postgres:17-alpine` in the compose file. No Redis, no queues, no extra services. Background jobs run in-process.
+- **One app image** (multi-arch amd64 + arm64, published to GHCR by `.github/workflows/release.yml` on a version tag) + `postgres:17-alpine` in the compose file. No Redis, no queues, no extra services. Background jobs run in-process.
 - **Bring your own reverse proxy**: the app serves plain HTTP on one port (default 8080) and works unchanged behind Caddy, nginx, Traefik, Cloudflare Tunnel, or none (LAN). Honour `X-Forwarded-*` only from `TRUSTED_PROXIES`. Ship copy-paste examples for Caddy, nginx, Traefik and Cloudflare Tunnel in docs; don't bundle a proxy.
 - **Migrations run automatically on start** (with a lock); a failed migration stops startup with a clear message and doesn't corrupt data.
 - **First-run setup wizard in the browser** creates the org + owner, guarded by a one-time setup code printed in the container logs.
@@ -60,7 +60,7 @@ The audience is an SME with one technical person, not a DevOps team.
 
 ## Mobile apps (future milestone M4 — spec only for now)
 
-Native, open source, in this repo: `apps/ios` (SwiftUI) and `apps/android` (Kotlin + Jetpack Compose), following the build/test/publish workflow in `/home/daniel/Gremia/AGENTS.md` (iOS builds on the `s5` Mac over SSH; Android on Linux; privacy/support pages at `crow.sg/apps/crow-hr/{privacy,support}`; apps stay out of crow.sg global nav until launch).
+Native, open source, in this repo: `apps/ios` (SwiftUI) and `apps/android` (Kotlin + Jetpack Compose), following the maintainers' mobile build/test/publish workflow (iOS builds on a Mac over SSH with `scripts/ios-*.sh`; Android on Linux with `scripts/android-*.sh`; privacy/support pages at `crow.sg/apps/crow-hr/{privacy,support}`; apps stay out of crow.sg global nav until launch).
 
 - The app connects **only to the company's own Crow HR server**: the user enters the server URL or scans a QR code from the web app. Crow Tech runs no backend for it.
 - **Zero data collection**: no analytics, no crash-reporting SDKs, no third-party SDKs that phone home. Store privacy labels: "Data Not Collected".

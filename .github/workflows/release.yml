@@ -1,0 +1,329 @@
+name: Release
+
+# Pushing a tag vX.Y.Z (the version in package.json) builds the image natively on amd64 and arm64,
+# smoke-tests each against PostgreSQL 17, pushes both by digest to GHCR, merges them into one
+# multi-arch image tagged X.Y.Z, X.Y, X and latest, attests its build provenance and creates the
+# GitHub Release from the CHANGELOG.md section. A pre-release tag (v1.1.0-rc.1) gets only its own
+# tag and a pre-release on GitHub.
+#
+# Run it by hand (Actions → Release → Run workflow) for a dry run: it checks the version, builds
+# and smoke-tests both architectures and pushes nothing.
+#
+# GitHub-owned actions are referenced by major version (as in ci.yml); third-party actions are
+# pinned to a full commit SHA with the release it corresponds to.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  IMAGE: ghcr.io/crow-tech-pte-ltd/crowhr
+
+jobs:
+  prepare:
+    name: Check the version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version from package.json; a release tag must match it
+        id: version
+        run: |
+          version=$(jq -r .version package.json)
+          core=$(jq -r .version packages/core/package.json)
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error file=package.json::\"$version\" is not a semantic version (X.Y.Z)."
+            exit 1
+          fi
+          if [ "$core" != "$version" ]; then
+            echo "::error file=packages/core/package.json::Version $core differs from package.json ($version); the server reports packages/core's version. Set both to the same version."
+            exit 1
+          fi
+          publish=false
+          if [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF_TYPE" = tag ]; then
+            if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match the version in package.json ($version). Tag v$version, or change the version and tag again."
+              exit 1
+            fi
+            publish=true
+          fi
+          if ! grep -q "^## \[$version\]" CHANGELOG.md; then
+            echo "::error file=CHANGELOG.md::No \"## [$version]\" section in CHANGELOG.md; the GitHub Release notes come from it."
+            exit 1
+          fi
+          prerelease=false
+          if [[ "$version" == *-* ]]; then prerelease=true; fi
+          {
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
+          echo "Crow HR $version (pre-release: $prerelease, publish: $publish)" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build and smoke-test ${{ matrix.platform }}
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      # Push by digest on a release tag only (the login and push steps are skipped on dry runs).
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      PUBLISH: ${{ needs.prepare.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: OCI labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.title=Crow HR
+            org.opencontainers.image.description=Self-hostable HR and payroll for Singapore SMEs
+            org.opencontainers.image.source=https://github.com/Crow-Tech-Pte-Ltd/CrowHR
+            org.opencontainers.image.url=https://hr.crow.sg/docs/
+            org.opencontainers.image.documentation=https://hr.crow.sg/docs/self-hosting/install/
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.vendor=Crow Tech Pte. Ltd.
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Build for the smoke test (loaded locally, not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: crowhr:smoke
+          load: true
+          provenance: false
+          sbom: false
+      - name: Smoke test against postgres:17-alpine
+        run: |
+          set -euo pipefail
+          docker network create crowhr-smoke
+          docker run -d --name crowhr-smoke-db --network crowhr-smoke \
+            -e POSTGRES_USER=crowhr -e POSTGRES_PASSWORD=crowhr -e POSTGRES_DB=crowhr postgres:17-alpine
+          for _ in $(seq 1 60); do
+            docker exec crowhr-smoke-db pg_isready -U crowhr -d crowhr >/dev/null 2>&1 && break
+            sleep 1
+          done
+          # Same hardening as docker-compose.yml: read-only root, volumes for data and backups.
+          docker run -d --name crowhr-smoke-app --network crowhr-smoke -p 127.0.0.1:8080:8080 \
+            --read-only --tmpfs /tmp -v crowhr-smoke-data:/data -v crowhr-smoke-backups:/backups \
+            -e PUBLIC_URL=http://127.0.0.1:8080 \
+            -e DATABASE_URL=postgres://crowhr:crowhr@crowhr-smoke-db:5432/crowhr \
+            crowhr:smoke
+          health=""
+          for _ in $(seq 1 90); do
+            health=$(curl -fsS http://127.0.0.1:8080/api/health 2>/dev/null || true)
+            [[ "$health" == *'"status":"ok"'* ]] && break
+            sleep 2
+          done
+          echo "health: $health"
+          [[ "$health" == *'"status":"ok"'* ]] || { echo "::error::/api/health did not report ok within 3 minutes."; exit 1; }
+          [[ "$health" == *"\"version\":\"$VERSION\""* ]] || { echo "::error::/api/health does not report version $VERSION."; exit 1; }
+          [ "$(docker exec crowhr-smoke-app crowhr --version)" = "$VERSION" ] || { echo "::error::crowhr --version is not $VERSION."; exit 1; }
+          curl -fsS http://127.0.0.1:8080/setup | grep '<div id="root">' >/dev/null || { echo "::error::/setup does not serve the web app."; exit 1; }
+          docker logs crowhr-smoke-app 2>&1 | grep 'CROW HR SETUP CODE' >/dev/null || { echo "::error::No setup code in the logs."; exit 1; }
+          docker exec crowhr-smoke-app sh -c 'test -s /app/LICENSE && test -s /app/THIRD-PARTY-NOTICES.md' \
+            || { echo "::error::LICENSE or THIRD-PARTY-NOTICES.md is missing from /app."; exit 1; }
+          [ "$(docker exec crowhr-smoke-app id -u)" = "10001" ] || { echo "::error::The app does not run as uid 10001."; exit 1; }
+          echo "Smoke test passed on ${{ matrix.platform }}: $VERSION" >> "$GITHUB_STEP_SUMMARY"
+      - name: App logs
+        if: failure()
+        run: docker logs crowhr-smoke-app 2>&1 | tail -n 100 || true
+      - name: Remove the smoke-test containers
+        if: always()
+        run: |
+          docker rm -f crowhr-smoke-app crowhr-smoke-db >/dev/null 2>&1 || true
+          docker volume rm crowhr-smoke-data crowhr-smoke-backups >/dev/null 2>&1 || true
+          docker network rm crowhr-smoke >/dev/null 2>&1 || true
+      - name: Log in to GHCR
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push by digest, with provenance and SBOM
+        # Same builder, same inputs: every layer comes from the cache of the smoke-test build.
+        if: env.PUBLISH == 'true'
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.IMAGE }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          provenance: mode=max
+          sbom: true
+      - name: Record the digest
+        if: env.PUBLISH == 'true'
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - name: Upload the digest
+        if: env.PUBLISH == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish the multi-arch image
+    needs: [prepare, build]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - name: Download the digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tags and index annotations
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ needs.prepare.outputs.prerelease == 'false' }}
+          annotations: |
+            org.opencontainers.image.title=Crow HR
+            org.opencontainers.image.description=Self-hostable HR and payroll for Singapore SMEs
+            org.opencontainers.image.source=https://github.com/Crow-Tech-Pte-Ltd/CrowHR
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Merge the digests into one multi-arch image
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          ANNOTATIONS: ${{ steps.meta.outputs.annotations }}
+        run: |
+          set -euo pipefail
+          args=()
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then args+=(--tag "$tag"); fi
+          done <<< "$TAGS"
+          [ "${#args[@]}" -gt 0 ] || { echo "::error::docker/metadata-action produced no tags for $GITHUB_REF_NAME."; exit 1; }
+          while IFS= read -r annotation; do
+            if [ -n "$annotation" ]; then args+=(--annotation "$annotation"); fi
+          done <<< "$ANNOTATIONS"
+          printf '%s\n' "${args[@]}"
+          sources=()
+          for digest in *; do sources+=("$IMAGE@sha256:$digest"); done
+          [ "${#sources[@]}" -eq 2 ] || { echo "::error::Expected 2 platform digests, found ${#sources[@]}."; exit 1; }
+          docker buildx imagetools create "${args[@]}" "${sources[@]}"
+      - name: Inspect
+        id: digest
+        run: |
+          set -euo pipefail
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
+          digest=$(docker buildx imagetools inspect "$IMAGE:$VERSION" --format '{{json .Manifest}}' | jq -r .digest)
+          [[ "$digest" == sha256:* ]] || { echo "::error::Could not read the image digest."; exit 1; }
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Published \`$IMAGE:$VERSION\` ($digest)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          push-to-registry: true
+
+  release:
+    name: GitHub Release
+    needs: [prepare, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release notes from CHANGELOG.md
+        run: |
+          set -euo pipefail
+          awk -v heading="## [$VERSION]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          [ -s "$RUNNER_TEMP/notes.md" ] || { echo "::error::The CHANGELOG.md section for $VERSION is empty."; exit 1; }
+          also=""
+          if [ "$PRERELEASE" != true ]; then also=", also tagged \`${VERSION%.*}\`, \`${VERSION%%.*}\` and \`latest\`"; fi
+          cat >> "$RUNNER_TEMP/notes.md" <<EOF
+
+          ### Docker image
+
+          \`$IMAGE:$VERSION\` for linux/amd64 and linux/arm64$also. Install or upgrade with the [install guide](https://hr.crow.sg/docs/self-hosting/install/) or [upgrades](https://hr.crow.sg/docs/self-hosting/upgrades/). Check where it was built:
+
+          \`\`\`sh
+          gh attestation verify oci://$IMAGE:$VERSION --owner Crow-Tech-Pte-Ltd
+          \`\`\`
+          EOF
+      - name: Create or update the release
+        run: |
+          set -euo pipefail
+          flags=()
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); else flags+=(--latest); fi
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "Crow HR $VERSION" --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "Crow HR $VERSION" --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+          fi

@@ -1,14 +1,14 @@
 ## Context
 
-This change is planning-only. Implementation is M4. The server contract it depends on, `/api/v1`, meta, native auth and device sessions, is specified in `add-api-platform` and lands in M1. The process follows `/home/daniel/Gremia/AGENTS.md`:
-- iOS on the `s5` Mac via SSH and rsync;
-- Android on Linux, with the SDK at `/home/daniel/Android/Sdk`, JDK 21 and a pinned Gradle wrapper;
+This change is planning-only. Implementation is M4. The server contract it depends on, `/api/v1`, meta, native auth and device sessions, is specified in `add-api-platform` and lands in M1. The process follows the maintainers' mobile workflow:
+- iOS on a Mac via SSH and rsync;
+- Android on Linux, with the Android SDK (`ANDROID_HOME`, default `~/Android/Sdk`), JDK 21 and a pinned Gradle wrapper;
 - a project-owned emulator;
 - uploads to internal tracks only;
 - credentials by path only;
 - privacy and support pages in the crow-tech-landing repo, hidden from global navigation.
 
-Learning TA specifics (billing, content and storefronts) do not apply. Requirements are in `specs/mobile-apps`.
+Requirements are in `specs/mobile-apps`.
 
 ## Goals / Non-Goals
 
@@ -33,7 +33,7 @@ Learning TA specifics (billing, content and storefronts) do not apply. Requireme
    - (b) an opt-in Crow relay that carries content-free wake-ups only;
    - (c) UnifiedPush on Android, with the company running its own distributor such as ntfy (no iOS equivalent).
 
-7. **Test server.** UI tests start `apps/server` with `DATABASE_URL=pglite:memory` and the demo seed. Android tests reach it from the emulator via `10.0.2.2`. iOS tests reach it from the s5 Mac over an SSH reverse tunnel, so no public port is opened. A recording proxy in the test harness asserts the network allow-list.
+7. **Test server.** UI tests start `apps/server` with `DATABASE_URL=pglite:memory` and the demo seed. Android tests reach it from the emulator via `10.0.2.2`. iOS tests reach it from the Mac over an SSH reverse tunnel, so no public port is opened. A recording proxy in the test harness asserts the network allow-list.
 
 ## Risks / Trade-offs
 
@@ -49,4 +49,4 @@ None (new apps).
 ## Open Questions
 
 - Remote push approach (decision 6). It does not change v1 scope.
-- Bundle IDs (decision 3) and the store account to publish under (the existing Crow developer accounts per Gremia).
+- Bundle IDs (decision 3) and the store account to publish under (the existing Crow Tech developer accounts).
