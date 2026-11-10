@@ -38,6 +38,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Biome
         run: bunx biome ci .
+      - name: Third-party licences (no copyleft; THIRD-PARTY-NOTICES.md current)
+        run: bun run licences:check
       - name: Typecheck
         run: bun run typecheck
       - name: Statutory rules coverage (95% lines or more)
@@ -182,8 +184,8 @@ jobs:
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
       - name: Build image, docker compose install, setup wizard, backup, restore, Caddy
-        # Builds the image (amd64 only; multi-arch builds wait for publishing approval) and tears
-        # down only its own compose project.
+        # Builds the image from the checkout (amd64 only; release.yml builds and publishes amd64 and
+        # arm64) and tears down only its own compose project.
         run: e2e/self-host.sh
       - name: Upload Playwright traces
         if: failure()

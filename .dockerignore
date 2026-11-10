@@ -22,5 +22,6 @@ docs
 e2e
 deploy
 *.md
+!THIRD-PARTY-NOTICES.md
 Dockerfile
 docker-compose*.yml
