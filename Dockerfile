@@ -60,12 +60,9 @@ COPY packages/sg-rules/src packages/sg-rules/src
 COPY --from=build /src/apps/web/dist apps/web/dist
 COPY LICENSE THIRD-PARTY-NOTICES.md ./
 # PGlite is only loaded for pglite: development URLs (dynamic import); type packages are unused.
-# The Sentry SDK's bundler plugins and CLI are build-time tools (the runtime hook has its own parser).
 RUN find apps packages -name '*.test.ts' -delete \
  && rm -rf node_modules/.bun/@electric-sql+pglite@* node_modules/.bun/@types+* \
       node_modules/.bun/@node-rs+argon2-linux-*-gnu@* \
-      node_modules/.bun/@sentry+bundler-plugins@* node_modules/.bun/sentry@* \
-      node_modules/.bun/oxc-parser@* node_modules/.bun/@oxc-parser+* node_modules/.bun/@oxc-project+* \
  && find apps/server/src -name 'test-helpers.ts' -delete \
  && find apps/web/dist -name '*.map' -delete
 

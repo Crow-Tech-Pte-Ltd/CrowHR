@@ -5,9 +5,13 @@
  *
  * Personal data: Crow HR holds NRIC, salaries, bank and medical details, so the SDK collects
  * no request bodies, cookies, query strings, IP addresses, user info, database parameters or
- * stack-frame variables (SDK 11 collects all of these by default), and `scrubEvent` removes
- * them again before anything is sent. Free text (error messages, breadcrumbs, span data) is
- * masked by `redactText`: a failed query's bound values, NRIC/FIN numbers, email addresses.
+ * stack-frame variables (once `dataCollection` is given, every category it does not switch off
+ * is collected), and `scrubEvent` removes them again before anything is sent, query strings in
+ * span attributes included. Free text (error messages, breadcrumbs, span data) is masked by
+ * `redactText`: a failed query's bound values, NRIC/FIN numbers, email addresses.
+ *
+ * SDK 10.x on purpose: every 11.x `@sentry/node` depends on the Sentry CLI (`sentry`, licensed
+ * FSL-1.1, not open source) through `@sentry/bundler-plugins`; `bun run licences:check` rejects it.
  */
 import type { Breadcrumb, ErrorEvent, NodeOptions } from "@sentry/node";
 import type { MonitoringConfig } from "./config.ts";
@@ -21,6 +25,8 @@ export interface Monitoring {
   captureException(err: unknown, extra?: Record<string, unknown>): void;
   /** Tags the current request's events with its `x-request-id` (the ID users quote). */
   tagRequest(requestId: string): void;
+  /** Names the current request's transaction after its route (`GET /api/v1/employees/:id`). */
+  nameRequest(method: string, route: string): void;
   captureMessage(message: string, extra?: Record<string, unknown>): void;
   log(level: LogLevel, message: string, attributes: Record<string, unknown>): void;
   /** Sends what is queued; resolves false if `timeoutMs` passed first. */
@@ -37,20 +43,20 @@ export const DATA_COLLECTION = {
   httpBodies: [],
   urlQueryParams: false,
   databaseQueryData: false,
-  queues: false,
   stackFrameVariables: false,
   graphQL: { document: false, variables: false },
   genAI: { inputs: false, outputs: false },
-  mcp: { inputs: false, outputs: false },
 } satisfies NonNullable<NodeOptions["dataCollection"]>;
 
 /**
- * Default integrations replaced or left out. Http, Hono and OnUnhandledRejection are re-added
- * with our options; GlitchTip has no release-health sessions (ProcessSession); Console would
- * attach every log line, unfiltered, to each event as a breadcrumb (the logger bridge forwards
- * logs instead, and SENTRY_ENABLE_LOGS=false must mean no log content leaves).
+ * Default integrations replaced or left out. Http and OnUnhandledRejection are re-added with our
+ * options; GlitchTip has no release-health sessions (ProcessSession); Console would attach every
+ * log line, unfiltered, to each event as a breadcrumb (the logger bridge forwards logs instead,
+ * and SENTRY_ENABLE_LOGS=false must mean no log content leaves). The default Hono integration
+ * stays: it names transactions after the route. Errors reach monitoring through the logger
+ * bridge (core logs every unexpected error as "Unhandled error"), so the app needs no SDK hook.
  */
-export const DROPPED_INTEGRATIONS = ["Http", "Hono", "ProcessSession", "Console", "OnUnhandledRejection"];
+export const DROPPED_INTEGRATIONS = ["Http", "ProcessSession", "Console", "OnUnhandledRejection"];
 
 let active: Monitoring | null = null;
 
@@ -67,19 +73,21 @@ export async function startMonitoring(config: MonitoringConfig): Promise<Monitor
     dsn: config.dsn,
     environment: config.environment,
     release: config.release,
-    // SDK 11 streams spans by default; GlitchTip reads classic transactions.
+    // Classic transactions (the 10.x default, stated so an upgrade cannot silently switch to
+    // span streaming, which GlitchTip does not read).
     traceLifecycle: "static",
     ...(config.tracesSampleRate > 0
       ? { tracesSampler: (ctx: SamplingContext) => sampleTrace(ctx, config.tracesSampleRate) }
       : {}),
+    // Replaces the deprecated `sendDefaultPii` (false by default): every category is set off explicitly.
     dataCollection: DATA_COLLECTION,
+    enableLogs: config.logs,
     // Outgoing calls go to third parties (identity providers): never send them `sentry-trace`
     // or `baggage` headers, which carry this DSN's public key, the release and the route.
     tracePropagationTargets: [],
     integrations: (defaults) => [
       ...defaults.filter((i) => !DROPPED_INTEGRATIONS.includes(i.name)),
-      Sentry.httpIntegration({ sessions: false }),
-      Sentry.honoIntegration({ shouldHandleError: shouldReportError }),
+      Sentry.httpIntegration({ trackIncomingRequestsAsSessions: false, maxIncomingRequestBodySize: "none" }),
       // Report, then exit like Node does without the SDK ("warn", the SDK default, would keep a
       // process running after an unhandled rejection only because monitoring is on).
       Sentry.onUnhandledRejectionIntegration({ mode: "strict" }),
@@ -95,6 +103,16 @@ export async function startMonitoring(config: MonitoringConfig): Promise<Monitor
     tagRequest: (requestId) => {
       Sentry.getIsolationScope().setTag("request_id", requestId);
     },
+    nameRequest: (method, route) => {
+      try {
+        // `http.route` on the server span is what names the transaction (source "route").
+        const span = Sentry.getActiveSpan();
+        if (span) Sentry.getRootSpan(span).setAttribute("http.route", route);
+        Sentry.getIsolationScope().setTransactionName(`${method} ${route}`);
+      } catch {
+        // Naming is best effort.
+      }
+    },
     captureMessage: (message, extra) => {
       Sentry.captureMessage(message, { level: "error", ...(extra ? { extra } : {}) });
     },
@@ -106,7 +124,8 @@ export async function startMonitoring(config: MonitoringConfig): Promise<Monitor
 
 /**
  * AppError is how handlers report expected failures (validation, permissions, conflicts,
- * not implemented): never an issue. Other errors with an HTTP status count from 500 up.
+ * not implemented): never an issue, even if some code logs one at `error`. Other errors with
+ * an HTTP status count from 500 up. Applied by the logger bridge.
  */
 export function shouldReportError(err: unknown): boolean {
   if (err && typeof err === "object") {
@@ -160,10 +179,13 @@ export function scrubEvent<T extends ErrorEvent | TransactionEvent>(event: T): T
   }
   if (event.extra) event.extra = redactDeep(event.extra);
   const trace = event.contexts?.trace;
-  if (trace?.data) trace.data = redactDeep(trace.data);
+  if (trace?.data) trace.data = scrubSpanData(trace.data);
   for (const span of event.spans ?? []) {
-    if (span.description) span.description = redactText(span.description);
-    if (span.data) span.data = redactDeep(span.data);
+    if (span.description) {
+      const description = redactText(span.description);
+      span.description = span.op?.startsWith("http") ? withoutQuery(description) : description;
+    }
+    if (span.data) span.data = scrubSpanData(span.data);
   }
   if (event.breadcrumbs) event.breadcrumbs = event.breadcrumbs.map(scrubBreadcrumb);
   return event;
@@ -177,6 +199,17 @@ export function scrubBreadcrumb(crumb: Breadcrumb): Breadcrumb {
     if (typeof data[key] === "string") data[key] = withoutQuery(data[key]);
   }
   return { ...scrubbed, data };
+}
+
+/** Span attributes that hold a query string (OpenTelemetry's http.target/http.url include it). */
+const QUERY_ATTRIBUTES = ["url.query", "http.query", "url.fragment", "http.fragment"];
+const URL_ATTRIBUTES = ["url.full", "http.url", "http.target", "url.path"];
+
+function scrubSpanData<D extends Record<string, unknown>>(data: D): D {
+  const out: Record<string, unknown> = redactDeep({ ...data });
+  for (const key of QUERY_ATTRIBUTES) delete out[key];
+  for (const key of URL_ATTRIBUTES) if (typeof out[key] === "string") out[key] = withoutQuery(out[key]);
+  return out as D;
 }
 
 function withoutQuery(url: string): string {

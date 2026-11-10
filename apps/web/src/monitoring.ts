@@ -105,7 +105,10 @@ export function scrubEvent<T extends ErrorEvent | TransactionEvent>(event: T): T
   const trace = event.contexts?.trace;
   if (trace?.data) trace.data = scrubData(trace.data);
   for (const span of event.spans ?? []) {
-    if (span.description) span.description = redactText(span.description);
+    if (span.description) {
+      const description = redactText(span.description);
+      span.description = /^(http|resource)/.test(span.op ?? "") ? withoutQuery(description) : description;
+    }
     if (span.data) span.data = scrubData(span.data);
   }
   if (event.breadcrumbs) {
@@ -137,11 +140,21 @@ export function redactText(text: string): string {
   return text.replace(TOKEN_PATH, "/$1/[token]").replace(LABELLED_SELECTOR, '[$1="[redacted]"]');
 }
 
-/** Span/breadcrumb data: route params named `token` are dropped, every string is redacted. */
+const QUERY_KEYS = new Set(["url.query", "http.query", "url.fragment", "http.fragment"]);
+const URL_KEYS = new Set(["url", "url.full", "http.url", "http.target", "url.path"]);
+
+/**
+ * Span/breadcrumb data: route params named `token` and query/fragment attributes are dropped,
+ * URLs lose their query string, every string is redacted.
+ */
 function scrubData<D extends Record<string, unknown>>(data: D): D {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
-    if (/(^|\.)token$/.test(key)) continue;
+    if (/(^|\.)token$/.test(key) || QUERY_KEYS.has(key)) continue;
+    if (URL_KEYS.has(key) && typeof value === "string") {
+      out[key] = withoutQuery(redactText(value));
+      continue;
+    }
     out[key] =
       typeof value === "string"
         ? redactText(value)

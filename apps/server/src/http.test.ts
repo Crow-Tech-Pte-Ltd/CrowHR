@@ -103,6 +103,18 @@ describe("server HTTP surface", () => {
     expect(await res.text()).not.toContain("crowhr-monitoring");
   });
 
+  it("tells monitoring the route that answered each API request, not its raw path", async () => {
+    const seen: string[] = [];
+    const monitored = createServerApp(createTestDeps(testDb.db), {
+      webDistDir: dist,
+      onApiRoute: (method, route) => seen.push(`${method} ${route}`),
+    });
+    await monitored.request("/api/v1/auth/oidc/0190f5d2-0000-7000-8000-000000000000/start?purpose=sign_in");
+    await monitored.request("/api/health");
+    await monitored.request("/payroll");
+    expect(seen).toEqual(["GET /api/v1/auth/oidc/:providerId/start", "GET /api/health"]);
+  });
+
   it("gives browsers the monitoring settings and allows the DSN's origin, only when configured", async () => {
     const monitored = createServerApp(createTestDeps(testDb.db), {
       webDistDir: dist,

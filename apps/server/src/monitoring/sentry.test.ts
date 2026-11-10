@@ -70,6 +70,8 @@ describe("server monitoring", () => {
     expect(DROPPED_INTEGRATIONS).toContain("Console");
     // Replaced by a strict one: an unhandled rejection still ends the process, as without the SDK.
     expect(DROPPED_INTEGRATIONS).toContain("OnUnhandledRejection");
+    // Kept: it names transactions after the route (errors are reported through the logger bridge).
+    expect(DROPPED_INTEGRATIONS).not.toContain("Hono");
   });
 
   it("removes a failed query's values, NRIC/FIN and emails from messages, breadcrumbs and spans", () => {
@@ -111,6 +113,42 @@ describe("server monitoring", () => {
     );
     expect(event.message).toBe("Backup for [email] failed");
     expect(event.spans?.[0]?.data).toEqual({ "url.full": "https://hr.acme.sg/api/v1/x" });
+  });
+
+  it("removes query strings from span attributes and HTTP span names", () => {
+    const event = scrubEvent({
+      type: "transaction",
+      contexts: {
+        trace: {
+          trace_id: "t",
+          span_id: "s",
+          data: {
+            "http.target": "/api/v1/auth/oidc/p1/callback?code=OIDC-CODE&state=S",
+            "http.url": "https://hr.acme.sg/api/v1/auth/oidc/p1/callback?code=OIDC-CODE&state=S",
+            "url.query": "code=OIDC-CODE&state=S",
+            "http.route": "/api/v1/auth/oidc/:providerId/callback",
+          },
+        },
+      },
+      spans: [
+        {
+          span_id: "a",
+          trace_id: "t",
+          start_timestamp: 0,
+          status: "ok",
+          op: "http.client",
+          description: "POST https://idp.example.sg/token?code=OIDC-CODE",
+          data: { "http.url": "https://idp.example.sg/token?code=OIDC-CODE" },
+        },
+      ],
+    });
+    expect(JSON.stringify(event)).not.toContain("OIDC-CODE");
+    expect(event.contexts?.trace?.data).toEqual({
+      "http.target": "/api/v1/auth/oidc/p1/callback",
+      "http.url": "https://hr.acme.sg/api/v1/auth/oidc/p1/callback",
+      "http.route": "/api/v1/auth/oidc/:providerId/callback",
+    });
+    expect(event.spans?.[0]?.description).toBe("POST https://idp.example.sg/token");
   });
 
   it("reports unexpected errors and 5xx, not AppError or client errors", () => {
