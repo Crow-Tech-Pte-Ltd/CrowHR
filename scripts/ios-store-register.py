@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Registers Crow HR's Apple resources with the App Store Connect API (run on the s5 Mac).
+"""Registers Crow HR's Apple resources with the App Store Connect API (run on the release Mac).
 
   status           read-only: bundle id + app record for crowtech.crowhr
   register-bundle  create the explicit bundle id crowtech.crowhr (no capabilities) if missing
@@ -13,8 +13,8 @@
                    missing, access to all builds) and send the TestFlight invitation. Internal
                    testers must be App Store Connect users on the team.
 
-Uses the Crow Tech team API key kept on the Mac (APPLE_KEY_ID, APPLE_ISSUER_ID, optional
-APPLE_KEY_PATH). JWTs and key material are never printed. Nothing is uploaded or submitted.
+Uses the Crow Tech team API key kept on the Mac (APPLE_KEY_ID, APPLE_ISSUER_ID, and APPLE_KEY_PATH
+or APPLE_SIGNING_SECRET_DIR containing AuthKey_<key id>.p8). JWTs and key material are never printed. Nothing is uploaded or submitted.
 Writes the read-back to apps/ios/store/apple-resources.json (public ids only).
 Owner approval to register: Daniel, 7 Nov 2026 ("yeah register the apps there").
 """
@@ -93,8 +93,13 @@ def main() -> None:
     parser.add_argument("action", choices=["status", "register-bundle", "create-app", "builds", "testers", "invite-internal"])
     parser.add_argument("email", nargs="?")
     args = parser.parse_args()
+    missing = [name for name in ("APPLE_KEY_ID", "APPLE_ISSUER_ID") if not os.environ.get(name)]
+    if not os.environ.get("APPLE_KEY_PATH") and not os.environ.get("APPLE_SIGNING_SECRET_DIR"):
+        missing.append("APPLE_KEY_PATH or APPLE_SIGNING_SECRET_DIR")
+    if missing:
+        raise SystemExit(f"Set {', '.join(missing)} (the App Store Connect API key).")
     key_id, issuer = os.environ["APPLE_KEY_ID"], os.environ["APPLE_ISSUER_ID"]
-    key_path = Path(os.environ.get("APPLE_KEY_PATH", Path.home() / f"Documents/crow-reader-secrets/AuthKey_{key_id}.p8"))
+    key_path = Path(os.environ.get("APPLE_KEY_PATH") or Path(os.environ["APPLE_SIGNING_SECRET_DIR"]) / f"AuthKey_{key_id}.p8")
     api = Apple(token(key_path, key_id, issuer))
 
     q = urllib.parse.urlencode({"filter[identifier]": IDENTIFIER})

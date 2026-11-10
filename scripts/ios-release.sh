@@ -13,7 +13,7 @@
 # `production` refuses unless the record's scope is `production`; `internal` accepts either scope.
 # Uploads never target external TestFlight groups.
 #
-# `internal` (real run), all on s5 over SSH: sync, unit + UI tests, unsigned Release archive
+# `internal` (real run), all on the release Mac over SSH: sync, unit + UI tests, unsigned Release archive
 # (scripts/ios-archive-on-mac.sh), Apple cloud-signed export marked "TestFlight internal testing
 # only" plus IPA checks (scripts/ios-export-on-mac.sh, scripts/ios-verify-ipa.py), then
 # `altool --validate-app` and `altool --upload-app`. CROWHR_BUILD_NUMBER must be numeric and higher
@@ -21,6 +21,13 @@
 # Archive and export were run and verified for build 1 on 7 Nov 2026 (not uploaded). The upload
 # itself has never run: it needs the App Store Connect app record (owner step) and an approval.
 # Adding the build to the internal TestFlight group is done in App Store Connect, not here.
+#
+# A real `internal` run needs, in the environment here: CROWHR_MAC_HOST (SSH host of the release
+# Mac), CROWHR_SIM_UDID (the Crow HR simulator on it), APPLE_KEY_ID and APPLE_ISSUER_ID (the App
+# Store Connect API key) and APPLE_SIGNING_SECRET_DIR (the directory on the Mac with
+# AuthKey_<key id>.p8 and the build keychain; see scripts/ios-export-on-mac.sh). Optional:
+# CROWHR_MAC_DIR (checkout on the Mac, default ~/Developer/crowhr-ios) and DEVELOPER_DIR (Xcode on
+# the Mac, default ~/Applications/Xcode-27.1.app/Contents/Developer).
 #
 # NOT IMPLEMENTED: `production` (App Store submission) stops after the approval checks with exit 3.
 set -euo pipefail
@@ -74,12 +81,12 @@ fi
 
 echo "Approval OK: $COMMAND of Crow HR iOS $VERSION${BUILD:+ ($BUILD)} ($APPROVAL)."
 PLAN=(
-  "sync apps/ios to s5 (scripts/ios-sync.sh)"
-  "run unit tests and the user-flow UI tests on s5 (scripts/ios-mac-test.sh, scripts/ios-ui-test.sh)"
+  "sync apps/ios to the release Mac (scripts/ios-sync.sh)"
+  "run unit tests and the user-flow UI tests on the Mac (scripts/ios-mac-test.sh, scripts/ios-ui-test.sh)"
 )
 if [[ "$COMMAND" == internal ]]; then
   PLAN+=(
-    "archive Release unsigned with build ${BUILD:-<CROWHR_BUILD_NUMBER>} on s5 (scripts/ios-archive-on-mac.sh)"
+    "archive Release unsigned with build ${BUILD:-<CROWHR_BUILD_NUMBER>} on the Mac (scripts/ios-archive-on-mac.sh)"
     "cloud-sign and export an internal-only IPA, verify bundle id crowtech.crowhr, team and entitlements (scripts/ios-export-on-mac.sh)"
     "validate, then upload to App Store Connect for the INTERNAL TestFlight group only (altool)"
   )
@@ -99,15 +106,23 @@ fi
 
 # ---- internal: real run, approval checked above ----
 SSH=(ssh -F "$HOME/.ssh/config")
-HOST="${CROWHR_MAC_HOST:-s5}"
+HOST="${CROWHR_MAC_HOST:-}"
 REMOTE="${CROWHR_MAC_DIR:-Developer/crowhr-ios}"
-UDID="${CROWHR_SIM_UDID:-D03C6B39-F769-4E90-804B-7B1F49DEAD15}"
-KEY_ID="42R4538ML4"
-ISSUER_ID="de0b1507-decc-4c9e-a7f9-0df008735b76"
+UDID="${CROWHR_SIM_UDID:-}"
+KEY_ID="${APPLE_KEY_ID:-}"
+ISSUER_ID="${APPLE_ISSUER_ID:-}"
+SECRET_DIR="${APPLE_SIGNING_SECRET_DIR:-}"
+[[ -n "$HOST" ]] || refuse "set CROWHR_MAC_HOST to the SSH host of the release Mac."
+[[ -n "$UDID" ]] || refuse "set CROWHR_SIM_UDID to the Crow HR simulator's UDID on the Mac."
+[[ "$KEY_ID" =~ ^[A-Z0-9]{10}$ ]] || refuse "set APPLE_KEY_ID to the App Store Connect API key ID."
+[[ "$ISSUER_ID" =~ ^[a-fA-F0-9-]{36}$ ]] || refuse "set APPLE_ISSUER_ID to the App Store Connect API issuer ID."
+[[ -n "$SECRET_DIR" ]] || refuse "set APPLE_SIGNING_SECRET_DIR to the directory on the Mac with AuthKey_$KEY_ID.p8 and the build keychain."
 ARCHIVE="artifacts/CrowHR-build$BUILD.xcarchive"
 EXPORT="artifacts/CrowHR-build$BUILD-export"
-on_mac() { "${SSH[@]}" "$HOST" "cd $REMOTE && export DEVELOPER_DIR=\$HOME/Applications/Xcode-27.1.app/Contents/Developer && $1"; }
-altool_args="-f $EXPORT/CrowHR.ipa -t ios --apiKey $KEY_ID --apiIssuer $ISSUER_ID --p8-file-path \$HOME/Documents/crow-reader-secrets/AuthKey_$KEY_ID.p8"
+MAC_ENV="export DEVELOPER_DIR=\${DEVELOPER_DIR:-\$HOME/Applications/Xcode-27.1.app/Contents/Developer}"
+MAC_ENV+=" APPLE_KEY_ID=$KEY_ID APPLE_ISSUER_ID=$ISSUER_ID APPLE_SIGNING_SECRET_DIR=$(printf %q "$SECRET_DIR")"
+on_mac() { "${SSH[@]}" "$HOST" "cd $REMOTE && $MAC_ENV && $1"; }
+altool_args="-f $EXPORT/CrowHR.ipa -t ios --apiKey $KEY_ID --apiIssuer $ISSUER_ID --p8-file-path \"\$APPLE_SIGNING_SECRET_DIR/AuthKey_$KEY_ID.p8\""
 
 scripts/ios-sync.sh
 on_mac "CROWHR_SIM_UDID=$UDID scripts/ios-mac-test.sh release-unit -only-testing:CrowHRTests"

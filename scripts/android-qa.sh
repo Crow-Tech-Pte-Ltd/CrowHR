@@ -8,7 +8,7 @@
 #   scripts/android-qa.sh store-shots               Play listing screenshots (1080x1920, demo status bar) into apps/android/store/screenshots
 set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
-sdk="${ANDROID_HOME:-/home/daniel/Android/Sdk}"
+sdk="${ANDROID_HOME:-$HOME/Android/Sdk}"
 adb="$sdk/platform-tools/adb"
 serial="emulator-${CROWHR_EMU_PORT:-5604}"
 pkg=crowtech.crowhr.debug

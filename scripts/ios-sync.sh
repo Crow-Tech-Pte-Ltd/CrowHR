@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Syncs the iOS app (and the shared mobile fixtures) to the s5 Mac checkout. Build outputs and the
-# xcodegen-generated project stay on the Mac. Usage: scripts/ios-sync.sh
+# Syncs the iOS app (and the shared mobile fixtures) to the checkout on the release Mac. Build
+# outputs and the xcodegen-generated project stay on the Mac.
+#   CROWHR_MAC_HOST=<ssh host> [CROWHR_MAC_DIR=Developer/crowhr-ios] scripts/ios-sync.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SSH="ssh -F $HOME/.ssh/config"
-HOST="${CROWHR_MAC_HOST:-s5}"
+HOST="${CROWHR_MAC_HOST:?Set CROWHR_MAC_HOST to the SSH host of the release Mac}"
 REMOTE="${CROWHR_MAC_DIR:-Developer/crowhr-ios}"
 
 $SSH "$HOST" "mkdir -p $REMOTE/apps $REMOTE/scripts"

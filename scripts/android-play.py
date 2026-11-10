@@ -9,23 +9,32 @@
                                   release (not rolled out to anyone). Called by
                                   scripts/android-release.sh internal; never targets production.
 
-Auth: the shared Gremia publisher (impersonated service account, ADC path below; see
-/home/daniel/Gremia/AGENTS.md). Tokens, credentials and raw OAuth errors are never printed.
-Receipts (public ids and hashes only) go to apps/android/store/receipts/.
+Auth: the maintainers' Play publisher service account, through a Google credentials file
+(CROWHR_PLAY_CREDENTIALS, else GOOGLE_APPLICATION_CREDENTIALS, else gcloud's application default
+credentials; an impersonated service account works). Needs the google-auth Python package (pip, or
+the copy inside the Google Cloud SDK: PYTHONPATH=<sdk>/lib/third_party). upload-internal-draft
+also needs JDK 21 (JAVA_HOME) and bundletool (CROWHR_BUNDLETOOL_JAR). Tokens, credentials and raw
+OAuth errors are never printed. Receipts (public ids and hashes only) go to
+apps/android/store/receipts/.
 """
 import argparse
 import hashlib
 import json
+import os
 import subprocess
-import sys
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-sys.path.insert(0, "/home/daniel/.local/share/gremia/google-cloud-sdk/lib/third_party")
-import google.auth  # noqa: E402
-from google.auth.exceptions import RefreshError  # noqa: E402
-from google.auth.transport.requests import AuthorizedSession  # noqa: E402
+try:
+    import google.auth
+    from google.auth.exceptions import RefreshError
+    from google.auth.transport.requests import AuthorizedSession
+except ImportError:
+    raise SystemExit(
+        "google-auth is not installed: pip install google-auth requests, or set PYTHONPATH to the "
+        "Google Cloud SDK's lib/third_party directory."
+    ) from None
 
 ROOT = Path(__file__).resolve().parents[1]
 STORE = ROOT / "apps/android/store"
@@ -33,9 +42,13 @@ META = json.loads((STORE / "listing.json").read_text())
 PACKAGE = META["packageName"]
 BASE = f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PACKAGE}"
 UPLOAD = f"https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/{PACKAGE}"
-ADC = "/home/daniel/.config/gremia/gcloud/application_default_credentials.json"
-JAVA = "/usr/lib/jvm/java-21-openjdk-amd64/bin/java"
-BUNDLETOOL = "/home/daniel/.local/share/gremia/bundletool-all-1.18.3.jar"
+ADC = Path(
+    os.environ.get("CROWHR_PLAY_CREDENTIALS")
+    or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    or Path.home() / ".config/gcloud/application_default_credentials.json"
+)
+JAVA = Path(os.environ.get("JAVA_HOME", "/usr/lib/jvm/java-21-openjdk-amd64")) / "bin/java"
+BUNDLETOOL = os.environ.get("CROWHR_BUNDLETOOL_JAR", "")
 LANG = META["defaultLanguage"]
 
 
@@ -56,7 +69,12 @@ def call(session, method, url, **kwargs):
 
 
 def session():
-    creds, _ = google.auth.load_credentials_from_file(ADC, scopes=["https://www.googleapis.com/auth/androidpublisher"])
+    if not ADC.is_file():
+        raise SystemExit(
+            f"No Google credentials file at {ADC}. Set CROWHR_PLAY_CREDENTIALS to the Play publisher's "
+            "credentials file (or run gcloud auth application-default login)."
+        )
+    creds, _ = google.auth.load_credentials_from_file(str(ADC), scopes=["https://www.googleapis.com/auth/androidpublisher"])
     return AuthorizedSession(creds)
 
 
@@ -113,6 +131,8 @@ def listing(s, edit):
 
 
 def upload_internal_draft(s, edit, aab: Path, version_code: int):
+    if not BUNDLETOOL or not Path(BUNDLETOOL).is_file():
+        raise PlayError("Set CROWHR_BUNDLETOOL_JAR to bundletool-all-<version>.jar. Nothing uploaded.")
     manifest = ET.fromstring(
         subprocess.run([JAVA, "-jar", BUNDLETOOL, "dump", "manifest", f"--bundle={aab}", "--module=base"], check=True, capture_output=True, text=True).stdout
     )
@@ -150,7 +170,7 @@ def main():
         s = session()
         edit = f"{BASE}/edits/{call(s, 'POST', f'{BASE}/edits', json={})['id']}"
     except RefreshError:
-        raise SystemExit("The shared Play login needs renewing (see /home/daniel/Gremia/AGENTS.md); nothing was changed.") from None
+        raise SystemExit("The Play publisher credentials need renewing (see the header of this script); nothing was changed.") from None
     committed = False
     try:
         if args.command == "status":

@@ -21,7 +21,7 @@ Shop-floor, F&B and field staff live on their phones, and QuickHR's mobile apps 
   - notifications inbox.
 - **Notifications without a Crow relay:** an in-app inbox, background refresh (iOS BGAppRefresh, Android WorkManager), and local notifications with content-free text. Remote push is an open question.
 - **Build, test and publish** follow the Crow mobile workflow:
-  - iOS builds and tests on the `s5` Mac over SSH; Android on Linux with the local SDK and the pinned Gradle wrapper.
+  - iOS builds and tests on a Mac over SSH; Android on Linux with the local SDK and the pinned Gradle wrapper.
   - Uploads go only to TestFlight internal or a Play internal draft.
   - Production release needs Daniel's explicit approval.
   - Privacy and support pages live at `crow.sg/apps/crow-hr/{privacy,support}`, kept out of crow.sg global navigation until launch.
@@ -46,7 +46,7 @@ None. Server-side contracts live in `api-platform`, and attendance clock-in vali
 
 ## Impact
 
-- New `apps/ios` and `apps/android` (M4). New scripts `scripts/ios-*.sh` and `scripts/android-build.sh` that mirror the Gremia workflow.
+- New `apps/ios` and `apps/android` (M4). New scripts `scripts/ios-*.sh` and `scripts/android-build.sh` that follow the maintainers' mobile workflow.
 - Server dependencies, all specified elsewhere: `/api/v1` stability, `/api/v1/meta`, native auth and device sessions (`add-api-platform`); attendance punch validation with idempotency keys (attendance change, M2); notifications `since` cursor (`add-approvals-and-notifications`).
 - Web: My profile → Mobile app QR page.
 - crow-tech-landing repo: `app/apps/crow-hr/privacy` and `support` pages (owner approval before publishing).
