@@ -29,6 +29,10 @@ export const FORBIDDEN: readonly { pattern: RegExp; why: string }[] = [
     why: "@hono/node-server",
   },
   { pattern: /drizzle-orm[\\/]node-postgres/, why: "drizzle's node-postgres driver" },
+  {
+    pattern: /[\\/]node_modules[\\/](\.bun[\\/][^\\/]+[\\/]node_modules[\\/])?@sentry[\\/]/,
+    why: "the Sentry SDK (the demo never reports errors)",
+  },
   { pattern: /[\\/]apps[\\/]server[\\/]/, why: "apps/server (the Node host)" },
   { pattern: /[\\/]packages[\\/]core[\\/]testing[\\/]/, why: "core's Node-only test harness" },
 ];

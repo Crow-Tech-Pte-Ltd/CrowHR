@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import { reasonFor } from "./auth/session.ts";
 import { RouteError, RouteNotFound, RoutePending } from "./components/route-states.tsx";
 import { ApiError } from "./lib/api.ts";
+import { readMonitoringConfig, rootErrorOptions, startMonitoring } from "./monitoring.ts";
 import { routeTree } from "./routeTree.gen.ts";
 
 /** A session that expires or is revoked mid-use sends the user to sign-in with the reason. */
@@ -46,9 +47,14 @@ declare module "@tanstack/react-router" {
   }
 }
 
+// Only when the server enabled browser error reporting (SENTRY_BROWSER_DSN): load the SDK first,
+// so errors during the first render are reported too. Otherwise nothing is loaded.
+const monitoring = readMonitoringConfig();
+if (monitoring) await startMonitoring(monitoring, router);
+
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root element");
-createRoot(root).render(
+createRoot(root, rootErrorOptions()).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />

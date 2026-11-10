@@ -85,6 +85,10 @@ RUN apk add --no-cache postgresql17-client tini \
 WORKDIR /app
 COPY --from=deps --chown=root:root /app /app
 
+# Commit the image is built from, for error-monitoring releases (crowhr@<version>+<commit>):
+#   docker build --build-arg CROWHR_GIT_SHA=$(git rev-parse HEAD) -t crowhr:local .   (release.yml passes it)
+# Declared here, after the slow layers, so a new commit only rebuilds the ones below.
+ARG CROWHR_GIT_SHA=""
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8080 \
@@ -92,6 +96,7 @@ ENV NODE_ENV=production \
     BACKUP_DIR=/backups \
     WEB_DIST_DIR=/app/apps/web/dist \
     CROWHR_CONTAINER=1 \
+    CROWHR_GIT_SHA=${CROWHR_GIT_SHA} \
     NODE_OPTIONS=--disable-warning=ExperimentalWarning
 
 USER 10001:10001
@@ -100,7 +105,8 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=4 \
   CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/api/health" || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "apps/server/src/main.ts"]
+# instrument.ts starts optional error monitoring (SENTRY_DSN) before the app loads; without it, it does nothing.
+CMD ["node", "--import", "./apps/server/src/instrument.ts", "apps/server/src/main.ts"]
 
 LABEL org.opencontainers.image.title="Crow HR" \
       org.opencontainers.image.description="Self-hostable HR and payroll for Singapore SMEs" \
