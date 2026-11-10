@@ -32,6 +32,15 @@ xcodebuild -project CrowHR.xcodeproj -scheme CrowHR -sdk iphonesimulator \
 
 if [[ -n "${CROWHR_TEST_DRIVER_DIR:-}" ]]; then export DEVELOPER_DIR="$CROWHR_TEST_DRIVER_DIR"; fi
 
+# Store screenshots (CROWHR_STATUS_BAR=demo): boot our simulator first and give it a clean status
+# bar (9:41, full battery and signal). The trap above shuts it down, which drops the override.
+if [[ "${CROWHR_STATUS_BAR:-}" == demo ]]; then
+  xcrun simctl boot "$UDID" >/dev/null 2>&1 || true
+  xcrun simctl bootstatus "$UDID" >/dev/null
+  xcrun simctl status_bar "$UDID" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 \
+    --cellularMode active --cellularBars 4 --operatorName "" --batteryState charged --batteryLevel 100
+fi
+
 # Network allow-list, seen by the OS: sample every socket the CrowHR app process holds while the
 # tests run (simulator apps are Mac processes), then require every remote end to be the test server.
 NETLOG=""

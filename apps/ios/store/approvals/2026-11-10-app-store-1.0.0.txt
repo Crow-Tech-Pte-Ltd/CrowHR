@@ -1,0 +1,6 @@
+approved-by: Daniel
+scope: production
+version: 1.0.0
+build: 4
+date: 2026-11-10
+note: Daniel, 10 Nov 2026, asked whether to submit both apps to the App Store and Google Play for public release as version 1.0.0: "Submit both". This record covers building, uploading and preparing build 4 of Crow HR iOS 1.0.0 for the App Store. Pressing "Submit for Review" in App Store Connect is done by hand, not by a script.

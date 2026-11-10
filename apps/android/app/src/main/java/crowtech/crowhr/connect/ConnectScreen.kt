@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import crowtech.crowhr.ui.components.CrowCard
@@ -87,6 +88,31 @@ fun ConnectScreen(
                         keyboardActions = KeyboardActions(onGo = { vm.submit() }),
                         modifier = Modifier.fillMaxWidth().testTag("server-address"),
                     )
+                    if (state.needsOrg) {
+                        // Same as iOS: a server hosting several organisations needs the organisation's ID.
+                        Label("Organisation ID", Modifier.padding(top = 8.dp))
+                        OutlinedTextField(
+                            value = state.org,
+                            onValueChange = vm::onOrgChange,
+                            label = { Text("Organisation ID") },
+                            placeholder = { Text("your-company") },
+                            singleLine = true,
+                            // The URI keyboard, like the address: no autocorrect or capitals in an ID.
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Uri,
+                                imeAction = ImeAction.Go,
+                                autoCorrectEnabled = false,
+                                capitalization = KeyboardCapitalization.None,
+                            ),
+                            keyboardActions = KeyboardActions(onGo = { vm.submit() }),
+                            modifier = Modifier.fillMaxWidth().testTag("organisation-id"),
+                        )
+                        Text(
+                            "This server hosts several organisations. Enter your organisation's ID from HR, or scan the QR code.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Crow.colors.muted,
+                        )
+                    }
                     if (phase is ConnectPhase.Failed) Notice(phase.message, Tone.Danger)
                     SecondaryButton("Check address", vm::submit, Modifier.fillMaxWidth().testTag("check-address"), enabled = state.address.isNotBlank())
                 }

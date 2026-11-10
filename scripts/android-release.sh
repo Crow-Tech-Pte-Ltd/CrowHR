@@ -7,11 +7,14 @@
 #       certificate, bundletool validate) and copies it to artifacts/android/. With --upload it
 #       then puts it on the Google Play *internal* track as a DRAFT release (scripts/android-play.py),
 #       which needs an approval record like production's.
-#   scripts/android-release.sh production --approval <record> [--dry-run]
-#       checks the approval gates only. NOT IMPLEMENTED: promoting a reviewed internal release
-#       to production; do that in Play Console after review.
+#   scripts/android-release.sh production --approval <record> [--out DIR] [--dry-run]
+#       the same signed, verified AAB, for a production release approved in writing. It is not
+#       uploaded: NOT IMPLEMENTED: a scripted production upload (scripts/android-play.py only
+#       writes internal drafts). Upload the verified AAB in Play Console, which is where the
+#       production release is reviewed and rolled out.
 # An approval record is a file that contains "Approved by Daniel", the package name and
-# "versionCode <N>". --dry-run checks every gate and builds nothing.
+# "versionCode <N>". --dry-run checks every gate and builds nothing. --out DIR also copies the
+# verified AAB into DIR (an existing directory, for example one outside the repository).
 # A real build also needs JDK 21 (JAVA_HOME, default /usr/lib/jvm/java-21-openjdk-amd64) and
 # bundletool (CROWHR_BUNDLETOOL_JAR, the path to bundletool-all-<version>.jar).
 set -euo pipefail
@@ -27,12 +30,14 @@ shift || true
 approval=""
 dry_run=false
 upload=false
+out_dir=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --approval) approval="${2:-}"; shift 2 ;;
     --dry-run) dry_run=true; shift ;;
     --upload) upload=true; shift ;;
-    *) die 2 "Unknown option $1. Usage: android-release.sh internal|production [--upload] [--approval <record>] [--dry-run]" ;;
+    --out) out_dir="${2:-}"; shift 2 ;;
+    *) die 2 "Unknown option $1. Usage: android-release.sh internal|production [--upload] [--approval <record>] [--out DIR] [--dry-run]" ;;
   esac
 done
 
@@ -49,7 +54,14 @@ if [[ "$track" == production ]] || $upload; then
   [[ -f "$approval" ]] || die 3 "Approval record $approval does not exist."
   grep -q "Approved by Daniel" "$approval" || die 3 "Approval record $approval does not say \"Approved by Daniel\"."
   grep -q "$package" "$approval" || die 3 "Approval record $approval does not name $package."
-  grep -q "versionCode $version_code" "$approval" || die 3 "Approval record $approval does not approve versionCode $version_code."
+  grep -qE "versionCode $version_code([^0-9]|$)" "$approval" || die 3 "Approval record $approval does not approve versionCode $version_code."
+fi
+
+if [[ "$track" == production ]] && $upload; then
+  die 6 "Production uploads are not implemented: upload the verified AAB in Play Console (drop --upload)."
+fi
+if [[ -n "$out_dir" && ! -d "$out_dir" ]]; then
+  die 2 "--out $out_dir is not an existing directory."
 fi
 
 [[ -n "$signing" ]] || die 5 "Set CROWHR_SIGNING_PROPERTIES to the private upload-key properties file (referenced by path only; never committed)."
@@ -59,17 +71,13 @@ if $dry_run; then
   printf 'DRY RUN: all gates passed for %s, track %s, versionCode %s.\n' "$package" "$track" "$version_code"
   printf 'Would build: gradlew :app:bundleRelease (signed with the key referenced by %s)\n' "$signing"
   if [[ "$track" == production ]]; then
-    printf 'Would promote the reviewed internal release to production after the approval in %s.\n' "$approval"
+    printf 'Would verify the production AAB (approval %s) and stop: upload it in Play Console.\n' "$approval"
   elif $upload; then
     printf 'Would upload the AAB to Google Play internal testing as a draft (not rolled out).\n'
   else
     printf 'Would verify the AAB and stop (add --upload --approval <record> to put it on internal testing as a draft).\n'
   fi
   exit 0
-fi
-
-if [[ "$track" == production ]]; then
-  die 6 "Production promotion is not implemented: promote the reviewed internal release in Play Console."
 fi
 
 java="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}/bin/java"
@@ -97,8 +105,14 @@ mkdir -p "$(dirname "$out")"
 cp "$aab" "$out"
 printf 'Verified %s: package, versionCode %s, upload certificate (%s), bundletool validate.\n' "$out" "$version_code" "${expected#*=}"
 sha256sum "$out"
+if [[ -n "$out_dir" ]]; then
+  cp "$out" "$out_dir/"
+  printf 'Copied to %s\n' "$out_dir/$(basename "$out")"
+fi
 
-if $upload; then
+if [[ "$track" == production ]]; then
+  printf 'Production AAB verified, not uploaded (approval %s). Upload it in Play Console.\n' "$approval"
+elif $upload; then
   /usr/bin/python3 "$repo_dir/scripts/android-play.py" upload-internal-draft "$out" --expected-version-code "$version_code"
 else
   printf 'Not uploaded. To put it on internal testing as a draft: add --upload --approval <record>.\n'

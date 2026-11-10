@@ -16,9 +16,19 @@ struct CrowHRApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            if model.env.isUITest && ProcessInfo.processInfo.arguments.contains("-uitest-a11y-lab") {
+                A11yAuditLabView()
+            } else {
+                RootView()
+                    .environment(model)
+                    .onOpenURL { model.handle(url: $0) }
+            }
+            #else
             RootView()
                 .environment(model)
                 .onOpenURL { model.handle(url: $0) }
+            #endif
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
