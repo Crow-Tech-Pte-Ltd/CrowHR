@@ -18,6 +18,7 @@ Crow HR has **not yet been used for a real company's payroll**. Check its result
 - **Claims**: claim types with caps, receipts, foreign currency at manual rates, reimbursement through payroll or outside it.
 - **Payroll**: monthly, off-cycle and adjustment runs with CPF, SHG, SDL and an FWL estimate from cited, effective-dated rules (`packages/sg-rules`); payslips; the CPF EZPay file, an ISO 20022 bank file and an IR8A export to upload yourself. Nothing is submitted to CPF Board, IRAS or banks directly.
 - **Documents and reports**: employee documents, HR letters and KETs from templates, acknowledgements; reports with CSV and XLSX export.
+- **Optional error monitoring**: send errors, performance traces and logs to your own Sentry-compatible service (for example GlitchTip) by setting `SENTRY_DSN` / `SENTRY_BROWSER_DSN`. Off by default: without them the SDK is never loaded. Tokens, query strings, failed-query values, NRIC/FIN and email addresses are redacted, and nothing goes to Crow Tech.
 - **API**: the versioned REST API (`/api/v1`) the web app uses, documented with OpenAPI.
 - **Demo**: the same app running in your browser with a fictional company at [hr.crow.sg](https://hr.crow.sg).
 
