@@ -10,6 +10,8 @@
 .env
 .env.*
 !.env.example
+# Compose secrets kept next to the checkout (e.g. a tunnel token) never go into a build context.
+secrets
 data
 apps/server/data
 test-results
