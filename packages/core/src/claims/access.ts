@@ -96,11 +96,11 @@ export async function approverRole(
   };
 }
 
-/** Claims among `claimIds` the member holds (or held) an approval task for. */
+/** Claims among `claimIds` the member holds (or decided) an approval task for. */
 export async function claimsWithTasks(db: Db, orgId: string, membershipId: string, claimIds: string[]) {
   if (!claimIds.length) return new Set<string>();
   const rows = await db
-    .select({ subjectId: approvalRequests.subjectId })
+    .select({ subjectId: approvalRequests.subjectId, status: approvalTasks.status, origin: approvalTasks.origin })
     .from(approvalTasks)
     .innerJoin(
       approvalRequests,
@@ -112,9 +112,11 @@ export async function claimsWithTasks(db: Db, orgId: string, membershipId: strin
         eq(approvalTasks.assigneeMembershipId, membershipId),
         eq(approvalRequests.subjectType, "claim"),
         inArray(approvalRequests.subjectId, claimIds),
+        ne(approvalTasks.status, "superseded"),
       ),
     );
-  return new Set(rows.map((r) => r.subjectId));
+  // As `approverRole`: a cover task counts only while it is open.
+  return new Set(rows.filter((r) => r.origin !== "delegated" || r.status === "pending").map((r) => r.subjectId));
 }
 
 /**

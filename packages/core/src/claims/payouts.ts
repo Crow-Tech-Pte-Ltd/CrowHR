@@ -2,8 +2,12 @@ import { and, eq, inArray } from "drizzle-orm";
 import { recordAudit } from "../audit/audit.ts";
 import { claims } from "../db/schema/claims.ts";
 import type { AppDeps } from "../deps.ts";
+import { addDays, displayDate } from "../employees/dates.ts";
 import { AppError } from "../errors.ts";
 import type { ClaimsActor } from "./access.ts";
+
+/** How far ahead an outside payment may be dated (a scheduled transfer), so a year typo is caught. */
+const MAX_DAYS_AHEAD = 31;
 
 /**
  * Payment outside payroll (spec "Payment outside payroll"): payroll_admins and owners mark one or
@@ -44,6 +48,17 @@ export async function markPaidOutside(
               ? "in a payroll run (it will be paid with that run; remove it from the run first)"
               : null;
       if (reason) problems.push({ claimId: r.id, claimNumber: r.claimNumber, reason });
+    }
+    // The payment date keys the payout register and, for taxable claims, the IR8A year: refuse one
+    // before a claim was approved, and typos far ahead (a scheduled payment within a month is fine).
+    const latestApproval = rows.reduce((max, r) => (r.approvedOn && r.approvedOn > max ? r.approvedOn : max), "");
+    const latestAllowed = addDays(actor.today, MAX_DAYS_AHEAD);
+    if (!problems.length && (input.paidOn < latestApproval || input.paidOn > latestAllowed)) {
+      const message =
+        input.paidOn < latestApproval
+          ? `Enter a payment date on or after ${displayDate(latestApproval)}, when ${rows.length === 1 ? "the claim was" : "the last of these claims was"} approved.`
+          : `Enter the date the claims were or will be paid, no later than ${displayDate(latestAllowed)}.`;
+      throw new AppError("validation_failed", message, { issues: [{ path: "paidOn", message }] });
     }
     if (problems.length) {
       throw new AppError(

@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { AppError } from "../errors.ts";
+import { AppError, postgresError } from "../errors.ts";
 import { friendlyIssueMessage, toValidationIssues } from "../http/validate.ts";
 
 /** Parses service input with the same friendly messages and error envelope as `validate()`. */
@@ -29,12 +29,4 @@ export function isForeignKeyViolation(err: unknown): boolean {
   return findPgError(err)?.code === "23503";
 }
 
-function findPgError(err: unknown): { code?: string; constraint?: string } | null {
-  let cur: unknown = err;
-  for (let i = 0; i < 4 && cur && typeof cur === "object"; i++) {
-    const o = cur as { code?: string; constraint?: string; cause?: unknown };
-    if (typeof o.code === "string" && /^\d{5}$/.test(o.code)) return o;
-    cur = o.cause;
-  }
-  return null;
-}
+const findPgError = postgresError;

@@ -418,7 +418,7 @@ export const documentsModule = defineModule({
           blocks: z.array(z.record(z.string(), z.unknown())),
         }),
       },
-      errors: ["missing_fields", "forbidden", "not_found"],
+      errors: ["missing_fields", "forbidden", "not_found", "conflict"],
       crossOrgExempt: "IDs are in the body; tested in documents/generate tests.",
       handler: async ({ c, deps, body }) => {
         const a = await salaryActor(c);

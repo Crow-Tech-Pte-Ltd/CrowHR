@@ -772,11 +772,40 @@ export async function copyPreviousWeek(
   const mine = grant.all ? null : await grant.employeeIds();
   const skipped: CopySummary["skipped"] = [];
   let copied = 0;
+  // Open shifts have no employee to overlap with: copying again must not add them again. Count the
+  // ones the target already has, so two identical open shifts last week still copy as two.
+  const openKey = (r: { date: string; startsAt: Date | null; endsAt: Date | null; templateId: string | null }) =>
+    `${r.date}|${r.startsAt?.toISOString() ?? ""}|${r.endsAt?.toISOString() ?? ""}|${r.templateId ?? ""}`;
+  const openThere = new Map<string, number>();
+  for (const r of await deps.db
+    .select()
+    .from(rosterShifts)
+    .where(
+      orgScope(deps.db, actor.orgId).where(
+        rosterShifts,
+        eq(rosterShifts.rosterId, rosterId),
+        isNull(rosterShifts.employeeId),
+      ),
+    ))
+    openThere.set(openKey(r), (openThere.get(openKey(r)) ?? 0) + 1);
   await deps.db.transaction(async (tx) => {
     const now = deps.clock.now();
     for (const r of rows) {
       if (r.employeeId && mine && !mine.has(r.employeeId)) continue;
       const date = addDays(r.date, 7);
+      if (!r.employeeId) {
+        const key = openKey({
+          date,
+          startsAt: r.startsAt ? new Date(r.startsAt.getTime() + 7 * 86_400_000) : null,
+          endsAt: r.endsAt ? new Date(r.endsAt.getTime() + 7 * 86_400_000) : null,
+          templateId: r.templateId,
+        });
+        const already = openThere.get(key) ?? 0;
+        if (already > 0) {
+          openThere.set(key, already - 1);
+          continue;
+        }
+      }
       const name = r.employeeId ? (facts.get(r.employeeId)?.name ?? "") : "Open shift";
       if (r.employeeId) {
         const t = prevTimes.get(r.employeeId);

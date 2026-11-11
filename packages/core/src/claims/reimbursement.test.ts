@@ -302,6 +302,16 @@ describe("paid outside payroll", () => {
       reference: "x".repeat(101),
     });
     expect(bad.status).toBe(400);
+    // The payment date: not before the approval (3 Nov), nor a typo years ahead (it keys the IR8A year).
+    for (const paidOn of ["2026-11-02", "2062-11-04"]) {
+      const res = await (await w.as("payroll")).post("/api/v1/claims/mark-paid", {
+        claimIds: [a],
+        paidOn,
+        reference: "FAST",
+      });
+      expect(res.status, paidOn).toBe(400);
+      expect((await json(res)).error.details.issues[0]).toMatchObject({ path: "paidOn" });
+    }
     // Paying twice is refused.
     expect(
       (

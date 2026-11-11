@@ -83,6 +83,10 @@ describe("timesheet corrections", () => {
     expect((await manager.post("/api/v1/attendance/corrections", body(w.emp.manager))).status).toBe(404);
     const hr = await w.as("hr");
     expect((await hr.post("/api/v1/attendance/corrections", body(w.emp.other))).status).toBe(201);
+    // An employee ID from nowhere (or another organisation) is a clear 404 for HR too, never a 500.
+    const unknown = await hr.post("/api/v1/attendance/corrections", body(w.deps.ids.newId()));
+    expect(unknown.status).toBe(404);
+    expect(((await unknown.json()) as { error: { message: string } }).error.message).toMatch(/doesn't exist/);
     const own = await hr.post("/api/v1/attendance/corrections", body(w.emp.hr));
     expect(own.status).toBe(403);
     expect(((await own.json()) as { error: { code: string } }).error.code).toBe("self_change_requires_approval");

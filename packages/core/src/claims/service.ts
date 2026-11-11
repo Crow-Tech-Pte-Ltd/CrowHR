@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNull, ne, notInArray, or, type SQL, sql } from "drizzle-orm";
 import { recordAudit } from "../audit/audit.ts";
 import { type ClaimStatus, claimLineFiles, claimLines, claims, claimTypes } from "../db/schema/claims.ts";
+import { employees } from "../db/schema/employees.ts";
 import { files, orgCounters } from "../db/schema/files.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
@@ -16,6 +17,7 @@ import {
   currencyExponent,
   formatRateMicros,
   lineSgdCents,
+  MoneyOverflowError,
   moneyError,
   parseRateMicros,
   sgd,
@@ -140,6 +142,25 @@ export async function loadClaim(
 /** May the actor create/edit/submit claims for this employee (own, or owner/hr_admin on behalf)? */
 async function canCreateFor(actor: ClaimsActor, employeeId: string) {
   return inScope(actor, "claims:create", employeeId);
+}
+
+/**
+ * For an employee ID taken from the request: in scope, and (on someone's behalf) an employee of
+ * this organisation, so an unknown ID is a 404 rather than a failed insert. Call before any
+ * transaction.
+ */
+async function assertCanCreateFor(db: Db, actor: ClaimsActor, employeeId: string) {
+  const known =
+    employeeId === actor.employeeId ||
+    (
+      await db
+        .select({ id: employees.id })
+        .from(employees)
+        .where(and(eq(employees.orgId, actor.orgId), eq(employees.id, employeeId)))
+        .limit(1)
+    ).length > 0;
+  if (!known || !(await canCreateFor(actor, employeeId)))
+    throw new AppError("not_found", "That employee doesn't exist or you can't claim for them.");
 }
 
 /**
@@ -358,6 +379,12 @@ async function prepareLines(db: Db, orgId: string, employeeId: string, input: re
         moneyError(err, `${p}.amountMinor`);
       }
     }
+    if (sgdCents === 0 && l.amountMinor > 0 && currency !== "SGD" && rateMicros !== null) {
+      issues.push({
+        path: `${p}.amountMinor`,
+        message: `${lineNo(i)}: ${l.currency.toUpperCase()} ${l.amountMinor} at that rate is less than half a cent, so it would be S$0.00. Check the amount and rate, or leave the line out.`,
+      });
+    }
     const gstCents = l.gstCents ?? null;
     if (gstCents !== null && gstCents > 0 && currency !== "SGD") {
       issues.push({
@@ -394,6 +421,18 @@ async function prepareLines(db: Db, orgId: string, employeeId: string, input: re
         gstCents: currency === "SGD" ? gstCents : null,
       });
   });
+  if (!issues.length) {
+    try {
+      sumCents(prepared.map((l) => l.sgdCents));
+    } catch (err) {
+      if (!(err instanceof MoneyOverflowError)) throw err;
+      issues.push({
+        path: "lines",
+        message:
+          "The claim's total is too large to store. Check the amounts, or split the expenses into separate claims.",
+      });
+    }
+  }
   if (issues.length) throw new AppError("validation_failed", "Some claim lines need fixing.", { issues });
   return { lines: prepared, files: fileMap };
 }
@@ -439,9 +478,7 @@ export async function createDraft(deps: AppDeps, actor: ClaimsActor, input: Clai
       },
     );
   }
-  if (!(await canCreateFor(actor, employeeId))) {
-    throw new AppError("not_found", "That employee doesn't exist or you can't claim for them.");
-  }
+  await assertCanCreateFor(deps.db, actor, employeeId);
   const { lines } = await prepareLines(deps.db, actor.orgId, employeeId, input.lines);
   const id = deps.ids.newId();
   await deps.db.transaction(async (tx) => {
@@ -827,8 +864,9 @@ export async function listClaims(deps: AppDeps, actor: ClaimsActor, query: Claim
   } else {
     const scope = await scopeFor(actor, "claims:read");
     const ids = scope === "all" ? null : [...scope];
-    // Approvers also see the claims they hold tasks for.
-    const taskClaims = sql`${claims.id} in (select ar.subject_id from approval_requests ar join approval_tasks at on at.org_id = ar.org_id and at.request_id = ar.id where ar.org_id = ${actor.orgId} and ar.subject_type = 'claim' and at.assignee_membership_id = ${actor.membershipId})`;
+    // Approvers also see the claims they hold tasks for, by the rule of `approverRole` (the claim
+    // itself): not superseded tasks, and cover tasks only while open.
+    const taskClaims = sql`${claims.id} in (select ar.subject_id from approval_requests ar join approval_tasks at on at.org_id = ar.org_id and at.request_id = ar.id where ar.org_id = ${actor.orgId} and ar.subject_type = 'claim' and at.assignee_membership_id = ${actor.membershipId} and at.status <> 'superseded' and (at.origin <> 'delegated' or at.status = 'pending'))`;
     if (ids !== null) conds.push(ids.length ? or(inArray(claims.employeeId, ids), taskClaims) : taskClaims);
     // Other people's drafts are private.
     conds.push(
@@ -954,8 +992,7 @@ export async function eligibleTypes(
 ) {
   const employeeId = input.employeeId ?? actor.employeeId;
   if (!employeeId) return [];
-  if (!(await canCreateFor(actor, employeeId)))
-    throw new AppError("not_found", "That employee doesn't exist or you can't claim for them.");
+  await assertCanCreateFor(deps.db, actor, employeeId);
   const date = input.date ?? actor.today;
   const facts = await employmentFacts(deps.db, actor.orgId, employeeId, actor.today);
   const rows = await deps.db
@@ -1004,8 +1041,7 @@ export async function uploadReceipt(
       "Your account isn't linked to an employee record, so pick who the receipt is for.",
     );
   }
-  if (!(await canCreateFor(actor, employeeId)))
-    throw new AppError("not_found", "That employee doesn't exist or you can't claim for them.");
+  await assertCanCreateFor(deps.db, actor, employeeId);
   const row = await storeFile(deps, {
     orgId: actor.orgId,
     purpose: RECEIPT_PURPOSE,

@@ -319,4 +319,31 @@ describe("documents", () => {
     expect(await reminders()).toHaveLength(4);
     w.clock.set("2026-10-31T01:00:00.000Z");
   });
+
+  it("an older document with a later expiry in the same category doesn't silence a newer one", async () => {
+    // A certificate valid until 2028 first; then another one, added later, that expires next month.
+    await ok(
+      uploadDoc(hr, pdfBytes(7), {
+        employeeId: w.emp.satRest,
+        categoryId: cats.certificates?.id as string,
+        title: "First aid certificate",
+        expiresOn: "2028-03-01",
+      }),
+      201,
+    );
+    const food = await ok<Doc>(
+      uploadDoc(hr, pdfBytes(8), {
+        employeeId: w.emp.satRest,
+        categoryId: cats.certificates?.id as string,
+        title: "Food hygiene certificate",
+        expiresOn: "2026-11-25",
+      }),
+      201,
+    );
+    await w.app.jobs.tick();
+    const sent = (await w.deps.db.select().from(notifications).where(eq(notifications.kind, "document_expiry"))).filter(
+      (n) => n.link.includes(food.id),
+    );
+    expect(sent.map((n) => n.title)).toContain("Ahmad Ismail's Food hygiene certificate expires on 25 Nov 2026");
+  });
 });

@@ -3,7 +3,13 @@ import { z } from "zod";
 import { orgScope } from "../access/org-scope.ts";
 import { type AuditContext, diffFields, recordAudit } from "../audit/audit.ts";
 import { locations } from "../db/schema/organisation.ts";
-import { rosterShifts, SHIFT_COLOURS, type ShiftTemplate, shiftTemplates } from "../db/schema/scheduling.ts";
+import {
+  publishedShifts,
+  rosterShifts,
+  SHIFT_COLOURS,
+  type ShiftTemplate,
+  shiftTemplates,
+} from "../db/schema/scheduling.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
@@ -77,10 +83,17 @@ export async function listTemplates(db: Db, orgId: string, opts: { includeArchiv
     .leftJoin(locations, and(eq(locations.orgId, shiftTemplates.orgId), eq(locations.id, shiftTemplates.locationId)))
     .where(org.where(shiftTemplates, opts.includeArchived ? undefined : isNull(shiftTemplates.archivedAt)))
     .orderBy(asc(shiftTemplates.startTime), asc(shiftTemplates.code));
-  const used = await db
-    .selectDistinct({ id: rosterShifts.templateId })
-    .from(rosterShifts)
-    .where(org.where(rosterShifts, sql`${rosterShifts.templateId} is not null`));
+  // The working copies and the published rosters (a shift removed but not yet republished).
+  const used = [
+    ...(await db
+      .selectDistinct({ id: rosterShifts.templateId })
+      .from(rosterShifts)
+      .where(org.where(rosterShifts, sql`${rosterShifts.templateId} is not null`))),
+    ...(await db
+      .selectDistinct({ id: publishedShifts.templateId })
+      .from(publishedShifts)
+      .where(org.where(publishedShifts, sql`${publishedShifts.templateId} is not null`))),
+  ];
   const inUse = new Set(used.map((u) => u.id));
   return rows.map(
     ({ t, locationName }): TemplateView => ({
@@ -232,7 +245,12 @@ export async function deleteTemplate(deps: AppDeps, actor: SchedulingActor, id: 
       .from(rosterShifts)
       .where(orgScope(tx, actor.orgId).where(rosterShifts, eq(rosterShifts.templateId, id)))
       .limit(1);
-    if (used) {
+    const [published] = await tx
+      .select({ id: publishedShifts.id })
+      .from(publishedShifts)
+      .where(orgScope(tx, actor.orgId).where(publishedShifts, eq(publishedShifts.templateId, id)))
+      .limit(1);
+    if (used || published) {
       throw new AppError("in_use", "Rosters use this shift template, so it can't be deleted. Archive it instead.");
     }
     await tx.delete(shiftTemplates).where(orgScope(tx, actor.orgId).whereId(shiftTemplates, id));

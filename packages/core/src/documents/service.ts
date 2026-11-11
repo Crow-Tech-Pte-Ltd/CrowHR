@@ -1161,6 +1161,19 @@ export async function generateLetter(
   if (r.missing.length) {
     throw new AppError("missing_fields", missingMessage(r.missing), { missing: r.missing });
   }
+  if (input.requestAcknowledgement) {
+    // As for an uploaded document: the employee must be able to open it to acknowledge it.
+    const [category] = await deps.db
+      .select()
+      .from(documentCategories)
+      .where(and(eq(documentCategories.orgId, a.orgId), eq(documentCategories.id, r.template.targetCategoryId)));
+    if (!category?.employeeVisible) {
+      throw new AppError(
+        "conflict",
+        `Employees can't see "${category?.name ?? "this category's"}" documents, so they can't acknowledge this letter. Generate it without an acknowledgement, or file the template's letters in a category they can see.`,
+      );
+    }
+  }
   const id = await deps.db.transaction(async (tx) => {
     const docId = await fileGeneratedLetter(tx, deps, a, r, input);
     if (input.requestAcknowledgement) {

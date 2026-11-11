@@ -142,10 +142,52 @@ export function handleError(err: Error, c: Context<AppEnv>): Response {
     return errorResponse(c, codeForStatus(err.status), err.message || "The request could not be processed.");
   }
   const logger = c.get("logger") ?? c.get("deps")?.logger;
+  // A safety net for services that don't check first: the database's composite keys refuse an ID
+  // from another organisation (or one just deleted) and duplicates. That is the client's problem
+  // to fix, not a server fault, and reveals no more than the 404 a checked route would give.
+  const pg = postgresError(err);
+  if (pg?.code === "23503" || pg?.code === "23505") {
+    logger?.warn("Database constraint refused the request", {
+      path: c.req.path,
+      method: c.req.method,
+      code: pg.code,
+      constraint: pg.constraint ?? null,
+    });
+    if (pg.code === "23505") {
+      return errorResponse(
+        c,
+        "conflict",
+        "This would duplicate a record that already exists, or another change was saved at the same moment. Reload the page and try again.",
+      );
+    }
+    if (/^update or delete on table/.test(pg.message ?? "")) {
+      return errorResponse(
+        c,
+        "conflict",
+        "This is still used by other records, so it can't be removed. Archive it instead, or remove what uses it first.",
+      );
+    }
+    return errorResponse(
+      c,
+      "not_found",
+      "Something this request refers to doesn't exist in your organisation, or was just removed. Reload the page and choose it again.",
+    );
+  }
   logger?.error("Unhandled error", { err, path: c.req.path, method: c.req.method });
   return errorResponse(
     c,
     "internal",
     "Something went wrong on our side. Try again; if it keeps happening, contact your administrator with the request ID.",
   );
+}
+
+/** The PostgreSQL error behind an error (drivers and Drizzle wrap it in `cause`), or null. */
+export function postgresError(err: unknown): { code?: string; constraint?: string; message?: string } | null {
+  let cur: unknown = err;
+  for (let i = 0; i < 4 && cur && typeof cur === "object"; i++) {
+    const o = cur as { code?: string; constraint?: string; message?: string; cause?: unknown };
+    if (typeof o.code === "string" && /^\d{5}$/.test(o.code)) return o;
+    cur = o.cause;
+  }
+  return null;
 }

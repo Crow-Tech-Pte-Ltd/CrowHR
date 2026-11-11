@@ -85,6 +85,29 @@ describe("shift templates", () => {
     await ok(hr.delete(`${api}/templates/${unused}`), 204);
   });
 
+  it("a template only the published roster still uses is in use too", async () => {
+    const hr = await w.as("hr");
+    const { id } = await ok<{ id: string }>(
+      hr.post(`${api}/templates`, body({ code: "EVE", startTime: "15:00", endTime: "23:00" })),
+      201,
+    );
+    const { id: rosterId } = await ok<{ id: string }>(
+      hr.post(`${api}/rosters`, { weekStart: "2026-11-16", locationId: w.locationId }),
+    );
+    const shift = await ok<{ id: string }>(
+      hr.post(`${api}/rosters/${rosterId}/shifts`, { employeeId: w.crew.crewB, date: "2026-11-17", templateId: id }),
+      201,
+    );
+    await ok(hr.post(`${api}/rosters/${rosterId}/publish`, {}));
+    // Removed from the working copy, not yet republished: the published shift still names it.
+    await ok(hr.delete(`${api}/shifts/${shift.id}`), 204);
+    const list = await ok<{ items: { id: string; inUse: boolean }[] }>(hr.get(`${api}/templates`));
+    expect(list.items.find((t) => t.id === id)?.inUse).toBe(true);
+    const del = await hr.delete(`${api}/templates/${id}`);
+    expect(del.status).toBe(409);
+    expect((await del.json()).error.code).toBe("in_use");
+  });
+
   it("only owners and hr_admins maintain templates; managers can read them", async () => {
     const manager = await w.as("manager");
     expect((await manager.post(`${api}/templates`, body({ code: "MGR" }))).status).toBe(403);

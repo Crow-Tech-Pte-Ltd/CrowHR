@@ -127,6 +127,18 @@ describe("timesheet day computation", () => {
     expect(day([], { info: { ...working, dayType: "shift", scheduleKind: "shift" } }).dayType).toBe("shift");
   });
 
+  it("early out: not while still at work today; after morning leave, against the end of the day", () => {
+    // Back from lunch and still clocked in: the 12:30 clock-out was a break, not leaving early.
+    const working = day([p("in", "09:00"), p("out", "12:30"), p("in", "13:30")], { today: DATE });
+    expect([working.open, working.earlyOutMinutes]).toEqual([true, 0]);
+    // Morning leave, afternoon worked until 16:00: the day ends at 18:00, so 120 minutes early.
+    const am = day([p("in", "13:00"), p("out", "16:00")], { leave: [{ session: "am", label: "Annual leave" }] });
+    expect(am.earlyOutMinutes).toBe(120);
+    expect(
+      day([p("in", "13:00"), p("out", "18:00")], { leave: [{ session: "am", label: "Annual leave" }] }).earlyOutMinutes,
+    ).toBe(0);
+  });
+
   it("uses the start time set for the schedule", () => {
     const s = { ...defaultSettings(), scheduleStartTimes: { "sched-1": "08:30" } };
     expect(day([p("in", "08:45"), p("out", "17:30")], { settings: s, scheduleId: "sched-1" }).lateMinutes).toBe(15);

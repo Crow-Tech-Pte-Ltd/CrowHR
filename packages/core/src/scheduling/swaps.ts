@@ -321,7 +321,7 @@ export async function requestSwap(
 
 /** The colleague accepts (→ approval) or declines. */
 export async function answerSwap(deps: AppDeps, actor: SchedulingActor, id: string, accept: boolean) {
-  return deps.db.transaction(async (tx) => {
+  const answered = await deps.db.transaction(async (tx) => {
     const swap = await loadSwap(tx, actor.orgId, id, true);
     if (!actor.employeeId || swap.peerEmployeeId !== actor.employeeId) {
       throw new AppError("not_found", "That swap request doesn't exist or isn't addressed to you.");
@@ -330,8 +330,9 @@ export async function answerSwap(deps: AppDeps, actor: SchedulingActor, id: stri
       throw new AppError("conflict", `This request is already ${swap.status.replace("_", " ")}. Nothing was changed.`);
     }
     if (swap.expiresAt <= deps.clock.now()) {
+      // Recorded now (committed), then refused below: throwing here would roll the status back.
       await setStatus(tx, deps, actor.orgId, id, "expired");
-      throw new AppError("conflict", "The shift has started, so this request expired.");
+      return null;
     }
     if (accept) {
       await validate(tx, actor.orgId, deps.clock.now(), swap, true);
@@ -359,6 +360,8 @@ export async function answerSwap(deps: AppDeps, actor: SchedulingActor, id: stri
     });
     return loadSwap(tx, actor.orgId, id);
   });
+  if (!answered) throw new AppError("conflict", "The shift has started, so this request expired.");
+  return answered;
 }
 
 /** The requester cancels before approval. */

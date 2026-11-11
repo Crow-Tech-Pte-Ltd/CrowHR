@@ -35,6 +35,45 @@ describe("error envelope", () => {
     expect(logged?.requestId).toBe(body.error.requestId);
   });
 
+  it("answers database reference and duplicate errors as 404/409 that say how to fix them, never 500", async () => {
+    const d = deps();
+    const app = createApp(d);
+    const pg = (code: string, message: string) =>
+      Object.assign(new Error("Failed query: insert into …"), {
+        cause: Object.assign(new Error(message), { code, constraint: "x_fk", table: "x" }),
+      });
+    app.get("/missing", () => {
+      throw pg("23503", 'insert or update on table "claims" violates foreign key constraint "claims_employee_fk"');
+    });
+    app.get("/in-use", () => {
+      throw pg("23503", 'update or delete on table "shift_templates" violates foreign key constraint "x_fk"');
+    });
+    app.get("/duplicate", () => {
+      throw pg("23505", 'duplicate key value violates unique constraint "x_unique"');
+    });
+    const err = async (path: string) => {
+      const res = await app.request(path);
+      return { status: res.status, ...((await res.json()) as ErrorEnvelope).error };
+    };
+    expect(await err("/missing")).toMatchObject({
+      status: 404,
+      code: "not_found",
+      message: expect.stringMatching(/Reload/),
+    });
+    expect(await err("/in-use")).toMatchObject({
+      status: 409,
+      code: "conflict",
+      message: expect.stringMatching(/still used/),
+    });
+    expect(await err("/duplicate")).toMatchObject({
+      status: 409,
+      code: "conflict",
+      message: expect.stringMatching(/try again/),
+    });
+    expect(d.logger.entries.some((e) => e.level === "error")).toBe(false);
+    expect(d.logger.entries.filter((e) => e.level === "warn").length).toBe(3);
+  });
+
   it("maps AppError codes to statuses and keeps details", async () => {
     const app = createApp(deps());
     app.get("/conflict", () => {
