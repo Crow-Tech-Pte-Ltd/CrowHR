@@ -331,6 +331,9 @@ final class EssJourneyUITests: CrowUITestCase {
         // Claims: a receipt from the camera (stubbed on the simulator, which has no camera).
         let claimsUnderMore = openFromMore("more.claims", sidebar: "Claims")
         wait(app.buttons["claims.new"]).tap()
+        // The first type is chosen from the start: the form says what else is missing, not the type.
+        let missing = wait(element("claim.missing"))
+        XCTAssertFalse(missing.label.contains("claim type"), "New claim asks for a type while one is chosen: \(missing.label)")
         wait(app.textFields["claim.merchant"]).tap()
         app.textFields["claim.merchant"].typeText("Kopi Kaki Cafe")
         app.textFields["claim.description"].tap()
@@ -376,8 +379,11 @@ final class EssJourneyUITests: CrowUITestCase {
         let before = app.buttons.matching(identifier: "approval.row").count
         XCTAssertGreaterThanOrEqual(before, 2, "Expected Nurul's leave and claim plus the seeded requests")
 
-        // Reject without a comment: the app asks for one first, as the web does.
+        // The decision shows what is decided (the request's summary), not just its title.
         app.buttons["approval.row"].firstMatch.tap()
+        wait(element("decision.details"), 20)
+        shot("11b-decision-details")
+        // Reject without a comment: the app asks for one first, as the web does.
         wait(app.buttons["decision.reject"]).tap()
         wait(app.staticTexts["decision.commentRequired"])
         shot("12-reject-needs-comment")
@@ -385,6 +391,7 @@ final class EssJourneyUITests: CrowUITestCase {
         app.textFields["decision.comment"].typeText("Please attach the receipt and resubmit.")
         app.buttons["decision.reject"].tap()
         eventually("the rejected task to leave the inbox") { app.buttons.matching(identifier: "approval.row").count == before - 1 }
+        XCTAssertTrue(wait(element("approvals.notice")).label.hasPrefix("Rejected:"), "The list says what was done")
 
         // Approve the next one.
         app.buttons["approval.row"].firstMatch.tap()

@@ -140,8 +140,13 @@ struct TodayView: View {
     @Environment(Session.self) private var session
     @State private var state: LoadState<AttendanceMe> = .loading
     @State private var busy = false
-    @State private var message: (String, Tone)?
+    /// The punch just tapped: its message follows the punch (saved, then sent when the signal
+    /// is back), rather than staying "Saved on this phone" after it was sent.
+    @State private var lastPunchID: UUID?
+    @State private var queueError: String?
     @State private var location = LocationProvider()
+    /// Pull to refresh reloads the next shifts too.
+    @State private var refreshCount = 0
 
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var width: CGFloat = 0
@@ -166,7 +171,7 @@ struct TodayView: View {
                         .frame(maxWidth: wide ? .infinity : nil, alignment: .topLeading)
                     }
                     if session.isAvailable(.schedule) {
-                        UpcomingShifts(limit: wide ? 6 : 3)
+                        UpcomingShifts(limit: wide ? 6 : 3, refreshID: refreshCount)
                             .frame(maxWidth: wide ? .infinity : nil, alignment: .topLeading)
                     }
                 }
@@ -179,8 +184,31 @@ struct TodayView: View {
         .crowScreen(maxWidth: CrowLayout.wideWidth)
         .navigationTitle("Today")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await reload() }
+        .refreshable {
+            refreshCount += 1
+            await session.drainPunches(force: true)
+            await reload()
+        }
         .task { await reload() }
+    }
+
+    /// What happened to the punch just tapped, as it is now.
+    private var message: (String, Tone)? {
+        if let queueError { return (queueError, .danger) }
+        guard let id = lastPunchID, let p = session.punches.first(where: { $0.id == id }) else { return nil }
+        switch p.outcome {
+        case .accepted, .flagged: return (p.kind == .in ? "Clocked in." : "Clocked out.", .success)
+        case .rejected: return (p.statusLabel(), .danger)
+        case .pending: return ("Saved on this phone. It will be sent when you're back online.", .warning)
+        }
+    }
+
+    private func icon(_ tone: Tone) -> String {
+        switch tone {
+        case .danger: "exclamationmark.triangle"
+        case .warning: "clock.arrow.circlepath"
+        default: "checkmark.circle"
+        }
     }
 
     private var greeting: String {
@@ -201,9 +229,11 @@ struct TodayView: View {
             switch state {
             case .loading:
                 ProgressView().frame(maxWidth: .infinity)
-            case .failed(let e) where e != .offline:
+            case .failed(let e) where !e.isTransient:
                 Notice(text: e.message, tone: .danger, systemImage: "exclamationmark.triangle")
             default:
+                // Offline, or the server is down or overloaded (5xx, 429): the offline queue is for
+                // exactly this, so the button stays. Before, a server error hid it.
                 AdaptiveRow {
                     Text(clockedIn ? "Clocked in" : "Not clocked in")
                         .font(CrowFont.mono(.title3, weight: .semibold))
@@ -214,9 +244,12 @@ struct TodayView: View {
                         Text("\(last.kind == "in" ? "In" : "Out") \(Fmt.time(d))").font(CrowFont.mono(.subheadline)).foregroundStyle(Crow.muted)
                     }
                 }
-                if state.value == nil {
-                    Text("You're offline. Punches are kept on this phone and sent when you're back online.")
+                if case .failed(let e) = state {
+                    Text(e == .offline
+                        ? "You're offline. Punches are kept on this phone and sent when you're back online."
+                        : "Your company's server can't be reached right now. Punches are kept on this phone and sent when it's back.")
                         .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if let loc = state.value?.location, loc.mode != "off" {
                     Text(loc.pdpaNotice ?? "Your company records your location when you clock in or out.")
@@ -232,7 +265,7 @@ struct TodayView: View {
                 .disabled(busy || session.me == nil && session.connection.membershipId == nil)
                 .accessibilityIdentifier("clock.button")
                 if let m = message {
-                    Notice(text: m.0, tone: m.1, systemImage: m.1 == .danger ? "exclamationmark.triangle" : "checkmark.circle")
+                    Notice(text: m.0, tone: m.1, systemImage: icon(m.1))
                         .accessibilityIdentifier("clock.message")
                 }
                 if model.env.isUITest, !model.env.storeScreenshots, let outage = model.env.outage {
@@ -276,8 +309,8 @@ struct TodayView: View {
         do {
             state = .loaded(try await session.api.get("/api/v1/attendance/me"))
         } catch {
-            if case .loaded = state, (error as? APIError) == .offline { return }
-            state = .failed(APIError.from(error, host: session.connection.server.host))
+            // Keeps what's showing on a passing failure, and ignores a cancelled load.
+            state.fail(error)
         }
     }
 
@@ -285,25 +318,20 @@ struct TodayView: View {
         guard let membershipId = session.me?.membershipId ?? session.connection.membershipId else { return }
         busy = true
         defer { busy = false }
-        message = nil
+        queueError = nil
+        lastPunchID = nil
         let kind: PunchKind = clockedIn ? .out : .in
         var loc: PunchLocation? = nil
         if let mode = state.value?.location.mode, mode != "off" {
             loc = await location.current()
         }
         do throws(PunchQueueError) {
-            try await session.queue.enqueue(kind: kind, membershipId: membershipId, location: loc)
+            lastPunchID = try await session.queue.enqueue(kind: kind, membershipId: membershipId, location: loc).id
         } catch {
-            message = (error.message, .danger)
+            queueError = error.message
             return
         }
         await session.drainPunches(force: true)
-        let latest = session.punches.last
-        switch latest?.outcome {
-        case .accepted, .flagged: message = (kind == .in ? "Clocked in." : "Clocked out.", .success)
-        case .rejected: message = (latest?.statusLabel() ?? "", .danger)
-        default: message = ("Saved on this phone. It will be sent when you're back online.", .warning)
-        }
         await reload()
     }
 }
@@ -321,9 +349,12 @@ struct PunchRow: View {
             } trailing: {
                 StatusChip(text: chipText, tone: tone)
             }
-            Text(punch.statusLabel()).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("punch.status")
+            // A synced punch's chip says it all ("Synced" twice, and VoiceOver read it twice).
+            if showsStatusLine {
+                Text(punch.statusLabel()).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("punch.status")
+            }
             if let late = punch.lateLabel {
                 Text(late).font(CrowFont.body(.footnote, weight: .medium)).foregroundStyle(Crow.warning)
             }
@@ -342,6 +373,10 @@ struct PunchRow: View {
         .overlay(RoundedRectangle(cornerRadius: Crow.radius).strokeBorder(Crow.hairline, lineWidth: 1))
         .accessibilityElement(children: punch.needsAttention ? .contain : .combine)
         .accessibilityIdentifier("punch.row")
+    }
+
+    private var showsStatusLine: Bool {
+        if case .accepted = punch.outcome { false } else { true }
     }
 
     private var chipText: String {
@@ -368,6 +403,8 @@ struct UpcomingShifts: View {
     @State private var state: LoadState<ScheduleMe> = .loading
     /// Three on a phone; more beside the clock card on a wide iPad.
     var limit = 3
+    /// Changes when Today is pulled to refresh: the shifts load again.
+    var refreshID = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -389,10 +426,8 @@ struct UpcomingShifts: View {
                 }
             }
         }
-        .task {
-            do { state = .loaded(try await session.api.get("/api/v1/scheduling/me")) } catch {
-                state = .failed(APIError.from(error, host: ""))
-            }
+        .task(id: refreshID) {
+            do { state = .loaded(try await session.api.get("/api/v1/scheduling/me")) } catch { state.fail(error) }
         }
     }
 }

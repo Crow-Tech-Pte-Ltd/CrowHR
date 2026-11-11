@@ -33,6 +33,11 @@ enum CrowLayout {
     static func payslipsSideBySide(width: CGFloat, accessibilityText: Bool) -> Bool {
         width >= (accessibilityText ? 1200 : 720)
     }
+
+    /// Whether approvals can show the decision beside the list: the same room as payslips.
+    static func approvalsSideBySide(width: CGFloat, accessibilityText: Bool) -> Bool {
+        payslipsSideBySide(width: width, accessibilityText: accessibilityText)
+    }
 }
 
 /// The readable column on wide screens: horizontal safe-area padding, so `ScrollView`, `List` and

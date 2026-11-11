@@ -128,8 +128,12 @@ final class QAScreenshotsUITests: CrowUITestCase {
         try check("Approvals", "\(prefix)-approvals")
         app.buttons["approval.row"].firstMatch.tap()
         wait(app.buttons["decision.approve"])
+        // The request's details (summary lines, context) load under its title.
+        wait(element("decision.details"), 20)
         try check("Decision", "\(prefix)-decision")
-        app.navigationBars["Decision"].buttons["Cancel"].tap()
+        // A sheet on a phone; on an iPad with room the decision sits beside the list.
+        let sheet = app.navigationBars["Decision"]
+        if sheet.exists { sheet.buttons["Cancel"].tap() }
         wait(app.buttons["approval.row"].firstMatch)
         app.buttons["Notifications"].firstMatch.tap()
         waitUntilLoaded()

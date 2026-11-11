@@ -65,19 +65,48 @@ enum Fmt {
         return c
     }
 
-    private static func formatter(_ format: String) -> DateFormatter {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_SG")
-        f.calendar = Calendar(identifier: .gregorian)
-        f.timeZone = singapore
-        f.dateFormat = format
-        return f
+    /// The Gregorian calendar in Singapore time: the server's days and years, whatever the
+    /// phone's own time zone and calendar (Buddhist, Japanese) are.
+    static let calendar: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = singapore
+        c.locale = Locale(identifier: "en_SG")
+        return c
+    }()
+
+    /// The Singapore year of an instant (`Balances 2026`).
+    static func year(_ d: Date) -> Int { calendar.component(.year, from: d) }
+
+    /// One formatter per format, made once: rows format dates on every render, and making a
+    /// `DateFormatter` is slow. Formatting and parsing with one are thread-safe (iOS 7 and later).
+    private final class Formatters: @unchecked Sendable {
+        private let lock = NSLock()
+        private var made: [String: DateFormatter] = [:]
+
+        func get(_ format: String) -> DateFormatter {
+            lock.withLock {
+                if let f = made[format] { return f }
+                let f = DateFormatter()
+                f.locale = Locale(identifier: "en_SG")
+                f.calendar = Calendar(identifier: .gregorian)
+                f.timeZone = Fmt.singapore
+                f.dateFormat = format
+                made[format] = f
+                return f
+            }
+        }
     }
+
+    private static let formatters = Formatters()
+
+    private static func formatter(_ format: String) -> DateFormatter { formatters.get(format) }
 
     /// `31 Oct 2026`
     static func date(_ d: Date) -> String { formatter("d MMM yyyy").string(from: d) }
     /// `Fri, 31 Oct`
     static func dayShort(_ d: Date) -> String { formatter("EEE, d MMM").string(from: d) }
+    /// `Friday 31 October`, for VoiceOver.
+    static func daySpoken(_ d: Date) -> String { formatter("EEEE d MMMM").string(from: d) }
     /// `October 2026`
     static func month(_ d: Date) -> String { formatter("MMMM yyyy").string(from: d) }
     /// `08:58`

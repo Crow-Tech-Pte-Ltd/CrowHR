@@ -131,11 +131,15 @@ struct InfoRow: View {
     let label: String
     let value: String
     var mono = false
+    /// What VoiceOver says for the value when the text reads badly aloud (a masked NRIC). On the
+    /// combined row, which audits clean (a label on the `Text` itself is reported as clipped).
+    var spoken: String? = nil
 
-    init(_ label: String, _ value: String, mono: Bool = false) {
+    init(_ label: String, _ value: String, mono: Bool = false, spoken: String? = nil) {
         self.label = label
         self.value = value
         self.mono = mono
+        self.spoken = spoken
     }
 
     var body: some View {
@@ -157,6 +161,15 @@ struct InfoRow: View {
         }
         .crowRowPadding()
         .accessibilityElement(children: .combine)
+        .modifier(SpokenLabel(text: spoken.map { "\(label), \($0)" }))
+    }
+}
+
+/// A VoiceOver label only when there is one (an empty label would silence the element).
+private struct SpokenLabel: ViewModifier {
+    let text: String?
+    func body(content: Content) -> some View {
+        if let text { content.accessibilityLabel(text) } else { content }
     }
 }
 
@@ -195,6 +208,17 @@ extension View {
             .background(shape.fill(Crow.surface))
             .overlay(shape.strokeBorder(invalid ? Crow.danger : focused ? Crow.biru : Crow.hairline, lineWidth: focused || invalid ? 2 : 1))
             .contentShape(shape)
+    }
+}
+
+extension View {
+    /// A date picker in Singapore time on the Gregorian calendar, `31 Oct 2026`: the day picked
+    /// is the day sent (`Fmt.day`). In the phone's own time zone, a phone set to London or New
+    /// York showed one day and sent the next or the previous one.
+    func singaporeDates() -> some View {
+        environment(\.timeZone, Fmt.singapore)
+            .environment(\.calendar, Fmt.calendar)
+            .environment(\.locale, Locale(identifier: "en_SG"))
     }
 }
 

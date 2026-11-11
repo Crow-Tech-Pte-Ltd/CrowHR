@@ -5,7 +5,24 @@ import SwiftUI
 struct CapturedImage: Equatable {
     let id = UUID()
     let image: UIImage
-    var jpeg: Data? { image.jpegData(compressionQuality: 0.7) }
+    /// Sent at most 2,400 px on the long side: a receipt or MC stays legible, while a full 24- or
+    /// 48-megapixel photo is several megabytes on mobile data and can pass the server's 10 MB
+    /// receipt limit.
+    static let maxUploadPixels: CGFloat = 2400
+
+    var jpeg: Data? { Self.forUpload(image).jpegData(compressionQuality: 0.7) }
+
+    /// The photo scaled down to `maxUploadPixels` (upright: drawing applies its orientation).
+    static func forUpload(_ image: UIImage) -> UIImage {
+        let width = image.size.width * image.scale, height = image.size.height * image.scale
+        let longest = max(width, height)
+        guard longest > maxUploadPixels else { return image }
+        let factor = maxUploadPixels / longest
+        let size = CGSize(width: (width * factor).rounded(), height: (height * factor).rounded())
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+    }
 }
 
 /// The camera (UIImagePickerController). In UI tests on the simulator, which has no camera,
@@ -90,13 +107,20 @@ struct ClaimsView: View {
         }
         .crowScreen()
         .navigationTitle("Claims")
+        // Inline like every other screen: as an iPad tab's root it had an empty large-title band.
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { creating = true } label: { Label("New claim", systemImage: "plus") }
                     .accessibilityIdentifier("claims.new")
             }
         }
-        .sheet(isPresented: $creating) { NewClaimView { Task { await reload() } } }
+        .sheet(isPresented: $creating) {
+            // Page-sized on an iPad: in the form-sized sheet, Submit sat below the fold. No effect
+            // on a phone.
+            NewClaimView { Task { await reload() } }
+                .presentationSizing(.page)
+        }
     }
 
     private func load() async throws -> [ClaimSummary] {
@@ -104,7 +128,7 @@ struct ClaimsView: View {
     }
 
     private func reload() async {
-        do { state = .loaded(try await load()) } catch { state = .failed(APIError.from(error, host: "")) }
+        do { state = .loaded(try await load()) } catch { state.fail(error) }
     }
 }
 
@@ -152,9 +176,11 @@ struct NewClaimView: View {
     @State private var choosingPhoto = false
     @State private var busy = false
     @State private var error: String?
+    @State private var uploadedReceipt: UploadedReceipt?
     @FocusState private var focus: Field?
 
     private enum Field: Hashable { case merchant, detail, amount }
+    private struct UploadedReceipt { let imageID: UUID; let id: String }
 
     private var selectedType: ClaimType? { types.value?.first { $0.id == typeID } }
     private var cents: Int? { Fmt.parseCents(amount) }
@@ -170,6 +196,17 @@ struct NewClaimView: View {
     }
 
     var body: some View {
+        // Derived here, in this view's own body, so the form follows the loaded types and the
+        // fields. Read only inside AsyncContent's closure, the state was a stale copy: right after
+        // the types loaded the form asked for a claim type while one was shown, and the receipt
+        // rule and Submit caught up only once something else changed.
+        let selected = selectedType
+        let needsReceipt = receiptRequired
+        let canSave = valid
+        let missing = missingHint
+        let invalidAmount = amountInvalid
+        let sending = busy
+        let shownError = error
         NavigationStack {
             AsyncContent(state: $types, load: loadTypes) { list in
                 RowsScreen {
@@ -178,6 +215,7 @@ struct NewClaimView: View {
                         FormField("Date") {
                             DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
                                 .labelsHidden()
+                                .singaporeDates()
                                 .accessibilityIdentifier("claim.date")
                         }
                         FormField("Merchant") {
@@ -213,8 +251,8 @@ struct NewClaimView: View {
                                     .focused($focus, equals: .amount)
                                     .accessibilityIdentifier("claim.amount")
                             }
-                            .crowFieldBox(focused: focus == .amount, invalid: amountInvalid)
-                            if amountInvalid {
+                            .crowFieldBox(focused: focus == .amount, invalid: invalidAmount)
+                            if invalidAmount {
                                 Text("Enter an amount like 12.50 (dollars and cents).")
                                     .font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -225,7 +263,7 @@ struct NewClaimView: View {
                             .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
                             .fixedSize(horizontal: false, vertical: true)
                         VStack(alignment: .leading, spacing: 8) {
-                            SectionLabel(receiptRequired ? "Receipt (required)" : "Receipt")
+                            SectionLabel(needsReceipt ? "Receipt (required)" : "Receipt")
                             if let receipt {
                                 HStack(spacing: 12) {
                                     Image(uiImage: receipt.image).resizable().scaledToFit().frame(height: 80)
@@ -241,27 +279,34 @@ struct NewClaimView: View {
                                 Button { choosingPhoto = true } label: { Label("Choose a photo", systemImage: "photo") }
                                     .buttonStyle(.crowSecondary)
                             }
-                            if let hint = selectedType?.receiptHint, !hint.isEmpty {
+                            if let hint = selected?.receiptHint, !hint.isEmpty {
                                 Text(hint).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        if let error {
+                        if let error = shownError {
                             Notice(text: error, tone: .danger, systemImage: "exclamationmark.triangle")
                                 .accessibilityIdentifier("claim.error")
                         }
+                        // The buttons stay disabled until the claim is complete: say what is missing.
+                        if let missing {
+                            Text(missing)
+                                .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("claim.missing")
+                        }
                         VStack(spacing: 12) {
-                            Button { Task { await save(submit: true) } } label: { Text(busy ? "Sending…" : "Submit claim") }
+                            Button { Task { await save(submit: true) } } label: { Text(sending ? "Sending…" : "Submit claim") }
                                 .buttonStyle(.crowPrimary)
-                                .disabled(!valid || busy)
+                                .disabled(!canSave || sending)
                                 .accessibilityIdentifier("claim.submit")
                             // Saves a draft. Not "Save as draft": Azeret Mono draws "ft" as one
                             // ligature glyph, which Xcode's audit reports as clipped text (task 3.7).
                             Button("Save for later") { Task { await save(submit: false) } }
                                 .buttonStyle(.crowSecondary)
-                                .disabled(!valid || busy)
+                                .disabled(!canSave || sending)
                                 // The secondary style has no disabled look of its own.
-                                .opacity(valid && !busy ? 1 : 0.5)
+                                .opacity(canSave && !sending ? 1 : 0.5)
                                 .accessibilityIdentifier("claim.draft")
                         }
                         .padding(.top, 4)
@@ -273,7 +318,7 @@ struct NewClaimView: View {
             .navigationTitle("New claim")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction) }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Done") { focus = nil }
@@ -297,6 +342,19 @@ struct NewClaimView: View {
             && !detail.trimmingCharacters(in: .whitespaces).isEmpty && (!receiptRequired || receipt != nil)
     }
 
+    /// "To submit, add the merchant and the amount.", or nil when nothing is missing.
+    private var missingHint: String? {
+        var missing: [String] = []
+        if selectedType == nil { missing.append("the claim type") }
+        if merchant.trimmingCharacters(in: .whitespaces).isEmpty { missing.append("the merchant") }
+        if detail.trimmingCharacters(in: .whitespaces).isEmpty { missing.append("what it was for") }
+        if cents == nil { missing.append("the amount") }
+        if receiptRequired && receipt == nil { missing.append("a photo of the receipt") }
+        guard !missing.isEmpty else { return nil }
+        let list = missing.count == 1 ? missing[0] : missing.dropLast().joined(separator: ", ") + " and " + missing.last!
+        return "To submit, add \(list)."
+    }
+
     private func loadTypes() async throws -> [ClaimType] {
         let list: ClaimTypeList = try await session.api.get("/api/v1/claims/eligible-types", query: [URLQueryItem(name: "date", value: Fmt.day(Date()))])
         if typeID.isEmpty { typeID = list.items.first?.id ?? "" }
@@ -310,12 +368,22 @@ struct NewClaimView: View {
         error = nil
         do {
             var receiptIDs: [String] = []
-            if let jpeg = receipt?.jpeg {
-                let (data, _) = try await session.api.raw("POST", "/api/v1/claims/receipts", query: [URLQueryItem(name: "fileName", value: "receipt.jpg")], body: jpeg, contentType: "image/jpeg")
-                receiptIDs.append(try JSONDecoder().decode(ReceiptUpload.self, from: data).id)
+            if let receipt {
+                // Uploaded once: when the claim itself fails (a cap, a closed period, no signal),
+                // trying again reuses the receipt rather than uploading the photo a second time.
+                if let uploaded = uploadedReceipt, uploaded.imageID == receipt.id {
+                    receiptIDs.append(uploaded.id)
+                } else if let jpeg = receipt.jpeg {
+                    let (data, _) = try await session.api.raw("POST", "/api/v1/claims/receipts", query: [URLQueryItem(name: "fileName", value: "receipt.jpg")], body: jpeg, contentType: "image/jpeg")
+                    guard let id = try? JSONDecoder().decode(ReceiptUpload.self, from: data).id else { throw APIError.unreadable }
+                    uploadedReceipt = UploadedReceipt(imageID: receipt.id, id: id)
+                    receiptIDs.append(id)
+                }
             }
             let claim = NewClaim(title: nil, lines: [.init(claimTypeId: typeID, expenseDate: Fmt.day(date), merchant: merchant.trimmingCharacters(in: .whitespaces), description: detail.trimmingCharacters(in: .whitespaces), currency: "SGD", amountMinor: cents, receiptIds: receiptIDs)], submit: submit)
-            let _: CreatedClaim = try await session.api.post("/api/v1/claims", json: claim)
+            // Not decoded: once the server accepted it the claim exists, and an error here would
+            // invite claiming twice.
+            try await session.api.postNoContent("/api/v1/claims", json: claim)
             onDone()
             dismiss()
         } catch {
@@ -329,7 +397,7 @@ struct ScheduleView: View {
     @State private var state: LoadState<ScheduleMe> = .loading
 
     var body: some View {
-        AsyncContent(state: $state, load: { try await session.api.get("/api/v1/scheduling/me") }) { s in
+        AsyncContent(state: $state, load: load) { s in
             RowsScreen {
                 if s.shifts.isEmpty {
                     EmptyStateView(title: "No shifts published", message: "Your published shifts for the next two weeks appear here.", systemImage: "calendar")
@@ -341,14 +409,30 @@ struct ScheduleView: View {
                     }
                 }
             }
+            .refreshable { await reload() }
         }
         .crowScreen()
         .navigationTitle("My schedule")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func load() async throws -> ScheduleMe { try await session.api.get("/api/v1/scheduling/me") }
+
+    private func reload() async {
+        do { state = .loaded(try await load()) } catch { state.fail(error) }
     }
 }
 
 struct ShiftRow: View {
     let shift: ScheduleMe.Shift
+
+    /// "Friday 13 November, Kopi bar, 09:00 to 18:00": the day in full, "to" rather than a dash.
+    var spoken: String {
+        let day = Fmt.parseDay(shift.date).map(Fmt.daySpoken) ?? shift.date
+        let when = shift.kind == "rest" ? "Rest day" : "\(shift.start ?? "") to \(shift.end ?? "")"
+        return [day, shift.scopeLabel, shift.note, when].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+
     var body: some View {
         AdaptiveRow {
             VStack(alignment: .leading, spacing: 2) {
@@ -365,6 +449,7 @@ struct ShiftRow: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(spoken)
         .accessibilityIdentifier("shift.row")
     }
 }

@@ -251,4 +251,13 @@ struct BackgroundRefreshTests {
         #expect(AppLockPolicy.shouldLock(enabled: true, backgroundedAt: now.addingTimeInterval(-minutes * 60), now: now) == locks)
         #expect(AppLockPolicy.shouldLock(enabled: false, backgroundedAt: now.addingTimeInterval(-minutes * 60), now: now) == false)
     }
+
+    @Test func appLockOnAColdStartAndWhenTheClockWentBack() {
+        let now = Date()
+        #expect(AppLockPolicy.shouldLock(enabled: true, unlockedThisLaunch: false, backgroundedAt: nil, now: now))
+        #expect(AppLockPolicy.shouldLock(enabled: false, unlockedThisLaunch: false, backgroundedAt: nil, now: now) == false)
+        #expect(AppLockPolicy.shouldLock(enabled: true, backgroundedAt: nil, now: now) == false)
+        // Setting the clock back while the app is away must not skip the lock.
+        #expect(AppLockPolicy.shouldLock(enabled: true, backgroundedAt: now.addingTimeInterval(3_600), now: now))
+    }
 }

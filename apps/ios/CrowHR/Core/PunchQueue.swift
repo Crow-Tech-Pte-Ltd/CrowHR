@@ -236,6 +236,8 @@ actor PunchQueue {
         }
         draining = true
         defer { draining = false }
+        // History bookkeeping: without it every punch ever made stays in the file.
+        pruneSettled()
         while let index = items.firstIndex(where: { $0.isPending && $0.membershipId == membershipId }) {
             let punch = items[index]
             let attemptAt = now()
@@ -290,8 +292,8 @@ actor PunchQueue {
         return summary
     }
 
-    /// Drops settled punches older than 30 days. Pending punches, and refused ones the user hasn't
-    /// dismissed, are never pruned.
+    /// Drops settled punches older than 30 days (at the start of every drain). Pending punches,
+    /// and refused ones the user hasn't dismissed, are never pruned.
     func pruneSettled() {
         let cutoff = now().addingTimeInterval(-Self.settledRetention)
         let before = items.count

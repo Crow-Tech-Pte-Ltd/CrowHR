@@ -7,7 +7,25 @@ enum LoadState<Value: Sendable>: Sendable {
     case failed(APIError)
 
     var value: Value? { if case .loaded(let v) = self { v } else { nil } }
+
+    /// The state after a load failed, or nil to keep the current one. A cancelled load (the
+    /// screen went away mid-load, such as a quick switch to another tab) changes nothing, so the
+    /// screen loads again when it's back; before, it then said "You're offline" until Try again.
+    /// Content already showing stays on a passing failure (offline, a server hiccup).
+    static func after(failure error: any Error, cancelled: Bool, current: LoadState) -> LoadState? {
+        if cancelled || APIError.isCancellation(error) { return nil }
+        let e = APIError.from(error, host: "")
+        if case .loaded = current, e.isTransient { return nil }
+        return .failed(e)
+    }
+
+    /// Applies a failed load (`after(failure:cancelled:current:)`) in the current task.
+    mutating func fail(_ error: any Error) {
+        if let next = Self.after(failure: error, cancelled: Task.isCancelled, current: self) { self = next }
+    }
 }
+
+extension LoadState: Equatable where Value: Equatable {}
 
 /// Loads `Value` with `load`, showing loading, error and offline states, then `content`.
 struct AsyncContent<Value: Sendable, Content: View>: View {
@@ -32,14 +50,13 @@ struct AsyncContent<Value: Sendable, Content: View>: View {
                 content(value)
             }
         }
-        .task { if case .loading = state { await reload() } }
+        // Each time the screen shows: the first load, a retry after a failure, or a quiet refresh
+        // of what is showing (a decision on the web, leave applied elsewhere).
+        .task { await reload() }
     }
 
     @MainActor func reload() async {
-        do { state = .loaded(try await load()) } catch {
-            if case .loaded = state, (error as? APIError)?.isTransient == true { return }
-            state = .failed(APIError.from(error, host: ""))
-        }
+        do { state = .loaded(try await load()) } catch { state.fail(error) }
     }
 }
 

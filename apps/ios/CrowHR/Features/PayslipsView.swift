@@ -45,7 +45,7 @@ struct PayslipsView: View {
                     }
                 }
                 .refreshable {
-                    if let list: PayslipList = try? await session.api.get("/api/v1/payslips") { state = .loaded(list.items) }
+                    do { state = .loaded(try await (session.api.get("/api/v1/payslips") as PayslipList).items) } catch { state.fail(error) }
                 }
             }
             .crowScreen()
@@ -150,11 +150,18 @@ struct PayslipDetailView: View {
                         if loadingPDF { ProgressView() } else { Label("View or share PDF", systemImage: "square.and.arrow.up") }
                     }
                     .buttonStyle(.crowSecondary)
+                    // One download at a time (a second tap started another).
+                    .disabled(loadingPDF)
+                    .accessibilityLabel("View or share PDF")
                     .accessibilityIdentifier("payslip.pdf")
                     Text("The PDF is downloaded only when you ask for it, and isn't kept on this phone.")
                         .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(20)
+            }
+            .refreshable {
+                do { state = .loaded(try await session.api.get("/api/v1/payslips/\(summary.id)")) } catch { state.fail(error) }
             }
         }
         .crowScreen()
@@ -178,6 +185,8 @@ struct PayslipDetailView: View {
         pdfError = nil
         do {
             let (data, _) = try await session.api.raw("GET", "/api/v1/payslips/\(summary.id)/pdf", accept: "application/pdf")
+            // A proxy's or portal's page answered instead: say so, rather than open a blank viewer.
+            guard PayslipPDF.looksLikePDF(data) else { throw APIError.unreadable }
             pdf = PayslipPDF(data: data, name: "payslip-\(summary.month).pdf")
         } catch {
             pdfError = APIError.from(error, host: "").message
@@ -222,6 +231,9 @@ struct PayslipPDF: Identifiable, Transferable {
     let id = UUID()
     let data: Data
     let name: String
+
+    /// A PDF starts with `%PDF-`.
+    static func looksLikePDF(_ data: Data) -> Bool { data.starts(with: Array("%PDF-".utf8)) }
 
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(exportedContentType: .pdf) { $0.data }

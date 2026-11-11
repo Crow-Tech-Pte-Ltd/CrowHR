@@ -352,11 +352,30 @@ struct Notice: View {
             Image(systemName: systemImage).accessibilityHidden(true)
             Text(text).font(CrowFont.body(.subheadline)).fixedSize(horizontal: false, vertical: true)
         }
-        .foregroundStyle(tone == .danger ? Crow.danger : tone == .warning ? Crow.warning : Crow.ink)
+        .foregroundStyle(fg)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(tone == .danger ? Crow.dangerSoft : tone == .warning ? Crow.warningSoft : Crow.surfaceMuted)
+        .background(bg)
         .clipShape(RoundedRectangle(cornerRadius: Crow.radius))
         .accessibilityElement(children: .combine)
+    }
+
+    // Success is green like the status chips ("Clocked in.", "Approved: ..." were grey).
+    private var fg: Color {
+        switch tone {
+        case .danger: Crow.danger
+        case .warning: Crow.warning
+        case .success: Crow.success
+        default: Crow.ink
+        }
+    }
+
+    private var bg: Color {
+        switch tone {
+        case .danger: Crow.dangerSoft
+        case .warning: Crow.warningSoft
+        case .success: Crow.successSoft
+        default: Crow.surfaceMuted
+        }
     }
 }
