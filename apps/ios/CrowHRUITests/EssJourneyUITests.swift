@@ -24,8 +24,14 @@ class CrowUITestCase: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments = ["-uitest", "-uitest-reset", "-uitest-camera-stub"]
-        // A test that rotated the iPad must not leave the next one in landscape.
-        if isPad { XCUIDevice.shared.orientation = .portrait }
+        if isPad {
+            // A test that rotated the iPad must not leave the next one in landscape.
+            XCUIDevice.shared.orientation = .portrait
+            // On an iPad the sign-in browser from the previous test's sign-in can stay running and
+            // never report idle, so every step in the next sign-in waited 60 s (and timed out).
+            let browser = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
+            if browser.state != .notRunning { browser.terminate() }
+        }
     }
 
     var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }

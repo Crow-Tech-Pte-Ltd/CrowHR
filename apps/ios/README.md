@@ -88,18 +88,18 @@ support once a version has shipped with it, so the iPad layouts are designed, no
   their own width, and phone layouts get no padding at all. Connect and sign in are a 520 pt
   column, centred vertically.
 - **Side by side:** Payslips is a `NavigationSplitView`: the list (plain rows, no `List`) beside
-  the payslip (the latest opens first, the selected row is kuning-50). Where there isn't
-  room (under 720 pt, such as an 11-inch iPad in portrait beside the sidebar, or at accessibility
-  text sizes) it collapses to the phone's list-then-payslip. Today puts the next shifts (up to
-  six) beside the clock card when its column is 820 pt wide.
+  the payslip (the latest opens first, the selected row is kuning-50). Where there isn't room
+  (under 720 pt, such as a narrow Stage Manager window; at accessibility text sizes under
+  1,200 pt) it collapses to the phone's list-then-payslip. Today puts the next shifts (up to six)
+  beside the clock card when its column is at least 820 pt wide (a 13-inch iPad either way up).
 - **Orientations and multitasking:** all four on iPad (`UISupportedInterfaceOrientations~ipad`), no
   `UIRequiresFullScreen`, so Split View, Slide Over and Stage Manager resizing work; one scene (a
   second window would share the signed-in state). The iPhone stays portrait only.
 - **Sheets:** the payslip PDF opens page-sized, the server confirmation and the QR scanner
   form-sized.
-- **Keyboard and pointer:** Command-key shortcuts (`GoShortcuts`; hold Command to list them): Command-1 to 6 for
-  Today, Leave, Payslips, Inbox, Claims and Schedule, Command-7 for Profile and Command-comma for
-  Settings. Escape closes the app's own sheets; Return submits the server address and organisation
+- **Keyboard and pointer:** Command-key shortcuts (`GoShortcuts`; hold Command to list them):
+  Command-1 to 6 for Today, Leave, Payslips, Inbox, Claims and Schedule, Command-7 for Profile and
+  Command-comma for Settings (under More when the tab bar doesn't show them). Escape closes the app's own sheets; Return submits the server address and organisation
   ID. Under the pointer the primary button lifts onto a deeper hard shadow and secondary buttons
   shade; there are no soft hover effects.
 - **Camera and biometrics:** the QR preview follows the interface orientation
@@ -111,6 +111,9 @@ support once a version has shipped with it, so the iPad layouts are designed, no
   as in a one-third Split View. Sheets still cover the whole window there.
 - **Landscape screenshots:** on an iPad in landscape XCUITest's app screenshot keeps a portrait
   frame and crops, so `shot()` captures the screen and redraws it upright instead.
+- **Sign-in browser:** on an iPad, `SafariViewService` left running by the previous test's sign-in
+  could stop reporting idle, so every step of the next sign-in waited 60 s and timed out; iPad
+  tests terminate it first.
 
 ## Server contract the app relies on
 

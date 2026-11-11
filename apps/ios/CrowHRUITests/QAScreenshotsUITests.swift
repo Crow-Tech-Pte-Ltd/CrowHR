@@ -180,7 +180,7 @@ final class QAScreenshotsUITests: CrowUITestCase {
         // Every navigation bar on screen: a sheet has its own above the screen behind it. On an
         // iPad in portrait iPadOS's floating tab bar sits at the top, a system bar like them.
         let topTabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'tab.' OR identifier == 'ToggleSideBar'"))
-            .allElementsBoundByIndex.map(\.frame).filter { $0.minY < 120 && $0.width > 1 }
+            .allElementsBoundByIndex.map { $0.frame }.filter { $0.minY < 120 && $0.width > 1 }
         let navBars = app.navigationBars.allElementsBoundByIndex.map { $0.frame } + topTabs
         let log = AuditLog()
         try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped, .dynamicType]) { issue in

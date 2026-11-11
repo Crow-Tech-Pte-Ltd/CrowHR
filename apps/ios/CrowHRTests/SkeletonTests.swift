@@ -46,13 +46,16 @@ struct SkeletonTests {
 
     /// iPhone stays portrait. iPad has all four orientations and no UIRequiresFullScreen, which
     /// is what opts it into Split View, Slide Over and Stage Manager resizing. One scene only.
-    @Test func orientationsAndMultitasking() {
-        #expect(info["UISupportedInterfaceOrientations"] as? [String] == ["UIInterfaceOrientationPortrait"])
-        let pad = Set(info["UISupportedInterfaceOrientations~ipad"] as? [String] ?? [])
+    @Test func orientationsAndMultitasking() throws {
+        // The file itself: on an iPad, `infoDictionary` answers the base key with the ~ipad value.
+        let url = try #require(Bundle.main.url(forResource: "Info", withExtension: "plist"))
+        let raw = try #require(try PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil) as? [String: Any])
+        #expect(raw["UISupportedInterfaceOrientations"] as? [String] == ["UIInterfaceOrientationPortrait"])
+        let pad = Set(raw["UISupportedInterfaceOrientations~ipad"] as? [String] ?? [])
         #expect(pad == ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown",
                         "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"])
-        #expect(info["UIRequiresFullScreen"] == nil)
-        let scenes = info["UIApplicationSceneManifest"] as? [String: Any]
+        #expect(raw["UIRequiresFullScreen"] == nil && raw["UIRequiresFullScreen~ipad"] == nil)
+        let scenes = raw["UIApplicationSceneManifest"] as? [String: Any]
         #expect(scenes?["UIApplicationSupportsMultipleScenes"] as? Bool == false)
     }
 
