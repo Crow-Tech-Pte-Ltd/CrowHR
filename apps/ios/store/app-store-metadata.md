@@ -37,8 +37,8 @@ TestFlight; build 4 (1.0.0) is the App Store build (`uploaded-builds.txt`).
 - **Age rating:** every content question "None", every capability question "No" (no web
   browser, user-generated content, messaging, social media, advertising, gambling, loot boxes,
   health topics, parental controls or age assurance). Apple computes the rating from these answers.
-- **Devices:** iPhone and iPad, from the next build (5 or later). Build 4 (uploaded 10 Nov 2026, never submitted) is
-  iPhone only and is replaced by an iPhone and iPad build before 1.0.0 goes to App Review. Once
+- **Devices:** iPhone and iPad. Build 5 (iPhone and iPad) went to App Review on 12 Nov 2026; build 4
+  (uploaded 10 Nov 2026, iPhone only) was never submitted. Once
   1.0.0 ships with iPad support, no later version can drop it. The listing text above doesn't
   name a device, so it fits both.
 - **Export compliance:** `ITSAppUsesNonExemptEncryption` is false in Info.plist (HTTPS through

@@ -121,11 +121,12 @@ to production are done in Play Console, not by a script.
   advertising ID (not used), government app (no), financial features (none), health features
   (none), trader status (applies) and the content rating (IARC: Everyone / PEGI 3 / 3+, interactive
   element "Shares Location", because a punch's location is visible to HR when the company turns
-  location on). Data safety is saved as a draft declaring no data collected or shared (the app
-  sends data only to the user's own company's server; Crow Tech receives nothing).
-- **Not done yet (Play Console):** app access (sign-in details for reviewers), target audience,
-  submitting data safety (it needs the target audience), and sending the production release for
-  review.
+  location on). Data safety declares no data collected or shared (the app sends data only to the
+  user's own company's server; Crow Tech receives nothing).
+- **Sent for review on 12 Nov 2026 (Play Console):** sign-in details for reviewers (the Hafiz and
+  Siti accounts, see `docs/store-review-server.md`), target audience 18 and over, Data safety,
+  app category Business, all 178 countries and regions, and the production release "2 (1.0.0)".
+  Managed publishing is off, so it goes live once Google approves it.
 
 ## Real browser sign-in (verified on the emulator, 7 Nov 2026)
 
@@ -195,8 +196,8 @@ Permissions: INTERNET, ACCESS_NETWORK_STATE, ACCESS_LOCAL_NETWORK (LAN servers o
 attendance policy asks, while the app is open), USE_BIOMETRIC. WorkManager adds WAKE_LOCK,
 RECEIVE_BOOT_COMPLETED and FOREGROUND_SERVICE.
 
-Data safety draft (for review, not submitted): **No data collected or shared by the
+Data safety (submitted with 1.0.0 on 12 Nov 2026): **No data collected or shared by the
 developer.** All data goes between the device and the employer's own server, which the
 employer operates. Data on the device is encrypted and is deleted on sign-out. This
-interpretation needs the legal and policy review noted in the design's Risks section before
-submission.
+interpretation still needs the legal and policy review noted in the design's Risks section; it
+was not done before the 1.0.0 submission (see `docs/limitations.md`).

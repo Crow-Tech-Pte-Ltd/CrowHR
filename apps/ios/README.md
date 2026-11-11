@@ -152,13 +152,13 @@ The Crow Tech crow standing on a kuning "HR" card, in the style of Crow Tech's o
   tests, on iPhone or iPad, because the simulator has neither a camera nor biometrics. The camera
   is stubbed with `-uitest-camera-stub`, and dark mode is forced with `-uitest-dark` (both DEBUG
   and `-uitest` only).
-- iPad: no build with iPad support has been uploaded yet (build 4 is iPhone only). Real Split View,
+- iPad: build 5 (in App Review since 12 Nov 2026) is the first with iPad support. Real Split View,
   Slide Over and Stage Manager resizing are not driven by tests (see "Testing a compact width").
   Approvals open as a sheet, not beside the list, and Apply for leave, New claim and the approval
   decision use the system's default form sheet, which in landscape on a 13-inch iPad leaves New
   claim's Submit button below the fold (it scrolls).
-- Submitting for App Review is done by hand in App Store Connect, after the App Review details
-  and the App Privacy answers.
+- The App Privacy answers have no public API and are set by hand in App Store Connect. The
+  submission itself is `scripts/ios-store-review.py submit` (1.0.0 build 5: 12 Nov 2026).
 
 ## Release
 

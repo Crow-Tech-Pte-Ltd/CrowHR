@@ -56,6 +56,13 @@ else; for App Store Connect, `scripts/ios-store-review.py review-details` writes
 >    with a receipt photo, and the work schedule. As the manager: Approvals has pending leave and
 >    claims from the team; leave the employee applies for appears there too.
 
+Google Play's **Sign in details** (App content) has two sets, "Employee account (Hafiz)" and
+"Manager account (Siti)". Each holds that account's email and password and, under "Any other
+information", steps 1 and 2 above plus the account's role (500 characters at most). Play makes
+every set tick "Sign in details in this declaration provide full access", which holds for the
+declaration as a whole: Siti alone also has every employee screen (checked with
+`verify-sample-company.ts` signed in as her). Set on 12 Nov 2026 for 1.0.0.
+
 ## Checking it
 
 `scripts/verify-sample-company.ts` does what the apps do over HTTPS: discovery, the native sign-in
