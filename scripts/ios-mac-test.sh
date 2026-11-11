@@ -41,7 +41,8 @@ if [[ "${CROWHR_STATUS_BAR:-}" == demo ]]; then
     --cellularMode active --cellularBars 4 --operatorName "" --batteryState charged --batteryLevel 100
 fi
 
-# Network allow-list, seen by the OS: sample every socket the CrowHR app process holds while the
+# Network allow-list, seen by the OS: sample every socket the CrowHR app process on OUR simulator
+# (its path contains the UDID, so other agents' simulators on the shared Mac are not counted) holds while the
 # tests run (simulator apps are Mac processes), then require every remote end to be the test server.
 NETLOG=""
 if [[ -n "${CROWHR_NET_ALLOW:-}" ]]; then
@@ -49,7 +50,7 @@ if [[ -n "${CROWHR_NET_ALLOW:-}" ]]; then
   : > "$NETLOG"
   ( set +e +o pipefail
     while true; do
-      PIDS=$(pgrep -f '/CrowHR.app/CrowHR' || true)
+      PIDS=$(pgrep -f "/Devices/$UDID/.*/CrowHR.app/CrowHR" || true)
       echo "$(date +%T) pids=$(echo $PIDS)" >> "$NETLOG.pids"
       for pid in $PIDS; do lsof -nP -a -p "$pid" -i 2>/dev/null | tail -n +2; done
       sleep 0.2
