@@ -89,6 +89,35 @@ function monthRange(): { from: string; to: string } {
   return { from, to };
 }
 
+/** Phones: one line per claim instead of a table that scrolls sideways. */
+function MobileClaims({ rows, loading }: { rows: ClaimRowDto[]; loading: boolean }) {
+  if (loading || !rows.length) return null;
+  return (
+    <ul className="mb-4 divide-y divide-border rounded-lg border border-border sm:hidden" aria-label="Claims">
+      {rows.map((r) => (
+        <li key={r.id}>
+          <Link
+            to="/claims/$claimId"
+            params={{ claimId: r.id }}
+            className="focus-ring flex items-start justify-between gap-3 px-3 py-2.5 hover:bg-ink/[0.03]"
+          >
+            <span className="min-w-0">
+              <span className="block truncate font-medium">{r.employee.name}</span>
+              <span className="block truncate text-2xs text-primary-300">
+                <span className="num">{r.claimNumber ?? "Draft"}</span> · {r.title ?? r.typeNames.join(", ")}
+              </span>
+            </span>
+            <span className="flex shrink-0 flex-col items-end gap-1">
+              <span className="num text-ui font-medium">{formatMoney(r.totalCents)}</span>
+              <ClaimStatusPill status={r.status} />
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function ClaimsAdminPage() {
   const me = useMe();
   const search = Route.useSearch();
@@ -124,6 +153,7 @@ function ClaimsAdminPage() {
   );
   const types = useQuery({ ...claimTypesQuery(true), enabled: can(me, "claim_types:read") });
   const rows = list.data?.items ?? [];
+  const selectable = canPay && status === "approved";
   const payable = rows.filter((r) => r.status === "approved" && !r.reservedByPayrollRun);
   const selectedRows = rows.filter((r) => selected.has(r.id));
   // Clear the selection when the tab changes.
@@ -237,13 +267,14 @@ function ClaimsAdminPage() {
       cell: ({ row }) => {
         const r = row.original;
         return (
-          <span className="flex items-center gap-2 whitespace-nowrap">
+          // Wraps under the pill when space is short, so the table fits a laptop screen without scrolling.
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <ClaimStatusPill status={r.status} />
             {r.status === "submitted" && r.daysWaiting !== null && r.daysWaiting > 7 ? (
-              <span className="num text-2xs font-medium text-warning-400">{r.daysWaiting} days</span>
+              <span className="num whitespace-nowrap text-2xs font-medium text-warning-400">{r.daysWaiting} days</span>
             ) : null}
             {r.approverTask && r.status === "submitted" ? (
-              <Link to="/inbox" className="text-2xs font-medium text-biru-400 hover:underline">
+              <Link to="/inbox" className="whitespace-nowrap text-2xs font-medium text-biru-400 hover:underline">
                 Decide in Inbox
               </Link>
             ) : null}
@@ -421,7 +452,10 @@ function ClaimsAdminPage() {
       ) : null}
 
       {list.isError ? <ErrorNote error={list.error} retry={() => void list.refetch()} /> : null}
+      {/* Phones get a compact list, except while picking claims to mark paid (that needs the table's checkboxes). */}
+      {selectable ? null : <MobileClaims rows={rows} loading={list.isPending} />}
       <DataTable
+        className={!selectable && rows.length ? "hidden sm:block" : undefined}
         label="Claims"
         columns={columns}
         data={rows}
@@ -615,7 +649,12 @@ function SummarySection({
           </Select>
         </div>
       </div>
-      <div className="overflow-x-auto rounded-md border border-border bg-surface-50">
+      <section
+        aria-label="Claim totals"
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: the table scrolls sideways on a phone; keyboard users must reach it (WCAG 2.1.1).
+        tabIndex={0}
+        className="focus-ring overflow-x-auto rounded-md border border-border bg-surface-50"
+      >
         <table className="w-full text-ui">
           <thead className="bg-surface-100/70 font-azeret text-2xs uppercase tracking-wider text-primary-300">
             <tr className="h-9">
@@ -666,7 +705,7 @@ function SummarySection({
             </tfoot>
           ) : null}
         </table>
-      </div>
+      </section>
       <p className="mt-2 text-2xs text-primary-200">
         Each claim counts once per group. Rejected and withdrawn claims are left out.
       </p>

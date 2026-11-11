@@ -78,7 +78,7 @@ function NotificationSettingsPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }, { label: "Notifications" }]}
+        crumbs={[{ label: "Settings", to: "/settings" }]}
         title="Notifications"
         description="Everything shows in Crow HR under the bell, top right. Choose what is also emailed to you."
       />

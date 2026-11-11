@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
   StatusPill,
+  singaporeTodayIso,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +24,6 @@ import * as React from "react";
 import { useMe } from "../auth/session.ts";
 import { ApiError, apiDelete, apiPost } from "../lib/api.ts";
 import { delegationsQuery, peopleQuery } from "./api.ts";
-import { sgDate } from "./format.ts";
 
 /**
  * Out-of-office cover: while it is on, the chosen person also gets your approval tasks and decides
@@ -42,7 +42,7 @@ export function OutOfOfficeDialog({
   const qc = useQueryClient();
   const people = useQuery({ ...peopleQuery, enabled: open });
   const existing = useQuery({ ...delegationsQuery(forOthers), enabled: open });
-  const today = sgDate(new Date().toISOString());
+  const today = singaporeTodayIso();
   const [from, setFrom] = React.useState(me.membershipId);
   const [to, setTo] = React.useState("");
   const [startsOn, setStartsOn] = React.useState<string | null>(today);
@@ -170,10 +170,10 @@ export function OutOfOfficeDialog({
           </FormField>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="First day away" error={errors.startsOn}>
-              <DatePicker value={startsOn} onChange={setStartsOn} />
+              <DatePicker value={startsOn} onChange={setStartsOn} min={today} />
             </FormField>
             <FormField label="Last day away" error={errors.endsOn} hint="Both days included.">
-              <DatePicker value={endsOn} onChange={setEndsOn} />
+              <DatePicker value={endsOn} onChange={setEndsOn} min={startsOn ?? today} />
             </FormField>
           </div>
           {errors.form ? (

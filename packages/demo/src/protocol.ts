@@ -43,6 +43,8 @@ export interface DemoInfo {
   orgSlug: string;
   /** The demo's "today" (Asia/Singapore), from the anchored demo clock. */
   today: string;
+  /** Demo clock minus real time (ms): the page shifts its own clock by this (`setAppClockOffset`). */
+  clockOffsetMs: number;
   seededAt: string;
 }
 

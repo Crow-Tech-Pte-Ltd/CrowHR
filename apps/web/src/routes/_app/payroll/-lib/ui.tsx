@@ -247,8 +247,9 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
         ) : (
           <SlipRow label="Basic salary (paid in the monthly payslip)" cents={0} />
         )}
-        {slip.allowances.map((a) => (
-          <SlipRow key={a.label} label={a.label} detail={a.detail ?? "Allowance"} cents={a.amountCents} />
+        {slip.allowances.map((a, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: labels can repeat on a payslip; the list never reorders.
+          <SlipRow key={`${a.label}-${i}`} label={a.label} detail={a.detail ?? "Allowance"} cents={a.amountCents} />
         ))}
         {(slip.overtime?.periods ?? []).map((p) => (
           <SlipRow
@@ -258,15 +259,17 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
             cents={p.payCents}
           />
         ))}
-        {slip.additional.map((a) => (
-          <SlipRow key={a.label} label={a.label} detail={a.detail} cents={a.amountCents} />
+        {slip.additional.map((a, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: labels can repeat on a payslip; the list never reorders.
+          <SlipRow key={`${a.label}-${i}`} label={a.label} detail={a.detail} cents={a.amountCents} />
         ))}
       </SlipSection>
       <SlipSection title="Deductions" total={{ label: "Total deductions", cents: slip.totalDeductionsCents }}>
         {slip.deductions.length === 0 ? <SlipRow label="No deductions" cents={0} /> : null}
-        {slip.deductions.map((d) => (
+        {slip.deductions.map((d, i) => (
           <SlipRow
-            key={d.label}
+            // biome-ignore lint/suspicious/noArrayIndexKey: labels can repeat on a payslip; the list never reorders.
+            key={`${d.label}-${i}`}
             label={d.label}
             detail={d.type === "fixed" ? "Fixed" : (d.detail ?? "Ad hoc")}
             cents={d.amountCents}
@@ -276,8 +279,9 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
       </SlipSection>
       {slip.reimbursements.length ? (
         <SlipSection title="Reimbursements (not wages)">
-          {slip.reimbursements.map((r) => (
-            <SlipRow key={r.label} label={r.label} cents={r.amountCents} />
+          {slip.reimbursements.map((r, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: labels can repeat on a payslip; the list never reorders.
+            <SlipRow key={`${r.label}-${i}`} label={r.label} cents={r.amountCents} />
           ))}
         </SlipSection>
       ) : null}
@@ -310,7 +314,7 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
       <p className="mt-5 text-2xs text-primary-200">
         Itemised payslip with the items MOM requires.{" "}
         <a
-          className="text-biru-400 hover:underline"
+          className="text-biru-400 underline underline-offset-2"
           href="https://www.mom.gov.sg/employment-practices/salary/itemised-payslips"
           target="_blank"
           rel="noreferrer"

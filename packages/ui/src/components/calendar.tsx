@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type * as React from "react";
 import { DayPicker } from "react-day-picker";
+import { appNowMs } from "../lib/clock.ts";
 import { cn } from "../lib/cn.ts";
 import { buttonVariants } from "./button.tsx";
 
@@ -16,7 +17,7 @@ export type CalendarProps = React.ComponentProps<typeof DayPicker>;
  * browser's own date can differ: a laptop set to another time zone, or CI in UTC between
  * 00:00 and 08:00 Singapore time.
  */
-export function singaporeToday(now = Date.now()): Date {
+export function singaporeToday(now = appNowMs()): Date {
   const [y, m, d] = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10).split("-").map(Number);
   return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
 }

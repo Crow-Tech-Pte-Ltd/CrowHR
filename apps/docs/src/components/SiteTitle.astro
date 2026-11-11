@@ -3,7 +3,8 @@
 const { siteTitleHref } = Astro.locals.starlightRoute;
 ---
 
-<a href={siteTitleHref} class="crow-title" aria-label="Crow HR docs, home">
+<a href={siteTitleHref} class="crow-title">
+  <span class="sr-only">Crow HR docs, home</span>
   <span class="crow-title__word" aria-hidden="true">crow</span>
   <span class="crow-title__chip" aria-hidden="true">HR</span>
   <span class="crow-title__docs" aria-hidden="true">docs</span>

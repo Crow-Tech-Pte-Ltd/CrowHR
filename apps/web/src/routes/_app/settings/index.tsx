@@ -15,11 +15,10 @@ import {
   ScrollText,
   Server,
   Users,
+  Wallet,
 } from "lucide-react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
-
-const SECTIONS = [{ title: "Payroll defaults", body: "Pay dates, rounding, bank files." }];
 
 export const Route = createFileRoute("/_app/settings/")({
   component: SettingsPage,
@@ -39,7 +38,8 @@ function SettingsPage() {
       | "/settings/leave"
       | "/settings/attendance"
       | "/settings/shift-templates"
-      | "/settings/documents";
+      | "/settings/documents"
+      | "/payroll";
     title: string;
     body: string;
     icon: LucideIcon;
@@ -116,6 +116,14 @@ function SettingsPage() {
       show: can(me, "documents:update"),
     },
     {
+      // Payroll's settings live with the runs (Payroll → Settings); this opens that dialog.
+      to: "/payroll",
+      title: "Payroll",
+      body: "Pay day, payslip release, CPF advice code, FWL levy details and the bank account for salary files.",
+      icon: Wallet,
+      show: can(me, "payroll:read"),
+    },
+    {
       to: "/settings/notifications",
       title: "Notifications",
       body: "What is emailed to you, and whether this server can send email.",
@@ -179,6 +187,7 @@ function SettingsPage() {
               <Link
                 key={l.to}
                 to={l.to}
+                search={l.to === "/payroll" ? { settings: "open" } : undefined}
                 className="focus-ring group flex items-center gap-3 rounded-lg border border-border bg-surface-50 px-4 py-3 hover:border-ink/40"
               >
                 <span className="flex size-8 items-center justify-center rounded-md border border-ink/15 bg-surface-100">
@@ -197,30 +206,6 @@ function SettingsPage() {
             </p>
           ) : null}
         </div>
-      </section>
-      <section aria-labelledby="other-heading">
-        <h2
-          id="other-heading"
-          className="mb-2 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200"
-        >
-          Coming later
-        </h2>
-        <ul className="divide-y divide-border rounded-lg border border-border">
-          {SECTIONS.map((s) => (
-            <li
-              key={s.title}
-              className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <span>
-                <span className="block font-azeret text-xs font-semibold text-primary-300">{s.title}</span>
-                <span className="block text-ui text-primary-200">{s.body}</span>
-              </span>
-              <span className="font-azeret text-[10px] uppercase tracking-wider text-primary-200">
-                Not available yet
-              </span>
-            </li>
-          ))}
-        </ul>
       </section>
     </>
   );

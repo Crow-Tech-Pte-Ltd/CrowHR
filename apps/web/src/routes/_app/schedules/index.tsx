@@ -31,6 +31,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { CalendarClock, ChevronLeft, ChevronRight, Copy, Download, Eraser, Send, UserRound } from "lucide-react";
 import * as React from "react";
+import { canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { ApiError, apiDelete, apiPatch, apiPost } from "../../../lib/api.ts";
@@ -73,6 +74,7 @@ export const Route = createFileRoute("/_app/schedules/")({
 const errorText = (err: unknown) => (err instanceof Error ? err.message : "That didn't save. Try again.");
 
 function SchedulesPage() {
+  const me = useMe();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/schedules/" });
   const scopes = useQuery(scopesQuery);
@@ -111,7 +113,14 @@ function SchedulesPage() {
         <EmptyState
           icon={<CalendarClock />}
           title="No locations or departments yet"
-          description="Rosters are built per location or department. Add your outlets in Settings → Company structure first."
+          description="Rosters are built per location or department. Add your outlets or departments first."
+          actions={
+            canForAll(me, "org_structure:create") ? (
+              <Button asChild size="sm">
+                <Link to="/settings/structure">Open Settings → Structure</Link>
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <>

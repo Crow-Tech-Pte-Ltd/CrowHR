@@ -454,7 +454,7 @@ function LineEditor({
             size="lg"
             onClick={() => picker.current?.click()}
             disabled={l.receipts.length >= 5}
-            aria-label="Choose a file"
+            aria-label="Choose file"
           >
             <Paperclip aria-hidden />
             <span className="hidden sm:inline">Choose file</span>

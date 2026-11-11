@@ -65,7 +65,9 @@ test("add an employee, see NRIC masked, schedule a transfer and record a resigna
   await leave.getByRole("button", { name: "Save" }).click();
   // A transfer is scheduled before the last day, so this succeeds.
   await expect(leave).toBeHidden();
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Leaving");
+  // The status sits beside the name, outside the heading (the page title is just the name).
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Chua Li Ting");
+  await expect(page.locator("main header").first()).toContainText("Leaving");
 });
 
 test("edit compensation with an effective date", async ({ page }) => {
@@ -168,6 +170,8 @@ test("⌘K finds a person", async ({ page }) => {
   await expect(page.getByRole("table", { name: "People" })).toBeVisible();
   await page.keyboard.press("ControlOrMeta+k");
   await page.keyboard.type("Okafor");
+  // People results come from the server; Enter picks what is listed at that moment.
+  await expect(page.getByRole("option", { name: /Daniel Okafor/ })).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Daniel Okafor");
 });

@@ -4,6 +4,10 @@ import { ceilToCent, exactCents } from "./internal/exact.ts";
 import { money } from "./internal/money.ts";
 import { isInForce } from "./tables/effective.ts";
 import { FWL_DAILY_RATE_SOURCE, FWL_RATES, type FwlPass, type FwlRate } from "./tables/fwl.ts";
+
+/** The levy rate table, for pickers (e.g. the sector and tier choices in payroll settings). */
+export { FWL_RATES, type FwlPass, type FwlRate };
+
 import type { Cents, IsoDate, RuleIssue, WorkingStep, YearMonth } from "./types.ts";
 
 /**

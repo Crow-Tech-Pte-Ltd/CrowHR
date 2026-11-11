@@ -32,9 +32,10 @@ export const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<
 );
 CardHeader.displayName = "CardHeader";
 
+/** A card's heading. It is an `h2`: cards sit directly under a page's `h1` (WCAG 1.3.1, heading order). */
 export const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("font-azeret text-ui font-semibold leading-5 tracking-tight", className)} {...props} />
+    <h2 ref={ref} className={cn("font-azeret text-ui font-semibold leading-5 tracking-tight", className)} {...props} />
   ),
 );
 CardTitle.displayName = "CardTitle";

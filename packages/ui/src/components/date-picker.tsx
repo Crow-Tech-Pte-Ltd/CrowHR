@@ -12,6 +12,10 @@ export interface DatePickerProps {
   onChange: (value: string | null) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Earliest date that can be picked (`YYYY-MM-DD`), e.g. an end date's start date. */
+  min?: string | null;
+  /** Latest date that can be picked (`YYYY-MM-DD`). */
+  max?: string | null;
   id?: string;
   className?: string;
   "aria-describedby"?: string;
@@ -20,9 +24,10 @@ export interface DatePickerProps {
 
 /** Button showing "31 Oct 2026" that opens a calendar. */
 export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
-  ({ value, onChange, placeholder = "Pick a date", disabled, id, className, ...aria }, ref) => {
+  ({ value, onChange, placeholder = "Pick a date", disabled, min, max, id, className, ...aria }, ref) => {
     const [open, setOpen] = React.useState(false);
     const selected = value ? fromIsoDate(value) : undefined;
+    const outside = [...(min ? [{ before: fromIsoDate(min) }] : []), ...(max ? [{ after: fromIsoDate(max) }] : [])];
     return (
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -48,7 +53,8 @@ export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
           <Calendar
             mode="single"
             selected={selected}
-            defaultMonth={selected}
+            defaultMonth={selected ?? (min ? fromIsoDate(min) : undefined)}
+            disabled={outside.length ? outside : undefined}
             onSelect={(date) => {
               onChange(date ? toIsoDate(date) : null);
               setOpen(false);

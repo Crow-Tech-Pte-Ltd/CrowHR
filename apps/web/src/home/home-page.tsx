@@ -1,5 +1,5 @@
 import { useMe } from "../auth/session.ts";
-import { useViewMode } from "../shell/view-mode.tsx";
+import { useLayoutMode } from "../shell/view-mode.tsx";
 import { AdminHome } from "./admin-home.tsx";
 import { EmployeeHome } from "./employee-home.tsx";
 
@@ -10,7 +10,6 @@ import { EmployeeHome } from "./employee-home.tsx";
  */
 export function HomePage() {
   const me = useMe();
-  const { mode } = useViewMode();
-  const approver = me.roles.some((r) => r !== "employee");
-  return approver && mode !== "employee" ? <AdminHome /> : <EmployeeHome />;
+  const { mode } = useLayoutMode(me.roles);
+  return mode === "admin" ? <AdminHome /> : <EmployeeHome />;
 }

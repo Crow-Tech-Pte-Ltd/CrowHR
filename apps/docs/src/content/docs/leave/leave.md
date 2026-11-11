@@ -167,7 +167,7 @@ The approval and payslip working show basic pay + each included allowance → mo
 
 ## Who can do what
 
-| | Owner, HR admin | Payroll admin | Manager | Employee |
+| Task | Owner, HR admin | Payroll admin | Manager | Employee |
 | --- | --- | --- | --- | --- |
 | Apply for leave | Own, or for anyone | Own | Own | Own |
 | See requests and balances | Everyone | Everyone | Team | Own |

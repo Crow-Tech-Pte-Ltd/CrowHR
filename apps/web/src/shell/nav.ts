@@ -179,5 +179,6 @@ export const EMPLOYEE_TABS: { id: ModuleId; label: string; to?: string }[] = [
   { id: "schedules", label: "Shifts", to: "/schedules/me" },
   { id: "leave", label: "Leave" },
   { id: "claims", label: "Claims" },
-  { id: "payroll", label: "Payslips" },
+  // Straight to the payslips: "/payroll" redirects employees there, and the tab wouldn't show as current.
+  { id: "payroll", label: "Payslips", to: "/me/payslips" },
 ];

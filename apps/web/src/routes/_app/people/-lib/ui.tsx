@@ -16,6 +16,7 @@ import {
   SelectValue,
   Skeleton,
   StatusPill,
+  singaporeTodayIso,
 } from "@crowhr/ui";
 import { AlertTriangle } from "lucide-react";
 import type * as React from "react";
@@ -250,7 +251,7 @@ export function DateInput({
   );
 }
 
-export const today = () => new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+export const today = () => singaporeTodayIso();
 
 export function centsToInput(cents: number | null | undefined): string {
   if (cents === null || cents === undefined) return "";

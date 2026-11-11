@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
   toast,
@@ -76,18 +77,32 @@ function LeaveSettingsPage() {
         title="Leave"
         description="Statutory leave is set up for you from the Employment Act and the Government-paid leave schemes. Make it more generous, add company leave, and keep holidays up to date."
       />
-      <Tabs value={tab} onValueChange={(v) => void navigate({ search: { tab: v as Tab } })} className="mb-5">
-        <TabsList className="max-w-full overflow-x-auto">
+      <Tabs value={tab} onValueChange={(v) => void navigate({ search: { tab: v as Tab } })}>
+        <TabsList className="mb-5 max-w-full overflow-x-auto">
           {canPolicies ? <TabsTrigger value="policies">Policies</TabsTrigger> : null}
           {canPolicies ? <TabsTrigger value="holidays">Holidays</TabsTrigger> : null}
           {canPolicies ? <TabsTrigger value="rules">Rules</TabsTrigger> : null}
           {canClaims ? <TabsTrigger value="claims">Government-paid</TabsTrigger> : null}
         </TabsList>
+        {canPolicies ? (
+          <>
+            <TabsContent value="policies" className="pt-0">
+              <Policies editable={can(me, "policies:update")} />
+            </TabsContent>
+            <TabsContent value="holidays" className="pt-0">
+              <Holidays editable={can(me, "policies:update")} />
+            </TabsContent>
+            <TabsContent value="rules" className="pt-0">
+              <Rules editable={can(me, "policies:update")} />
+            </TabsContent>
+          </>
+        ) : null}
+        {canClaims ? (
+          <TabsContent value="claims" className="pt-0">
+            <GovernmentPaid />
+          </TabsContent>
+        ) : null}
       </Tabs>
-      {tab === "policies" && canPolicies ? <Policies editable={can(me, "policies:update")} /> : null}
-      {tab === "holidays" && canPolicies ? <Holidays editable={can(me, "policies:update")} /> : null}
-      {tab === "rules" && canPolicies ? <Rules editable={can(me, "policies:update")} /> : null}
-      {tab === "claims" && canClaims ? <GovernmentPaid /> : null}
     </>
   );
 }
@@ -802,7 +817,7 @@ function GovernmentPaid() {
             <DatePicker value={from} onChange={setFrom} className="w-36" />
           </FormField>
           <FormField label="To">
-            <DatePicker value={to} onChange={setTo} className="w-36" />
+            <DatePicker value={to} onChange={setTo} min={from} className="w-36" />
           </FormField>
           <Button asChild disabled={!ok}>
             <a href={ok ? governmentPaidCsvHref(from, to) : undefined} download>

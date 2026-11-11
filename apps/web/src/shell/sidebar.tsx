@@ -42,8 +42,9 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
     >
       <div className="sticky top-0 flex h-dvh flex-col">
         <div className={cn("flex h-14 items-center border-b border-border", collapsed ? "justify-center" : "px-4")}>
-          <Link to="/" className="focus-ring rounded-sm" aria-label="Crow HR home">
+          <Link to="/" className="focus-ring rounded-sm">
             <Wordmark compact={collapsed} />
+            <span className="sr-only"> home</span>
           </Link>
         </div>
         <nav className={cn("flex-1 overflow-y-auto py-4", collapsed ? "px-3" : "px-3")}>

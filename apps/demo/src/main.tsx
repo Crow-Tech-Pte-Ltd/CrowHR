@@ -3,6 +3,7 @@ import "@crowhr/ui/fonts.css";
 import { createDemoClient, type DemoClient, interceptFetch } from "@crowhr/demo/client";
 import type { BootStage, BootTimings, DemoInfo, WireRequest } from "@crowhr/demo/protocol";
 import DemoWorker from "@crowhr/demo/worker?worker";
+import { setAppClockOffset } from "@crowhr/ui/clock";
 import { configureWebForDemo } from "./web-extensions.tsx";
 
 /**
@@ -102,6 +103,8 @@ async function runApp() {
   const record = { timings, info, bootMs, readyMs: 0 };
   (window as unknown as { __crowhrDemo: unknown }).__crowhrDemo = record;
   configureWebForDemo();
+  // The app's own "today" (default weeks, months and dates) must match the demo company's clock.
+  setAppClockOffset(info.clockOffsetMs);
   showStage("app");
   // apps/web's entry renders into #root as soon as it is imported.
   await import("../../web/src/main.tsx");

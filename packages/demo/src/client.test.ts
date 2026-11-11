@@ -33,7 +33,7 @@ const okResponse = (status: number, body: unknown): WireResponse => ({
 
 const BOOT = {
   timings: { stages: [], totalMs: 1, seeded: true },
-  info: { dataVersion: "v", orgSlug: "kopi-kaki", today: "2026-10-31", seededAt: "x" },
+  info: { dataVersion: "v", orgSlug: "kopi-kaki", today: "2026-10-31", clockOffsetMs: 0, seededAt: "x" },
 };
 
 describe("demo client (page side of the worker bridge)", () => {

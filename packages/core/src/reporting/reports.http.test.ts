@@ -201,6 +201,10 @@ describe("reports", () => {
     };
     // Farah left on 31 Oct, so she has no balance on 13 Nov.
     expect(owner.totals.taken).toBe(2);
+    // Part-timers' leave is in hours: every row says which unit its numbers are in.
+    const units = new Map((owner.rows as { name: string; unit?: string }[]).map((r) => [r.name, r.unit]));
+    expect(units.get("Daniel Goh")).toBe("Hours");
+    expect(units.get("Ravi Kumar")).toBe("Days");
     expect(owner.rows.find((r) => r.name === "Ravi Kumar")?.liability).toBeGreaterThan(0);
     const att = (await (
       await (await w.as("manager")).get("/api/v1/reports/attendance.exceptions?from=2026-11-09&to=2026-11-13")

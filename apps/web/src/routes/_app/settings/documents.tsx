@@ -184,7 +184,9 @@ function Templates() {
               <TableHead>Template</TableHead>
               <TableHead>Kind</TableHead>
               <TableHead numeric>Version</TableHead>
-              <TableHead />
+              <TableHead>
+                <span className="sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

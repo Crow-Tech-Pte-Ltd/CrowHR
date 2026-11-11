@@ -20,6 +20,21 @@ export function can(me: Me, permission: string): boolean {
   return (me.permissions[permission]?.length ?? 0) > 0;
 }
 
+/**
+ * Whether `permission` reaches this employee's record: scope "all", or "own" on the member's own
+ * record. Team scope needs the reporting line, which only the server knows, so it is left out here:
+ * use it to hide controls, never to grant anything (the server checks every request).
+ */
+export function canForEmployee(me: Me, permission: string, employeeId: string): boolean {
+  const scopes = me.permissions[permission] ?? [];
+  return scopes.includes("all") || (scopes.includes("own") && me.employeeId === employeeId);
+}
+
+/** Organisation-wide permission (scope "all"), e.g. adding employees. */
+export function canForAll(me: Me, permission: string): boolean {
+  return me.permissions[permission]?.includes("all") ?? false;
+}
+
 /** Why the user lands on the sign-in page, for the notice shown there. */
 export type SignedOutReason = "expired" | "revoked" | "signed_out";
 

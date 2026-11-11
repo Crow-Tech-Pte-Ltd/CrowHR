@@ -279,7 +279,7 @@ export function ApplySheet({
                 />
               </FormField>
               <FormField label="To" required error={issueFor("endDate")}>
-                <DatePicker value={end} onChange={setEnd} />
+                <DatePicker value={end} onChange={setEnd} min={start} />
               </FormField>
             </div>
             {halfOk ? (

@@ -37,7 +37,7 @@ Yes. Each legal entity is its own organisation with its own UEN and CSN, and one
 
 ## Does it work on phones?
 
-The web app works on phone screens, with a bottom tab bar for employees. Native apps are [in development](/docs/coming-soon/mobile-apps/); My profile → Mobile app already shows the code they will connect with.
+The web app works on phone screens, with a bottom tab bar for employees. Native apps for iPhone, iPad and Android are [in store review](/docs/coming-soon/mobile-apps/); My profile → Mobile app already shows the code they will connect with.
 
 ## Is there a demo?
 

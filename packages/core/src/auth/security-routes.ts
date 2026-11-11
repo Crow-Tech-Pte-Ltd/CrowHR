@@ -84,7 +84,7 @@ async function settingsView(c: AppContext, orgId: string): Promise<z.input<typeo
     .select()
     .from(ssoProviders)
     .where(eq(ssoProviders.orgId, orgId))
-    .orderBy(ssoProviders.createdAt);
+    .orderBy(ssoProviders.createdAt, ssoProviders.id);
   return {
     ...s,
     insecureTransport: !sessionCookie(deps.publicUrl).secure,

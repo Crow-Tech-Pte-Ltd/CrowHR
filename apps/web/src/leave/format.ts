@@ -1,4 +1,5 @@
 import { formatDate } from "@crowhr/ui";
+import { singaporeTodayIso } from "@crowhr/ui/clock";
 import type { LeaveStatus, Policy, PolicyView, Session, Unit } from "./api.ts";
 
 /** "1 day", "0.5 day", "2.5 days", "4 hours". */
@@ -100,5 +101,5 @@ export const weekdayOf = (iso: string) => WEEKDAY[(new Date(`${iso}T00:00:00Z`).
 
 /** Today in Singapore. */
 export function todaySg(): string {
-  return new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+  return singaporeTodayIso();
 }

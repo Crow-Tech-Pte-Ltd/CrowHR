@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageLabel, dueLabel, sgDate, thresholdLabel } from "./format.ts";
+import { ageLabel, dueLabel, requestName, sgDate, thresholdLabel } from "./format.ts";
 
 describe("workflow formatting", () => {
   it("labels due states", () => {
@@ -23,5 +23,24 @@ describe("workflow formatting", () => {
 
   it("formats thresholds as money", () => {
     expect(thresholdLabel(50_000)).toBe("S$500.00 or more");
+  });
+});
+
+describe("requestName", () => {
+  it("drops the kind when the title already names it", () => {
+    expect(requestName("Overtime", "Overtime, 23 Oct 2026")).toBe("Overtime, 23 Oct 2026");
+    expect(requestName("Claim", "Transport claim")).toBe("Transport claim");
+    expect(requestName("Leave", "Annual leave, 28–29 Dec 2026")).toBe("Annual leave, 28–29 Dec 2026");
+    expect(requestName("Payroll run", "October 2026 payroll")).toBe("October 2026 payroll");
+  });
+
+  it("keeps the kind when the title doesn't say what it is", () => {
+    expect(requestName("Profile change", "Personal details")).toBe("Profile change: Personal details");
+    expect(requestName("Profile change", "Personal details change")).toBe("Profile change: Personal details change");
+    expect(requestName("Leave cancellation", "Annual leave, 2 Nov 2026")).toBe(
+      "Leave cancellation: Annual leave, 2 Nov 2026",
+    );
+    expect(requestName("Shift swap", "Shift swap, Wed 4 Nov ↔ Wed 4 Nov")).toBe("Shift swap, Wed 4 Nov ↔ Wed 4 Nov");
+    expect(requestName("Claim", "Team meal after stocktake")).toBe("Claim: Team meal after stocktake");
   });
 });

@@ -179,12 +179,22 @@ function AuditLogPage() {
             <TableBody>
               {list.data.items.map((e) => (
                 <React.Fragment key={e.id}>
-                  <TableRow
-                    className="cursor-pointer"
-                    onClick={() => setOpen(open === e.id ? null : e.id)}
-                    aria-expanded={open === e.id}
-                  >
-                    <TableCell className="num">{formatDateTime(e.at)}</TableCell>
+                  <TableRow className="cursor-pointer" onClick={() => setOpen(open === e.id ? null : e.id)}>
+                    <TableCell className="num">
+                      {/* The row opens on click too; this button is the keyboard and screen reader control. */}
+                      <button
+                        type="button"
+                        className="focus-ring rounded-sm text-left"
+                        aria-expanded={open === e.id}
+                        aria-label={`${formatDateTime(e.at)}, ${actionLabel(e.action)}: ${open === e.id ? "hide" : "show"} details`}
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          setOpen(open === e.id ? null : e.id);
+                        }}
+                      >
+                        {formatDateTime(e.at)}
+                      </button>
+                    </TableCell>
                     <TableCell>
                       <Tooltip>
                         <TooltipTrigger asChild>

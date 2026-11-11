@@ -55,6 +55,13 @@ export default defineConfig({
       head: [
         { tag: "meta", attrs: { name: "theme-color", content: "#FEFEFE", media: "(prefers-color-scheme: light)" } },
         { tag: "meta", attrs: { name: "theme-color", content: "#121212", media: "(prefers-color-scheme: dark)" } },
+        // Starlight lets wide tables scroll sideways (on a phone, most of them). Keyboard users can only
+        // scroll what they can focus, so tables get tabindex="0" (WCAG 2.1.1), as Starlight's code blocks have.
+        {
+          tag: "script",
+          content:
+            "document.addEventListener('DOMContentLoaded',()=>{for(const t of document.querySelectorAll('.sl-markdown-content table'))if(!t.hasAttribute('tabindex'))t.tabIndex=0})",
+        },
       ],
       lastUpdated: false,
       credits: false,

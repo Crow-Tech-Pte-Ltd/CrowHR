@@ -1,14 +1,14 @@
 import { Button, Card, CardHeader, CardTitle, EmptyState, formatDate, Skeleton, StatusPill } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarPlus, CheckCircle2, ReceiptText } from "lucide-react";
+import { ArrowRight, CalendarPlus, CheckCircle2, Clock, ReceiptText } from "lucide-react";
 import { greetingName } from "../auth/format.ts";
 import { useMe } from "../auth/session.ts";
 import { PageHeader } from "../components/page-header.tsx";
 import { ErrorNote } from "../components/section.tsx";
 import { inboxQuery, myRequestsQuery, STATUS_LABEL, STATUS_TONE } from "../workflows/api.ts";
 import { DuePill } from "../workflows/decision-controls.tsx";
-import { ageLabel } from "../workflows/format.ts";
+import { ageLabel, requestName } from "../workflows/format.ts";
 import { weekday } from "./dates.ts";
 
 /** Employee self-service Home: my to-dos and my requests, from the inbox and approvals APIs. */
@@ -40,8 +40,15 @@ export function EmployeeHome() {
           )
         }
       />
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:max-w-md">
-        <Button variant="primary" size="lg" asChild>
+      {/* Clocking in is what staff do most, so it comes first (full width on a phone). */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:max-w-2xl sm:grid-cols-3">
+        <Button variant="primary" size="lg" className="col-span-2 sm:col-span-1" asChild>
+          <Link to="/attendance">
+            <Clock />
+            Clock in or out
+          </Link>
+        </Button>
+        <Button variant="secondary" size="lg" asChild>
           <Link to="/leave">
             <CalendarPlus />
             Apply leave
@@ -132,25 +139,31 @@ export function EmployeeHome() {
             </p>
           ) : (
             <ul className="divide-y divide-border border-t border-border">
-              {mine.data.items.map((r) => (
-                <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3" data-testid="my-request">
-                  <div className="min-w-0">
-                    <Link
-                      to="/inbox"
-                      search={{ request: r.id }}
-                      className="focus-ring block truncate rounded-sm font-medium leading-5 hover:underline"
-                    >
-                      {r.subjectLabel}: {r.title}
-                    </Link>
-                    <p className="truncate text-2xs text-primary-300">
-                      {r.status === "pending" && r.waitingOn
-                        ? `Waiting for ${r.waitingOn}`
-                        : `Sent ${today ? ageLabel(r.submittedAt, today) : ""}`}
-                    </p>
-                  </div>
-                  <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
-                </li>
-              ))}
+              {/* Pending ones first, then the latest, five at most; "All" opens the full list in the Inbox. */}
+              {[
+                ...mine.data.items.filter((r) => r.status === "pending"),
+                ...mine.data.items.filter((r) => r.status !== "pending"),
+              ]
+                .slice(0, 5)
+                .map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3" data-testid="my-request">
+                    <div className="min-w-0">
+                      <Link
+                        to="/inbox"
+                        search={{ request: r.id }}
+                        className="focus-ring block truncate rounded-sm font-medium leading-5 hover:underline"
+                      >
+                        {requestName(r.subjectLabel, r.title)}
+                      </Link>
+                      <p className="truncate text-2xs text-primary-300">
+                        {r.status === "pending" && r.waitingOn
+                          ? `Waiting for ${r.waitingOn}`
+                          : `Sent ${today ? ageLabel(r.submittedAt, today) : ""}`}
+                      </p>
+                    </div>
+                    <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+                  </li>
+                ))}
             </ul>
           )}
         </Card>

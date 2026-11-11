@@ -17,13 +17,13 @@ import { FileText, LogOut, MonitorSmartphone, Settings, UserRound } from "lucide
 import { useMe } from "../auth/session.ts";
 import { ROLE_LABEL } from "../auth/types.ts";
 import { apiPost } from "../lib/api.ts";
-import { useViewMode, type ViewMode } from "./view-mode.tsx";
+import { useLayoutMode, type ViewMode } from "./view-mode.tsx";
 
 export function UserMenu() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const me = useMe();
-  const { mode, setMode } = useViewMode();
+  const { mode, setMode, canSwitch } = useLayoutMode(me.roles);
   const assigned = me.roles.filter((r) => r !== "employee");
   const signOut = async () => {
     try {
@@ -36,12 +36,16 @@ export function UserMenu() {
   };
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label="Account menu"
-        className="focus-ring flex items-center gap-2 rounded-md p-1 hover:bg-ink/[0.04] data-[state=open]:bg-ink/[0.05] lg:pr-2"
-      >
-        <Avatar name={me.user.displayName} size="sm" />
-        <span className="hidden text-ui font-medium lg:inline">{me.user.displayName}</span>
+      <DropdownMenuTrigger className="focus-ring flex items-center gap-2 rounded-md p-1 hover:bg-ink/[0.04] data-[state=open]:bg-ink/[0.05] lg:pr-2">
+        {/* The name is "Account menu" plus the visible name, so speech input users can say what they see. */}
+        <span aria-hidden="true" className="contents">
+          <Avatar name={me.user.displayName} size="sm" />
+        </span>
+        <span className="sr-only">Account menu</span>
+        <span className="hidden text-ui font-medium lg:inline">
+          <span className="sr-only">, </span>
+          {me.user.displayName}
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <div className="flex items-center gap-2.5 px-2 py-2">
@@ -60,12 +64,16 @@ export function UserMenu() {
             ))}
           </div>
         ) : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Preview layout as</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={mode} onValueChange={(v) => setMode(v as ViewMode)}>
-          <DropdownMenuRadioItem value="admin">HR admin</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="employee">Employee</DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+        {canSwitch ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Layout</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={mode} onValueChange={(v) => setMode(v as ViewMode)}>
+              <DropdownMenuRadioItem value="admin">Work to do</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="employee">Employee</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => navigate({ to: "/me/profile" })}>
           <UserRound />

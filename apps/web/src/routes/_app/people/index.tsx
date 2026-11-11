@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Download, Search, Upload, UserPlus, Users } from "lucide-react";
 import * as React from "react";
+import { canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { directoryQuery, structureQuery } from "./-lib/api.ts";
 import { EmployeeStatus, ErrorPanel, PassPill } from "./-lib/ui.tsx";
@@ -161,6 +162,8 @@ function PeoplePage() {
     (search.status && search.status !== "current")
   );
 
+  // Adding and importing people is for owners and HR admins (employment:create); others only browse.
+  const canAdd = canForAll(useMe(), "employment:create");
   const exportHref = `/api/v1/employees/export?format=csv${search.department ? `&departmentId=${search.department}` : ""}${statusFilter(search.status) ? `&status=${statusFilter(search.status)}` : ""}${search.q ? `&q=${encodeURIComponent(search.q)}` : ""}`;
 
   return (
@@ -184,16 +187,20 @@ function PeoplePage() {
                 <Download aria-hidden /> Export
               </a>
             </Button>
-            <Button asChild size="sm">
-              <Link to="/people/import">
-                <Upload aria-hidden /> Import
-              </Link>
-            </Button>
-            <Button asChild variant="primary" size="sm">
-              <Link to="/people/new">
-                <UserPlus aria-hidden /> Add employee
-              </Link>
-            </Button>
+            {canAdd ? (
+              <>
+                <Button asChild size="sm">
+                  <Link to="/people/import">
+                    <Upload aria-hidden /> Import
+                  </Link>
+                </Button>
+                <Button asChild variant="primary" size="sm">
+                  <Link to="/people/new">
+                    <UserPlus aria-hidden /> Add employee
+                  </Link>
+                </Button>
+              </>
+            ) : null}
           </>
         }
       />
@@ -281,14 +288,16 @@ function PeoplePage() {
                   title="No employees yet"
                   description="Add your first employee, or import everyone from a spreadsheet."
                   actions={
-                    <>
-                      <Button asChild variant="primary" size="sm">
-                        <Link to="/people/new">Add employee</Link>
-                      </Button>
-                      <Button asChild size="sm">
-                        <Link to="/people/import">Import CSV</Link>
-                      </Button>
-                    </>
+                    canAdd ? (
+                      <>
+                        <Button asChild variant="primary" size="sm">
+                          <Link to="/people/new">Add employee</Link>
+                        </Button>
+                        <Button asChild size="sm">
+                          <Link to="/people/import">Import CSV</Link>
+                        </Button>
+                      </>
+                    ) : undefined
                   }
                 />
               )
