@@ -172,7 +172,7 @@ export function checkControls(settings: AttendanceSettings, input: PunchInput, i
     if (settings.locationEnforcement === "block") {
       throw new AppError(
         "outside_location",
-        "Your company needs your location to clock in. Allow location for this site in your browser, then try again.",
+        "Your company needs your location to clock in. Allow location for Crow HR in your browser or phone settings, then clock in again.",
         { reason: "no_location" },
       );
     }
