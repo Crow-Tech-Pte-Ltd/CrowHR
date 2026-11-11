@@ -92,13 +92,16 @@ support once a version has shipped with it, so the iPad layouts are designed, no
 - **Side by side:** Payslips is a `NavigationSplitView`: the list (plain rows, no `List`) beside
   the payslip (the latest opens first, the selected row is kuning-50). Where there isn't room
   (under 720 pt, such as a narrow Stage Manager window; at accessibility text sizes under
-  1,200 pt) it collapses to the phone's list-then-payslip. Today puts the next shifts (up to six)
-  beside the clock card when its column is at least 820 pt wide (a 13-inch iPad either way up).
+  1,200 pt) it collapses to the phone's list-then-payslip. Approvals follow the same rule: the
+  list beside the chosen request's decision (the first one open at first, the next one after each
+  decision), a sheet where there isn't room. Today puts the next shifts (up to six) beside the
+  clock card when its column is at least 820 pt wide (a 13-inch iPad either way up).
 - **Orientations and multitasking:** all four on iPad (`UISupportedInterfaceOrientations~ipad`), no
   `UIRequiresFullScreen`, so Split View, Slide Over and Stage Manager resizing work; one scene (a
   second window would share the signed-in state). The iPhone stays portrait only.
-- **Sheets:** the payslip PDF opens page-sized, the server confirmation and the QR scanner
-  form-sized.
+- **Sheets:** the payslip PDF, Apply for leave and New claim open page-sized (so New claim's
+  Submit button is on screen), the server confirmation, the QR scanner and the decision (where it
+  isn't beside the list) form-sized.
 - **Keyboard and pointer:** Command-key shortcuts (`GoShortcuts`; hold Command to list them):
   Command-1 to 8 for Today, Leave, Payslips, Inbox, Claims, Schedule, Profile and Settings, under
   More when the tab bar doesn't show the screen. Not Command-comma: iPadOS keeps that for the
@@ -134,7 +137,18 @@ support once a version has shipped with it, so the iPad layouts are designed, no
   - Punches the server refuses (for example, more than 7 days old) stay on Today with the
     server's reason until the user dismisses them.
 - **Notifications:** `GET /api/v1/notifications` with the opaque `since` cursor. Servers without
-  `cursor` fall back to the shared `createdAt` rules.
+  `cursor` fall back to the shared `createdAt` rules. Only signing in marks the inbox seen (a cold
+  start can be iOS launching the app for a background refresh).
+- **Approvals:** the decision shows the request's `summary` (lines and context) and comments from
+  `GET /api/v1/approvals/requests/{id}`, as the web and Android do. A 409 `already_decided` (or a
+  404) refreshes the list.
+- **Sessions:** a refresh ends the session only when the server answers a 4xx with its own error
+  envelope (`invalid_grant`); a certificate error, an unreadable reply or a proxy's error page keeps
+  the tokens. With the lock on, the app asks on every cold start and after more than 5 minutes in
+  the background, as on Android.
+- **Leave:** "My leave" always passes `employeeId` (from `/me`, waited for): without it the list
+  endpoint returns everything the caller may see. A sign-in without an employee record gets an
+  explanation instead.
 
 ## App icon
 
@@ -154,9 +168,8 @@ The Crow Tech crow standing on a kuning "HR" card, in the style of Crow Tech's o
   and `-uitest` only).
 - iPad: build 5 (in App Review since 12 Nov 2026) is the first with iPad support. Real Split View,
   Slide Over and Stage Manager resizing are not driven by tests (see "Testing a compact width").
-  Approvals open as a sheet, not beside the list, and Apply for leave, New claim and the approval
-  decision use the system's default form sheet, which in landscape on a 13-inch iPad leaves New
-  claim's Submit button below the fold (it scrolls).
+  In build 5 approvals still open as a sheet and New claim's Submit button is below the fold on a
+  13-inch iPad; both are fixed on main (12 Nov 2026 QA pass) for the next version.
 - The App Privacy answers have no public API and are set by hand in App Store Connect. The
   submission itself is `scripts/ios-store-review.py submit` (1.0.0 build 5: 12 Nov 2026).
 
