@@ -2,7 +2,7 @@
 
 All notable changes to Crow HR are recorded here. Versions follow [semantic versioning](https://semver.org/): the Docker image tags `1`, `1.x` and `1.x.y` move with it, and the `/api/v1` API stays additive-only within a major version.
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-11-11
 
 The first public release: free, MIT-licensed HR and payroll for Singapore SMEs that you host yourself.
 
