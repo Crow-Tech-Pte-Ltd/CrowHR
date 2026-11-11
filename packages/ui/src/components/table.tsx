@@ -5,14 +5,46 @@ import { cn } from "../lib/cn.ts";
  * Dense table primitives: 40px rows, sticky header, mono uppercase column
  * labels, `numeric` cells right-aligned in tabular Azeret Mono.
  */
+/** True while the element's content is wider than the element (it scrolls sideways). */
+export function useScrollsSideways(ref: React.RefObject<HTMLElement | null>): boolean {
+  const [scrolls, setScrolls] = React.useState(false);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const check = () => setScrolls(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
+  }, [ref]);
+  return scrolls;
+}
+
 export const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement> & { containerClassName?: string }
->(({ className, containerClassName, ...props }, ref) => (
-  <div className={cn("relative w-full overflow-auto", containerClassName)}>
-    <table ref={ref} className={cn("w-full caption-bottom border-collapse text-ui", className)} {...props} />
-  </div>
-));
+>(({ className, containerClassName, ...props }, ref) => {
+  const box = React.useRef<HTMLDivElement>(null);
+  // A table wider than the screen can be scrolled with the keyboard too (WCAG 2.1.1).
+  const scrolls = useScrollsSideways(box);
+  const label = props["aria-label"];
+  return (
+    <div
+      ref={box}
+      className={cn("relative w-full overflow-auto", scrolls && "focus-ring", containerClassName)}
+      {...(scrolls
+        ? {
+            tabIndex: 0,
+            role: "region",
+            "aria-label": label ? `${label} (scrolls sideways)` : "Table (scrolls sideways)",
+          }
+        : {})}
+    >
+      <table ref={ref} className={cn("w-full caption-bottom border-collapse text-ui", className)} {...props} />
+    </div>
+  );
+});
 Table.displayName = "Table";
 
 export const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(

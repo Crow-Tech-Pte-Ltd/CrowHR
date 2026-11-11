@@ -13,8 +13,14 @@ export function PageHeader({
   kicker,
   crumbs,
   actions,
+  leading,
+  trailing,
 }: {
   title: React.ReactNode;
+  /** Shown before the title, outside the heading (an avatar). */
+  leading?: React.ReactNode;
+  /** Shown after the title, outside the heading (status pills), so the page title stays just the name. */
+  trailing?: React.ReactNode;
   description?: React.ReactNode;
   kicker?: React.ReactNode;
   crumbs?: Crumb[];
@@ -44,7 +50,15 @@ export function PageHeader({
         {kicker ? (
           <p className="font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200">{kicker}</p>
         ) : null}
-        <h1 className="text-xl font-semibold leading-7 sm:text-[22px]">{title}</h1>
+        {leading || trailing ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {leading}
+            <h1 className="text-xl font-semibold leading-7 sm:text-[22px]">{title}</h1>
+            {trailing}
+          </div>
+        ) : (
+          <h1 className="text-xl font-semibold leading-7 sm:text-[22px]">{title}</h1>
+        )}
         {description ? <p className="max-w-2xl text-ui leading-5 text-primary-300">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}

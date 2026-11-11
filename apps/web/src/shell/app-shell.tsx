@@ -1,16 +1,17 @@
 import { cn, Toaster, TooltipProvider } from "@crowhr/ui";
 import * as React from "react";
+import { useMe } from "../auth/session.ts";
 import { CommandPalette } from "./command-palette.tsx";
 import { BottomTabBar, NavDrawer } from "./mobile-nav.tsx";
 import { Sidebar } from "./sidebar.tsx";
 import { TopBar } from "./top-bar.tsx";
-import { usePersistentBoolean, useViewMode } from "./view-mode.tsx";
+import { useLayoutMode, usePersistentBoolean } from "./view-mode.tsx";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = usePersistentBoolean("crowhr.sidebarCollapsed", false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const { mode } = useViewMode();
+  const { mode } = useLayoutMode(useMe().roles);
 
   return (
     <TooltipProvider delayDuration={300}>

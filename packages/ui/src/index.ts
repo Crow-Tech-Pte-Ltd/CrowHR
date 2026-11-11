@@ -33,5 +33,6 @@ export * from "./components/tabs.tsx";
 export * from "./components/textarea.tsx";
 export * from "./components/toaster.tsx";
 export * from "./components/tooltip.tsx";
+export { appNow, appNowMs, setAppClockOffset, singaporeTodayIso } from "./lib/clock.ts";
 export { cn } from "./lib/cn.ts";
 export * from "./lib/format.ts";

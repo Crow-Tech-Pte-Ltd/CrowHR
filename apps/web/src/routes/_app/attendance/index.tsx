@@ -1,4 +1,5 @@
 import {
+  appNow,
   Button,
   Card,
   CardHeader,
@@ -36,9 +37,9 @@ export const Route = createFileRoute("/_app/attendance/")({
 const PDPA_ACK = "crowhr.pdpaAck.v1";
 
 function useNow() {
-  const [now, setNow] = React.useState(() => new Date());
+  const [now, setNow] = React.useState(() => appNow());
   React.useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 1000);
+    const id = window.setInterval(() => setNow(appNow()), 1000);
     return () => window.clearInterval(id);
   }, []);
   return now;

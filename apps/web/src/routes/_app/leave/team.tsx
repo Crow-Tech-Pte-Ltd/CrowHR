@@ -1,4 +1,4 @@
-import { Button, Card, cn, EmptyState, Skeleton, Tabs, TabsList, TabsTrigger } from "@crowhr/ui";
+import { Button, Card, cn, EmptyState, Skeleton } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CalendarCheck2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -67,12 +67,27 @@ function TeamCalendarPage() {
           </span>
         </div>
         {wide ? (
-          <Tabs value={view} onValueChange={(v) => go({ view: v as "team" | "org" })}>
-            <TabsList>
-              <TabsTrigger value="team">{scopes.includes("all") ? "Everyone" : "My team"}</TabsTrigger>
-              <TabsTrigger value="org">Who's away</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          // A view switch over the same calendar, so toggle buttons rather than tabs (no separate panels).
+          <fieldset className="flex h-10 items-end gap-1 border-b border-border">
+            <legend className="sr-only">Calendar view</legend>
+            {(
+              [
+                ["team", scopes.includes("all") ? "Everyone" : "My team"],
+                ["org", "Who's away"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={view === value}
+                data-state={view === value ? "active" : "inactive"}
+                onClick={() => go({ view: value })}
+                className="focus-ring -mb-px inline-flex h-9 items-center whitespace-nowrap border-b-2 border-transparent px-3 font-azeret text-xs font-medium text-primary-200 transition-colors hover:text-ink data-[state=active]:border-ink data-[state=active]:text-ink"
+              >
+                {label}
+              </button>
+            ))}
+          </fieldset>
         ) : null}
       </div>
       {q.isError ? (
@@ -150,14 +165,14 @@ function Grid({ data, onOpen }: { data: CalendarView; onOpen: (id: string) => vo
                 className={cn(
                   "border-b border-l border-border px-0.5 py-1.5 text-center font-azeret text-2xs font-medium",
                   isWeekend(d) && "bg-surface-100 text-primary-200",
-                  holiday.has(d) && "bg-oren-50/30 text-oren-400",
+                  holiday.has(d) && "bg-oren-50/30 text-ink",
                 )}
               >
                 <span className="block">{weekdayOf(d)}</span>
                 <span className={cn("num block text-xs", d === today && "rounded-sm bg-ink text-surface-50")}>
                   {Number(d.slice(8))}
                 </span>
-                {holiday.has(d) ? <span className="block text-[9px] leading-3">PH</span> : null}
+                {holiday.has(d) ? <span className="block text-[10px] font-semibold leading-3">PH</span> : null}
               </th>
             ))}
           </tr>
@@ -275,7 +290,7 @@ function DayList({ data, onOpen }: { data: CalendarView; onOpen: (id: string) =>
             <span className="num">
               {weekdayOf(date)} {dateRange(date, date)}
             </span>
-            {holiday.has(date) ? <span className="normal-case text-oren-400">{holiday.get(date)}</span> : null}
+            {holiday.has(date) ? <span className="normal-case text-ink">{holiday.get(date)}</span> : null}
           </h3>
           {people.length ? (
             <ul className="divide-y divide-border rounded-lg border border-border bg-surface-50">

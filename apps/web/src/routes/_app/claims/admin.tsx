@@ -237,13 +237,14 @@ function ClaimsAdminPage() {
       cell: ({ row }) => {
         const r = row.original;
         return (
-          <span className="flex items-center gap-2 whitespace-nowrap">
+          // Wraps under the pill when space is short, so the table fits a laptop screen without scrolling.
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <ClaimStatusPill status={r.status} />
             {r.status === "submitted" && r.daysWaiting !== null && r.daysWaiting > 7 ? (
-              <span className="num text-2xs font-medium text-warning-400">{r.daysWaiting} days</span>
+              <span className="num whitespace-nowrap text-2xs font-medium text-warning-400">{r.daysWaiting} days</span>
             ) : null}
             {r.approverTask && r.status === "submitted" ? (
-              <Link to="/inbox" className="text-2xs font-medium text-biru-400 hover:underline">
+              <Link to="/inbox" className="whitespace-nowrap text-2xs font-medium text-biru-400 hover:underline">
                 Decide in Inbox
               </Link>
             ) : null}

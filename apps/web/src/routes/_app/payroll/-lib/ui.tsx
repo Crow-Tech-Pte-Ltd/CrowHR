@@ -310,7 +310,7 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
       <p className="mt-5 text-2xs text-primary-200">
         Itemised payslip with the items MOM requires.{" "}
         <a
-          className="text-biru-400 hover:underline"
+          className="text-biru-400 underline underline-offset-2"
           href="https://www.mom.gov.sg/employment-practices/salary/itemised-payslips"
           target="_blank"
           rel="noreferrer"

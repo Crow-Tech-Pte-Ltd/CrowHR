@@ -29,7 +29,7 @@ import { ErrorNote } from "../components/section.tsx";
 import { type Inbox, type InboxItem, inboxQuery, useDecide } from "../workflows/api.ts";
 import { DecisionButtons, DuePill, OriginBadge, RejectDialog } from "../workflows/decision-controls.tsx";
 import { ageLabel } from "../workflows/format.ts";
-import { daysBetween, weekday } from "./dates.ts";
+import { daysBetween, daysLeftLabel, weekday } from "./dates.ts";
 
 const SECTION_SOURCES = new Set(["approvals", "work_passes", "probation", "setup", "backups", "payroll"]);
 
@@ -436,7 +436,7 @@ function DaysLeft({ dueOn, today }: { dueOn: string; today: string }) {
   return (
     <div className="flex shrink-0 flex-col items-end gap-1">
       <StatusPill tone={days <= 30 ? "danger" : days <= 60 ? "warning" : "neutral"}>
-        <span className="num normal-case">{days === 0 ? "today" : `${days} ${days === 1 ? "day" : "days"}`}</span>
+        <span className="num normal-case">{daysLeftLabel(days)}</span>
       </StatusPill>
       <span className="num text-2xs text-primary-200">{formatDate(dueOn)}</span>
     </div>

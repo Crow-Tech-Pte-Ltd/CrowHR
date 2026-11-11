@@ -1,4 +1,5 @@
 import type { ErrorEnvelope } from "@crowhr/core";
+import { appNow } from "@crowhr/ui/clock";
 import { useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { attKeys, type Punch } from "./api.ts";
@@ -97,7 +98,7 @@ export function usePunchQueue() {
     const next = enqueue(store.load(), {
       idempotencyKey: newKey(),
       kind,
-      deviceTime: new Date().toISOString(),
+      deviceTime: appNow().toISOString(),
       location,
     });
     store.save(next);

@@ -1,5 +1,5 @@
 import type { PayrollIr8aPreviewDto } from "@crowhr/core";
-import { Button, Card, formatDate, toast } from "@crowhr/ui";
+import { Button, Card, formatDate, singaporeTodayIso, toast } from "@crowhr/ui";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { Download, ExternalLink } from "lucide-react";
 import * as React from "react";
@@ -15,7 +15,7 @@ export const ir8aQuery = (year: number) =>
 
 /** Year end: IR8A rows for IRAS's import template (Appendix 8A is not produced). */
 export function Ir8aPanel({ years }: { years: number[] }) {
-  const today = new Date(Date.now() + 8 * 3_600_000).toISOString();
+  const today = singaporeTodayIso();
   const thisYear = Number(today.slice(0, 4));
   // Jan–Mar is filing season for the previous year.
   const preferred = Number(today.slice(5, 7)) <= 3 ? thisYear - 1 : thisYear;

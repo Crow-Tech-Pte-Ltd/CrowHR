@@ -1,11 +1,11 @@
-import { Button, cn, Popover, PopoverContent, PopoverTrigger, Skeleton } from "@crowhr/ui";
+import { Button, cn, Popover, PopoverContent, PopoverTrigger, Skeleton, singaporeTodayIso } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import { Bell } from "lucide-react";
 import * as React from "react";
 import { apiPost } from "../lib/api.ts";
 import { type NotificationItem, notificationsQuery, unreadQuery } from "../workflows/api.ts";
-import { ageLabel, sgDate } from "../workflows/format.ts";
+import { ageLabel } from "../workflows/format.ts";
 import { shellExtensions } from "./extensions.ts";
 
 /** Top-bar bell with the unread count (workflows "In-app notifications"). */
@@ -17,7 +17,7 @@ export function NotificationBell() {
   const list = useQuery({ ...notificationsQuery, enabled: open });
   const count = unread.data?.unread ?? 0;
   const Footer = shellExtensions.NotificationsFooter;
-  const today = sgDate(new Date().toISOString());
+  const today = singaporeTodayIso();
   const refresh = () => void qc.invalidateQueries({ queryKey: ["notifications"] });
   const markAll = useMutation({ mutationFn: () => apiPost("/api/v1/notifications/read-all"), onSuccess: refresh });
   const openOne = async (n: NotificationItem) => {

@@ -19,6 +19,7 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem,
+  singaporeTodayIso,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -132,8 +133,7 @@ const columns: ColumnDef<PayrollRunSummaryDto, unknown>[] = [
 ];
 
 function nextMonth(): string {
-  const now = new Date(Date.now() + 8 * 3_600_000);
-  return now.toISOString().slice(0, 7);
+  return singaporeTodayIso().slice(0, 7);
 }
 
 function Runs() {

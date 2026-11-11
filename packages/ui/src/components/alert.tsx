@@ -33,9 +33,10 @@ export const Alert = React.forwardRef<
 ));
 Alert.displayName = "Alert";
 
-export const AlertTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
+/** Bold first line of an alert. Not a heading: alerts sit anywhere in a page's outline. */
+export const AlertTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    <h5 ref={ref} className={cn("font-azeret text-xs font-semibold leading-5", className)} {...props} />
+    <p ref={ref} className={cn("font-azeret text-xs font-semibold leading-5", className)} {...props} />
   ),
 );
 AlertTitle.displayName = "AlertTitle";

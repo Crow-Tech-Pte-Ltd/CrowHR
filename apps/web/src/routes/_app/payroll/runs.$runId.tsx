@@ -223,9 +223,9 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
     <>
       <PageHeader
         crumbs={[{ label: "Payroll", to: "/payroll" }]}
-        title={
+        title={runTitle(run)}
+        trailing={
           <span className="flex flex-wrap items-center gap-2.5">
-            {runTitle(run)}
             <RunStatusPill status={run.status} superseded={!!run.supersededByRunId} />
             {run.releasedAt ? (
               <span className="font-azeret text-2xs uppercase tracking-wide text-primary-200">Payslips released</span>
@@ -424,18 +424,19 @@ function TotalsCard({ o }: { o: PayrollOverviewDto }) {
   const editable = o.run.status === "draft" || o.run.status === "in_review";
   return (
     <Card variant={editable && !o.run.supersededByRunId ? "emphasis" : "default"} className="mb-5">
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[inherit] bg-border sm:grid-cols-3 lg:grid-cols-9">
+      {/* Wrapping flex, not a fixed 9-column grid: amounts of any size fit, and a full row never leaves gaps. */}
+      <dl className="flex flex-wrap gap-px overflow-hidden rounded-[inherit] bg-border">
         {cells.map(([k, v, title]) => (
-          <div key={k} className="bg-card px-3 py-2.5" title={title}>
+          <div key={k} className="flex-[1_1_7rem] bg-card px-3 py-2.5" title={title}>
             <dt className="font-azeret text-[10px] uppercase tracking-wider text-primary-200">{k}</dt>
-            <dd className="num mt-0.5 text-ui">{typeof v === "number" ? formatMoney(v) : v}</dd>
+            <dd className="num mt-0.5 whitespace-nowrap text-ui">{typeof v === "number" ? formatMoney(v) : v}</dd>
           </div>
         ))}
-        <div className="col-span-2 bg-kuning-50 px-3 py-2.5 sm:col-span-3 lg:col-span-1">
+        <div className="flex-[1.4_1_9rem] bg-kuning-50 px-3 py-2.5">
           <dt className="font-azeret text-[10px] uppercase tracking-wider text-primary-300">
             {o.run.kind === "adjustment" ? "Net to pay now" : "Net pay"}
           </dt>
-          <dd className="num mt-0.5 text-base font-semibold">{formatMoney(t.netPayableCents)}</dd>
+          <dd className="num mt-0.5 whitespace-nowrap text-base font-semibold">{formatMoney(t.netPayableCents)}</dd>
         </div>
       </dl>
     </Card>

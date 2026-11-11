@@ -40,7 +40,7 @@
     --warning-100: 35 85% 84%;
     --warning-200: 35 85% 64%;
     --warning-300: 34 85% 53%;
-    --warning-400: 34 86% 35%;
+    --warning-400: 34 86% 32%; /* #985B0B: 4.5:1 or better on warning-50 and white */
 
     --biru-50: 220 87% 89%;
     --biru-100: 220 82% 79%;
@@ -101,6 +101,11 @@
   h3,
   h4 {
     @apply font-azeret tracking-tight;
+  }
+
+  /* Decorative icons keep their size beside long text in flex rows (they never shrink to a dot). */
+  svg[aria-hidden="true"] {
+    flex-shrink: 0;
   }
 
   ::selection {
