@@ -35,6 +35,8 @@ export const auditEvents = pgTable(
     unique("audit_events_org_seq_unique").on(t.orgId, t.seq),
     index("audit_events_org_at_idx").on(t.orgId, t.at),
     index("audit_events_org_action_idx").on(t.orgId, t.action),
+    // A record's history: approval eligibility (who filed a request), payroll segregation, the audit filter.
+    index("audit_events_org_target_idx").on(t.orgId, t.targetType, t.targetId),
   ],
 );
 

@@ -7,7 +7,7 @@ import { displayDate, isIsoDate } from "../employees/dates.ts";
 import { asAtMany } from "../employees/effective.ts";
 import { membersOn } from "../employees/reports/people-data.ts";
 import { inBatches, type ReportDefinition, type ReportRow, type ReportSource } from "../reporting/types.ts";
-import { balancesFor } from "./balances.ts";
+import { balancesFor, loadBalanceFacts } from "./balances.ts";
 import { loadEmployeesTime, workingDaysPerWeekOn } from "./calendar.ts";
 import { ensureLeaveSetup } from "./defaults.ts";
 
@@ -185,10 +185,18 @@ export const leaveBalancesReport: ReportDefinition<z.output<ReturnType<typeof ba
     const year = Number(p.asAt.slice(0, 4));
     for (let i = 0; i < members.length; i += 100) {
       const out: ReportRow[] = [];
-      for (const m of members.slice(i, i + 100)) {
+      const batch = members.slice(i, i + 100);
+      const facts = await loadBalanceFacts(
+        ctx.db,
+        ctx.orgId,
+        batch.map((m) => m.employeeId),
+        year,
+        p.asAt,
+      );
+      for (const m of batch) {
         const t = times.get(m.employeeId);
         if (!t) continue;
-        for (const b of await balancesFor(ctx.db, t, types, year, p.asAt)) {
+        for (const b of await balancesFor(ctx.db, t, types, year, p.asAt, facts)) {
           if (!b.tracked || !b.eligible) continue;
           const comp = pay.get(m.employeeId);
           let liability: number | null = null;

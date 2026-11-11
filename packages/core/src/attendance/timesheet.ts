@@ -261,6 +261,27 @@ export async function timesheets(
       ),
     )
     .orderBy(asc(overtimeClaims.createdAt));
+  // Grouped once by employee and day (in query order): a month for a few hundred people is tens of
+  // thousands of days, and filtering every row for each of them blocked the event loop.
+  const key = (employeeId: string, date: string) => `${employeeId}|${date}`;
+  const punchesBy = new Map<string, (typeof punches)[number][]>();
+  for (const p of punches) {
+    const k = key(p.employeeId, p.workDate);
+    const list = punchesBy.get(k);
+    if (list) list.push(p);
+    else punchesBy.set(k, [p]);
+  }
+  const leaveBy = new Map<string, { session: (typeof leave)[number]["session"]; label: string }[]>();
+  for (const l of leave) {
+    const k = key(l.employeeId, l.date);
+    const item = { session: l.session, label: l.name };
+    const list = leaveBy.get(k);
+    if (list) list.push(item);
+    else leaveBy.set(k, [item]);
+  }
+  // The latest claim of a day wins (claims are ordered by creation).
+  const claimBy = new Map<string, (typeof claims)[number]>();
+  for (const c of claims) claimBy.set(key(c.employeeId, c.workDate), c);
   for (const [employeeId, t] of times) {
     const out: DayRecord[] = [];
     for (let d = from; d <= to; d = addDays(d, 1)) {
@@ -268,14 +289,12 @@ export async function timesheets(
         date: d,
         today,
         info: dayInfo(t, d),
-        leave: leave
-          .filter((l) => l.employeeId === employeeId && l.date === d)
-          .map((l) => ({ session: l.session, label: l.name })),
-        punches: punches.filter((p) => p.employeeId === employeeId && p.workDate === d),
+        leave: leaveBy.get(key(employeeId, d)) ?? [],
+        punches: punchesBy.get(key(employeeId, d)) ?? [],
         settings,
         scheduleId: scheduleOn(t, d)?.schedule.id ?? null,
       });
-      const claim = [...claims].reverse().find((c) => c.employeeId === employeeId && c.workDate === d);
+      const claim = claimBy.get(key(employeeId, d));
       if (claim) {
         record.otClaim = {
           id: claim.id,

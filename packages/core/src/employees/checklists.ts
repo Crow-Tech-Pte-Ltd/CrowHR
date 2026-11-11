@@ -354,24 +354,6 @@ export interface ChecklistInboxItem {
  * `InboxSource` interface once it lands (WS3).
  */
 export async function checklistInbox(deps: AppDeps, actor: Actor): Promise<ChecklistInboxItem[]> {
-  const rows = await deps.db
-    .select({
-      itemId: checklistItems.id,
-      title: checklistItems.title,
-      dueOn: checklistItems.dueOn,
-      role: checklistItems.assigneeRole,
-      employeeId: checklists.employeeId,
-      kind: checklists.kind,
-      name: employees.legalName,
-    })
-    .from(checklistItems)
-    .innerJoin(
-      checklists,
-      and(eq(checklists.orgId, checklistItems.orgId), eq(checklists.id, checklistItems.checklistId)),
-    )
-    .innerJoin(employees, and(eq(employees.orgId, checklists.orgId), eq(employees.id, checklists.employeeId)))
-    .where(actor.org.where(checklistItems, eq(checklistItems.status, "open")))
-    .orderBy(asc(checklistItems.dueOn));
   // The team as at today, plus future starters whose upcoming record names the actor as manager.
   const team = new Set(await actor.team());
   if (actor.employeeId) {
@@ -390,24 +372,43 @@ export async function checklistInbox(deps: AppDeps, actor: Actor): Promise<Check
       );
     for (const u of upcoming) team.add(u.id);
   }
-  const out: ChecklistInboxItem[] = [];
-  for (const r of rows) {
-    const mine =
-      (r.role === "hr_admin" && hasAnyRole(actor, ["hr_admin"])) ||
-      (r.role === "payroll_admin" && hasAnyRole(actor, ["payroll_admin"])) ||
-      (r.role === "employee" && actor.employeeId === r.employeeId) ||
-      (r.role === "manager" && team.has(r.employeeId));
-    if (mine) {
-      out.push({
-        itemId: r.itemId,
-        employeeId: r.employeeId,
-        title: `${r.title}: ${r.name}`,
-        dueOn: r.dueOn,
-        kind: r.kind,
-      });
-    }
-  }
-  return out;
+  // Only the items this member acts on are loaded: every open item of the organisation grows with
+  // each hire and leaver, and this runs on every Home load.
+  const assigned = [
+    hasAnyRole(actor, ["hr_admin"]) ? eq(checklistItems.assigneeRole, "hr_admin") : undefined,
+    hasAnyRole(actor, ["payroll_admin"]) ? eq(checklistItems.assigneeRole, "payroll_admin") : undefined,
+    actor.employeeId
+      ? and(eq(checklistItems.assigneeRole, "employee"), eq(checklists.employeeId, actor.employeeId))
+      : undefined,
+    team.size > 0
+      ? and(eq(checklistItems.assigneeRole, "manager"), inArray(checklists.employeeId, [...team]))
+      : undefined,
+  ].filter((c) => c !== undefined);
+  if (assigned.length === 0) return [];
+  const rows = await deps.db
+    .select({
+      itemId: checklistItems.id,
+      title: checklistItems.title,
+      dueOn: checklistItems.dueOn,
+      employeeId: checklists.employeeId,
+      kind: checklists.kind,
+      name: employees.legalName,
+    })
+    .from(checklistItems)
+    .innerJoin(
+      checklists,
+      and(eq(checklists.orgId, checklistItems.orgId), eq(checklists.id, checklistItems.checklistId)),
+    )
+    .innerJoin(employees, and(eq(employees.orgId, checklists.orgId), eq(employees.id, checklists.employeeId)))
+    .where(actor.org.where(checklistItems, eq(checklistItems.status, "open"), or(...assigned)))
+    .orderBy(asc(checklistItems.dueOn), asc(employees.legalName), asc(checklistItems.position), asc(checklistItems.id));
+  return rows.map((r) => ({
+    itemId: r.itemId,
+    employeeId: r.employeeId,
+    title: `${r.title}: ${r.name}`,
+    dueOn: r.dueOn,
+    kind: r.kind,
+  }));
 }
 
 export function describeDue(dueOn: string): string {
