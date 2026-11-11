@@ -157,6 +157,22 @@ describe("approvals HTTP", () => {
       ],
     });
     expect(twoDefaults.status).toBe(400);
+    // Rules are exactly as documented: lower case, and a member is a membership ID (never a 500).
+    for (const approverRule of [
+      "Manager",
+      "ROLE:owner",
+      `MEMBER:${w.m.head.membershipId}`,
+      `member:${"-".repeat(36)}`,
+    ]) {
+      const res = await asHr.put("/api/v1/approvals/policies/claim", {
+        policies: [{ name: "Default", condition: null, steps: [{ approverRule }] }],
+      });
+      expect(res.status, approverRule).toBe(400);
+      expect(
+        ((await res.json()) as { error: { details: { issues: { message: string }[] } } }).error.details.issues[0]
+          ?.message,
+      ).toMatch(/Choose manager/);
+    }
     expect(
       (
         await asHr.put("/api/v1/approvals/policies/payroll_run", {
