@@ -290,6 +290,45 @@ describe("workflows × people", () => {
     expect((await tick(deps)).reminders).toBe(0);
   });
 
+  it("Home reads only its own organisation's passes and probations", async () => {
+    const ports = defaultPeoplePorts(deps);
+    await addWorkPass(deps, ports, harness.actor(HR), emp.other, {
+      passType: "S_PASS",
+      passNumber: "G1234567X",
+      issuedOn: "2025-01-02",
+      expiresOn: "2026-11-25",
+    });
+    const range = { today: "2026-10-31", until: "2027-01-31" };
+    const { peopleDates } = await import("./people.ts");
+    expect((await peopleDates.workPassesExpiring(deps.db, { ...range, orgId })).length).toBe(1);
+    expect(await peopleDates.workPassesExpiring(deps.db, { ...range, orgId: deps.ids.newId() })).toEqual([]);
+    expect((await peopleDates.probationsEnding(deps.db, { ...range, orgId })).length).toBeGreaterThan(0);
+    expect(await peopleDates.probationsEnding(deps.db, { ...range, orgId: deps.ids.newId() })).toEqual([]);
+    // The Home sources ask for the member's organisation only (never every organisation's names).
+    const asked: (string | undefined)[] = [];
+    const spy = {
+      workPassesExpiring: (
+        db: Parameters<typeof peopleDates.workPassesExpiring>[0],
+        r: { orgId?: string; today: string; until: string },
+      ) => {
+        asked.push(r.orgId);
+        return peopleDates.workPassesExpiring(db, r);
+      },
+      probationsEnding: (
+        db: Parameters<typeof peopleDates.probationsEnding>[0],
+        r: { orgId?: string; today: string; until: string },
+      ) => {
+        asked.push(r.orgId);
+        return peopleDates.probationsEnding(db, r);
+      },
+    };
+    const spied = createTestDeps(t.db, { clock, reportingScope: createReportingScopeResolver(t.db), peopleDates: spy });
+    const asHr = await clientAs(createApp(spied), spied, m.hr);
+    expect((await asHr.get("/api/v1/inbox")).status).toBe(200);
+    expect(asked.length).toBe(2);
+    expect(asked.every((o) => o === orgId)).toBe(true);
+  });
+
   it("the sweep runs the former-membership transition", async () => {
     const ports = defaultPeoplePorts(deps);
     await applyEvent(ctxFor(deps, ports, harness.actor(OWNER)), emp.other, {

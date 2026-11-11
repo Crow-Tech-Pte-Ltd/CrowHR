@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type { AssignedRole } from "../access/matrix.ts";
 import { orgScope } from "../access/org-scope.ts";
 import { singaporeDate } from "../access/scope.ts";
@@ -577,6 +577,31 @@ async function finalise(ctx: Ctx, request: ApprovalRequest, decision: FinalDecis
   });
 }
 
+/**
+ * After a step was skipped outside a decision (re-routing, a member who left): moves the chain on
+ * and, when every later step is skipped and an earlier one was approved, finishes the request as
+ * approved by its last approval, exactly as the decision that approved that step would have.
+ */
+async function advanceOrFinish(ctx: Ctx, request: ApprovalRequest): Promise<"pending" | "approved"> {
+  if ((await advance(ctx, request)) === "pending") return "pending";
+  const [last] = await ctx.db
+    .select()
+    .from(approvalTasks)
+    .where(and(eq(approvalTasks.requestId, request.id), eq(approvalTasks.status, "approved")))
+    .orderBy(desc(approvalTasks.decidedAt))
+    .limit(1);
+  if (!last) throw new Error(`approval request ${request.id} completed without an approved task`);
+  await finalise(ctx, request, {
+    outcome: "approved",
+    decidedByMembershipId: last.assigneeMembershipId,
+    onBehalfOfMembershipId: last.onBehalfOfMembershipId,
+    comment: last.comment,
+    selfApproved: last.selfApproved,
+    decidedAt: ctx.now,
+  });
+  return "approved";
+}
+
 // ---------------------------------------------------------------------------------------------
 // Public API: submit, decide, withdraw, comment, reassign, reroute
 // ---------------------------------------------------------------------------------------------
@@ -1079,6 +1104,14 @@ export async function reassignTask(
     const [task] = await tx.select().from(approvalTasks).where(eq(approvalTasks.id, found.id));
     if (task?.status !== "pending" || request.status !== "pending")
       throw await alreadyDecided(tx, deps, request, found);
+    if (task.origin === "delegated" && task.onBehalfOfMembershipId) {
+      // The cover would just come back on the next sweep while its holder's task is open.
+      const away = await memberName(ctx, request.orgId, task.onBehalfOfMembershipId);
+      throw new AppError(
+        "conflict",
+        `This task covers for ${away} while they're away. Reassign ${away}'s own task instead, or change their out-of-office cover.`,
+      );
+    }
     const target = await approverDirectory(deps).member(tx, actor.orgId, input.toMembershipId);
     // The new assignee must be someone who could decide this task: same role, allowed by the subject.
     const blocked = await decideBlocker(tx, deps, request, target, { viaRole: task.viaRole });
@@ -1095,10 +1128,22 @@ export async function reassignTask(
       });
     }
     if (!target) throw new AppError("not_found", "That member doesn't exist.");
+    // The task, and the cover tasks deciding it on its holder's behalf.
     await tx
       .update(approvalTasks)
       .set({ status: "superseded", supersededReason: "reassigned" })
-      .where(eq(approvalTasks.id, task.id));
+      .where(
+        or(
+          eq(approvalTasks.id, task.id),
+          and(
+            eq(approvalTasks.requestId, request.id),
+            eq(approvalTasks.position, task.position),
+            eq(approvalTasks.origin, "delegated"),
+            eq(approvalTasks.onBehalfOfMembershipId, task.assigneeMembershipId),
+            eq(approvalTasks.status, "pending"),
+          ),
+        ),
+      );
     const created = await insertTasks(ctx, request, [
       {
         position: task.position,
@@ -1154,6 +1199,7 @@ export async function onReportingLineChanged(
     if (step?.status !== "active") continue;
     if (step.approverRule !== "manager" && step.approverRule !== "manager_of_manager") continue;
     const resolution = await resolveRule(ctx, request, step.approverRule);
+    let requestStatus: "pending" | "approved" = "pending";
     const open = await db
       .select()
       .from(approvalTasks)
@@ -1191,14 +1237,14 @@ export async function onReportingLineChanged(
           .update(approvalSteps)
           .set({ status: "skipped", skipReason: resolution.skipReason })
           .where(and(eq(approvalSteps.requestId, id), eq(approvalSteps.position, step.position)));
-        await advance(ctx, request);
+        requestStatus = await advanceOrFinish(ctx, request);
       }
     }
     await recordAudit(db, deps, audit, {
       action: "approval.rerouted",
       targetType: "approval_request",
       targetId: id,
-      meta: { position: step.position, from: [...current], to: [...next] },
+      meta: { position: step.position, from: [...current], to: [...next], requestStatus },
     });
     moved++;
   }
@@ -1239,35 +1285,66 @@ export async function applyDelegationsToOpenTasks(
 /** Supersedes delegate tasks whose delegation has ended or was revoked. */
 export async function closeEndedDelegations(db: Db, deps: AppDeps, orgId?: string): Promise<number> {
   const today = singaporeDate(deps.clock.now());
-  const ended = await db
-    .select()
-    .from(delegations)
+  // From the open delegate tasks (few) rather than every cover that ever ended: a task stays only
+  // while a cover from the same person to the same delegate still covers its request type.
+  const open = await db
+    .select({
+      id: approvalTasks.id,
+      orgId: approvalTasks.orgId,
+      to: approvalTasks.assigneeMembershipId,
+      from: approvalTasks.onBehalfOfMembershipId,
+      subjectType: approvalRequests.subjectType,
+    })
+    .from(approvalTasks)
+    .innerJoin(approvalRequests, eq(approvalRequests.id, approvalTasks.requestId))
     .where(
       and(
-        orgId ? eq(delegations.orgId, orgId) : undefined,
-        or(sql`${delegations.endsOn} < ${today}`, sql`${delegations.revokedAt} is not null`),
+        orgId ? eq(approvalTasks.orgId, orgId) : undefined,
+        eq(approvalTasks.origin, "delegated"),
+        eq(approvalTasks.status, "pending"),
       ),
     );
-  let closed = 0;
-  for (const d of ended) {
-    const stillCovered = await activeDelegationsFrom(db, d.orgId, [d.fromMembershipId], today);
-    if (stillCovered.some((x) => x.toMembershipId === d.toMembershipId)) continue;
-    const rows = await db
-      .update(approvalTasks)
-      .set({ status: "superseded", supersededReason: "delegation_ended" })
-      .where(
-        and(
-          eq(approvalTasks.orgId, d.orgId),
-          eq(approvalTasks.assigneeMembershipId, d.toMembershipId),
-          eq(approvalTasks.onBehalfOfMembershipId, d.fromMembershipId),
-          eq(approvalTasks.origin, "delegated"),
-          eq(approvalTasks.status, "pending"),
+  if (!open.length) return 0;
+  const fromIds = [...new Set(open.map((t) => t.from).filter((id): id is string => !!id))];
+  const active = fromIds.length
+    ? await db
+        .select()
+        .from(delegations)
+        .where(
+          and(
+            orgId ? eq(delegations.orgId, orgId) : undefined,
+            inArray(delegations.fromMembershipId, fromIds),
+            isNull(delegations.revokedAt),
+            lte(delegations.startsOn, today),
+            gte(delegations.endsOn, today),
+          ),
+        )
+    : [];
+  const ended = open.filter(
+    (t) =>
+      !active.some(
+        (d) =>
+          d.orgId === t.orgId &&
+          d.fromMembershipId === t.from &&
+          d.toMembershipId === t.to &&
+          (!d.subjectTypes?.length || d.subjectTypes.includes(t.subjectType)),
+      ),
+  );
+  if (!ended.length) return 0;
+  const rows = await db
+    .update(approvalTasks)
+    .set({ status: "superseded", supersededReason: "delegation_ended" })
+    .where(
+      and(
+        inArray(
+          approvalTasks.id,
+          ended.map((t) => t.id),
         ),
-      )
-      .returning({ id: approvalTasks.id });
-    closed += rows.length;
-  }
-  return closed;
+        eq(approvalTasks.status, "pending"),
+      ),
+    )
+    .returning({ id: approvalTasks.id });
+  return rows.length;
 }
 
 /**
@@ -1330,7 +1407,55 @@ export async function retireInactiveApprovers(
   return removed;
 }
 
-async function reresolveEmptyStep(ctx: Ctx, request: ApprovalRequest, position: number, gone: ApprovalTask[]) {
+/**
+ * A member who lost a role keeps no task that only that role could decide (role steps, their
+ * escalations, and cover on their behalf): those tasks are superseded and an emptied step
+ * re-resolves, as when an approver leaves. Call it in the transaction that removes the roles.
+ */
+export async function retireRevokedRoleTasks(
+  db: Db,
+  deps: AppDeps,
+  audit: AuditContext,
+  input: { orgId: string; membershipId: string; roles: readonly string[] },
+): Promise<number> {
+  if (!input.roles.length) return 0;
+  const ctx: Ctx = { db, deps, audit, now: deps.clock.now() };
+  const held = and(
+    eq(approvalTasks.status, "pending"),
+    inArray(approvalTasks.viaRole, [...input.roles]),
+    or(
+      eq(approvalTasks.assigneeMembershipId, input.membershipId),
+      eq(approvalTasks.onBehalfOfMembershipId, input.membershipId),
+    ),
+  );
+  const open = await db
+    .select({ requestId: approvalTasks.requestId })
+    .from(approvalTasks)
+    .where(and(eq(approvalTasks.orgId, input.orgId), held));
+  let removed = 0;
+  for (const requestId of [...new Set(open.map((t) => t.requestId))].sort()) {
+    const request = await lockRequest(db, input.orgId, requestId);
+    if (request?.status !== "pending") continue;
+    const gone = await db
+      .update(approvalTasks)
+      .set({ status: "superseded", supersededReason: "role_removed" })
+      .where(and(eq(approvalTasks.requestId, requestId), held))
+      .returning();
+    removed += gone.length;
+    for (const position of [...new Set(gone.map((t) => t.position))]) {
+      await reresolveEmptyStep(ctx, request, position, gone, "role_removed");
+    }
+  }
+  return removed;
+}
+
+async function reresolveEmptyStep(
+  ctx: Ctx,
+  request: ApprovalRequest,
+  position: number,
+  gone: ApprovalTask[],
+  reason: "member_inactive" | "role_removed" = "member_inactive",
+) {
   const [left] = await ctx.db
     .select({ id: approvalTasks.id })
     .from(approvalTasks)
@@ -1348,10 +1473,25 @@ async function reresolveEmptyStep(ctx: Ctx, request: ApprovalRequest, position: 
     .from(approvalSteps)
     .where(and(eq(approvalSteps.requestId, request.id), eq(approvalSteps.position, position)));
   if (step?.status !== "active") return;
-  let resolution: Resolution = await resolveRule(ctx, request, step.approverRule);
-  if (!resolution.members.length) resolution = (await fallbackResolution(ctx, request)) ?? resolution;
+  const resolution: Resolution = await resolveRule(ctx, request, step.approverRule);
   const created = resolution.members.length ? await createStepTasks(ctx, request, step, resolution) : [];
+  let requestStatus: "pending" | "approved" = "pending";
   if (!created.length) {
+    // Like at submission, a step nobody can decide is skipped and the chain moves on (the fallback
+    // applies only when no step is left). Giving its task to HR here made HR decide the default
+    // manager-then-HR chain twice.
+    await ctx.db
+      .update(approvalSteps)
+      .set({ status: "skipped", skipReason: resolution.skipReason ?? "inactive" })
+      .where(and(eq(approvalSteps.requestId, request.id), eq(approvalSteps.position, position)));
+    requestStatus = await advanceOrFinish(ctx, request);
+  }
+  const [now] = await ctx.db
+    .select({ id: approvalTasks.id })
+    .from(approvalTasks)
+    .where(and(eq(approvalTasks.requestId, request.id), eq(approvalTasks.status, "pending")))
+    .limit(1);
+  if (requestStatus === "pending" && !now) {
     ctx.deps.logger.warn("Approval request has no eligible approver after a member left", { requestId: request.id });
   }
   await recordAudit(ctx.db, ctx.deps, ctx.audit, {
@@ -1360,9 +1500,10 @@ async function reresolveEmptyStep(ctx: Ctx, request: ApprovalRequest, position: 
     targetId: request.id,
     meta: {
       position,
-      reason: "member_inactive",
+      reason,
       from: [...new Set(gone.filter((t) => t.position === position).map((t) => t.assigneeMembershipId))],
       to: created.map((t) => t.assigneeMembershipId),
+      requestStatus,
     },
   });
 }

@@ -101,6 +101,29 @@ describe("delegation", () => {
     expect((await open(claim.requestId)).some((t) => t.origin === "delegated")).toBe(true);
   });
 
+  it("when a cover ends, only tasks another cover still covers stay with the delegate", async () => {
+    const all = await delegate(w.m.manager, w.m.head, "2026-11-30", "2026-12-05");
+    await delegate(w.m.manager, w.m.head, "2026-11-30", "2026-12-31", ["claim"]);
+    const leave = await w.submit(w.m.staff, "leave");
+    const claim = await w.submit(w.m.staff, "claim", { amountCents: 100 });
+    expect((await open(leave.requestId)).some((t) => t.origin === "delegated")).toBe(true);
+    const manager = await clientAs(w.app, w.deps, w.m.manager);
+    expect((await manager.delete(`/api/v1/approvals/delegations/${all.id}`)).status).toBe(204);
+    expect((await open(leave.requestId)).some((t) => t.origin === "delegated")).toBe(false);
+    expect((await open(claim.requestId)).some((t) => t.origin === "delegated")).toBe(true);
+  });
+
+  it("cover that already ended is refused with a clear message", async () => {
+    const manager = await clientAs(w.app, w.deps, w.m.manager);
+    const res = await manager.post("/api/v1/approvals/delegations", {
+      toMembershipId: w.m.head.membershipId,
+      startsOn: "2026-11-01",
+      endsOn: "2026-11-29",
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(/today or later/);
+  });
+
   it("a delegate never gets a task for their own request", async () => {
     await delegate(w.m.manager, w.m.staff, "2026-11-30", "2026-12-05");
     const { requestId } = await w.submit(w.m.staff, "leave");
