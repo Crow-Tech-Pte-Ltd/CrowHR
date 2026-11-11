@@ -4,10 +4,22 @@ import SwiftUI
 struct LeaveData: Sendable {
     let balances: [LeaveBalance]
     let requests: [LeaveRequest]
+    /// The sign-in has an employee record (an owner or admin may not): without one there is no
+    /// leave of their own.
+    var linked = true
+
+    /// "My leave": this person's own requests, newest 50. The list endpoint returns everything
+    /// the caller may see (a manager's team, all staff for HR) unless it names the employee, so
+    /// there is no query without one.
+    static func myRequestsQuery(employeeId: String?) -> [URLQueryItem]? {
+        guard let employeeId else { return nil }
+        return [URLQueryItem(name: "limit", value: "50"), URLQueryItem(name: "employeeId", value: employeeId)]
+    }
 }
 
 /// Balances, own history, apply, withdraw and cancel.
 struct LeaveView: View {
+    @Environment(AppModel.self) private var model
     @Environment(Session.self) private var session
     @State private var state: LoadState<LeaveData> = .loading
     @State private var applying = false
@@ -24,18 +36,24 @@ struct LeaveView: View {
                         .padding(.top, 16)
                         .accessibilityIdentifier("leave.actionError")
                 }
-                let shown = data.balances.filter { $0.eligible }
-                RowGroup(header: "Balances \(Calendar.current.component(.year, from: Date()))") {
-                    if shown.isEmpty {
-                        EmptyStateView(title: "No leave balances", message: "Your company hasn't set up leave for you yet. Ask HR.", systemImage: "calendar")
+                if !data.linked {
+                    EmptyStateView(title: "No employee record", message: "Your sign-in isn't linked to an employee record, so there is no leave to show here. Ask HR to link it.", systemImage: "person.crop.circle.badge.questionmark")
+                        .padding(.top, 24)
+                } else {
+                    let shown = data.balances.filter { $0.eligible }
+                    // The server's year: Singapore's, on the Gregorian calendar.
+                    RowGroup(header: "Balances \(Fmt.year(Date()))") {
+                        if shown.isEmpty {
+                            EmptyStateView(title: "No leave balances", message: "Your company hasn't set up leave for you yet. Ask HR.", systemImage: "calendar")
+                        }
+                        ForEach(shown) { b in BalanceRow(balance: b).crowRowPadding() }
                     }
-                    ForEach(shown) { b in BalanceRow(balance: b).crowRowPadding() }
-                }
-                RowGroup(header: "My leave") {
-                    if data.requests.isEmpty {
-                        EmptyStateView(title: "No leave yet", message: "Leave you apply for appears here with its status.", systemImage: "calendar.badge.plus")
+                    RowGroup(header: "My leave") {
+                        if data.requests.isEmpty {
+                            EmptyStateView(title: "No leave yet", message: "Leave you apply for appears here with its status.", systemImage: "calendar.badge.plus")
+                        }
+                        ForEach(data.requests) { r in requestCell(r) }
                     }
-                    ForEach(data.requests) { r in requestCell(r) }
                 }
             }
             .refreshable { await refresh() }
@@ -44,13 +62,17 @@ struct LeaveView: View {
         .navigationTitle("Leave")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { applying = true } label: { Label("Apply for leave", systemImage: "plus") }
-                    .accessibilityIdentifier("leave.apply")
+            if state.value?.linked != false {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { applying = true } label: { Label("Apply for leave", systemImage: "plus") }
+                        .accessibilityIdentifier("leave.apply")
+                }
             }
         }
         .sheet(isPresented: $applying) {
+            // Page-sized on an iPad, so the whole form shows; no effect on a phone.
             ApplyLeaveView { Task { await refresh() } }
+                .presentationSizing(.page)
         }
         .alert("Withdraw this request?", isPresented: Binding(get: { withdrawing != nil }, set: { if !$0 { withdrawing = nil } }), presenting: withdrawing) { r in
             Button("Withdraw", role: .destructive) { Task { await withdraw(r) } }
@@ -87,23 +109,30 @@ struct LeaveView: View {
     }
 
     private func load() async throws -> LeaveData {
+        // Whose leave this is comes from `/me`. Loaded without it (a launch with no signal, or
+        // before `/me` answered), "My leave" listed everyone a manager or HR may see, with
+        // Withdraw and Cancel buttons on other people's requests.
+        await model.refreshMeIfNeeded()
+        guard let me = session.me else { throw APIError.offline }
+        guard let query = LeaveData.myRequestsQuery(employeeId: me.employeeId) else {
+            return LeaveData(balances: [], requests: [], linked: false)
+        }
         let api = session.api
         async let balances: LeaveBalanceList = api.get("/api/v1/leave/balances")
-        var q: [URLQueryItem] = [URLQueryItem(name: "limit", value: "50")]
-        if let e = session.me?.employeeId { q.append(URLQueryItem(name: "employeeId", value: e)) }
-        let query = q
         async let requests: LeaveRequestList = api.get("/api/v1/leave/requests", query: query)
         return try await LeaveData(balances: balances.items, requests: requests.items)
     }
 
     private func refresh() async {
-        do { state = .loaded(try await load()) } catch { state = .failed(APIError.from(error, host: "")) }
+        do { state = .loaded(try await load()) } catch { state.fail(error) }
     }
 
+    // The reply isn't decoded: the action is done once the server accepts it, and the list is
+    // read again either way.
     private func withdraw(_ r: LeaveRequest) async {
         actionError = nil
         do {
-            let _: LeaveRequest = try await session.api.post("/api/v1/leave/requests/\(r.id)/withdraw", json: [String: String]())
+            try await session.api.postNoContent("/api/v1/leave/requests/\(r.id)/withdraw", json: [String: String]())
             await refresh()
         } catch { actionError = APIError.from(error, host: "").message }
     }
@@ -112,7 +141,7 @@ struct LeaveView: View {
         actionError = nil
         struct Body: Encodable { let reason: String? }
         do {
-            let _: LeaveRequest = try await session.api.post("/api/v1/leave/requests/\(r.id)/cancel", json: Body(reason: nil))
+            try await session.api.postNoContent("/api/v1/leave/requests/\(r.id)/cancel", json: Body(reason: nil))
             await refresh()
         } catch { actionError = APIError.from(error, host: "").message }
     }
@@ -202,8 +231,7 @@ struct ApplyLeaveView: View {
 
     /// The first Monday-to-Friday after today (Singapore), a sensible default for a new application.
     static func nextWorkingDay(from now: Date = Date()) -> Date {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = Fmt.singapore
+        let cal = Fmt.calendar
         var d = cal.date(byAdding: .day, value: 1, to: now)!
         while cal.isDateInWeekend(d) { d = cal.date(byAdding: .day, value: 1, to: d)! }
         return d
@@ -218,11 +246,13 @@ struct ApplyLeaveView: View {
                         FormField("From") {
                             DatePicker("From", selection: $start, displayedComponents: .date)
                                 .labelsHidden()
+                                .singaporeDates()
                                 .accessibilityIdentifier("leave.start")
                         }
                         FormField("To") {
                             DatePicker("To", selection: $end, in: start..., displayedComponents: .date)
                                 .labelsHidden()
+                                .singaporeDates()
                                 .accessibilityIdentifier("leave.end")
                         }
                         if selectedType?.halfDays == true && Fmt.day(start) == Fmt.day(end) {
@@ -286,7 +316,7 @@ struct ApplyLeaveView: View {
             .navigationTitle("New leave")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction) }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Apply") { Task { await submit() } }
                         .disabled(!canSubmit)
@@ -298,6 +328,9 @@ struct ApplyLeaveView: View {
                 }
             }
             .task(id: quoteKey) { await requote() }
+            // Moving From past To moves To along, so the form never shows an end before the start
+            // (the request already used the later of the two).
+            .onChange(of: start) { _, newStart in if end < newStart { end = newStart } }
             .sheet(isPresented: $showCamera) {
                 CameraCapture(stub: model.env.cameraStub) { attachment = $0; showCamera = false }
             }
@@ -345,9 +378,12 @@ struct ApplyLeaveView: View {
         quote = nil
         quoteError = nil
         do {
-            quote = try await session.api.post("/api/v1/leave/quote", json: application)
+            let next: LeaveQuote = try await session.api.post("/api/v1/leave/quote", json: application)
+            if !Task.isCancelled { quote = next }
         } catch {
-            quoteError = APIError.from(error, host: "").message
+            // Cancelled because the dates changed again: not an error ("You're offline" flashed
+            // under Days counted while the next quote loaded).
+            if !Task.isCancelled { quoteError = APIError.from(error, host: "").message }
         }
     }
 
@@ -362,7 +398,9 @@ struct ApplyLeaveView: View {
             app.attachments = [.init(filename: "document.jpg", contentType: "image/jpeg", dataBase64: jpeg.base64EncodedString())]
         }
         do {
-            let _: LeaveRequest = try await session.api.post("/api/v1/leave/requests", json: app)
+            // Not decoded: once the server accepted it the leave exists, and an error here would
+            // invite applying twice.
+            try await session.api.postNoContent("/api/v1/leave/requests", json: app)
             onDone()
             dismiss()
         } catch {

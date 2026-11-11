@@ -19,6 +19,7 @@ struct ConnectView: View {
     @State private var scanning = false
     @State private var viewport: CGFloat = 0
     @FocusState private var focused: Bool
+    @FocusState private var orgFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -47,8 +48,7 @@ struct ConnectView: View {
                         .focused($focused)
                         .returnEndsField($address) { Task { await check() } }
                         .font(CrowFont.mono(.body))
-                        .padding(12)
-                        .overlay(RoundedRectangle(cornerRadius: Crow.radius).strokeBorder(focused ? Crow.biru : Crow.hairline, lineWidth: focused ? 2 : 1))
+                        .crowFieldBox(focused: focused)
                         .accessibilityLabel("Server address")
                         .accessibilityIdentifier("connect.address")
                 }
@@ -61,13 +61,15 @@ struct ConnectView: View {
                             .autocorrectionDisabled()
                             .submitLabel(.go)
                             .returnEndsField($org) { Task { await check() } }
+                            .focused($orgFocused)
                             .font(CrowFont.mono(.body))
-                            .padding(12)
-                            .overlay(RoundedRectangle(cornerRadius: Crow.radius).strokeBorder(Crow.hairline, lineWidth: 1))
+                            // The same focus ring as the address (it had none).
+                            .crowFieldBox(focused: orgFocused)
                             .accessibilityLabel("Organisation ID")
                             .accessibilityIdentifier("connect.org")
                         Text("This server hosts several organisations. Enter your organisation's ID from HR, or scan the QR code.")
                             .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
