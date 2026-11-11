@@ -1,0 +1,44 @@
+{
+  "packageName": "crowtech.crowhr",
+  "language": "en-GB",
+  "title": "Crow HR",
+  "images": {
+    "icon": [
+      {
+        "file": "icon-512.png",
+        "sha256": "d19141b3fc2e2b29be769ed19801f574b9eec7e0ab1a83e0ae3b60a0532f1896",
+        "playSha256": "d19141b3fc2e2b29be769ed19801f574b9eec7e0ab1a83e0ae3b60a0532f1896"
+      }
+    ],
+    "featureGraphic": [
+      {
+        "file": "feature-graphic.png",
+        "sha256": "4ea5ca46781a955b9e887183687771d2e4dad7c350b6dc70d6a9c3c2fc7f8cf5",
+        "playSha256": "4ea5ca46781a955b9e887183687771d2e4dad7c350b6dc70d6a9c3c2fc7f8cf5"
+      }
+    ],
+    "phoneScreenshots": [
+      {
+        "file": "screenshots/01-clock.png",
+        "sha256": "6e2296f1d54120f8bd8b1229d66a1ebd39ce44c4092074f4aa89e0b9eb0c8c88",
+        "playSha256": "6e2296f1d54120f8bd8b1229d66a1ebd39ce44c4092074f4aa89e0b9eb0c8c88"
+      },
+      {
+        "file": "screenshots/02-leave-apply.png",
+        "sha256": "ac5d10455b5974493e24bc8cce20149e85807859b283b8195dcbd79c71bb922c",
+        "playSha256": "ac5d10455b5974493e24bc8cce20149e85807859b283b8195dcbd79c71bb922c"
+      },
+      {
+        "file": "screenshots/03-approvals.png",
+        "sha256": "8207fbaf86c3940d37e6b44333364092d2acb1bc1c7148f6a837d3b825cb670c",
+        "playSha256": "8207fbaf86c3940d37e6b44333364092d2acb1bc1c7148f6a837d3b825cb670c"
+      },
+      {
+        "file": "screenshots/04-claim-new.png",
+        "sha256": "a3c789b655e2565a32b8d2c69fa8e5a06c8cce58b3c16112a9d228a9aba83e79",
+        "playSha256": "a3c789b655e2565a32b8d2c69fa8e5a06c8cce58b3c16112a9d228a9aba83e79"
+      }
+    ]
+  },
+  "at": "2026-11-11T03:17:13Z"
+}

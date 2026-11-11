@@ -32,34 +32,29 @@ reports to Siti throughout.
 
 The apps call `GET /api/v1/meta`; with two organisations on the server they need the organisation ID.
 
-- **iOS:** type `hr-demo.crow.sg` as the server address and tap Continue. The app says the server
-  hosts more than one organisation and shows an **Organisation ID** field: enter `kopi-kaki`, tap
-  Continue, then Connect. Sign in on the web page that opens (iOS may first ask to continue).
-- **Android:** the connect screen has **no organisation field** (only "Scan QR code" and the server
-  address), so typing the address always stops at "This server hosts more than one organisation".
-  The reviewer must use the connect link or its QR code: `crowhr://connect?server=https%3A%2F%2Fhr-demo.crow.sg&org=kopi-kaki`.
-  The dependable route is the in-app **Scan QR code** pointed at a QR shown on another screen,
-  for example in the web app: sign in at https://hr-demo.crow.sg/sign-in/kopi-kaki as the employee,
-  open My profile → Mobile app. (Adding an organisation field to Android, as on iOS, would remove
-  this step; that is a change to `apps/android`.)
+- **iOS and Android (1.0.0):** type `hr-demo.crow.sg` as the server address and tap Continue. The
+  app says the server hosts more than one organisation and shows an **Organisation ID** field:
+  enter `kopi-kaki`, tap Continue, then Connect. Sign in on the web page that opens (iOS may first
+  ask to continue). The connect link `crowhr://connect?server=https%3A%2F%2Fhr-demo.crow.sg&org=kopi-kaki`
+  and its QR code (web app: My profile → Mobile app) also work. Android builds before 1.0.0 had no
+  organisation field and needed the link or QR.
 - Neither app reads an organisation from a pasted URL (`…/sign-in/kopi-kaki` or `?org=` fail), and
   there is no https app link.
 
-Suggested review note (fill the passwords in from the vault in App Store Connect / Play Console only):
+Review notes as set in the consoles (the passwords are filled in from the vault there and nowhere
+else; for App Store Connect, `scripts/ios-store-review.py review-details` writes them):
 
-> Crow HR connects to a company's own Crow HR server. For review we run a demo server with a
-> fictional company. All data is fictional.
+> Crow HR connects to a company's own Crow HR server; Crow Tech runs no service for the app. For
+> review we run a demo server with a fictional company, Kopi Kaki Pte. Ltd. All data is fictional.
 >
-> 1. Connect: on iPhone, enter the server address `hr-demo.crow.sg`, tap Continue, enter the
->    organisation ID `kopi-kaki`, tap Continue and Connect. On Android, tap "Scan QR code" and scan
->    the QR code shown at https://hr-demo.crow.sg/sign-in/kopi-kaki → after signing in with the
->    employee account below → My profile → Mobile app (or open
->    `crowhr://connect?server=https%3A%2F%2Fhr-demo.crow.sg&org=kopi-kaki` on the device).
-> 2. Tap Sign in and sign in on the page that opens.
->    Employee: `hafiz@kopikaki.example` / (password). Manager: `siti@kopikaki.example` / (password).
-> 3. As the employee: payslips, leave balances and applying for leave, clock in/out, claims with a
->    receipt photo, and the work schedule. As the manager: Approvals has pending leave and claims
->    from the team; leave the employee applies for appears there too.
+> 1. Connect: enter the server address `hr-demo.crow.sg` and tap Continue. The server hosts more
+>    than one organisation, so the app asks for an Organisation ID: enter `kopi-kaki`, tap
+>    Continue, then Connect.
+> 2. Tap Sign in and sign in on the web page that opens.
+>    Employee (Hafiz): `hafiz@kopikaki.example` / (password). Manager (Siti): `siti@kopikaki.example` / (password).
+> 3. As the employee: payslips, leave balances and applying for leave, clock in and out, claims
+>    with a receipt photo, and the work schedule. As the manager: Approvals has pending leave and
+>    claims from the team; leave the employee applies for appears there too.
 
 ## Checking it
 
