@@ -9,7 +9,7 @@ sidebar:
 
 <span class="crow-pill crow-pill--soon">Coming soon</span>
 
-Native iOS (SwiftUI, `apps/ios`) and Android (Kotlin and Jetpack Compose, `apps/android`) apps are built and tested against a real Crow HR server. Version 1.0.0 of both is being submitted to the App Store and Google Play, but they are **not in either store yet**: store review comes first. Until they are, the web app works on phones, with a bottom tab bar for employees. The iOS app is for iPhone; on an iPad it runs in iPhone mode.
+Native iOS (SwiftUI, `apps/ios`) and Android (Kotlin and Jetpack Compose, `apps/android`) apps are built and tested against a real Crow HR server. Version 1.0.0 of both is being submitted to the App Store and Google Play, but they are **not in either store yet**: store review comes first. Until they are, the web app works on phones, with a bottom tab bar for employees. The iOS app is for iPhone and iPad: on an iPad it shows a sidebar in landscape and can share the screen in Split View, Slide Over and Stage Manager.
 
 The apps cover what employees and managers do most: payslips, leave, clock in and out (also offline), claims with a photo of the receipt, your schedule, approvals and notifications. Everything else stays on the web.
 
