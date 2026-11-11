@@ -297,6 +297,10 @@ describe("today's punches on the clock screen", () => {
       const open = await me();
       expect(open.clockedIn).toBe(true);
       expect(open.today.map((p) => p.workDate)).toEqual(["2026-11-12"]);
+      // From 04:00 a clock-out no longer closes yesterday's shift (it starts a new day), so a
+      // forgotten clock-out leaves the employee clocked out, ready to clock in today.
+      w.clock.set("2026-11-13T00:55:00.000Z"); // 08:55 Friday
+      expect(await me()).toMatchObject({ clockedIn: false, today: [] });
     } finally {
       await w.close();
     }

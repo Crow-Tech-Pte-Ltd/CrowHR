@@ -334,11 +334,12 @@ export async function punchStatus(db: Db, orgId: string, employeeId: string, now
     .limit(40);
   const last = rows[0] ?? null;
   // Yesterday's punches belong on today's screen only while that shift is still open (overnight
-  // work); once clocked out, after midnight they are yesterday's.
-  const overnight = last?.kind === "in" && last.workDate === yesterday;
+  // work) and a clock-out can still close it, i.e. before the 04:00 cut-off; once clocked out, or
+  // after the cut-off, they are yesterday's (a clock-out then starts a new day).
+  const overnight = last?.kind === "in" && last.workDate === yesterday && sgHour(now) < OVERNIGHT_CUTOFF_HOUR;
   const todays = rows.filter((r) => r.workDate === today || (overnight && r.workDate === yesterday));
   return {
-    clockedIn: last?.kind === "in" && (last.workDate === today || last.workDate === yesterday),
+    clockedIn: last?.kind === "in" && (last.workDate === today || overnight),
     lastPunch: last,
     today: todays.reverse(),
   };
