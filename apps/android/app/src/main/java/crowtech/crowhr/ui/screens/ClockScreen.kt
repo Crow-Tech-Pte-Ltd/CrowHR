@@ -5,7 +5,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.LocationManager
-import android.os.SystemClock
+import android.os.Build
+import androidx.core.content.ContextCompat
+import crowtech.crowhr.punch.LocationAccess
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -61,12 +63,13 @@ import crowtech.crowhr.ui.components.Tone
 import crowtech.crowhr.ui.components.rememberLoader
 import crowtech.crowhr.ui.theme.Crow
 import crowtech.crowhr.ui.theme.Numeric
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import java.time.ZoneId
-import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 
 @Composable
@@ -87,7 +90,9 @@ fun ClockScreen(ctx: ScreenContext) {
         version++
         val pendingNow = queue.pending().isNotEmpty()
         if (hadPending && !pendingNow) {
-            message = null
+            // Sent in the background: "saved on this phone" no longer applies. What the last
+            // tap returned ("Clocked in.", a refusal) stays.
+            if (message?.first == SAVED_OFFLINE || message?.first == SIGN_IN_TO_SEND) message = null
             status.reload()
         }
         hadPending = pendingNow
@@ -104,14 +109,14 @@ fun ClockScreen(ctx: ScreenContext) {
         when (result.stopReason) {
             StopReason.Network -> {
                 PunchSync.request(context)
-                message = "Saved on this phone. It will be sent automatically when you're back online." to Tone.Warning
+                message = SAVED_OFFLINE to Tone.Warning
             }
-            StopReason.AuthRequired -> message = "Sign in again to send your saved clock-ins." to Tone.Warning
+            StopReason.AuthRequired -> message = SIGN_IN_TO_SEND to Tone.Warning
             null -> if (result.sent > 0) status.reload()
         }
     }
 
-    fun punch(location: PunchLocation?) {
+    fun punch(location: PunchLocation?, locationAllowed: Boolean = true) {
         val now = ctx.graph.clock()
         val r = queue.enqueue(
             kind = nextKind,
@@ -128,23 +133,40 @@ fun ClockScreen(ctx: ScreenContext) {
             return
         }
         message = null
+        val tapped = (r as EnqueueResult.Queued).punch
         scope.launch {
             drain()
+            // Say what happened to this tap, as iOS does (a network stop already said so).
+            val sent = queue.find(tapped.key)
+            if (message == null && sent != null && !sent.isPending) {
+                val done = if (tapped.kind == "in") "Clocked in." else "Clocked out."
+                message = when {
+                    sent.state == PunchQueue.REJECTED -> PunchLabels.of(sent).first() to Tone.Danger
+                    // The policy asks for location and none was sent: say why, and how to fix it.
+                    wantsLocation && location == null ->
+                        "$done ${LocationAccess.missingMessage(me?.location?.mode == "required", locationAllowed)}" to Tone.Warning
+                    sent.state == PunchQueue.FLAGGED -> "$done ${PunchLabels.of(sent).first()}." to Tone.Warning
+                    else -> done to Tone.Success
+                }
+            }
             busy = false
         }
     }
 
-    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        scope.launch { punch(if (granted) currentLocation(context) else null) }
+    // Precise and approximate together: Android 12+ ignores a request for precise alone, and
+    // someone who shares only their approximate location still sends one.
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+        val allowed = LocationAccess.grantedIn(results)
+        scope.launch { punch(if (allowed) currentLocation(context) else null, allowed) }
     }
 
     fun onTap() {
         busy = true
         if (!wantsLocation) return punch(null)
-        if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (hasLocationPermission(context)) {
             scope.launch { punch(currentLocation(context)) }
         } else {
-            locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            locationPermission.launch(LocationAccess.PERMISSIONS)
         }
     }
 
@@ -250,21 +272,46 @@ private fun PunchRow(p: QueuedPunch, onDiscard: () -> Unit, onDismiss: () -> Uni
     }
 }
 
-/** One location fix from the platform (no Play Services), at most 10 s; null if unavailable. */
+private const val SAVED_OFFLINE = "Saved on this phone. It will be sent automatically when you're back online."
+private const val SIGN_IN_TO_SEND = "Sign in again to send your saved clock-ins."
+
+private fun granted(context: Context, permission: String) = context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+private fun hasLocationPermission(context: Context) =
+    LocationAccess.granted(granted(context, Manifest.permission.ACCESS_FINE_LOCATION), granted(context, Manifest.permission.ACCESS_COARSE_LOCATION))
+
+/**
+ * One location fix from the platform (no Play Services) within 10 s: every enabled provider is
+ * asked at once and the first answer wins (an approximate-only fused request can wait for a
+ * network fix that never comes while GPS has one). Null if none answers.
+ */
 @SuppressLint("MissingPermission")
 private suspend fun currentLocation(context: Context): PunchLocation? {
-    if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-        context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
-    ) return null
+    if (!hasLocationPermission(context)) return null
     val manager = context.getSystemService(LocationManager::class.java) ?: return null
-    val provider = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).firstOrNull { manager.isProviderEnabled(it) } ?: return null
+    val fine = granted(context, Manifest.permission.ACCESS_FINE_LOCATION)
+    val providers = LocationAccess.providers(Build.VERSION.SDK_INT, fine) { name ->
+        runCatching { name in manager.allProviders && manager.isProviderEnabled(name) }.getOrDefault(false)
+    }
+    if (providers.isEmpty()) return null
     return withTimeoutOrNull(10_000) {
-        suspendCancellableCoroutine { cont ->
-            val signal = androidx.core.os.CancellationSignal()
-            cont.invokeOnCancellation { signal.cancel() }
-            LocationManagerCompat.getCurrentLocation(manager, provider, signal, Executors.newSingleThreadExecutor()) { loc ->
-                cont.resume(loc?.let { PunchLocation(it.latitude, it.longitude, if (it.hasAccuracy()) it.accuracy.toDouble() else null) })
-            }
+        channelFlow {
+            providers.forEach { provider -> launch { fix(context, manager, provider)?.let { send(it) } } }
+        }.firstOrNull()
+    }
+}
+
+@SuppressLint("MissingPermission")
+private suspend fun fix(context: Context, manager: LocationManager, provider: String): PunchLocation? = suspendCancellableCoroutine { cont ->
+    val signal = androidx.core.os.CancellationSignal()
+    cont.invokeOnCancellation { signal.cancel() }
+    try {
+        LocationManagerCompat.getCurrentLocation(manager, provider, signal, ContextCompat.getMainExecutor(context)) { loc ->
+            if (cont.isActive) cont.resume(loc?.let { PunchLocation(it.latitude, it.longitude, if (it.hasAccuracy()) it.accuracy.toDouble() else null) })
         }
+    } catch (_: SecurityException) {
+        cont.resume(null)
+    } catch (_: IllegalArgumentException) {
+        cont.resume(null)
     }
 }
