@@ -3,7 +3,7 @@ title: Reverse proxy (or none)
 description: Run Crow HR behind Caddy, nginx, Traefik or Cloudflare Tunnel, or on a LAN without a proxy, and set TRUSTED_PROXIES correctly.
 ---
 
-Crow HR serves plain HTTP on one port and works behind any reverse proxy, or with none on a trusted LAN. No proxy is bundled.
+Crow HR serves plain HTTP on one port and works behind any reverse proxy, or with none on a trusted LAN. No proxy is bundled. The app's scripts and styles are sent compressed (Brotli or gzip, prepared when the image is built), so compression in the proxy is optional; proxies leave those responses as they are.
 
 Two settings matter:
 
