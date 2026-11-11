@@ -19,6 +19,14 @@ describe("GET /leave/children", () => {
       birthOrder: 2,
     });
     expect(add.status).toBe(201);
+    const nobody = await hr.post("/api/v1/leave/children", {
+      employeeId: w.deps.ids.newId(),
+      name: "Nobody's Baby",
+      birthDate: "2026-09-01",
+      isCitizen: true,
+      birthOrder: 1,
+    });
+    expect(nobody.status).toBe(404);
     const manager = await w.as("manager");
     const res = await manager.get(`/api/v1/leave/children?employeeId=${w.emp.staff}`);
     expect(res.status).toBe(404); // out of scope, like a missing record
