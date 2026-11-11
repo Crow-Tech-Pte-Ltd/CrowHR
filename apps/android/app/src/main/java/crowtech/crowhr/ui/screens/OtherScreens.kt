@@ -7,6 +7,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import crowtech.crowhr.notify.Notifications
+import crowtech.crowhr.ui.components.LocalRefresh
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -89,7 +90,7 @@ private fun MenuRow(title: String, detail: String? = null, tag: String, onClick:
 
 @Composable
 fun MoreScreen(ctx: ScreenContext) {
-    val unread by produceState<Int?>(null, ctx.connection.key) {
+    val unread by produceState<Int?>(null, ctx.connection.key, LocalRefresh.current?.generation) {
         value = runCatching { ctx.api.get("/api/v1/notifications/unread-count", UnreadCount.serializer()).unread }.getOrNull()
     }
     Column {

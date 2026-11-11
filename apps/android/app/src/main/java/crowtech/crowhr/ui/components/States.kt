@@ -13,7 +13,10 @@ import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -48,8 +51,24 @@ class Loader<T>(val state: MutableState<LoadState<T>>, private val reloadKey: Mu
 }
 
 /**
- * Loads [block] when the screen opens and on [Loader.reload]. When [cached] returns a saved copy
- * and the network fails with [OfflineException], the saved copy is shown with an offline note.
+ * Pull to refresh for whatever is on screen: bumping [generation] reloads every [rememberLoader]
+ * below it; [loading] counts the loads still running, so the indicator knows when to stop.
+ */
+class RefreshSignal {
+    var generation by mutableIntStateOf(0)
+        private set
+    var loading by mutableIntStateOf(0)
+        internal set
+
+    fun refresh() { generation++ }
+}
+
+val LocalRefresh = staticCompositionLocalOf<RefreshSignal?> { null }
+
+/**
+ * Loads [block] when the screen opens, on [Loader.reload] and on pull to refresh. When [cached]
+ * returns a saved copy and the network fails with [OfflineException], the saved copy is shown
+ * with an offline note. A reload keeps showing the current content until the new one arrives.
  */
 @Composable
 fun <T> rememberLoader(
@@ -59,17 +78,23 @@ fun <T> rememberLoader(
 ): Loader<T> {
     val state = remember(*keys) { mutableStateOf<LoadState<T>>(LoadState.Loading) }
     val reload = remember(*keys) { mutableIntStateOf(0) }
-    LaunchedEffect(*keys, reload.intValue) {
-        if (state.value !is LoadState.Ready) state.value = LoadState.Loading
-        state.value = try {
-            LoadState.Ready(block())
-        } catch (e: OfflineException) {
-            val saved = cached?.invoke()
-            if (saved != null) LoadState.Ready(saved.first, offlineSince = saved.second) else LoadState.Failed(e.userMessage(), true)
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            LoadState.Failed(e.userMessage(), false)
+    val refresh = LocalRefresh.current
+    LaunchedEffect(*keys, reload.intValue, refresh?.generation) {
+        refresh?.let { it.loading++ }
+        try {
+            if (state.value !is LoadState.Ready) state.value = LoadState.Loading
+            state.value = try {
+                LoadState.Ready(block())
+            } catch (e: OfflineException) {
+                val saved = cached?.invoke()
+                if (saved != null) LoadState.Ready(saved.first, offlineSince = saved.second) else LoadState.Failed(e.userMessage(), true)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LoadState.Failed(e.userMessage(), false)
+            }
+        } finally {
+            refresh?.let { it.loading-- }
         }
     }
     return remember(*keys) { Loader(state, reload) }

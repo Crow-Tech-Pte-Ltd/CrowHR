@@ -30,10 +30,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import crowtech.crowhr.ui.components.LocalRefresh
+import crowtech.crowhr.ui.components.RefreshSignal
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,6 +110,7 @@ class ScreenContext(
     val vm: AppViewModel,
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
     val connection = screen.connection
@@ -152,11 +175,77 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
             Label(connection.displayName, Modifier.weight(1f).padding(horizontal = 4.dp), color = Crow.colors.ink)
         }
         Hairline()
-        Box(Modifier.weight(1f).fillMaxWidth().imePadding(), contentAlignment = Alignment.TopCenter) {
+        // Wide windows (a phone on its side, tablets, unfolded foldables): a rail on the side
+        // instead of a bottom bar, so the screen keeps its height for content.
+        val wide = LocalConfiguration.current.screenWidthDp >= 600
+        Row(Modifier.weight(1f).fillMaxWidth()) {
+        if (wide) {
+            NavigationRail(
+                containerColor = MaterialTheme.colorScheme.surface,
+                windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Start + WindowInsetsSides.Bottom),
+            ) {
+                tabs.forEach { t ->
+                    NavigationRailItem(
+                        selected = tab == t.name,
+                        onClick = { select(t.name) },
+                        icon = { Icon(t.icon, contentDescription = null, modifier = Modifier.size(22.dp)) },
+                        label = { Text(t.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                        modifier = Modifier.testTag("tab-${t.name.lowercase()}"),
+                        colors = NavigationRailItemDefaults.colors(
+                            selectedIconColor = Crow.colors.onAccent,
+                            selectedTextColor = Crow.colors.ink,
+                            indicatorColor = Crow.colors.accent,
+                            unselectedIconColor = Crow.colors.muted,
+                            unselectedTextColor = Crow.colors.muted,
+                        ),
+                    )
+                }
+            }
+            Box(Modifier.fillMaxHeight().width(1.dp).background(Crow.colors.hairline))
+        }
+        val refresh = remember(connection.key) { RefreshSignal() }
+        var refreshing by remember { mutableStateOf(false) }
+        // The indicator stays until every load the pull started has finished.
+        LaunchedEffect(refresh.generation) {
+            if (!refreshing) return@LaunchedEffect
+            delay(300)
+            snapshotFlow { refresh.loading }.first { it == 0 }
+            refreshing = false
+        }
+        val pull = rememberPullToRefreshState()
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = { refreshing = true; refresh.refresh() },
+            modifier = Modifier.weight(1f).fillMaxHeight().imePadding()
+                .then(if (wide) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.End)) else Modifier),
+            state = pull,
+            contentAlignment = Alignment.TopCenter,
+            // Flat, like the rest of the app: hairline circle and an ink spinner, no soft shadow.
+            indicator = {
+                PullToRefreshDefaults.IndicatorBox(
+                    state = pull, isRefreshing = refreshing, modifier = Modifier.align(Alignment.TopCenter),
+                    containerColor = MaterialTheme.colorScheme.surface, elevation = 0.dp,
+                ) {
+                    Box(Modifier.fillMaxSize().border(1.dp, Crow.colors.ink.copy(alpha = 0.25f), CircleShape), contentAlignment = Alignment.Center) {
+                        if (refreshing) {
+                            CircularProgressIndicator(Modifier.size(18.dp), color = Crow.colors.ink, strokeWidth = 2.dp)
+                        } else {
+                            CircularProgressIndicator(
+                                progress = { pull.distanceFraction.coerceIn(0f, 1f) }, modifier = Modifier.size(18.dp),
+                                color = Crow.colors.ink, strokeWidth = 2.dp, trackColor = Color.Transparent,
+                            )
+                        }
+                    }
+                }
+            },
+        ) {
             val route = stack.lastOrNull()
             screens.SaveableStateProvider(route?.code ?: "tab:$tab") {
+                CompositionLocalProvider(LocalRefresh provides refresh) {
                 Column(
                     Modifier.widthIn(max = 640.dp).fillMaxWidth().verticalScroll(rememberScrollState())
+                        // TalkBack and switch users can't pull: the same refresh as an action.
+                        .semantics { customActions = listOf(CustomAccessibilityAction("Refresh") { refreshing = true; refresh.refresh(); true }) }
                         .padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
@@ -179,10 +268,12 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
                         Route.Licences -> LicencesScreen()
                     }
                 }
+                }
             }
         }
-        // Employees get a bottom tab bar (AGENTS.md design language).
-        NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+        }
+        // Employees get a bottom tab bar on phones (AGENTS.md design language).
+        if (!wide) NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
             tabs.forEach { t ->
                 NavigationBarItem(
                     selected = tab == t.name,
