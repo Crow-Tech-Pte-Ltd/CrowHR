@@ -227,6 +227,132 @@ describe("concurrent payroll transitions", () => {
     expect(await auditCount("payslip.released", id)).toBe(0);
   });
 
+  it("an approved run with an open adjustment can't return to draft, even when the two race", async () => {
+    const id = await approvedRun();
+    const adj = await p.ok<{ id: string }>(p.admin.post(`${api}/runs/${id}/reopen`, { reason: "Missed item" }), 201);
+    const res = await p.admin.post(`${api}/runs/${id}/return-to-draft`, { reason: "Correct bank details" });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(/adjustment of this run/);
+    expect((await runOf(id)).status).toBe("approved");
+    // The adjustment draft can be deleted, and then the run can return to draft.
+    expect((await p.admin.delete(`${api}/runs/${adj.id}`)).status).toBe(204);
+    const raced = await approvedRun();
+    const done = holdTransactions(2);
+    const results = await Promise.all([
+      p.admin.post(`${api}/runs/${raced}/reopen`, { reason: "First" }),
+      p.admin.post(`${api}/runs/${raced}/return-to-draft`, { reason: "Second" }),
+    ]);
+    done();
+    // Never both: either the reopen wins (the run stays approved) or the return does (no adjustment).
+    const [reopened, returned] = results.map((r) => r.status);
+    expect([reopened, returned].sort()).toEqual(reopened === 201 ? [201, 409] : [200, 409]);
+    expect((await runOf(raced)).status).toBe(reopened === 201 ? "approved" : "draft");
+  });
+
+  it("two regular runs for one month created at once: one 201, one 409 (not 500)", async () => {
+    const done = holdTransactions(2);
+    const results = await Promise.all([
+      p.admin.post(`${api}/runs`, { kind: "regular", month: "2028-01" }),
+      p.admin.post(`${api}/runs`, { kind: "regular", month: "2028-01" }),
+    ]);
+    done();
+    expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+    const lost = results.find((r) => r.status === 409) as Response;
+    expect(((await lost.json()) as { error: { message: string } }).error.message).toMatch(
+      /already a regular payroll run for January 2028/,
+    );
+  });
+
+  it("a second item for the same public holiday: 409 that says to edit the first", async () => {
+    const id = await newRun();
+    const { run } = await p.ok<{ run: { periodStart: string } }>(p.admin.get(`${api}/runs/${id}`));
+    const item = {
+      employeeId: p.co.e.A,
+      kind: "other_earning",
+      label: "Public holiday pay",
+      amountCents: 18_000,
+      wageClass: "OW",
+      holidayDate: run.periodStart,
+    };
+    await p.ok(p.admin.post(`${api}/runs/${id}/items`, item), 201);
+    const res = await p.admin.post(`${api}/runs/${id}/items`, item);
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(/Edit that item/);
+  });
+
+  it("a run resubmitted after a rejection is undecided again, so it still blocks returning the month to draft", async () => {
+    const regular = await newRun();
+    const { run } = await p.ok<{ run: { month: string; periodStart: string } }>(p.admin.get(`${api}/runs/${regular}`));
+    const bonus = await p.ok<{ id: string }>(
+      p.admin.post(`${api}/runs`, {
+        kind: "off_cycle",
+        offCycleReason: "bonus",
+        month: run.month,
+        employeeIds: [p.co.e.A],
+      }),
+      201,
+    );
+    await p.ok(
+      p.admin.post(`${api}/runs/${bonus.id}/items`, {
+        employeeId: p.co.e.A,
+        kind: "bonus",
+        label: "Bonus",
+        amountCents: 50_000,
+        wageClass: "AW",
+        awPayableDate: run.periodStart,
+      }),
+      201,
+    );
+    await p.ok(p.admin.post(`${api}/runs/${bonus.id}/compute`));
+    await p.ok(p.admin.post(`${api}/runs/${bonus.id}/submit`));
+    await p.ok(decideRun(p.owner, bonus.id, "rejected", "Wrong amount"));
+    await p.ok(p.admin.post(`${api}/runs/${regular}/submit`));
+    await p.ok(decideRun(p.owner, regular, "approved"));
+    await p.ok(p.admin.post(`${api}/runs/${bonus.id}/compute`));
+    await p.ok(p.admin.post(`${api}/runs/${bonus.id}/submit`));
+    const resubmitted = await p.ok<{ run: { status: string; decidedAt: string | null } }>(
+      p.admin.get(`${api}/runs/${bonus.id}`),
+    );
+    expect(resubmitted.run).toMatchObject({ status: "in_review", decidedAt: null });
+    expect((await p.admin.post(`${api}/runs/${regular}/return-to-draft`, { reason: "Bank details" })).status).toBe(409);
+  });
+
+  it("two runs of one month can't wait for approval together: the second would ignore the first's CPF", async () => {
+    const regular = await newRun();
+    const { run } = await p.ok<{ run: { month: string; periodStart: string } }>(p.admin.get(`${api}/runs/${regular}`));
+    await p.ok(p.admin.post(`${api}/runs/${regular}/submit`));
+    const bonus = await p.ok<{ id: string }>(
+      p.admin.post(`${api}/runs`, {
+        kind: "off_cycle",
+        offCycleReason: "bonus",
+        month: run.month,
+        employeeIds: [p.co.e.A],
+      }),
+      201,
+    );
+    await p.ok(
+      p.admin.post(`${api}/runs/${bonus.id}/items`, {
+        employeeId: p.co.e.A,
+        kind: "commission",
+        label: "Commission",
+        amountCents: 500_000,
+        wageClass: "OW",
+      }),
+      201,
+    );
+    await p.ok(p.admin.post(`${api}/runs/${bonus.id}/compute`));
+    const res = await p.admin.post(`${api}/runs/${bonus.id}/submit`);
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(
+      /waiting for approval.*recompute this run/,
+    );
+    // Once the regular run is decided, the bonus run is recomputed with it and can go.
+    await p.ok(decideRun(p.owner, regular, "approved"));
+    expect((await p.admin.post(`${api}/runs/${bonus.id}/submit`)).status).toBe(409); // stale: recompute first
+    await p.ok(p.admin.post(`${api}/runs/${bonus.id}/compute`));
+    await p.ok(p.admin.post(`${api}/runs/${bonus.id}/submit`));
+  });
+
   it("reopen twice: one adjustment, one 409", async () => {
     const id = await approvedRun();
     const done = holdTransactions(2);

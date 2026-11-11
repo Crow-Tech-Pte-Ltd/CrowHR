@@ -198,10 +198,12 @@ async function previousRegular(db: Db, run: PayrollRun): Promise<PayrollRun | nu
       ),
     )
     .orderBy(desc(payrollRuns.month), desc(payrollRuns.decidedAt));
-  const month = rows.find((r) => r.kind !== "off_cycle")?.month;
+  // Regular runs and their adjustments have no off-cycle reason (an adjustment keeps its original's).
+  const regularChain = (r: PayrollRun) => r.kind !== "off_cycle" && r.offCycleReason === null;
+  const month = rows.find(regularChain)?.month;
   if (!month) return null;
   // The effective regular (or its latest approved adjustment) for that month.
-  return rows.find((r) => r.month === month && r.kind !== "off_cycle" && !r.supersededByRunId) ?? null;
+  return rows.find((r) => r.month === month && regularChain(r) && !r.supersededByRunId) ?? null;
 }
 
 /** More employees than this with the same warning are listed as one line. */
