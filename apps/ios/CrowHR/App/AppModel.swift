@@ -234,30 +234,42 @@ final class AppModel {
         await s.meLoad?.value
     }
 
+    /// `/me` alone is what waiters wait for; the rest (the server's features, waiting punches, the
+    /// inbox cursor) follows separately, so a slow drain never holds a screen on "Loading…".
     private func startLoadingMe(_ s: Session, afterSignIn: Bool) {
-        s.meLoad = Task {
-            await self.loadMe(s, afterSignIn: afterSignIn)
+        let load = Task { await self.loadMe(s) }
+        s.meLoad = load
+        Task {
+            await load.value
             s.meLoad = nil
+            if s.me != nil { await self.afterMe(s, afterSignIn: afterSignIn) }
         }
     }
 
-    /// Only right after signing in does it mark the inbox seen: a cold start can be iOS launching
-    /// the app in the background for a refresh, which must still announce what is new.
-    private func loadMe(_ s: Session, afterSignIn: Bool) async {
+    private func loadMe(_ s: Session) async {
         await s.reloadPunches()
         guard let me: Me = try? await s.api.get("/api/v1/me") else { return }
         s.me = me
         var c = s.connection
         c.membershipId = me.membershipId
         c.displayName = me.user.displayName
-        // The server may have been upgraded since connecting: refresh its feature list.
-        if case .compatible(let meta, let org) = await check(server: c.server, org: c.orgSlug) {
-            c.features = meta.features
-            c.logoUrl = org.logoUrl
-        }
         s.connection = c
         connectionsStore.update(c)
         reloadConnections()
+    }
+
+    /// Only right after signing in does it mark the inbox seen: a cold start can be iOS launching
+    /// the app in the background for a refresh, which must still announce what is new.
+    private func afterMe(_ s: Session, afterSignIn: Bool) async {
+        // The server may have been upgraded since connecting: refresh its feature list.
+        if case .compatible(let meta, let org) = await check(server: s.connection.server, org: s.connection.orgSlug) {
+            var c = s.connection
+            c.features = meta.features
+            c.logoUrl = org.logoUrl
+            s.connection = c
+            connectionsStore.update(c)
+            reloadConnections()
+        }
         await s.drainPunches()
         if afterSignIn { await refresher(for: s).markAllSeen() }
     }

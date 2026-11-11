@@ -273,6 +273,13 @@ struct DecisionForm: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .crowScreen()
+        // The keyboard covers Approve and Reject: Done puts it away, as on the other forms.
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { commentFocused = false }
+            }
+        }
         .task {
             do { detail = .loaded(try await session.api.get("/api/v1/approvals/requests/\(task.requestId)")) } catch { detail.fail(error) }
         }

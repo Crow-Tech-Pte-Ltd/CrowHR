@@ -277,6 +277,13 @@ struct NewClaimView: View {
                             Notice(text: error, tone: .danger, systemImage: "exclamationmark.triangle")
                                 .accessibilityIdentifier("claim.error")
                         }
+                        // The buttons stay disabled until the claim is complete: say what is missing.
+                        if let missing = missingHint {
+                            Text(missing)
+                                .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("claim.missing")
+                        }
                         VStack(spacing: 12) {
                             Button { Task { await save(submit: true) } } label: { Text(busy ? "Sending…" : "Submit claim") }
                                 .buttonStyle(.crowPrimary)
@@ -322,6 +329,19 @@ struct NewClaimView: View {
     private var valid: Bool {
         selectedType != nil && cents != nil && !merchant.trimmingCharacters(in: .whitespaces).isEmpty
             && !detail.trimmingCharacters(in: .whitespaces).isEmpty && (!receiptRequired || receipt != nil)
+    }
+
+    /// "To submit, add the merchant and the amount.", or nil when nothing is missing.
+    private var missingHint: String? {
+        var missing: [String] = []
+        if selectedType == nil { missing.append("the claim type") }
+        if merchant.trimmingCharacters(in: .whitespaces).isEmpty { missing.append("the merchant") }
+        if detail.trimmingCharacters(in: .whitespaces).isEmpty { missing.append("what it was for") }
+        if cents == nil { missing.append("the amount") }
+        if receiptRequired && receipt == nil { missing.append("a photo of the receipt") }
+        guard !missing.isEmpty else { return nil }
+        let list = missing.count == 1 ? missing[0] : missing.dropLast().joined(separator: ", ") + " and " + missing.last!
+        return "To submit, add \(list)."
     }
 
     private func loadTypes() async throws -> [ClaimType] {
