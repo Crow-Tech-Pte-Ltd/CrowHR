@@ -5,6 +5,9 @@
   "type": "module",
   "license": "MIT",
   "description": "Crow Tech component library for Crow HR (Radix + CVA, ported from crow-tech-landing).",
+  "sideEffects": [
+    "*.css"
+  ],
   "exports": {
     ".": "./src/index.ts",
     "./clock": "./src/lib/clock.ts",

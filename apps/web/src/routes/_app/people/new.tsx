@@ -21,6 +21,8 @@ import { DateInput, label, Part4Fields, SelectInput, TextInput, today } from "./
 
 export const Route = createFileRoute("/_app/people/new")({ component: NewEmployeePage });
 
+// Plain data only: a call here (such as today()) would keep this module's imports in the app's
+// entry chunk, because the route file is loaded at startup and only the component is split off.
 const blank = {
   legalName: "",
   preferredName: "",
@@ -35,7 +37,7 @@ const blank = {
   religion: "",
   workEmail: "",
   mobile: "",
-  hireDate: today(),
+  hireDate: "",
   jobTitle: "",
   departmentId: "",
   teamId: "",
@@ -59,7 +61,7 @@ const orNull = (v: string) => (v.trim() === "" ? null : v.trim());
 function NewEmployeePage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [f, setF] = React.useState<Form>(blank);
+  const [f, setF] = React.useState<Form>(() => ({ ...blank, hireDate: today() }));
   const [amount, setAmount] = React.useState<number | null>(null);
   // Without SMTP the hire returns a one-time sign-in link: show it once, then open the record.
   const [invite, setInvite] = React.useState<{ employeeId: string; url: string; body: string } | null>(null);

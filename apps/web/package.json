@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "sideEffects": [
+    "*.css",
+    "./src/main.tsx"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
