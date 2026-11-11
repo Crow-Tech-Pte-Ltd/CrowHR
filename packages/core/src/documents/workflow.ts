@@ -33,7 +33,7 @@ import type {
 } from "../workflows/types.ts";
 import type { DocActor } from "./access.ts";
 import { ensureDocumentSetup } from "./defaults.ts";
-import { addDaysIso, expiryThreshold } from "./expiry.ts";
+import { addDaysIso, addMonthsIso, expiryThreshold } from "./expiry.ts";
 import { fileGeneratedLetter, missingMessage, resolveLetter } from "./service.ts";
 
 /**
@@ -450,15 +450,6 @@ export function retentionTransition(deps: AppDeps): Transition {
       return flagged;
     },
   };
-}
-
-function addMonthsIso(date: string, months: number): string {
-  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
-  const total = y * 12 + (m - 1) + months;
-  const year = Math.floor(total / 12);
-  const month = (total % 12) + 1;
-  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
 }
 
 export function documentsWorkflowPlugin(deps: AppDeps): WorkflowPlugin {

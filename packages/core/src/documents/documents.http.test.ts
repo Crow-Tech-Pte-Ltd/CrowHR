@@ -58,6 +58,30 @@ describe("documents", () => {
     expect(cats.contract?.retentionMonthsAfterExit).toBe(12);
   });
 
+  it("document counts per category: the organisation's for HR, only their own readable ones for others", async () => {
+    await ok(
+      uploadDoc(hr, pdfBytes(90), { employeeId: w.emp.other, categoryId: cats.medical?.id as string, title: "MC" }),
+      201,
+    );
+    await ok(
+      uploadDoc(hr, pdfBytes(91), { employeeId: w.emp.other, categoryId: cats.other?.id as string, title: "Note" }),
+      201,
+    );
+    const counts = async (client: TestClient) =>
+      Object.fromEntries(
+        (await ok<{ items: Category[] }>(client.get("/api/v1/documents/categories"))).items.map((c) => [
+          c.systemKey,
+          (c as Category & { documentCount: number }).documentCount,
+        ]),
+      );
+    const forHr = await counts(hr);
+    expect(forHr.medical).toBeGreaterThanOrEqual(1);
+    expect(forHr.other).toBeGreaterThanOrEqual(1);
+    // A colleague learns nothing about others' medical or HR-only documents.
+    const staff = await counts(await w.as("staff"));
+    expect([staff.medical, staff.other]).toEqual([0, 0]);
+  });
+
   it("refuses to make a medical category manager-visible, and to delete a category in use", async () => {
     const res = await hr.patch(`/api/v1/documents/categories/${cats.medical?.id}`, { managerVisible: true });
     expect(res.status).toBe(400);

@@ -31,6 +31,7 @@ import { notify } from "../notifications/notify.ts";
 import { renderLetterPdf } from "../pdf/letter.ts";
 import { canReadCategory, canUploadTo, type DocActor, isHr } from "./access.ts";
 import { ensureDocumentSetup } from "./defaults.ts";
+import { addMonthsIso } from "./expiry.ts";
 import { FIELDS, fieldDef, resolveAllFields } from "./fields.ts";
 import { type Block, resolveFields } from "./markdown.ts";
 import { validateTemplate } from "./templates.ts";
@@ -72,11 +73,19 @@ export async function listCategories(
     .where(eq(documentCategories.orgId, a.orgId))
     .orderBy(asc(documentCategories.position), asc(documentCategories.name));
   const counts = await deps.db
-    .select({ id: documents.categoryId, n: sql<number>`count(*)::int` })
+    .select({ id: documents.categoryId, employeeId: documents.employeeId, n: sql<number>`count(*)::int` })
     .from(documents)
     .where(and(eq(documents.orgId, a.orgId), isNull(documents.purgedAt)))
-    .groupBy(documents.categoryId);
-  const count = new Map(counts.map((c) => [c.id, Number(c.n)]));
+    .groupBy(documents.categoryId, documents.employeeId);
+  // HR sees the organisation's counts; anyone else only the documents they could open, so the
+  // list doesn't reveal how many medical or HR-only documents colleagues have.
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const count = new Map<string, number>();
+  for (const c of counts) {
+    const category = byId.get(c.id);
+    if (!category || !(isHr(a) || (await canReadCategory(a, category, c.employeeId)))) continue;
+    count.set(c.id, (count.get(c.id) ?? 0) + Number(c.n));
+  }
   return rows.map((r) => ({ ...r, documentCount: count.get(r.id) ?? 0 }));
 }
 
@@ -1384,14 +1393,8 @@ export async function resolveRetention(
   const review = await a.org.getById(documentRetentionReviews, id, "review");
   if (review.resolvedAt) throw new AppError("already_decided", "This review was already decided.");
   const today = singaporeDate(deps.clock.now());
-  const keepUntil =
-    input.resolution === "keep"
-      ? (() => {
-          const d = new Date(`${today}T00:00:00Z`);
-          d.setUTCMonth(d.getUTCMonth() + input.keepMonths);
-          return d.toISOString().slice(0, 10);
-        })()
-      : null;
+  // Calendar months, clamped to the month's last day (31 Oct + 4 months = 28 Feb), as the sweep does.
+  const keepUntil = input.resolution === "keep" ? addMonthsIso(today, input.keepMonths) : null;
   await deps.db.transaction(async (tx) => {
     await tx
       .update(documentRetentionReviews)
