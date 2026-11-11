@@ -9,6 +9,11 @@ import {
   DialogTitle,
   FormField,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Switch,
   toast,
 } from "@crowhr/ui";
@@ -16,6 +21,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useReauth } from "../../../../auth/reauth.tsx";
 import { api, errorMessage, fieldErrors, settingsQuery } from "./api.ts";
+import { groupKey, sectorLabel, tierSkillLabel, WORK_PERMIT_LEVY_GROUPS } from "./levy-options.ts";
+
+const NONE = "none";
 
 /** Payroll settings: pay day, release, CPF advice code, levy estimate and the bank file's debit account. */
 export function PayrollSettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -49,6 +57,11 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
   const [sector, setSector] = React.useState(initial.fwlSector ?? "");
   const [tier, setTier] = React.useState(initial.fwlTier ?? "");
   const [skill, setSkill] = React.useState(initial.fwlSkill ?? "");
+  // Choices come from the levy table; a saved value the table doesn't know is still offered as is.
+  const sectors = [...new Set([...WORK_PERMIT_LEVY_GROUPS.map((g) => g.sector), ...(sector ? [sector] : [])])];
+  const tiers = WORK_PERMIT_LEVY_GROUPS.filter((g) => g.sector === sector);
+  if (sector && tier && !tiers.some((g) => groupKey(g.tier, g.skill) === groupKey(tier, skill || null)))
+    tiers.push({ sector, tier, skill: skill || null });
   const save = useMutation({
     mutationFn: () =>
       reauth(() =>
@@ -117,19 +130,59 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
       <p className="mt-1 font-azeret text-[10px] font-semibold uppercase tracking-wider text-primary-300 sm:col-span-2">
         Work Permit levy estimate (MOM's bill is authoritative)
       </p>
-      <FormField label="Sector">
-        <Input value={sector} onChange={(e) => setSector(e.target.value)} placeholder="SERVICES" />
+      <FormField label="Sector" hint="As on MOM's levy bill.">
+        <Select
+          value={sector || NONE}
+          onValueChange={(v) => {
+            const next = v === NONE ? "" : v;
+            setSector(next);
+            // Keep the tier only if the new sector has it.
+            const first = WORK_PERMIT_LEVY_GROUPS.find((g) => g.sector === next);
+            if (
+              !WORK_PERMIT_LEVY_GROUPS.some(
+                (g) => g.sector === next && groupKey(g.tier, g.skill) === groupKey(tier, skill || null),
+              )
+            ) {
+              setTier(first?.tier ?? "");
+              setSkill(first?.skill ?? "");
+            }
+          }}
+        >
+          <SelectTrigger aria-label="Sector">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>No Work Permit holders</SelectItem>
+            {sectors.map((code) => (
+              <SelectItem key={code} value={code}>
+                {sectorLabel(code)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </FormField>
       <FormField label="Tier and skill">
-        <Input
-          value={tier && skill ? `${tier} ${skill}` : tier}
-          onChange={(e) => {
-            const [t, ...rest] = e.target.value.split(" ");
+        <Select
+          value={sector ? groupKey(tier, skill || null) : NONE}
+          disabled={!sector}
+          onValueChange={(v) => {
+            const [t, k] = v.split("|");
             setTier(t ?? "");
-            setSkill(rest.join(" "));
+            setSkill(k ?? "");
           }}
-          placeholder="TIER_1 BASIC_SKILLED"
-        />
+        >
+          <SelectTrigger aria-label="Tier and skill">
+            <SelectValue placeholder="Choose a sector first" />
+          </SelectTrigger>
+          <SelectContent>
+            {sector ? null : <SelectItem value={NONE}>Choose a sector first</SelectItem>}
+            {tiers.map((g) => (
+              <SelectItem key={groupKey(g.tier, g.skill)} value={groupKey(g.tier, g.skill)}>
+                {tierSkillLabel(g.tier, g.skill)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </FormField>
       {save.isError && !Object.keys(errors).length ? (
         <p role="alert" className="text-ui text-danger-300 sm:col-span-2">
