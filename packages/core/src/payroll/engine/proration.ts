@@ -123,17 +123,57 @@ export function prorate(input: PayInput): ProrationResult {
       );
       return out;
     }
-    const pay = roundHalfUp(lastSeg.amountCents * minutes, 60);
-    out.basicCents = pay;
-    out.hourly = { rateCents: lastSeg.amountCents, minutes };
-    lines.push(
-      line("BASIC", "earning", "basic", "Basic pay", pay, `${minutes / 60} h × ${centsText(lastSeg.amountCents)}`),
-    );
-    working.push({
-      section: "basic",
-      code: "BASIC_HOURLY",
-      text: `Hourly rate ${centsText(lastSeg.amountCents)} × ${minutes / 60} h = ${centsText(pay)} (rounded half up to the cent).`,
-    });
+    const rates = new Set(hourlySegs.map((s) => s.amountCents));
+    if (rates.size > 1) {
+      // The rate changes within the period: each hour is paid at the rate on the day it was worked.
+      const change = hourlySegs.find((s, i) => i > 0 && s.amountCents !== hourlySegs[i - 1]?.amountCents);
+      const segOf = (date: string | null) =>
+        date ? hourlySegs.find((s) => s.from <= date && (s.to === null || date < s.to)) : undefined;
+      if (hours.some((h) => !segOf(h.date))) {
+        issues.push(
+          blocking(
+            "HOURLY_RATE_CHANGES_IN_PERIOD",
+            `The hourly rate changes on ${dateLabel(change?.from ?? start)}. Enter the hours as separate "Hours worked" items, each with the date worked (split them at the change), then recompute.`,
+            null,
+          ),
+        );
+        return out;
+      }
+      const bySeg = new Map<CompensationSegment, number>();
+      for (const h of hours) {
+        const seg = segOf(h.date) as CompensationSegment;
+        bySeg.set(seg, (bySeg.get(seg) ?? 0) + (h.minutes ?? 0));
+      }
+      let pay = 0;
+      const details: string[] = [];
+      for (const seg of hourlySegs) {
+        const segMinutes = bySeg.get(seg) ?? 0;
+        if (segMinutes === 0) continue;
+        const segPay = roundHalfUp(seg.amountCents * segMinutes, 60);
+        pay += segPay;
+        details.push(`${segMinutes / 60} h × ${centsText(seg.amountCents)}`);
+        working.push({
+          section: "basic",
+          code: "BASIC_HOURLY",
+          text: `From ${dateLabel(maxDate(seg.from, start))}: hourly rate ${centsText(seg.amountCents)} × ${segMinutes / 60} h = ${centsText(segPay)} (rounded half up to the cent).`,
+        });
+      }
+      lines.push(line("BASIC", "earning", "basic", "Basic pay", pay, details.join("; ")));
+      out.basicCents = pay;
+      out.hourly = { rateCents: lastSeg.amountCents, minutes };
+    } else {
+      const pay = roundHalfUp(lastSeg.amountCents * minutes, 60);
+      out.basicCents = pay;
+      out.hourly = { rateCents: lastSeg.amountCents, minutes };
+      lines.push(
+        line("BASIC", "earning", "basic", "Basic pay", pay, `${minutes / 60} h × ${centsText(lastSeg.amountCents)}`),
+      );
+      working.push({
+        section: "basic",
+        code: "BASIC_HOURLY",
+        text: `Hourly rate ${centsText(lastSeg.amountCents)} × ${minutes / 60} h = ${centsText(pay)} (rounded half up to the cent).`,
+      });
+    }
     if (npl.length > 0) {
       issues.push({
         code: "NPL_IGNORED_HOURLY",

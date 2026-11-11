@@ -3,12 +3,12 @@ import type { PayrollRun } from "../db/schema/payroll.ts";
 import type { AppDeps } from "../deps.ts";
 import { dayInfo, employmentNear, loadEmployeesTime, mondayIndex, scheduleOn } from "../leave/calendar.ts";
 import { attachRosters } from "../scheduling/feeds.ts";
-import type { PayInput } from "./engine/types.ts";
+import { isBonusRun, type PayInput } from "./engine/types.ts";
 
 const SOURCE = "https://www.mom.gov.sg/employment-practices/public-holidays-entitlement-and-pay";
 /** Off-day holidays: gross pay when policy chooses pay; rest-day holidays remain substitute days. */
 export async function appendHolidayPay(deps: AppDeps, run: PayrollRun, inputs: PayInput[]) {
-  if (run.kind === "off_cycle" && run.offCycleReason === "bonus") return;
+  if (isBonusRun(run)) return;
   const times = await loadEmployeesTime(
     deps.db,
     run.orgId,

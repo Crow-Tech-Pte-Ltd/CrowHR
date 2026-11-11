@@ -67,6 +67,32 @@ describe("pro-ration (MOM incomplete month)", () => {
     expect(missing.issues.map((i) => [i.code, i.severity])).toEqual([["HOURS_MISSING", "blocking"]]);
   });
 
+  it("hourly rate change mid-month: dated hours at each rate; undated hours block", () => {
+    const comp = [
+      { from: "2020-01-01", to: "2026-10-16", payBasis: "hourly" as const, amountCents: 1_000 },
+      { from: "2026-10-16", to: null, payBasis: "hourly" as const, amountCents: 1_200 },
+    ];
+    // 80 h on 5 Oct at S$10 + 80 h on 20 Oct at S$12 = S$1,760.
+    const dated = prorate(
+      payInput({
+        compensation: comp,
+        items: [
+          item({ kind: "hours", minutes: 4_800, date: "2026-10-05" }),
+          item({ kind: "hours", minutes: 4_800, date: "2026-10-20" }),
+        ],
+      }),
+    );
+    expect(dated.issues).toEqual([]);
+    expect(dated.basicCents).toBe(176_000);
+    expect(dated.lines.filter((l) => l.code === "BASIC").map((l) => [l.amountCents, l.detail])).toEqual([
+      [176_000, "80 h × S$10.00; 80 h × S$12.00"],
+    ]);
+    const undated = prorate(payInput({ compensation: comp, items: [item({ kind: "hours", minutes: 9_600 })] }));
+    expect(undated.issues.map((i) => [i.code, i.severity])).toEqual([["HOURLY_RATE_CHANGES_IN_PERIOD", "blocking"]]);
+    expect(undated.issues[0]?.message).toMatch(/16 Oct 2026.*date worked/);
+    expect(undated.basicCents).toBe(0);
+  });
+
   it("rostered staff: a full month needs nothing, a part month needs roster days (EA s 20A), never an assumed week", () => {
     expect(prorate(payInput({ employment: { pattern: null } })).basicCents).toBe(400_000);
     const missing = prorate(payInput({ employment: { pattern: null, hireDate: "2026-10-16" } }));
