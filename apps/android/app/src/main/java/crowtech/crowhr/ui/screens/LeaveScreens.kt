@@ -1,7 +1,13 @@
 package crowtech.crowhr.ui.screens
 
 import android.net.Uri
-import android.util.Base64
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import crowtech.crowhr.api.Me
+import crowtech.crowhr.ui.AttachmentException
+import crowtech.crowhr.ui.Attachments
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -50,7 +56,6 @@ import crowtech.crowhr.api.LeaveQuoteRequest
 import crowtech.crowhr.api.LeaveRequest
 import crowtech.crowhr.api.LeaveType
 import crowtech.crowhr.core.Formats
-import crowtech.crowhr.ui.Images
 import crowtech.crowhr.ui.Route
 import crowtech.crowhr.ui.ScreenContext
 import crowtech.crowhr.ui.components.CrowCard
@@ -111,10 +116,16 @@ fun LeaveScreen(ctx: ScreenContext) {
         ctx.api.get("/api/v1/leave/balances", BALANCES).also { ctx.graph.cache.put(key, "leave-balances", BALANCES, it) }
     }
     val history = rememberLoader(key, ctx.me?.employeeId) {
-        ctx.api.get("/api/v1/leave/requests", REQUESTS, mapOf("employeeId" to ctx.me?.employeeId, "limit" to "50"))
+        // Without an employee ID the server lists every request the user may see (a manager's
+        // team, everyone's for HR), so "My requests" waits for the user's own ID, and an account
+        // without an employee record has no requests of its own.
+        val employeeId = ctx.me?.employeeId ?: ctx.api.get("/api/v1/me", Me.serializer()).employeeId
+        if (employeeId == null) Items(emptyList())
+        else ctx.api.get("/api/v1/leave/requests", REQUESTS, mapOf("employeeId" to employeeId, "limit" to "50"))
     }
     var actionError by remember { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf<LeaveRequest?>(null) }
+    var acting by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenTitle("Leave", "Your balances for ${LocalDate.now(Formats.SINGAPORE).year}.")
@@ -147,7 +158,6 @@ fun LeaveScreen(ctx: ScreenContext) {
             }
         }
         SectionTitle("My requests")
-        actionError?.let { Notice(it, Tone.Danger) }
         LoadContent(history, "Loading requests…") { list ->
             if (list.items.isEmpty()) EmptyState("No leave requests yet", "Requests you send appear here with their status.")
             list.items.forEach { r ->
@@ -165,15 +175,18 @@ fun LeaveScreen(ctx: ScreenContext) {
                     }
                     StatusChip(label, tone, Modifier.padding(top = 4.dp))
                     if (r.status == "pending" || (r.status == "approved" && r.endDate >= LocalDate.now(Formats.SINGAPORE).toString())) {
-                        LinkButton(if (r.status == "pending") "Withdraw…" else "Ask to cancel…", { confirm = r })
+                        LinkButton(if (r.status == "pending") "Withdraw…" else "Ask to cancel…", { confirm = r; actionError = null })
                     }
                     if (confirm?.id == r.id) {
                         Notice(
                             if (r.status == "pending") "Withdraw this request? Your approver won't see it any more." else "Ask to cancel this approved leave? It goes to your approver.",
                             Tone.Warning,
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Next to the buttons that caused it, not above a long list.
+                        actionError?.let { Notice(it, Tone.Danger, Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite }) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                             SecondaryButton(if (r.status == "pending") "Withdraw" else "Ask to cancel", {
+                                acting = true
                                 scope.launch {
                                     actionError = null
                                     try {
@@ -185,9 +198,10 @@ fun LeaveScreen(ctx: ScreenContext) {
                                     } catch (e: Exception) {
                                         actionError = e.userMessage()
                                     }
+                                    acting = false
                                 }
-                            }, Modifier.weight(1f), tone = Tone.Danger)
-                            SecondaryButton("Keep", { confirm = null }, Modifier.weight(1f))
+                            }, Modifier.weight(1f), tone = Tone.Danger, enabled = !acting)
+                            SecondaryButton("Keep", { confirm = null }, Modifier.weight(1f), enabled = !acting)
                         }
                     }
                 }
@@ -210,6 +224,13 @@ fun nextWorkingDay(today: LocalDate, holidays: Set<String> = emptySet()): LocalD
 
 @kotlinx.serialization.Serializable
 data class Holiday(val date: String, val name: String = "")
+
+/**
+ * The (start, end) sessions sent with a request. The Day choice is shown only for a one-day
+ * request of a type with half days, so only then does the chosen session count.
+ */
+fun leaveSessions(start: LocalDate, end: LocalDate, type: LeaveType?, chosen: String): Pair<String, String> =
+    if (start == end && type?.halfDays == true && chosen in setOf("full", "am", "pm")) chosen to chosen else "full" to "full"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -244,26 +265,33 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
     var submitting by remember { mutableStateOf(false) }
     var sent by rememberSaveable { mutableStateOf(false) }
 
-    val capture = ctx.graph.receiptCamera.rememberCapture { file ->
-        if (file != null) {
-            val bytes = Images.compressForUpload(file)
-            attachment = LeaveAttachment("photo-${start}.jpg", "image/jpeg", Base64.encodeToString(bytes, Base64.NO_WRAP))
-            file.delete()
+    var attaching by remember { mutableStateOf(false) }
+    // Photos are shrunk and documents read off the main thread (a 12 MP photo takes a while).
+    fun attach(read: suspend () -> LeaveAttachment) {
+        attaching = true
+        fieldError = null
+        scope.launch {
+            try {
+                attachment = withContext(Dispatchers.IO) { read() }
+            } catch (e: AttachmentException) {
+                fieldError = e.message
+            } catch (e: Exception) {
+                fieldError = "Couldn't read that file. Try another one."
+            }
+            attaching = false
         }
+    }
+    val capture = ctx.graph.receiptCamera.rememberCapture { file ->
+        if (file != null) attach { Attachments.photo(file, "photo-$start.jpg").also { file.delete() } }
     }
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri != null) {
-            val mime = context.contentResolver.getType(uri) ?: "application/pdf"
-            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            if (bytes != null && bytes.size <= 10_000_000) {
-                attachment = LeaveAttachment(uri.lastPathSegment?.substringAfterLast('/') ?: "attachment", mime, Base64.encodeToString(bytes, Base64.NO_WRAP))
-            } else {
-                fieldError = "Choose a file up to 10 MB."
-            }
-        }
+        if (uri != null) attach { Attachments.fromDocument(context, uri) }
     }
+    // A half day only for a one-day request of a type that has them: a session chosen earlier
+    // and hidden since (longer dates, another type) is never sent.
+    val (sendStart, sendEnd) = leaveSessions(start, end, type, startSession)
 
-    LaunchedEffect(type, start, end, startSession) {
+    LaunchedEffect(type, start, end, sendStart) {
         val t = type ?: return@LaunchedEffect
         delay(250)
         quote = null
@@ -271,7 +299,7 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
         try {
             quote = ctx.api.post(
                 "/api/v1/leave/quote",
-                LeaveQuoteRequest(t.id, start.toString(), end.toString(), startSession, if (start == end) startSession else "full"),
+                LeaveQuoteRequest(t.id, start.toString(), end.toString(), sendStart, sendEnd),
                 LeaveQuoteRequest.serializer(), LeaveQuote.serializer(),
             )
         } catch (e: Exception) {
@@ -287,7 +315,15 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
             return@Column
         }
         LoadContent(types, "Loading leave types…") { list ->
-            val options = list.items.filter { !it.archived }
+            // NOT IMPLEMENTED (app): leave for a child (childcare and the like) needs the child
+            // chosen, which only the web does. Same as iOS.
+            val options = list.items.filter { !it.archived && !it.needsChild }
+            if (list.items.any { !it.archived && it.needsChild }) {
+                Text(
+                    "Leave for a child, such as childcare leave, is applied for in Crow HR on the web.",
+                    style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted,
+                )
+            }
             var expanded by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                 OutlinedTextField(
@@ -310,7 +346,8 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
         DateField("Last day", end, Modifier.testTag("leave-end")) { end = if (it < start) start else it }
         if (type?.halfDays == true && start == end) {
             Label("Day")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Wraps at large text sizes instead of pushing "Afternoon" off the screen.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("full" to "Full day", "am" to "Morning", "pm" to "Afternoon").forEach { (value, label) ->
                     FilterChip(selected = startSession == value, onClick = { startSession = value }, label = { Text(label) })
                 }
@@ -320,10 +357,11 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
         type?.takeIf { it.attachment != "none" }?.let { t ->
             Label(if (t.attachment == "required") "Attachment (required)" else "Attachment (optional)")
             t.attachmentLabel?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted) }
-            attachment?.let { Text("Attached: ${it.filename}", style = MaterialTheme.typography.bodyMedium) }
+            if (attaching) Text("Preparing the attachment…", style = MaterialTheme.typography.bodyMedium, color = Crow.colors.muted)
+            attachment?.let { Text("Attached: ${it.filename}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("leave-attached")) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("Take photo", capture, Modifier.weight(1f))
-                SecondaryButton("Choose file", { pickFile.launch(arrayOf("application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic")) }, Modifier.weight(1f))
+                SecondaryButton("Take photo", capture, Modifier.weight(1f), enabled = !attaching)
+                SecondaryButton("Choose file", { pickFile.launch(Attachments.TYPES) }, Modifier.weight(1f), enabled = !attaching)
             }
         }
         quote?.let { q ->
@@ -353,7 +391,7 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
                         try {
                             ctx.api.post(
                                 "/api/v1/leave/requests",
-                                LeaveApplication(t.id, start.toString(), end.toString(), startSession, if (start == end) startSession else "full", reason.trim().ifEmpty { null }, attachment?.let { listOf(it) }),
+                                LeaveApplication(t.id, start.toString(), end.toString(), sendStart, sendEnd, reason.trim().ifEmpty { null }, attachment?.let { listOf(it) }),
                                 LeaveApplication.serializer(), LeaveRequest.serializer(),
                             )
                             sent = true
@@ -366,7 +404,7 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
                     }
                 }
             }
-        }, Modifier.fillMaxWidth().testTag("send-leave"), loading = submitting, enabled = !submitting)
+        }, Modifier.fillMaxWidth().testTag("send-leave"), loading = submitting, enabled = !submitting && !attaching)
         SecondaryButton("Cancel", ctx.pop, Modifier.fillMaxWidth())
     }
 }
