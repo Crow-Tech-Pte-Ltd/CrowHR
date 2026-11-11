@@ -9,6 +9,11 @@ import { documentRetentionReviews, documents, documentVersions, letterTemplates 
 import { checklistItems, checklists, tenures } from "../db/schema/employees.ts";
 import { files } from "../db/schema/files.ts";
 import { notifications } from "../db/schema/notifications.ts";
+import { departments } from "../db/schema/organisation.ts";
+import { buildActor } from "../employees/access.ts";
+import { applyEvent, ctxFor, hire } from "../employees/lifecycle.ts";
+import { defaultPeoplePorts } from "../employees/ports.ts";
+import { hirePayload } from "../testing/people-harness.ts";
 
 /**
  * Letters, KETs, acknowledgements, letter requests and retention (add-documents tasks 3.3, 3.4,
@@ -136,6 +141,48 @@ describe("letters and acknowledgements", () => {
     expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(
       /salary fields \(compensation\.basic_pay, compensation\.fixed_allowances\).*payroll admin or owner/,
     );
+  });
+
+  it("an offer for a future starter uses their first employment record, not a later one", async () => {
+    const ports = defaultPeoplePorts(w.deps);
+    const owner = buildActor({
+      db: w.deps.db,
+      orgId: w.orgId,
+      userId: w.m.owner.userId,
+      requestId: null,
+      roles: ["owner"],
+      employeeId: null,
+      today: "2026-10-31",
+    });
+    const [dept] = await w.deps.db.select().from(departments).where(eq(departments.orgId, w.orgId));
+    const structure = {
+      departments: { sales: dept?.id, ops: dept?.id, finance: dept?.id },
+      scheduleId: w.scheduleId,
+      locationId: null,
+    };
+    const starter = (
+      await hire(
+        ctxFor(w.deps, ports, owner),
+        hirePayload(structure as never, {
+          person: { legalName: "Goh Wei Lun" },
+          job: { hireDate: "2026-12-01", jobTitle: "Barista", locationId: null },
+        }),
+      )
+    ).employeeId;
+    await applyEvent(ctxFor(w.deps, ports, owner), starter, {
+      type: "promotion",
+      effectiveDate: "2027-01-01",
+      changes: { jobTitle: "Senior Barista" },
+    });
+    const preview = await ok<{ values: Record<string, string> }>(
+      hrPay.post("/api/v1/documents/generate", {
+        templateId: templates.offer?.id,
+        employeeId: starter,
+        asAt: "2026-10-31",
+        dryRun: true,
+      }),
+    );
+    expect(preview.values["employment.job_title"]).toBe("Barista");
   });
 
   it("blocks generation listing missing fields and where to fill them", async () => {
@@ -349,8 +396,14 @@ describe("letters and acknowledgements", () => {
       .from(files)
       .where(eq(files.sha256, doc.current?.sha256 as string));
     expect(f?.deletedAt).toBeNull();
-    // HR keeps it for another year: no new flag until then.
-    await ok(hr.post(`/api/v1/documents/retention/${flag?.id}/resolve`, { resolution: "keep", keepMonths: 12 }), 204);
+    // HR keeps it for four more months: from 31 Oct that is 28 Feb (the month's last day, not 3 Mar).
+    await ok(hr.post(`/api/v1/documents/retention/${flag?.id}/resolve`, { resolution: "keep", keepMonths: 4 }), 204);
+    const [kept] = await w.deps.db
+      .select()
+      .from(documentRetentionReviews)
+      .where(eq(documentRetentionReviews.id, flag?.id as string));
+    expect(kept?.keepUntil).toBe("2027-02-28");
+    // No new flag until then.
     await w.app.jobs.tick();
     expect((await ok<{ items: unknown[] }>(hr.get("/api/v1/documents/retention"))).items).toHaveLength(0);
   });
