@@ -32,7 +32,7 @@ struct QRScannerSheet: View {
             .crowScreen()
             .navigationTitle("Scan QR code")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction) } }
             .task {
                 if status == .notDetermined {
                     _ = await AVCaptureDevice.requestAccess(for: .video)
@@ -40,6 +40,8 @@ struct QRScannerSheet: View {
                 }
             }
         }
+        // iPad: a form-sized sheet, not the whole screen.
+        .presentationSizing(.form)
     }
 }
 
@@ -60,6 +62,9 @@ struct QRCameraView: UIViewControllerRepresentable {
         var onCode: ((String) -> Void)?
         private let session = AVCaptureSession()
         private var delivered = false
+        /// Keeps the preview upright in every orientation the window has (all four on an iPad).
+        private var rotation: AVCaptureDevice.RotationCoordinator?
+        private var rotationObservation: NSKeyValueObservation?
 
         override func viewDidLoad() {
             super.viewDidLoad()
@@ -76,6 +81,12 @@ struct QRCameraView: UIViewControllerRepresentable {
             preview.videoGravity = .resizeAspectFill
             preview.frame = view.layer.bounds
             view.layer.addSublayer(preview)
+            let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: preview)
+            rotation = coordinator
+            applyRotation()
+            rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview, options: [.new]) { @Sendable [weak self] _, _ in
+                Task { @MainActor in self?.applyRotation() }
+            }
             let box = SessionBox(session: session)
             DispatchQueue.global(qos: .userInitiated).async { box.session.startRunning() }
         }
@@ -83,6 +94,14 @@ struct QRCameraView: UIViewControllerRepresentable {
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
             view.layer.sublayers?.first { $0 is AVCaptureVideoPreviewLayer }?.frame = view.layer.bounds
+            applyRotation()
+        }
+
+        private func applyRotation() {
+            guard let rotation, let preview = view.layer.sublayers?.first(where: { $0 is AVCaptureVideoPreviewLayer }) as? AVCaptureVideoPreviewLayer,
+                  let connection = preview.connection else { return }
+            let angle = rotation.videoRotationAngleForHorizonLevelPreview
+            if connection.isVideoRotationAngleSupported(angle) { connection.videoRotationAngle = angle }
         }
 
         override func viewWillDisappear(_ animated: Bool) {

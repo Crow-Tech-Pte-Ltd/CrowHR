@@ -115,42 +115,63 @@ enum CrowAppearance {
 // MARK: - Buttons
 
 /// The primary action: kuning fill, 2px ink border and the hard offset shadow (reserved for
-/// emphasis per the design language). No blur, no gradient.
+/// emphasis per the design language). No blur, no gradient. Under an iPad pointer it lifts by a
+/// point onto a deeper hard shadow; a press pushes it flat.
 struct PrimaryButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
+    func makeBody(configuration: Configuration) -> some View { Styled(configuration: configuration) }
 
-    func makeBody(configuration: Configuration) -> some View {
-        let offset: CGFloat = configuration.isPressed || !isEnabled ? 0 : 3
-        let shape = RoundedRectangle(cornerRadius: Crow.buttonRadius)
-        configuration.label
-            .font(CrowFont.mono(.callout, weight: .semibold))
-            .foregroundStyle(Crow.onKuning)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .padding(.horizontal, 16)
-            .background(shape.fill(isEnabled ? Crow.kuning : Crow.surfaceMuted))
-            .overlay(shape.strokeBorder(Color(uiColor: Crow.dynamicUI(0x0A0A0A, 0x0A0A0A)), lineWidth: 2))
-            .background(shape.fill(Crow.strongBorder).offset(x: offset, y: offset))
-            .offset(x: configuration.isPressed ? 3 : 0, y: configuration.isPressed ? 3 : 0)
-            .opacity(isEnabled ? 1 : 0.6)
-            .contentShape(shape)
+    struct Styled: View {
+        let configuration: Configuration
+        @Environment(\.isEnabled) private var isEnabled
+        @State private var hovering = false
+
+        var body: some View {
+            let lifted = hovering && isEnabled && !configuration.isPressed
+            let offset: CGFloat = configuration.isPressed || !isEnabled ? 0 : (lifted ? 4 : 3)
+            let shift: CGFloat = configuration.isPressed ? 3 : (lifted ? -1 : 0)
+            let shape = RoundedRectangle(cornerRadius: Crow.buttonRadius)
+            configuration.label
+                .font(CrowFont.mono(.callout, weight: .semibold))
+                .foregroundStyle(Crow.onKuning)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .padding(.horizontal, 16)
+                .background(shape.fill(isEnabled ? Crow.kuning : Crow.surfaceMuted))
+                .overlay(shape.strokeBorder(Color(uiColor: Crow.dynamicUI(0x0A0A0A, 0x0A0A0A)), lineWidth: 2))
+                .background(shape.fill(Crow.strongBorder).offset(x: offset, y: offset))
+                .offset(x: shift, y: shift)
+                .opacity(isEnabled ? 1 : 0.6)
+                .contentShape(shape)
+                .onHover { hovering = $0 }
+        }
     }
 }
 
+/// Hairline-bordered secondary action. The pointer (iPad) shades it like a light press.
 struct SecondaryButtonStyle: ButtonStyle {
     var tone: Color = Crow.ink
 
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(CrowFont.mono(.callout, weight: .medium))
-            .foregroundStyle(tone)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, minHeight: 46)
-            .padding(.horizontal, 16)
-            .background(configuration.isPressed ? Crow.surfaceMuted : Crow.surface)
-            .overlay(RoundedRectangle(cornerRadius: Crow.buttonRadius).strokeBorder(Crow.hairline, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: Crow.buttonRadius))
-            .contentShape(RoundedRectangle(cornerRadius: Crow.buttonRadius))
+    func makeBody(configuration: Configuration) -> some View { Styled(configuration: configuration, tone: tone) }
+
+    struct Styled: View {
+        let configuration: Configuration
+        let tone: Color
+        @State private var hovering = false
+
+        var body: some View {
+            let fill = configuration.isPressed ? Crow.surfaceMuted : hovering ? Crow.surfaceMuted.opacity(0.55) : Crow.surface
+            configuration.label
+                .font(CrowFont.mono(.callout, weight: .medium))
+                .foregroundStyle(tone)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .padding(.horizontal, 16)
+                .background(fill)
+                .overlay(RoundedRectangle(cornerRadius: Crow.buttonRadius).strokeBorder(Crow.hairline, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: Crow.buttonRadius))
+                .contentShape(RoundedRectangle(cornerRadius: Crow.buttonRadius))
+                .onHover { hovering = $0 }
+        }
     }
 }
 
@@ -178,12 +199,6 @@ struct CardModifier: ViewModifier {
 
 extension View {
     func crowCard() -> some View { modifier(CardModifier()) }
-
-    /// Screen background used everywhere.
-    func crowScreen() -> some View {
-        self.background(Crow.background.ignoresSafeArea())
-            .scrollContentBackground(.hidden)
-    }
 }
 
 /// Mono label above a group ("LEAVE BALANCES").

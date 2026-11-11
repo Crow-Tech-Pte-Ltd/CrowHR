@@ -15,6 +15,9 @@ struct AppEnvironment: Sendable {
     var forceDark = false
     /// UI-test store screenshots only (`-uitest-store`): hide the test-only controls.
     var storeScreenshots = false
+    /// UI tests on an iPad only (`-uitest-width <points>`): lay the app out that wide with the
+    /// compact width class, as in a one-third Split View (`SimulatedSplitView`).
+    var simulatedWidth: CGFloat?
 
     static func live(arguments: [String] = ProcessInfo.processInfo.arguments) -> AppEnvironment {
         #if DEBUG
@@ -29,10 +32,11 @@ struct AppEnvironment: Sendable {
             let recorder = NetworkRecorder()
             let outage = SimulatedOutage()
             let transport = RecordingTransport(inner: OutageTransport(inner: URLSessionTransport(), outage: outage), recorder: recorder)
+            let width = arguments.firstIndex(of: "-uitest-width").flatMap { arguments.indices.contains($0 + 1) ? Double(arguments[$0 + 1]) : nil }
             return AppEnvironment(transport: transport, tokens: KeychainTokenStore(service: KeychainTokenStore.service + ".uitest"),
                                   kv: UserDefaultsStore(defaults), recorder: recorder, outage: outage, isUITest: true,
                                   cameraStub: arguments.contains("-uitest-camera-stub"), forceDark: arguments.contains("-uitest-dark"),
-                                  storeScreenshots: arguments.contains("-uitest-store"))
+                                  storeScreenshots: arguments.contains("-uitest-store"), simulatedWidth: width.map { CGFloat($0) })
         }
         #endif
         return AppEnvironment(transport: URLSessionTransport(), tokens: KeychainTokenStore(), kv: UserDefaultsStore(),

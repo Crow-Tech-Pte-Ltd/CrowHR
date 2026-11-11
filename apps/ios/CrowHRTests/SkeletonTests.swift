@@ -38,9 +38,25 @@ struct SkeletonTests {
         ])
     }
 
-    /// 1.0.0 ships for iPhone only (project.yml TARGETED_DEVICE_FAMILY); iPad runs it in iPhone mode.
-    @Test func iPhoneOnly() {
-        #expect(info["UIDeviceFamily"] as? [Int] == [1])
+    /// 1.0.0 ships for iPhone and iPad (project.yml TARGETED_DEVICE_FAMILY '1,2'). An app can
+    /// never drop iPad once released with it.
+    @Test func iPhoneAndIPad() {
+        #expect(info["UIDeviceFamily"] as? [Int] == [1, 2])
+    }
+
+    /// iPhone stays portrait. iPad has all four orientations and no UIRequiresFullScreen, which
+    /// is what opts it into Split View, Slide Over and Stage Manager resizing. One scene only.
+    @Test func orientationsAndMultitasking() throws {
+        // The file itself: on an iPad, `infoDictionary` answers the base key with the ~ipad value.
+        let url = try #require(Bundle.main.url(forResource: "Info", withExtension: "plist"))
+        let raw = try #require(try PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil) as? [String: Any])
+        #expect(raw["UISupportedInterfaceOrientations"] as? [String] == ["UIInterfaceOrientationPortrait"])
+        let pad = Set(raw["UISupportedInterfaceOrientations~ipad"] as? [String] ?? [])
+        #expect(pad == ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown",
+                        "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"])
+        #expect(raw["UIRequiresFullScreen"] == nil && raw["UIRequiresFullScreen~ipad"] == nil)
+        let scenes = raw["UIApplicationSceneManifest"] as? [String: Any]
+        #expect(scenes?["UIApplicationSupportsMultipleScenes"] as? Bool == false)
     }
 
     /// Export compliance: HTTPS through the system's URLSession only, no own encryption.

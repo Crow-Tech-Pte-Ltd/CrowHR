@@ -17,6 +17,7 @@ struct ConnectView: View {
     @State private var error: String?
     @State private var pending: PendingConnection?
     @State private var scanning = false
+    @State private var viewport: CGFloat = 0
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -99,8 +100,10 @@ struct ConnectView: View {
                 }
             }
             .padding(20)
+            .crowCentredForm(viewport: viewport)
         }
-        .crowScreen()
+        .onScrollGeometryChange(for: CGFloat.self) { $0.containerSize.height - $0.contentInsets.top - $0.contentInsets.bottom } action: { viewport = $1 }
+        .crowScreen(maxWidth: CrowLayout.formWidth)
         .navigationTitle("Crow HR")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -213,10 +216,12 @@ struct ConfirmServerView: View {
             .crowScreen()
             .navigationTitle("Confirm")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction) } }
         }
         // Full height (no medium detent): at a medium detent Xcode's audit reported most of this
         // sheet's text as clipped (task 3.7), and at large text sizes half a screen showed little.
+        // On an iPad, a form-sized sheet.
+        .presentationSizing(.form)
     }
 }
 
@@ -295,6 +300,7 @@ struct SignInView: View {
     @State private var busy = false
     @State private var error: String?
     @State private var authenticator = SystemWebAuthenticator()
+    @State private var viewport: CGFloat = 0
 
     var body: some View {
         ScrollView {
@@ -333,8 +339,10 @@ struct SignInView: View {
                 }
             }
             .padding(20)
+            .crowCentredForm(viewport: viewport)
         }
-        .crowScreen()
+        .onScrollGeometryChange(for: CGFloat.self) { $0.containerSize.height - $0.contentInsets.top - $0.contentInsets.bottom } action: { viewport = $1 }
+        .crowScreen(maxWidth: CrowLayout.formWidth)
         .navigationTitle("Sign in")
         .navigationBarTitleDisplayMode(.inline)
     }

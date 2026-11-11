@@ -1,5 +1,8 @@
 import SwiftUI
 
+/// The tab bar's More: the screens the iPad sidebar lists itself. Links push `MainTab` values on
+/// `AppModel.morePath`, so a screen chosen in the sidebar can move here when the iPad's window
+/// loses the sidebar (and back).
 struct MoreView: View {
     @Environment(Session.self) private var session
 
@@ -7,25 +10,33 @@ struct MoreView: View {
         RowsScreen {
             RowGroup {
                 if session.isAvailable(.claims) {
-                    NavigationLink { ClaimsView() } label: { MoreRow(title: "Claims", systemImage: "receipt") }
+                    NavigationLink(value: MainTab.claims) { MoreRow(title: "Claims", systemImage: "receipt") }
                         .buttonStyle(.crowNavigationRow)
                         .accessibilityIdentifier("more.claims")
                 }
                 if session.isAvailable(.schedule) {
-                    NavigationLink { ScheduleView() } label: { MoreRow(title: "My schedule", systemImage: "calendar.day.timeline.left") }
+                    NavigationLink(value: MainTab.schedule) { MoreRow(title: "My schedule", systemImage: "calendar.day.timeline.left") }
                         .buttonStyle(.crowNavigationRow)
                         .accessibilityIdentifier("more.schedule")
                 }
-                NavigationLink { ProfileView() } label: { MoreRow(title: "My profile", systemImage: "person") }
+                NavigationLink(value: MainTab.profile) { MoreRow(title: "My profile", systemImage: "person") }
                     .buttonStyle(.crowNavigationRow)
                     .accessibilityIdentifier("more.profile")
-                NavigationLink { SettingsView() } label: { MoreRow(title: "Settings", systemImage: "gearshape") }
+                NavigationLink(value: MainTab.settings) { MoreRow(title: "Settings", systemImage: "gearshape") }
                     .buttonStyle(.crowNavigationRow)
                     .accessibilityIdentifier("more.settings")
             }
         }
         .navigationTitle("More")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(for: MainTab.self) { tab in
+            switch tab {
+            case .claims: ClaimsView()
+            case .schedule: ScheduleView()
+            case .profile: ProfileView()
+            default: SettingsView()
+            }
+        }
     }
 }
 
@@ -146,7 +157,9 @@ struct SettingsView: View {
 
             RowGroup(header: "Security and notifications", footer: "The app asks again after 5 minutes in the background. Notifications only say how many new items you have; open the app to see them.") {
                 Toggle(isOn: $model.biometricEnabled) {
-                    Text("Unlock with Face ID or passcode").font(CrowFont.body()).fixedSize(horizontal: false, vertical: true)
+                    // Face ID on iPhones and iPad Pro, Touch ID on other iPads.
+                    Text(model.biometryName.map { "Unlock with \($0) or passcode" } ?? "Unlock with passcode")
+                        .font(CrowFont.body()).fixedSize(horizontal: false, vertical: true)
                 }
                 .disabled(!model.biometryAvailable && !model.biometricEnabled)
                 .crowRowPadding()

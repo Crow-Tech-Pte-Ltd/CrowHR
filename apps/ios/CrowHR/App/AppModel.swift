@@ -59,6 +59,10 @@ final class AppModel {
     var locked = false
     var route: LocalNotice.Route?
     var selectedTab: MainTab = .today
+    /// Screens pushed on More's stack (phone tab bar). On an iPad with the sidebar they are tabs.
+    var morePath: [MainTab] = []
+    /// Whether the window currently shows the iPad sidebar (regular width), set by MainTabView.
+    var sidebarAvailable = false
     private var backgroundedAt: Date?
     private var pathMonitor: NWPathMonitor?
     private var drainTimer: Task<Void, Never>?
@@ -264,6 +268,19 @@ final class AppModel {
         LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
     }
 
+    /// "Face ID", "Touch ID" (most iPads but the Pro) or "Optic ID"; nil with no biometrics, when
+    /// only the passcode unlocks.
+    var biometryName: String? {
+        let context = LAContext()
+        _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+        return switch context.biometryType {
+        case .faceID: "Face ID"
+        case .touchID: "Touch ID"
+        case .opticID: "Optic ID"
+        default: nil
+        }
+    }
+
     /// Retries queued punches when connectivity comes back, and every 30 s while some wait.
     private func startConnectivityMonitor() {
         let monitor = NWPathMonitor()
@@ -316,6 +333,39 @@ final class AppModel {
         self.route = route
         selectedTab = .inbox
     }
+
+    /// Keyboard shortcuts (`GoShortcuts`): the screen's tab, or More with the screen pushed
+    /// when there's no sidebar.
+    func go(to tab: MainTab) {
+        guard screen == .main, let session, tab.feature.map(session.isAvailable) ?? true else { return }
+        let next = TabRouting.adapt(tab: tab, morePath: [], sidebar: sidebarAvailable)
+        // More's stack first, so the tab switch shows the screen already pushed.
+        morePath = next.morePath
+        selectedTab = next.tab
+    }
+
+    /// Adapts the selection when the window gains or loses the sidebar (Split View, resizing).
+    func sidebarChanged(_ available: Bool) {
+        sidebarAvailable = available
+        let next = TabRouting.adapt(tab: selectedTab, morePath: morePath, sidebar: available)
+        selectedTab = next.tab
+        morePath = next.morePath
+    }
 }
 
-enum MainTab: Hashable { case today, leave, pay, inbox, more }
+/// The main screens. On a phone (and an iPad at compact widths) the tab bar has Today, Leave, Pay,
+/// Inbox and More, and More pushes the rest; the iPad sidebar lists them all.
+enum MainTab: Hashable {
+    case today, leave, pay, inbox, claims, schedule, profile, settings, more
+
+    /// The server feature a tab needs, if any (`FeatureGate`).
+    var feature: AppFeature? {
+        switch self {
+        case .leave: .leave
+        case .pay: .payslips
+        case .claims: .claims
+        case .schedule: .schedule
+        default: nil
+        }
+    }
+}

@@ -7,7 +7,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-unset CROWHR_BUILD_NUMBER CROWHR_SIM_UDID APPLE_KEY_ID APPLE_ISSUER_ID APPLE_SIGNING_SECRET_DIR
+unset CROWHR_BUILD_NUMBER CROWHR_SIM_UDID CROWHR_IPAD_SIM_UDID APPLE_KEY_ID APPLE_ISSUER_ID APPLE_SIGNING_SECRET_DIR
 export CROWHR_MAC_HOST="crowhr-release-test.invalid"
 export CROWHR_UPLOADED_BUILDS="$TMP/uploaded-builds.txt"
 printf '%s\n' "# test ledger" "7 0.1.0 2026-11-07T00:00:00Z internal" > "$CROWHR_UPLOADED_BUILDS"
@@ -52,19 +52,23 @@ expect 2 "names no build" "a production approval that names no build is refused"
 CROWHR_BUILD_NUMBER=9 expect 2 "for build 8, not build 9" "a production approval for another build is refused" -- production --approval "$PROD" --dry-run
 CROWHR_BUILD_NUMBER=7 expect 2 "already uploaded" "production refuses a build number already uploaded" -- production --approval "$PROD" --dry-run
 CROWHR_BUILD_NUMBER=8 expect 0 "App Store distribution \\(not internal-only\\).*Not submitted for App Review.*DRY RUN" "production dry run plans an App Store export and upload, not a review submission" -- production --approval "$PROD" --dry-run
+CROWHR_BUILD_NUMBER=8 expect 0 "an iPhone and an iPad simulator.*iPhone and iPad \\(device family 1,2\\).*DRY RUN" "production dry run tests and verifies the app for iPhone and iPad" -- production --approval "$PROD" --dry-run
+CROWHR_BUILD_NUMBER=8 expect 0 "an iPhone and an iPad simulator.*iPhone and iPad \\(device family 1,2\\).*DRY RUN" "internal dry run tests and verifies the app for iPhone and iPad" -- internal --approval "$INTERNAL" --dry-run
 CROWHR_BUILD_NUMBER=8 expect_without "App Store distribution" "internal dry run never plans an App Store export" -- internal --approval "$PROD" --dry-run
 CROWHR_BUILD_NUMBER=8 expect_without "internal-only IPA|INTERNAL TestFlight" "production dry run never plans an internal-only export" -- production --approval "$PROD" --dry-run
 expect 2 "set CROWHR_BUILD_NUMBER" "a real production run without a build number stops before building" -- production --approval "$PROD"
 CROWHR_BUILD_NUMBER=8 expect 2 "set CROWHR_SIM_UDID" "a real production run without the simulator stops before SSH" -- production --approval "$PROD"
-CROWHR_BUILD_NUMBER=8 CROWHR_SIM_UDID=TEST-UDID APPLE_KEY_ID=ABCDE12345 APPLE_ISSUER_ID=00000000-0000-0000-0000-000000000000 \
+CROWHR_BUILD_NUMBER=8 CROWHR_SIM_UDID=TEST-UDID expect 2 "set CROWHR_IPAD_SIM_UDID" "a real production run without the iPad simulator stops before SSH" -- production --approval "$PROD"
+CROWHR_BUILD_NUMBER=8 CROWHR_SIM_UDID=TEST-UDID CROWHR_IPAD_SIM_UDID=TEST-IPAD APPLE_KEY_ID=ABCDE12345 APPLE_ISSUER_ID=00000000-0000-0000-0000-000000000000 \
   expect 2 "set APPLE_SIGNING_SECRET_DIR" "a real production run without the signing directory stops before SSH" -- production --approval "$PROD"
 expect 2 "set CROWHR_BUILD_NUMBER" "a real internal run without a build number stops before building" -- internal --approval "$INTERNAL"
 CROWHR_BUILD_NUMBER=1.2 expect 2 "positive whole number" "a non-numeric build number is refused" -- internal --approval "$INTERNAL" --dry-run
 CROWHR_BUILD_NUMBER=7 expect 2 "already uploaded" "a build number already uploaded is refused" -- internal --approval "$INTERNAL" --dry-run
 CROWHR_BUILD_NUMBER=8 expect 0 "build 8 on the Mac.*INTERNAL TestFlight group only.*DRY RUN" "a fresh build number is planned" -- internal --approval "$INTERNAL" --dry-run
 CROWHR_BUILD_NUMBER=8 expect 2 "set CROWHR_SIM_UDID" "a real internal run without the simulator stops before SSH" -- internal --approval "$INTERNAL"
-CROWHR_BUILD_NUMBER=8 CROWHR_SIM_UDID=TEST-UDID expect 2 "set APPLE_KEY_ID" "a real internal run without the API key stops before SSH" -- internal --approval "$INTERNAL"
-CROWHR_BUILD_NUMBER=8 CROWHR_SIM_UDID=TEST-UDID APPLE_KEY_ID=ABCDE12345 APPLE_ISSUER_ID=00000000-0000-0000-0000-000000000000 \
+CROWHR_BUILD_NUMBER=8 CROWHR_SIM_UDID=TEST-UDID expect 2 "set CROWHR_IPAD_SIM_UDID" "a real internal run without the iPad simulator stops before SSH" -- internal --approval "$INTERNAL"
+CROWHR_BUILD_NUMBER=8 CROWHR_SIM_UDID=TEST-UDID CROWHR_IPAD_SIM_UDID=TEST-IPAD expect 2 "set APPLE_KEY_ID" "a real internal run without the API key stops before SSH" -- internal --approval "$INTERNAL"
+CROWHR_BUILD_NUMBER=8 CROWHR_SIM_UDID=TEST-UDID CROWHR_IPAD_SIM_UDID=TEST-IPAD APPLE_KEY_ID=ABCDE12345 APPLE_ISSUER_ID=00000000-0000-0000-0000-000000000000 \
   expect 2 "set APPLE_SIGNING_SECRET_DIR" "a real internal run without the signing directory stops before SSH" -- internal --approval "$INTERNAL"
 
 echo "$PASS passed, $FAIL failed"

@@ -42,10 +42,11 @@ targets:
         PRODUCT_NAME: CrowHR
         INFOPLIST_FILE: CrowHR/Info.plist
         GENERATE_INFOPLIST_FILE: NO
-        # iPhone only (1.0.0): the layouts are phone layouts and iPad isn't a goal yet. An app
-        # can add iPad later but can never drop it once released with it. On iPad the App Store
-        # still offers it, running in iPhone compatibility mode.
-        TARGETED_DEVICE_FAMILY: '1'
+        # iPhone and iPad (1.0.0). An app can never drop iPad once it has shipped with it, so the
+        # iPad layouts are designed, not stretched: a sidebar, readable content widths, payslips
+        # list beside detail, and phone layouts at compact widths (Split View, Slide Over, a narrow
+        # Stage Manager window). See apps/ios/README.md "iPad".
+        TARGETED_DEVICE_FAMILY: '1,2'
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_EMIT_LOC_STRINGS: YES
     info:
@@ -60,8 +61,16 @@ targets:
           UIColorName: LaunchBackground
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        # iPhone stays portrait. iPad supports all four orientations, which with no
+        # UIRequiresFullScreen also opts it into multitasking (Split View, Slide Over, Stage
+        # Manager window resizing). One scene: a second window would share the signed-in state.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         UIAppFonts:
           - AzeretMono-Regular.ttf
           - AzeretMono-Medium.ttf
