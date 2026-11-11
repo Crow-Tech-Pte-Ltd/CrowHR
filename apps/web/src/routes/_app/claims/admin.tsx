@@ -649,7 +649,12 @@ function SummarySection({
           </Select>
         </div>
       </div>
-      <div className="overflow-x-auto rounded-md border border-border bg-surface-50">
+      <section
+        aria-label="Claim totals"
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: the table scrolls sideways on a phone; keyboard users must reach it (WCAG 2.1.1).
+        tabIndex={0}
+        className="focus-ring overflow-x-auto rounded-md border border-border bg-surface-50"
+      >
         <table className="w-full text-ui">
           <thead className="bg-surface-100/70 font-azeret text-2xs uppercase tracking-wider text-primary-300">
             <tr className="h-9">
@@ -700,7 +705,7 @@ function SummarySection({
             </tfoot>
           ) : null}
         </table>
-      </div>
+      </section>
       <p className="mt-2 text-2xs text-primary-200">
         Each claim counts once per group. Rejected and withdrawn claims are left out.
       </p>
