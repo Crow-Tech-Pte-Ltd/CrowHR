@@ -286,12 +286,12 @@ function DayList({ data, onOpen }: { data: CalendarView; onOpen: (id: string) =>
     <ol className="flex flex-col gap-3" data-testid="leave-day-list">
       {byDay.map(({ date, people }) => (
         <li key={date}>
-          <h3 className="mb-1 flex items-baseline gap-2 font-azeret text-2xs font-semibold uppercase tracking-wider">
+          <h2 className="mb-1 flex items-baseline gap-2 font-azeret text-2xs font-semibold uppercase tracking-wider">
             <span className="num">
               {weekdayOf(date)} {dateRange(date, date)}
             </span>
             {holiday.has(date) ? <span className="normal-case text-ink">{holiday.get(date)}</span> : null}
-          </h3>
+          </h2>
           {people.length ? (
             <ul className="divide-y divide-border rounded-lg border border-border bg-surface-50">
               {people.map(({ name, self, e }) => (
