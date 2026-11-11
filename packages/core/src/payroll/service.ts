@@ -21,6 +21,7 @@ import {
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { singaporeToday } from "../employees/dates.ts";
+import { isUniqueViolation } from "../employees/validation.ts";
 import { AppError } from "../errors.ts";
 import { notify } from "../notifications/notify.ts";
 import { submitApproval, withdrawSubject } from "../workflows/engine.ts";
@@ -307,12 +308,49 @@ export async function createRun(deps: AppDeps, actor: PayrollActor, input: Creat
     if (found.length !== ids.length)
       throw new AppError("not_found", "One of those employees doesn't exist or you can't see them.");
     if (input.offCycleReason === "final_pay") {
+      // One final pay run per employee and month: a second one would pay the part month again.
+      const finalPay = await db
+        .select({ id: payrollRuns.id, employeeIds: payrollRuns.employeeIds })
+        .from(payrollRuns)
+        .where(
+          and(
+            eq(payrollRuns.orgId, actor.orgId),
+            eq(payrollRuns.month, input.month),
+            eq(payrollRuns.kind, "off_cycle"),
+            eq(payrollRuns.offCycleReason, "final_pay"),
+          ),
+        );
+      const earlier = finalPay.find((r) => (r.employeeIds ?? []).some((id) => ids.includes(id)));
+      if (earlier)
+        conflict(
+          `${ids.length === 1 ? "This employee" : "One of these employees"} already has a final pay run for ${monthLabel(input.month)}. Reopen it to add notice pay or other amounts, or add them to it while it is a draft.`,
+          { runId: earlier.id },
+        );
       const regular = await db
         .select({ id: payrollRuns.id, status: payrollRuns.status })
         .from(payrollRuns)
         .where(
           and(eq(payrollRuns.orgId, actor.orgId), eq(payrollRuns.month, input.month), eq(payrollRuns.kind, "regular")),
         );
+      const inReview = regular.find((r) => r.status === "in_review");
+      if (inReview) {
+        const inIt = await db
+          .select({ employeeId: payrollPayslips.employeeId })
+          .from(payrollPayslips)
+          .where(
+            and(
+              eq(payrollPayslips.orgId, actor.orgId),
+              eq(payrollPayslips.runId, inReview.id),
+              inArray(payrollPayslips.employeeId, ids),
+            ),
+          );
+        // Approval does not recompute, so approving both runs would pay the month twice.
+        if (inIt.length > 0)
+          conflict(
+            `${monthLabel(input.month)}'s regular payroll is waiting for approval and already pays ${inIt.length === 1 ? "this employee" : "these employees"}. Pay the final pay in that run, or have it rejected, create the final pay run, then recompute and resubmit the regular run.`,
+            { runId: inReview.id },
+          );
+      }
       const locked = regular.find((r) => r.status === "approved" || r.status === "paid");
       if (locked) {
         const inIt = await db
@@ -347,33 +385,42 @@ export async function createRun(deps: AppDeps, actor: PayrollActor, input: Creat
   }
   const id = deps.ids.newId();
   const now = deps.clock.now();
-  await db.transaction(async (tx) => {
-    await tx.insert(payrollRuns).values({
-      id,
-      orgId: actor.orgId,
-      kind: input.kind,
-      offCycleReason: input.kind === "off_cycle" ? (input.offCycleReason ?? null) : null,
-      month: input.month,
-      periodStart: start,
-      periodEnd: end,
-      payDate,
-      employeeIds,
-      createdBy: actor.userId,
-      createdAt: now,
-      updatedAt: now,
-    });
-    await recordAudit(tx, deps, actor.audit, {
-      action: "payroll.run_created",
-      targetType: "payroll_run",
-      targetId: id,
-      meta: {
+  await db
+    .transaction(async (tx) => {
+      await tx.insert(payrollRuns).values({
+        id,
+        orgId: actor.orgId,
         kind: input.kind,
+        offCycleReason: input.kind === "off_cycle" ? (input.offCycleReason ?? null) : null,
         month: input.month,
-        offCycleReason: input.offCycleReason ?? null,
-        employees: employeeIds?.length ?? null,
-      },
+        periodStart: start,
+        periodEnd: end,
+        payDate,
+        employeeIds,
+        createdBy: actor.userId,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await recordAudit(tx, deps, actor.audit, {
+        action: "payroll.run_created",
+        targetType: "payroll_run",
+        targetId: id,
+        meta: {
+          kind: input.kind,
+          month: input.month,
+          offCycleReason: input.offCycleReason ?? null,
+          employees: employeeIds?.length ?? null,
+        },
+      });
+    })
+    .catch((err: unknown) => {
+      // Two requests for the month's regular run at once: the database keeps one.
+      if (isUniqueViolation(err, "payroll_runs_one_regular_per_month"))
+        conflict(
+          `There is already a regular payroll run for ${monthLabel(input.month)}. Open it, or reopen it to make an adjustment.`,
+        );
+      throw err;
     });
-  });
   return loadRun(db, actor.orgId, id);
 }
 
@@ -522,6 +569,19 @@ async function assertEmployeeInRun(db: Db, run: PayrollRun, employeeId: string) 
   if (!ids.includes(employeeId)) throw new AppError("not_found", "That employee isn't in this payroll run.");
 }
 
+/** A run item's unique keys, answered as the fix (one holiday amount and one OT override per run). */
+async function withItemConflicts(db: Db, work: (tx: Db) => Promise<void>): Promise<void> {
+  try {
+    await db.transaction(work);
+  } catch (err) {
+    if (isUniqueViolation(err, "payroll_run_items_holiday_unique"))
+      conflict("This employee already has an item for that public holiday in this run. Edit that item instead.");
+    if (isUniqueViolation(err, "payroll_run_items_ot_source_unique"))
+      conflict("This run already has an item for that overtime claim. Edit that item instead.");
+    throw err;
+  }
+}
+
 export async function addItem(deps: AppDeps, actor: PayrollActor, runId: string, input: ItemInput) {
   const run = await loadRun(deps.db, actor.orgId, runId);
   assertDraft(run);
@@ -533,7 +593,7 @@ export async function addItem(deps: AppDeps, actor: PayrollActor, runId: string,
       throw new AppError("not_found", "That approved overtime claim doesn't exist or isn't for this employee.");
   }
   const id = deps.ids.newId();
-  await deps.db.transaction(async (tx) => {
+  await withItemConflicts(deps.db, async (tx) => {
     await lockDraft(tx, deps, run);
     await tx.insert(payrollRunItems).values({
       id,
@@ -576,7 +636,7 @@ export async function updateItem(deps: AppDeps, actor: PayrollActor, runId: stri
     if (!overtime.some((o) => o.sourceId === input.overtimeSourceId && o.employeeId === input.employeeId))
       throw new AppError("not_found", "That approved overtime claim doesn't exist or isn't for this employee.");
   }
-  await deps.db.transaction(async (tx) => {
+  await withItemConflicts(deps.db, async (tx) => {
     await lockDraft(tx, deps, run);
     await tx.update(payrollRunItems).set(itemValues(input)).where(eq(payrollRunItems.id, itemId));
     await recordAudit(tx, deps, actor.audit, {
@@ -1008,6 +1068,10 @@ export async function submitRun(deps: AppDeps, actor: PayrollActor, runId: strin
         status: "in_review",
         submittedBy: actor.userId,
         submittedAt: deps.clock.now(),
+        // A rejected run is undecided again (returning a month to draft compares decision times).
+        decidedBy: null,
+        decidedAt: null,
+        selfApproved: false,
         decisionComment: null,
         updatedAt: deps.clock.now(),
       },
@@ -1355,6 +1419,28 @@ export async function returnToDraft(deps: AppDeps, actor: PayrollActor, runId: s
       { runId: blocker.id },
     );
   const now = deps.clock.now();
+  // An open adjustment replaces this run's figures: as a draft this run could be edited, approved
+  // again and paid alongside it, and it could no longer be deleted.
+  const openAdjustment = async (db: Db) =>
+    (
+      await db
+        .select({ id: payrollRuns.id })
+        .from(payrollRuns)
+        .where(
+          and(
+            eq(payrollRuns.orgId, actor.orgId),
+            eq(payrollRuns.adjustsRunId, run.id),
+            inArray(payrollRuns.status, [...ACTIVE]),
+          ),
+        )
+    )[0];
+  const adjustmentConflict = (id: string) =>
+    conflict(
+      "An adjustment of this run is open. Finish it, or delete the adjustment draft before returning this run to draft.",
+      { runId: id },
+    );
+  const open = await openAdjustment(deps.db);
+  if (open) adjustmentConflict(open.id);
   await deps.db.transaction(async (tx) => {
     await transition(tx, actor.orgId, run.id, ["approved"], {
       status: "draft",
@@ -1367,6 +1453,9 @@ export async function returnToDraft(deps: AppDeps, actor: PayrollActor, runId: s
       releasedBy: null,
       updatedAt: now,
     });
+    // Under the run's row lock: a reopen that committed meanwhile is seen here.
+    const raced = await openAdjustment(tx);
+    if (raced) adjustmentConflict(raced.id);
     await tx
       .update(payrollPayslips)
       .set({ releasedAt: null })
