@@ -167,7 +167,7 @@ describe("adjustment of a run that reimbursed claims", () => {
       );
       await ownerApproves(claim.id);
       await p.ok(
-        p.admin.post("/api/v1/claims/mark-paid", { claimIds: [claim.id], paidOn: "2026-12-30", reference: "FAST" }),
+        p.admin.post("/api/v1/claims/mark-paid", { claimIds: [claim.id], paidOn: "2026-11-30", reference: "FAST" }),
       );
     }
     const preview = await p.ok<{ records: { allowances: number }[] }>(p.admin.get(`${api}/years/2026/ir8a`));
