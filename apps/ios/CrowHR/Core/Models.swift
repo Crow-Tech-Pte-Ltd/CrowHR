@@ -246,6 +246,29 @@ struct ApprovalTask: Decodable, Sendable, Identifiable, Equatable {
     let step: Step
 }
 
+/// `GET /api/v1/approvals/requests/{id}`: what the approver decides on (amounts, dates, reason,
+/// balance or cap context) and the comments so far, as the web and Android show it.
+struct ApprovalRequestDetail: Decodable, Sendable, Equatable {
+    struct Line: Decodable, Sendable, Equatable, Hashable { let label: String; let value: String }
+    struct Summary: Decodable, Sendable, Equatable { let title: String; let lines: [Line]; let context: [Line] }
+    struct Comment: Decodable, Sendable, Equatable, Identifiable { let id: String; let author: String; let body: String; let createdAt: String }
+    let summary: Summary?
+    let comments: [Comment]
+
+    enum CodingKeys: String, CodingKey { case summary, comments }
+
+    init(summary: Summary?, comments: [Comment]) {
+        self.summary = summary
+        self.comments = comments
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        summary = try c.decodeIfPresent(Summary.self, forKey: .summary)
+        comments = try c.decodeIfPresent([Comment].self, forKey: .comments) ?? []
+    }
+}
+
 struct Decision: Encodable, Sendable { let decision: String; let comment: String? }
 struct DecisionResult: Decodable, Sendable { let outcome: String; let replayed: Bool }
 
