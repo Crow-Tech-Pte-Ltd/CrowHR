@@ -1104,6 +1104,14 @@ export async function reassignTask(
     const [task] = await tx.select().from(approvalTasks).where(eq(approvalTasks.id, found.id));
     if (task?.status !== "pending" || request.status !== "pending")
       throw await alreadyDecided(tx, deps, request, found);
+    if (task.origin === "delegated" && task.onBehalfOfMembershipId) {
+      // The cover would just come back on the next sweep while its holder's task is open.
+      const away = await memberName(ctx, request.orgId, task.onBehalfOfMembershipId);
+      throw new AppError(
+        "conflict",
+        `This task covers for ${away} while they're away. Reassign ${away}'s own task instead, or change their out-of-office cover.`,
+      );
+    }
     const target = await approverDirectory(deps).member(tx, actor.orgId, input.toMembershipId);
     // The new assignee must be someone who could decide this task: same role, allowed by the subject.
     const blocked = await decideBlocker(tx, deps, request, target, { viaRole: task.viaRole });
@@ -1120,10 +1128,22 @@ export async function reassignTask(
       });
     }
     if (!target) throw new AppError("not_found", "That member doesn't exist.");
+    // The task, and the cover tasks deciding it on its holder's behalf.
     await tx
       .update(approvalTasks)
       .set({ status: "superseded", supersededReason: "reassigned" })
-      .where(eq(approvalTasks.id, task.id));
+      .where(
+        or(
+          eq(approvalTasks.id, task.id),
+          and(
+            eq(approvalTasks.requestId, request.id),
+            eq(approvalTasks.position, task.position),
+            eq(approvalTasks.origin, "delegated"),
+            eq(approvalTasks.onBehalfOfMembershipId, task.assigneeMembershipId),
+            eq(approvalTasks.status, "pending"),
+          ),
+        ),
+      );
     const created = await insertTasks(ctx, request, [
       {
         position: task.position,

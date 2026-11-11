@@ -5,6 +5,7 @@ import { markMembershipFormer } from "../access/members-routes.ts";
 import { systemAuditContext } from "../audit/audit.ts";
 import { auditEvents } from "../db/schema/audit.ts";
 import { approvalRequests, approvalTasks } from "../db/schema/workflows.ts";
+import { createDelegation } from "./delegations.ts";
 import { decideTask, onReportingLineChanged } from "./engine.ts";
 import { replacePolicies } from "./policies.ts";
 
@@ -109,6 +110,35 @@ describe("re-routing and reassignment", () => {
     );
     expect(w.fake.state.get(subjectId)).toBe("approved");
     expect(await open()).toEqual([]);
+  });
+
+  it("reassigning a task retires the cover tasks on its holder's behalf; a cover task itself isn't reassigned", async () => {
+    const audit = systemAuditContext(w.org.id, "system", "test");
+    const { requestId } = await w.submit(w.m.staff, "leave");
+    await createDelegation(
+      w.deps,
+      { orgId: w.org.id, membershipId: w.m.manager.membershipId, canManageOthers: false, audit },
+      { toMembershipId: w.m.head.membershipId, startsOn: "2026-10-01", endsOn: "2026-12-31", subjectTypes: null },
+    );
+    const open = () => tasks(requestId).then((all) => all.filter((t) => t.status === "pending"));
+    const cover = (await open()).find((t) => t.origin === "delegated");
+    expect(cover?.assigneeMembershipId).toBe(w.m.head.membershipId);
+    const asHr = await clientAs(w.app, w.deps, w.m.hr);
+    const refused = await asHr.post(`/api/v1/approvals/tasks/${cover?.id}/reassign`, {
+      toMembershipId: w.m.other.membershipId,
+      reason: "Rajesh is busy",
+    });
+    expect(refused.status).toBe(409);
+    expect(((await refused.json()) as { error: { message: string } }).error.message).toMatch(/Wong Kai Wen's own task/);
+    const own = (await open()).find((t) => t.origin === "resolved");
+    const res = await asHr.post(`/api/v1/approvals/tasks/${own?.id}/reassign`, {
+      toMembershipId: w.m.other.membershipId,
+      reason: "Wong is on medical leave",
+    });
+    expect(res.status).toBe(200);
+    expect((await open()).map((t) => [t.assigneeMembershipId, t.origin])).toEqual([
+      [w.m.other.membershipId, "reassigned"],
+    ]);
   });
 
   it("an hr_admin reassigns a pending task with a reason; it is audited", async () => {
