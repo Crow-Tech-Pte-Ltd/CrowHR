@@ -90,6 +90,15 @@ class NativeAuth(
 
     private val refreshLock = Mutex()
 
+    /**
+     * Only Crow HR refusing the refresh token (a 4xx with its JSON error, such as invalid_grant)
+     * ends the session. A rate limit or timeout, or a 4xx page from a proxy, firewall or captive
+     * portal in front of the server (no Crow HR error body: parseError's "http_" codes), is
+     * temporary and keeps the tokens.
+     */
+    private fun endsSession(e: ApiException): Boolean =
+        e.status in 400..499 && e.status != 408 && e.status != 425 && e.status != 429 && !e.code.startsWith("http_")
+
     fun pending(): PendingSignIn? = kv.get(PENDING)?.let { runCatching { CrowJson.decodeFromString(PendingSignIn.serializer(), it) }.getOrNull() }
 
     /** Starts a sign-in; the returned URL is opened in the system browser. */
@@ -145,7 +154,7 @@ class NativeAuth(
             tokens.put(connection.key, StoredTokens(r.accessToken, r.refreshToken, r.deviceSessionId))
             RefreshResult.Refreshed
         } catch (e: ApiException) {
-            if (e.status in 400..499) {
+            if (endsSession(e)) {
                 tokens.delete(connection.key)
                 RefreshResult.SessionEnded
             } else {
