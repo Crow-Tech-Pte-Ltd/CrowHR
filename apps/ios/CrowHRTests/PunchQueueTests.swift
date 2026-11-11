@@ -215,6 +215,19 @@ struct PunchQueueTests {
         #expect(left.count == 1 && left.first?.kind == .out && left.first?.isPending == true)
     }
 
+    @Test func drainingPrunesTheHistorySoTheQueueFileDoesNotGrowForever() async throws {
+        // Nothing else prunes: every punch ever made stayed in the file, rewritten on each change.
+        let clock = TestClock()
+        let q = PunchQueue(store: MemoryPunchQueueStore(), now: { clock.now }, uptime: { 1 })
+        let server = FakePunchServer()
+        try await q.enqueue(kind: .in, membershipId: me, location: nil)
+        _ = await q.drain(membershipId: me, using: server)
+        clock.advance(31 * 86_400)
+        try await q.enqueue(kind: .out, membershipId: me, location: nil)
+        _ = await q.drain(membershipId: me, using: server)
+        #expect(await q.all().map(\.kind) == [.out])
+    }
+
     @Test func recordsTapContextForElapsedTimeAndTimeZone() async throws {
         let clock = TestClock()
         let q = PunchQueue(store: MemoryPunchQueueStore(), now: { clock.now }, uptime: { 4_242 })

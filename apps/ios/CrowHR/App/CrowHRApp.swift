@@ -109,7 +109,9 @@ struct PrivacyCover: View {
 
 struct LockView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
     @State private var failed = false
+    @State private var asked = false
 
     var body: some View {
         ZStack {
@@ -117,8 +119,11 @@ struct LockView: View {
             VStack(spacing: 20) {
                 CrowMark()
                 Text("Crow HR is locked").font(CrowFont.mono(.title3, weight: .semibold))
+                    .accessibilityAddTraits(.isHeader)
                 if failed {
                     Text("Couldn't unlock. Try again, or use your passcode.").font(CrowFont.body(.subheadline)).foregroundStyle(Crow.muted)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Button("Unlock") { Task { failed = !(await model.unlock()) } }
                     .buttonStyle(.crowPrimary)
@@ -127,7 +132,14 @@ struct LockView: View {
             }
             .padding(24)
         }
-        .task { failed = !(await model.unlock()) }
+        // Asks once per lock, when the app is in front: a cold start in the background (a refresh)
+        // can't show Face ID, and asking again after a cancel would loop (the prompt makes the
+        // scene inactive and active again). Unlock asks again.
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            guard phase == .active, !asked else { return }
+            asked = true
+            Task { failed = !(await model.unlock()) }
+        }
     }
 }
 

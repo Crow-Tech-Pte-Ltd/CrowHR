@@ -60,7 +60,7 @@ struct ProfileView: View {
     @State private var state: LoadState<MyProfile> = .loading
 
     var body: some View {
-        AsyncContent(state: $state, load: { try await session.api.get("/api/v1/people/me/profile") }) { p in
+        AsyncContent(state: $state, load: load) { p in
             RowsScreen {
                 RowGroup {
                     InfoRow("Name", p.employee.name)
@@ -77,15 +77,25 @@ struct ProfileView: View {
                 }
                 if let personal = p.employee.personal {
                     RowGroup(header: "Personal", footer: "To change your details, use My profile in Crow HR on the web.") {
-                        InfoRow(personal.idType.uppercased(), personal.idNumberMasked, mono: true)
+                        // VoiceOver read the mask as "S star star star star 5 6 7 D".
+                        InfoRow(personal.idType.uppercased(), personal.idNumberMasked, mono: true,
+                                spoken: "ending \(personal.idNumberMasked.suffix(4))")
                         if let m = personal.mobile { InfoRow("Mobile", m, mono: true) }
                         if let e = personal.personalEmail { InfoRow("Personal email", e) }
                     }
                 }
             }
+            .refreshable { await reload() }
         }
         .crowScreen()
         .navigationTitle("My profile")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func load() async throws -> MyProfile { try await session.api.get("/api/v1/people/me/profile") }
+
+    private func reload() async {
+        do { state = .loaded(try await load()) } catch { state.fail(error) }
     }
 }
 
@@ -138,6 +148,7 @@ struct SettingsView: View {
                             }
                         }
                         .buttonStyle(.crowRow)
+                        .accessibilityAddTraits(current ? .isSelected : [])
                         .accessibilityHint(current ? "" : "Switches to this connection")
                         // Was a swipe action in a List: now a visible button, which also asks first.
                         Button("Remove", role: .destructive) { confirmRemove = c }
@@ -155,7 +166,7 @@ struct SettingsView: View {
                 }
             }
 
-            RowGroup(header: "Security and notifications", footer: "The app asks again after 5 minutes in the background. Notifications only say how many new items you have; open the app to see them.") {
+            RowGroup(header: "Security and notifications", footer: "With the lock on, the app asks when it starts and after 5 minutes in the background. Notifications only say how many new items you have; open the app to see them.") {
                 Toggle(isOn: $model.biometricEnabled) {
                     // Face ID on iPhones and iPad Pro, Touch ID on other iPads.
                     Text(model.biometryName.map { "Unlock with \($0) or passcode" } ?? "Unlock with passcode")
@@ -169,6 +180,20 @@ struct SettingsView: View {
                 }
                 .crowRowPadding()
                 .accessibilityIdentifier("settings.notifications")
+                if model.notificationsBlocked {
+                    // Refused once, iOS doesn't ask again: the switch just flipped back, unexplained.
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Notifications for Crow HR are turned off in the Settings app.")
+                            .font(CrowFont.body(.footnote)).foregroundStyle(Crow.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button("Open Settings") {
+                            if let url = URL(string: UIApplication.openNotificationSettingsURLString) { UIApplication.shared.open(url) }
+                        }
+                        .buttonStyle(.crowCompact)
+                        .accessibilityIdentifier("settings.openNotificationSettings")
+                    }
+                    .crowRowPadding()
+                }
             }
 
             let unavailable = FeatureGate.unavailableMessages(serverFeatures: session.connection.features)
@@ -209,6 +234,8 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await model.checkNotificationPermission() }
         .confirmationDialog(unsent > 0 ? "\(unsent) punch\(unsent == 1 ? " hasn't" : "es haven't") been sent" : "Sign out?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             if unsent > 0 {
                 Button("Sign out and delete unsent punches", role: .destructive) { Task { await model.signOut(discardUnsentPunches: true) } }
@@ -223,7 +250,9 @@ struct SettingsView: View {
             Button("Remove", role: .destructive) { Task { await model.remove(c) } }
             Button("Cancel", role: .cancel) {}
         } message: { c in
-            Text("\(c.orgName) is removed from this phone, with any punches not yet sent.")
+            Text(c.id == session.connection.id
+                ? "You're signed out, and \(c.orgName) is removed from this phone with any punches not yet sent."
+                : "\(c.orgName) is removed from this phone, with any punches not yet sent.")
         }
     }
 }
@@ -235,6 +264,7 @@ struct LicencesView: View {
             licence(font: "Ubuntu", name: "Ubuntu Font Licence 1.0", file: "Ubuntu-LICENCE")
         }
         .navigationTitle("Font licences")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func licence(font: String, name: String, file: String) -> some View {

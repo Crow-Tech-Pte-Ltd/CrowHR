@@ -104,6 +104,8 @@ final class IPadLayoutUITests: CrowUITestCase {
         wait(app.textFields["claim.merchant"])
         settle()
         shot("\(prefix)-new-claim")
+        // A page-sized sheet: the whole form shows, Submit included (the form-sized one hid it).
+        XCTAssertTrue(app.buttons["claim.submit"].isHittable, "New claim's Submit should be on screen without scrolling (\(prefix))")
         app.buttons["Cancel"].firstMatch.tap()
 
         openFromMore("more.settings", sidebar: "Settings")
@@ -140,6 +142,32 @@ final class IPadLayoutUITests: CrowUITestCase {
         tapTab("Today"); settle(); shot("\(prefix)-landscape-today")
         tapTab("Leave"); wait(element("leave.balance")); settle(); shot("\(prefix)-landscape-leave")
         tapTab("Pay"); settle(); shot("\(prefix)-landscape-payslips")
+        rotate(.portrait)
+    }
+
+    // MARK: Approvals beside the list
+
+    func testE_ApprovalsBesideTheList() throws {
+        connectAndSignIn(as: Self.manager)
+        let prefix = "ipad-\(size)-approvals"
+        tapTab("Inbox")
+        let row = wait(app.buttons["approval.row"].firstMatch, 20)
+        // The first request is open beside the list, with its details: no sheet.
+        let approve = wait(app.buttons["decision.approve"])
+        wait(element("decision.details"), 20)
+        XCTAssertFalse(app.navigationBars["Decision"].exists, "On an iPad with room the decision is not a sheet")
+        XCTAssertGreaterThan(approve.frame.minX, row.frame.maxX - 1, "The decision should sit beside the list (row \(row.frame), approve \(approve.frame))")
+        settle(); shot("\(prefix)-portrait")
+        // Choosing another request opens it in place.
+        let rows = app.buttons.matching(identifier: "approval.row")
+        if rows.count > 1 {
+            rows.element(boundBy: 1).tap()
+            wait(element("decision.details"), 20)
+            XCTAssertTrue(rows.element(boundBy: 1).isSelected, "The open request's row is selected")
+        }
+        rotate(.landscapeLeft)
+        wait(app.buttons["decision.approve"])
+        settle(); shot("\(prefix)-landscape")
         rotate(.portrait)
     }
 

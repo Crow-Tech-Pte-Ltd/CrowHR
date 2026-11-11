@@ -250,12 +250,16 @@ struct RefreshPlanner: Sendable {
     }
 }
 
-/// App lock with biometrics (spec: ask again after more than 5 minutes in the background).
+/// App lock with biometrics (spec: ask again after more than 5 minutes in the background). As on
+/// Android, also on a cold start (iOS ends suspended apps often, so most returns after a while
+/// start the app afresh), and when the clock went back while in the background.
 enum AppLockPolicy {
     static let graceInterval: TimeInterval = 5 * 60
 
-    static func shouldLock(enabled: Bool, backgroundedAt: Date?, now: Date) -> Bool {
-        guard enabled, let backgroundedAt else { return false }
-        return now.timeIntervalSince(backgroundedAt) > graceInterval
+    static func shouldLock(enabled: Bool, unlockedThisLaunch: Bool = true, backgroundedAt: Date?, now: Date) -> Bool {
+        guard enabled else { return false }
+        guard unlockedThisLaunch else { return true }
+        guard let backgroundedAt else { return false }
+        return now < backgroundedAt || now.timeIntervalSince(backgroundedAt) > graceInterval
     }
 }

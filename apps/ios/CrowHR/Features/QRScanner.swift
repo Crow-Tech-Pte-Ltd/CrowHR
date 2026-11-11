@@ -13,7 +13,17 @@ struct QRScannerSheet: View {
                 if AVCaptureDevice.default(for: .video) == nil {
                     EmptyStateView(title: "No camera", message: "This device has no camera. Type the server address instead.", systemImage: "camera")
                 } else if status == .denied || status == .restricted {
-                    EmptyStateView(title: "Camera access is off", message: "Allow camera access for Crow HR in Settings, or type the server address instead.", systemImage: "camera")
+                    VStack(spacing: 4) {
+                        EmptyStateView(title: "Camera access is off", message: "Allow camera access for Crow HR in Settings, or type the server address instead.", systemImage: "camera")
+                        // Refused once, iOS doesn't ask again: take the person to the switch.
+                        if status == .denied {
+                            Button("Open Settings") {
+                                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                            }
+                            .buttonStyle(.crowSecondary)
+                            .frame(maxWidth: 240)
+                        }
+                    }
                 } else {
                     QRCameraView { code in
                         do throws(ConnectLink.Invalid) { onResult(.success(try ConnectLink.parse(code))) } catch { onResult(.failure(error)) }
