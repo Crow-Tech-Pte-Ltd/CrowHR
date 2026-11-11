@@ -1,0 +1,6 @@
+approved-by: Daniel
+scope: production
+version: 1.0.0
+build: 5
+date: 2026-11-11
+note: Daniel, 10 Nov 2026, asked whether to submit both apps to the App Store and Google Play for public release as version 1.0.0: "Submit both". On 11 Nov 2026 he asked for iPad support and the accessibility rebuild before release: "yeah sure do the accessibility stuff and ipad support in subagents". Build 4 is iPhone only, so this record covers building, uploading and preparing build 5 of Crow HR iOS 1.0.0 (iPhone and iPad, with the accessibility rebuild) for the App Store in its place. Submitting for review is a separate step, taken once the privacy policy page is live.
