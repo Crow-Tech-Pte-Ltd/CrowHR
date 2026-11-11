@@ -96,7 +96,7 @@ describe("working-day calculator", () => {
     // Sat 7, Sun 8 (Deepavali itself: no roster to move it), Mon 9.
     const r = countLeave(t, days("2026-11-07", "2026-11-09"));
     expect(r.totalHundredths).toBe(200);
-    expect(r.warnings.join(" ")).toMatch(/shift schedule/);
+    expect(r.warnings.join(" ")).toMatch(/no published roster yet/);
     expect(countLeave(t, days("2026-12-25", "2026-12-25")).totalHundredths).toBe(0);
   });
 

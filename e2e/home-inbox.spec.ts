@@ -50,7 +50,7 @@ test("a profile change goes submit → manager approves → HR approves → appl
   const panel = hr.getByTestId("request-panel");
   await expect(panel).toContainText("Personal details change");
   await expect(panel).toContainText("Religion");
-  await expect(panel).toContainText("christianity");
+  await expect(panel).toContainText("Christianity");
   await expect(panel.getByTestId("chain-step").first()).toContainText("Wong Kai Wen");
   await hr.keyboard.press("a");
   await expect(task).toHaveCount(0);
