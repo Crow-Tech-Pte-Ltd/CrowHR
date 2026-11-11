@@ -153,8 +153,10 @@ export function computeDay(input: ComputeDayInput): DayRecord {
       const diff = Math.floor((firstIn.recordedAt.getTime() - start) / MIN);
       if (diff > settings.lateGraceMinutes) late = diff;
     }
-    if (lastOut && halfLeave?.session !== "pm") {
-      const end = start + (scheduled + (scheduled > BREAK_AFTER_MINUTES ? settings.breakMinutes : 0)) * MIN;
+    if (lastOut && !open && halfLeave?.session !== "pm") {
+      // After morning leave the employee works the afternoon: the day still ends at its usual time.
+      const dayMinutes = halfLeave?.session === "am" ? info.minutes : scheduled;
+      const end = start + (dayMinutes + (dayMinutes > BREAK_AFTER_MINUTES ? settings.breakMinutes : 0)) * MIN;
       const diff = Math.floor((end - lastOut.recordedAt.getTime()) / MIN);
       if (diff > settings.earlyOutGraceMinutes) early = diff;
     }
