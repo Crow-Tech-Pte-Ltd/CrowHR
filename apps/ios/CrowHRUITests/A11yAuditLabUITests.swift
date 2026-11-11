@@ -1,13 +1,18 @@
 import XCTest
 
-/// Task 3.7 investigation: is Xcode's "Dynamic Type font sizes are partially unsupported" on app
-/// text tied to how the row is built? `A11yAuditLabView` (DEBUG, `-uitest-a11y-lab`) shows the
-/// same app rows in a `List`, a `Form` and a `ScrollView`. Each is audited five times at the
-/// largest accessibility size and at the default size. Nothing here fails on audit findings: every
-/// finding is printed as `LAB <variant> <size> <run>: <label>` for the QA notes, followed by a
-/// `LAB SUMMARY` line per variant and size. No server needed.
+/// Task 3.7: Xcode's accessibility audit reports Dynamic Type "partially unsupported" (and "text
+/// clipped") on app text in SwiftUI `List` and `Form` rows, but not on the same rows in a
+/// `ScrollView`. `A11yAuditLabView` (DEBUG, `-uitest-a11y-lab`) shows identical rows three ways.
+/// Each is audited five times at the largest accessibility size and at the default size. No server.
+///
+/// - "Scroll" is built from the row pieces the app's screens use (`RowsScreen`, `RowGroup`,
+///   `ChoiceRow`): any finding there fails the test, a fast regression check for those pieces.
+/// - "List" and "Form" are the 1.0.0 containers. Their findings are only printed (`LAB <variant>
+///   <size> <run>: ...` and a `LAB SUMMARY` line), to show whether a later Xcode or iOS still
+///   flags them before anyone moves a screen back to `List` or `Form`.
 final class A11yAuditLabUITests: XCTestCase {
     func testAuditSameRowsBuiltThreeWays() throws {
+        var scrollFindings: [String] = []
         for xxxl in [true, false] {
             let app = XCUIApplication()
             app.launchArguments = ["-uitest", "-uitest-a11y-lab"]
@@ -24,22 +29,26 @@ final class A11yAuditLabUITests: XCTestCase {
                     try app.performAccessibilityAudit(for: [.dynamicType, .textClipped]) { issue in
                         let label = issue.element?.label ?? "(no element)"
                         let type = issue.auditType == .dynamicType ? "dynamicType" : "textClipped"
-                        print("LAB \(variant) \(size) \(run): \(type) \(issue.compactDescription) — '\(label)'")
-                        flagged.add()
+                        let line = "LAB \(variant) \(size) \(run): \(type) \(issue.compactDescription) — '\(label)'"
+                        print(line)
+                        flagged.add(line)
                         return true
                     }
                 }
                 print("LAB SUMMARY \(variant) \(size): \(flagged.count) findings in 5 audits")
+                if variant == "Scroll" { scrollFindings += flagged.lines }
             }
             app.terminate()
         }
+        XCTAssertTrue(scrollFindings.isEmpty, "The app's row pieces must audit clean:\n" + scrollFindings.joined(separator: "\n"))
     }
 }
 
-/// Counts audit findings from the audit's issue handler (captured as a constant).
+/// Collects audit findings from the audit's issue handler (captured as a constant).
 private final class Tally: @unchecked Sendable {
     private let lock = NSLock()
-    private var n = 0
-    var count: Int { lock.withLock { n } }
-    func add() { lock.withLock { n += 1 } }
+    private var found: [String] = []
+    var count: Int { lock.withLock { found.count } }
+    var lines: [String] { lock.withLock { found } }
+    func add(_ line: String) { lock.withLock { found.append(line) } }
 }

@@ -135,10 +135,11 @@ altool_args="-f $EXPORT/CrowHR.ipa -t ios --apiKey $KEY_ID --apiIssuer $ISSUER_I
 
 scripts/ios-sync.sh
 on_mac "CROWHR_SIM_UDID=$UDID scripts/ios-mac-test.sh release-unit -only-testing:CrowHRTests"
-# The release gate runs the user-flow UI tests. QAScreenshotsUITests is left out: its Xcode
-# accessibility audit flags Dynamic Type on text inside SwiftUI List/Form rows, which
-# A11yAuditLabUITests shows is how the audit reads those cells (add-mobile-apps task 3.7,
-# docs/limitations.md); a manual pass on a real device covers it.
+# The release gate runs the user-flow UI tests. QAScreenshotsUITests (Xcode's accessibility audit
+# on every screen, four tours, about 15 minutes; clean since the screens stopped using SwiftUI
+# List/Form, add-mobile-apps task 3.7, docs/limitations.md) is not part of the gate: run it before
+# a release with CROWHR_UI_ONLY=CrowHRUITests/QAScreenshotsUITests scripts/ios-ui-test.sh. The
+# manual VoiceOver and Dynamic Type pass on a real device is separate.
 CROWHR_SIM_UDID="$UDID" CROWHR_UI_ONLY=CrowHRUITests/EssJourneyUITests scripts/ios-ui-test.sh
 on_mac "CROWHR_BUILD_NUMBER=$BUILD CROWHR_ARCHIVE_PATH=\$PWD/$ARCHIVE scripts/ios-archive-on-mac.sh"
 on_mac "CROWHR_BUILD_NUMBER=$BUILD CROWHR_INTERNAL_ONLY=$INTERNAL_ONLY scripts/ios-export-on-mac.sh $ARCHIVE $EXPORT"

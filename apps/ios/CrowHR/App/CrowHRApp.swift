@@ -133,7 +133,9 @@ struct CrowMark: View {
     var size: CGFloat = 44
     var body: some View {
         Text("HR")
-            .font(.custom("AzeretMono-SemiBold", size: size * 0.38))
+            // Fixed: the chip has a fixed size, and the mark is decorative (hidden from VoiceOver).
+            // Scaled with Dynamic Type, "HR" became "…" at the largest sizes.
+            .font(.custom("AzeretMono-SemiBold", fixedSize: size * 0.38))
             .foregroundStyle(Crow.onKuning)
             .frame(width: size, height: size)
             // Rounded like the web wordmark's HR chip (4 px on an ~18 px chip).

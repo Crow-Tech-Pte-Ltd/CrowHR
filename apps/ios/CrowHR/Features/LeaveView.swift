@@ -13,37 +13,31 @@ struct LeaveView: View {
     @State private var applying = false
     @State private var actionError: String?
     @State private var cancelling: LeaveRequest?
+    @State private var withdrawing: LeaveRequest?
 
     var body: some View {
         AsyncContent(state: $state, load: load) { data in
-            List {
+            RowsScreen {
                 if let actionError {
-                    Notice(text: actionError, tone: .danger, systemImage: "exclamationmark.triangle").listRowSeparator(.hidden)
+                    Notice(text: actionError, tone: .danger, systemImage: "exclamationmark.triangle")
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .accessibilityIdentifier("leave.actionError")
                 }
-                Section {
-                    let shown = data.balances.filter { $0.eligible }
+                let shown = data.balances.filter { $0.eligible }
+                RowGroup(header: "Balances \(Calendar.current.component(.year, from: Date()))") {
                     if shown.isEmpty {
                         EmptyStateView(title: "No leave balances", message: "Your company hasn't set up leave for you yet. Ask HR.", systemImage: "calendar")
                     }
-                    ForEach(shown) { b in BalanceRow(balance: b) }
-                } header: { SectionLabel("Balances \(Calendar.current.component(.year, from: Date()))") }
-                Section {
+                    ForEach(shown) { b in BalanceRow(balance: b).crowRowPadding() }
+                }
+                RowGroup(header: "My leave") {
                     if data.requests.isEmpty {
                         EmptyStateView(title: "No leave yet", message: "Leave you apply for appears here with its status.", systemImage: "calendar.badge.plus")
                     }
-                    ForEach(data.requests) { r in
-                        LeaveRequestRow(request: r)
-                            .swipeActions {
-                                if r.status == "pending" {
-                                    Button("Withdraw", role: .destructive) { Task { await withdraw(r) } }
-                                } else if r.status == "approved" {
-                                    Button("Cancel leave") { cancelling = r }.tint(Crow.warning)
-                                }
-                            }
-                    }
-                } header: { SectionLabel("My leave") }
+                    ForEach(data.requests) { r in requestCell(r) }
+                }
             }
-            .listStyle(.plain)
             .refreshable { await refresh() }
         }
         .crowScreen()
@@ -58,12 +52,38 @@ struct LeaveView: View {
         .sheet(isPresented: $applying) {
             ApplyLeaveView { Task { await refresh() } }
         }
+        .alert("Withdraw this request?", isPresented: Binding(get: { withdrawing != nil }, set: { if !$0 { withdrawing = nil } }), presenting: withdrawing) { r in
+            Button("Withdraw", role: .destructive) { Task { await withdraw(r) } }
+            Button("Keep it", role: .cancel) {}
+        } message: { r in
+            Text("\(r.type.name), \(Fmt.dayString(r.startDate)). Your approver no longer sees it.")
+        }
         .alert("Cancel this leave?", isPresented: Binding(get: { cancelling != nil }, set: { if !$0 { cancelling = nil } }), presenting: cancelling) { r in
             Button("Cancel leave", role: .destructive) { Task { await cancel(r) } }
             Button("Keep it", role: .cancel) {}
         } message: { r in
             Text("\(r.type.name), \(Fmt.dayString(r.startDate)). Your approver is asked to confirm.")
         }
+    }
+
+    /// A request, with its action as a visible button (List swipe actions don't exist outside
+    /// `List`, and a button is easier to find, for VoiceOver too). Both ask before acting.
+    private func requestCell(_ r: LeaveRequest) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LeaveRequestRow(request: r)
+            if r.status == "pending" {
+                Button("Withdraw") { withdrawing = r }
+                    .buttonStyle(.crowCompact)
+                    .accessibilityHint("Withdraws your \(r.type.name) request for \(Fmt.dayString(r.startDate))")
+                    .accessibilityIdentifier("leave.withdraw")
+            } else if r.status == "approved" {
+                Button("Cancel leave") { cancelling = r }
+                    .buttonStyle(.crowCompact)
+                    .accessibilityHint("Asks your approver to cancel \(r.type.name) from \(Fmt.dayString(r.startDate))")
+                    .accessibilityIdentifier("leave.cancel")
+            }
+        }
+        .crowRowPadding()
     }
 
     private func load() async throws -> LeaveData {
@@ -116,7 +136,6 @@ struct BalanceRow: View {
                 Text("No limit").font(CrowFont.mono(.subheadline)).foregroundStyle(Crow.muted)
             }
         }
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibility)
         .accessibilityIdentifier("leave.balance")
@@ -146,7 +165,6 @@ struct LeaveRequestRow: View {
                     .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
             }
         }
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("leave.request")
     }
@@ -178,6 +196,7 @@ struct ApplyLeaveView: View {
     @State private var showCamera = false
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var choosingPhoto = false
+    @FocusState private var reasonFocused: Bool
 
     private var selectedType: LeaveType? { types.value?.first { $0.id == typeID } }
 
@@ -193,63 +212,78 @@ struct ApplyLeaveView: View {
     var body: some View {
         NavigationStack {
             AsyncContent(state: $types, load: loadTypes) { list in
-                Form {
-                    Section {
-                        ChoiceField(title: "Leave type", options: list.map { (id: $0.id, name: $0.name) }, selection: $typeID)
-                            .accessibilityIdentifier("leave.type")
-                        DatePicker("From", selection: $start, displayedComponents: .date)
-                            .accessibilityIdentifier("leave.start")
-                        DatePicker("To", selection: $end, in: start..., displayedComponents: .date)
-                            .accessibilityIdentifier("leave.end")
+                RowsScreen {
+                    VStack(alignment: .leading, spacing: 18) {
+                        ChoiceRow(title: "Leave type", options: list.map { (id: $0.id, name: $0.name) }, selection: $typeID, identifier: "leave.type")
+                        FormField("From") {
+                            DatePicker("From", selection: $start, displayedComponents: .date)
+                                .labelsHidden()
+                                .accessibilityIdentifier("leave.start")
+                        }
+                        FormField("To") {
+                            DatePicker("To", selection: $end, in: start..., displayedComponents: .date)
+                                .labelsHidden()
+                                .accessibilityIdentifier("leave.end")
+                        }
                         if selectedType?.halfDays == true && Fmt.day(start) == Fmt.day(end) {
-                            Toggle("Half day", isOn: $halfDay)
+                            Toggle(isOn: $halfDay) {
+                                Text("Half day").font(CrowFont.body()).fixedSize(horizontal: false, vertical: true)
+                            }
+                            .accessibilityIdentifier("leave.halfDay")
                             if halfDay {
-                                Picker("Which half", selection: $halfDaySession) {
-                                    Text("Morning").tag("am")
-                                    Text("Afternoon").tag("pm")
-                                }
-                                .pickerStyle(.segmented)
+                                SegmentedChoice(title: "Which half", options: [(id: "am", name: "Morning"), (id: "pm", name: "Afternoon")], selection: $halfDaySession)
                             }
                         }
-                    }
-                    Section {
-                        TextField("Reason (optional)", text: $reason, axis: .vertical)
-                            .lineLimit(2...5)
-                            .accessibilityIdentifier("leave.reason")
-                    }
-                    if let t = selectedType, t.attachment != "none" {
-                        Section {
-                            if let attachment {
-                                HStack {
-                                    Image(uiImage: attachment.image).resizable().scaledToFit().frame(height: 60).accessibilityLabel("Attached photo")
-                                    Spacer()
-                                    Button("Remove", role: .destructive) { self.attachment = nil }
+                        FormField("Reason (optional)") {
+                            TextField("Reason (optional)", text: $reason, prompt: Text("A note for your approver"), axis: .vertical)
+                                .lineLimit(2...5)
+                                .font(CrowFont.body())
+                                .focused($reasonFocused)
+                                .accessibilityIdentifier("leave.reason")
+                                .crowFieldBox(focused: reasonFocused)
+                        }
+                        if let t = selectedType, t.attachment != "none" {
+                            VStack(alignment: .leading, spacing: 8) {
+                                SectionLabel((t.attachmentLabel ?? "Supporting document") + (t.attachment == "required" ? " (required)" : " (optional)"))
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let attachment {
+                                    HStack(spacing: 12) {
+                                        Image(uiImage: attachment.image).resizable().scaledToFit().frame(height: 60).accessibilityLabel("Attached photo")
+                                        Spacer()
+                                        Button("Remove", role: .destructive) { self.attachment = nil }
+                                            .buttonStyle(.crowCompactDanger)
+                                    }
+                                } else {
+                                    Button { showCamera = true } label: { Label("Take a photo", systemImage: "camera") }
+                                        .buttonStyle(.crowSecondary)
+                                    Button { choosingPhoto = true } label: { Label("Choose a photo", systemImage: "photo") }
+                                        .buttonStyle(.crowSecondary)
                                 }
+                            }
+                        }
+                        VStack(alignment: .leading, spacing: 6) {
+                            SectionLabel("Days counted")
+                            if let quote {
+                                QuoteSummary(quote: quote)
+                            } else if let quoteError {
+                                Text(quoteError).font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
+                                    .fixedSize(horizontal: false, vertical: true)
                             } else {
-                                Button { showCamera = true } label: { Label("Take a photo", systemImage: "camera") }
-                                Button { choosingPhoto = true } label: { Label("Choose a photo", systemImage: "photo") }
+                                ProgressView()
                             }
-                        } header: {
-                            Text((t.attachmentLabel ?? "Supporting document") + (t.attachment == "required" ? " (required)" : " (optional)"))
+                        }
+                        if let error {
+                            Notice(text: error, tone: .danger, systemImage: "exclamationmark.triangle")
+                                .accessibilityIdentifier("leave.error")
                         }
                     }
-                    Section {
-                        if let quote {
-                            QuoteSummary(quote: quote)
-                        } else if let quoteError {
-                            Text(quoteError).font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
-                        } else {
-                            ProgressView()
-                        }
-                    } header: { Text("Days counted") }
-                    if let error {
-                        Section { Text(error).foregroundStyle(Crow.danger).accessibilityIdentifier("leave.error") }
-                    }
+                    .padding(16)
                 }
-                .scrollContentBackground(.hidden)
             }
             .crowScreen()
-            .navigationTitle("Apply for leave")
+            // Short like "New claim": at the largest text sizes the inline title has room for
+            // about 12 characters of Azeret Mono, and "Apply for leave" was cut off.
+            .navigationTitle("New leave")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -257,6 +291,10 @@ struct ApplyLeaveView: View {
                     Button("Apply") { Task { await submit() } }
                         .disabled(!canSubmit)
                         .accessibilityIdentifier("leave.submit")
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { reasonFocused = false }
                 }
             }
             .task(id: quoteKey) { await requote() }

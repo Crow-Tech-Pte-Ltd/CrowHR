@@ -15,6 +15,9 @@ class CrowUITestCase: XCTestCase {
 
     var server: String { ProcessInfo.processInfo.environment["CROWHR_TEST_SERVER"] ?? "http://127.0.0.1:3190" }
     var app: XCUIApplication!
+    /// QA (task 3.7): called with a screen name and a screenshot slug on each connect and sign-in
+    /// screen on the way in, to audit it.
+    var checkScreen: ((_ screen: String, _ slug: String) -> Void)?
 
     override func setUp() {
         continueAfterFailure = false
@@ -66,6 +69,22 @@ class CrowUITestCase: XCTestCase {
         XCTFail("\(field) never took keyboard focus", file: file, line: line)
     }
 
+    /// On a busy Mac, typing into the system browser sometimes drops keys ("kamponi" for
+    /// "kampongkopi"), and the server then refuses the sign-in. The field still has focus with the
+    /// cursor at the end: compare (a password by its number of bullets), clear and type again.
+    func retypeIfKeysDropped(_ field: XCUIElement, _ text: String, secure: Bool = false, file: StaticString = #filePath, line: UInt = #line) {
+        func typed() -> String? { field.value as? String }
+        func ok() -> Bool {
+            guard let value = typed(), !value.isEmpty else { return true } // unreadable: don't judge
+            if secure { return !value.allSatisfy { $0 == "•" } || value.count == text.count }
+            return value == text
+        }
+        for _ in 0..<2 where !ok() {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: typed()?.count ?? 0) + text)
+        }
+        XCTAssertTrue(ok(), "The system browser field holds \(secure ? "\(typed()?.count ?? 0) characters" : "'\(typed() ?? "")'"), not what was typed", file: file, line: line)
+    }
+
     func tapTab(_ label: String) {
         let button = app.tabBars.buttons[label]
         if button.waitForExistence(timeout: 5) { button.tap() } else { app.buttons[label].firstMatch.tap() }
@@ -74,12 +93,14 @@ class CrowUITestCase: XCTestCase {
     func connectAndSignIn(as email: String) {
         app.launch()
         let address = wait(app.textFields["connect.address"])
+        checkScreen?("Connect", "connect")
         address.tap()
         address.typeText(server)
         app.buttons["connect.continue"].tap()
         // This install hosts two organisations, so the server asks which one (as a QR code would say).
         let org = wait(app.textFields["connect.org"])
         shot("00-organisation-required")
+        checkScreen?("Connect, organisation ID", "connect-org")
         org.tap()
         org.typeText("kampong-kopi")
         app.buttons["connect.continue"].tap()
@@ -89,10 +110,12 @@ class CrowUITestCase: XCTestCase {
         // The organisation's logo, served by the same server (meta logoUrl).
         wait(app.images["org.logo"], 10)
         shot("01-confirm-server")
+        checkScreen?("Confirm server", "confirm")
         app.buttons["confirm.connect"].tap()
         wait(app.buttons["signin.start"])
         wait(app.images["org.logo"], 10)
         shot("01b-sign-in")
+        checkScreen?("Sign in", "sign-in")
         app.buttons["signin.start"].tap()
 
         // The system browser session (SafariViewService), showing the server's own sign-in page.
@@ -103,6 +126,7 @@ class CrowUITestCase: XCTestCase {
         let emailField = browser.textFields["Work email"].exists ? browser.textFields["Work email"] : browser.webViews.textFields.firstMatch
         XCTAssertTrue(emailField.waitForExistence(timeout: 30), "The sign-in page did not open in the system browser")
         focusAndType(emailField, email)
+        retypeIfKeysDropped(emailField, email)
         let pass = browser.secureTextFields.firstMatch
         XCTAssertTrue(pass.waitForExistence(timeout: 5))
         // The password field can sit under the keyboard: move to it with the keyboard's Next key.
@@ -114,6 +138,7 @@ class CrowUITestCase: XCTestCase {
         } else {
             focusAndType(pass, Self.password)
         }
+        retypeIfKeysDropped(pass, Self.password, secure: true)
         let screenshotOfBrowser = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         screenshotOfBrowser.name = "02-system-browser-sign-in"
         screenshotOfBrowser.lifetime = .keepAlways
@@ -207,6 +232,14 @@ final class EssJourneyUITests: CrowUITestCase {
         eventually("Apply to be enabled") { apply.isEnabled }
         apply.tap()
         wait(app.descendants(matching: .any)["leave.request"].firstMatch)
+        XCTAssertTrue(app.staticTexts["Pending"].firstMatch.exists)
+        // Withdraw is a visible button on a pending request (it was a List swipe action) and asks
+        // first. Keep the request: the manager test decides on it.
+        let withdraw = app.buttons["leave.withdraw"].firstMatch
+        XCTAssertTrue(withdraw.exists, "A pending request offers Withdraw")
+        withdraw.tap()
+        XCTAssertTrue(wait(app.alerts.buttons["Withdraw"]).exists)
+        app.alerts.buttons["Keep it"].tap()
         XCTAssertTrue(app.staticTexts["Pending"].firstMatch.exists)
 
         // Claims: a receipt from the camera (stubbed on the simulator, which has no camera).

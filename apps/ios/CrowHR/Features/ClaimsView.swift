@@ -76,13 +76,17 @@ struct ClaimsView: View {
 
     var body: some View {
         AsyncContent(state: $state, load: load) { claims in
-            if claims.isEmpty {
-                EmptyStateView(title: "No claims yet", message: "Claim back work expenses like transport and meals. Snap the receipt with your camera.", systemImage: "receipt")
-            } else {
-                List(claims) { ClaimRow(claim: $0) }
-                    .listStyle(.plain)
-                    .refreshable { await reload() }
+            RowsScreen {
+                if claims.isEmpty {
+                    EmptyStateView(title: "No claims yet", message: "Claim back work expenses like transport and meals. Snap the receipt with your camera.", systemImage: "receipt")
+                        .padding(.top, 24)
+                } else {
+                    RowGroup {
+                        ForEach(claims) { ClaimRow(claim: $0).crowRowPadding() }
+                    }
+                }
             }
+            .refreshable { await reload() }
         }
         .crowScreen()
         .navigationTitle("Claims")
@@ -110,26 +114,28 @@ struct ClaimRow: View {
         let (label, tone) = claim.statusLabel
         AdaptiveRow {
             VStack(alignment: .leading, spacing: 2) {
-                Text(claim.title ?? claim.typeNames.joined(separator: ", ")).font(CrowFont.body(.body, weight: .medium)).fixedSize(horizontal: false, vertical: true)
-                Text([claim.claimNumber, claim.expenseFrom.map(Fmt.dayString)].compactMap { $0 }.joined(separator: " · "))
+                Text(title).font(CrowFont.body(.body, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+                Text(details)
                     .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted).fixedSize(horizontal: false, vertical: true)
             }
         } trailing: {
             VStack(alignment: .leading, spacing: 4) {
-                MoneyText(cents: claim.totalCents, weight: .semibold)
+                AmountText(cents: claim.totalCents, weight: .semibold)
                 StatusChip(text: label, tone: tone)
             }
         }
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel([title, details, Fmt.moneySpoken(cents: claim.totalCents), label].filter { !$0.isEmpty }.joined(separator: ", "))
         .accessibilityIdentifier("claim.row")
     }
+
+    private var title: String { claim.title ?? claim.typeNames.joined(separator: ", ") }
+    private var details: String { [claim.claimNumber, claim.expenseFrom.map(Fmt.dayString)].compactMap { $0 }.joined(separator: " · ") }
 }
 
 /// One-line claim in SGD with a camera receipt. Saved as a draft or submitted.
 struct NewClaimView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(Session.self) private var session
     @Environment(AppModel.self) private var model
     let onDone: () -> Void
@@ -146,9 +152,13 @@ struct NewClaimView: View {
     @State private var choosingPhoto = false
     @State private var busy = false
     @State private var error: String?
+    @FocusState private var focus: Field?
+
+    private enum Field: Hashable { case merchant, detail, amount }
 
     private var selectedType: ClaimType? { types.value?.first { $0.id == typeID } }
     private var cents: Int? { Fmt.parseCents(amount) }
+    private var amountInvalid: Bool { !amount.isEmpty && cents == nil }
 
     private var receiptRequired: Bool {
         guard let t = selectedType else { return false }
@@ -162,78 +172,113 @@ struct NewClaimView: View {
     var body: some View {
         NavigationStack {
             AsyncContent(state: $types, load: loadTypes) { list in
-                Form {
-                    Section {
-                        ChoiceField(title: "Type", options: list.map { (id: $0.id, name: $0.name) }, selection: $typeID)
-                            .accessibilityIdentifier("claim.type")
-                        DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
-                        // A business name: no autocorrect (or spell-check marks) on names like "Kopi Kaki".
-                        TextField("Merchant", text: $merchant)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.words)
-                            .accessibilityIdentifier("claim.merchant")
-                        TextField("What was it for?", text: $detail).accessibilityIdentifier("claim.description")
-                        if typeSize.isAccessibilitySize {
-                            // Stacked so "Amount" doesn't break mid-word beside the field.
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Amount").fixedSize(horizontal: false, vertical: true)
-                                HStack {
-                                    Text("S$").font(CrowFont.mono(.body)).foregroundStyle(Crow.muted)
-                                    amountField(alignment: .leading)
-                                }
-                            }
-                        } else {
-                            HStack {
-                                Text("Amount")
-                                Spacer()
+                RowsScreen {
+                    VStack(alignment: .leading, spacing: 18) {
+                        ChoiceRow(title: "Type", options: list.map { (id: $0.id, name: $0.name) }, selection: $typeID, identifier: "claim.type")
+                        FormField("Date") {
+                            DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
+                                .labelsHidden()
+                                .accessibilityIdentifier("claim.date")
+                        }
+                        FormField("Merchant") {
+                            // A business name: no autocorrect (or spell-check marks) on names like "Kopi Kaki".
+                            // Placeholders stay on one line even in a wrapping field: keep them short.
+                            TextField("Merchant", text: $merchant, prompt: Text("Who you paid"), axis: .vertical)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.words)
+                                .submitLabel(.next)
+                                .returnEndsField($merchant) { focus = .detail }
+                                .focused($focus, equals: .merchant)
+                                .font(CrowFont.body())
+                                .accessibilityIdentifier("claim.merchant")
+                                .crowFieldBox(focused: focus == .merchant)
+                        }
+                        FormField("What was it for?") {
+                            // Return closes the keyboard (the amount pad has no return key of its own).
+                            TextField("What was it for?", text: $detail, prompt: Text("Team lunch"), axis: .vertical)
+                                .submitLabel(.done)
+                                .returnEndsField($detail) { focus = nil }
+                                .focused($focus, equals: .detail)
+                                .font(CrowFont.body())
+                                .accessibilityIdentifier("claim.description")
+                                .crowFieldBox(focused: focus == .detail)
+                        }
+                        FormField("Amount") {
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Text("S$").font(CrowFont.mono(.body)).foregroundStyle(Crow.muted)
-                                amountField(alignment: .trailing).frame(maxWidth: 140)
+                                    .accessibilityHidden(true)
+                                TextField("Amount in Singapore dollars", text: $amount, prompt: Text("0.00"))
+                                    .keyboardType(.decimalPad)
+                                    .font(CrowFont.mono(.body))
+                                    .focused($focus, equals: .amount)
+                                    .accessibilityIdentifier("claim.amount")
+                            }
+                            .crowFieldBox(focused: focus == .amount, invalid: amountInvalid)
+                            if amountInvalid {
+                                Text("Enter an amount like 12.50 (dollars and cents).")
+                                    .font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        if !amount.isEmpty && cents == nil {
-                            Text("Enter an amount like 12.50 (dollars and cents).").font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
-                        }
-                    } footer: {
                         // NOT IMPLEMENTED (app): foreign-currency lines and multi-line claims are on the web.
                         Text("Claims in other currencies, or with several lines, can be made in Crow HR on the web.")
-                    }
-                    Section {
-                        if let receipt {
-                            HStack {
-                                Image(uiImage: receipt.image).resizable().scaledToFit().frame(height: 80)
-                                    .accessibilityLabel("Receipt photo").accessibilityIdentifier("claim.receiptPreview")
-                                Spacer()
-                                Button("Remove", role: .destructive) { self.receipt = nil }
+                            .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        VStack(alignment: .leading, spacing: 8) {
+                            SectionLabel(receiptRequired ? "Receipt (required)" : "Receipt")
+                            if let receipt {
+                                HStack(spacing: 12) {
+                                    Image(uiImage: receipt.image).resizable().scaledToFit().frame(height: 80)
+                                        .accessibilityLabel("Receipt photo").accessibilityIdentifier("claim.receiptPreview")
+                                    Spacer()
+                                    Button("Remove", role: .destructive) { self.receipt = nil }
+                                        .buttonStyle(.crowCompactDanger)
+                                }
+                            } else {
+                                Button { showCamera = true } label: { Label("Photograph receipt", systemImage: "camera") }
+                                    .buttonStyle(.crowSecondary)
+                                    .accessibilityIdentifier("claim.camera")
+                                Button { choosingPhoto = true } label: { Label("Choose a photo", systemImage: "photo") }
+                                    .buttonStyle(.crowSecondary)
                             }
-                        } else {
-                            Button { showCamera = true } label: { Label("Photograph receipt", systemImage: "camera") }
-                                .accessibilityIdentifier("claim.camera")
-                            Button { choosingPhoto = true } label: { Label("Choose a photo", systemImage: "photo") }
+                            if let hint = selectedType?.receiptHint, !hint.isEmpty {
+                                Text(hint).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
-                    } header: {
-                        Text(receiptRequired ? "Receipt (required)" : "Receipt")
-                    } footer: {
-                        if let hint = selectedType?.receiptHint, !hint.isEmpty { Text(hint) }
+                        if let error {
+                            Notice(text: error, tone: .danger, systemImage: "exclamationmark.triangle")
+                                .accessibilityIdentifier("claim.error")
+                        }
+                        VStack(spacing: 12) {
+                            Button { Task { await save(submit: true) } } label: { Text(busy ? "Sending…" : "Submit claim") }
+                                .buttonStyle(.crowPrimary)
+                                .disabled(!valid || busy)
+                                .accessibilityIdentifier("claim.submit")
+                            // Saves a draft. Not "Save as draft": Azeret Mono draws "ft" as one
+                            // ligature glyph, which Xcode's audit reports as clipped text (task 3.7).
+                            Button("Save for later") { Task { await save(submit: false) } }
+                                .buttonStyle(.crowSecondary)
+                                .disabled(!valid || busy)
+                                // The secondary style has no disabled look of its own.
+                                .opacity(valid && !busy ? 1 : 0.5)
+                                .accessibilityIdentifier("claim.draft")
+                        }
+                        .padding(.top, 4)
                     }
-                    if let error { Section { Text(error).foregroundStyle(Crow.danger).accessibilityIdentifier("claim.error") } }
-                    Section {
-                        Button { Task { await save(submit: true) } } label: { Text(busy ? "Sending…" : "Submit claim") }
-                            .buttonStyle(.crowPrimary)
-                            .disabled(!valid || busy)
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
-                            .accessibilityIdentifier("claim.submit")
-                        Button("Save as draft") { Task { await save(submit: false) } }
-                            .disabled(!valid || busy)
-                            .accessibilityIdentifier("claim.draft")
-                    }
+                    .padding(16)
                 }
-                .scrollContentBackground(.hidden)
             }
             .crowScreen()
             .navigationTitle("New claim")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { focus = nil }
+                }
+            }
             .sheet(isPresented: $showCamera) {
                 CameraCapture(stub: model.env.cameraStub) { receipt = $0; showCamera = false }
             }
@@ -245,15 +290,6 @@ struct NewClaimView: View {
                 }
             }
         }
-    }
-
-    private func amountField(alignment: TextAlignment) -> some View {
-        TextField("0.00", text: $amount)
-            .keyboardType(.decimalPad)
-            .multilineTextAlignment(alignment)
-            .font(CrowFont.mono(.body))
-            .accessibilityLabel("Amount in Singapore dollars")
-            .accessibilityIdentifier("claim.amount")
     }
 
     private var valid: Bool {
@@ -294,11 +330,16 @@ struct ScheduleView: View {
 
     var body: some View {
         AsyncContent(state: $state, load: { try await session.api.get("/api/v1/scheduling/me") }) { s in
-            if s.shifts.isEmpty {
-                EmptyStateView(title: "No shifts published", message: "Your published shifts for the next two weeks appear here.", systemImage: "calendar")
-            } else {
-                List(s.shifts) { ShiftRow(shift: $0) }
-                    .listStyle(.plain)
+            RowsScreen {
+                if s.shifts.isEmpty {
+                    EmptyStateView(title: "No shifts published", message: "Your published shifts for the next two weeks appear here.", systemImage: "calendar")
+                        .padding(.top, 24)
+                } else {
+                    // ShiftRow keeps its own 4 pt (it also sits unpadded on Today).
+                    RowGroup {
+                        ForEach(s.shifts) { ShiftRow(shift: $0).crowRowPadding(vertical: 8) }
+                    }
+                }
             }
         }
         .crowScreen()

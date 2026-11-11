@@ -9,17 +9,22 @@ struct PayslipsView: View {
 
     var body: some View {
         AsyncContent(state: $state, load: { try await (session.api.get("/api/v1/payslips") as PayslipList).items }) { items in
-            if items.isEmpty {
-                EmptyStateView(title: "No payslips yet", message: "Your payslips appear here once payroll releases them.", systemImage: "doc.text")
-            } else {
-                List(items) { p in
-                    NavigationLink { PayslipDetailView(summary: p) } label: { PayslipRow(payslip: p) }
-                        .accessibilityIdentifier("payslip.row")
+            RowsScreen {
+                if items.isEmpty {
+                    EmptyStateView(title: "No payslips yet", message: "Your payslips appear here once payroll releases them.", systemImage: "doc.text")
+                        .padding(.top, 24)
+                } else {
+                    RowGroup {
+                        ForEach(items) { p in
+                            NavigationLink { PayslipDetailView(summary: p) } label: { PayslipRow(payslip: p) }
+                                .buttonStyle(.crowNavigationRow)
+                                .accessibilityIdentifier("payslip.row")
+                        }
+                    }
                 }
-                .listStyle(.plain)
-                .refreshable {
-                    if let list: PayslipList = try? await session.api.get("/api/v1/payslips") { state = .loaded(list.items) }
-                }
+            }
+            .refreshable {
+                if let list: PayslipList = try? await session.api.get("/api/v1/payslips") { state = .loaded(list.items) }
             }
         }
         .crowScreen()
@@ -33,15 +38,15 @@ struct PayslipRow: View {
     var body: some View {
         AdaptiveRow {
             VStack(alignment: .leading, spacing: 2) {
-                Text(Fmt.monthKey(payslip.month)).font(CrowFont.body(.body, weight: .medium))
+                Text(Fmt.monthKey(payslip.month)).font(CrowFont.body(.body, weight: .medium)).foregroundStyle(Crow.ink)
                 Text("Paid \(Fmt.dayString(payslip.payDate))\(payslip.revised ? " · revised" : "")")
                     .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted).fixedSize(horizontal: false, vertical: true)
             }
         } trailing: {
-            MoneyText(cents: payslip.netPayableCents, weight: .semibold)
+            AmountText(cents: payslip.netPayableCents, weight: .semibold)
         }
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(Fmt.monthKey(payslip.month)), paid \(Fmt.dayString(payslip.payDate))\(payslip.revised ? ", revised" : ""), net \(Fmt.moneySpoken(cents: payslip.netPayableCents))")
     }
 }
 
@@ -71,7 +76,8 @@ struct PayslipDetailView: View {
                         AdaptiveRow {
                             Text("Net pay").font(CrowFont.mono(.headline, weight: .semibold))
                         } trailing: {
-                            MoneyText(cents: p.netPayableCents, style: .title2, weight: .semibold).accessibilityIdentifier("payslip.net")
+                            AmountText(cents: p.netPayableCents, style: .title2, weight: .semibold, spoken: true)
+                                .accessibilityIdentifier("payslip.net")
                         }
                     }
                     .crowCard()
@@ -137,18 +143,20 @@ struct PayGroup: View {
                 AdaptiveRow {
                     Text(line.0).font(CrowFont.body(.subheadline)).fixedSize(horizontal: false, vertical: true)
                 } trailing: {
-                    MoneyText(cents: line.1, style: .subheadline)
+                    AmountText(cents: line.1, style: .subheadline)
                 }
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(line.0), \(Fmt.moneySpoken(cents: line.1))")
             }
             if let total {
                 Divider().overlay(Crow.hairline)
                 AdaptiveRow {
                     Text(total.0).font(CrowFont.body(.subheadline, weight: .medium))
                 } trailing: {
-                    MoneyText(cents: total.1, style: .subheadline, weight: .semibold)
+                    AmountText(cents: total.1, style: .subheadline, weight: .semibold)
                 }
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(total.0), \(Fmt.moneySpoken(cents: total.1))")
             }
         }
         .crowCard()

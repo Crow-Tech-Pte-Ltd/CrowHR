@@ -10,14 +10,11 @@ struct InboxView: View {
     var body: some View {
         VStack(spacing: 0) {
             if showsApprovals {
-                Picker("Inbox", selection: $segment) {
-                    Text("Approvals").tag(LocalNotice.Route.approvals)
-                    Text("Notifications").tag(LocalNotice.Route.notifications)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .accessibilityIdentifier("inbox.segment")
+                SegmentedChoice(title: "Inbox", options: [(id: LocalNotice.Route.approvals, name: "Approvals"), (id: .notifications, name: "Notifications")], selection: $segment)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .accessibilityIdentifier("inbox.segment")
+                Divider().overlay(Crow.hairline)
             }
             if showsApprovals && segment == .approvals {
                 ApprovalsView()
@@ -50,16 +47,21 @@ struct ApprovalsView: View {
 
     var body: some View {
         AsyncContent(state: $state, load: load) { tasks in
-            if tasks.isEmpty {
-                EmptyStateView(title: "Nothing to approve", message: "Requests that need your decision appear here.", systemImage: "checkmark.circle")
-            } else {
-                List(tasks) { t in
-                    Button { selected = t } label: { ApprovalRow(task: t) }
-                        .accessibilityIdentifier("approval.row")
+            RowsScreen {
+                if tasks.isEmpty {
+                    EmptyStateView(title: "Nothing to approve", message: "Requests that need your decision appear here.", systemImage: "checkmark.circle")
+                        .padding(.top, 24)
+                } else {
+                    RowGroup {
+                        ForEach(tasks) { t in
+                            Button { selected = t } label: { ApprovalRow(task: t) }
+                                .buttonStyle(.crowNavigationRow)
+                                .accessibilityIdentifier("approval.row")
+                        }
+                    }
                 }
-                .listStyle(.plain)
-                .refreshable { await reload() }
             }
+            .refreshable { await reload() }
         }
         .sheet(item: $selected) { t in
             DecisionSheet(task: t) { Task { await reload() } }
@@ -79,16 +81,18 @@ struct ApprovalRow: View {
     let task: ApprovalTask
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
+            AdaptiveRow {
                 Text(task.subjectLabel.uppercased()).font(CrowFont.mono(.caption2, weight: .medium)).foregroundStyle(Crow.muted)
-                Spacer()
+                    .fixedSize(horizontal: false, vertical: true)
+            } trailing: {
                 if task.overdueDays > 0 { StatusChip(text: "\(task.overdueDays)d overdue", tone: .danger) }
             }
-            Text(task.title).font(CrowFont.body(.body, weight: .medium)).foregroundStyle(Crow.ink).multilineTextAlignment(.leading)
+            Text(task.title).font(CrowFont.body(.body, weight: .medium)).foregroundStyle(Crow.ink)
+                .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
             Text("\(task.requester.name) · \(submitted) · step \(task.step.position) of \(task.step.of)")
                 .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
+                .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
     }
 
@@ -171,22 +175,26 @@ struct NotificationsView: View {
 
     var body: some View {
         AsyncContent(state: $state, load: load) { page in
-            if page.items.isEmpty {
-                EmptyStateView(title: "No notifications", message: "Updates about your requests, payslips and rosters appear here.", systemImage: "bell")
-            } else {
-                List {
-                    ForEach(page.items) { n in
-                        Button { Task { await markRead(n) } } label: { NotificationRow(item: n) }
-                            .accessibilityIdentifier("notification.row")
+            RowsScreen {
+                if page.items.isEmpty {
+                    EmptyStateView(title: "No notifications", message: "Updates about your requests, payslips and rosters appear here.", systemImage: "bell")
+                        .padding(.top, 24)
+                } else {
+                    RowGroup {
+                        ForEach(page.items) { n in
+                            Button { Task { await markRead(n) } } label: { NotificationRow(item: n) }
+                                .buttonStyle(.crowRow)
+                                .accessibilityValue(n.readAt == nil ? "Unread" : "")
+                                .accessibilityIdentifier("notification.row")
+                        }
                     }
                 }
-                .listStyle(.plain)
-                .refreshable { await reload() }
-                .toolbar {
-                    if page.unread > 0 {
-                        ToolbarItem(placement: .primaryAction) {
-                            Button("Mark all read") { Task { await markAllRead() } }
-                        }
+            }
+            .refreshable { await reload() }
+            .toolbar {
+                if page.unread > 0 {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Mark all read") { Task { await markAllRead() } }
                     }
                 }
             }
@@ -226,13 +234,17 @@ struct NotificationRow: View {
                 .padding(.top, 6)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                Text(item.title).font(CrowFont.body(.body, weight: item.readAt == nil ? .medium : .regular)).foregroundStyle(Crow.ink).multilineTextAlignment(.leading)
-                if let body = item.body { Text(body).font(CrowFont.body(.subheadline)).foregroundStyle(Crow.muted).multilineTextAlignment(.leading) }
+                Text(item.title).font(CrowFont.body(.body, weight: item.readAt == nil ? .medium : .regular)).foregroundStyle(Crow.ink)
+                    .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                if let body = item.body {
+                    Text(body).font(CrowFont.body(.subheadline)).foregroundStyle(Crow.muted)
+                        .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                }
                 Text(Fmt.parseInstant(item.createdAt).map(Fmt.dateTime) ?? "").font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityValue(item.readAt == nil ? "Unread" : "")
     }
 }
