@@ -14,7 +14,8 @@ struct Me: Decodable, Sendable, Equatable {
     let roles: [String]
     let permissions: [String: [String]]?
 
-    /// Managers and admins see the approvals inbox; the server still decides per task.
+    /// Managers and admins see the approvals inbox up front; anyone else once tasks wait for them
+    /// (`ApprovalsAccess`). The server still decides per task.
     var mayApprove: Bool { roles.contains { ["owner", "hr_admin", "payroll_admin", "manager"].contains($0) } }
 }
 

@@ -35,6 +35,16 @@ final class Session {
 
     func reloadPunches() async { punches = await queue.all() }
 
+    /// Approval tasks waiting for this person, nil until asked. Not only managers and admins
+    /// decide: a step can go to the requester's manager by reporting line or to a named person,
+    /// and out-of-office cover hands tasks to anyone, whatever their role.
+    var approvalTasksWaiting: Int?
+
+    func refreshApprovalTasks() async {
+        guard isAvailable(.approvals) else { return }
+        if let list: ApprovalTaskList = try? await api.get("/api/v1/approvals/tasks") { approvalTasksWaiting = list.items.count }
+    }
+
     /// Sends this person's queued punches (FIFO). Punches from someone else stay untouched.
     func drainPunches(force: Bool = false) async {
         guard let membershipId = me?.membershipId ?? connection.membershipId else { return }
@@ -270,6 +280,7 @@ final class AppModel {
             connectionsStore.update(c)
             reloadConnections()
         }
+        await s.refreshApprovalTasks()
         await s.drainPunches()
         if afterSignIn { await refresher(for: s).markAllSeen() }
     }

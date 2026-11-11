@@ -331,6 +331,9 @@ final class EssJourneyUITests: CrowUITestCase {
         // Claims: a receipt from the camera (stubbed on the simulator, which has no camera).
         let claimsUnderMore = openFromMore("more.claims", sidebar: "Claims")
         wait(app.buttons["claims.new"]).tap()
+        // The first type is chosen from the start: the form says what else is missing, not the type.
+        let missing = wait(element("claim.missing"))
+        XCTAssertFalse(missing.label.contains("claim type"), "New claim asks for a type while one is chosen: \(missing.label)")
         wait(app.textFields["claim.merchant"]).tap()
         app.textFields["claim.merchant"].typeText("Kopi Kaki Cafe")
         app.textFields["claim.description"].tap()

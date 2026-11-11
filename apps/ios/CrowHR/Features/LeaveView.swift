@@ -238,6 +238,9 @@ struct ApplyLeaveView: View {
     }
 
     var body: some View {
+        // Read in this view's own body (not only inside AsyncContent's closure, where it can be a
+        // stale copy), so the form follows the loaded types; as in New claim.
+        let selected = selectedType
         NavigationStack {
             AsyncContent(state: $types, load: loadTypes) { list in
                 RowsScreen {
@@ -255,7 +258,7 @@ struct ApplyLeaveView: View {
                                 .singaporeDates()
                                 .accessibilityIdentifier("leave.end")
                         }
-                        if selectedType?.halfDays == true && Fmt.day(start) == Fmt.day(end) {
+                        if selected?.halfDays == true && Fmt.day(start) == Fmt.day(end) {
                             Toggle(isOn: $halfDay) {
                                 Text("Half day").font(CrowFont.body()).fixedSize(horizontal: false, vertical: true)
                             }
@@ -272,7 +275,7 @@ struct ApplyLeaveView: View {
                                 .accessibilityIdentifier("leave.reason")
                                 .crowFieldBox(focused: reasonFocused)
                         }
-                        if let t = selectedType, t.attachment != "none" {
+                        if let t = selected, t.attachment != "none" {
                             VStack(alignment: .leading, spacing: 8) {
                                 SectionLabel((t.attachmentLabel ?? "Supporting document") + (t.attachment == "required" ? " (required)" : " (optional)"))
                                     .fixedSize(horizontal: false, vertical: true)

@@ -196,6 +196,17 @@ struct NewClaimView: View {
     }
 
     var body: some View {
+        // Derived here, in this view's own body, so the form follows the loaded types and the
+        // fields. Read only inside AsyncContent's closure, the state was a stale copy: right after
+        // the types loaded the form asked for a claim type while one was shown, and the receipt
+        // rule and Submit caught up only once something else changed.
+        let selected = selectedType
+        let needsReceipt = receiptRequired
+        let canSave = valid
+        let missing = missingHint
+        let invalidAmount = amountInvalid
+        let sending = busy
+        let shownError = error
         NavigationStack {
             AsyncContent(state: $types, load: loadTypes) { list in
                 RowsScreen {
@@ -240,8 +251,8 @@ struct NewClaimView: View {
                                     .focused($focus, equals: .amount)
                                     .accessibilityIdentifier("claim.amount")
                             }
-                            .crowFieldBox(focused: focus == .amount, invalid: amountInvalid)
-                            if amountInvalid {
+                            .crowFieldBox(focused: focus == .amount, invalid: invalidAmount)
+                            if invalidAmount {
                                 Text("Enter an amount like 12.50 (dollars and cents).")
                                     .font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -252,7 +263,7 @@ struct NewClaimView: View {
                             .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
                             .fixedSize(horizontal: false, vertical: true)
                         VStack(alignment: .leading, spacing: 8) {
-                            SectionLabel(receiptRequired ? "Receipt (required)" : "Receipt")
+                            SectionLabel(needsReceipt ? "Receipt (required)" : "Receipt")
                             if let receipt {
                                 HStack(spacing: 12) {
                                     Image(uiImage: receipt.image).resizable().scaledToFit().frame(height: 80)
@@ -268,34 +279,34 @@ struct NewClaimView: View {
                                 Button { choosingPhoto = true } label: { Label("Choose a photo", systemImage: "photo") }
                                     .buttonStyle(.crowSecondary)
                             }
-                            if let hint = selectedType?.receiptHint, !hint.isEmpty {
+                            if let hint = selected?.receiptHint, !hint.isEmpty {
                                 Text(hint).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        if let error {
+                        if let error = shownError {
                             Notice(text: error, tone: .danger, systemImage: "exclamationmark.triangle")
                                 .accessibilityIdentifier("claim.error")
                         }
                         // The buttons stay disabled until the claim is complete: say what is missing.
-                        if let missing = missingHint {
+                        if let missing {
                             Text(missing)
                                 .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .accessibilityIdentifier("claim.missing")
                         }
                         VStack(spacing: 12) {
-                            Button { Task { await save(submit: true) } } label: { Text(busy ? "Sending…" : "Submit claim") }
+                            Button { Task { await save(submit: true) } } label: { Text(sending ? "Sending…" : "Submit claim") }
                                 .buttonStyle(.crowPrimary)
-                                .disabled(!valid || busy)
+                                .disabled(!canSave || sending)
                                 .accessibilityIdentifier("claim.submit")
                             // Saves a draft. Not "Save as draft": Azeret Mono draws "ft" as one
                             // ligature glyph, which Xcode's audit reports as clipped text (task 3.7).
                             Button("Save for later") { Task { await save(submit: false) } }
                                 .buttonStyle(.crowSecondary)
-                                .disabled(!valid || busy)
+                                .disabled(!canSave || sending)
                                 // The secondary style has no disabled look of its own.
-                                .opacity(valid && !busy ? 1 : 0.5)
+                                .opacity(canSave && !sending ? 1 : 0.5)
                                 .accessibilityIdentifier("claim.draft")
                         }
                         .padding(.top, 4)

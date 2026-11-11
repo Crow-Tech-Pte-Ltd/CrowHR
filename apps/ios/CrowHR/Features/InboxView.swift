@@ -1,11 +1,26 @@
 import SwiftUI
 
+/// Who sees the Approvals segment.
+enum ApprovalsAccess {
+    /// Managers and admins always; anyone else while tasks wait for them (a reporting-line
+    /// manager without the role, a named approver, out-of-office cover). Role alone hid real tasks.
+    static func shows(featureAvailable: Bool, mayApprove: Bool, tasksWaiting: Int?) -> Bool {
+        featureAvailable && (mayApprove || (tasksWaiting ?? 0) > 0)
+    }
+}
+
 struct InboxView: View {
     @Environment(AppModel.self) private var model
     @Environment(Session.self) private var session
     @State private var segment: LocalNotice.Route = .notifications
+    /// Approvals were shown in this visit: they stay after the last task is decided, so the
+    /// list can say what was done instead of the segment vanishing.
+    @State private var shownApprovals = false
 
-    private var showsApprovals: Bool { session.isAvailable(.approvals) && (session.me?.mayApprove ?? false) }
+    private var showsApprovals: Bool {
+        shownApprovals || ApprovalsAccess.shows(featureAvailable: session.isAvailable(.approvals), mayApprove: session.me?.mayApprove ?? false,
+                                                tasksWaiting: session.approvalTasksWaiting)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,11 +43,19 @@ struct InboxView: View {
         .navigationTitle("Inbox")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { applyRoute() }
+        .task { await session.refreshApprovalTasks() }
         .onChange(of: model.route) { _, _ in applyRoute() }
         .onChange(of: session.me) { _, me in if me?.mayApprove == true && model.route == nil { segment = .approvals } }
+        // Tasks found for someone without an approver role: open them, once.
+        .onChange(of: showsApprovals) { _, shows in
+            guard shows, !shownApprovals else { return }
+            shownApprovals = true
+            if model.route == nil { segment = .approvals }
+        }
     }
 
     private func applyRoute() {
+        if showsApprovals { shownApprovals = true }
         if let r = model.route {
             segment = r
             model.route = nil
@@ -158,7 +181,9 @@ struct ApprovalsView: View {
     }
 
     private func load() async throws -> [ApprovalTask] {
-        try await (session.api.get("/api/v1/approvals/tasks") as ApprovalTaskList).items
+        let tasks = try await (session.api.get("/api/v1/approvals/tasks") as ApprovalTaskList).items
+        session.approvalTasksWaiting = tasks.count
+        return tasks
     }
 
     private func reload() async {

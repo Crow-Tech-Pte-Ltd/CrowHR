@@ -196,6 +196,26 @@ struct SessionTests {
         #expect(model.morePath.isEmpty)
     }
 
+    @Test func approvalsShowForAnyoneWithTasksWaiting() async throws {
+        // A step can go to a reporting-line manager without the role, a named person or
+        // out-of-office cover: the role alone hid their tasks.
+        #expect(ApprovalsAccess.shows(featureAvailable: true, mayApprove: false, tasksWaiting: 2))
+        #expect(!ApprovalsAccess.shows(featureAvailable: true, mayApprove: false, tasksWaiting: 0))
+        #expect(!ApprovalsAccess.shows(featureAvailable: true, mayApprove: false, tasksWaiting: nil))
+        #expect(ApprovalsAccess.shows(featureAvailable: true, mayApprove: true, tasksWaiting: nil))
+        #expect(!ApprovalsAccess.shows(featureAvailable: false, mayApprove: true, tasksWaiting: 3))
+        // The app asks the server once it knows who is signed in (meJSON has no roles).
+        let f = Fixture()
+        f.stub.onJSON("GET /api/v1/me", meJSON)
+        f.stub.onJSON("GET /api/v1/approvals/tasks", #"""
+        {"items":[{"taskId":"0190a0b0-0000-7000-8000-0000000000d1","requestId":"0190a0b0-0000-7000-8000-0000000000d2","subjectType":"leave","subjectLabel":"Leave","title":"Annual leave, 3 Dec 2026","requester":{"name":"Tan Wei Ming"},"submittedAt":"2026-11-12T01:00:00.000Z","dueOn":null,"overdueDays":0,"origin":"delegated","onBehalfOf":"Wong Kai Wen","inline":true,"step":{"position":1,"of":1,"label":"Manager"}}]}
+        """#)
+        try f.connection(token: "tok")
+        let model = AppModel(env: f.env)
+        #expect(await until { model.session?.approvalTasksWaiting == 1 })
+        #expect(model.session?.me?.mayApprove == false)
+    }
+
     @Test func onlyTheServersOwnRefusalEndsASession() {
         #expect(APIError.server(status: 400, code: "invalid_grant", message: "x").endsSession)
         #expect(APIError.server(status: 401, code: "session_revoked", message: "x").endsSession)

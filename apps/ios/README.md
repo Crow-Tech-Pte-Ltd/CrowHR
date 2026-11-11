@@ -141,7 +141,9 @@ support once a version has shipped with it, so the iPad layouts are designed, no
   start can be iOS launching the app for a background refresh).
 - **Approvals:** the decision shows the request's `summary` (lines and context) and comments from
   `GET /api/v1/approvals/requests/{id}`, as the web and Android do. A 409 `already_decided` (or a
-  404) refreshes the list.
+  404) refreshes the list. The Approvals segment shows for owners, HR and payroll admins and
+  managers, and for anyone `GET /api/v1/approvals/tasks` has tasks for (a reporting-line manager
+  without the role, a named approver, out-of-office cover).
 - **Sessions:** a refresh ends the session only when the server answers a 4xx with its own error
   envelope (`invalid_grant`); a certificate error, an unreadable reply or a proxy's error page keeps
   the tokens. With the lock on, the app asks on every cold start and after more than 5 minutes in
