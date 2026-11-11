@@ -281,7 +281,7 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
             attaching = false
         }
     }
-    val capture = ctx.graph.receiptCamera.rememberCapture { file ->
+    val capture = ctx.graph.receiptCamera.rememberCapture(onError = { fieldError = it }) { file ->
         if (file != null) attach { Attachments.photo(file, "photo-$start.jpg").also { file.delete() } }
     }
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->

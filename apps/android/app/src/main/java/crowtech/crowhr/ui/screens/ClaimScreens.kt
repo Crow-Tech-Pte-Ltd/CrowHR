@@ -255,8 +255,9 @@ fun NewClaimScreen(ctx: ScreenContext) {
 @Composable
 private fun ClaimLineEditor(ctx: ScreenContext, index: Int, line: LineDraft, types: List<ClaimTypeOption>, onRemove: (() -> Unit)?) {
     val scope = rememberCoroutineScope()
-    val capture = ctx.graph.receiptCamera.rememberCapture { file ->
+    val capture = ctx.graph.receiptCamera.rememberCapture(onError = { line.error = it }) { file ->
         if (file == null) return@rememberCapture
+        line.error = null
         line.uploading = true
         scope.launch {
             try {

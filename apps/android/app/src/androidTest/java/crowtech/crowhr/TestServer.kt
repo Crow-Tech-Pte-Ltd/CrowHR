@@ -240,7 +240,7 @@ class TestBrowser(private val email: String) : BrowserLauncher {
 class StubCamera : ReceiptCamera {
     var shots = 0
     @Composable
-    override fun rememberCapture(onResult: (File?) -> Unit): () -> Unit {
+    override fun rememberCapture(onError: (String) -> Unit, onResult: (File?) -> Unit): () -> Unit {
         val context = LocalContext.current
         return {
             shots++

@@ -1,6 +1,7 @@
 package crowtech.crowhr.ui
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -21,15 +22,23 @@ import java.util.UUID
 
 /** Takes a receipt photo. The UI tests replace it with a stub that returns a generated image. */
 interface ReceiptCamera {
-    /** Returns a function that starts a capture; [onResult] gets the photo file or null. */
+    /**
+     * Returns a function that starts a capture; [onResult] gets the photo file, or null when the
+     * user cancelled. [onError] says why no photo can be taken (camera not allowed, no camera app).
+     */
     @Composable
-    fun rememberCapture(onResult: (File?) -> Unit): () -> Unit
+    fun rememberCapture(onError: (String) -> Unit = {}, onResult: (File?) -> Unit): () -> Unit
+
+    companion object {
+        const val NOT_ALLOWED = "Crow HR isn't allowed to use the camera. Allow it in Android Settings → Apps → Crow HR → Permissions, then try again."
+        const val NO_CAMERA_APP = "This phone has no camera app that Crow HR can use."
+    }
 }
 
 /** The phone's own camera app (ACTION_IMAGE_CAPTURE) writing into cache/receipts via FileProvider. */
 object SystemReceiptCamera : ReceiptCamera {
     @Composable
-    override fun rememberCapture(onResult: (File?) -> Unit): () -> Unit {
+    override fun rememberCapture(onError: (String) -> Unit, onResult: (File?) -> Unit): () -> Unit {
         val context = LocalContext.current
         // One file per form field, named in the saved state: the camera app may outlive this
         // process, and two claim lines never write into the same file.
@@ -39,11 +48,18 @@ object SystemReceiptCamera : ReceiptCamera {
         val take = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
             onResult(if (ok && target.length() > 0) target else null)
         }
+        // The app declares CAMERA (for QR codes), so Android refuses ACTION_IMAGE_CAPTURE
+        // without it. Say so instead of silently doing nothing.
+        fun open() = try {
+            take.launch(uri)
+        } catch (_: ActivityNotFoundException) {
+            onError(ReceiptCamera.NO_CAMERA_APP)
+        }
         val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) take.launch(uri) else onResult(null)
+            if (granted) open() else onError(ReceiptCamera.NOT_ALLOWED)
         }
         return {
-            if (context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) take.launch(uri)
+            if (context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) open()
             else permission.launch(Manifest.permission.CAMERA)
         }
     }
