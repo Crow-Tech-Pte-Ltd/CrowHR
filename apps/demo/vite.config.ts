@@ -1,7 +1,6 @@
 import { createRequire } from "node:module";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { tanStackRouterCodeSplitter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { demoDataVersion } from "./scripts/data-version.ts";
@@ -15,20 +14,16 @@ const pgliteDist = dirname(createRequire(here("../../packages/demo/package.json"
 
 /**
  * The demo is apps/web, unchanged, plus a boot script (src/main.tsx) that starts the in-browser
- * API worker before the web app's own entry runs. Route code-splitting matches apps/web's build;
- * route generation is off here (apps/web owns routeTree.gen.ts).
+ * API worker before the web app's own entry runs.
+ *
+ * Routes are not code-split here, on purpose: the whole app downloads (modulepreload) while the
+ * database boots, so every screen opens at once afterwards. Splitting them (TanStack's code
+ * splitter needs its route generator running, which apps/web owns) measured slower: on a
+ * throttled 4G-like connection, Home took ~0.9 s instead of ~0.3 s after picking a persona, and
+ * the first boot was no faster.
  */
 export default defineConfig({
-  plugins: [
-    tanStackRouterCodeSplitter({
-      target: "react",
-      routesDirectory: here("../web/src/routes"),
-      generatedRouteTree: here("../web/src/routeTree.gen.ts"),
-    }),
-    react(),
-    preloadApp(),
-    forbidServerModules(),
-  ],
+  plugins: [react(), preloadApp(), forbidServerModules()],
   define: {
     __DEMO_DATA_VERSION__: JSON.stringify(demoDataVersion()),
   },
@@ -46,7 +41,8 @@ export default defineConfig({
   preview: { port: 5181, strictPort: true },
   build: {
     sourcemap: false,
-    chunkSizeWarningLimit: 900,
+    // The web app is one chunk on purpose (see above): ~1.1 MB, ~300 kB gzip.
+    chunkSizeWarningLimit: 1200,
     assetsInlineLimit: 0,
     rollupOptions: {
       input: { main: here("index.html"), "demo-sw": here("../../packages/demo/src/service-worker.ts") },
