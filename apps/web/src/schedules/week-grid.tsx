@@ -115,7 +115,7 @@ function ShiftChip({ shift, draggable, onOpen }: { shift: Shift; draggable: bool
           <span className="block font-normal text-primary-300 min-[1400px]:hidden">–{shift.end}</span>
         </span>
         {shift.templateCode ? (
-          <span className="num ml-auto hidden text-[10px] leading-4 text-primary-300 min-[1400px]:inline">
+          <span className="num ml-auto hidden rounded-sm border border-border px-0.5 text-[10px] leading-[14px] text-primary-300 min-[1400px]:inline">
             {shift.templateCode}
           </span>
         ) : null}
