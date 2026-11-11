@@ -15,6 +15,9 @@ final class Session {
     let queue: PunchQueue
     let queueStore: FilePunchQueueStore
     var me: Me?
+    /// The `/me` fetch in flight, so a screen that needs it waits for it rather than starting a
+    /// second one.
+    var meLoad: Task<Void, Never>?
     var punches: [QueuedPunch] = []
     var lastDrain: DrainSummary?
 
@@ -63,12 +66,20 @@ final class AppModel {
     var morePath: [MainTab] = []
     /// Whether the window currently shows the iPad sidebar (regular width), set by MainTabView.
     var sidebarAvailable = false
+    /// iOS Settings has notifications turned off for the app, so the toggle can't turn them on.
+    var notificationsBlocked = false
     private var backgroundedAt: Date?
+    /// Unlocked (or signed in) since the app started: a cold start with the lock on asks first.
+    private var unlockedThisLaunch = false
     private var pathMonitor: NWPathMonitor?
     private var drainTimer: Task<Void, Never>?
 
     var biometricEnabled: Bool {
-        didSet { env.kv.set(Data([biometricEnabled ? 1 : 0]), forKey: "settings.biometric") }
+        didSet {
+            env.kv.set(Data([biometricEnabled ? 1 : 0]), forKey: "settings.biometric")
+            // Turned on in the app: the person is here, unlocked.
+            if biometricEnabled { unlockedThisLaunch = true }
+        }
     }
     var notificationsEnabled: Bool {
         didSet { env.kv.set(Data([notificationsEnabled ? 1 : 0]), forKey: "settings.notifications") }
@@ -84,6 +95,7 @@ final class AppModel {
             if env.tokens.load(account: active.id.uuidString) != nil {
                 startSession(active)
                 screen = .main
+                locked = AppLockPolicy.shouldLock(enabled: biometricEnabled, unlockedThisLaunch: false, backgroundedAt: nil, now: Date())
             } else {
                 screen = .signIn
             }
@@ -107,6 +119,7 @@ final class AppModel {
         connectionsStore.setActive(saved.id)
         pendingLink = nil
         reloadConnections()
+        resetNavigation()
         session = nil
         signedOutMessage = nil
         screen = env.tokens.load(account: saved.id.uuidString) != nil ? .main : .signIn
@@ -137,6 +150,7 @@ final class AppModel {
     func switchTo(_ connection: SavedConnection) {
         connectionsStore.setActive(connection.id)
         reloadConnections()
+        resetNavigation()
         session = nil
         signedOutMessage = nil
         if env.tokens.load(account: connection.id.uuidString) != nil {
@@ -148,8 +162,15 @@ final class AppModel {
     }
 
     /// Removes a saved connection with its tokens and its punch queue (after confirmation in UI).
+    /// Signed in there, its device session is revoked on its server too (best effort), as
+    /// signing out does: deleting the tokens alone would leave it valid on the server.
     func remove(_ connection: SavedConnection) async {
-        if session?.connection.id == connection.id { await signOut() }
+        if session?.connection.id == connection.id {
+            await signOut()
+        } else if env.tokens.load(account: connection.id.uuidString) != nil {
+            let api = APIClient(server: connection.server, transport: env.transport, auth: makeAuth(connection))
+            try? await api.postNoContent("/api/v1/native/revoke")
+        }
         env.tokens.delete(account: connection.id.uuidString)
         FilePunchQueueStore(fileURL: FilePunchQueueStore.defaultURL(connectionID: connection.id)).delete()
         connectionsStore.remove(connection.id)
@@ -172,8 +193,17 @@ final class AppModel {
         } catch let e as APIError {
             throw NativeAuthError.exchangeFailed(e.message)
         }
+        // Who signed in is known only once `/me` answers. Until then nothing is sent: the stored
+        // membership may be the previous person's, and their unsent punches must not go out
+        // under this sign-in.
+        var c = connection
+        c.membershipId = nil
+        c.displayName = nil
+        connectionsStore.update(c)
+        reloadConnections()
         signedOutMessage = nil
-        startSession(connection, auth: auth)
+        unlockedThisLaunch = true
+        startSession(c, auth: auth, afterSignIn: true)
         screen = .main
     }
 
@@ -185,17 +215,35 @@ final class AppModel {
         AuthSession(server: connection.server, account: connection.id.uuidString, store: env.tokens, transport: env.transport)
     }
 
-    private func startSession(_ connection: SavedConnection, auth: AuthSession? = nil) {
+    private func startSession(_ connection: SavedConnection, auth: AuthSession? = nil, afterSignIn: Bool = false) {
         let auth = auth ?? makeAuth(connection)
         let api = APIClient(server: connection.server, transport: env.transport, auth: auth) { [weak self] message in
             await self?.handleSignedOut(message)
         }
         let s = Session(connection: connection, api: api, auth: auth, queueStore: FilePunchQueueStore(fileURL: FilePunchQueueStore.defaultURL(connectionID: connection.id)))
         session = s
-        Task { await self.loadMe(s) }
+        startLoadingMe(s, afterSignIn: afterSignIn)
     }
 
-    private func loadMe(_ s: Session) async {
+    /// Who is signed in, when that isn't known yet: the app started offline, or `/me` failed.
+    /// Retried when the app becomes active and when the network comes back; screens that need it
+    /// (Leave) wait for it here, joining a fetch already under way.
+    func refreshMeIfNeeded() async {
+        guard let s = session, s.me == nil else { return }
+        if s.meLoad == nil { startLoadingMe(s, afterSignIn: false) }
+        await s.meLoad?.value
+    }
+
+    private func startLoadingMe(_ s: Session, afterSignIn: Bool) {
+        s.meLoad = Task {
+            await self.loadMe(s, afterSignIn: afterSignIn)
+            s.meLoad = nil
+        }
+    }
+
+    /// Only right after signing in does it mark the inbox seen: a cold start can be iOS launching
+    /// the app in the background for a refresh, which must still announce what is new.
+    private func loadMe(_ s: Session, afterSignIn: Bool) async {
         await s.reloadPunches()
         guard let me: Me = try? await s.api.get("/api/v1/me") else { return }
         s.me = me
@@ -211,7 +259,7 @@ final class AppModel {
         connectionsStore.update(c)
         reloadConnections()
         await s.drainPunches()
-        await refresher(for: s).markAllSeen()
+        if afterSignIn { await refresher(for: s).markAllSeen() }
     }
 
     /// The server ended the session (revoked on the web, suspended, expired): clear and go back to
@@ -232,7 +280,16 @@ final class AppModel {
         if discardUnsentPunches { s.queueStore.delete() }
         env.kv.set(nil, forKey: "inbox.cursor.\(s.connection.id.uuidString)")
         session = nil
+        resetNavigation()
         screen = .signIn
+    }
+
+    /// A different connection or person starts on Today: the old selection may be a screen the
+    /// new server doesn't offer.
+    private func resetNavigation() {
+        selectedTab = .today
+        morePath = []
+        route = nil
     }
 
     // MARK: Lifecycle
@@ -243,25 +300,41 @@ final class AppModel {
     }
 
     func didBecomeActive() {
-        if AppLockPolicy.shouldLock(enabled: biometricEnabled, backgroundedAt: backgroundedAt, now: Date()) {
+        if session != nil, AppLockPolicy.shouldLock(enabled: biometricEnabled, unlockedThisLaunch: unlockedThisLaunch, backgroundedAt: backgroundedAt, now: Date()) {
             locked = true
         }
         backgroundedAt = nil
         if let s = session {
-            Task { await s.drainPunches(force: true) }
+            Task {
+                await self.refreshMeIfNeeded()
+                await s.drainPunches(force: true)
+            }
         }
     }
 
     func unlock() async -> Bool {
         let context = LAContext()
         context.localizedFallbackTitle = "Use passcode"
+        var problem: NSError?
+        if !context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &problem), problem?.code == LAError.passcodeNotSet.rawValue {
+            // The device has no passcode any more, so there is nothing to unlock with: turn the
+            // lock off rather than keep the person out of the app for good.
+            biometricEnabled = false
+            unlocked()
+            return true
+        }
         do {
             let ok = try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock Crow HR")
-            if ok { locked = false }
+            if ok { unlocked() }
             return ok
         } catch {
             return false
         }
+    }
+
+    private func unlocked() {
+        locked = false
+        unlockedThisLaunch = true
     }
 
     var biometryAvailable: Bool {
@@ -286,7 +359,10 @@ final class AppModel {
         let monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { [weak self] path in
             guard path.status == .satisfied else { return }
-            Task { @MainActor in await self?.session?.drainPunches(force: true) }
+            Task { @MainActor in
+                await self?.refreshMeIfNeeded()
+                await self?.session?.drainPunches(force: true)
+            }
         }
         monitor.start(queue: DispatchQueue(label: "crowhr.path"))
         pathMonitor = monitor
@@ -321,12 +397,22 @@ final class AppModel {
 
     func setNotifications(_ on: Bool) async {
         if on {
-            let granted = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+            let center = UNUserNotificationCenter.current()
+            let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
             notificationsEnabled = granted
+            // Refused before: iOS doesn't ask again, and the toggle would just flip back.
+            let status = await center.notificationSettings().authorizationStatus
+            notificationsBlocked = !granted && status == .denied
         } else {
             notificationsEnabled = false
         }
         if notificationsEnabled { scheduleBackgroundRefresh() }
+    }
+
+    /// Whether iOS Settings has notifications off for the app (turned off there after being
+    /// allowed, say), for Settings to explain.
+    func checkNotificationPermission() async {
+        notificationsBlocked = (await UNUserNotificationCenter.current().notificationSettings()).authorizationStatus == .denied
     }
 
     func open(route: LocalNotice.Route) {

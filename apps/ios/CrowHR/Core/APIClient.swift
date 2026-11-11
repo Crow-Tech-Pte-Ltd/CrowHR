@@ -83,6 +83,20 @@ enum APIError: Error, Equatable, Sendable {
 
     var code: String? { if case .server(_, let c, _) = self { c } else { nil } }
 
+    /// The server itself refused the refresh token (a 4xx with its JSON error envelope, such as
+    /// `invalid_grant`), so the session is over. A certificate error, an unreadable reply or a
+    /// proxy's own error page (a captive portal, a firewall or CDN challenge: no envelope) says
+    /// nothing about the session, and signing out there would lose it for nothing.
+    var endsSession: Bool {
+        guard case .server(let status, let code, _) = self else { return false }
+        return (400..<500).contains(status) && !isTransient && !code.hasPrefix("http_")
+    }
+
+    /// The request was cancelled (its screen went away), not a failure to show.
+    static func isCancellation(_ error: any Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
+    }
+
     static func from(_ error: any Error, host: String) -> APIError {
         if let e = error as? APIError { return e }
         if let u = error as? URLError {
@@ -170,7 +184,7 @@ actor AuthSession {
             try store.save(set, account: account)
             tokens = set
             return set
-        } catch let e as APIError where !e.isTransient {
+        } catch let e as APIError where e.endsSession {
             clear()
             throw APIError.signedOut(message: "Your session has ended. Sign in again.")
         }
