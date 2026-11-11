@@ -137,14 +137,25 @@ class AppViewModel(private val graph: AppGraph) : ViewModel() {
         RefreshScheduler.schedule(graph.context)
         viewModelScope.launch {
             refreshMeta(connection)
-            try {
-                val me = graph.api(connection).get("/api/v1/me", Me.serializer())
-                val current = _root.value
-                if (current is RootScreen.Main && current.connection.key == connection.key) _root.value = current.copy(me = me)
-            } catch (_: OfflineException) {
-            } catch (_: Exception) {
-            }
+            loadMe(connection)
             if (graph.punchQueue(connection).pending().isNotEmpty()) PunchSync.request(graph.context)
+        }
+    }
+
+    private var loadingMe = false
+
+    /** Who is signed in (name, roles, employee record). Tried again on the next foreground if it failed. */
+    private suspend fun loadMe(connection: SavedConnection) {
+        if (loadingMe) return
+        loadingMe = true
+        try {
+            val me = graph.api(connection).get("/api/v1/me", Me.serializer())
+            val current = _root.value
+            if (current is RootScreen.Main && current.connection.key == connection.key) _root.value = current.copy(me = me)
+        } catch (_: OfflineException) {
+        } catch (_: Exception) {
+        } finally {
+            loadingMe = false
         }
     }
 
@@ -178,7 +189,12 @@ class AppViewModel(private val graph: AppGraph) : ViewModel() {
 
     // --- Biometric lock ---
     fun onBackground() = graph.lock.onBackground(graph.clock())
-    fun onForeground() { _locked.value = graph.lock.shouldLock(graph.clock()) }
+    fun onForeground() {
+        _locked.value = graph.lock.shouldLock(graph.clock())
+        // Signed in while offline: /me failed then, so the profile's account details, the
+        // employee link and "My requests" waited for it. Try again now.
+        (root.value as? RootScreen.Main)?.takeIf { it.me == null }?.let { main -> viewModelScope.launch { loadMe(main.connection) } }
+    }
     fun onUnlocked() {
         graph.lock.onUnlocked()
         _locked.value = false
