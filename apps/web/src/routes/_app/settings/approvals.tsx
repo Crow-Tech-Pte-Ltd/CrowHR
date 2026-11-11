@@ -108,7 +108,7 @@ function ApprovalSettingsPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }, { label: "Approvals" }]}
+        crumbs={[{ label: "Settings", to: "/settings" }]}
         title="Approvals"
         description="Who approves what. Requests go through the steps in order, and anyone in a step can decide. Requests already sent keep the chain they started with."
       />

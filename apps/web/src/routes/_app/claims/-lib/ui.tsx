@@ -79,8 +79,8 @@ export function ReceiptChip({
         type="button"
         onClick={onOpen}
         className="focus-ring flex min-w-0 items-center gap-2 rounded-sm text-left"
-        aria-label={`View receipt ${file.name}`}
       >
+        <span className="sr-only">View receipt </span>
         {file.previewable ? (
           <img src={file.url} alt="" className="size-9 shrink-0 rounded-sm border border-border object-cover" />
         ) : (

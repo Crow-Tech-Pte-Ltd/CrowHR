@@ -33,7 +33,7 @@ import {
   useDecide,
 } from "../../workflows/api.ts";
 import { DecisionButtons, DuePill, OriginBadge, RejectDialog } from "../../workflows/decision-controls.tsx";
-import { ageLabel } from "../../workflows/format.ts";
+import { ageLabel, requestName } from "../../workflows/format.ts";
 import { OutOfOfficeDialog } from "../../workflows/out-of-office.tsx";
 import { RequestPanel } from "../../workflows/request-panel.tsx";
 
@@ -379,9 +379,7 @@ function MineView({ selectedId }: { selectedId?: string }) {
                 )}
               >
                 <span className="min-w-0">
-                  <span className="block truncate font-medium leading-5">
-                    {r.subjectLabel}: {r.title}
-                  </span>
+                  <span className="block truncate font-medium leading-5">{requestName(r.subjectLabel, r.title)}</span>
                   <span className="block truncate text-2xs text-primary-300">
                     {r.status === "pending" && r.waitingOn
                       ? `Waiting for ${r.waitingOn}`

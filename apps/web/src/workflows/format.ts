@@ -39,3 +39,17 @@ export function ageLabel(iso: string, today: string): string {
 export function thresholdLabel(cents: number): string {
   return `${formatMoney(cents)} or more`;
 }
+
+/**
+ * A request's name in lists: "Transport claim" rather than "Claim: Transport claim", and
+ * "Overtime, 23 Oct 2026" rather than "Overtime: Overtime, 23 Oct 2026". The kind is kept when the
+ * title doesn't already say it ("Profile change: Personal details").
+ */
+export function requestName(subjectLabel: string, title: string): string {
+  const words = subjectLabel
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length >= 4);
+  const inTitle = title.toLowerCase().split(/[^\p{L}\p{N}]+/u);
+  return words.some((w) => inTitle.includes(w)) ? title : `${subjectLabel}: ${title}`;
+}

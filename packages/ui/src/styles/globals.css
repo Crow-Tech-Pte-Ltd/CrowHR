@@ -103,6 +103,21 @@
     @apply font-azeret tracking-tight;
   }
 
+  /* Azeret Mono draws "fi", "ffi" and "fl" as ligatures, which break the monospace grid and read as
+     odd glyphs in labels such as "Notifications" and "Out of office". */
+  .font-azeret,
+  .font-mono,
+  .num,
+  h1,
+  h2,
+  h3,
+  h4,
+  kbd,
+  code,
+  pre {
+    font-variant-ligatures: none;
+  }
+
   /* Decorative icons keep their size beside long text in flex rows (they never shrink to a dot). */
   svg[aria-hidden="true"] {
     flex-shrink: 0;

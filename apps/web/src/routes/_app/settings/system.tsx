@@ -64,7 +64,7 @@ function SystemPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }, { label: "System" }]}
+        crumbs={[{ label: "Settings", to: "/settings" }]}
         title="System"
         description="Version, database, backups, disk space and how requests reach this server. Read-only."
       />
@@ -244,16 +244,16 @@ function StatusView({ s }: { s: SystemStatus }) {
             </Row>
           ) : null}
           <Row label="Last successful">
-            <span className="num">
-              {ok ? `${formatSgDateTime(ok.startedAt)} · ${formatBytes(ok.sizeBytes)}` : "None yet"}
-            </span>
+            {ok ? (
+              <span className="num">{`${formatSgDateTime(ok.startedAt)} · ${formatBytes(ok.sizeBytes)}`}</span>
+            ) : (
+              "None yet"
+            )}
           </Row>
           <Row label="Schedule">
-            <span className="num">{s.backups.schedule ? `Daily ${s.backups.schedule}` : "Off"}</span>
+            {s.backups.schedule ? <span className="num">Daily {s.backups.schedule}</span> : "Off"}
           </Row>
-          <Row label="Kept">
-            <span className="num">{s.backups.keep ?? "—"} newest</span>
-          </Row>
+          <Row label="Kept">{s.backups.keep ? <span className="num">{s.backups.keep} newest</span> : "—"}</Row>
           <Row label="Stored in">
             <span className={mono}>{s.backups.directory ?? "—"}</span>
           </Row>

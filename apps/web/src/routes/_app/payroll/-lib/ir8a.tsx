@@ -6,6 +6,7 @@ import * as React from "react";
 import { useReauth } from "../../../../auth/reauth.tsx";
 import { ErrorNote } from "../../../../components/section.tsx";
 import { api, downloadFile, type Excluded, errorMessage } from "./api.ts";
+import { groupEmployeeNotes, namesSummary } from "./notes.ts";
 
 export const ir8aQuery = (year: number) =>
   queryOptions({
@@ -106,13 +107,22 @@ export function Ir8aPanel({ years }: { years: number[] }) {
                   {p.notes.map((n) => (
                     <li key={n.code}>{n.message}</li>
                   ))}
-                  {withNotes.flatMap((r) =>
-                    r.notes.map((n) => (
-                      <li key={`${r.employeeId}-${n.code}`}>
-                        <span className="font-medium text-foreground">{r.employeeName}:</span> {n.message}
-                      </li>
-                    )),
-                  )}
+                  {groupEmployeeNotes(withNotes).map((g) => (
+                    <li key={g.key}>
+                      <span className="font-medium text-foreground">
+                        {g.names.length === 1 ? g.names[0] : `${g.names.length} employees`}:
+                      </span>{" "}
+                      {g.message}
+                      {g.names.length > 1 ? (
+                        <details className="mt-0.5">
+                          <summary className="focus-ring w-fit cursor-pointer rounded-sm text-2xs font-medium text-ink">
+                            {namesSummary(g.names)}
+                          </summary>
+                          <p className="mt-1 text-2xs">{g.names.join(", ")}</p>
+                        </details>
+                      ) : null}
+                    </li>
+                  ))}
                 </ul>
                 {(excluded ?? p.excluded).length ? (
                   <>
