@@ -1,7 +1,7 @@
 import { Button, Card, CardHeader, CardTitle, EmptyState, formatDate, Skeleton, StatusPill } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarPlus, CheckCircle2, ReceiptText } from "lucide-react";
+import { ArrowRight, CalendarPlus, CheckCircle2, Clock, ReceiptText } from "lucide-react";
 import { greetingName } from "../auth/format.ts";
 import { useMe } from "../auth/session.ts";
 import { PageHeader } from "../components/page-header.tsx";
@@ -40,8 +40,15 @@ export function EmployeeHome() {
           )
         }
       />
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:max-w-md">
-        <Button variant="primary" size="lg" asChild>
+      {/* Clocking in is what staff do most, so it comes first (full width on a phone). */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:max-w-2xl sm:grid-cols-3">
+        <Button variant="primary" size="lg" className="col-span-2 sm:col-span-1" asChild>
+          <Link to="/attendance">
+            <Clock />
+            Clock in or out
+          </Link>
+        </Button>
+        <Button variant="secondary" size="lg" asChild>
           <Link to="/leave">
             <CalendarPlus />
             Apply leave
