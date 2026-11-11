@@ -1,6 +1,10 @@
 package crowtech.crowhr.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,7 +32,6 @@ import crowtech.crowhr.core.Formats
 import crowtech.crowhr.ui.ScreenContext
 import crowtech.crowhr.ui.components.CrowCard
 import crowtech.crowhr.ui.components.EmptyState
-import crowtech.crowhr.ui.components.FieldError
 import crowtech.crowhr.ui.components.KeyValueRow
 import crowtech.crowhr.ui.components.Label
 import crowtech.crowhr.ui.components.LoadContent
@@ -71,7 +74,8 @@ fun ApprovalsScreen(ctx: ScreenContext) {
                             "${task.requester.name} · sent ${Formats.parseInstant(task.submittedAt)?.let(Formats::dateTime) ?: task.submittedAt}",
                             style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted,
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+                        // Wraps at large text sizes ("Covering for …" no longer runs off the card).
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
                             task.step?.let { StatusChip("Step ${it.position} of ${it.of}", Tone.Neutral) }
                             if (task.overdueDays > 0) StatusChip("${task.overdueDays} ${if (task.overdueDays == 1) "day" else "days"} overdue", Tone.Warning)
                             if (task.origin == "delegated") StatusChip("Covering for ${task.onBehalfOf ?: "a colleague"}", Tone.Accent)
@@ -133,13 +137,18 @@ private fun TaskDecision(ctx: ScreenContext, task: ApprovalTask, onClose: () -> 
         OutlinedTextField(
             comment, { comment = it; commentError = null },
             label = { Text("Comment") },
-            supportingText = { Text("Required when you reject. ${task.requester.name} will see it.") },
+            // One message under the field: the hint, or what to fix (announced by TalkBack).
+            supportingText = {
+                Text(
+                    commentError ?: "Required when you reject. ${task.requester.name} will see it.",
+                    Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            },
             isError = commentError != null,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("decision-comment"),
             minLines = 2,
         )
-        FieldError(commentError)
-        error?.let { Notice(it, Tone.Danger, Modifier.padding(top = 8.dp)) }
+        error?.let { Notice(it, Tone.Danger, Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite }) }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
             PrimaryButton("Approve", { decide("approve") }, Modifier.fillMaxWidth().testTag("approve"), loading = sending == "approve", enabled = sending == null)
             SecondaryButton("Reject", { decide("reject") }, Modifier.fillMaxWidth().testTag("reject"), tone = Tone.Danger, enabled = sending == null)

@@ -37,8 +37,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import crowtech.crowhr.BuildConfig
@@ -145,8 +145,9 @@ fun NotificationsScreen(ctx: ScreenContext) {
 @Composable
 private fun NotificationRow(n: AppNotification, onOpen: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen).padding(vertical = 10.dp).testTag("notification-row")
-            .semantics { if (n.readAt == null) contentDescription = "Unread: ${n.title}" },
+        // TalkBack reads the title, text and date once, then "Unread" (as iOS's accessibility value).
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onOpen).padding(vertical = 10.dp).testTag("notification-row")
+            .semantics { if (n.readAt == null) stateDescription = "Unread" },
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {

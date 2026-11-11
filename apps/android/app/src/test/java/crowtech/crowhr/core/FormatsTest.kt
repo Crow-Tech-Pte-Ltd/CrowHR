@@ -81,6 +81,21 @@ class FormatsTest {
         assertEquals(emptyList<String>(), offenders)
     }
 
+    @Test fun spokenAmountsForTalkBack() {
+        assertEquals("1,234 Singapore dollars 56 cents", Formats.moneySpoken(123456))
+        assertEquals("0 Singapore dollars 5 cents", Formats.moneySpoken(5))
+        assertEquals("1 Singapore dollar 1 cent", Formats.moneySpoken(101))
+        assertEquals("minus 5 Singapore dollars", Formats.moneySpoken(-500))
+        assertEquals("1,000,000 Singapore dollars", Formats.moneySpoken(100_000_000))
+    }
+
+    @Test fun hoursWithoutTrailingZeros() {
+        assertEquals("4", Formats.hours(4.0))
+        assertEquals("4.5", Formats.hours(4.5))
+        assertEquals("1.25", Formats.hours(1.25))
+        assertEquals("0.33", Formats.hours(1.0 / 3))
+    }
+
     @Test fun nricMasking() {
         for (c in cases["nric"]!!.jsonArray.map { it.jsonObject }) {
             assertEquals(c.str("masked"), Formats.maskNric(c.str("value")!!))

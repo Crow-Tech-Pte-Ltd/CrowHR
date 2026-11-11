@@ -147,12 +147,18 @@ val Ubuntu = FontFamily(
     Font(R.font.ubuntu_bold, FontWeight.Bold),
 )
 
+/**
+ * Tabular figures, and no ligatures: Azeret Mono draws "fi", "fl", "ff" and "ft" as one glyph,
+ * which in a monospaced label reads like a typo ("Notiﬁcations"). iOS rewords around it.
+ */
+private const val MONO_FEATURES = "tnum, -liga"
+
 /** Numbers everywhere: Azeret Mono with tabular figures (AGENTS.md design language). */
-val Numeric = TextStyle(fontFamily = AzeretMono, fontFeatureSettings = "tnum")
+val Numeric = TextStyle(fontFamily = AzeretMono, fontFeatureSettings = MONO_FEATURES)
 
 private fun mono(size: Int, line: Int, weight: FontWeight = FontWeight.Medium, spacing: Double = 0.0) = TextStyle(
     fontFamily = AzeretMono, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp,
-    letterSpacing = spacing.sp, fontFeatureSettings = "tnum",
+    letterSpacing = spacing.sp, fontFeatureSettings = MONO_FEATURES,
 )
 
 private fun body(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) =

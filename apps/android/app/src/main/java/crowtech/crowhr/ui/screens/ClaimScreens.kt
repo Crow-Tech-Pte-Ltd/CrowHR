@@ -32,6 +32,8 @@ import kotlinx.serialization.builtins.nullable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -104,7 +106,8 @@ fun ClaimsScreen(ctx: ScreenContext) {
             if (page.items.isEmpty()) EmptyState("No claims yet", "Snap a receipt and claim it here. HR pays approved claims with your salary or separately.")
             page.items.forEach { c ->
                 val (label, tone) = claimStatus(c.status)
-                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("claim-row")) {
+                // One TalkBack item per claim: title, details, amount and status.
+                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).semantics(mergeDescendants = true) {}.testTag("claim-row")) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(c.title ?: c.typeNames.joinToString(", ").ifEmpty { "Claim" }, style = MaterialTheme.typography.titleSmall)
@@ -113,7 +116,10 @@ fun ClaimsScreen(ctx: ScreenContext) {
                                 style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted,
                             )
                         }
-                        Text(Formats.money(c.totalCents), style = Numeric.copy(fontWeight = FontWeight.SemiBold))
+                        Text(
+                            Formats.money(c.totalCents), style = Numeric.copy(fontWeight = FontWeight.SemiBold),
+                            modifier = Modifier.semantics { contentDescription = Formats.moneySpoken(c.totalCents) },
+                        )
                     }
                     StatusChip(label, tone, Modifier.padding(top = 4.dp))
                 }
@@ -179,8 +185,10 @@ fun NewClaimScreen(ctx: ScreenContext) {
         ScreenTitle("New claim")
         done?.let { c ->
             Notice(
-                if (c.status == "draft") "Saved as a draft. Submit it when it's ready." else "Claim ${c.claimNumber ?: ""} sent for approval (${Formats.money(c.totalCents)}).",
-                Tone.Success, title = if (c.status == "draft") "Draft saved" else "Claim sent",
+                // NOT IMPLEMENTED (app): drafts are finished and submitted on the web.
+                if (c.status == "draft") "Saved as a draft (${Formats.money(c.totalCents)}). To change or submit it, open Claims in Crow HR on the web."
+                else listOfNotNull("Claim", c.claimNumber, "sent for approval (${Formats.money(c.totalCents)}).").joinToString(" "),
+                Tone.Success, title = if (c.status == "draft") "Saved for later" else "Claim sent",
             )
             PrimaryButton("Done", ctx.pop, Modifier.fillMaxWidth().testTag("claim-done"))
             return@Column
@@ -239,7 +247,7 @@ fun NewClaimScreen(ctx: ScreenContext) {
             }
         }
         PrimaryButton("Submit claim", { save(true) }, Modifier.fillMaxWidth().testTag("submit-claim"), loading = saving == "submit", enabled = saving == null)
-        SecondaryButton("Save as draft", { save(false) }, Modifier.fillMaxWidth(), enabled = saving == null)
+        SecondaryButton("Save for later", { save(false) }, Modifier.fillMaxWidth().testTag("save-claim-draft"), enabled = saving == null)
     }
 }
 

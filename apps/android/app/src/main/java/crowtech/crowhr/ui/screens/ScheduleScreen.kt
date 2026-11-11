@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import crowtech.crowhr.api.MySchedule
 import crowtech.crowhr.api.Shift
@@ -65,15 +66,17 @@ fun ScheduleScreen(ctx: ScreenContext) {
             if (s.openShifts.isNotEmpty()) {
                 SectionTitle("Open shifts")
                 Text("Shifts nobody is rostered for yet. Ask your manager or pick one up on the web.", style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted)
-                s.openShifts.forEach { ShiftRow(it) }
+                // Open shifts aren't grouped under a day heading, so each says which day it is.
+                s.openShifts.sortedWith(compareBy({ it.date }, { it.start })).forEach { ShiftRow(it, showDate = true) }
             }
         }
     }
 }
 
 @Composable
-private fun ShiftRow(shift: Shift) {
-    CrowCard(modifier = Modifier.padding(vertical = 4.dp).testTag("shift-${shift.date}")) {
+private fun ShiftRow(shift: Shift, showDate: Boolean = false) {
+    CrowCard(modifier = Modifier.padding(vertical = 4.dp).semantics(mergeDescendants = true) {}.testTag(if (showDate) "open-shift-${shift.id}" else "shift-${shift.date}")) {
+        if (showDate) Label(dayHeading(shift.date), Modifier.padding(bottom = 4.dp))
         if (shift.kind == "rest") {
             Text("Rest day", style = MaterialTheme.typography.titleSmall)
         } else {
