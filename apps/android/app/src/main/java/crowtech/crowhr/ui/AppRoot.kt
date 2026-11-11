@@ -19,6 +19,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +48,8 @@ import crowtech.crowhr.ui.theme.Crow
 fun AppRoot(graph: AppGraph, vm: AppViewModel) {
     val root by vm.root.collectAsState()
     val locked by vm.locked.collectAsState()
+    // The main screens' saved state (back stack, half-filled forms) outlives the lock screen.
+    val shells = rememberSaveableStateHolder()
     // A lock the phone can't enforce (its screen lock was removed) would lock the user out.
     if (locked && Biometric.available(LocalContext.current)) {
         LockScreen(vm::onUnlocked)
@@ -75,7 +78,7 @@ fun AppRoot(graph: AppGraph, vm: AppViewModel) {
                 onRemove = { vm.removeConnection(screen.connection) },
             )
         }
-        is RootScreen.Main -> MainShell(graph, vm, screen)
+        is RootScreen.Main -> shells.SaveableStateProvider("main:${screen.connection.key}") { MainShell(graph, vm, screen) }
     }
 }
 
@@ -141,13 +144,14 @@ private fun SignInScreen(
 private fun LockScreen(onUnlocked: () -> Unit) {
     val activity = androidx.activity.compose.LocalActivity.current ?: return
     var message by remember { mutableStateOf<String?>(null) }
+    val unlock = { Biometric.prompt(activity, onSuccess = onUnlocked, onFailure = { message = it }) }
+    // Ask straight away, as iOS does; the button is there after a cancel or a failure.
+    androidx.compose.runtime.LaunchedEffect(Unit) { unlock() }
     SinglePane {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             ScreenTitle("Crow HR is locked", "Unlock with your fingerprint, face or screen lock.")
             message?.let { Notice(it, Tone.Warning) }
-            PrimaryButton("Unlock", {
-                Biometric.prompt(activity, onSuccess = onUnlocked, onFailure = { message = it })
-            }, Modifier.fillMaxWidth())
+            PrimaryButton("Unlock", unlock, Modifier.fillMaxWidth().testTag("unlock"))
         }
     }
 }

@@ -30,11 +30,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,18 +77,6 @@ enum class Tab(val label: String, val icon: ImageVector, val screen: AppScreen?)
     More("More", CrowIcons.More, null),
 }
 
-sealed interface Route {
-    data class PayslipDetail(val id: String) : Route
-    data object LeaveApply : Route
-    data object Claims : Route
-    data object NewClaim : Route
-    data object Schedule : Route
-    data object Notifications : Route
-    data object Profile : Route
-    data object Settings : Route
-    data object Licences : Route
-}
-
 /** What every screen gets: the connection's API client, the graph and navigation. */
 class ScreenContext(
     val graph: AppGraph,
@@ -105,22 +92,41 @@ class ScreenContext(
 fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
     val connection = screen.connection
     val tabs = Tab.entries.filter { it.screen == null || connection.isAvailable(it.screen) }
-    var tab by rememberSaveable(connection.key) { mutableStateOf(tabs.first().name) }
-    val stack = remember(connection.key) { mutableStateListOf<Route>() }
+    var savedTab by rememberSaveable(connection.key) { mutableStateOf(tabs.first().name) }
+    // A tab the server no longer offers (meta changed) falls back to the first one.
+    val tab = savedTab.takeIf { name -> tabs.any { it.name == name } } ?: tabs.first().name
+    // The back stack and every screen's own state (form fields, scroll) are saved, so rotation,
+    // a resize, process death while the camera or browser is open, and the lock screen keep
+    // the user where they were.
+    var stackCodes by rememberSaveable(connection.key) { mutableStateOf(emptyList<String>()) }
+    val stack = Route.decodeStack(stackCodes)
+    val screens = rememberSaveableStateHolder()
+    fun forget(routes: List<Route>) = routes.forEach { screens.removeState(it.code) }
+    fun push(route: Route) { stackCodes = stackCodes + route.code }
+    fun pop() {
+        val top = stack.lastOrNull() ?: return
+        forget(listOf(top))
+        stackCodes = stackCodes.dropLast(1)
+    }
+    fun select(t: String) {
+        forget(stack)
+        stackCodes = emptyList()
+        savedTab = t
+    }
     val api = remember(connection) { graph.api(connection) }
-    val ctx = ScreenContext(graph, connection, api, screen.me, push = { stack.add(it) }, pop = { if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex) }, vm = vm)
+    val ctx = ScreenContext(graph, connection, api, screen.me, push = ::push, pop = ::pop, vm = vm)
 
     val open by vm.openRequest.collectAsState()
     LaunchedEffect(open) {
         when (open) {
-            "approvals" -> { stack.clear(); tab = Tab.Tasks.name }
-            "notifications" -> { stack.clear(); tab = Tab.More.name; stack.add(Route.Notifications) }
+            "approvals" -> select(Tab.Tasks.name)
+            "notifications" -> { select(Tab.More.name); push(Route.Notifications) }
         }
         if (open != null) vm.openRequest.value = null
     }
 
     BackHandler(enabled = stack.isNotEmpty() || tab != tabs.first().name) {
-        if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex) else tab = tabs.first().name
+        if (stack.isNotEmpty()) pop() else select(tabs.first().name)
     }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -133,7 +139,7 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
             if (stack.isNotEmpty()) {
                 Box(
                     Modifier.size(48.dp)
-                        .clickable(role = Role.Button) { stack.removeAt(stack.lastIndex) }
+                        .clickable(role = Role.Button) { pop() }
                         .semantics { contentDescription = "Back" }
                         .testTag("back"),
                     contentAlignment = Alignment.Center,
@@ -148,7 +154,7 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
         Hairline()
         Box(Modifier.weight(1f).fillMaxWidth().imePadding(), contentAlignment = Alignment.TopCenter) {
             val route = stack.lastOrNull()
-            key(route, tab) {
+            screens.SaveableStateProvider(route?.code ?: "tab:$tab") {
                 Column(
                     Modifier.widthIn(max = 640.dp).fillMaxWidth().verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 16.dp),
@@ -178,10 +184,9 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
         // Employees get a bottom tab bar (AGENTS.md design language).
         NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
             tabs.forEach { t ->
-                val selected = stack.isEmpty() && tab == t.name || (stack.isNotEmpty() && tab == t.name)
                 NavigationBarItem(
-                    selected = selected,
-                    onClick = { stack.clear(); tab = t.name },
+                    selected = tab == t.name,
+                    onClick = { select(t.name) },
                     icon = { Icon(t.icon, contentDescription = null, modifier = Modifier.size(22.dp)) },
                     label = { Text(t.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Visible, softWrap = false) },
                     modifier = Modifier.testTag("tab-${t.name.lowercase()}"),

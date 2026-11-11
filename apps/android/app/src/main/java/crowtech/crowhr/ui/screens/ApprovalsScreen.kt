@@ -10,6 +10,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,14 +49,14 @@ private val TASKS = Items.serializer(ApprovalTask.serializer())
 @Composable
 fun ApprovalsScreen(ctx: ScreenContext) {
     val loader = rememberLoader(ctx.connection.key) { ctx.api.get("/api/v1/approvals/tasks", TASKS) }
-    var open by remember { mutableStateOf<String?>(null) }
-    var done by remember { mutableStateOf<String?>(null) }
+    var open by rememberSaveable { mutableStateOf<String?>(null) }
+    var done by rememberSaveable { mutableStateOf<String?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenTitle("Approvals", "Requests waiting for your decision.")
         done?.let { Notice(it, Tone.Success) }
         LoadContent(loader, "Loading approvals…") { list ->
             if (list.items.isEmpty()) EmptyState("Nothing to approve", "When someone sends you a request to decide, it appears here.")
-            list.items.forEach { task ->
+            list.items.forEach { task -> key(task.taskId) {
                 if (open == task.taskId) {
                     TaskDecision(ctx, task, onClose = { open = null }, onDecided = { message ->
                         open = null
@@ -77,7 +79,7 @@ fun ApprovalsScreen(ctx: ScreenContext) {
                         }
                     }
                 }
-            }
+            } }
         }
     }
 }
@@ -86,9 +88,9 @@ fun ApprovalsScreen(ctx: ScreenContext) {
 private fun TaskDecision(ctx: ScreenContext, task: ApprovalTask, onClose: () -> Unit, onDecided: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val detail = rememberLoader(task.requestId) { ctx.api.get("/api/v1/approvals/requests/${task.requestId}", ApprovalRequestDetail.serializer()) }
-    var comment by remember { mutableStateOf("") }
-    var commentError by remember { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var comment by rememberSaveable { mutableStateOf("") }
+    var commentError by rememberSaveable { mutableStateOf<String?>(null) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
     var sending by remember { mutableStateOf<String?>(null) }
 
     fun decide(decision: String) {

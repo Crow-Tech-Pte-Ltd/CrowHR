@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +59,9 @@ import crowtech.crowhr.ui.components.FieldError
 import crowtech.crowhr.ui.components.Hairline
 import crowtech.crowhr.ui.components.Label
 import crowtech.crowhr.ui.components.LinkButton
+import crowtech.crowhr.ui.components.LocalDateSaver
+import crowtech.crowhr.ui.components.jsonSaver
+import kotlinx.serialization.builtins.nullable
 import crowtech.crowhr.ui.components.LoadContent
 import crowtech.crowhr.ui.components.Notice
 import crowtech.crowhr.ui.components.PrimaryButton
@@ -213,10 +217,11 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val types = rememberLoader(ctx.connection.key) { ctx.api.get("/api/v1/leave/types", TYPES) }
-    var type by remember { mutableStateOf<LeaveType?>(null) }
+    // Saved state: the form survives rotation and the app being closed while a photo is taken.
+    var type by rememberSaveable(stateSaver = jsonSaver(LeaveType.serializer().nullable)) { mutableStateOf(null) }
     val first = remember { nextWorkingDay(LocalDate.now(Formats.SINGAPORE)) }
-    var start by remember { mutableStateOf(first) }
-    var end by remember { mutableStateOf(first) }
+    var start by rememberSaveable(stateSaver = LocalDateSaver) { mutableStateOf(first) }
+    var end by rememberSaveable(stateSaver = LocalDateSaver) { mutableStateOf(first) }
     // Skip public holidays for the default date (the user hasn't picked one yet).
     LaunchedEffect(Unit) {
         val today = LocalDate.now(Formats.SINGAPORE)
@@ -228,15 +233,16 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
         val better = nextWorkingDay(today, holidays)
         if (start == first && end == first) { start = better; end = better }
     }
-    var startSession by remember { mutableStateOf("full") }
-    var reason by remember { mutableStateOf("") }
+    var startSession by rememberSaveable { mutableStateOf("full") }
+    var reason by rememberSaveable { mutableStateOf("") }
+    // Not saved: a document can be megabytes, more than the saved state may hold.
     var attachment by remember { mutableStateOf<LeaveAttachment?>(null) }
     var quote by remember { mutableStateOf<LeaveQuote?>(null) }
     var quoteError by remember { mutableStateOf<String?>(null) }
-    var submitError by remember { mutableStateOf<String?>(null) }
-    var fieldError by remember { mutableStateOf<String?>(null) }
+    var submitError by rememberSaveable { mutableStateOf<String?>(null) }
+    var fieldError by rememberSaveable { mutableStateOf<String?>(null) }
     var submitting by remember { mutableStateOf(false) }
-    var sent by remember { mutableStateOf(false) }
+    var sent by rememberSaveable { mutableStateOf(false) }
 
     val capture = ctx.graph.receiptCamera.rememberCapture { file ->
         if (file != null) {
@@ -369,7 +375,7 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateField(label: String, value: LocalDate, modifier: Modifier = Modifier, allowPast: Boolean = true, onChange: (LocalDate) -> Unit) {
-    var open by remember { mutableStateOf(false) }
+    var open by rememberSaveable { mutableStateOf(false) }
     CrowCard(onClick = { open = true }, modifier = modifier) {
         Label(label)
         Text(Formats.date(value), style = Numeric.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize), modifier = Modifier.padding(top = 2.dp))

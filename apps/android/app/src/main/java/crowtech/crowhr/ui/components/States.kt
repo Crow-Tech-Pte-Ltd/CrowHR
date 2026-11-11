@@ -21,9 +21,13 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.saveable.Saver
 import crowtech.crowhr.api.ApiException
 import crowtech.crowhr.api.OfflineException
+import crowtech.crowhr.core.CrowJson
 import crowtech.crowhr.ui.theme.Crow
+import kotlinx.serialization.KSerializer
+import java.time.LocalDate
 
 /** Every screen's data: loading, empty, error, offline and ready (spec "Feature scope"). */
 sealed interface LoadState<out T> {
@@ -131,6 +135,17 @@ fun <T> LoadContent(
 
 @Composable
 fun rememberFlag(initial: Boolean = false) = remember { mutableStateOf(initial) }
+
+/**
+ * Saves a serializable value as JSON in the saved instance state, so form fields survive
+ * rotation and process death. Keep it to small values: the saved state is limited to about 1 MB.
+ */
+fun <T> jsonSaver(serializer: KSerializer<T>): Saver<T, String> = Saver(
+    save = { CrowJson.encodeToString(serializer, it) },
+    restore = { runCatching { CrowJson.decodeFromString(serializer, it) }.getOrNull() },
+)
+
+val LocalDateSaver: Saver<LocalDate, String> = Saver(save = { it.toString() }, restore = { runCatching { LocalDate.parse(it) }.getOrNull() })
 
 @Composable
 fun FieldError(message: String?) {

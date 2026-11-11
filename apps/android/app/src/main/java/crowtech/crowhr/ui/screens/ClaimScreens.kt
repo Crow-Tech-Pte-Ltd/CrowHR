@@ -20,7 +20,15 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import crowtech.crowhr.core.CrowJson
+import crowtech.crowhr.ui.components.jsonSaver
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.nullable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -113,29 +121,57 @@ fun ClaimsScreen(ctx: ScreenContext) {
     }
 }
 
-private class LineDraft {
-    var type by mutableStateOf<ClaimTypeOption?>(null)
-    var date by mutableStateOf(LocalDate.now(Formats.SINGAPORE))
-    var merchant by mutableStateOf("")
-    var description by mutableStateOf("")
-    var amount by mutableStateOf("")
-    var currency by mutableStateOf("SGD")
-    var rate by mutableStateOf("")
-    val receipts = mutableStateListOf<Receipt>()
+/** What a claim line's fields hold, for the saved state (rotation, process death). */
+@Serializable
+private data class SavedLine(
+    val type: ClaimTypeOption? = null,
+    val date: String,
+    val merchant: String = "",
+    val description: String = "",
+    val amount: String = "",
+    val currency: String = "SGD",
+    val rate: String = "",
+    val receipts: List<Receipt> = emptyList(),
+    val error: String? = null,
+)
+
+private class LineDraft(saved: SavedLine? = null) {
+    var type by mutableStateOf(saved?.type)
+    var date by mutableStateOf(saved?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now(Formats.SINGAPORE))
+    var merchant by mutableStateOf(saved?.merchant ?: "")
+    var description by mutableStateOf(saved?.description ?: "")
+    var amount by mutableStateOf(saved?.amount ?: "")
+    var currency by mutableStateOf(saved?.currency ?: "SGD")
+    var rate by mutableStateOf(saved?.rate ?: "")
+    val receipts = mutableStateListOf<Receipt>().apply { saved?.receipts?.let(::addAll) }
     var uploading by mutableStateOf(false)
-    var error by mutableStateOf<String?>(null)
+    var error by mutableStateOf(saved?.error)
+
+    fun save() = SavedLine(type, date.toString(), merchant, description, amount, currency, rate, receipts.toList(), error)
 }
+
+private val SAVED_LINES = ListSerializer(SavedLine.serializer())
+
+/** Keeps the claim's lines, including receipts already uploaded, across rotation and process death. */
+private val LinesSaver = Saver<SnapshotStateList<LineDraft>, String>(
+    save = { lines -> CrowJson.encodeToString(SAVED_LINES, lines.map { it.save() }) },
+    restore = { json ->
+        runCatching { CrowJson.decodeFromString(SAVED_LINES, json) }.getOrNull()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { saved -> mutableStateListOf<LineDraft>().apply { addAll(saved.map(::LineDraft)) } }
+    },
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewClaimScreen(ctx: ScreenContext) {
     val scope = rememberCoroutineScope()
     val types = rememberLoader(ctx.connection.key) { ctx.api.get("/api/v1/claims/eligible-types", ELIGIBLE) }
-    val lines = remember { mutableStateListOf(LineDraft()) }
-    var title by remember { mutableStateOf("") }
+    val lines = rememberSaveable(saver = LinesSaver) { mutableStateListOf(LineDraft()) }
+    var title by rememberSaveable { mutableStateOf("") }
     var saving by remember { mutableStateOf<String?>(null) }
-    var done by remember { mutableStateOf<ClaimCreated?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var done by rememberSaveable(stateSaver = jsonSaver(ClaimCreated.serializer().nullable)) { mutableStateOf(null) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenTitle("New claim")
