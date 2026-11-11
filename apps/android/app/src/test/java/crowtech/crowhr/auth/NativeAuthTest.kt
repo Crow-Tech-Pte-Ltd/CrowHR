@@ -205,6 +205,37 @@ class NativeAuthTest {
         assertNull(tokens.get(connection.key))
     }
 
+    /**
+     * Only Crow HR saying no (its JSON error, such as invalid_grant) ends the session. A rate
+     * limit, a timeout or a proxy's own error page in front of the server is temporary: the
+     * tokens stay and the request fails like being offline (queued punches wait, nothing is lost).
+     */
+    @Test fun aTemporaryRefusalOfTheRefreshKeepsTheSession() = runTest {
+        val unauthorised = """{"error":{"code":"unauthenticated","message":"Sign in.","requestId":"r"}}"""
+        val temporary = listOf(
+            MockResponse().setResponseCode(429).setBody("""{"error":{"code":"rate_limited","message":"Too many requests.","requestId":"r"}}"""),
+            // (408 is temporary too; OkHttp retries it once by itself, so it isn't scripted here.)
+            MockResponse().setResponseCode(403).setHeader("Content-Type", "text/html").setBody("<html>Access denied by the firewall</html>"),
+        )
+        for (reply in temporary) {
+            tokens.put(connection.key, StoredTokens("old-access", "old-refresh", "device-1"))
+            server.enqueue(MockResponse().setResponseCode(401).setBody(unauthorised))
+            server.enqueue(reply)
+            var ended = false
+            val api = ApiClient(connection, http, tokens, auth) { ended = true }
+            try {
+                api.get("/api/v1/notifications/unread-count", UnreadCount.serializer())
+                fail("expected a temporary failure")
+            } catch (e: crowtech.crowhr.api.OfflineException) {
+                assertTrue(e.message!!.contains("try again", ignoreCase = true))
+            }
+            assertFalse("${reply.status}: session kept", ended)
+            assertEquals("${reply.status}: tokens kept", "old-refresh", tokens.get(connection.key)?.refreshToken)
+            server.takeRequest()
+            server.takeRequest()
+        }
+    }
+
     @Test fun tokensTravelOnlyInTheAuthorizationHeader() = runTest {
         tokens.put(connection.key, StoredTokens("secret-access", "secret-refresh", "device-1"))
         server.enqueue(MockResponse().setBody("""{"unread":0}"""))

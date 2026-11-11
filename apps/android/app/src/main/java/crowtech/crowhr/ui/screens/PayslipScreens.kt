@@ -46,6 +46,7 @@ import crowtech.crowhr.ui.components.SectionTitle
 import crowtech.crowhr.ui.components.StatusChip
 import crowtech.crowhr.ui.components.Tone
 import crowtech.crowhr.ui.components.rememberLoader
+import crowtech.crowhr.ui.components.spokenMoney
 import crowtech.crowhr.ui.components.userMessage
 import crowtech.crowhr.ui.theme.Crow
 import crowtech.crowhr.ui.theme.Numeric
@@ -89,7 +90,11 @@ fun PayslipsScreen(ctx: ScreenContext) {
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Label("Net pay")
-                                Text(Formats.money(p.netPayableCents), style = Numeric.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize, fontWeight = FontWeight.SemiBold))
+                                Text(
+                                    Formats.money(p.netPayableCents),
+                                    style = Numeric.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize, fontWeight = FontWeight.SemiBold),
+                                    modifier = Modifier.spokenMoney(p.netPayableCents),
+                                )
                             }
                         }
                     }
@@ -119,22 +124,22 @@ fun PayslipDetailScreen(ctx: ScreenContext, id: String) {
                 Text(
                     Formats.money(p.netPayableCents),
                     style = Numeric.copy(fontSize = MaterialTheme.typography.displaySmall.fontSize, fontWeight = FontWeight.SemiBold),
-                    modifier = Modifier.testTag("net-pay"),
+                    modifier = Modifier.spokenMoney(p.netPayableCents).testTag("net-pay"),
                 )
                 Text("${p.employer.legalName} · ${p.employee.name} · ${p.employee.idMasked}", style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted)
             }
             PaySection("Earnings", buildList {
                 p.basic?.let { add(PayLine("Basic pay", it.amountCents, it.detail)) }
                 addAll(p.allowances)
-                p.overtime?.let { add(PayLine("Overtime (${it.hours} h)", it.payCents)) }
+                p.overtime?.let { add(PayLine("Overtime (${Formats.hours(it.hours)} h)", it.payCents)) }
                 addAll(p.additional)
             }, "Gross pay", p.grossCents)
             PaySection("Deductions", p.deductions, "Total deductions", p.totalDeductionsCents)
             if (p.reimbursements.isNotEmpty()) PaySection("Reimbursements", p.reimbursements, null, null)
             CrowCard {
-                KeyValueRow("Net pay", Formats.money(p.netCents), numeric = true, strong = true)
-                if (p.netPayableCents != p.netCents) KeyValueRow("Paid to you", Formats.money(p.netPayableCents), numeric = true, strong = true)
-                KeyValueRow("Employer CPF", Formats.money(p.employerCpfCents), numeric = true)
+                KeyValueRow("Net pay", Formats.money(p.netCents), numeric = true, strong = true, spoken = Formats.moneySpoken(p.netCents))
+                if (p.netPayableCents != p.netCents) KeyValueRow("Paid to you", Formats.money(p.netPayableCents), numeric = true, strong = true, spoken = Formats.moneySpoken(p.netPayableCents))
+                KeyValueRow("Employer CPF", Formats.money(p.employerCpfCents), numeric = true, spoken = Formats.moneySpoken(p.employerCpfCents))
                 p.cpf?.rateTableLabel?.let { KeyValueRow("CPF rates", it) }
             }
             error?.let { Notice(it, Tone.Danger) }
@@ -172,12 +177,12 @@ private fun PaySection(title: String, lines: List<PayLine>, totalLabel: String?,
     CrowCard {
         if (lines.isEmpty()) Text("None", style = MaterialTheme.typography.bodyMedium, color = Crow.colors.muted)
         lines.forEach { l ->
-            KeyValueRow(l.label, Formats.money(l.amountCents), numeric = true)
+            KeyValueRow(l.label, Formats.money(l.amountCents), numeric = true, spoken = Formats.moneySpoken(l.amountCents))
             l.detail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted, textAlign = TextAlign.Start) }
         }
         if (totalLabel != null && totalCents != null) {
             Hairline(Modifier.padding(vertical = 4.dp))
-            KeyValueRow(totalLabel, Formats.money(totalCents), numeric = true, strong = true)
+            KeyValueRow(totalLabel, Formats.money(totalCents), numeric = true, strong = true, spoken = Formats.moneySpoken(totalCents))
         }
     }
 }

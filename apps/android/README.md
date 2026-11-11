@@ -18,8 +18,8 @@ is no Crow Tech backend, analytics, crash reporting or remote push.
 | `apps/android/gradlew -p apps/android :app:generateLicenceNotices` | Rewrites `assets/licences/ThirdParty-Notices.txt` from the release dependencies (after any dependency change) |
 | `scripts/android-test-server.sh` | Local seeded server (e2e seed, PGlite in a temp dir) on 127.0.0.1:3197 |
 | `scripts/android-emulator.sh start` / `wait` / `stop` | The project-owned `CrowHR_QA` AVD only (API 37, 16 KB pages) |
-| `ANDROID_SERIAL=emulator-5604 scripts/android-build.sh ui` | Device tests: `EssJourneyTest`, `KeystoreStorageTest`, `BackgroundRefreshWorkerTest` |
-| `scripts/android-qa.sh shots phone\|large\|dark\|large-dark` | Real screenshots into `artifacts/android/screenshots/<variant>` |
+| `ANDROID_SERIAL=emulator-5604 scripts/android-build.sh ui` | Device tests: `EssJourneyTest`, `KeystoreStorageTest`, `BackgroundRefreshWorkerTest`, `UprightPhotoTest` |
+| `scripts/android-qa.sh shots phone\|large\|dark\|large-dark` | Real screenshots into `artifacts/android/screenshots/<variant>`. Tablet size: `adb -s emulator-5604 shell wm size 1600x2560` and `wm density 320` first (reset both after), variant `tablet` |
 | `scripts/android-audit.sh` | Zero-data-collection audit of the APK: telemetry/ads/Play Services scan, permissions, dependency tree |
 | `scripts/android-release.sh` | Approval-gated release. `scripts/android-release.test.sh` tests the refusals with dry runs |
 | `scripts/android-build.sh clean` | Removes build outputs and stops the Gradle daemon |
@@ -40,22 +40,24 @@ Notes:
 | Area | Where | Notes |
 | --- | --- | --- |
 | Connect | `connect/` | Address or QR, then `/api/v1/meta`, then confirm, showing the organisation logo from `logoUrl` when it is on the server's host. When a typed address hosts several organisations, an "Organisation ID" field appears (as on iOS) and the check is repeated with `?org=`. HTTPS only, except private-range or `.local` hosts, which show a warning. Up to 5 saved connections. Screens are gated on the per-module meta `features` (`payslips`, `claims`, `scheduling`, `approvals`, `notifications`, `leave`, `attendance.offlinePunch`); a server that lists none of the module keys falls back to the old baseline. Android 17 local-network permission is requested only for LAN servers |
-| Sign-in | `auth/` | Custom Tabs via the documented intent extras (no WebView, no androidx.browser), PKCE S256 and state, then `/native/token`. One refresh and retry on 401; a refused refresh ends the session |
+| Sign-in | `auth/` | Custom Tabs via the documented intent extras (no WebView, no androidx.browser), PKCE S256 and state, then `/native/token`. Closing the browser without finishing returns the button to "Sign in". One refresh and retry on 401; only Crow HR's own refusal of the refresh (a 4xx with its JSON error) ends the session, while a 408/429 or a proxy's error page counts as offline |
 | Storage | `security/` | One AES-256-GCM key in the Android Keystore (non-exportable). Every value is its own encrypted file in `noBackupFilesDir`. Backups and device transfer exclude everything |
 | Lock | `security/AppLock.kt`, `Biometric.kt` | Optional. Platform BiometricPrompt with screen-lock fallback, on a cold start and after more than 5 minutes away |
 | HTTP | `api/` | One OkHttp client. A network interceptor allows only the configured server's host (and http only to private hosts). No cache, redirects off |
-| Clock in | `punch/` | Append-only encrypted queue: FIFO, idempotency key reused, 200 cap, never drops. Sent by WorkManager when online (exponential backoff), with `source: "android"` and `elapsedMs` from `elapsedRealtime` when the phone hasn't rebooted since the tap (checked with `Settings.Global.BOOT_COUNT`). No time-zone field is sent. A punch the server refuses (for example, more than 7 days old) keeps its reason on screen until the employee dismisses it |
+| Clock in | `punch/` | Append-only encrypted queue: FIFO, idempotency key reused, 200 cap, never drops. Sent by WorkManager when online (exponential backoff), with `source: "android"` and `elapsedMs` from `elapsedRealtime` when the phone hasn't rebooted since the tap (checked with `Settings.Global.BOOT_COUNT`). No time-zone field is sent. A punch the server refuses (for example, more than 7 days old) keeps its reason on screen until the employee dismisses it. The screen lists unsent and refused punches plus the last ten sent. Location only when the organisation's policy asks: precise and approximate are requested together and either is used; every enabled platform provider is asked at once (10 s); a punch sent without one says why |
 | Time | `core/Formats.kt` | Every date and time is shown in Singapore time (Asia/Singapore), whatever the phone's zone, like the web. `FormatsTest` checks this under other default zones and guards the sources. Captures with the emulator set to New York: `artifacts/android/screenshots/phone-new-york-tz/` |
 | Refresh | `notify/` | WorkManager every 15 min with a network constraint. Uses the server's notifications `since` cursor, or createdAt on older servers. Posts a local notification whose text is only the count |
-| Screens | `ui/` | Clock, Leave (balances, apply with live quote, withdraw/cancel), Pay (FLAG_SECURE; PDF only on request, never cached), Tasks (approve/reject; rejecting requires a comment), More (claims with camera receipts, schedule, notifications, profile, settings) |
+| Screens | `ui/` | Clock, Leave (balances, apply with live quote, withdraw/cancel), Pay (FLAG_SECURE; PDF only on request, never cached), Tasks (approve/reject; rejecting requires a comment), More (claims with camera receipts, schedule, notifications, profile, settings). Bottom bar on phones, a side rail from 600 dp wide. Every screen can be pulled to refresh (a "Refresh" accessibility action too). The back stack and form fields are saved state (`ui/Routes.kt`, `SaveableStateHolder`), so rotation, process death while the camera or browser is open, and the lock screen keep them. Photos are turned upright from EXIF and shrunk off the main thread; leave attachments follow the server's 5 MB limit |
 
 Offline: the payslip list, leave balances and schedule are cached encrypted and shown with an
 "offline" note. Payslip details and PDFs are never cached. Everything for a connection is
 deleted on sign-out. Unsent clock-ins are deleted only after the user confirms.
 
 **NOT IMPLEMENTED (yet):** the managers' team leave calendar; editing, withdrawing or copying
-claim drafts after saving; shift swaps and open-shift pickup (web only); leave attachments from
-the camera are wired but not covered by a device test. Uploading to Google Play and releasing
+claim drafts after saving ("Save for later" says to finish them on the web); leave types that
+need a child, such as childcare leave (left out of the list with a note, as on iOS); shift swaps
+and open-shift pickup (web only); leave attachments from the camera are wired but not covered by
+a device test. Uploading to Google Play and releasing
 to production are done in Play Console, not by a script.
 
 ## Release

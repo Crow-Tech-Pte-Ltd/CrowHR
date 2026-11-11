@@ -100,7 +100,7 @@ class ApiClient(
                     val again = tokens.get(connection.key)
                     if (again != null) result = send(method, path, body, again.accessToken)
                 }
-                RefreshResult.Offline -> throw OfflineException("You're offline. Connect to the internet and try again.")
+                RefreshResult.Offline -> throw OfflineException("Couldn't reach the server to renew your session. Check your connection and try again.")
                 RefreshResult.SessionEnded -> Unit
             }
             if (result.first == 401) {

@@ -39,6 +39,8 @@ data class QueuedPunch(
     val serverId: String? = null,
 ) {
     val isPending: Boolean get() = state == PunchQueue.PENDING
+    /** Sent and accepted (possibly flagged): nothing left for the employee to do. */
+    val isSettled: Boolean get() = state == PunchQueue.SYNCED || state == PunchQueue.FLAGGED
 }
 
 /** Body of `POST /api/v1/attendance/punches`. */
@@ -126,6 +128,16 @@ class PunchQueue(private val store: PunchStore) {
         private val LATE_AFTER: Duration = Duration.ofDays(7)
 
         fun encode(request: PunchRequest): String = CrowJson.encodeToString(PunchRequest.serializer(), request)
+
+        /**
+         * What "On this phone" lists, newest first: every unsent and refused punch, and the last
+         * [recent] sent ones (as iOS). The queue keeps up to [HISTORY_LIMIT] sent punches, which
+         * made the Clock screen a long scroll after a few weeks.
+         */
+        fun shown(all: List<QueuedPunch>, recent: Int = 10): List<QueuedPunch> {
+            val sent = all.filter { it.state == SYNCED || it.state == FLAGGED }.takeLast(recent).map { it.key }.toSet()
+            return all.filter { !it.isSettled || it.key in sent }.asReversed()
+        }
     }
 
     private val mutex = Mutex()

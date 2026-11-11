@@ -1,7 +1,11 @@
 package crowtech.crowhr.connect
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -64,15 +68,32 @@ fun QrScanner(onResult: (String) -> Unit, onCancel: () -> Unit) {
         denied = !ok
     }
     LaunchedEffect(Unit) { if (!granted) launcher.launch(Manifest.permission.CAMERA) }
+    // Back from system settings with the camera allowed: start scanning without another tap.
+    LifecycleResumeEffect(Unit) {
+        if (!granted && ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            granted = true
+            denied = false
+        }
+        onPauseOrDispose { }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when {
             granted -> CameraPreview(onResult)
-            denied -> Notice(
-                "Crow HR needs the camera only to read the QR code, on this phone. You can allow it in Settings, or enter the address instead.",
-                Tone.Warning,
-                title = "Camera not allowed",
-            )
+            denied -> {
+                Notice(
+                    "Crow HR needs the camera only to read the QR code, on this phone. You can allow it in Settings, or enter the address instead.",
+                    Tone.Warning,
+                    title = "Camera not allowed",
+                )
+                SecondaryButton("Open Settings", {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
+                        )
+                    }
+                }, Modifier.fillMaxWidth())
+            }
         }
         Text(
             "In Crow HR on the web, open My profile → Mobile app and point the camera at the code.",

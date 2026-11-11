@@ -1,7 +1,13 @@
 package crowtech.crowhr.ui.screens
 
 import android.Manifest
-import android.content.pm.PackageManager
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import crowtech.crowhr.notify.Notifications
+import crowtech.crowhr.ui.components.LocalRefresh
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -32,8 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import crowtech.crowhr.BuildConfig
@@ -84,7 +90,7 @@ private fun MenuRow(title: String, detail: String? = null, tag: String, onClick:
 
 @Composable
 fun MoreScreen(ctx: ScreenContext) {
-    val unread by produceState<Int?>(null, ctx.connection.key) {
+    val unread by produceState<Int?>(null, ctx.connection.key, LocalRefresh.current?.generation) {
         value = runCatching { ctx.api.get("/api/v1/notifications/unread-count", UnreadCount.serializer()).unread }.getOrNull()
     }
     Column {
@@ -140,8 +146,9 @@ fun NotificationsScreen(ctx: ScreenContext) {
 @Composable
 private fun NotificationRow(n: AppNotification, onOpen: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpen).padding(vertical = 10.dp).testTag("notification-row")
-            .semantics { if (n.readAt == null) contentDescription = "Unread: ${n.title}" },
+        // TalkBack reads the title, text and date once, then "Unread" (as iOS's accessibility value).
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onOpen).padding(vertical = 10.dp).testTag("notification-row")
+            .semantics { if (n.readAt == null) stateDescription = "Unread" },
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -203,13 +210,26 @@ private fun AccountCard(me: Me) {
 fun SettingsScreen(ctx: ScreenContext) {
     val context = LocalContext.current
     val graph = ctx.graph
-    var notifications by remember { mutableStateOf(graph.settings.notificationsEnabled) }
+    // The switch shows what will really happen: on only when the setting is on and Android lets
+    // the app post (Android 13+ asks first; anyone can block notifications in system settings).
+    var wanted by remember { mutableStateOf(graph.settings.notificationsEnabled) }
+    var permitted by remember { mutableStateOf(Notifications.canPost(context)) }
+    var refused by rememberSaveable { mutableStateOf(false) }
+    LifecycleResumeEffect(Unit) {
+        permitted = Notifications.canPost(context)
+        onPauseOrDispose { }
+    }
     var lock by remember { mutableStateOf(graph.lock.enabled) }
-    var confirmSignOut by remember { mutableStateOf(false) }
+    var confirmSignOut by rememberSaveable { mutableStateOf(false) }
+    var signingOut by remember { mutableStateOf(false) }
     val pending = remember { graph.punchQueue(ctx.connection).pending().size }
     val notifyPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        notifications = granted
-        graph.settings.notificationsEnabled = granted
+        permitted = granted
+        refused = !granted
+        if (granted) {
+            wanted = true
+            graph.settings.notificationsEnabled = true
+        }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenTitle("Settings")
@@ -246,16 +266,26 @@ fun SettingsScreen(ctx: ScreenContext) {
         ToggleRow(
             "Tell me about new items",
             "Checks about every 15 minutes. The message only says how many items are new, never what they are.",
-            checked = notifications, tag = "toggle-notifications",
+            checked = wanted && permitted, tag = "toggle-notifications",
         ) { on ->
-            if (on && android.os.Build.VERSION.SDK_INT >= 33 &&
-                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-            ) {
-                notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                notifications = on
-                graph.settings.notificationsEnabled = on
+            when {
+                !on -> { wanted = false; graph.settings.notificationsEnabled = false }
+                permitted -> { wanted = true; graph.settings.notificationsEnabled = true }
+                // After two refusals Android answers "no" without asking: the notice below helps.
+                android.os.Build.VERSION.SDK_INT >= 33 -> notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else -> refused = true
             }
+        }
+        // Refused, or blocked in system settings: only the system settings can allow them again.
+        if (!permitted && (refused || android.os.Build.VERSION.SDK_INT < 33 && wanted)) {
+            Notice("Notifications are turned off for Crow HR in Android settings. Turn them on there to get these messages.", Tone.Warning)
+            SecondaryButton("Open notification settings", {
+                runCatching {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                    )
+                }
+            }, Modifier.fillMaxWidth())
         }
 
         SectionTitle("Privacy")
@@ -272,8 +302,13 @@ fun SettingsScreen(ctx: ScreenContext) {
                 Tone.Warning,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("Sign out", { ctx.vm.signOut(ctx.connection) }, Modifier.weight(1f).testTag("confirm-sign-out"), tone = Tone.Danger)
-                SecondaryButton("Stay signed in", { confirmSignOut = false }, Modifier.weight(1f))
+                // Signing out tells the server first (up to a few seconds on a bad network).
+                SecondaryButton(
+                    if (signingOut) "Signing out…" else "Sign out",
+                    { signingOut = true; ctx.vm.signOut(ctx.connection) },
+                    Modifier.weight(1f).testTag("confirm-sign-out"), tone = Tone.Danger, enabled = !signingOut,
+                )
+                SecondaryButton("Stay signed in", { confirmSignOut = false }, Modifier.weight(1f), enabled = !signingOut)
             }
         } else {
             SecondaryButton("Sign out of ${ctx.connection.displayName}", { confirmSignOut = true }, Modifier.fillMaxWidth().testTag("sign-out"), tone = Tone.Danger)
@@ -285,15 +320,25 @@ fun SettingsScreen(ctx: ScreenContext) {
     }
 }
 
+/**
+ * The whole row is one switch: TalkBack reads the title and detail with the on/off state, and
+ * the row is a large touch target (a bare Switch is announced only as "Switch, off").
+ */
 @Composable
 private fun ToggleRow(title: String, detail: String, checked: Boolean, enabled: Boolean = true, tag: String, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
+            .padding(vertical = 4.dp).testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = if (enabled) Crow.colors.ink else Crow.colors.muted)
             Text(detail, style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted)
         }
         Switch(
-            checked = checked, onCheckedChange = onChange, enabled = enabled, modifier = Modifier.testTag(tag),
+            checked = checked, onCheckedChange = null, enabled = enabled,
             colors = SwitchDefaults.colors(checkedTrackColor = Crow.colors.accent, checkedThumbColor = Crow.colors.onAccent, checkedBorderColor = Crow.colors.ink),
         )
     }

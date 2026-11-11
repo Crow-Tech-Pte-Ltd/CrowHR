@@ -20,10 +20,20 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import crowtech.crowhr.core.CrowJson
+import crowtech.crowhr.ui.components.jsonSaver
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.nullable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -56,7 +66,9 @@ import crowtech.crowhr.ui.components.rememberLoader
 import crowtech.crowhr.ui.components.userMessage
 import crowtech.crowhr.ui.theme.Crow
 import crowtech.crowhr.ui.theme.Numeric
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 private val ELIGIBLE = Items.serializer(ClaimTypeOption.serializer())
@@ -94,7 +106,8 @@ fun ClaimsScreen(ctx: ScreenContext) {
             if (page.items.isEmpty()) EmptyState("No claims yet", "Snap a receipt and claim it here. HR pays approved claims with your salary or separately.")
             page.items.forEach { c ->
                 val (label, tone) = claimStatus(c.status)
-                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("claim-row")) {
+                // One TalkBack item per claim: title, details, amount and status.
+                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).semantics(mergeDescendants = true) {}.testTag("claim-row")) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(c.title ?: c.typeNames.joinToString(", ").ifEmpty { "Claim" }, style = MaterialTheme.typography.titleSmall)
@@ -103,7 +116,10 @@ fun ClaimsScreen(ctx: ScreenContext) {
                                 style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted,
                             )
                         }
-                        Text(Formats.money(c.totalCents), style = Numeric.copy(fontWeight = FontWeight.SemiBold))
+                        Text(
+                            Formats.money(c.totalCents), style = Numeric.copy(fontWeight = FontWeight.SemiBold),
+                            modifier = Modifier.semantics { contentDescription = Formats.moneySpoken(c.totalCents) },
+                        )
                     }
                     StatusChip(label, tone, Modifier.padding(top = 4.dp))
                 }
@@ -113,36 +129,66 @@ fun ClaimsScreen(ctx: ScreenContext) {
     }
 }
 
-private class LineDraft {
-    var type by mutableStateOf<ClaimTypeOption?>(null)
-    var date by mutableStateOf(LocalDate.now(Formats.SINGAPORE))
-    var merchant by mutableStateOf("")
-    var description by mutableStateOf("")
-    var amount by mutableStateOf("")
-    var currency by mutableStateOf("SGD")
-    var rate by mutableStateOf("")
-    val receipts = mutableStateListOf<Receipt>()
+/** What a claim line's fields hold, for the saved state (rotation, process death). */
+@Serializable
+private data class SavedLine(
+    val type: ClaimTypeOption? = null,
+    val date: String,
+    val merchant: String = "",
+    val description: String = "",
+    val amount: String = "",
+    val currency: String = "SGD",
+    val rate: String = "",
+    val receipts: List<Receipt> = emptyList(),
+    val error: String? = null,
+)
+
+private class LineDraft(saved: SavedLine? = null) {
+    var type by mutableStateOf(saved?.type)
+    var date by mutableStateOf(saved?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now(Formats.SINGAPORE))
+    var merchant by mutableStateOf(saved?.merchant ?: "")
+    var description by mutableStateOf(saved?.description ?: "")
+    var amount by mutableStateOf(saved?.amount ?: "")
+    var currency by mutableStateOf(saved?.currency ?: "SGD")
+    var rate by mutableStateOf(saved?.rate ?: "")
+    val receipts = mutableStateListOf<Receipt>().apply { saved?.receipts?.let(::addAll) }
     var uploading by mutableStateOf(false)
-    var error by mutableStateOf<String?>(null)
+    var error by mutableStateOf(saved?.error)
+
+    fun save() = SavedLine(type, date.toString(), merchant, description, amount, currency, rate, receipts.toList(), error)
 }
+
+private val SAVED_LINES = ListSerializer(SavedLine.serializer())
+
+/** Keeps the claim's lines, including receipts already uploaded, across rotation and process death. */
+private val LinesSaver = Saver<SnapshotStateList<LineDraft>, String>(
+    save = { lines -> CrowJson.encodeToString(SAVED_LINES, lines.map { it.save() }) },
+    restore = { json ->
+        runCatching { CrowJson.decodeFromString(SAVED_LINES, json) }.getOrNull()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { saved -> mutableStateListOf<LineDraft>().apply { addAll(saved.map(::LineDraft)) } }
+    },
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewClaimScreen(ctx: ScreenContext) {
     val scope = rememberCoroutineScope()
     val types = rememberLoader(ctx.connection.key) { ctx.api.get("/api/v1/claims/eligible-types", ELIGIBLE) }
-    val lines = remember { mutableStateListOf(LineDraft()) }
-    var title by remember { mutableStateOf("") }
+    val lines = rememberSaveable(saver = LinesSaver) { mutableStateListOf(LineDraft()) }
+    var title by rememberSaveable { mutableStateOf("") }
     var saving by remember { mutableStateOf<String?>(null) }
-    var done by remember { mutableStateOf<ClaimCreated?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var done by rememberSaveable(stateSaver = jsonSaver(ClaimCreated.serializer().nullable)) { mutableStateOf(null) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenTitle("New claim")
         done?.let { c ->
             Notice(
-                if (c.status == "draft") "Saved as a draft. Submit it when it's ready." else "Claim ${c.claimNumber ?: ""} sent for approval (${Formats.money(c.totalCents)}).",
-                Tone.Success, title = if (c.status == "draft") "Draft saved" else "Claim sent",
+                // NOT IMPLEMENTED (app): drafts are finished and submitted on the web.
+                if (c.status == "draft") "Saved as a draft (${Formats.money(c.totalCents)}). To change or submit it, open Claims in Crow HR on the web."
+                else listOfNotNull("Claim", c.claimNumber, "sent for approval (${Formats.money(c.totalCents)}).").joinToString(" "),
+                Tone.Success, title = if (c.status == "draft") "Saved for later" else "Claim sent",
             )
             PrimaryButton("Done", ctx.pop, Modifier.fillMaxWidth().testTag("claim-done"))
             return@Column
@@ -201,7 +247,7 @@ fun NewClaimScreen(ctx: ScreenContext) {
             }
         }
         PrimaryButton("Submit claim", { save(true) }, Modifier.fillMaxWidth().testTag("submit-claim"), loading = saving == "submit", enabled = saving == null)
-        SecondaryButton("Save as draft", { save(false) }, Modifier.fillMaxWidth(), enabled = saving == null)
+        SecondaryButton("Save for later", { save(false) }, Modifier.fillMaxWidth().testTag("save-claim-draft"), enabled = saving == null)
     }
 }
 
@@ -209,12 +255,14 @@ fun NewClaimScreen(ctx: ScreenContext) {
 @Composable
 private fun ClaimLineEditor(ctx: ScreenContext, index: Int, line: LineDraft, types: List<ClaimTypeOption>, onRemove: (() -> Unit)?) {
     val scope = rememberCoroutineScope()
-    val capture = ctx.graph.receiptCamera.rememberCapture { file ->
+    val capture = ctx.graph.receiptCamera.rememberCapture(onError = { line.error = it }) { file ->
         if (file == null) return@rememberCapture
+        line.error = null
         line.uploading = true
         scope.launch {
             try {
-                val bytes = Images.compressForUpload(file)
+                // Decoding a 12 MP photo on the main thread froze the screen for a moment.
+                val bytes = withContext(Dispatchers.Default) { Images.compressForUpload(file) }
                 val receipt = ctx.api.postBytes(
                     "/api/v1/claims/receipts?fileName=${UrlCodec.encode("receipt-${line.date}.jpg")}",
                     bytes, "image/jpeg", Receipt.serializer(),

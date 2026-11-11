@@ -28,6 +28,26 @@ object Formats {
         return if (negative) "-$withSymbol" else withSymbol
     }
 
+    /**
+     * How TalkBack says an amount, like iOS: 123456 → "1,234 Singapore dollars 56 cents",
+     * -500 → "minus 5 Singapore dollars". "S$" alone is read inconsistently by screen readers.
+     */
+    fun moneySpoken(cents: Long): String {
+        require(cents != Long.MIN_VALUE) { "Money out of range" }
+        val abs = if (cents < 0) -cents else cents
+        val dollars = abs / 100
+        val rem = abs % 100
+        val text = buildString {
+            append("${groupThousands(dollars.toString())} Singapore ${if (dollars == 1L) "dollar" else "dollars"}")
+            if (rem > 0) append(" $rem ${if (rem == 1L) "cent" else "cents"}")
+        }
+        return if (cents < 0) "minus $text" else text
+    }
+
+    /** Hours without a pointless ".0": 4.0 → "4", 4.5 → "4.5", 1.25 → "1.25". */
+    fun hours(value: Double): String =
+        java.math.BigDecimal.valueOf(value).setScale(2, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
+
     private fun groupThousands(digits: String): String {
         val out = StringBuilder()
         digits.forEachIndexed { i, c ->

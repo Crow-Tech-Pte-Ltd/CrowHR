@@ -243,6 +243,19 @@ class PunchQueueTest {
         assertNull(queue.find("old-key-0001"))
     }
 
+    @Test fun onThisPhoneListsWhatNeedsAttentionAndTheLastTenSent() {
+        fun punch(n: Int, state: String) = QueuedPunch(key = "k$n", kind = if (n % 2 == 0) "in" else "out", deviceTime = "2026-11-02T00:%02d:00Z".format(n), state = state)
+        val all = (1..30).map { punch(it, PunchQueue.SYNCED) } +
+            punch(31, PunchQueue.REJECTED) + punch(32, PunchQueue.FLAGGED) + punch(33, PunchQueue.PENDING) + punch(34, PunchQueue.PENDING)
+        val shown = PunchQueue.shown(all)
+        // Newest first: both unsent, the refused one, and the ten newest sent (flagged counts as sent).
+        assertEquals(listOf("k34", "k33", "k32", "k31") + (30 downTo 22).map { "k$it" }, shown.map { it.key })
+        // An old refused punch stays until dismissed, however many were sent since.
+        val oldRefusal = listOf(punch(0, PunchQueue.REJECTED)) + (1..20).map { punch(it, PunchQueue.SYNCED) }
+        assertEquals("k0", PunchQueue.shown(oldRefusal).last().key)
+        assertEquals(11, PunchQueue.shown(oldRefusal).size)
+    }
+
     @Test fun clockStateFollowsTheLastPunch() {
         val queue = PunchQueue(KvPunchStore(InMemoryKeyValueStore(), "c"))
         assertEquals("in", queue.nextKind(serverClockedIn = false))

@@ -34,6 +34,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import crowtech.crowhr.ui.theme.Crow
+import crowtech.crowhr.ui.theme.CrowTokens
 import crowtech.crowhr.ui.theme.Numeric
 
 private val Radius = RoundedCornerShape(6.dp)
@@ -74,7 +76,9 @@ fun PrimaryButton(
             }
             .offset { val d = if (pressed) 2.dp.roundToPx() else 0; androidx.compose.ui.unit.IntOffset(d, d) }
             .background(if (enabled) colors.accent else colors.hairline, Radius)
-            .border(2.dp, if (focused) colors.focus else if (enabled) colors.shadow else colors.muted, Radius)
+            // The border is near-black in both themes (it frames the kuning fill); the hard shadow
+            // is light in dark mode so it stays visible, as on iOS.
+            .border(2.dp, if (focused) colors.focus else if (enabled) CrowTokens.Ink else colors.muted, Radius)
             .clickable(interactionSource = interaction, indication = null, enabled = active, role = Role.Button, onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
@@ -214,23 +218,30 @@ fun Notice(text: String, tone: Tone = Tone.Neutral, modifier: Modifier = Modifie
     }
 }
 
-/** Label on the left, value on the right; [numeric] values are mono, tabular, right-aligned. */
+/**
+ * Label on the left, value on the right; [numeric] values are mono, tabular, right-aligned.
+ * TalkBack reads the row as one item, saying [spoken] for the value when given (amounts).
+ */
 @Composable
-fun KeyValueRow(label: String, value: String, modifier: Modifier = Modifier, numeric: Boolean = false, strong: Boolean = false) {
+fun KeyValueRow(label: String, value: String, modifier: Modifier = Modifier, numeric: Boolean = false, strong: Boolean = false, spoken: String? = null) {
     Row(
-        modifier.fillMaxWidth().heightIn(min = 36.dp).padding(vertical = 6.dp),
+        modifier.fillMaxWidth().heightIn(min = 36.dp).padding(vertical = 6.dp).semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = if (strong) Crow.colors.ink else Crow.colors.muted)
         Text(
             value,
+            modifier = if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier,
             style = if (numeric) Numeric.copy(fontSize = MaterialTheme.typography.bodyMedium.fontSize, fontWeight = if (strong) FontWeight.SemiBold else FontWeight.Normal)
             else MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.End,
         )
     }
 }
+
+/** An amount in S$ that TalkBack reads as "… Singapore dollars …". */
+fun Modifier.spokenMoney(cents: Long): Modifier = semantics { contentDescription = crowtech.crowhr.core.Formats.moneySpoken(cents) }
 
 @Composable
 fun Hairline(modifier: Modifier = Modifier) {
