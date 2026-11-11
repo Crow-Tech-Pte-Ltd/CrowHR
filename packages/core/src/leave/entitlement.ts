@@ -63,6 +63,8 @@ const HOUR_CODES = new Set(["annual", "sick_outpatient", "hospitalisation"]);
 export function unitFor(t: EmployeeTime, type: LeaveType, date: string): LeaveUnit {
   const emp = employmentNear(t, date);
   if (emp?.employmentType !== "part_time") return "days";
+  // Unpaid leave is deducted from pay in (half) days, like statutory no-pay leave.
+  if (!type.statutoryCode && !type.paid) return "days";
   if (type.statutoryCode ? HOUR_CODES.has(type.statutoryCode) : type.dayCounting === "working_days") return "hours";
   return "days";
 }

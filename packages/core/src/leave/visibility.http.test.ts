@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { TestClient } from "../../testing/http.ts";
 import { createLeaveWorld, type LeaveWorld } from "../../testing/leave.ts";
+import { tenures } from "../db/schema/employees.ts";
 import { files } from "../db/schema/files.ts";
 import { type FilesAppDeps, runScanSweep } from "../files/scanner.ts";
 import { createApproverDirectory } from "../workflows/directory.ts";
@@ -155,6 +156,23 @@ describe("leave visibility", () => {
     // Requests themselves stay out of reach.
     expect((await other.get(`/api/v1/leave/requests/${ravi?.entries[0]?.requestId}`)).status).toBe(404);
     expect(((await other.get(`/api/v1/leave/calendar?from=2026-11-01&to=2027-03-01`)) as Response).status).toBe(400);
+  });
+
+  it("HR's team view lists the people employed in the range, not every former employee", async () => {
+    // Farah left on 15 Oct.
+    await w.deps.db.update(tenures).set({ lastWorkingDay: "2026-10-15" }).where(eq(tenures.employeeId, w.emp.other));
+    const hr = await w.as("hr");
+    const team = (await (await hr.get("/api/v1/leave/calendar?from=2026-11-09&to=2026-11-15&view=team")).json()) as {
+      people: { name: string }[];
+    };
+    const names = team.people.map((p) => p.name);
+    expect(names).toEqual(expect.arrayContaining(["Ravi Kumar", "Wong Kai Wen", "Tan Mei Ling"]));
+    expect(names).not.toContain("Farah Hassan");
+    // Her October is still shown.
+    const october = (await (await hr.get("/api/v1/leave/calendar?from=2026-10-12&to=2026-10-18&view=team")).json()) as {
+      people: { name: string }[];
+    };
+    expect(october.people.map((p) => p.name)).toContain("Farah Hassan");
   });
 
   it("the calendar shows a Sunday holiday on the Monday in lieu, like the apply sheet", async () => {

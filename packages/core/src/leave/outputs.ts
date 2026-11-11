@@ -8,7 +8,7 @@ import type { AppDeps } from "../deps.ts";
 import { displayName } from "../employees/records.ts";
 import { simpleCsv } from "../export/csv.ts";
 import type { UnpaidLeaveDay, UnpaidLeaveSource } from "../payroll/ports.ts";
-import { loadEmployeesTime } from "./calendar.ts";
+import { dayInfo, type EmployeeTime, loadEmployeesTime } from "./calendar.ts";
 import { PER_CHILD_CODES } from "./defaults.ts";
 import { entitlementFor } from "./entitlement.ts";
 
@@ -26,7 +26,7 @@ export type { UnpaidLeaveDay, UnpaidLeaveSource };
 export async function listUnpaidLeave(db: Db, orgId: string, periodStart: string, periodEnd: string) {
   const org = orgScope(db, orgId);
   const rows = await db
-    .select({ day: leaveRequestDays, code: leaveTypes.code, name: leaveTypes.name })
+    .select({ day: leaveRequestDays, unit: leaveRequests.unit, code: leaveTypes.code, name: leaveTypes.name })
     .from(leaveRequestDays)
     .innerJoin(
       leaveRequests,
@@ -46,14 +46,26 @@ export async function listUnpaidLeave(db: Db, orgId: string, periodStart: string
       ),
     )
     .orderBy(asc(leaveRequestDays.employeeId), asc(leaveRequestDays.date));
+  // Unpaid leave is held in days. A part-timer's request made in hours (company unpaid types before
+  // this was fixed) becomes the share of that day's scheduled hours, to the half day.
+  const inHours = rows.filter((r) => r.unit === "hours");
+  const times = inHours.length
+    ? await loadEmployeesTime(db, orgId, [...new Set(inHours.map((r) => r.day.employeeId))])
+    : new Map<string, EmployeeTime>();
+  const daysOf = (r: (typeof rows)[number]) => {
+    if (r.unit !== "hours") return Math.round(r.day.hundredths / 50) / 2;
+    const t = times.get(r.day.employeeId);
+    const minutes = t ? dayInfo(t, r.day.date).minutes : 0;
+    if (minutes <= 0) return Math.round(r.day.hundredths / 50) / 2;
+    return Math.min(1, Math.round(((r.day.hundredths / 100) * 60 * 2) / minutes) / 2);
+  };
   return rows.map(
     (r): UnpaidLeaveDay => ({
       sourceId: r.day.id,
       requestId: r.day.requestId,
       employeeId: r.day.employeeId,
       date: r.day.date,
-      // Unpaid types are always held in days (half days → 0.5).
-      days: Math.round(r.day.hundredths / 50) / 2,
+      days: daysOf(r),
       leaveTypeCode: r.code,
       leaveTypeName: r.name,
     }),
