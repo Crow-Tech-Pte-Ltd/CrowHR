@@ -6,6 +6,7 @@ import android.net.Uri
 import android.view.WindowManager
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
@@ -229,6 +230,38 @@ class EssJourneyTest {
         compose.onNodeWithText("Request sent").assertExists()
         tap("leave-done")
         waitForText("Waiting for approval")
+    }
+
+    /** Rotation, a window resize or process death recreates the activity: nothing typed is lost. */
+    @Test fun halfFilledFormsSurviveActivityRecreation() {
+        connectAndSignIn(TestServer.AHMAD)
+        tap("tab-leave")
+        tap("apply-leave")
+        waitFor("leave-type")
+        tap("leave-type")
+        compose.onNodeWithText("Annual leave").performClick()
+        compose.onNodeWithTag("leave-reason").performScrollTo().performTextInput("Family day")
+        scenario!!.recreate()
+        waitFor("leave-reason")
+        compose.onNodeWithTag("leave-reason").assert(hasText("Family day"))
+        compose.onNodeWithTag("leave-type").assert(hasText("Annual leave"))
+        tap("back")
+        waitFor("apply-leave")
+
+        tap("tab-more")
+        tap("more-claims")
+        waitFor("new-claim")
+        tap("new-claim")
+        waitFor("claim-merchant-0")
+        compose.onNodeWithTag("claim-merchant-0").performScrollTo().performTextInput("Kopitiam Bugis")
+        scenario!!.recreate()
+        waitFor("claim-merchant-0")
+        compose.onNodeWithTag("claim-merchant-0").assert(hasText("Kopitiam Bugis"))
+        // The stack came back too: Back leads to the claims list, then to More.
+        tap("back")
+        waitFor("new-claim")
+        tap("back")
+        waitFor("more-claims")
     }
 
     @Test fun claimWithCameraReceipt() {

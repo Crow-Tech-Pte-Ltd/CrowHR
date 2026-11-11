@@ -5,10 +5,13 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.LocationManager
-import android.os.SystemClock
+import android.os.Build
+import androidx.core.content.ContextCompat
+import crowtech.crowhr.punch.LocationAccess
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -61,12 +64,13 @@ import crowtech.crowhr.ui.components.Tone
 import crowtech.crowhr.ui.components.rememberLoader
 import crowtech.crowhr.ui.theme.Crow
 import crowtech.crowhr.ui.theme.Numeric
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import java.time.ZoneId
-import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 
 @Composable
@@ -87,7 +91,9 @@ fun ClockScreen(ctx: ScreenContext) {
         version++
         val pendingNow = queue.pending().isNotEmpty()
         if (hadPending && !pendingNow) {
-            message = null
+            // Sent in the background: "saved on this phone" no longer applies. What the last
+            // tap returned ("Clocked in.", a refusal) stays.
+            if (message?.first == SAVED_OFFLINE || message?.first == SIGN_IN_TO_SEND) message = null
             status.reload()
         }
         hadPending = pendingNow
@@ -104,14 +110,14 @@ fun ClockScreen(ctx: ScreenContext) {
         when (result.stopReason) {
             StopReason.Network -> {
                 PunchSync.request(context)
-                message = "Saved on this phone. It will be sent automatically when you're back online." to Tone.Warning
+                message = SAVED_OFFLINE to Tone.Warning
             }
-            StopReason.AuthRequired -> message = "Sign in again to send your saved clock-ins." to Tone.Warning
+            StopReason.AuthRequired -> message = SIGN_IN_TO_SEND to Tone.Warning
             null -> if (result.sent > 0) status.reload()
         }
     }
 
-    fun punch(location: PunchLocation?) {
+    fun punch(location: PunchLocation?, locationAllowed: Boolean = true) {
         val now = ctx.graph.clock()
         val r = queue.enqueue(
             kind = nextKind,
@@ -128,23 +134,40 @@ fun ClockScreen(ctx: ScreenContext) {
             return
         }
         message = null
+        val tapped = (r as EnqueueResult.Queued).punch
         scope.launch {
             drain()
+            // Say what happened to this tap, as iOS does (a network stop already said so).
+            val sent = queue.find(tapped.key)
+            if (message == null && sent != null && !sent.isPending) {
+                val done = if (tapped.kind == "in") "Clocked in." else "Clocked out."
+                message = when {
+                    sent.state == PunchQueue.REJECTED -> PunchLabels.of(sent).first() to Tone.Danger
+                    // The policy asks for location and none was sent: say why, and how to fix it.
+                    wantsLocation && location == null ->
+                        "$done ${LocationAccess.missingMessage(me?.location?.mode == "required", locationAllowed)}" to Tone.Warning
+                    sent.state == PunchQueue.FLAGGED -> "$done ${PunchLabels.of(sent).first()}." to Tone.Warning
+                    else -> done to Tone.Success
+                }
+            }
             busy = false
         }
     }
 
-    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        scope.launch { punch(if (granted) currentLocation(context) else null) }
+    // Precise and approximate together: Android 12+ ignores a request for precise alone, and
+    // someone who shares only their approximate location still sends one.
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+        val allowed = LocationAccess.grantedIn(results)
+        scope.launch { punch(if (allowed) currentLocation(context) else null, allowed) }
     }
 
     fun onTap() {
         busy = true
         if (!wantsLocation) return punch(null)
-        if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (hasLocationPermission(context)) {
             scope.launch { punch(currentLocation(context)) }
         } else {
-            locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            locationPermission.launch(LocationAccess.PERMISSIONS)
         }
     }
 
@@ -184,19 +207,20 @@ fun ClockScreen(ctx: ScreenContext) {
                 "Every tap is kept here until the server has answered. Nothing is deleted without asking you.",
                 style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted,
             )
-            punches.asReversed().forEach { p ->
+            PunchQueue.shown(punches).forEach { p ->
                 PunchRow(p, onDiscard = { discard = p }, onDismiss = { queue.dismiss(p.key) })
+                // Confirmed right under the punch it concerns, not below the whole list.
+                if (discard?.key == p.key) {
+                    Notice("Discard this ${if (p.kind == "in") "clock-in" else "clock-out"} from ${Formats.dateTime(Instant.parse(p.deviceTime))}? It hasn't been sent and will be lost.", Tone.Warning)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                        SecondaryButton("Discard", { queue.discard(p.key); discard = null; version++ }, Modifier.weight(1f), tone = Tone.Danger)
+                        SecondaryButton("Keep", { discard = null }, Modifier.weight(1f))
+                    }
+                }
                 Hairline()
             }
             if (queue.pending().isNotEmpty()) {
                 SecondaryButton("Send now", { scope.launch { drain() } }, Modifier.fillMaxWidth().padding(top = 8.dp))
-            }
-        }
-        discard?.let { p ->
-            Notice("Discard this ${if (p.kind == "in") "clock-in" else "clock-out"} from ${Formats.dateTime(Instant.parse(p.deviceTime))}? It hasn't been sent and will be lost.", Tone.Warning)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("Discard", { queue.discard(p.key); discard = null; version++ }, Modifier.weight(1f), tone = Tone.Danger)
-                SecondaryButton("Keep", { discard = null }, Modifier.weight(1f))
             }
         }
     }
@@ -224,7 +248,10 @@ private fun StatusCard(me: AttendanceMe, pending: List<QueuedPunch>) {
 
 @Composable
 private fun ServerPunchRow(p: PunchView) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp).semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Text(Formats.parseInstant(p.recordedAt)?.let(Formats::time) ?: "--:--", style = Numeric)
         Text(if (p.kind == "in") "In" else "Out", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         if (p.voided) StatusChip("Voided", Tone.Neutral) else if (p.status == "flagged") StatusChip("Flagged", Tone.Warning)
@@ -233,38 +260,69 @@ private fun ServerPunchRow(p: PunchView) {
 
 @Composable
 private fun PunchRow(p: QueuedPunch, onDiscard: () -> Unit, onDismiss: () -> Unit) {
-    val labels = PunchLabels.of(p)
+    val chip = when (p.state) { PunchQueue.PENDING -> "Waiting"; PunchQueue.SYNCED -> "Synced"; PunchQueue.FLAGGED -> "Flagged"; else -> "Not accepted" }
+    // The status line repeats a plain "Synced" chip; say it once.
+    val labels = PunchLabels.of(p).filterNot { it == chip }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(Formats.dateTime(Instant.parse(p.deviceTime)), style = Numeric.copy(fontSize = MaterialTheme.typography.bodyMedium.fontSize))
-            Text(if (p.kind == "in") "Clock in" else "Clock out", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            StatusChip(
-                when (p.state) { PunchQueue.PENDING -> "Waiting"; PunchQueue.SYNCED -> "Synced"; PunchQueue.FLAGGED -> "Flagged"; else -> "Not accepted" },
-                when (p.state) { PunchQueue.PENDING -> Tone.Accent; PunchQueue.SYNCED -> Tone.Success; PunchQueue.FLAGGED -> Tone.Warning; else -> Tone.Danger },
-            )
+        // One TalkBack item: time, kind, status and the server's reason; the buttons stay separate.
+        Column(Modifier.semantics(mergeDescendants = true) {}) {
+            // Wraps at large text sizes instead of squeezing "Clock in" into a sliver.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+                Text(Formats.dateTime(Instant.parse(p.deviceTime)), style = Numeric.copy(fontSize = MaterialTheme.typography.bodyMedium.fontSize))
+                Text(if (p.kind == "in") "Clock in" else "Clock out", style = MaterialTheme.typography.bodyMedium)
+                StatusChip(
+                    chip,
+                    when (p.state) { PunchQueue.PENDING -> Tone.Accent; PunchQueue.SYNCED -> Tone.Success; PunchQueue.FLAGGED -> Tone.Warning; else -> Tone.Danger },
+                )
+            }
+            labels.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted) }
         }
-        labels.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted) }
         if (p.isPending) LinkButton("Discard…", onDiscard)
         // A refused punch stays with the server's reason until the employee has read it.
         if (p.state == PunchQueue.REJECTED) LinkButton("Dismiss", onDismiss)
     }
 }
 
-/** One location fix from the platform (no Play Services), at most 10 s; null if unavailable. */
+private const val SAVED_OFFLINE = "Saved on this phone. It will be sent automatically when you're back online."
+private const val SIGN_IN_TO_SEND = "Sign in again to send your saved clock-ins."
+
+private fun granted(context: Context, permission: String) = context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+private fun hasLocationPermission(context: Context) =
+    LocationAccess.granted(granted(context, Manifest.permission.ACCESS_FINE_LOCATION), granted(context, Manifest.permission.ACCESS_COARSE_LOCATION))
+
+/**
+ * One location fix from the platform (no Play Services) within 10 s: every enabled provider is
+ * asked at once and the first answer wins (an approximate-only fused request can wait for a
+ * network fix that never comes while GPS has one). Null if none answers.
+ */
 @SuppressLint("MissingPermission")
 private suspend fun currentLocation(context: Context): PunchLocation? {
-    if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-        context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
-    ) return null
+    if (!hasLocationPermission(context)) return null
     val manager = context.getSystemService(LocationManager::class.java) ?: return null
-    val provider = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).firstOrNull { manager.isProviderEnabled(it) } ?: return null
+    val fine = granted(context, Manifest.permission.ACCESS_FINE_LOCATION)
+    val providers = LocationAccess.providers(Build.VERSION.SDK_INT, fine) { name ->
+        runCatching { name in manager.allProviders && manager.isProviderEnabled(name) }.getOrDefault(false)
+    }
+    if (providers.isEmpty()) return null
     return withTimeoutOrNull(10_000) {
-        suspendCancellableCoroutine { cont ->
-            val signal = androidx.core.os.CancellationSignal()
-            cont.invokeOnCancellation { signal.cancel() }
-            LocationManagerCompat.getCurrentLocation(manager, provider, signal, Executors.newSingleThreadExecutor()) { loc ->
-                cont.resume(loc?.let { PunchLocation(it.latitude, it.longitude, if (it.hasAccuracy()) it.accuracy.toDouble() else null) })
-            }
+        channelFlow {
+            providers.forEach { provider -> launch { fix(context, manager, provider)?.let { send(it) } } }
+        }.firstOrNull()
+    }
+}
+
+@SuppressLint("MissingPermission")
+private suspend fun fix(context: Context, manager: LocationManager, provider: String): PunchLocation? = suspendCancellableCoroutine { cont ->
+    val signal = androidx.core.os.CancellationSignal()
+    cont.invokeOnCancellation { signal.cancel() }
+    try {
+        LocationManagerCompat.getCurrentLocation(manager, provider, signal, ContextCompat.getMainExecutor(context)) { loc ->
+            if (cont.isActive) cont.resume(loc?.let { PunchLocation(it.latitude, it.longitude, if (it.hasAccuracy()) it.accuracy.toDouble() else null) })
         }
+    } catch (_: SecurityException) {
+        cont.resume(null)
+    } catch (_: IllegalArgumentException) {
+        cont.resume(null)
     }
 }

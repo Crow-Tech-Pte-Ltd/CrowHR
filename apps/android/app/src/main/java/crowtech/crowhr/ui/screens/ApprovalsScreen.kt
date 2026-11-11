@@ -1,6 +1,10 @@
 package crowtech.crowhr.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +14,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -26,7 +32,6 @@ import crowtech.crowhr.core.Formats
 import crowtech.crowhr.ui.ScreenContext
 import crowtech.crowhr.ui.components.CrowCard
 import crowtech.crowhr.ui.components.EmptyState
-import crowtech.crowhr.ui.components.FieldError
 import crowtech.crowhr.ui.components.KeyValueRow
 import crowtech.crowhr.ui.components.Label
 import crowtech.crowhr.ui.components.LoadContent
@@ -47,14 +52,14 @@ private val TASKS = Items.serializer(ApprovalTask.serializer())
 @Composable
 fun ApprovalsScreen(ctx: ScreenContext) {
     val loader = rememberLoader(ctx.connection.key) { ctx.api.get("/api/v1/approvals/tasks", TASKS) }
-    var open by remember { mutableStateOf<String?>(null) }
-    var done by remember { mutableStateOf<String?>(null) }
+    var open by rememberSaveable { mutableStateOf<String?>(null) }
+    var done by rememberSaveable { mutableStateOf<String?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenTitle("Approvals", "Requests waiting for your decision.")
         done?.let { Notice(it, Tone.Success) }
         LoadContent(loader, "Loading approvals…") { list ->
             if (list.items.isEmpty()) EmptyState("Nothing to approve", "When someone sends you a request to decide, it appears here.")
-            list.items.forEach { task ->
+            list.items.forEach { task -> key(task.taskId) {
                 if (open == task.taskId) {
                     TaskDecision(ctx, task, onClose = { open = null }, onDecided = { message ->
                         open = null
@@ -69,7 +74,8 @@ fun ApprovalsScreen(ctx: ScreenContext) {
                             "${task.requester.name} · sent ${Formats.parseInstant(task.submittedAt)?.let(Formats::dateTime) ?: task.submittedAt}",
                             style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted,
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+                        // Wraps at large text sizes ("Covering for …" no longer runs off the card).
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
                             task.step?.let { StatusChip("Step ${it.position} of ${it.of}", Tone.Neutral) }
                             if (task.overdueDays > 0) StatusChip("${task.overdueDays} ${if (task.overdueDays == 1) "day" else "days"} overdue", Tone.Warning)
                             if (task.origin == "delegated") StatusChip("Covering for ${task.onBehalfOf ?: "a colleague"}", Tone.Accent)
@@ -77,7 +83,7 @@ fun ApprovalsScreen(ctx: ScreenContext) {
                         }
                     }
                 }
-            }
+            } }
         }
     }
 }
@@ -86,9 +92,9 @@ fun ApprovalsScreen(ctx: ScreenContext) {
 private fun TaskDecision(ctx: ScreenContext, task: ApprovalTask, onClose: () -> Unit, onDecided: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val detail = rememberLoader(task.requestId) { ctx.api.get("/api/v1/approvals/requests/${task.requestId}", ApprovalRequestDetail.serializer()) }
-    var comment by remember { mutableStateOf("") }
-    var commentError by remember { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var comment by rememberSaveable { mutableStateOf("") }
+    var commentError by rememberSaveable { mutableStateOf<String?>(null) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
     var sending by remember { mutableStateOf<String?>(null) }
 
     fun decide(decision: String) {
@@ -131,13 +137,18 @@ private fun TaskDecision(ctx: ScreenContext, task: ApprovalTask, onClose: () -> 
         OutlinedTextField(
             comment, { comment = it; commentError = null },
             label = { Text("Comment") },
-            supportingText = { Text("Required when you reject. ${task.requester.name} will see it.") },
+            // One message under the field: the hint, or what to fix (announced by TalkBack).
+            supportingText = {
+                Text(
+                    commentError ?: "Required when you reject. ${task.requester.name} will see it.",
+                    Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            },
             isError = commentError != null,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("decision-comment"),
             minLines = 2,
         )
-        FieldError(commentError)
-        error?.let { Notice(it, Tone.Danger, Modifier.padding(top = 8.dp)) }
+        error?.let { Notice(it, Tone.Danger, Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite }) }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 12.dp)) {
             PrimaryButton("Approve", { decide("approve") }, Modifier.fillMaxWidth().testTag("approve"), loading = sending == "approve", enabled = sending == null)
             SecondaryButton("Reject", { decide("reject") }, Modifier.fillMaxWidth().testTag("reject"), tone = Tone.Danger, enabled = sending == null)
