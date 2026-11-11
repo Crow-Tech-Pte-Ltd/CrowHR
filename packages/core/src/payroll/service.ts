@@ -1042,9 +1042,51 @@ async function assertFresh(deps: AppDeps, run: PayrollRun) {
 // ---------------------------------------------------------------------------
 // Lifecycle
 
+/**
+ * Another run of the same month, for some of the same employees, waiting for approval. Each run's
+ * CPF ceilings, SHG and SDL count only the month's approved runs and approval does not recompute,
+ * so both approved together would charge the month as if the other run didn't exist.
+ */
+async function assertNoSameMonthReview(db: Db, run: PayrollRun) {
+  const others = await db
+    .select({ id: payrollRuns.id, kind: payrollRuns.kind, offCycleReason: payrollRuns.offCycleReason })
+    .from(payrollRuns)
+    .where(
+      and(
+        eq(payrollRuns.orgId, run.orgId),
+        eq(payrollRuns.month, run.month),
+        eq(payrollRuns.status, "in_review"),
+        ne(payrollRuns.id, run.id),
+      ),
+    );
+  if (!others.length) return;
+  const slips = await db
+    .select({ runId: payrollPayslips.runId, employeeId: payrollPayslips.employeeId })
+    .from(payrollPayslips)
+    .where(
+      and(eq(payrollPayslips.orgId, run.orgId), inArray(payrollPayslips.runId, [run.id, ...others.map((o) => o.id)])),
+    );
+  const mine = new Set(slips.filter((s) => s.runId === run.id).map((s) => s.employeeId));
+  const other = others.find((o) => slips.some((s) => s.runId === o.id && mine.has(s.employeeId)));
+  if (!other) return;
+  const what =
+    other.kind === "regular"
+      ? "regular"
+      : other.kind === "adjustment"
+        ? "adjustment"
+        : other.offCycleReason === "bonus"
+          ? "bonus"
+          : "final pay";
+  conflict(
+    `${monthLabel(run.month)}'s ${what} run for some of the same employees is waiting for approval, and its pay counts towards this run's CPF ceilings. Have it approved or rejected first, then recompute this run and submit it.`,
+    { runId: other.id },
+  );
+}
+
 export async function submitRun(deps: AppDeps, actor: PayrollActor, runId: string) {
   const run = await loadRun(deps.db, actor.orgId, runId);
   assertDraft(run);
+  await assertNoSameMonthReview(deps.db, run);
   await assertFresh(deps, run);
   const runIssues = await runLevelIssues(deps.db, run, run.totals?.headcount ?? 0);
   const blocking =

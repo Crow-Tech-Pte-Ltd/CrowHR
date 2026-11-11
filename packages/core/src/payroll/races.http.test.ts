@@ -314,9 +314,43 @@ describe("concurrent payroll transitions", () => {
       p.admin.get(`${api}/runs/${bonus.id}`),
     );
     expect(resubmitted.run).toMatchObject({ status: "in_review", decidedAt: null });
-    expect((await p.admin.post(`${api}/runs/${regular}/return-to-draft`, { reason: "Bank details" })).status).toBe(
-      409,
+    expect((await p.admin.post(`${api}/runs/${regular}/return-to-draft`, { reason: "Bank details" })).status).toBe(409);
+  });
+
+  it("two runs of one month can't wait for approval together: the second would ignore the first's CPF", async () => {
+    const regular = await newRun();
+    const { run } = await p.ok<{ run: { month: string; periodStart: string } }>(p.admin.get(`${api}/runs/${regular}`));
+    await p.ok(p.admin.post(`${api}/runs/${regular}/submit`));
+    const bonus = await p.ok<{ id: string }>(
+      p.admin.post(`${api}/runs`, {
+        kind: "off_cycle",
+        offCycleReason: "bonus",
+        month: run.month,
+        employeeIds: [p.co.e.A],
+      }),
+      201,
     );
+    await p.ok(
+      p.admin.post(`${api}/runs/${bonus.id}/items`, {
+        employeeId: p.co.e.A,
+        kind: "commission",
+        label: "Commission",
+        amountCents: 500_000,
+        wageClass: "OW",
+      }),
+      201,
+    );
+    await p.ok(p.admin.post(`${api}/runs/${bonus.id}/compute`));
+    const res = await p.admin.post(`${api}/runs/${bonus.id}/submit`);
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(
+      /waiting for approval.*recompute this run/,
+    );
+    // Once the regular run is decided, the bonus run is recomputed with it and can go.
+    await p.ok(decideRun(p.owner, regular, "approved"));
+    expect((await p.admin.post(`${api}/runs/${bonus.id}/submit`)).status).toBe(409); // stale: recompute first
+    await p.ok(p.admin.post(`${api}/runs/${bonus.id}/compute`));
+    await p.ok(p.admin.post(`${api}/runs/${bonus.id}/submit`));
   });
 
   it("reopen twice: one adjustment, one 409", async () => {
