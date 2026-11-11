@@ -349,8 +349,14 @@ describe("letters and acknowledgements", () => {
       .from(files)
       .where(eq(files.sha256, doc.current?.sha256 as string));
     expect(f?.deletedAt).toBeNull();
-    // HR keeps it for another year: no new flag until then.
-    await ok(hr.post(`/api/v1/documents/retention/${flag?.id}/resolve`, { resolution: "keep", keepMonths: 12 }), 204);
+    // HR keeps it for four more months: from 31 Oct that is 28 Feb (the month's last day, not 3 Mar).
+    await ok(hr.post(`/api/v1/documents/retention/${flag?.id}/resolve`, { resolution: "keep", keepMonths: 4 }), 204);
+    const [kept] = await w.deps.db
+      .select()
+      .from(documentRetentionReviews)
+      .where(eq(documentRetentionReviews.id, flag?.id as string));
+    expect(kept?.keepUntil).toBe("2027-02-28");
+    // No new flag until then.
     await w.app.jobs.tick();
     expect((await ok<{ items: unknown[] }>(hr.get("/api/v1/documents/retention"))).items).toHaveLength(0);
   });

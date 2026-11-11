@@ -21,3 +21,13 @@ export function expiryThreshold(today: string, expiresOn: string, thresholds: re
   const reached = thresholds.filter((t) => left <= t);
   return reached.length ? Math.min(...reached) : null;
 }
+
+/** Calendar months later, clamped to the last day of the month (31 Oct + 4 months = 28 Feb). */
+export function addMonthsIso(date: string, months: number): string {
+  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
+  const total = y * 12 + (m - 1) + months;
+  const year = Math.floor(total / 12);
+  const month = (total % 12) + 1;
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}
