@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -48,7 +50,30 @@ object SystemReceiptCamera : ReceiptCamera {
 }
 
 object Images {
-    /** Shrinks a photo to at most [maxSide] px and re-encodes it as JPEG (receipts stay legible, uploads stay small). */
+    /** How to turn a photo upright: rotate clockwise by [degrees], then mirror horizontally if [mirror]. */
+    data class Upright(val degrees: Int, val mirror: Boolean)
+
+    /**
+     * EXIF orientation (1–8) → the transform that shows the photo upright. Camera apps usually
+     * store a portrait photo as landscape pixels plus this tag; re-encoding drops the tag, so
+     * the pixels themselves must be turned or the receipt arrives sideways.
+     */
+    fun upright(exifOrientation: Int): Upright = when (exifOrientation) {
+        2 -> Upright(0, true)
+        3 -> Upright(180, false)
+        4 -> Upright(180, true)
+        5 -> Upright(90, true)
+        6 -> Upright(90, false)
+        7 -> Upright(270, true)
+        8 -> Upright(270, false)
+        else -> Upright(0, false)
+    }
+
+    /**
+     * Shrinks a photo to at most [maxSide] px, turns it upright and re-encodes it as JPEG
+     * (receipts stay legible, uploads stay small, no EXIF such as location is sent). Slow for a
+     * 12 MP photo: call it off the main thread.
+     */
     fun compressForUpload(file: File, maxSide: Int = 2000, quality: Int = 85): ByteArray {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, bounds)
@@ -56,9 +81,19 @@ object Images {
         while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxSide) sample *= 2
         val bitmap = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })
             ?: return file.readBytes()
-        val scale = maxSide.toFloat() / maxOf(bitmap.width, bitmap.height)
-        val scaled = if (scale < 1f) Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true) else bitmap
-        return ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
+        val scale = minOf(1f, maxSide.toFloat() / maxOf(bitmap.width, bitmap.height))
+        val turn = upright(runCatching { ExifInterface(file.path).getAttributeInt(ExifInterface.TAG_ORIENTATION, 1) }.getOrDefault(1))
+        val out = if (scale < 1f || turn.degrees != 0 || turn.mirror) {
+            val matrix = Matrix().apply {
+                setScale(scale, scale)
+                if (turn.degrees != 0) postRotate(turn.degrees.toFloat())
+                if (turn.mirror) postScale(-1f, 1f)
+            }
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        } else {
+            bitmap
+        }
+        return ByteArrayOutputStream().also { out.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
     }
 
     fun clearTemp(context: Context) {

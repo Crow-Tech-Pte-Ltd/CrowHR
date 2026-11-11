@@ -64,7 +64,9 @@ import crowtech.crowhr.ui.components.rememberLoader
 import crowtech.crowhr.ui.components.userMessage
 import crowtech.crowhr.ui.theme.Crow
 import crowtech.crowhr.ui.theme.Numeric
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 private val ELIGIBLE = Items.serializer(ClaimTypeOption.serializer())
@@ -250,7 +252,8 @@ private fun ClaimLineEditor(ctx: ScreenContext, index: Int, line: LineDraft, typ
         line.uploading = true
         scope.launch {
             try {
-                val bytes = Images.compressForUpload(file)
+                // Decoding a 12 MP photo on the main thread froze the screen for a moment.
+                val bytes = withContext(Dispatchers.Default) { Images.compressForUpload(file) }
                 val receipt = ctx.api.postBytes(
                     "/api/v1/claims/receipts?fileName=${UrlCodec.encode("receipt-${line.date}.jpg")}",
                     bytes, "image/jpeg", Receipt.serializer(),
