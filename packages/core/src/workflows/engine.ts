@@ -1407,7 +1407,55 @@ export async function retireInactiveApprovers(
   return removed;
 }
 
-async function reresolveEmptyStep(ctx: Ctx, request: ApprovalRequest, position: number, gone: ApprovalTask[]) {
+/**
+ * A member who lost a role keeps no task that only that role could decide (role steps, their
+ * escalations, and cover on their behalf): those tasks are superseded and an emptied step
+ * re-resolves, as when an approver leaves. Call it in the transaction that removes the roles.
+ */
+export async function retireRevokedRoleTasks(
+  db: Db,
+  deps: AppDeps,
+  audit: AuditContext,
+  input: { orgId: string; membershipId: string; roles: readonly string[] },
+): Promise<number> {
+  if (!input.roles.length) return 0;
+  const ctx: Ctx = { db, deps, audit, now: deps.clock.now() };
+  const held = and(
+    eq(approvalTasks.status, "pending"),
+    inArray(approvalTasks.viaRole, [...input.roles]),
+    or(
+      eq(approvalTasks.assigneeMembershipId, input.membershipId),
+      eq(approvalTasks.onBehalfOfMembershipId, input.membershipId),
+    ),
+  );
+  const open = await db
+    .select({ requestId: approvalTasks.requestId })
+    .from(approvalTasks)
+    .where(and(eq(approvalTasks.orgId, input.orgId), held));
+  let removed = 0;
+  for (const requestId of [...new Set(open.map((t) => t.requestId))].sort()) {
+    const request = await lockRequest(db, input.orgId, requestId);
+    if (request?.status !== "pending") continue;
+    const gone = await db
+      .update(approvalTasks)
+      .set({ status: "superseded", supersededReason: "role_removed" })
+      .where(and(eq(approvalTasks.requestId, requestId), held))
+      .returning();
+    removed += gone.length;
+    for (const position of [...new Set(gone.map((t) => t.position))]) {
+      await reresolveEmptyStep(ctx, request, position, gone, "role_removed");
+    }
+  }
+  return removed;
+}
+
+async function reresolveEmptyStep(
+  ctx: Ctx,
+  request: ApprovalRequest,
+  position: number,
+  gone: ApprovalTask[],
+  reason: "member_inactive" | "role_removed" = "member_inactive",
+) {
   const [left] = await ctx.db
     .select({ id: approvalTasks.id })
     .from(approvalTasks)
@@ -1452,7 +1500,7 @@ async function reresolveEmptyStep(ctx: Ctx, request: ApprovalRequest, position: 
     targetId: request.id,
     meta: {
       position,
-      reason: "member_inactive",
+      reason,
       from: [...new Set(gone.filter((t) => t.position === position).map((t) => t.assigneeMembershipId))],
       to: created.map((t) => t.assigneeMembershipId),
       requestStatus,

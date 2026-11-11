@@ -141,6 +141,21 @@ describe("re-routing and reassignment", () => {
     ]);
   });
 
+  it("a member who loses the role of their task gives it up, and the step re-resolves", async () => {
+    // A bank change goes to the payroll admin; the owner then removes that role.
+    const { requestId } = await w.submit(w.m.staff, "profile_change", { typeCode: "bank" });
+    const open = () => tasks(requestId).then((all) => all.filter((t) => t.status === "pending"));
+    expect((await open()).map((t) => t.assigneeMembershipId)).toEqual([w.m.payroll.membershipId]);
+    const owner = await clientAs(w.app, w.deps, w.m.owner);
+    expect((await owner.put(`/api/v1/members/${w.m.payroll.membershipId}/roles`, { roles: [] })).status).toBe(200);
+    const now = await open();
+    expect(now.some((t) => t.assigneeMembershipId === w.m.payroll.membershipId)).toBe(false);
+    // Nobody else holds payroll_admin, so bank changes fall back to owners (never HR).
+    expect(now.map((t) => t.assigneeMembershipId)).toEqual([w.m.owner.membershipId]);
+    const [gone] = (await tasks(requestId)).filter((t) => t.assigneeMembershipId === w.m.payroll.membershipId);
+    expect(gone).toMatchObject({ status: "superseded", supersededReason: "role_removed" });
+  });
+
   it("an hr_admin reassigns a pending task with a reason; it is audited", async () => {
     const { requestId } = await w.submit(w.m.staff, "leave");
     const [task] = await tasks(requestId);
