@@ -237,10 +237,19 @@ export interface WorkflowPlugin {
 
 /** People data reminders read (work passes, probation). Implemented by the people module. */
 export interface PeopleDates {
-  /** Current (not renewed or cancelled) passes of current employees expiring on or before `until`, any org. */
-  workPassesExpiring(db: Db, range: { today: string; until: string }): Promise<WorkPassExpiry[]>;
-  /** Current employees whose probation ends on or before `until` and is not yet confirmed. */
-  probationsEnding(db: Db, range: { today: string; until: string }): Promise<ProbationEnd[]>;
+  /**
+   * Current (not renewed or cancelled) passes of current employees expiring on or before `until`:
+   * of one organisation with `orgId` (Home), of every organisation without it (the reminder sweep).
+   */
+  workPassesExpiring(db: Db, range: PeopleDatesRange): Promise<WorkPassExpiry[]>;
+  /** Current employees whose probation ends on or before `until` and is not yet confirmed (`orgId` as above). */
+  probationsEnding(db: Db, range: PeopleDatesRange): Promise<ProbationEnd[]>;
+}
+
+export interface PeopleDatesRange {
+  today: string;
+  until: string;
+  orgId?: string;
 }
 
 export interface WorkPassExpiry {
