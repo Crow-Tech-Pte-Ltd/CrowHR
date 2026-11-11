@@ -7,6 +7,7 @@
   "description": "Crow Tech component library for Crow HR (Radix + CVA, ported from crow-tech-landing).",
   "exports": {
     ".": "./src/index.ts",
+    "./clock": "./src/lib/clock.ts",
     "./tailwind-preset": "./tailwind-preset.ts",
     "./styles.css": "./src/styles/globals.css",
     "./fonts.css": "./src/styles/fonts.css"

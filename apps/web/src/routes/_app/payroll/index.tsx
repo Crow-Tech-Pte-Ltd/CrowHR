@@ -19,6 +19,7 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem,
+  singaporeTodayIso,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -35,6 +36,9 @@ import { PayrollSettingsDialog } from "./-lib/settings-dialog.tsx";
 import { Money, RunStatusPill } from "./-lib/ui.tsx";
 
 export const Route = createFileRoute("/_app/payroll/")({
+  // `?settings=open` opens the settings dialog (linked from Settings → Payroll).
+  validateSearch: (s: Record<string, unknown>): { settings?: "open" } =>
+    s.settings === "open" ? { settings: "open" } : {},
   component: PayrollPage,
 });
 
@@ -132,15 +136,19 @@ const columns: ColumnDef<PayrollRunSummaryDto, unknown>[] = [
 ];
 
 function nextMonth(): string {
-  const now = new Date(Date.now() + 8 * 3_600_000);
-  return now.toISOString().slice(0, 7);
+  return singaporeTodayIso().slice(0, 7);
 }
 
 function Runs() {
   const runs = useQuery(runsQuery);
   const navigate = useNavigate();
   const [open, setOpen] = React.useState(false);
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const search = Route.useSearch();
+  const [settingsOpen, setSettingsOpen] = React.useState(search.settings === "open");
+  const onSettingsOpenChange = (open: boolean) => {
+    setSettingsOpen(open);
+    if (!open && search.settings) void navigate({ to: "/payroll", search: {}, replace: true });
+  };
   const active = runs.data?.items.find((r) => r.status === "draft" || r.status === "in_review");
   return (
     <>
@@ -223,7 +231,7 @@ function Runs() {
         />
       ) : null}
       <NewRunDialog open={open} onOpenChange={setOpen} />
-      <PayrollSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <PayrollSettingsDialog open={settingsOpen} onOpenChange={onSettingsOpenChange} />
     </>
   );
 }

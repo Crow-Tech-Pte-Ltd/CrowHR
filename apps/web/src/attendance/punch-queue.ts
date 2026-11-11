@@ -10,6 +10,8 @@
  * - A rejection by the server moves the punch to `history` with the reason: never dropped silently.
  * - At most 200 punches wait; a 201st tap is refused with a message instead of losing an old one.
  */
+
+import { appNow } from "@crowhr/ui/clock";
 export const QUEUE_KEY = "crowhr.punchQueue.v1";
 export const MAX_QUEUE = 200;
 export const MAX_HISTORY = 50;
@@ -83,7 +85,7 @@ export function nextKind(state: QueueState, serverClockedIn: boolean): "in" | "o
 export async function drain(
   state: QueueState,
   send: (p: QueuedPunch, meta: { sentAt: string; queued: boolean }) => Promise<SendResult>,
-  now: () => Date = () => new Date(),
+  now: () => Date = appNow,
 ): Promise<QueueState> {
   let pending = [...state.pending];
   let history = [...state.history];

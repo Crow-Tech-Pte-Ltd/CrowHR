@@ -153,6 +153,8 @@ export const leaveBalancesReport: ReportDefinition<z.output<ReturnType<typeof ba
     { key: "name", title: "Employee", type: "text" },
     { key: "department", title: "Department", type: "text" },
     { key: "leaveType", title: "Leave type", type: "text" },
+    // Part-timers' leave is kept in hours (Part-Time Employment Regulations), everyone else's in days.
+    { key: "unit", title: "Unit", type: "text" },
     { key: "entitlement", title: "Entitlement", type: "decimal", total: "sum" },
     { key: "carriedForward", title: "Carried forward", type: "decimal", total: "sum" },
     { key: "taken", title: "Taken", type: "decimal", total: "sum" },
@@ -207,6 +209,7 @@ export const leaveBalancesReport: ReportDefinition<z.output<ReturnType<typeof ba
             name: m.name,
             department: m.department,
             leaveType: b.childId ? `${b.name} (per child)` : b.name,
+            unit: b.unit === "hours" ? "Hours" : "Days",
             entitlement: days(b.entitlement),
             carriedForward: days(b.carriedForward),
             taken: days(b.taken),

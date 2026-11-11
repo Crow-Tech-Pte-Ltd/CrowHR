@@ -1,9 +1,10 @@
 import * as React from "react";
 
 /**
- * NOT IMPLEMENTED: real roles come from the auth/RBAC workstream. Until then
- * the admin/employee view is a client-side preview toggle (user menu, or
- * `?view=employee` in the URL) so the employee layout can be designed.
+ * Which layout the shell shows. Members with only the employee role always get the employee layout
+ * (bottom tab bar on phones, the employee Home). Owners, admins and managers get the admin layout
+ * and can preview the employee one from the user menu (or `?view=employee`); that choice is kept in
+ * this browser. Layout only: the server enforces roles on every request either way.
  */
 export type ViewMode = "admin" | "employee";
 
@@ -38,6 +39,18 @@ export function useViewMode() {
   const ctx = React.useContext(Ctx);
   if (!ctx) throw new Error("useViewMode must be used inside ViewModeProvider");
   return ctx;
+}
+
+/** True for members who approve or administer (any role besides employee). */
+export function canUseAdminLayout(roles: readonly string[]): boolean {
+  return roles.some((r) => r !== "employee");
+}
+
+/** The layout for a signed-in member: their chosen mode, or always "employee" when that is all they are. */
+export function useLayoutMode(roles: readonly string[]) {
+  const { mode, setMode } = useViewMode();
+  const canSwitch = canUseAdminLayout(roles);
+  return { mode: canSwitch ? mode : ("employee" as ViewMode), setMode, canSwitch };
 }
 
 export function usePersistentBoolean(key: string, initial: boolean): [boolean, (v: boolean) => void] {

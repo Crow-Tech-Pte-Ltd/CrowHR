@@ -98,7 +98,7 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <ShieldCheck className="size-4" aria-hidden />
+          <ShieldCheck className="size-4 shrink-0" aria-hidden />
           <div>
             <p className="font-azeret text-xs font-semibold">Authenticator app</p>
             <p className="text-ui text-primary-300">

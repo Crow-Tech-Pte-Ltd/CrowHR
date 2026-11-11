@@ -47,7 +47,7 @@ function SummaryPage() {
           <DatePicker value={from} onChange={setFrom} className="w-40" />
         </FormField>
         <FormField label="To">
-          <DatePicker value={to} onChange={setTo} className="w-40" />
+          <DatePicker value={to} onChange={setTo} min={from} className="w-40" />
         </FormField>
         {can(me, "reports_attendance:export") ? (
           <Button asChild disabled={!ok}>

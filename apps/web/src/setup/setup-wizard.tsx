@@ -322,11 +322,11 @@ function Done({ orgName, slug }: { orgName: string; slug: string | null }) {
       </div>
       <p className="mt-6 text-2xs text-primary-200">
         Next:{" "}
-        <Link to="/settings/company" className="text-biru-400 hover:underline">
+        <Link to="/settings/company" className="text-biru-400 underline underline-offset-2">
           add the UEN and CPF details
         </Link>
         , invite staff, and check that backups run in{" "}
-        <Link to="/settings/system" className="text-biru-400 hover:underline">
+        <Link to="/settings/system" className="text-biru-400 underline underline-offset-2">
           Settings → System
         </Link>
         .

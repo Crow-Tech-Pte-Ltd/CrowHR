@@ -8,7 +8,9 @@ import {
   Kbd,
   Skeleton,
   StatusPill,
+  singaporeTodayIso,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
 } from "@crowhr/ui";
@@ -16,8 +18,10 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CheckCircle2, Plane, Send } from "lucide-react";
 import * as React from "react";
+import { useMe } from "../../auth/session.ts";
 import { PageHeader } from "../../components/page-header.tsx";
 import { ErrorNote } from "../../components/section.tsx";
+import { canUseAdminLayout } from "../../shell/view-mode.tsx";
 import {
   allMyRequestsQuery,
   inboxQuery,
@@ -29,15 +33,17 @@ import {
   useDecide,
 } from "../../workflows/api.ts";
 import { DecisionButtons, DuePill, OriginBadge, RejectDialog } from "../../workflows/decision-controls.tsx";
-import { ageLabel, sgDate } from "../../workflows/format.ts";
+import { ageLabel, requestName } from "../../workflows/format.ts";
 import { OutOfOfficeDialog } from "../../workflows/out-of-office.tsx";
 import { RequestPanel } from "../../workflows/request-panel.tsx";
 
 interface InboxSearch {
   task?: string;
   request?: string;
-  view?: "decide" | "mine";
+  view?: InboxView;
 }
+
+type InboxView = "decide" | "mine";
 
 export const Route = createFileRoute("/_app/inbox")({
   validateSearch: (s: Record<string, unknown>): InboxSearch => ({
@@ -57,8 +63,12 @@ function isTyping(target: EventTarget | null) {
 function InboxPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/inbox" });
+  const me = useMe();
   const [oooOpen, setOooOpen] = React.useState(false);
-  const view = search.view ?? (search.request ? "mine" : "decide");
+  // Staff who approve nothing land on their own requests; approvers on what waits for them.
+  const approver = canUseAdminLayout(me.roles);
+  const defaultView = approver ? "decide" : "mine";
+  const view = search.view ?? (search.request ? "mine" : search.task ? "decide" : defaultView);
   const tasks = useQuery(tasksQuery);
   const count = tasks.data?.items.length ?? 0;
   return (
@@ -66,30 +76,43 @@ function InboxPage() {
       <PageHeader
         title="Inbox"
         description={
-          <>
-            Requests waiting for your decision. Keys: <Kbd>j</Kbd> <Kbd>k</Kbd> move, <Kbd>a</Kbd> approve, <Kbd>r</Kbd>{" "}
-            reject, <Kbd>x</Kbd> select.
-          </>
+          approver ? (
+            <>
+              Requests waiting for your decision.
+              <span className="hidden md:inline">
+                {" "}
+                Keys: <Kbd>j</Kbd> <Kbd>k</Kbd> move, <Kbd>a</Kbd> approve, <Kbd>r</Kbd> reject, <Kbd>x</Kbd> select.
+              </span>
+            </>
+          ) : (
+            "Your requests and where they are. Anything you're asked to decide, such as a shift swap, shows under To decide."
+          )
         }
         actions={
-          <Button variant="secondary" onClick={() => setOooOpen(true)}>
-            <Plane /> Out of office
-          </Button>
+          approver ? (
+            <Button variant="secondary" onClick={() => setOooOpen(true)}>
+              <Plane /> Out of office
+            </Button>
+          ) : undefined
         }
       />
       <Tabs
         value={view}
-        onValueChange={(v) => void navigate({ search: v === "mine" ? { view: "mine" } : {} })}
-        className="mb-4"
+        onValueChange={(v) => void navigate({ search: v === defaultView ? {} : { view: v as InboxView } })}
       >
-        <TabsList>
+        <TabsList className="mb-4">
           <TabsTrigger value="decide">
             To decide{count ? <span className="num ml-1.5 text-primary-300">{count}</span> : null}
           </TabsTrigger>
           <TabsTrigger value="mine">My requests</TabsTrigger>
         </TabsList>
+        <TabsContent value="decide" className="pt-0">
+          <DecideView selectedTaskId={search.task} />
+        </TabsContent>
+        <TabsContent value="mine" className="pt-0">
+          <MineView selectedId={search.request} />
+        </TabsContent>
       </Tabs>
-      {view === "decide" ? <DecideView selectedTaskId={search.task} /> : <MineView selectedId={search.request} />}
       <OutOfOfficeDialog open={oooOpen} onOpenChange={setOooOpen} />
     </>
   );
@@ -99,7 +122,7 @@ function DecideView({ selectedTaskId }: { selectedTaskId?: string }) {
   const navigate = useNavigate({ from: "/inbox" });
   const tasks = useQuery(tasksQuery);
   const inbox = useQuery(inboxQuery);
-  const today = inbox.data?.today ?? sgDate(new Date().toISOString());
+  const today = inbox.data?.today ?? singaporeTodayIso();
   const items = tasks.data?.items ?? [];
   const [cursor, setCursor] = React.useState(0);
   const [checked, setChecked] = React.useState<Set<string>>(new Set());
@@ -316,7 +339,7 @@ function MineView({ selectedId }: { selectedId?: string }) {
   const mine = useQuery(allMyRequestsQuery);
   const items: MyRequest[] = mine.data?.items ?? [];
   const selected = selectedId ?? items[0]?.id;
-  const today = sgDate(new Date().toISOString());
+  const today = singaporeTodayIso();
   if (mine.isPending) {
     return (
       <Card className="p-4">
@@ -356,9 +379,7 @@ function MineView({ selectedId }: { selectedId?: string }) {
                 )}
               >
                 <span className="min-w-0">
-                  <span className="block truncate font-medium leading-5">
-                    {r.subjectLabel}: {r.title}
-                  </span>
+                  <span className="block truncate font-medium leading-5">{requestName(r.subjectLabel, r.title)}</span>
                   <span className="block truncate text-2xs text-primary-300">
                     {r.status === "pending" && r.waitingOn
                       ? `Waiting for ${r.waitingOn}`

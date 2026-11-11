@@ -20,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, Copy, Lock, Pencil, Send, Trash2, Undo2 } from "lucide-react";
 import * as React from "react";
+import { isNotFound, NotFoundPage } from "../../../components/not-found.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { api, type ClaimDto, type ClaimFileDto, claimKeys, claimQuery, errorMessage } from "./-lib/api.ts";
@@ -86,7 +87,16 @@ function ClaimPage() {
         <Skeleton className="h-40 w-full" />
       </div>
     );
-  if (q.isError) return <ErrorNote error={q.error} retry={() => void q.refetch()} />;
+  if (q.isError)
+    return isNotFound(q.error) ? (
+      <NotFoundPage
+        title="Claim not found"
+        crumbs={[{ label: "Claims", to: "/claims" }]}
+        back={{ to: "/claims", label: "Back to claims" }}
+      />
+    ) : (
+      <ErrorNote error={q.error} retry={() => void q.refetch()} />
+    );
   const c = q.data;
   const allReceipts = c.lines.flatMap((l) => l.receipts ?? []);
 

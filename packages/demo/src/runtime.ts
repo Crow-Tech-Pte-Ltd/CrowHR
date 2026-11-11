@@ -151,6 +151,7 @@ export async function openDemo(input: OpenDemoInput) {
     dataVersion: meta.dataVersion,
     orgSlug: DEMO_ORG.slug,
     today: singaporeDate(clock.now()),
+    clockOffsetMs: offsetMs,
     seededAt: meta.seededAt,
   };
   const timings: BootTimings = { stages, totalMs: realNow() - started, seeded };

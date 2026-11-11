@@ -5,21 +5,19 @@ import { Wordmark } from "../components/wordmark.tsx";
 import { NotificationBell } from "./notification-bell.tsx";
 import { OrgSwitcher } from "./org-switcher.tsx";
 import { UserMenu } from "./user-menu.tsx";
-import { useViewMode } from "./view-mode.tsx";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
 export function TopBar({ onOpenPalette, onOpenDrawer }: { onOpenPalette: () => void; onOpenDrawer: () => void }) {
-  const { mode } = useViewMode();
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/95 px-3 backdrop-blur-[2px] supports-[backdrop-filter]:bg-background/90 md:gap-4 md:px-5">
-      {mode === "admin" ? (
-        <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open navigation" onClick={onOpenDrawer}>
-          <Menu />
-        </Button>
-      ) : null}
-      <Link to="/" className="focus-ring rounded-sm md:hidden" aria-label="Crow HR home">
+      {/* Both layouts: on phones the drawer is the way to Attendance, Documents and the rest. */}
+      <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open navigation" onClick={onOpenDrawer}>
+        <Menu />
+      </Button>
+      <Link to="/" className="focus-ring rounded-sm md:hidden">
         <Wordmark />
+        <span className="sr-only"> home</span>
       </Link>
       <OrgSwitcher className="hidden max-w-[16rem] md:flex" />
 

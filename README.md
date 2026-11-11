@@ -38,7 +38,7 @@ Version 1.0.0 ([changelog](CHANGELOG.md)). Crow HR has not yet been used for a r
 
 | Built | Not built yet |
 | --- | --- |
-| Self-hosting (compose, setup wizard, migrations, backups, encrypted once you set `BACKUP_PASSPHRASE` (strongly recommended), `crowhr` CLI) | Mobile apps in the App Store and Google Play (built; internal test builds only) |
+| Self-hosting (compose, setup wizard, migrations, backups, encrypted once you set `BACKUP_PASSPHRASE` (strongly recommended), `crowhr` CLI) | Mobile apps in the App Store and Google Play (1.0.0 built and in store review, not yet available) |
 | Sign-in: password + TOTP, Google Workspace, Microsoft Entra ID, generic OIDC; Singpass tested against Singpass staging, not production | Direct submission to CPF, IRAS or banks |
 | Members, roles, server-enforced permission matrix, append-only audit log with hash chaining | Virus scanning of uploads (a hook only; no scanner ships) |
 | Company, structure, employees, CSV import, lifecycle, work passes, change requests | |

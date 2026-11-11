@@ -1,3 +1,5 @@
+import { appNowMs } from "@crowhr/ui/clock";
+
 /** `31 Oct 2026, 09:05` in Singapore time (AGENTS.md conventions). */
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -25,7 +27,7 @@ export function greetingName(user: { preferredName?: string | null; fullName?: s
 }
 
 /** "3 min ago", "2 h ago", or the date. */
-export function relativeTime(iso: string | null | undefined, now = Date.now()): string {
+export function relativeTime(iso: string | null | undefined, now = appNowMs()): string {
   if (!iso) return "Never";
   const diff = Math.max(0, now - new Date(iso).getTime());
   if (diff < 60_000) return "Just now";

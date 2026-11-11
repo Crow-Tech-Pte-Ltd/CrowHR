@@ -1,3 +1,4 @@
+import { singaporeTodayIso } from "@crowhr/ui/clock";
 import { queryOptions } from "@tanstack/react-query";
 import { ApiError, apiGet } from "../lib/api.ts";
 
@@ -224,7 +225,7 @@ export const myScheduleQuery = (from: string, to: string) =>
 // Dates and labels (Asia/Singapore)
 // ---------------------------------------------------------------------------------------------
 
-export const todaySg = () => new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+export const todaySg = () => singaporeTodayIso();
 
 export function addDays(date: string, n: number): string {
   const d = new Date(`${date}T00:00:00Z`);

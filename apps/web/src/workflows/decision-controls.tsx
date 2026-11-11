@@ -107,10 +107,11 @@ export function DecisionButtons({
 }) {
   return (
     <div className="flex shrink-0 justify-end gap-1">
+      {/* Named "Reject" where there is room: a bare ✕ beside Approve reads as "close". */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            size="icon-sm"
+            size="sm"
             variant="ghost"
             aria-label={`Reject ${who}'s request`}
             disabled={disabled}
@@ -120,6 +121,7 @@ export function DecisionButtons({
             }}
           >
             <X />
+            {compact ? null : <span className="hidden sm:inline">Reject</span>}
           </Button>
         </TooltipTrigger>
         <TooltipContent>Reject (needs a reason)</TooltipContent>

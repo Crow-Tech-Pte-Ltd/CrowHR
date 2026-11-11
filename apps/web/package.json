@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@crowhr/sg-rules": "workspace:*",
     "@crowhr/ui": "workspace:*",
     "@sentry/react": "10.78.0",
     "@tanstack/react-query": "^5.105.0",

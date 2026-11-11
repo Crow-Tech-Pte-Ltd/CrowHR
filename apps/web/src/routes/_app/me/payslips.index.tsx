@@ -51,7 +51,7 @@ const columns: ColumnDef<PayslipSummaryDto, unknown>[] = [
   },
   {
     id: "pdf",
-    header: "",
+    header: () => <span className="sr-only">Download</span>,
     cell: ({ row }) => (
       <Button asChild size="sm" variant="ghost" aria-label={`Download ${row.original.title} as PDF`}>
         <a href={`/api/v1/payslips/${row.original.id}/pdf`} download onClick={(e) => e.stopPropagation()}>

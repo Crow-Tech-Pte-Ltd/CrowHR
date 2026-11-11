@@ -26,6 +26,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AlertOctagon, CheckCircle2, Download, FileText, RotateCcw, Search, Send } from "lucide-react";
 import * as React from "react";
 import { useReauth } from "../../../auth/reauth.tsx";
+import { isNotFound, NotFoundPage } from "../../../components/not-found.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import {
@@ -68,7 +69,13 @@ function RunPage() {
     );
   }
   if (q.isError) {
-    return (
+    return isNotFound(q.error) ? (
+      <NotFoundPage
+        title="Payroll run not found"
+        crumbs={[{ label: "Payroll", to: "/payroll" }]}
+        back={{ to: "/payroll", label: "Back to payroll" }}
+      />
+    ) : (
       <Card>
         <ErrorNote error={q.error} retry={() => void q.refetch()} />
       </Card>
@@ -223,9 +230,9 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
     <>
       <PageHeader
         crumbs={[{ label: "Payroll", to: "/payroll" }]}
-        title={
+        title={runTitle(run)}
+        trailing={
           <span className="flex flex-wrap items-center gap-2.5">
-            {runTitle(run)}
             <RunStatusPill status={run.status} superseded={!!run.supersededByRunId} />
             {run.releasedAt ? (
               <span className="font-azeret text-2xs uppercase tracking-wide text-primary-200">Payslips released</span>
@@ -424,18 +431,19 @@ function TotalsCard({ o }: { o: PayrollOverviewDto }) {
   const editable = o.run.status === "draft" || o.run.status === "in_review";
   return (
     <Card variant={editable && !o.run.supersededByRunId ? "emphasis" : "default"} className="mb-5">
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[inherit] bg-border sm:grid-cols-3 lg:grid-cols-9">
+      {/* Wrapping flex, not a fixed 9-column grid: amounts of any size fit, and a full row never leaves gaps. */}
+      <dl className="flex flex-wrap gap-px overflow-hidden rounded-[inherit] bg-border">
         {cells.map(([k, v, title]) => (
-          <div key={k} className="bg-card px-3 py-2.5" title={title}>
+          <div key={k} className="flex-[1_1_7rem] bg-card px-3 py-2.5" title={title}>
             <dt className="font-azeret text-[10px] uppercase tracking-wider text-primary-200">{k}</dt>
-            <dd className="num mt-0.5 text-ui">{typeof v === "number" ? formatMoney(v) : v}</dd>
+            <dd className="num mt-0.5 whitespace-nowrap text-ui">{typeof v === "number" ? formatMoney(v) : v}</dd>
           </div>
         ))}
-        <div className="col-span-2 bg-kuning-50 px-3 py-2.5 sm:col-span-3 lg:col-span-1">
+        <div className="flex-[1.4_1_9rem] bg-kuning-50 px-3 py-2.5">
           <dt className="font-azeret text-[10px] uppercase tracking-wider text-primary-300">
             {o.run.kind === "adjustment" ? "Net to pay now" : "Net pay"}
           </dt>
-          <dd className="num mt-0.5 text-base font-semibold">{formatMoney(t.netPayableCents)}</dd>
+          <dd className="num mt-0.5 whitespace-nowrap text-base font-semibold">{formatMoney(t.netPayableCents)}</dd>
         </div>
       </dl>
     </Card>
@@ -445,6 +453,19 @@ function TotalsCard({ o }: { o: PayrollOverviewDto }) {
 function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (id: string) => void }) {
   if (!o.run.computedAt) return null;
   const { headline, items } = o.changes;
+  // Identical lines (three separate 1 h overtime items for one person) show once with a count;
+  // they also shared a React key, which can mis-render the list when it updates.
+  const grouped = [
+    ...items
+      .reduce((m, c) => {
+        const key = `${c.employeeId}-${c.kind}-${c.text}`;
+        const g = m.get(key);
+        if (g) g.count += 1;
+        else m.set(key, { key, c, count: 1 });
+        return m;
+      }, new Map<string, { key: string; c: (typeof items)[number]; count: number }>())
+      .values(),
+  ];
   return (
     <section aria-labelledby="changes-title" className="mb-5">
       <h2 id="changes-title" className="mb-2 font-azeret text-xs font-semibold uppercase tracking-wider">
@@ -453,8 +474,8 @@ function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (i
       {items.length ? (
         <Card>
           <ul className="grid grid-cols-1 gap-x-6 px-4 py-1.5 lg:grid-cols-2">
-            {items.map((c) => (
-              <li key={`${c.employeeId}-${c.kind}-${c.text}`} className="flex gap-2 py-1.5 text-ui">
+            {grouped.map(({ key, c, count }) => (
+              <li key={key} className="flex gap-2 py-1.5 text-ui">
                 <span className="w-20 shrink-0 font-azeret text-[10px] uppercase leading-5 tracking-wide text-primary-200">
                   {CHANGE[c.kind]}
                 </span>
@@ -467,6 +488,7 @@ function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (i
                     {c.name}
                   </button>{" "}
                   <span className="text-primary-300">{c.text}</span>
+                  {count > 1 ? <span className="num text-primary-200"> ×{count}</span> : null}
                 </span>
               </li>
             ))}
@@ -525,7 +547,7 @@ function FilesPanel({ runId }: { runId: string }) {
             <p className="font-medium text-warning-400">Left out of {excluded.file}:</p>
             <ul className="mt-1 list-disc pl-5">
               {excluded.list.map((x) => (
-                <li key={x.employeeName}>
+                <li key={`${x.employeeName}-${x.reason}`}>
                   {x.employeeName}: {x.reason}
                 </li>
               ))}

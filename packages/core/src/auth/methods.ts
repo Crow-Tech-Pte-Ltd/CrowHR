@@ -32,7 +32,8 @@ export async function publicSignInMethods(db: Db, orgId: string): Promise<Public
     password: { enabled: settings.passwordEnabled },
     providers: rows
       .filter(isConfigured)
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      // Oldest first; the id breaks ties (seeded providers share a timestamp), so the order never changes.
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
       .map((p) => ({
         id: p.id,
         kind: p.kind,

@@ -385,7 +385,9 @@ function Retention() {
                   <TableHead>Document</TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead>Why</TableHead>
-                  <TableHead />
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -446,7 +448,9 @@ function Deleted() {
                   <TableHead>Document</TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead numeric>Deleted</TableHead>
-                  <TableHead />
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
