@@ -9,31 +9,22 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  toast,
 } from "@crowhr/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { FileText, LogOut, MonitorSmartphone, Settings, UserRound } from "lucide-react";
 import { useMe } from "../auth/session.ts";
+import { useSignOut } from "../auth/sign-out.ts";
 import { ROLE_LABEL } from "../auth/types.ts";
-import { apiPost } from "../lib/api.ts";
 import { useLayoutMode, type ViewMode } from "./view-mode.tsx";
 
 export function UserMenu() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
+  const _qc = useQueryClient();
   const me = useMe();
   const { mode, setMode, canSwitch } = useLayoutMode(me.roles);
   const assigned = me.roles.filter((r) => r !== "employee");
-  const signOut = async () => {
-    try {
-      await apiPost("/api/v1/auth/sign-out");
-    } catch {
-      toast.error("Couldn't reach the server, but you've been signed out on this device.");
-    }
-    qc.clear();
-    await navigate({ to: "/sign-in", search: { reason: "signed_out" } });
-  };
+  const signOut = useSignOut();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="focus-ring flex items-center gap-2 rounded-md p-1 hover:bg-ink/[0.04] data-[state=open]:bg-ink/[0.05] lg:pr-2">
