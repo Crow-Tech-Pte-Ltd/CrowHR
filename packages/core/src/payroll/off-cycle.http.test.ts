@@ -12,7 +12,13 @@ const api = "/api/v1/payroll";
 
 type Overview = {
   run: { totals: Record<string, number> };
-  rows: { employeeId: string; basicCents: number; netCents: number; cpfEmployeeCents: number }[];
+  rows: {
+    employeeId: string;
+    basicCents: number;
+    netCents: number;
+    netPayableCents: number;
+    cpfEmployeeCents: number;
+  }[];
   issues: { code: string }[];
 };
 
@@ -149,7 +155,7 @@ describe("off-cycle runs", () => {
       201,
     );
     await p.ok(p.admin.post(`${api}/runs/${adj.id}/compute`));
-    const o = await p.ok<Overview & { rows: { netPayableCents: number }[] }>(p.admin.get(`${api}/runs/${adj.id}`));
+    const o = await p.ok<Overview>(p.admin.get(`${api}/runs/${adj.id}`));
     const a = o.rows.find((r) => r.employeeId === p.co.e.A);
     // The same bonus again: nothing more to pay or charge.
     expect([a?.basicCents, a?.cpfEmployeeCents, a?.netCents, a?.netPayableCents]).toEqual([0, 20_000, 79_950, 0]);
