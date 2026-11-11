@@ -81,7 +81,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 ## Payroll (add-payroll)
 
 - **Approvals** go through the workflows engine (`payroll_run` subject, default policy: an owner approves; an owner who submitted may self-approve, which is recorded). There is no payroll-specific decision endpoint.
-- **Overtime, hours and no-pay leave are entered by hand** per run. `OvertimeSource` (attendance) and the leave module are not wired; `manualOvertimeOnly` is the default.
+- **Inputs fed from other modules**: approved overtime (attendance), approved no-pay and unpaid infant care leave, leave encashment, days worked and rostered scheduled days reach each run automatically (see "Payroll inputs" under Leave below). Hours for hourly staff and any other one-off items are still entered by hand per run.
 - **Claims reimbursement** comes from the claims module by default (`createClaimsReimbursementSource`); `noClaimsYet` is now only a test double.
 - **Back pay from people's retroactive changes** is flagged on the next run (`BACKPAY_OWED`) but not computed; the amount is entered as a "Back pay" item, and approving the run closes the notice.
 - **No direct submission** to CPF Board, IRAS or banks: payroll produces the CPF EZPay (FTP) file and a generic ISO 20022 `pain.001.001.03` file for upload. IRAS's AIS API needs an approved software vendor and CorpPass authorisation, so IR8A is exported for manual upload (below).
