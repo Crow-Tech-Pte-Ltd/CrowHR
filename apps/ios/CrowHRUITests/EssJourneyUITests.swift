@@ -305,7 +305,7 @@ final class EssJourneyUITests: CrowUITestCase {
 
         // Schedule: this week's published roster.
         app.swipeUp()
-        XCTAssertTrue(app.otherElements["shift.row"].firstMatch.waitForExistence(timeout: 10) || app.staticTexts["No shifts in the next two weeks."].exists)
+        XCTAssertTrue(element("shift.row").waitForExistence(timeout: 10) || app.staticTexts["No shifts in the next two weeks."].exists)
 
         // Leave: balances, apply, see it pending.
         tapTab("Leave")

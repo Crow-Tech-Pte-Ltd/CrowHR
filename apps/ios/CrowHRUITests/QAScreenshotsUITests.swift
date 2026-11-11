@@ -48,6 +48,8 @@ final class QAScreenshotsUITests: CrowUITestCase {
 
         tapTab("Pay")
         let payslip = wait(app.buttons["payslip.row"].firstMatch, 20)
+        // On an iPad the latest payslip opens beside the list: let it load before the audit.
+        waitUntilLoaded()
         try check("Payslips", "\(prefix)-payslips")
         payslip.tap()
         wait(app.staticTexts["payslip.net"])
@@ -182,6 +184,10 @@ final class QAScreenshotsUITests: CrowUITestCase {
         let topTabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'tab.' OR identifier == 'ToggleSideBar'"))
             .allElementsBoundByIndex.map { $0.frame }.filter { $0.minY < 120 && $0.width > 1 }
         let navBars = app.navigationBars.allElementsBoundByIndex.map { $0.frame } + topTabs
+        // That bar's tab titles are UIKit labels the audit reports without an element (one per
+        // visible tab; SwiftUI text is never a UILabel). Excused up to that number, and logged.
+        let tabTitles = Set(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'tab.'")).allElementsBoundByIndex
+            .map { $0.frame }.filter { $0.minY < 120 && $0.width > 1 }.map { "\($0)" }).count
         let log = AuditLog()
         try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped, .dynamicType]) { issue in
             let type = switch issue.auditType {
@@ -190,9 +196,20 @@ final class QAScreenshotsUITests: CrowUITestCase {
             case .sufficientElementDescription: "description"
             default: "other"
             }
-            // An issue without an element can't be located, so it is not excused either.
+            // An issue without an element can't be located, so it is not excused either (except
+            // the iPad floating tab bar's titles, above).
             guard let element = issue.element else {
+                if issue.auditType == .dynamicType && issue.detailedDescription.contains("UILabel") && log.takeTabTitle(limit: tabTitles) {
+                    log.excuse("\(screen): \(type) \(issue.compactDescription) — iPadOS floating tab bar title (UILabel)")
+                    return true
+                }
                 log.fail("\(screen): \(type) \(issue.compactDescription) — (no element) \(issue.detailedDescription)")
+                return true
+            }
+            // UI-test-only instrumentation (Settings' list of contacted origins), not app UI. On a
+            // phone it sits below the fold; an iPad shows it.
+            if element.identifier == "debug.networkOrigins" {
+                log.excuse("\(screen): \(type) \(issue.compactDescription) — UI-test-only debug.networkOrigins")
                 return true
             }
             let frame = element.frame
@@ -224,5 +241,14 @@ private final class AuditLog: @unchecked Sendable {
     var failures: [String] { lock.withLock { failed } }
     var excusedLines: [String] { lock.withLock { excusedList } }
     func fail(_ line: String) { lock.withLock { failed.append(line) } }
+    private var tabTitles = 0
+    /// One more floating-tab-bar title excused, while fewer than `limit` have been.
+    func takeTabTitle(limit: Int) -> Bool {
+        lock.withLock {
+            guard tabTitles < limit else { return false }
+            tabTitles += 1
+            return true
+        }
+    }
     func excuse(_ line: String) { lock.withLock { excusedList.append(line) } }
 }
