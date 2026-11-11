@@ -139,4 +139,24 @@ describe("leave year end", () => {
     expect(rows.find((l) => l.kind === "encashment")?.hundredths).toBe(-1000);
     expect(rows.find((l) => l.leaveYear === 2027 && l.kind === "carry_forward")?.expiresOn).toBeNull();
   });
+
+  it("carry that never expires by policy doesn't expire for Part 4 staff either", async () => {
+    const hr = await w.as("hr");
+    const policies = (await (await hr.get("/api/v1/leave/policies")).json()) as {
+      items: { id: string; code: string; policy: Record<string, unknown> }[];
+    };
+    const annual = policies.items.find((p) => p.code === "annual");
+    const res = await hr.patch(`/api/v1/leave/policies/${annual?.id}`, {
+      policy: { ...annual?.policy, carryForward: { maxDays: null, expiresAfterMonths: null } },
+    });
+    expect(res.status, await res.clone().text()).toBe(200);
+    w.clock.set("2027-01-01T01:00:00.000Z");
+    await tick(w.deps, w.clock.now());
+    // Ravi (S$2,400, Part 4) and the manager (not Part 4): both carries are open-ended.
+    for (const employee of [w.emp.staff, w.emp.manager]) {
+      const carry = (await ledger(employee)).find((l) => l.leaveYear === 2027 && l.kind === "carry_forward");
+      expect(carry?.hundredths, employee).toBeGreaterThan(0);
+      expect(carry?.expiresOn, employee).toBeNull();
+    }
+  });
 });

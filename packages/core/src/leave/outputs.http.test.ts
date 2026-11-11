@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { TestClient } from "../../testing/http.ts";
 import { createLeaveWorld, type LeaveWorld } from "../../testing/leave.ts";
+import { leaveRequestDays, leaveRequests } from "../db/schema/leave.ts";
 import { leaveCalendar, leaveUnpaidSource } from "./outputs.ts";
 
 /** What leave hands to payroll, scheduling and government claims (spec "Payroll and government outputs"). */
@@ -22,6 +23,68 @@ describe("leave outputs", () => {
       expect(r.status, await r.clone().text()).toBe(200);
     }
   };
+
+  it("a part-timer's unpaid company leave reaches payroll in days, not hours", async () => {
+    const hr = await w.as("hr");
+    const created = await hr.post("/api/v1/leave/policies", {
+      code: "unpaid_study",
+      name: "Unpaid study leave",
+      paid: false,
+      policy: {
+        entitlement: { basis: "fixed", days: 10 },
+        minServiceMonths: 0,
+        prorate: false,
+        accrual: "upfront",
+        carryForward: null,
+        encashable: false,
+      },
+    });
+    expect(created.status, await created.clone().text()).toBe(201);
+    const part = await w.as("partTimer");
+    const res = await part.post("/api/v1/leave/requests", {
+      leaveTypeId: await typeId(part, "unpaid_study"),
+      startDate: "2026-11-16",
+      endDate: "2026-11-16",
+    });
+    expect(res.status, await res.clone().text()).toBe(201);
+    expect(((await res.json()) as { unit: string }).unit).toBe("days");
+    await approveAll(await w.as("manager"));
+    const unpaid = await leaveUnpaidSource(w.deps).listUnpaid(w.orgId, "2026-11-01", "2026-11-30");
+    expect(unpaid.map((u) => [u.employeeId, u.date, u.days])).toEqual([[w.emp.partTimer, "2026-11-16", 1]]);
+    // A request made in hours before this fix: 2 hours of a 4-hour day is half a day.
+    const legacy = w.deps.ids.newId();
+    const type = await typeId(part, "unpaid_study");
+    await w.deps.db.insert(leaveRequests).values({
+      id: legacy,
+      orgId: w.orgId,
+      employeeId: w.emp.partTimer,
+      leaveTypeId: type,
+      startDate: "2026-11-17",
+      endDate: "2026-11-17",
+      startSession: "full",
+      endSession: "full",
+      unit: "hours",
+      hundredths: 200,
+      status: "approved",
+      requestedByMembershipId: w.m.partTimer.membershipId,
+    });
+    await w.deps.db.insert(leaveRequestDays).values({
+      id: w.deps.ids.newId(),
+      orgId: w.orgId,
+      requestId: legacy,
+      employeeId: w.emp.partTimer,
+      leaveTypeId: type,
+      date: "2026-11-17",
+      session: "full",
+      hundredths: 200,
+      leaveYear: 2026,
+    });
+    const both = await leaveUnpaidSource(w.deps).listUnpaid(w.orgId, "2026-11-01", "2026-11-30");
+    expect(both.map((u) => [u.date, u.days])).toEqual([
+      ["2026-11-16", 1],
+      ["2026-11-17", 0.5],
+    ]);
+  });
 
   it("approved no-pay leave reaches payroll per date in half days", async () => {
     const staff = await w.as("staff");

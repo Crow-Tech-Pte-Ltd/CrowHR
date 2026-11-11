@@ -199,6 +199,19 @@ describe("leave administration", () => {
         })
       ).status,
     ).toBe(400);
+    // A per-child type is counted per child: an adjustment without one would change nothing.
+    const paternity = types.items.find((t) => t.code === "paternity")?.id;
+    const noChild = await hr.post("/api/v1/leave/adjustments", {
+      employeeId: w.emp.staff,
+      leaveTypeId: paternity,
+      year: 2026,
+      amount: 5,
+      reason: "Extra week",
+    });
+    expect(noChild.status).toBe(400);
+    expect(
+      ((await noChild.json()) as { error: { details: { issues: { path: string }[] } } }).error.details.issues,
+    ).toEqual([expect.objectContaining({ path: "childId" })]);
   });
 
   it("children: employees add their own; HR for anyone; colleagues can't", async () => {

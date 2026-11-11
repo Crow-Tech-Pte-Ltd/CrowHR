@@ -1,12 +1,12 @@
 import { publicHolidays, RulesNotAvailableError } from "@crowhr/sg-rules";
-import { and, asc, desc, eq, gte, inArray, lte, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Grant } from "../access/authorize.ts";
 import { orgScope } from "../access/org-scope.ts";
 import { singaporeDate } from "../access/scope.ts";
 import { recordAudit } from "../audit/audit.ts";
 import type { AuthContext } from "../context.ts";
-import { employees } from "../db/schema/employees.ts";
+import { employees, tenures } from "../db/schema/employees.ts";
 import { files } from "../db/schema/files.ts";
 import {
   type LeaveChild,
@@ -387,8 +387,20 @@ export async function teamCalendar(
   const inScope = grant.all ? null : await grant.employeeIds();
   let peopleIds: string[];
   if (input.view === "team") {
+    // Everyone employed at some point in the range (not every former employee or future starter).
     peopleIds = grant.all
-      ? (await db.select({ id: employees.id }).from(employees).where(org.where(employees))).map((e) => e.id)
+      ? (
+          await db
+            .selectDistinct({ id: tenures.employeeId })
+            .from(tenures)
+            .where(
+              org.where(
+                tenures,
+                lte(tenures.hireDate, input.to),
+                sql`(${tenures.lastWorkingDay} is null or ${tenures.lastWorkingDay} >= ${input.from})`,
+              ),
+            )
+        ).map((e) => e.id)
       : [...(inScope ?? [])];
   } else {
     peopleIds = [];

@@ -162,8 +162,9 @@ export async function closeLeaveYear(
         // MOM: Part IV annual leave remains available for the next 12 months, even if
         // company policy expires discretionary carry earlier.
         // https://www.mom.gov.sg/employment-practices/leave/annual-leave/special-situations
+        // A policy without an expiry ("never expires") is more generous still and stays open-ended.
         const months =
-          part4 && type.statutoryCode === "annual"
+          part4 && type.statutoryCode === "annual" && !(policy && policy.expiresAfterMonths === null)
             ? Math.max(12, policy?.expiresAfterMonths ?? 12)
             : (policy?.expiresAfterMonths ?? null);
         await row(year, "carry_forward", -carry, "out");

@@ -19,7 +19,7 @@ import { submitApproval, withdrawSubject } from "../workflows/engine.ts";
 import { memberForEmployee } from "./apply.ts";
 import { childrenOf, computeBalance } from "./balances.ts";
 import { loadEmployeeTime } from "./calendar.ts";
-import { ensureLeaveSetup } from "./defaults.ts";
+import { ensureLeaveSetup, PER_CHILD_CODES } from "./defaults.ts";
 import { unitFor } from "./entitlement.ts";
 import { getType, type LeaveActor, lockEmployeeLeave } from "./service.ts";
 
@@ -303,6 +303,12 @@ export async function adjustBalance(
     if (unit === "days" && !Number.isInteger(Math.round(input.amount * 100) / 50)) {
       throw new AppError("validation_failed", "Adjust days in steps of half a day.", {
         issues: [{ path: "amount", message: "Use steps of 0.5 days." }],
+      });
+    }
+    if (!input.childId && type.statutoryCode && PER_CHILD_CODES.has(type.statutoryCode)) {
+      // Balances of this type are counted per child, so an adjustment without one changes nothing.
+      throw new AppError("validation_failed", `Choose the child this ${type.name.toLowerCase()} adjustment is for.`, {
+        issues: [{ path: "childId", message: "Choose the child." }],
       });
     }
     if (input.childId) {
