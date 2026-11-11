@@ -1,13 +1,13 @@
 package crowtech.crowhr.ui
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import android.media.ExifInterface
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -90,6 +90,9 @@ object Images {
      * (receipts stay legible, uploads stay small, no EXIF such as location is sent). Slow for a
      * 12 MP photo: call it off the main thread.
      */
+    // The framework ExifInterface: its known issues are on Android versions below minSdk 29, and
+    // androidx.exifinterface would be another dependency for the Data safety audit.
+    @SuppressLint("ExifInterface")
     fun compressForUpload(file: File, maxSide: Int = 2000, quality: Int = 85): ByteArray {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, bounds)
@@ -98,7 +101,7 @@ object Images {
         val bitmap = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample })
             ?: return file.readBytes()
         val scale = minOf(1f, maxSide.toFloat() / maxOf(bitmap.width, bitmap.height))
-        val turn = upright(runCatching { ExifInterface(file.path).getAttributeInt(ExifInterface.TAG_ORIENTATION, 1) }.getOrDefault(1))
+        val turn = upright(runCatching { android.media.ExifInterface(file.path).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1) }.getOrDefault(1))
         val out = if (scale < 1f || turn.degrees != 0 || turn.mirror) {
             val matrix = Matrix().apply {
                 setScale(scale, scale)

@@ -49,7 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import crowtech.crowhr.ui.components.LocalRefresh
@@ -178,7 +179,7 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
         Hairline()
         // Wide windows (a phone on its side, tablets, unfolded foldables): a rail on the side
         // instead of a bottom bar, so the screen keeps its height for content.
-        val wide = LocalConfiguration.current.screenWidthDp >= 600
+        val wide = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() } >= 600.dp
         Row(Modifier.weight(1f).fillMaxWidth()) {
         if (wide) {
             NavigationRail(
