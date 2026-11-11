@@ -48,8 +48,10 @@ different simulator.
 
   A tour visits all its screens, then fails with every finding (`AUDIT FAIL` lines; per screen
   `AUDIT SCREEN`, per tour `AUDIT TOTAL`). Only Dynamic Type on system navigation-bar buttons, on
-  iPadOS's floating tab bar and on text under the phone's floating tab bar is excused, and logged.
-  On an iPad at regular width the tour reaches Claims, Schedule, Profile and Settings as tabs.
+  iPadOS's floating tab bar (its titles are UIKit labels the audit reports without an element) and
+  on text under the phone's floating tab bar is excused, and logged, with Settings' UI-test-only
+  list of contacted servers. On an iPad at regular width the tour reaches Claims, Schedule, Profile
+  and Settings as tabs; it is clean there too.
 - **No `List` or `Form`.** The audit reports text in SwiftUI `List` and `Form` cells as not
   supporting Dynamic Type (and clipped) although it scales. So screens are `ScrollView`s built
   from `Design/Rows.swift` (`RowsScreen`, `RowGroup`, `ChoiceRow`, `FormField`, ...). Two more
