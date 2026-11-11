@@ -339,8 +339,9 @@ final class AppModel {
     func go(to tab: MainTab) {
         guard screen == .main, let session, tab.feature.map(session.isAvailable) ?? true else { return }
         let next = TabRouting.adapt(tab: tab, morePath: [], sidebar: sidebarAvailable)
-        selectedTab = next.tab
+        // More's stack first, so the tab switch shows the screen already pushed.
         morePath = next.morePath
+        selectedTab = next.tab
     }
 
     /// Adapts the selection when the window gains or loses the sidebar (Split View, resizing).

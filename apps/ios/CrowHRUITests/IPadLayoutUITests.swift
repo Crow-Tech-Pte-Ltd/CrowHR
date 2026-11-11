@@ -173,6 +173,8 @@ final class IPadLayoutUITests: CrowUITestCase {
         // A screen chosen with the keyboard that the tab bar doesn't show opens under More.
         tapTab("Today")
         app.typeKey(",", modifierFlags: .command)
+        settle()
+        shot("\(prefix)-shortcut-settings")
         wait(app.buttons["settings.signOut"])
         settle(); shot("\(prefix)-settings")
     }
