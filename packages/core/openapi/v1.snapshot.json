@@ -2577,9 +2577,10 @@
             }
           },
           "409": {
-            "description": "Error: already_decided.",
+            "description": "Error: already_decided, conflict.",
             "x-error-codes": [
-              "already_decided"
+              "already_decided",
+              "conflict"
             ],
             "content": {
               "application/json": {

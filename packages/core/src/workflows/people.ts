@@ -56,7 +56,7 @@ export const peopleManagerResolver: ManagerResolver = {
 
 /** Work passes and probation from employee records (current employees only). */
 export const peopleDates: PeopleDates = {
-  async workPassesExpiring(db, { today, until }) {
+  async workPassesExpiring(db, { today, until, orgId }) {
     // The current pass per employee: not cancelled, latest expiry. A renewal (a new pass with a
     // later expiry) replaces the old one, so its reminders stop.
     const result = await db.execute<{
@@ -74,6 +74,7 @@ export const peopleDates: PeopleDates = {
           from work_passes wp
           join employees e on e.org_id = wp.org_id and e.id = wp.employee_id
          where wp.cancelled_on is null
+           ${orgId ? sql`and wp.org_id = ${orgId}` : sql``}
            and exists (select 1 from tenures t where t.org_id = wp.org_id and t.employee_id = wp.employee_id
                         and t.hire_date <= ${until}
                         and (t.last_working_day is null or t.last_working_day >= ${today}))
@@ -99,7 +100,7 @@ export const peopleDates: PeopleDates = {
       }),
     );
   },
-  async probationsEnding(db, { today, until }) {
+  async probationsEnding(db, { today, until, orgId }) {
     // Probation end on the record in force today; confirmed probations (a non-cancelled
     // `probation_confirmed` event in the same tenure) are left out.
     const result = await db.execute<{ org_id: string; employee_id: string; name: string; ends_on: string }>(sql`
@@ -108,6 +109,7 @@ export const peopleDates: PeopleDates = {
         from employment_records er
         join employees e on e.org_id = er.org_id and e.id = er.employee_id
        where er.probation_end is not null
+         ${orgId ? sql`and er.org_id = ${orgId}` : sql``}
          and er.probation_end <= ${until}
          and er.effective_from <= ${today}
          and (er.effective_to is null or er.effective_to > ${today})

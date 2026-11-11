@@ -136,6 +136,28 @@ describe("self-service", () => {
     expect((await client.post(`/people/me/change-requests/${pending.body.items[0].id}/cancel`)).status).toBe(204);
     expect((await hr.get("/people/inbox")).body.changeRequests).toHaveLength(0);
   });
+
+  it("cancelling a request that was approved meanwhile answers 409 and keeps it approved", async () => {
+    const me = await hireOne();
+    const client = api.as(h.orgId, [], me);
+    const sub = await client.post("/people/me/change-requests", { personal: { religion: "christianity" } });
+    const id = sub.body.items[0].id as string;
+    // The approver decides while the cancel is on its way (between its check and its write).
+    const cancel = h.ports.approvals.cancel;
+    h.ports.approvals.cancel = async (...args) => {
+      await decideChangeRequest(h.deps, h.ports, h.actor(["hr_admin"]), id, { decision: "approve" });
+      return cancel(...args);
+    };
+    try {
+      expect((await client.post(`/people/me/change-requests/${id}/cancel`)).status).toBe(409);
+    } finally {
+      h.ports.approvals.cancel = cancel;
+    }
+    const mine = await client.get("/people/me/profile");
+    expect(JSON.stringify(mine.body)).not.toContain('"cancelled"');
+    const hr = api.as(h.orgId, ["hr_admin"]);
+    expect((await hr.get(`/employees/${me}`)).body.personal.religion).toBe("christianity");
+  });
 });
 
 describe("checklists", () => {

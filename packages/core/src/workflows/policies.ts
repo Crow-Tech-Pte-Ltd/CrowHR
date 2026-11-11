@@ -15,11 +15,20 @@ import type { AnySubjectAdapter, ApproverRule, PolicyStepInput } from "./types.t
 export const DEFAULT_ESCALATE_AFTER_DAYS = 3;
 export const MAX_POLICY_STEPS = 5;
 
+const APPROVER_RULE_ERROR =
+  "Choose manager, manager's manager, a role (owner, HR admin, payroll admin) or a specific member.";
+const MEMBER_ID = /^member:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Exactly the documented pattern (case-sensitive, as in the OpenAPI document): the engine matches
+ * rules literally, so "Manager" or "ROLE:owner" would be saved and then silently never resolve.
+ */
 export const approverRuleSchema = z
   .string()
-  .regex(/^(manager|manager_of_manager|role:(owner|hr_admin|payroll_admin)|member:[0-9a-f-]{36})$/i, {
-    error: "Choose manager, manager's manager, a role (owner, HR admin, payroll admin) or a specific member.",
+  .regex(/^(manager|manager_of_manager|role:(owner|hr_admin|payroll_admin)|member:[0-9a-f-]{36})$/, {
+    error: APPROVER_RULE_ERROR,
   })
+  .refine((v) => !v.startsWith("member:") || MEMBER_ID.test(v), { error: APPROVER_RULE_ERROR })
   .transform((v) => v as ApproverRule);
 
 export const policyStepSchema = z.object({

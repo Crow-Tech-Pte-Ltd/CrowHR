@@ -17,7 +17,7 @@ import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import { csvEnum, listQuery, pageOf, toLimitOffset } from "../http/list.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
-import { retireInactiveApprovers } from "../workflows/engine.ts";
+import { retireInactiveApprovers, retireRevokedRoleTasks } from "../workflows/engine.ts";
 import { deliverInvitation, inviteMember, issueInvitation } from "./invitations.ts";
 import { ASSIGNED_ROLES, type AssignedRole } from "./matrix.ts";
 import { orgScope } from "./org-scope.ts";
@@ -464,6 +464,12 @@ export const membersModule = defineModule({
               targetId: target.id,
               meta: { role },
             });
+          // Open tasks only a removed role could decide move to whoever may decide them now.
+          await retireRevokedRoleTasks(tx, deps, auditContext(c), {
+            orgId: auth.orgId,
+            membershipId: target.id,
+            roles: removed,
+          });
         });
         return getMember(c, auth.orgId, target.id);
       },

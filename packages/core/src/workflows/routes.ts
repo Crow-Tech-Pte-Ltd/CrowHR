@@ -232,7 +232,7 @@ export const approvalsModule = defineModule({
         }),
       },
       responses: { 200: z.object({ taskId: z.uuid().nullable(), requestId: z.uuid() }) },
-      errors: ["not_found", "already_decided"],
+      errors: ["not_found", "already_decided", "conflict"],
       example: { body: { toMembershipId: "00000000-0000-7000-8000-000000000001", reason: "On leave" } },
       handler: async ({ c, deps, auth, params, body }) =>
         reassignTask(deps, actorOf(c, auth), { taskId: params.id, ...body }),

@@ -171,7 +171,11 @@ export function peopleInboxSources(deps: AppDeps): InboxSource[] {
       status: notSetUp,
       async list(db, ctx) {
         if (!ctx.roles.includes("hr_admin") && !ctx.roles.includes("owner")) return [];
-        const passes = await people.workPassesExpiring(db, { today: ctx.today, until: addDays(ctx.today, 90) });
+        const passes = await people.workPassesExpiring(db, {
+          today: ctx.today,
+          until: addDays(ctx.today, 90),
+          orgId: ctx.orgId,
+        });
         return passes
           .filter((p) => p.orgId === ctx.orgId)
           .map(
@@ -199,7 +203,11 @@ export function peopleInboxSources(deps: AppDeps): InboxSource[] {
         const hr = ctx.roles.includes("hr_admin") || ctx.roles.includes("owner");
         if (!hr && !ctx.isManager) return [];
         const ending = (
-          await people.probationsEnding(db, { today: ctx.today, until: addDays(ctx.today, PROBATION_DAYS_BEFORE) })
+          await people.probationsEnding(db, {
+            today: ctx.today,
+            until: addDays(ctx.today, PROBATION_DAYS_BEFORE),
+            orgId: ctx.orgId,
+          })
         ).filter((p) => p.orgId === ctx.orgId && daysUntil(ctx.today, p.endsOn) >= 0);
         const directory = approverDirectory(deps);
         const out: InboxItem[] = [];

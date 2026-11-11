@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { type ProfileChangeRequest, profileChangeRequests } from "../db/schema/employees.ts";
 import type { AppDeps } from "../deps.ts";
@@ -298,10 +298,25 @@ export async function cancelOwnChangeRequest(deps: AppDeps, ports: PeoplePorts, 
   if (r.status !== "pending") throw new AppError("conflict", `This request is already ${r.status}.`);
   if (r.approvalRequestId) await ports.approvals.cancel(actor.orgId, r.approvalRequestId);
   await deps.db.transaction(async (tx) => {
-    await tx
+    // Only while still pending (or just cancelled by the withdrawal above): an approval that landed
+    // meanwhile has already applied the change.
+    const [cancelled] = await tx
       .update(profileChangeRequests)
       .set({ status: "cancelled", fields: { display: (r.fields.display ?? {}) as Record<string, unknown> } })
-      .where(eq(profileChangeRequests.id, requestId));
+      .where(
+        and(eq(profileChangeRequests.id, requestId), inArray(profileChangeRequests.status, ["pending", "cancelled"])),
+      )
+      .returning({ id: profileChangeRequests.id });
+    if (!cancelled) {
+      const [now] = await tx
+        .select({ status: profileChangeRequests.status })
+        .from(profileChangeRequests)
+        .where(eq(profileChangeRequests.id, requestId));
+      throw new AppError(
+        "conflict",
+        `This request was ${now?.status ?? "decided"} meanwhile, so it can't be cancelled.`,
+      );
+    }
     await recordAudit(tx, ports, actor, {
       action: "profile_change.cancelled",
       targetType: "employee",
