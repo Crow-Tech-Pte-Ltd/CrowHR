@@ -57,10 +57,17 @@ final class QAScreenshotsUITests: CrowUITestCase {
         waitUntilLoaded()
         try check("Inbox", "\(prefix)-inbox")
 
-        tapTab("More")
-        wait(app.buttons["more.claims"])
-        try check("More", "\(prefix)-more")
-        app.buttons["more.claims"].tap()
+        // On a phone (and an iPad at compact widths) through More; on an iPad at regular width
+        // Claims, Schedule, Profile and Settings are tabs of their own (no More screen).
+        let underMore = !isPad || moreTab.waitForExistence(timeout: 2)
+        if underMore {
+            tapTab("More")
+            wait(app.buttons["more.claims"])
+            try check("More", "\(prefix)-more")
+            app.buttons["more.claims"].tap()
+        } else {
+            tapTab("Claims")
+        }
         wait(app.buttons["claims.new"])
         waitUntilLoaded()
         try check("Claims", "\(prefix)-claims")
@@ -78,20 +85,30 @@ final class QAScreenshotsUITests: CrowUITestCase {
         }
         app.navigationBars["New claim"].buttons["Cancel"].tap()
         wait(app.buttons["claims.new"])
-        app.navigationBars.buttons.firstMatch.tap()
-
-        wait(app.buttons["more.profile"])
-        if app.buttons["more.schedule"].exists {
-            app.buttons["more.schedule"].tap()
+        if underMore {
+            app.navigationBars.buttons.firstMatch.tap()
+            wait(app.buttons["more.profile"])
+            if app.buttons["more.schedule"].exists {
+                app.buttons["more.schedule"].tap()
+                waitUntilLoaded()
+                try check("My schedule", "\(prefix)-schedule")
+                app.navigationBars.buttons.firstMatch.tap()
+            }
+            wait(app.buttons["more.profile"]).tap()
+            waitUntilLoaded()
+            try check("My profile", "\(prefix)-profile")
+            app.navigationBars.buttons.firstMatch.tap()
+            wait(app.buttons["more.settings"]).tap()
+        } else {
+            // In portrait these three are in the sidebar only: `tapTab` opens it.
+            tapTab("Schedule")
             waitUntilLoaded()
             try check("My schedule", "\(prefix)-schedule")
-            app.navigationBars.buttons.firstMatch.tap()
+            tapTab("Profile")
+            waitUntilLoaded()
+            try check("My profile", "\(prefix)-profile")
+            tapTab("Settings")
         }
-        wait(app.buttons["more.profile"]).tap()
-        waitUntilLoaded()
-        try check("My profile", "\(prefix)-profile")
-        app.navigationBars.buttons.firstMatch.tap()
-        wait(app.buttons["more.settings"]).tap()
         wait(app.buttons["settings.signOut"])
         try check("Settings", "\(prefix)-settings")
         app.buttons["Font licences"].tap()
@@ -160,8 +177,11 @@ final class QAScreenshotsUITests: CrowUITestCase {
         let tabButton = app.buttons["More"].firstMatch
         let tabBarTop = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY
             : tabButton.exists ? tabButton.frame.minY - 8 : .greatestFiniteMagnitude
-        // Every navigation bar on screen: a sheet has its own above the screen behind it.
-        let navBars = app.navigationBars.allElementsBoundByIndex.map { $0.frame }
+        // Every navigation bar on screen: a sheet has its own above the screen behind it. On an
+        // iPad in portrait iPadOS's floating tab bar sits at the top, a system bar like them.
+        let topTabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'tab.' OR identifier == 'ToggleSideBar'"))
+            .allElementsBoundByIndex.map(\.frame).filter { $0.minY < 120 && $0.width > 1 }
+        let navBars = app.navigationBars.allElementsBoundByIndex.map { $0.frame } + topTabs
         let log = AuditLog()
         try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped, .dynamicType]) { issue in
             let type = switch issue.auditType {
@@ -176,8 +196,9 @@ final class QAScreenshotsUITests: CrowUITestCase {
                 return true
             }
             let frame = element.frame
-            // iOS caps navigation-bar button text by design (Large Content Viewer covers it), and
-            // the audit can't measure text scrolled under the floating tab bar. Logged, not failed;
+            // iOS caps navigation-bar and tab-bar button text by design (Large Content Viewer
+            // covers it), and the audit can't measure text scrolled under the floating tab bar.
+            // Logged, not failed;
             // clipping and missing descriptions are never excused.
             if issue.auditType == .dynamicType && (navBars.contains { $0.intersects(frame) } || frame.maxY > tabBarTop) {
                 log.excuse("\(screen): \(type) \(issue.compactDescription) — \(element.debugDescription.prefix(120))")

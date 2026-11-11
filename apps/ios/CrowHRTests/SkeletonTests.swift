@@ -38,9 +38,22 @@ struct SkeletonTests {
         ])
     }
 
-    /// 1.0.0 ships for iPhone only (project.yml TARGETED_DEVICE_FAMILY); iPad runs it in iPhone mode.
-    @Test func iPhoneOnly() {
-        #expect(info["UIDeviceFamily"] as? [Int] == [1])
+    /// 1.0.0 ships for iPhone and iPad (project.yml TARGETED_DEVICE_FAMILY '1,2'). An app can
+    /// never drop iPad once released with it.
+    @Test func iPhoneAndIPad() {
+        #expect(info["UIDeviceFamily"] as? [Int] == [1, 2])
+    }
+
+    /// iPhone stays portrait. iPad has all four orientations and no UIRequiresFullScreen, which
+    /// is what opts it into Split View, Slide Over and Stage Manager resizing. One scene only.
+    @Test func orientationsAndMultitasking() {
+        #expect(info["UISupportedInterfaceOrientations"] as? [String] == ["UIInterfaceOrientationPortrait"])
+        let pad = Set(info["UISupportedInterfaceOrientations~ipad"] as? [String] ?? [])
+        #expect(pad == ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown",
+                        "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"])
+        #expect(info["UIRequiresFullScreen"] == nil)
+        let scenes = info["UIApplicationSceneManifest"] as? [String: Any]
+        #expect(scenes?["UIApplicationSupportsMultipleScenes"] as? Bool == false)
     }
 
     /// Export compliance: HTTPS through the system's URLSession only, no own encryption.

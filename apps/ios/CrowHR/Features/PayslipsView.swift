@@ -2,34 +2,85 @@ import PDFKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Released payslips, read from the server each time (never cached on the phone).
+/// Released payslips, read from the server each time (never cached on the phone). A split view:
+/// with room (an iPad, landscape or a wide portrait) the list sits beside the selected payslip, the
+/// latest at first; on a phone, an iPad at compact widths, or a narrow area beside the iPad
+/// sidebar, it collapses to the list that pushes a payslip, as before. Rows are plain buttons, not
+/// a `List` (task 3.7): choosing one selects it and, collapsed, shows the payslip column.
 struct PayslipsView: View {
     @Environment(Session.self) private var session
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var state: LoadState<[PayslipSummary]> = .loading
+    @State private var selection: PayslipSummary.ID?
+    @State private var compactColumn: NavigationSplitViewColumn = .sidebar
+    @State private var width: CGFloat = 0
+    @ScaledMetric(relativeTo: .body) private var listWidth: CGFloat = 340
+
+    /// Room for the list and a readable payslip beside it.
+    private var sideBySide: Bool {
+        sizeClass == .regular && CrowLayout.payslipsSideBySide(width: width, accessibilityText: typeSize.isAccessibilitySize)
+    }
 
     var body: some View {
-        AsyncContent(state: $state, load: { try await (session.api.get("/api/v1/payslips") as PayslipList).items }) { items in
-            RowsScreen {
-                if items.isEmpty {
-                    EmptyStateView(title: "No payslips yet", message: "Your payslips appear here once payroll releases them.", systemImage: "doc.text")
-                        .padding(.top, 24)
-                } else {
-                    RowGroup {
-                        ForEach(items) { p in
-                            NavigationLink { PayslipDetailView(summary: p) } label: { PayslipRow(payslip: p) }
-                                .buttonStyle(.crowNavigationRow)
-                                .accessibilityIdentifier("payslip.row")
+        NavigationSplitView(columnVisibility: .constant(.all), preferredCompactColumn: $compactColumn) {
+            AsyncContent(state: $state, load: { try await (session.api.get("/api/v1/payslips") as PayslipList).items }) { items in
+                RowsScreen {
+                    if items.isEmpty {
+                        EmptyStateView(title: "No payslips yet", message: "Your payslips appear here once payroll releases them.", systemImage: "doc.text")
+                            .padding(.top, 24)
+                    } else {
+                        RowGroup {
+                            ForEach(items) { p in
+                                // Side by side, the open payslip's row is kuning-50 (the web's
+                                // selected row) and has no chevron: it opens beside, not on top.
+                                let selected = sideBySide && selection == p.id
+                                Button { open(p) } label: { PayslipRow(payslip: p) }
+                                    .buttonStyle(sideBySide ? RowButtonStyle.crowRow : RowButtonStyle.crowNavigationRow)
+                                    .background(selected ? Crow.kuningSoft : Color.clear)
+                                    .accessibilityAddTraits(selected ? .isSelected : [])
+                                    .accessibilityIdentifier("payslip.row")
+                            }
                         }
                     }
                 }
+                .refreshable {
+                    if let list: PayslipList = try? await session.api.get("/api/v1/payslips") { state = .loaded(list.items) }
+                }
             }
-            .refreshable {
-                if let list: PayslipList = try? await session.api.get("/api/v1/payslips") { state = .loaded(list.items) }
+            .crowScreen()
+            .navigationTitle("Payslips")
+            .navigationBarTitleDisplayMode(.inline)
+            // The list column stays: it is the screen's navigation, not a collapsible sidebar.
+            .toolbar(removing: .sidebarToggle)
+            .navigationSplitViewColumnWidth(min: 300, ideal: min(listWidth, 480), max: 520)
+        } detail: {
+            if let id = selection, let summary = state.value?.first(where: { $0.id == id }) {
+                PayslipDetailView(summary: summary).id(summary.id)
+            } else {
+                EmptyStateView(title: state.value?.isEmpty == false ? "Choose a payslip" : "No payslip open",
+                               message: "The payslip you choose in the list opens here.", systemImage: "doc.text")
+                    .frame(maxHeight: .infinity)
+                    .crowScreen()
             }
         }
-        .crowScreen()
-        .navigationTitle("Payslips")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationSplitViewStyle(.balanced)
+        // Too narrow for two columns: collapse as at a compact width (state and selection stay).
+        .environment(\.horizontalSizeClass, sideBySide ? sizeClass : .compact)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        // Side by side, open the latest payslip rather than an empty pane.
+        .onChange(of: state.value?.first?.id, initial: true) { _, _ in openLatestIfSideBySide() }
+        .onChange(of: sideBySide) { _, _ in openLatestIfSideBySide() }
+    }
+
+    private func open(_ p: PayslipSummary) {
+        selection = p.id
+        compactColumn = .detail
+    }
+
+    private func openLatestIfSideBySide() {
+        guard sideBySide, selection == nil, let first = state.value?.first else { return }
+        selection = first.id
     }
 }
 
@@ -106,7 +157,7 @@ struct PayslipDetailView: View {
         .crowScreen()
         .navigationTitle(Fmt.monthKey(summary.month))
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $pdf) { PayslipPDFView(pdf: $0) }
+        .sheet(item: $pdf) { PayslipPDFView(pdf: $0).presentationSizing(.page) }
     }
 
     private func earnings(_ p: PayslipDetail) -> [(String, Int)] {
@@ -186,7 +237,7 @@ struct PayslipPDFView: View {
                 .navigationTitle("Payslip")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+                    ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.keyboardShortcut(.cancelAction) }
                     ToolbarItem(placement: .primaryAction) {
                         ShareLink(item: pdf, preview: SharePreview(pdf.name)) { Label("Share", systemImage: "square.and.arrow.up") }
                     }
