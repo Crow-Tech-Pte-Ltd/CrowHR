@@ -452,6 +452,7 @@ export function GenerateDialog({
   const qc = useQueryClient();
   const templates = useQuery({ ...templatesQuery, enabled: open });
   const fields = useQuery({ ...fieldsQuery, enabled: open });
+  const cats = useQuery({ ...categoriesQuery, enabled: open });
   const active = (templates.data?.items ?? []).filter((t) => t.active);
   const [templateId, setTemplateId] = React.useState("");
   React.useEffect(() => {
@@ -464,12 +465,17 @@ export function GenerateDialog({
   const [ackRequest, setAckRequest] = React.useState(true);
   const [preview, setPreview] = React.useState<GenerateResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  // A letter filed in a category the employee can't see can't be acknowledged by them (the server refuses).
+  const targetCategory = cats.data?.items.find(
+    (c) => c.id === active.find((t) => t.id === templateId)?.targetCategoryId,
+  );
+  const hiddenFromEmployee = !!targetCategory && !targetCategory.employeeVisible;
   const body = (dryRun: boolean) => ({
     templateId,
     employeeId,
     ...(asAt ? { asAt } : {}),
     overrides: Object.fromEntries(Object.entries(overrides).filter(([, v]) => v.trim())),
-    requestAcknowledgement: ackRequest,
+    requestAcknowledgement: ackRequest && !hiddenFromEmployee,
     dryRun,
   });
   const run = useMutation({
@@ -478,7 +484,9 @@ export function GenerateDialog({
       setError(null);
       setPreview(r);
       if (!dryRun) {
-        toast.success(ackRequest ? "Letter generated and sent for acknowledgement" : "Letter generated");
+        toast.success(
+          ackRequest && !hiddenFromEmployee ? "Letter generated and sent for acknowledgement" : "Letter generated",
+        );
         await invalidateDocuments(qc);
         onOpenChange(false);
         setPreview(null);
@@ -560,9 +568,23 @@ export function GenerateDialog({
                 </Button>
               </fieldset>
             ) : null}
-            <div className="flex items-center gap-2 text-ui">
-              <Checkbox id="generate-ack" checked={ackRequest} onCheckedChange={(v) => setAckRequest(!!v)} />
-              <label htmlFor="generate-ack">Ask the employee to acknowledge it</label>
+            <div className="flex flex-col gap-1 text-ui">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="generate-ack"
+                  checked={ackRequest && !hiddenFromEmployee}
+                  disabled={hiddenFromEmployee}
+                  aria-describedby={hiddenFromEmployee ? "generate-ack-note" : undefined}
+                  onCheckedChange={(v) => setAckRequest(!!v)}
+                />
+                <label htmlFor="generate-ack">Ask the employee to acknowledge it</label>
+              </div>
+              {hiddenFromEmployee ? (
+                <p id="generate-ack-note" className="text-2xs text-primary-300">
+                  This template files into {targetCategory?.name}, which employees can't see, so they can't acknowledge
+                  it. Change who sees that category in Settings → Documents.
+                </p>
+              ) : null}
             </div>
             {error ? (
               <p role="alert" className="text-ui text-danger-300">
