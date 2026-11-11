@@ -170,10 +170,10 @@ export function OutOfOfficeDialog({
           </FormField>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="First day away" error={errors.startsOn}>
-              <DatePicker value={startsOn} onChange={setStartsOn} />
+              <DatePicker value={startsOn} onChange={setStartsOn} min={today} />
             </FormField>
             <FormField label="Last day away" error={errors.endsOn} hint="Both days included.">
-              <DatePicker value={endsOn} onChange={setEndsOn} />
+              <DatePicker value={endsOn} onChange={setEndsOn} min={startsOn ?? today} />
             </FormField>
           </div>
           {errors.form ? (

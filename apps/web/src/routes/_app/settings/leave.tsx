@@ -817,7 +817,7 @@ function GovernmentPaid() {
             <DatePicker value={from} onChange={setFrom} className="w-36" />
           </FormField>
           <FormField label="To">
-            <DatePicker value={to} onChange={setTo} className="w-36" />
+            <DatePicker value={to} onChange={setTo} min={from} className="w-36" />
           </FormField>
           <Button asChild disabled={!ok}>
             <a href={ok ? governmentPaidCsvHref(from, to) : undefined} download>
