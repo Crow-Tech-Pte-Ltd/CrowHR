@@ -8,6 +8,10 @@
                                   upload a signed AAB and put it on the INTERNAL track as a DRAFT
                                   release (not rolled out to anyone). Called by
                                   scripts/android-release.sh internal; never targets production.
+  upload-production-draft AAB --expected-version-code N [--expected-sha256 HEX]
+                                  upload a signed AAB and put it on the PRODUCTION track as a DRAFT
+                                  release with en-GB release notes. Nothing is sent for review:
+                                  that, and the App content forms, stay in Play Console.
 
 Auth: the maintainers' Play publisher service account, through a Google credentials file
 (CROWHR_PLAY_CREDENTIALS, else GOOGLE_APPLICATION_CREDENTIALS, else gcloud's application default
@@ -130,9 +134,14 @@ def listing(s, edit):
     return True
 
 
-def upload_internal_draft(s, edit, aab: Path, version_code: int):
+RELEASE_NOTES = {"production": "First release: payslips, leave, clock-in with an offline queue, claims with receipt photos, your schedule and manager approvals, from your company's own Crow HR server."}
+
+
+def upload_draft(s, edit, aab: Path, version_code: int, track: str, expected_sha256: str | None = None):
     if not BUNDLETOOL or not Path(BUNDLETOOL).is_file():
         raise PlayError("Set CROWHR_BUNDLETOOL_JAR to bundletool-all-<version>.jar. Nothing uploaded.")
+    if expected_sha256 and sha256(aab) != expected_sha256.lower():
+        raise PlayError(f"The bundle's SHA-256 is {sha256(aab)}, not {expected_sha256}. Nothing uploaded.")
     manifest = ET.fromstring(
         subprocess.run([JAVA, "-jar", BUNDLETOOL, "dump", "manifest", f"--bundle={aab}", "--module=base"], check=True, capture_output=True, text=True).stdout
     )
@@ -145,27 +154,27 @@ def upload_internal_draft(s, edit, aab: Path, version_code: int):
     bundle = call(s, "POST", f"{UPLOAD}/edits/{edit_id}/bundles", params={"uploadType": "media"}, data=aab.read_bytes(), headers={"Content-Type": "application/octet-stream"})
     if int(bundle["versionCode"]) != version_code:
         raise PlayError("Google Play reports a different versionCode; the edit is discarded.")
-    call(
-        s,
-        "PUT",
-        f"{edit}/tracks/internal",
-        json={"track": "internal", "releases": [{"name": f"{version_code}", "versionCodes": [str(version_code)], "status": "draft"}]},
-    )
+    release = {"name": f"{version_code} ({manifest.get('{http://schemas.android.com/apk/res/android}versionName')})" if track == "production" else f"{version_code}",
+               "versionCodes": [str(version_code)], "status": "draft"}
+    if track in RELEASE_NOTES:
+        release["releaseNotes"] = [{"language": LANG, "text": RELEASE_NOTES[track]}]
+    call(s, "PUT", f"{edit}/tracks/{track}", json={"track": track, "releases": [release]})
     receipt(
-        f"internal-draft-{version_code}.json",
-        {"packageName": PACKAGE, "track": "internal", "status": "draft", "versionCode": version_code, "aabSha256": sha256(aab), "playSha256": bundle.get("sha256")},
+        f"{track}-draft-{version_code}.json",
+        {"packageName": PACKAGE, "track": track, "status": "draft", "versionCode": version_code, "aabSha256": sha256(aab), "playSha256": bundle.get("sha256")},
     )
     return True
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["status", "listing", "upload-internal-draft"])
+    parser.add_argument("command", choices=["status", "listing", "upload-internal-draft", "upload-production-draft"])
     parser.add_argument("aab", nargs="?", type=Path)
     parser.add_argument("--expected-version-code", type=int)
+    parser.add_argument("--expected-sha256")
     args = parser.parse_args()
-    if args.command == "upload-internal-draft" and not (args.aab and args.aab.is_file() and args.expected_version_code):
-        parser.error("upload-internal-draft needs an existing AAB and --expected-version-code")
+    if args.command.startswith("upload-") and not (args.aab and args.aab.is_file() and args.expected_version_code):
+        parser.error(f"{args.command} needs an existing AAB and --expected-version-code")
     try:
         s = session()
         edit = f"{BASE}/edits/{call(s, 'POST', f'{BASE}/edits', json={})['id']}"
@@ -178,7 +187,8 @@ def main():
         elif args.command == "listing":
             changed = listing(s, edit)
         else:
-            changed = upload_internal_draft(s, edit, args.aab, args.expected_version_code)
+            track = "internal" if args.command == "upload-internal-draft" else "production"
+            changed = upload_draft(s, edit, args.aab, args.expected_version_code, track, args.expected_sha256)
         if changed:
             call(s, "POST", f"{edit}:commit")
             committed = True

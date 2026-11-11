@@ -75,10 +75,12 @@ to production are done in Play Console, not by a script.
   builds and verifies the same signed AAB for a production release (the record must say
   "Approved by Daniel", name the package and "versionCode N") and copies it into `DIR` as well.
   It never uploads; `--upload` is refused for production.
-- `scripts/android-play.py status` (read-only) and `listing` (store listing, icon, feature
-  graphic and phone screenshots from `store/listing.json`) use the maintainers' Play publisher
-  service account (`CROWHR_PLAY_CREDENTIALS`, a Google credentials file) and the `google-auth`
-  Python package.
+- `scripts/android-play.py status` (read-only), `listing` (store listing, icon, feature
+  graphic and phone screenshots from `store/listing.json`) and
+  `upload-production-draft AAB --expected-version-code N [--expected-sha256 HEX]` (puts a verified
+  AAB on the **production** track as a **draft** release with release notes; it never sends
+  anything for review) use the maintainers' Play publisher service account
+  (`CROWHR_PLAY_CREDENTIALS`, a Google credentials file) and the `google-auth` Python package.
 - Store screenshots: `scripts/android-qa.sh store-shots` (1080 x 1920, demo-mode status bar,
   real app against the fictional test server). With the e2e seed only four screens look right
   (clock, leave request, approvals, new claim); better ones need a curated demo employee.
@@ -111,10 +113,19 @@ to production are done in Play Console, not by a script.
     asked for the organisation ID, `kopi-kaki` showed "Kopi Kaki" to confirm, and Sign in opened
     the server's sign-in page in a Custom Tab. It stopped there, without signing in
     (`artifacts/android/screenshots/release-1.0.0-reviewer-connect/`).
-- **Not done (Play Console, by hand):** uploading the 1.0.0 AAB, the production release and
-  sending it for review, and the app content forms (content rating, target audience, data
-  safety, ads, app access for reviewers). The scripted upload (`android-play.py`) still needs the
-  Play publisher login renewed.
+- **Uploaded 11 Nov 2026:** `android-play.py listing` set the en-GB listing, icon, feature graphic
+  and the four screenshots (receipt `store/receipts/listing.json`), and
+  `android-play.py upload-production-draft` put versionCode 2 on the production track as a draft
+  release "2 (1.0.0)"; Google Play reported the same SHA-256 as the verified AAB (receipt
+  `store/receipts/production-draft-2.json`). In Play Console: privacy policy URL, ads (none),
+  advertising ID (not used), government app (no), financial features (none), health features
+  (none), trader status (applies) and the content rating (IARC: Everyone / PEGI 3 / 3+, interactive
+  element "Shares Location", because a punch's location is visible to HR when the company turns
+  location on). Data safety is saved as a draft declaring no data collected or shared (the app
+  sends data only to the user's own company's server; Crow Tech receives nothing).
+- **Not done yet (Play Console):** app access (sign-in details for reviewers), target audience,
+  submitting data safety (it needs the target audience), and sending the production release for
+  review.
 
 ## Real browser sign-in (verified on the emulator, 7 Nov 2026)
 
