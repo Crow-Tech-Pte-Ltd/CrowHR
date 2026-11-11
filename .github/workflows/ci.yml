@@ -180,7 +180,9 @@ jobs:
       - name: Migration lock and backup/restore against real Postgres
         env:
           CROWHR_TEST_POSTGRES_URL: postgres://crowhr:crowhr@localhost:5432/crowhr_lock_test
-        run: bunx vitest run apps/server/src/migrate/migrate.test.ts apps/server/src/backup/restore.test.ts
+        # One file at a time: both reset and migrate the same disposable database, and running
+        # them in parallel let one drop the schema while the other migrated (a deadlock, 11 Nov 2026).
+        run: bunx vitest run --no-file-parallelism apps/server/src/migrate/migrate.test.ts apps/server/src/backup/restore.test.ts
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
       - name: Build image, docker compose install, setup wizard, backup, restore, Caddy, nginx, Traefik
