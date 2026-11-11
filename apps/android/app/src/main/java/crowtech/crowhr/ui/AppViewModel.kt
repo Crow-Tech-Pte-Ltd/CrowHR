@@ -19,7 +19,8 @@ import kotlinx.coroutines.launch
 sealed interface RootScreen {
     /** First run, or adding another connection ([returnTo] = where Cancel goes). */
     data class Connect(val returnTo: SavedConnection? = null) : RootScreen
-    data class SignIn(val connection: SavedConnection, val message: String? = null, val busy: Boolean = false) : RootScreen
+    /** [busy]: the browser is open; [finishing]: it came back and the code is being exchanged. */
+    data class SignIn(val connection: SavedConnection, val message: String? = null, val busy: Boolean = false, val finishing: Boolean = false) : RootScreen
     data class Main(val connection: SavedConnection, val me: Me? = null) : RootScreen
 }
 
@@ -93,10 +94,15 @@ class AppViewModel(private val graph: AppGraph) : ViewModel() {
         }
     }
 
-    /** The user came back from the browser without finishing. */
+    /**
+     * The app is in front again. A sign-in redirect arrives before this (onNewIntent comes before
+     * onResume), so still waiting here means the browser was closed without finishing: show
+     * Sign in again instead of a spinner that only Cancel would stop. The pending sign-in is
+     * kept, so a late redirect from that browser still completes.
+     */
     fun onResumed() {
         val screen = root.value as? RootScreen.SignIn ?: return
-        if (screen.busy && graph.nativeAuth.pending() == null) _root.value = screen.copy(busy = false)
+        if (screen.busy && !screen.finishing) _root.value = screen.copy(busy = false)
     }
 
     fun stopWaiting() {
@@ -105,6 +111,7 @@ class AppViewModel(private val graph: AppGraph) : ViewModel() {
     }
 
     fun onRedirect(uri: String) {
+        (root.value as? RootScreen.SignIn)?.let { _root.value = it.copy(message = null, busy = true, finishing = true) }
         viewModelScope.launch {
             when (val result = graph.nativeAuth.complete(uri) { key -> graph.connections.all().firstOrNull { it.key == key } }) {
                 is SignInResult.Success -> {
@@ -113,9 +120,14 @@ class AppViewModel(private val graph: AppGraph) : ViewModel() {
                     _root.value = RootScreen.Main(connection)
                     onSignedIn(connection)
                 }
-                is SignInResult.Failed -> {
-                    val connection = (root.value as? RootScreen.SignIn)?.connection ?: graph.connections.active()
-                    if (connection != null) _root.value = RootScreen.SignIn(connection, result.message)
+                is SignInResult.Failed -> when (val current = root.value) {
+                    is RootScreen.SignIn -> _root.value = RootScreen.SignIn(current.connection, result.message)
+                    // A stale or repeated redirect (Back in the browser, a second tap) while
+                    // already signed in: the session is fine, so stay where the user is.
+                    is RootScreen.Main -> Unit
+                    is RootScreen.Connect -> graph.connections.active()
+                        ?.takeUnless { graph.isSignedIn(it) }
+                        ?.let { _root.value = RootScreen.SignIn(it, result.message) }
                 }
             }
         }

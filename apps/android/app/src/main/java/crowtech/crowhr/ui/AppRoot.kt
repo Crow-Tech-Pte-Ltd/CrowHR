@@ -25,6 +25,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import crowtech.crowhr.AppGraph
@@ -120,14 +123,18 @@ private fun SignInScreen(
         if (pendingPunches > 0) {
             Notice("$pendingPunches clock-in${if (pendingPunches == 1) " is" else "s are"} saved on this phone and will be sent after you sign in.", Tone.Accent)
         }
-        screen.message?.let { Notice(it, Tone.Neutral) }
+        screen.message?.let { Notice(it, Tone.Neutral, Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         PrimaryButton(
-            if (screen.busy) "Waiting for the browser…" else "Sign in",
+            when {
+                screen.finishing -> "Signing in…"
+                screen.busy -> "Waiting for the browser…"
+                else -> "Sign in"
+            },
             { onSignIn(context) },
             Modifier.fillMaxWidth().testTag("sign-in"),
             loading = screen.busy,
         )
-        if (screen.busy) SecondaryButton("Cancel", onStopWaiting, Modifier.fillMaxWidth())
+        if (screen.busy && !screen.finishing) SecondaryButton("Cancel", onStopWaiting, Modifier.fillMaxWidth())
         if (others.isNotEmpty()) Label("Other connections", Modifier.padding(top = 8.dp))
         others.forEach { other -> SecondaryButton("Switch to ${other.displayName}", { onSwitch(other) }, Modifier.fillMaxWidth()) }
         LinkButton("Add another connection", onAdd)
