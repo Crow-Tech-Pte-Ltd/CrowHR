@@ -50,11 +50,12 @@ function MfaBanner() {
       <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <AlertTitle>Set up two-step verification by {formatDate(me.mfa.graceEndsAt.slice(0, 10))}</AlertTitle>
-          <AlertDescription>
+          {/* The full reason on wider screens; on a phone the banner would push each page down a third. */}
+          <AlertDescription className="hidden sm:block">
             Your role requires an authenticator app. After that date you won't be able to use Crow HR until it's set up.
           </AlertDescription>
         </div>
-        <Button asChild size="sm" variant="primary">
+        <Button asChild size="sm" variant="primary" className="self-start sm:self-auto">
           <Link to="/me/sessions" search={{ enrol: "1" }}>
             Set up now
           </Link>

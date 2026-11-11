@@ -146,7 +146,7 @@ function Parameters({ data, search, onChange }: { data: ReportResult; search: Se
                 type="month"
                 value={value}
                 onChange={(e) => onChange({ [f.key]: e.target.value })}
-                className="num w-40"
+                className="num w-48"
               />
             ) : (
               <Select value={value} onValueChange={(v) => onChange({ [f.key]: v })}>
