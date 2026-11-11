@@ -339,9 +339,13 @@ function SetupCard({ items }: { items: InboxItem[] }) {
       </CardHeader>
       <ol className="divide-y divide-border border-t border-border">
         {items.map((item) => (
-          <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+          // On a phone the pill and button go under the title, which would otherwise be cut to a few letters.
+          <li
+            key={item.id}
+            className="flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+          >
             <div className="min-w-0">
-              <p className="truncate font-medium leading-5">{item.title}</p>
+              <p className="font-medium leading-5 sm:truncate">{item.title}</p>
               {item.detail ? <p className="truncate text-2xs text-primary-300">{item.detail}</p> : null}
             </div>
             <Button size="sm" variant="secondary" asChild>
@@ -362,9 +366,13 @@ function OtherCard({ items, today }: { items: InboxItem[]; today: string }) {
       </CardHeader>
       <ul className="divide-y divide-border border-t border-border">
         {items.map((item) => (
-          <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+          // On a phone the pill and button go under the title, which would otherwise be cut to a few letters.
+          <li
+            key={item.id}
+            className="flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+          >
             <div className="min-w-0">
-              <p className="truncate font-medium leading-5">{item.title}</p>
+              <p className="font-medium leading-5 sm:truncate">{item.title}</p>
               {item.concerns || item.detail ? (
                 <p className="truncate text-2xs text-primary-300">
                   {[item.concerns, item.detail].filter(Boolean).join(" · ")}
@@ -393,9 +401,12 @@ function PayrollCard({ items, status, today }: { items: InboxItem[]; status: str
       {items.length > 0 ? (
         <ul className="divide-y divide-border border-t border-border">
           {items.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <li
+              key={item.id}
+              className="flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+            >
               <div className="min-w-0">
-                <p className="truncate font-medium leading-5">{item.title}</p>
+                <p className="font-medium leading-5 sm:truncate">{item.title}</p>
                 {item.detail ? <p className="truncate text-2xs text-primary-300">{item.detail}</p> : null}
               </div>
               <div className="flex shrink-0 items-center gap-2">
