@@ -1,5 +1,5 @@
 import type { CpfAwPayment, CpfResidency, CpfYearToDate, WorkPattern } from "@crowhr/sg-rules";
-import { and, eq, gte, inArray, isNull, lte, ne, or } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import {
   allowanceTypes,
   compensationRecords,
@@ -308,8 +308,13 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
         isNull(payrollRuns.supersededByRunId),
         gte(payrollRuns.month, `${Number(year) - 1}-01`),
         ne(payrollRuns.id, run.id),
+        // Only payslips that recorded an AW top-up (few): loading every result JSON of two years
+        // made each compute and submit grow with the payroll history.
+        sql`jsonb_typeof(${payrollPayslips.result}->'awTopUp') = 'object'`,
       ),
     );
+  const topUpsBy = new Map<string, typeof topUps>();
+  for (const u of topUps) topUpsBy.set(u.employeeId, [...(topUpsBy.get(u.employeeId) ?? []), u]);
   const openings = await db
     .select()
     .from(ytdOpeningBalances)
@@ -690,7 +695,7 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
       cpfStateBefore,
       cpfStateSource,
       monthBefore,
-      awRecoveryOpen: awLots(topUps.filter((u) => u.employeeId === id && u.month <= run.month)),
+      awRecoveryOpen: awLots((topUpsBy.get(id) ?? []).filter((u) => u.month <= run.month)),
       fwl:
         settings?.fwlSector && settings.fwlTier
           ? { sector: settings.fwlSector, tier: settings.fwlTier, skill: settings.fwlSkill ?? null }

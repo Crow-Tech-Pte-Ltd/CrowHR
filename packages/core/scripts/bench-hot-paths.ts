@@ -285,4 +285,50 @@ await measure(
   hrC,
   "/api/v1/reports/attendance.exceptions?from=2026-10-26&to=2026-10-30",
 );
+// BENCH_PAYROLL=1: the October regular run for everyone (create, compute twice, submit), one shot each.
+if (process.env.BENCH_PAYROLL === "1") {
+  const once = async (label: string, run: () => Promise<Response>) => {
+    queries = 0;
+    tracing = true;
+    const t0 = performance.now();
+    const res = await run();
+    const ms = performance.now() - t0;
+    tracing = false;
+    const body = await res.text();
+    out(
+      `${label.padEnd(44)} ${String(res.status).padEnd(4)} ${ms.toFixed(0).padStart(6)} ms ${String(queries).padStart(6)} queries`,
+    );
+    if (res.status >= 400) out(`  ${body.slice(0, 300)}`);
+    return body ? (JSON.parse(body) as { id?: string }) : {};
+  };
+  const run = await once("POST /payroll/runs (owner)", () =>
+    ownerC.post("/api/v1/payroll/runs", { kind: "regular", month: "2026-10", payDate: "2026-10-30" }),
+  );
+  await once("POST /payroll/runs/:id/compute (first)", () => ownerC.post(`/api/v1/payroll/runs/${run.id}/compute`));
+  // BENCH_PAYROLL_HISTORY=<months>: earlier paid regular runs, cloned raw from October's payslips
+  // (figures are not meaningful; only the volume of payroll history is).
+  const months = Number(process.env.BENCH_PAYROLL_HISTORY ?? 0);
+  for (let i = 1; i <= months; i++) {
+    const d = new Date(Date.UTC(2026, 9 - i, 1));
+    const month = d.toISOString().slice(0, 7);
+    const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+    await t.pglite.query(
+      `with r as (
+         insert into payroll_runs (id, org_id, kind, month, period_start, period_end, pay_date, status)
+         values (gen_random_uuid(), $1::uuid, 'regular', $2, $3::date, $4::date, $4::date, 'paid') returning id)
+       insert into payroll_payslips (id, org_id, run_id, employee_id, employee_number, employee_name, input, input_hash,
+              result, result_hash, gross_cents, net_cents, net_payable_cents, cpf_employee_cents, cpf_employer_cents,
+              blocking_count, warning_count)
+       select gen_random_uuid(), p.org_id, r.id, p.employee_id, p.employee_number, p.employee_name, p.input, p.input_hash,
+              p.result, p.result_hash, p.gross_cents, p.net_cents, p.net_payable_cents, p.cpf_employee_cents,
+              p.cpf_employer_cents, p.blocking_count, p.warning_count
+         from payroll_payslips p, r where p.run_id = $5::uuid`,
+      [h.orgId, month, `${month}-01`, end, run.id],
+    );
+  }
+  if (months) await t.pglite.exec("analyze");
+  await once("POST /payroll/runs/:id/compute (again)", () => ownerC.post(`/api/v1/payroll/runs/${run.id}/compute`));
+  await once("GET /payroll/runs/:id", () => ownerC.get(`/api/v1/payroll/runs/${run.id}`));
+  await once("POST /payroll/runs/:id/submit", () => ownerC.post(`/api/v1/payroll/runs/${run.id}/submit`));
+}
 await t.close();
