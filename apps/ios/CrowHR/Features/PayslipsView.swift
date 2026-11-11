@@ -78,9 +78,12 @@ struct PayslipsView: View {
         compactColumn = .detail
     }
 
+    /// Opens it exactly as choosing it does: with the payslip column also the one shown when
+    /// collapsed. Selected alone, the payslip column was audited as not supporting Dynamic Type
+    /// until a row was tapped.
     private func openLatestIfSideBySide() {
         guard sideBySide, selection == nil, let first = state.value?.first else { return }
-        selection = first.id
+        open(first)
     }
 }
 
