@@ -1,11 +1,21 @@
 import SwiftUI
 
+/// The tab bar on a phone: Today, Leave, Pay, Inbox and More. On an iPad (regular width) a sidebar
+/// in landscape and iPadOS's floating tab bar in portrait (`sidebarAdaptable`; the user can switch),
+/// with no More: the sidebar lists every screen, and the floating bar (which fits about six) the
+/// main ones, Claims included, with its sidebar button for Schedule, Profile and Settings. At
+/// compact widths (Split View, Slide Over, a narrow window) the iPad shows the phone's tabs, and a
+/// screen only the wide layout lists moves under More (`TabRouting`). The tab set follows the width
+/// class rather than `defaultVisibility(_:for:)`, which iPadOS 27's floating tab bar doesn't apply
+/// without tab customization.
 struct MainTabView: View {
     @Environment(AppModel.self) private var model
     @Environment(Session.self) private var session
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         @Bindable var model = model
+        let sidebar = sizeClass == .regular
         TabView(selection: $model.selectedTab) {
             Tab("Today", systemImage: "clock", value: MainTab.today) {
                 NavigationStack { TodayView() }
@@ -18,8 +28,9 @@ struct MainTabView: View {
                 .accessibilityIdentifier("tab.leave")
             }
             if session.isAvailable(.payslips) {
-                Tab("Pay", systemImage: "doc.text", value: MainTab.pay) {
-                    NavigationStack { PayslipsView() }
+                // A split view (list beside detail on an iPad) holds its own navigation stacks.
+                Tab(sidebar ? "Payslips" : "Pay", systemImage: "doc.text", value: MainTab.pay) {
+                    PayslipsView()
                 }
                 .accessibilityIdentifier("tab.pay")
             }
@@ -27,12 +38,99 @@ struct MainTabView: View {
                 NavigationStack { InboxView() }
             }
             .accessibilityIdentifier("tab.inbox")
-            Tab("More", systemImage: "ellipsis", value: MainTab.more) {
-                NavigationStack { MoreView() }
+            if sidebar {
+                // iPad, regular width: More's screens are tabs of their own.
+                if session.isAvailable(.claims) {
+                    Tab("Claims", systemImage: "receipt", value: MainTab.claims) {
+                        NavigationStack { ClaimsView() }
+                    }
+                    .accessibilityIdentifier("tab.claims")
+                }
+                if session.isAvailable(.schedule) {
+                    Tab("Schedule", systemImage: "calendar.day.timeline.left", value: MainTab.schedule) {
+                        NavigationStack { ScheduleView() }
+                    }
+                    .tabPlacement(.sidebarOnly)
+                    .accessibilityIdentifier("tab.schedule")
+                }
+                Tab("Profile", systemImage: "person", value: MainTab.profile) {
+                    NavigationStack { ProfileView() }
+                }
+                .tabPlacement(.sidebarOnly)
+                .accessibilityIdentifier("tab.profile")
+                Tab("Settings", systemImage: "gearshape", value: MainTab.settings) {
+                    NavigationStack { SettingsView() }
+                }
+                .tabPlacement(.sidebarOnly)
+                .accessibilityIdentifier("tab.settings")
+            } else {
+                // Phone, and iPad at compact widths.
+                Tab("More", systemImage: "ellipsis", value: MainTab.more) {
+                    NavigationStack(path: $model.morePath) { MoreView() }
+                }
+                .accessibilityIdentifier("tab.more")
             }
-            .accessibilityIdentifier("tab.more")
         }
+        .tabViewStyle(.sidebarAdaptable)
+        // iPad: the sidebar where it fits (landscape), rather than the floating tab bar. No
+        // effect on a phone.
+        .defaultTabBarPlacement(.sidebar)
+        // The header is hosted outside this view's environment: pass the session in.
+        .tabViewSidebarHeader { SidebarHeader(session: session) }
         .tint(Crow.ink)
+        .background { GoShortcuts(model: model) }
+        .onAppear { model.sidebarChanged(sidebar) }
+        .onChange(of: sidebar) { _, available in model.sidebarChanged(available) }
+    }
+}
+
+/// Hardware-keyboard shortcuts to the main screens (an iPad's keyboard; hold Command to list them):
+/// invisible buttons in the main view, so they work wherever the signed-in app has focus.
+/// `AppModel.go(to:)` ignores a screen the server doesn't offer, and opens a screen the tab bar
+/// doesn't show under More.
+struct GoShortcuts: View {
+    let model: AppModel
+
+    static let items: [(title: String, key: KeyEquivalent, tab: MainTab)] = [
+        ("Today", "1", .today), ("Leave", "2", .leave), ("Payslips", "3", .pay), ("Inbox", "4", .inbox),
+        ("Claims", "5", .claims), ("Schedule", "6", .schedule), ("My profile", "7", .profile), ("Settings", "8", .settings),
+    ]
+
+    var body: some View {
+        ZStack {
+            ForEach(Self.items.indices, id: \.self) { i in
+                let item = Self.items[i]
+                Button(item.title) { model.go(to: item.tab) }
+                    .keyboardShortcut(item.key, modifiers: .command)
+            }
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Top of the iPad sidebar: the brand chip, the organisation and who is signed in.
+struct SidebarHeader: View {
+    let session: Session
+
+    var body: some View {
+        HStack(spacing: 12) {
+            CrowMark(size: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(session.connection.orgName)
+                    .font(CrowFont.mono(.subheadline, weight: .semibold))
+                    .foregroundStyle(Crow.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let name = session.me?.user.displayName {
+                    Text(name).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("sidebar.header")
     }
 }
 
@@ -45,24 +143,40 @@ struct TodayView: View {
     @State private var message: (String, Tone)?
     @State private var location = LocationProvider()
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var width: CGFloat = 0
+
     var body: some View {
+        // A wide iPad puts the next shifts beside the clock card. One `AnyLayout` for both, so
+        // rotating or resizing keeps each part's state.
+        let wide = CrowLayout.todayIsWide(width: width, accessibilityText: typeSize.isAccessibilitySize)
+        let columns = wide ? AnyLayout(HStackLayout(alignment: .top, spacing: 28)) : AnyLayout(VStackLayout(alignment: .leading, spacing: 20))
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text(greeting)
                     .font(CrowFont.mono(.title2, weight: .semibold))
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("today.greeting")
-                if session.isAvailable(.clock) {
-                    clockCard
-                    phonePunches
-                }
-                if session.isAvailable(.schedule) {
-                    UpcomingShifts()
+                columns {
+                    if session.isAvailable(.clock) {
+                        VStack(alignment: .leading, spacing: 20) {
+                            clockCard
+                            phonePunches
+                        }
+                        .frame(maxWidth: wide ? .infinity : nil, alignment: .topLeading)
+                    }
+                    if session.isAvailable(.schedule) {
+                        UpcomingShifts(limit: wide ? 6 : 3)
+                            .frame(maxWidth: wide ? .infinity : nil, alignment: .topLeading)
+                    }
                 }
             }
+            // The column's own width (inside margins and safe areas, such as the iPad sidebar).
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
             .padding(20)
         }
-        .crowScreen()
+        .crowScreen(maxWidth: CrowLayout.wideWidth)
         .navigationTitle("Today")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await reload() }
@@ -138,9 +252,10 @@ struct TodayView: View {
         let shown = (attention + recent).sorted { $0.deviceTime > $1.deviceTime }
         if !shown.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
+                // Stacked at accessibility sizes, so "Send now" never breaks mid-word.
+                AdaptiveRow {
                     SectionLabel("On this phone")
-                    Spacer()
+                } trailing: {
                     if session.punches.contains(where: \.isPending) {
                         Button("Send now") { Task { await session.drainPunches(force: true); await reload() } }
                             .font(CrowFont.mono(.footnote, weight: .medium))
@@ -251,19 +366,22 @@ struct PunchRow: View {
 struct UpcomingShifts: View {
     @Environment(Session.self) private var session
     @State private var state: LoadState<ScheduleMe> = .loading
+    /// Three on a phone; more beside the clock card on a wide iPad.
+    var limit = 3
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            // Stacked at accessibility sizes: beside the label, "Schedule" broke mid-word at XXXL.
+            AdaptiveRow {
                 SectionLabel("Next shifts")
-                Spacer()
+            } trailing: {
                 NavigationLink("Schedule") { ScheduleView() }.font(CrowFont.mono(.footnote, weight: .medium))
             }
             switch state {
             case .loading: ProgressView()
             case .failed(let e): Text(e.message).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
             case .loaded(let s):
-                let next = s.shifts.filter { $0.kind == "shift" }.prefix(3)
+                let next = s.shifts.filter { $0.kind == "shift" }.prefix(limit)
                 if next.isEmpty {
                     Text("No shifts in the next two weeks.").font(CrowFont.body(.subheadline)).foregroundStyle(Crow.muted)
                 } else {

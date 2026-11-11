@@ -78,6 +78,9 @@ struct RootView: View {
                 }
             }
             .tint(Crow.biru)
+            #if DEBUG
+            .modifier(SimulatedSplitView(width: model.env.simulatedWidth))
+            #endif
             if model.locked {
                 LockView()
             } else if scenePhase != .active {

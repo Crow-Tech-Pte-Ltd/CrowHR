@@ -14,8 +14,8 @@
 # `production` refuses unless the record's scope is `production` and its build is this build;
 # `internal` accepts either scope. Uploads never target external TestFlight groups.
 #
-# Both commands run, all on the release Mac over SSH: sync, unit tests and the user-flow UI tests,
-# an unsigned Release archive (scripts/ios-archive-on-mac.sh), an Apple cloud-signed export with
+# Both commands run, all on the release Mac over SSH: sync, unit tests and the user-flow UI tests
+# on an iPhone and an iPad simulator (the app is for both), an unsigned Release archive (scripts/ios-archive-on-mac.sh), an Apple cloud-signed export with
 # IPA checks (scripts/ios-export-on-mac.sh, scripts/ios-verify-ipa.py), then
 # `altool --validate-app` and `altool --upload-app`. `internal` exports with "TestFlight internal
 # testing only" set, so that build can never reach external testers or App Review. `production`
@@ -27,7 +27,8 @@
 # is saved as apps/ios/store/build<n>-verification.json.
 #
 # A real run needs, in the environment here: CROWHR_MAC_HOST (SSH host of the release Mac),
-# CROWHR_SIM_UDID (the Crow HR simulator on it), APPLE_KEY_ID and APPLE_ISSUER_ID (the App Store
+# CROWHR_SIM_UDID and CROWHR_IPAD_SIM_UDID (the Crow HR iPhone and iPad simulators on it; see
+# apps/ios/README.md), APPLE_KEY_ID and APPLE_ISSUER_ID (the App Store
 # Connect API key) and APPLE_SIGNING_SECRET_DIR (the directory on the Mac with AuthKey_<key id>.p8
 # and the build keychain; see scripts/ios-export-on-mac.sh). Optional: CROWHR_MAC_DIR (checkout on
 # the Mac, default ~/Developer/crowhr-ios) and DEVELOPER_DIR (Xcode on the Mac, default
@@ -88,21 +89,21 @@ fi
 echo "Approval OK: $COMMAND of Crow HR iOS $VERSION${BUILD:+ ($BUILD)} ($APPROVAL)."
 PLAN=(
   "sync apps/ios to the release Mac (scripts/ios-sync.sh)"
-  "run unit tests and the user-flow UI tests on the Mac (scripts/ios-mac-test.sh, scripts/ios-ui-test.sh)"
+  "run unit tests, then the user-flow UI tests on an iPhone and an iPad simulator, on the Mac (scripts/ios-mac-test.sh, scripts/ios-ui-test.sh)"
 )
 PLAN+=("archive Release unsigned with build ${BUILD:-<CROWHR_BUILD_NUMBER>} on the Mac (scripts/ios-archive-on-mac.sh)")
 if [[ "$COMMAND" == internal ]]; then
   INTERNAL_ONLY=1
   SCOPE_LABEL=internal
   PLAN+=(
-    "cloud-sign and export an internal-only IPA, verify bundle id crowtech.crowhr, team and entitlements (scripts/ios-export-on-mac.sh)"
+    "cloud-sign and export an internal-only IPA, verify bundle id crowtech.crowhr, iPhone and iPad (device family 1,2), team and entitlements (scripts/ios-export-on-mac.sh)"
     "validate, then upload to App Store Connect for the INTERNAL TestFlight group only (altool)"
   )
 else
   INTERNAL_ONLY=0
   SCOPE_LABEL=app-store
   PLAN+=(
-    "cloud-sign and export for App Store distribution (not internal-only), verify bundle id crowtech.crowhr, team, entitlements and export compliance (scripts/ios-export-on-mac.sh)"
+    "cloud-sign and export for App Store distribution (not internal-only), verify bundle id crowtech.crowhr, iPhone and iPad (device family 1,2), team, entitlements and export compliance (scripts/ios-export-on-mac.sh)"
     "validate, then upload build ${BUILD:-<CROWHR_BUILD_NUMBER>} to App Store Connect (altool). Not submitted for App Review: that is done in App Store Connect"
   )
 fi
@@ -118,11 +119,13 @@ SSH=(ssh -F "$HOME/.ssh/config")
 HOST="${CROWHR_MAC_HOST:-}"
 REMOTE="${CROWHR_MAC_DIR:-Developer/crowhr-ios}"
 UDID="${CROWHR_SIM_UDID:-}"
+IPAD_UDID="${CROWHR_IPAD_SIM_UDID:-}"
 KEY_ID="${APPLE_KEY_ID:-}"
 ISSUER_ID="${APPLE_ISSUER_ID:-}"
 SECRET_DIR="${APPLE_SIGNING_SECRET_DIR:-}"
 [[ -n "$HOST" ]] || refuse "set CROWHR_MAC_HOST to the SSH host of the release Mac."
-[[ -n "$UDID" ]] || refuse "set CROWHR_SIM_UDID to the Crow HR simulator's UDID on the Mac."
+[[ -n "$UDID" ]] || refuse "set CROWHR_SIM_UDID to the Crow HR iPhone simulator's UDID on the Mac."
+[[ -n "$IPAD_UDID" ]] || refuse "set CROWHR_IPAD_SIM_UDID to the Crow HR iPad simulator's UDID on the Mac: the app ships for iPad too."
 [[ "$KEY_ID" =~ ^[A-Z0-9]{10}$ ]] || refuse "set APPLE_KEY_ID to the App Store Connect API key ID."
 [[ "$ISSUER_ID" =~ ^[a-fA-F0-9-]{36}$ ]] || refuse "set APPLE_ISSUER_ID to the App Store Connect API issuer ID."
 [[ -n "$SECRET_DIR" ]] || refuse "set APPLE_SIGNING_SECRET_DIR to the directory on the Mac with AuthKey_$KEY_ID.p8 and the build keychain."
@@ -141,6 +144,7 @@ on_mac "CROWHR_SIM_UDID=$UDID scripts/ios-mac-test.sh release-unit -only-testing
 # a release with CROWHR_UI_ONLY=CrowHRUITests/QAScreenshotsUITests scripts/ios-ui-test.sh. The
 # manual VoiceOver and Dynamic Type pass on a real device is separate.
 CROWHR_SIM_UDID="$UDID" CROWHR_UI_ONLY=CrowHRUITests/EssJourneyUITests scripts/ios-ui-test.sh
+CROWHR_SIM_UDID="$IPAD_UDID" CROWHR_UI_ONLY=CrowHRUITests/EssJourneyUITests scripts/ios-ui-test.sh
 on_mac "CROWHR_BUILD_NUMBER=$BUILD CROWHR_ARCHIVE_PATH=\$PWD/$ARCHIVE scripts/ios-archive-on-mac.sh"
 on_mac "CROWHR_BUILD_NUMBER=$BUILD CROWHR_INTERNAL_ONLY=$INTERNAL_ONLY scripts/ios-export-on-mac.sh $ARCHIVE $EXPORT"
 on_mac "xcrun altool --validate-app $altool_args"

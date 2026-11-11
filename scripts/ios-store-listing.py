@@ -7,7 +7,12 @@
                          what the API allows from LISTING below: description, keywords, promotional
                          text, subtitle, support/marketing/privacy URLs, category, copyright, age
                          rating (every question "none"/"no"), free in every territory
-  screenshots DIR        replace the en-GB 6.9-inch iPhone screenshots with DIR/*.png (name order)
+  screenshots [DIR]      replace the en-GB screenshots: the 6.9-inch iPhone set with DIR/*.png and,
+                         when DIR/ipad/ has PNGs, the 13-inch iPad set with DIR/ipad/*.png (name
+                         order; DIR defaults to apps/ios/store/screenshots). Checks every size first
+  check-screenshots [DIR]
+                         offline, no API key or network: the sets `screenshots` would upload, with
+                         each PNG's size checked against the display type
   attach-build N         attach processed build N to the version (it must be VALID)
 
 Never submits anything for review, and leaves App Review contact and demo account, the App
@@ -32,7 +37,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP_ID = "6831992308"
 LOCALE = "en-GB"
-DISPLAY_TYPE = "APP_IPHONE_67"  # the 6.9-inch (and 6.7-inch) iPhone screenshot slot
+DEFAULT_SCREENSHOTS = ROOT / "apps/ios/store/screenshots"
+# Screenshot slots, and the pixel sizes App Store Connect accepts in each (portrait or landscape).
+IPHONE = "APP_IPHONE_67"  # the 6.9-inch (and 6.7-inch) iPhone slot; Apple scales it for smaller iPhones
+IPAD = "APP_IPAD_PRO_3GEN_129"  # the 13-inch iPad slot; Apple scales it for smaller iPads
+SCREENSHOT_SIZES = {
+    IPHONE: {(1320, 2868), (1290, 2796)},
+    IPAD: {(2064, 2752), (2048, 2732)},
+}
 EDITABLE = {"PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED", "METADATA_REJECTED", "INVALID_BINARY"}
 
 LISTING = {
@@ -253,24 +265,69 @@ def free_everywhere(api, write):
     return report
 
 
-def screenshot_set(api, loc_id, create):
+def png_size(path):
+    data = Path(path).read_bytes()[:24]
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+def screenshot_sets(folder):
+    """The sets in `folder`: its PNGs for the iPhone slot and, if present, ipad/*.png for the iPad
+    slot, each in file-name order."""
+    folder = Path(folder)
+    sets = [(IPHONE, sorted(folder.glob("*.png")))]
+    ipad = sorted((folder / "ipad").glob("*.png"))
+    if ipad:
+        sets.append((IPAD, ipad))
+    return sets
+
+
+def screenshot_problems(sets):
+    problems = []
+    for display, files in sets:
+        if not 1 <= len(files) <= 10:
+            problems.append(f"{display}: expected 1 to 10 PNG screenshots, found {len(files)}")
+        for f in files:
+            size = png_size(f)
+            w, h = size or (0, 0)
+            if size is None:
+                problems.append(f"{display}: {f.name} is not a PNG")
+            elif (min(w, h), max(w, h)) not in SCREENSHOT_SIZES[display]:
+                allowed = " or ".join(f"{a} x {b}" for a, b in sorted(SCREENSHOT_SIZES[display]))
+                problems.append(f"{display}: {f.name} is {w} x {h}, expected {allowed} (portrait or landscape)")
+    return problems
+
+
+def check_screenshots(folder):
+    sets = screenshot_sets(folder)
+    for display, files in sets:
+        print(f"{display}: {len(files)} screenshot(s)")
+        for f in files:
+            w, h = png_size(f) or (0, 0)
+            print(f"  {f.relative_to(ROOT) if f.is_relative_to(ROOT) else f}  {w} x {h}")
+    problems = screenshot_problems(sets)
+    for problem in problems:
+        print(f"PROBLEM {problem}")
+    return sets, problems
+
+
+def screenshot_set(api, loc_id, display, create):
     sets = api.all(f"/v1/appStoreVersionLocalizations/{loc_id}/appScreenshotSets")
-    s = next((x for x in sets if x["attributes"]["screenshotDisplayType"] == DISPLAY_TYPE), None)
+    s = next((x for x in sets if x["attributes"]["screenshotDisplayType"] == display), None)
     if s is None and create:
-        body = {"data": {"type": "appScreenshotSets", "attributes": {"screenshotDisplayType": DISPLAY_TYPE},
+        body = {"data": {"type": "appScreenshotSets", "attributes": {"screenshotDisplayType": display},
                          "relationships": {"appStoreVersionLocalization": {"data": {"type": "appStoreVersionLocalizations", "id": loc_id}}}}}
         s = api.call("/v1/appScreenshotSets", "POST", body)["data"]
     return s
 
 
-def upload_screenshots(api, loc_id, folder):
-    """Makes the set match DIR/*.png in name order. Screenshots already processed with the same file
-    name and checksum are kept; anything else (other files, or uploads Apple never finished
-    processing) is deleted and uploaded again. Run it again if one stays UPLOAD_COMPLETE."""
-    files = sorted(Path(folder).glob("*.png"))
-    if not 1 <= len(files) <= 10:
-        raise SystemExit(f"Expected 1 to 10 PNG screenshots in {folder}, found {len(files)}.")
-    s = screenshot_set(api, loc_id, create=True)
+def upload_screenshots(api, loc_id, display, files):
+    """Makes the `display` set match `files` in name order. Screenshots already processed with the
+    same file name and checksum are kept; anything else (other files, or uploads Apple never
+    finished processing) is deleted and uploaded again. Run it again if one stays UPLOAD_COMPLETE."""
+    print(f"{display}:")
+    s = screenshot_set(api, loc_id, display, create=True)
     wanted = {f.name: hashlib.md5(f.read_bytes()).hexdigest() for f in files}
     kept = {}
     for old in api.all(f"/v1/appScreenshotSets/{s['id']}/appScreenshots"):
@@ -316,9 +373,16 @@ def upload_screenshots(api, loc_id, folder):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("action", choices=["status", "apply", "screenshots", "attach-build"])
+    parser.add_argument("action", choices=["status", "apply", "screenshots", "check-screenshots", "attach-build"])
     parser.add_argument("arg", nargs="?")
     args = parser.parse_args()
+    if args.action in ("screenshots", "check-screenshots"):
+        # Offline first: never upload a set App Store Connect would refuse.
+        sets, problems = check_screenshots(args.arg or DEFAULT_SCREENSHOTS)
+        if problems:
+            raise SystemExit("Screenshots not uploaded: fix the problems above.")
+        if args.action == "check-screenshots":
+            return
     api = Api()
     version = marketing_version()
     write = args.action == "apply"
@@ -360,7 +424,8 @@ def main():
         print("Set the listing text, URLs, copyright and category.")
 
     if args.action == "screenshots":
-        upload_screenshots(api, loc["id"], args.arg or ROOT / "apps/ios/store/screenshots")
+        for display, files in sets:
+            upload_screenshots(api, loc["id"], display, files)
     if args.action == "attach-build":
         number = args.arg or ""
         q = urllib.parse.urlencode({"filter[app]": APP_ID, "filter[version]": number, "filter[preReleaseVersion.version]": version})
@@ -379,13 +444,12 @@ def main():
     loc_now = api.call(f"/v1/appStoreVersionLocalizations/{loc['id']}")["data"]["attributes"] if loc else {}
     info = api.call(f"/v1/appInfos/{info['id']}?include=primaryCategory")["data"]
     info_loc_now = api.call(f"/v1/appInfoLocalizations/{info_loc['id']}")["data"]["attributes"] if info_loc else {}
-    shots = []
-    if loc:
-        s = screenshot_set(api, loc["id"], create=False)
-        if s:
-            shots = [{"file": x["attributes"].get("fileName"), "state": (x["attributes"].get("assetDeliveryState") or {}).get("state"),
-                      "size": [(x["attributes"].get("imageAsset") or {}).get("width"), (x["attributes"].get("imageAsset") or {}).get("height")]}
-                     for x in api.all(f"/v1/appScreenshotSets/{s['id']}/appScreenshots")]
+    shots = {}
+    for display in (IPHONE, IPAD):
+        s = screenshot_set(api, loc["id"], display, create=False) if loc else None
+        shots[display] = [{"file": x["attributes"].get("fileName"), "state": (x["attributes"].get("assetDeliveryState") or {}).get("state"),
+                           "size": [(x["attributes"].get("imageAsset") or {}).get("width"), (x["attributes"].get("imageAsset") or {}).get("height")]}
+                          for x in api.all(f"/v1/appScreenshotSets/{s['id']}/appScreenshots")] if s else []
     out = {
         "app": APP_ID,
         "version": {"id": v["id"], "versionString": v["attributes"]["versionString"], "state": v["attributes"].get("appStoreState"),
@@ -399,7 +463,7 @@ def main():
                     "primaryCategory": ((info.get("relationships") or {}).get("primaryCategory") or {}).get("data")},
         "ageRating": age_rating(api, info["id"], write),
         "pricing": free_everywhere(api, write),
-        "screenshots": {DISPLAY_TYPE: shots},
+        "screenshots": shots,
     }
     if out["listing"].get("description"):
         out["listing"]["description"] = out["listing"]["description"][:80] + "…"

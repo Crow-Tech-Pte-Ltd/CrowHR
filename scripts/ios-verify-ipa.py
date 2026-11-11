@@ -5,8 +5,9 @@ JSON receipt (also written next to the IPA as verification.json). Reads no crede
   scripts/ios-verify-ipa.py PATH.ipa --build N [--internal-only]
 
 Checks: bundle id, version and build; the internal-only flag (present for --internal-only, absent
-for an App Store build); export compliance (ITSAppUsesNonExemptEncryption false); iPhone only;
-App Store distribution signature by the Crow Tech team;
+for an App Store build); export compliance (ITSAppUsesNonExemptEncryption false); iPhone and iPad
+(UIDeviceFamily [1, 2]) with the iPhone in portrait and the iPad in all four orientations and not
+full-screen only, so it multitasks; App Store distribution signature by the Crow Tech team;
 get-task-allow false and no entitlements beyond the ones Apple adds to every App Store app; an App
 Store (not ad hoc or development) provisioning profile; PrivacyInfo.xcprivacy present; an opaque
 1024 px app icon in the compiled asset catalog; no test bundles or secrets in the archive.
@@ -35,6 +36,10 @@ ALLOWED_ENTITLEMENTS = {
     "beta-reports-active",
 }
 FORBIDDEN_SUFFIXES = (".p8", ".password", ".keychain-db", ".keychain", ".xctest", ".storekit", ".xctestplan")
+DEVICE_FAMILY = [1, 2]  # iPhone and iPad (apps/ios/project.yml TARGETED_DEVICE_FAMILY '1,2')
+IPHONE_ORIENTATIONS = ["UIInterfaceOrientationPortrait"]
+IPAD_ORIENTATIONS = {"UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown",
+                     "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"}
 
 
 def fail(message):
@@ -54,6 +59,23 @@ def marketing_version():
     return match.group(1)
 
 
+def device_problems(info):
+    """What is wrong with the device family, orientations and multitasking (empty when right). An
+    app can never drop iPad support once it has shipped with it, so the iPad keys are checked as
+    strictly as the family itself."""
+    problems = []
+    if info.get("UIDeviceFamily") != DEVICE_FAMILY:
+        problems.append(f"UIDeviceFamily is {info.get('UIDeviceFamily')!r}, expected {DEVICE_FAMILY} (iPhone and iPad)")
+    if info.get("UISupportedInterfaceOrientations") != IPHONE_ORIENTATIONS:
+        problems.append(f"iPhone orientations are {info.get('UISupportedInterfaceOrientations')!r}, expected portrait only")
+    ipad = info.get("UISupportedInterfaceOrientations~ipad")
+    if not isinstance(ipad, list) or set(ipad) != IPAD_ORIENTATIONS:
+        problems.append(f"iPad orientations are {ipad!r}, expected all four (needed for Split View and Slide Over)")
+    if info.get("UIRequiresFullScreen"):
+        problems.append("UIRequiresFullScreen is set: the iPad app would opt out of multitasking")
+    return problems
+
+
 def png_is_opaque(path):
     data = path.read_bytes()
     if data[:8] != b"\x89PNG\r\n\x1a\n":
@@ -63,7 +85,30 @@ def png_is_opaque(path):
     return (width, height), color_type in (0, 2) and b"tRNS" not in data
 
 
+def self_test():
+    """`--self-test`: the device rules on sample Info.plists (no IPA, no Mac needed)."""
+    good = {"UIDeviceFamily": [1, 2], "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
+            "UISupportedInterfaceOrientations~ipad": sorted(IPAD_ORIENTATIONS)}
+    cases = [
+        ("iPhone and iPad, all iPad orientations", good, 0),
+        ("iPhone only (build 4)", {**good, "UIDeviceFamily": [1]}, 1),
+        ("iPad without landscape", {**good, "UISupportedInterfaceOrientations~ipad": ["UIInterfaceOrientationPortrait"]}, 1),
+        ("no iPad orientations", {k: v for k, v in good.items() if k != "UISupportedInterfaceOrientations~ipad"}, 1),
+        ("full screen only", {**good, "UIRequiresFullScreen": True}, 1),
+        ("iPhone in landscape", {**good, "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationLandscapeLeft"]}, 1),
+    ]
+    failed = 0
+    for name, info, expected in cases:
+        got = len(device_problems(info))
+        ok = got == expected
+        failed += not ok
+        print(f"{'ok  ' if ok else 'FAIL'} {name}: {got} problem(s)")
+    sys.exit(1 if failed else 0)
+
+
 def main():
+    if sys.argv[1:] == ["--self-test"]:
+        self_test()
     parser = argparse.ArgumentParser()
     parser.add_argument("ipa", type=Path)
     parser.add_argument("--build", required=True)
@@ -97,8 +142,9 @@ def main():
         # Connect doesn't ask per build.
         if info.get("ITSAppUsesNonExemptEncryption") is not False:
             fail(f"ITSAppUsesNonExemptEncryption is {info.get('ITSAppUsesNonExemptEncryption')!r}, expected false")
-        if info.get("UIDeviceFamily") != [1]:
-            fail(f"UIDeviceFamily is {info.get('UIDeviceFamily')!r}, expected [1] (iPhone only)")
+        problems = device_problems(info)
+        if problems:
+            fail("; ".join(problems))
 
         run("codesign", "--verify", "--deep", "--strict", str(app))
         details = run("codesign", "-dv", "--verbose=4", str(app)).stderr
@@ -168,6 +214,8 @@ def main():
         "internalTestingOnly": info.get("TFInternalTestingOnly") is True,
         "usesNonExemptEncryption": info.get("ITSAppUsesNonExemptEncryption"),
         "deviceFamily": info.get("UIDeviceFamily"),
+        "orientations": {"iphone": info.get("UISupportedInterfaceOrientations"),
+                         "ipad": sorted(info.get("UISupportedInterfaceOrientations~ipad", []))},
         "signingAuthority": authorities[0],
         "certificateChain": authorities,
         "team": signed_team,

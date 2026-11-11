@@ -48,6 +48,8 @@ final class QAScreenshotsUITests: CrowUITestCase {
 
         tapTab("Pay")
         let payslip = wait(app.buttons["payslip.row"].firstMatch, 20)
+        // On an iPad the latest payslip opens beside the list: let it load before the audit.
+        waitUntilLoaded()
         try check("Payslips", "\(prefix)-payslips")
         payslip.tap()
         wait(app.staticTexts["payslip.net"])
@@ -57,10 +59,17 @@ final class QAScreenshotsUITests: CrowUITestCase {
         waitUntilLoaded()
         try check("Inbox", "\(prefix)-inbox")
 
-        tapTab("More")
-        wait(app.buttons["more.claims"])
-        try check("More", "\(prefix)-more")
-        app.buttons["more.claims"].tap()
+        // On a phone (and an iPad at compact widths) through More; on an iPad at regular width
+        // Claims, Schedule, Profile and Settings are tabs of their own (no More screen).
+        let underMore = !isPad || moreTab.waitForExistence(timeout: 2)
+        if underMore {
+            tapTab("More")
+            wait(app.buttons["more.claims"])
+            try check("More", "\(prefix)-more")
+            app.buttons["more.claims"].tap()
+        } else {
+            tapTab("Claims")
+        }
         wait(app.buttons["claims.new"])
         waitUntilLoaded()
         try check("Claims", "\(prefix)-claims")
@@ -78,20 +87,30 @@ final class QAScreenshotsUITests: CrowUITestCase {
         }
         app.navigationBars["New claim"].buttons["Cancel"].tap()
         wait(app.buttons["claims.new"])
-        app.navigationBars.buttons.firstMatch.tap()
-
-        wait(app.buttons["more.profile"])
-        if app.buttons["more.schedule"].exists {
-            app.buttons["more.schedule"].tap()
+        if underMore {
+            app.navigationBars.buttons.firstMatch.tap()
+            wait(app.buttons["more.profile"])
+            if app.buttons["more.schedule"].exists {
+                app.buttons["more.schedule"].tap()
+                waitUntilLoaded()
+                try check("My schedule", "\(prefix)-schedule")
+                app.navigationBars.buttons.firstMatch.tap()
+            }
+            wait(app.buttons["more.profile"]).tap()
+            waitUntilLoaded()
+            try check("My profile", "\(prefix)-profile")
+            app.navigationBars.buttons.firstMatch.tap()
+            wait(app.buttons["more.settings"]).tap()
+        } else {
+            // In portrait these three are in the sidebar only: `tapTab` opens it.
+            tapTab("Schedule")
             waitUntilLoaded()
             try check("My schedule", "\(prefix)-schedule")
-            app.navigationBars.buttons.firstMatch.tap()
+            tapTab("Profile")
+            waitUntilLoaded()
+            try check("My profile", "\(prefix)-profile")
+            tapTab("Settings")
         }
-        wait(app.buttons["more.profile"]).tap()
-        waitUntilLoaded()
-        try check("My profile", "\(prefix)-profile")
-        app.navigationBars.buttons.firstMatch.tap()
-        wait(app.buttons["more.settings"]).tap()
         wait(app.buttons["settings.signOut"])
         try check("Settings", "\(prefix)-settings")
         app.buttons["Font licences"].tap()
@@ -160,8 +179,15 @@ final class QAScreenshotsUITests: CrowUITestCase {
         let tabButton = app.buttons["More"].firstMatch
         let tabBarTop = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY
             : tabButton.exists ? tabButton.frame.minY - 8 : .greatestFiniteMagnitude
-        // Every navigation bar on screen: a sheet has its own above the screen behind it.
-        let navBars = app.navigationBars.allElementsBoundByIndex.map { $0.frame }
+        // Every navigation bar on screen: a sheet has its own above the screen behind it. On an
+        // iPad in portrait iPadOS's floating tab bar sits at the top, a system bar like them.
+        let topTabs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'tab.' OR identifier == 'ToggleSideBar'"))
+            .allElementsBoundByIndex.map { $0.frame }.filter { $0.minY < 120 && $0.width > 1 }
+        let navBars = app.navigationBars.allElementsBoundByIndex.map { $0.frame } + topTabs
+        // That bar's tab titles are UIKit labels the audit reports without an element (one per
+        // visible tab; SwiftUI text is never a UILabel). Excused up to that number, and logged.
+        let tabTitles = Set(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'tab.'")).allElementsBoundByIndex
+            .map { $0.frame }.filter { $0.minY < 120 && $0.width > 1 }.map { "\($0)" }).count
         let log = AuditLog()
         try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped, .dynamicType]) { issue in
             let type = switch issue.auditType {
@@ -170,14 +196,26 @@ final class QAScreenshotsUITests: CrowUITestCase {
             case .sufficientElementDescription: "description"
             default: "other"
             }
-            // An issue without an element can't be located, so it is not excused either.
+            // An issue without an element can't be located, so it is not excused either (except
+            // the iPad floating tab bar's titles, above).
             guard let element = issue.element else {
+                if issue.auditType == .dynamicType && issue.detailedDescription.contains("UILabel") && log.takeTabTitle(limit: tabTitles) {
+                    log.excuse("\(screen): \(type) \(issue.compactDescription) — iPadOS floating tab bar title (UILabel)")
+                    return true
+                }
                 log.fail("\(screen): \(type) \(issue.compactDescription) — (no element) \(issue.detailedDescription)")
                 return true
             }
+            // UI-test-only instrumentation (Settings' list of contacted origins), not app UI. On a
+            // phone it sits below the fold; an iPad shows it.
+            if element.identifier == "debug.networkOrigins" {
+                log.excuse("\(screen): \(type) \(issue.compactDescription) — UI-test-only debug.networkOrigins")
+                return true
+            }
             let frame = element.frame
-            // iOS caps navigation-bar button text by design (Large Content Viewer covers it), and
-            // the audit can't measure text scrolled under the floating tab bar. Logged, not failed;
+            // iOS caps navigation-bar and tab-bar button text by design (Large Content Viewer
+            // covers it), and the audit can't measure text scrolled under the floating tab bar.
+            // Logged, not failed;
             // clipping and missing descriptions are never excused.
             if issue.auditType == .dynamicType && (navBars.contains { $0.intersects(frame) } || frame.maxY > tabBarTop) {
                 log.excuse("\(screen): \(type) \(issue.compactDescription) — \(element.debugDescription.prefix(120))")
@@ -203,5 +241,14 @@ private final class AuditLog: @unchecked Sendable {
     var failures: [String] { lock.withLock { failed } }
     var excusedLines: [String] { lock.withLock { excusedList } }
     func fail(_ line: String) { lock.withLock { failed.append(line) } }
+    private var tabTitles = 0
+    /// One more floating-tab-bar title excused, while fewer than `limit` have been.
+    func takeTabTitle(limit: Int) -> Bool {
+        lock.withLock {
+            guard tabTitles < limit else { return false }
+            tabTitles += 1
+            return true
+        }
+    }
     func excuse(_ line: String) { lock.withLock { excusedList.append(line) } }
 }

@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// Task 3.5: the ESS journey against a real, seeded Crow HR server (scripts/ios-ui-server.sh on
@@ -23,7 +24,17 @@ class CrowUITestCase: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         app.launchArguments = ["-uitest", "-uitest-reset", "-uitest-camera-stub"]
+        if isPad {
+            // A test that rotated the iPad must not leave the next one in landscape.
+            XCUIDevice.shared.orientation = .portrait
+            // On an iPad the sign-in browser from the previous test's sign-in can stay running and
+            // never report idle, so every step in the next sign-in waited 60 s (and timed out).
+            let browser = XCUIApplication(bundleIdentifier: "com.apple.SafariViewService")
+            if browser.state != .notRunning { browser.terminate() }
+        }
     }
+
+    var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     /// Dark appearance and an accessibility text size, for QA (task 3.7).
     func useAppearance(dark: Bool, xxxl: Bool) {
@@ -34,7 +45,19 @@ class CrowUITestCase: XCTestCase {
     // MARK: Helpers
 
     func shot(_ name: String) {
-        let a = XCTAttachment(screenshot: app.screenshot())
+        let a: XCTAttachment
+        if XCUIDevice.shared.orientation.isLandscape {
+            // An iPad in landscape: the app's own screenshot keeps a portrait frame and crops, and
+            // the screen's carries its rotation only as metadata a PNG attachment drops. Redraw it
+            // upright.
+            let image = XCUIScreen.main.screenshot().image
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = image.scale
+            let upright = UIGraphicsImageRenderer(size: image.size, format: format).image { _ in image.draw(at: .zero) }
+            a = XCTAttachment(data: upright.pngData() ?? Data(), uniformTypeIdentifier: "public.png")
+        } else {
+            a = XCTAttachment(screenshot: app.screenshot())
+        }
         a.name = name
         a.lifetime = .keepAlways
         add(a)
@@ -85,9 +108,73 @@ class CrowUITestCase: XCTestCase {
         XCTAssertTrue(ok(), "The system browser field holds \(secure ? "\(typed()?.count ?? 0) characters" : "'\(typed() ?? "")'"), not what was typed", file: file, line: line)
     }
 
-    func tapTab(_ label: String) {
-        let button = app.tabBars.buttons[label]
-        if button.waitForExistence(timeout: 5) { button.tap() } else { app.buttons[label].firstMatch.tap() }
+    /// Any element with this accessibility identifier (a row can be a button or a cell).
+    func element(_ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    /// The row for a screen in the iPad sidebar, if the sidebar is showing.
+    func sidebarItem(_ label: String) -> XCUIElement? {
+        for e in [app.collectionViews.cells[label], app.cells[label], app.collectionViews.buttons[label]] where e.exists && e.isHittable {
+            return e
+        }
+        return nil
+    }
+
+    /// The first of `query`'s elements that is on screen and can be tapped (the app's keyboard
+    /// shortcuts also appear in the tree as zero-size buttons named like the tabs).
+    func hittable(_ query: XCUIElementQuery) -> XCUIElement? {
+        query.allElementsBoundByIndex.first { $0.exists && $0.isHittable && $0.frame.width > 1 }
+    }
+
+    /// A main screen's tab: the tab bar on a phone (and an iPad at compact widths), the sidebar or
+    /// the floating tab bar on an iPad, where "Pay" reads "Payslips". `MainTabView` names each tab
+    /// `tab.<screen>`. A screen the floating bar leaves to the sidebar (Schedule, Profile, Settings)
+    /// is opened through its sidebar button.
+    func tabItem(_ label: String) -> XCUIElement? {
+        let labels = label == "Pay" ? ["Pay", "Payslips"] : label == "Profile" ? ["Profile", "My profile"] : [label]
+        let id = "tab." + (label == "Pay" ? "pay" : label.lowercased().replacingOccurrences(of: "my ", with: ""))
+        if let e = hittable(app.tabBars.buttons.matching(NSPredicate(format: "label IN %@", labels))) { return e }
+        if let e = hittable(app.buttons.matching(identifier: id)) { return e }
+        if let e = hittable(app.cells.matching(identifier: id)) { return e }
+        for l in labels { if let row = sidebarItem(l) { return row } }
+        return hittable(app.buttons.matching(NSPredicate(format: "label IN %@", labels)))
+    }
+
+    func tapTab(_ label: String, file: StaticString = #filePath, line: UInt = #line) {
+        var openedSidebar = false
+        let start = Date()
+        repeat {
+            if let item = tabItem(label) { item.tap(); return }
+            let toggle = app.buttons["ToggleSideBar"]
+            if !openedSidebar, isPad, Date().timeIntervalSince(start) > 2, toggle.exists, toggle.isHittable {
+                toggle.tap()
+                openedSidebar = true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        } while Date().timeIntervalSince(start) < 8
+        XCTFail("No tab or sidebar item \(label): \(app.debugDescription)", file: file, line: line)
+    }
+
+    /// The phone tab bar's More (also an iPad's at compact widths).
+    var moreTab: XCUIElement {
+        if app.tabBars.buttons["More"].exists { return app.tabBars.buttons["More"] }
+        let byID = app.buttons.matching(identifier: "tab.more").firstMatch
+        return byID.exists ? byID : app.buttons["More"].firstMatch
+    }
+
+    /// A screen kept under More on a phone; on an iPad at regular width a tab of its own (sidebar
+    /// or floating tab bar). Returns true when it was pushed on More's stack (go back from it with
+    /// the navigation bar's back button).
+    @discardableResult
+    func openFromMore(_ identifier: String, sidebar label: String) -> Bool {
+        if isPad && !moreTab.waitForExistence(timeout: 2) {
+            tapTab(label)
+            return false
+        }
+        tapTab("More")
+        wait(app.buttons[identifier]).tap()
+        return true
     }
 
     func connectAndSignIn(as email: String) {
@@ -178,8 +265,7 @@ class CrowUITestCase: XCTestCase {
 
     /// Settings shows every origin the app's transport contacted (UI-test builds only).
     func assertOnlyTalkedToTheTestServer() {
-        tapTab("More")
-        wait(app.buttons["more.settings"]).tap()
+        openFromMore("more.settings", sidebar: "Settings")
         let origins = app.staticTexts["debug.networkOrigins"]
         for _ in 0..<8 where !origins.exists { app.swipeUp() }
         wait(origins)
@@ -219,7 +305,7 @@ final class EssJourneyUITests: CrowUITestCase {
 
         // Schedule: this week's published roster.
         app.swipeUp()
-        XCTAssertTrue(app.otherElements["shift.row"].firstMatch.waitForExistence(timeout: 10) || app.staticTexts["No shifts in the next two weeks."].exists)
+        XCTAssertTrue(element("shift.row").waitForExistence(timeout: 10) || app.staticTexts["No shifts in the next two weeks."].exists)
 
         // Leave: balances, apply, see it pending.
         tapTab("Leave")
@@ -243,8 +329,7 @@ final class EssJourneyUITests: CrowUITestCase {
         XCTAssertTrue(app.staticTexts["Pending"].firstMatch.exists)
 
         // Claims: a receipt from the camera (stubbed on the simulator, which has no camera).
-        tapTab("More")
-        wait(app.buttons["more.claims"]).tap()
+        let claimsUnderMore = openFromMore("more.claims", sidebar: "Claims")
         wait(app.buttons["claims.new"]).tap()
         wait(app.textFields["claim.merchant"]).tap()
         app.textFields["claim.merchant"].typeText("Kopi Kaki Cafe")
@@ -261,11 +346,11 @@ final class EssJourneyUITests: CrowUITestCase {
         submit.tap()
         let claimRow = wait(app.descendants(matching: .any)["claim.row"].firstMatch, 20)
         XCTAssertTrue(claimRow.label.contains("12 Singapore dollars 50 cents"), "Claim row reads: \(claimRow.label)")
-        app.navigationBars.buttons.firstMatch.tap()
+        if claimsUnderMore { app.navigationBars.buttons.firstMatch.tap() }
 
         // Payslips: last month's released payslip, read from the server.
         tapTab("Pay")
-        wait(app.buttons["payslip.row"].firstMatch, 20).tap()
+        wait(element("payslip.row"), 20).tap()
         let net = wait(app.staticTexts["payslip.net"])
         XCTAssertTrue(net.label.contains("Singapore dollars"), "Net pay is read aloud as money: \(net.label)")
         shot("09-payslip")
@@ -311,8 +396,7 @@ final class EssJourneyUITests: CrowUITestCase {
 
     func test3_SignOutRevokesTheDeviceSession() throws {
         connectAndSignIn(as: Self.employee)
-        tapTab("More")
-        wait(app.buttons["more.settings"]).tap()
+        openFromMore("more.settings", sidebar: "Settings")
         wait(app.buttons["settings.signOut"]).tap()
         let confirm = app.sheets.buttons["Sign out"].exists ? app.sheets.buttons["Sign out"] : app.buttons["Sign out"].firstMatch
         wait(confirm).tap()

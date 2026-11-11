@@ -24,6 +24,6 @@ Crow HR has **not yet been used for a real company's payroll**. Check its result
 
 ### Not included yet
 
-- The iOS and Android apps are built but not in the App Store or Google Play.
+- The iOS app (iPhone and iPad, with iPad layouts: a sidebar, readable widths, payslips beside the list, Split View and Slide Over) and the Android app are built but not in the App Store or Google Play.
 - Direct submission to CPF, IRAS or banks; virus scanning of uploads (a hook only; bring your own ClamAV).
 - Production Singpass has not been tried, and the Singpass button needs the official logo, which you add yourself.

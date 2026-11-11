@@ -27,7 +27,7 @@ final class StoreScreenshotsUITests: CrowUITestCase {
 
         // Payslip: last month's, released by HR.
         tapTab("Pay")
-        wait(app.buttons["payslip.row"].firstMatch, 20).tap()
+        wait(element("payslip.row"), 20).tap()
         wait(app.staticTexts["payslip.net"])
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         shot("store-02-payslip")
@@ -47,8 +47,7 @@ final class StoreScreenshotsUITests: CrowUITestCase {
         wait(app.descendants(matching: .any)["leave.request"].firstMatch)
 
         // A claim with the receipt photographed (the simulator's stubbed camera).
-        tapTab("More")
-        wait(app.buttons["more.claims"]).tap()
+        openFromMore("more.claims", sidebar: "Claims")
         wait(app.buttons["claims.new"]).tap()
         // The amount first, so the last field typed in has a return key that closes the keyboard.
         wait(app.textFields["claim.amount"]).tap()
