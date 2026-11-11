@@ -194,6 +194,11 @@ describe("shift swaps", () => {
       201,
     );
     w.clock.set("2026-11-11T00:00:00.000Z"); // 08:00 SGT on Wed 11 Nov: the 07:00 shift has started
+    // Accepting it now is refused, and the request is recorded as expired at once (not only by the tick).
+    const late = await (await w.asCrew("crewC")).post(`${api}/swaps/${r.id}/accept`);
+    expect(late.status).toBe(409);
+    const before = await ok<{ items: Swap[] }>((await w.asCrew("crewA")).get(`${api}/swaps`));
+    expect(before.items.find((s) => s.id === r.id)?.status).toBe("expired");
     await tick(w.deps, w.clock.now());
     const mine = await ok<{ items: Swap[] }>((await w.asCrew("crewA")).get(`${api}/swaps`));
     expect(mine.items.find((s) => s.id === r.id)?.status).toBe("expired");
