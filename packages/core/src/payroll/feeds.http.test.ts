@@ -4,7 +4,7 @@ import { createTestDb, seedMember, seedOrg, type TestDb } from "../../testing/in
 import { decideRun, type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
 import { overtimeClaims } from "../db/schema/attendance.ts";
 import { compensationRecords } from "../db/schema/employees.ts";
-import { payrollPayslips } from "../db/schema/payroll.ts";
+import { payrollFeedReservations, payrollPayslips } from "../db/schema/payroll.ts";
 import { reserveFeeds, unavailableFeeds } from "./feed-reservations.ts";
 import { loadRun } from "./service.ts";
 
@@ -143,6 +143,22 @@ describe("payroll source feeds", () => {
     await expect(t.db.transaction((tx) => reserveFeeds(tx, foreign, [snapshot.input], []))).rejects.toThrow();
   });
 
+  it("a payslip from before feed reservations still keeps its fed overtime unavailable", async () => {
+    const sourceId = await overtime("2027-07-14");
+    const id = await run("2027-08");
+    await p.ok(p.admin.post(`${api}/runs/${id}/compute`));
+    // As computed before reservations existed: the item is only in the payslip snapshot.
+    await t.db.delete(payrollFeedReservations).where(eq(payrollFeedReservations.runId, id));
+    const current = await loadRun(t.db, p.co.h.orgId, id);
+    expect(await unavailableFeeds(t.db, { ...current, id: p.co.h.deps.ids.newId() }, [])).toContain(
+      `attendance:${sourceId}`,
+    );
+    expect(await unavailableFeeds(t.db, current, [])).not.toContain(`attendance:${sourceId}`);
+    // Leave the world as it was for the tests below.
+    expect((await p.admin.delete(`${api}/runs/${id}`)).status).toBe(204);
+    await t.db.delete(overtimeClaims).where(eq(overtimeClaims.id, sourceId));
+  });
+
   it("two concurrent runs cannot reserve the same late overtime", async () => {
     await overtime("2027-06-15");
     const ids = [await run("2027-07"), await run("2027-08")];
@@ -170,5 +186,34 @@ describe("payroll source feeds", () => {
       resume();
       clearTimeout(timer);
     }
+  });
+  it("an earlier month's AW top-up share still to recover is offered to the next run", async () => {
+    const jan = await run("2028-01");
+    await p.ok(p.admin.post(`${api}/runs/${jan}/compute`));
+    await approve(jan);
+    const [janSlip] = await t.db.select().from(payrollPayslips).where(eq(payrollPayslips.runId, jan));
+    if (!janSlip) throw new Error("Missing payslip");
+    // As a run with a prior-AW shortfall records it: S$50 employee share, S$10 recovered in January.
+    await t.db
+      .update(payrollPayslips)
+      .set({
+        result: {
+          ...janSlip.result,
+          awTopUp: {
+            employeeShareCents: 5_000,
+            recoveredThisRunCents: 1_000,
+            recoveredEarlierCents: 0,
+            absorbedCents: 0,
+            deadline: "2029-06-30",
+          },
+        },
+      })
+      .where(eq(payrollPayslips.id, janSlip.id));
+    const feb = await run("2028-02");
+    await p.ok(p.admin.post(`${api}/runs/${feb}/compute`));
+    const detail = await p.ok<{ input: { awRecoveryOpen: unknown[] } }>(
+      p.admin.get(`${api}/runs/${feb}/employees/${p.co.e.A}`),
+    );
+    expect(detail.input.awRecoveryOpen).toEqual([{ month: "2028-01", openCents: 4_000, deadline: "2029-06-30" }]);
   });
 });
