@@ -94,6 +94,11 @@ export async function createDelegation(
       issues: [{ path: "toMembershipId", message: "Pick a different member from the person who is away." }],
     });
   }
+  if (input.endsOn < singaporeDate(deps.clock.now())) {
+    throw new AppError("validation_failed", "That cover has already ended. Choose an end date of today or later.", {
+      issues: [{ path: "endsOn", message: "Choose an end date of today or later." }],
+    });
+  }
   const directory = approverDirectory(deps);
   const [fromMember, toMember] = await Promise.all([
     directory.member(deps.db, actor.orgId, from),

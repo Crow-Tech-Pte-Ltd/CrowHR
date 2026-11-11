@@ -1265,35 +1265,66 @@ export async function applyDelegationsToOpenTasks(
 /** Supersedes delegate tasks whose delegation has ended or was revoked. */
 export async function closeEndedDelegations(db: Db, deps: AppDeps, orgId?: string): Promise<number> {
   const today = singaporeDate(deps.clock.now());
-  const ended = await db
-    .select()
-    .from(delegations)
+  // From the open delegate tasks (few) rather than every cover that ever ended: a task stays only
+  // while a cover from the same person to the same delegate still covers its request type.
+  const open = await db
+    .select({
+      id: approvalTasks.id,
+      orgId: approvalTasks.orgId,
+      to: approvalTasks.assigneeMembershipId,
+      from: approvalTasks.onBehalfOfMembershipId,
+      subjectType: approvalRequests.subjectType,
+    })
+    .from(approvalTasks)
+    .innerJoin(approvalRequests, eq(approvalRequests.id, approvalTasks.requestId))
     .where(
       and(
-        orgId ? eq(delegations.orgId, orgId) : undefined,
-        or(sql`${delegations.endsOn} < ${today}`, sql`${delegations.revokedAt} is not null`),
+        orgId ? eq(approvalTasks.orgId, orgId) : undefined,
+        eq(approvalTasks.origin, "delegated"),
+        eq(approvalTasks.status, "pending"),
       ),
     );
-  let closed = 0;
-  for (const d of ended) {
-    const stillCovered = await activeDelegationsFrom(db, d.orgId, [d.fromMembershipId], today);
-    if (stillCovered.some((x) => x.toMembershipId === d.toMembershipId)) continue;
-    const rows = await db
-      .update(approvalTasks)
-      .set({ status: "superseded", supersededReason: "delegation_ended" })
-      .where(
-        and(
-          eq(approvalTasks.orgId, d.orgId),
-          eq(approvalTasks.assigneeMembershipId, d.toMembershipId),
-          eq(approvalTasks.onBehalfOfMembershipId, d.fromMembershipId),
-          eq(approvalTasks.origin, "delegated"),
-          eq(approvalTasks.status, "pending"),
+  if (!open.length) return 0;
+  const fromIds = [...new Set(open.map((t) => t.from).filter((id): id is string => !!id))];
+  const active = fromIds.length
+    ? await db
+        .select()
+        .from(delegations)
+        .where(
+          and(
+            orgId ? eq(delegations.orgId, orgId) : undefined,
+            inArray(delegations.fromMembershipId, fromIds),
+            isNull(delegations.revokedAt),
+            lte(delegations.startsOn, today),
+            gte(delegations.endsOn, today),
+          ),
+        )
+    : [];
+  const ended = open.filter(
+    (t) =>
+      !active.some(
+        (d) =>
+          d.orgId === t.orgId &&
+          d.fromMembershipId === t.from &&
+          d.toMembershipId === t.to &&
+          (!d.subjectTypes?.length || d.subjectTypes.includes(t.subjectType)),
+      ),
+  );
+  if (!ended.length) return 0;
+  const rows = await db
+    .update(approvalTasks)
+    .set({ status: "superseded", supersededReason: "delegation_ended" })
+    .where(
+      and(
+        inArray(
+          approvalTasks.id,
+          ended.map((t) => t.id),
         ),
-      )
-      .returning({ id: approvalTasks.id });
-    closed += rows.length;
-  }
-  return closed;
+        eq(approvalTasks.status, "pending"),
+      ),
+    )
+    .returning({ id: approvalTasks.id });
+  return rows.length;
 }
 
 /**
