@@ -129,7 +129,7 @@ export function Ir8aPanel({ years }: { years: number[] }) {
                     <p className="mt-2 font-medium text-warning-400">Left out of the file:</p>
                     <ul className="mt-1 list-disc pl-5">
                       {(excluded ?? p.excluded).map((x) => (
-                        <li key={x.employeeName}>
+                        <li key={`${x.employeeName}-${x.reason}`}>
                           {x.employeeName}: {x.reason}
                         </li>
                       ))}

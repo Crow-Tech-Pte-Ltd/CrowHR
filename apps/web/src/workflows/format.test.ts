@@ -36,6 +36,11 @@ describe("requestName", () => {
 
   it("keeps the kind when the title doesn't say what it is", () => {
     expect(requestName("Profile change", "Personal details")).toBe("Profile change: Personal details");
+    expect(requestName("Profile change", "Personal details change")).toBe("Profile change: Personal details change");
+    expect(requestName("Leave cancellation", "Annual leave, 2 Nov 2026")).toBe(
+      "Leave cancellation: Annual leave, 2 Nov 2026",
+    );
+    expect(requestName("Shift swap", "Shift swap, Wed 4 Nov ↔ Wed 4 Nov")).toBe("Shift swap, Wed 4 Nov ↔ Wed 4 Nov");
     expect(requestName("Claim", "Team meal after stocktake")).toBe("Claim: Team meal after stocktake");
   });
 });

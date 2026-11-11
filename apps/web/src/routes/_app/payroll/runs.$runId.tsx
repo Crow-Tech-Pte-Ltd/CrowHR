@@ -453,6 +453,19 @@ function TotalsCard({ o }: { o: PayrollOverviewDto }) {
 function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (id: string) => void }) {
   if (!o.run.computedAt) return null;
   const { headline, items } = o.changes;
+  // Identical lines (three separate 1 h overtime items for one person) show once with a count;
+  // they also shared a React key, which can mis-render the list when it updates.
+  const grouped = [
+    ...items
+      .reduce((m, c) => {
+        const key = `${c.employeeId}-${c.kind}-${c.text}`;
+        const g = m.get(key);
+        if (g) g.count += 1;
+        else m.set(key, { key, c, count: 1 });
+        return m;
+      }, new Map<string, { key: string; c: (typeof items)[number]; count: number }>())
+      .values(),
+  ];
   return (
     <section aria-labelledby="changes-title" className="mb-5">
       <h2 id="changes-title" className="mb-2 font-azeret text-xs font-semibold uppercase tracking-wider">
@@ -461,8 +474,8 @@ function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (i
       {items.length ? (
         <Card>
           <ul className="grid grid-cols-1 gap-x-6 px-4 py-1.5 lg:grid-cols-2">
-            {items.map((c) => (
-              <li key={`${c.employeeId}-${c.kind}-${c.text}`} className="flex gap-2 py-1.5 text-ui">
+            {grouped.map(({ key, c, count }) => (
+              <li key={key} className="flex gap-2 py-1.5 text-ui">
                 <span className="w-20 shrink-0 font-azeret text-[10px] uppercase leading-5 tracking-wide text-primary-200">
                   {CHANGE[c.kind]}
                 </span>
@@ -475,6 +488,7 @@ function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (i
                     {c.name}
                   </button>{" "}
                   <span className="text-primary-300">{c.text}</span>
+                  {count > 1 ? <span className="num text-primary-200"> ×{count}</span> : null}
                 </span>
               </li>
             ))}
@@ -533,7 +547,7 @@ function FilesPanel({ runId }: { runId: string }) {
             <p className="font-medium text-warning-400">Left out of {excluded.file}:</p>
             <ul className="mt-1 list-disc pl-5">
               {excluded.list.map((x) => (
-                <li key={x.employeeName}>
+                <li key={`${x.employeeName}-${x.reason}`}>
                   {x.employeeName}: {x.reason}
                 </li>
               ))}
