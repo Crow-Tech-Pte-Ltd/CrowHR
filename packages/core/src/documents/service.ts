@@ -73,11 +73,19 @@ export async function listCategories(
     .where(eq(documentCategories.orgId, a.orgId))
     .orderBy(asc(documentCategories.position), asc(documentCategories.name));
   const counts = await deps.db
-    .select({ id: documents.categoryId, n: sql<number>`count(*)::int` })
+    .select({ id: documents.categoryId, employeeId: documents.employeeId, n: sql<number>`count(*)::int` })
     .from(documents)
     .where(and(eq(documents.orgId, a.orgId), isNull(documents.purgedAt)))
-    .groupBy(documents.categoryId);
-  const count = new Map(counts.map((c) => [c.id, Number(c.n)]));
+    .groupBy(documents.categoryId, documents.employeeId);
+  // HR sees the organisation's counts; anyone else only the documents they could open, so the
+  // list doesn't reveal how many medical or HR-only documents colleagues have.
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const count = new Map<string, number>();
+  for (const c of counts) {
+    const category = byId.get(c.id);
+    if (!category || !(isHr(a) || (await canReadCategory(a, category, c.employeeId)))) continue;
+    count.set(c.id, (count.get(c.id) ?? 0) + Number(c.n));
+  }
   return rows.map((r) => ({ ...r, documentCount: count.get(r.id) ?? 0 }));
 }
 
