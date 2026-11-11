@@ -325,7 +325,9 @@ export async function resolveAllFields(db: Db, input: ResolveInput): Promise<Rec
     )
     .orderBy(
       sql`case when ${employmentRecords.effectiveFrom} <= ${asAt} then 0 else 1 end`,
-      sql`${employmentRecords.effectiveFrom} desc`,
+      // In force: the latest that started. Future starter: the earliest record.
+      sql`case when ${employmentRecords.effectiveFrom} <= ${asAt} then ${employmentRecords.effectiveFrom} end desc nulls last`,
+      sql`${employmentRecords.effectiveFrom} asc`,
     )
     .limit(1);
   const on = job && job.effectiveFrom > asAt ? job.effectiveFrom : asAt;
