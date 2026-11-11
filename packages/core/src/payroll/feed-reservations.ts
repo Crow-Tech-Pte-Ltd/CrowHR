@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { orgScope } from "../access/org-scope.ts";
 import { type PayrollRun, payrollFeedReservations, payrollPayslips, payrollRuns } from "../db/schema/payroll.ts";
 import type { Db } from "../db/types.ts";
@@ -21,7 +21,16 @@ export async function unavailableFeeds(db: Db, run: PayrollRun, chain: string[])
       payrollRuns,
       and(eq(payrollRuns.orgId, payrollPayslips.orgId), eq(payrollRuns.id, payrollPayslips.runId)),
     )
-    .where(org.where(payrollPayslips, isNull(payrollRuns.supersededByRunId)));
+    .where(
+      org.where(
+        payrollPayslips,
+        isNull(payrollRuns.supersededByRunId),
+        // Only payslips with a fed item (`isPayFeed`), rather than every snapshot ever computed.
+        sql`exists (select 1 from jsonb_array_elements(${payrollPayslips.input}->'items') as item
+                     where (item->>'kind' = 'overtime' and item->>'id' like 'attendance:%')
+                        or item->>'id' like 'holiday:%' or item->>'id' like 'encashment:%')`,
+      ),
+    );
   for (const s of legacy)
     if (!allowed.has(s.runId))
       for (const item of s.input.items) if (isPayFeed(item.id, item.kind)) unavailable.add(item.id);
