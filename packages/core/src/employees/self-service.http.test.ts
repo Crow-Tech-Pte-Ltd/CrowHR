@@ -188,6 +188,33 @@ describe("checklists", () => {
     const inbox = await checklistInbox(h.deps, h.actor([], boss));
     expect(inbox.map((i) => i.title)).toContain("Set up workstation and accounts: Newbie");
   });
+
+  it("each member gets exactly the items of their roles, their own record and their team, by due date and name", async () => {
+    const boss = await hireOne({ person: { legalName: "Boss" }, job: { hireDate: "2026-11-02" } });
+    await hireOne({ person: { legalName: "Report" }, job: { managerEmployeeId: boss, hireDate: "2026-11-09" } });
+    await hireOne({ person: { legalName: "Stranger" }, job: { hireDate: "2026-11-16" } });
+    const titles = async (roles: string[], employeeId?: string) =>
+      (await checklistInbox(h.deps, h.actor(roles, employeeId ?? null))).map((i) => `${i.dueOn} ${i.title}`);
+
+    const both = await titles(["hr_admin", "payroll_admin"], boss);
+    expect(both).toEqual([
+      "2026-11-02 Add bank details: Boss",
+      "2026-11-05 Complete personal particulars: Boss",
+      "2026-11-09 Add bank details: Report",
+      "2026-11-09 Set up workstation and accounts: Report",
+      "2026-11-16 Issue KETs: Boss",
+      "2026-11-16 Add bank details: Stranger",
+      "2026-11-23 Issue KETs: Report",
+      "2026-11-30 Issue KETs: Stranger",
+    ]);
+    expect(await titles(["payroll_admin"])).toEqual([
+      "2026-11-02 Add bank details: Boss",
+      "2026-11-09 Add bank details: Report",
+      "2026-11-16 Add bank details: Stranger",
+    ]);
+    expect(await titles([])).toEqual([]);
+    expect(await titles(["owner"])).toEqual([]);
+  });
 });
 
 describe("export", () => {
