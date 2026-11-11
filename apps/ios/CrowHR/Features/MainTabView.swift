@@ -93,7 +93,7 @@ struct GoShortcuts: View {
 
     static let items: [(title: String, key: KeyEquivalent, tab: MainTab)] = [
         ("Today", "1", .today), ("Leave", "2", .leave), ("Payslips", "3", .pay), ("Inbox", "4", .inbox),
-        ("Claims", "5", .claims), ("Schedule", "6", .schedule), ("My profile", "7", .profile), ("Settings", ",", .settings),
+        ("Claims", "5", .claims), ("Schedule", "6", .schedule), ("My profile", "7", .profile), ("Settings", "8", .settings),
     ]
 
     var body: some View {

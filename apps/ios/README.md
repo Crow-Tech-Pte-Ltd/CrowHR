@@ -100,10 +100,11 @@ support once a version has shipped with it, so the iPad layouts are designed, no
 - **Sheets:** the payslip PDF opens page-sized, the server confirmation and the QR scanner
   form-sized.
 - **Keyboard and pointer:** Command-key shortcuts (`GoShortcuts`; hold Command to list them):
-  Command-1 to 6 for Today, Leave, Payslips, Inbox, Claims and Schedule, Command-7 for Profile and
-  Command-comma for Settings (under More when the tab bar doesn't show them). Escape closes the app's own sheets; Return submits the server address and organisation
-  ID. Under the pointer the primary button lifts onto a deeper hard shadow and secondary buttons
-  shade; there are no soft hover effects.
+  Command-1 to 8 for Today, Leave, Payslips, Inbox, Claims, Schedule, Profile and Settings, under
+  More when the tab bar doesn't show the screen. Not Command-comma: iPadOS keeps that for the
+  app's page in the Settings app. Escape closes the app's own sheets; Return submits the server
+  address and organisation ID. Under the pointer the primary button lifts onto a deeper hard
+  shadow and secondary buttons shade; there are no soft hover effects.
 - **Camera and biometrics:** the QR preview follows the interface orientation
   (`AVCaptureDevice.RotationCoordinator`). The receipt camera opens inside the form sheet, as
   Apple allows on iPad. The lock setting names the device's biometrics (Face ID on iPad Pro, Touch

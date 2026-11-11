@@ -60,7 +60,7 @@ final class IPadLayoutUITests: CrowUITestCase {
         wait(element("leave.balance"))
         app.typeKey("3", modifierFlags: .command)
         wait(app.staticTexts["payslip.net"])
-        app.typeKey(",", modifierFlags: .command)
+        app.typeKey("8", modifierFlags: .command)
         wait(app.buttons["settings.signOut"])
         app.typeKey("1", modifierFlags: .command)
         wait(app.staticTexts["today.greeting"])
@@ -172,7 +172,7 @@ final class IPadLayoutUITests: CrowUITestCase {
         settle(); shot("\(prefix)-claims")
         // A screen chosen with the keyboard that the tab bar doesn't show opens under More.
         tapTab("Today")
-        app.typeKey(",", modifierFlags: .command)
+        app.typeKey("8", modifierFlags: .command)
         settle()
         shot("\(prefix)-shortcut-settings")
         wait(app.buttons["settings.signOut"])
