@@ -11,16 +11,16 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Common-password list is curated, not a breach corpus**: a few hundred entries plus pattern rules (`packages/core/src/auth/common-passwords.ts`).
 - **Organisation logo** in `GET /api/v1/meta` is always `null` until the company profile exists.
 - **No email change** endpoint yet (it would be a `recentAuth` action).
-- **Native apps**: the token endpoints exist and are tested; the apps themselves (M4) do not. No browser session is created during a native sign-in at all (stricter than the design's create-then-revoke).
+- **Native app sign-in** creates no browser session at all (stricter than the design's create-then-revoke). The apps themselves are under "Mobile apps" below.
 - **No RLS**: isolation is app-level (`orgScope`) plus composite FKs, as designed.
 - **Org switcher** in the web shell lists only the current organisation (the API supports `POST /api/v1/auth/switch-organisation`).
-- **Admin/employee view** in the web shell is still a client-side preview toggle (user menu or `?view=employee`), not derived from roles. The server enforces roles on every request regardless.
+- **Layout by role**: members who are only employees always get the employee layout (bottom tab bar on phones, the employee Home). Owners, admins and managers get the admin layout and can switch to the employee one from the user menu (or `?view=employee`); the choice is kept per browser, not per account. The server enforces roles on every request regardless.
 - **E2E gaps**: the SSO round trip, audit-log filtering/export and device sessions are covered by core integration tests (mock IdP, PGlite), not by Playwright. The idle-timeout message is unit-tested; an e2e with a mocked server clock is not feasible against the real server.
 - **QR code** for authenticator enrolment is generated in the browser (`qrcode` package); nothing is sent to a third party.
 
 ## Approvals and notifications (workflows workstream)
 
-- **Only profile changes, payroll runs and claims submit requests yet.** Leave, OT, timesheets and shift swaps register their `SubjectAdapter` when they land; until then Settings → Approvals lists those types as "Not in use yet".
+- **Timesheet approval is not in use yet**: no module submits timesheets for approval (attendance corrections are made directly by managers and HR). Settings → Approvals lists the type as "Not in use yet"; every other type (leave, leave cancellation, claims, overtime, profile changes, shift swaps, payroll runs, leave encashment, employment letters) is live.
 - **Default policies are not stored per org.** Organisations without a saved policy use the built-in defaults at submission (same behaviour as seeding them); they are listed as "Default" in Settings → Approvals until edited.
 - **Payroll-cutoff reminders** (`payroll_cutoff`, 3 days before the cutoff day in payroll settings, or the pay day when none is set) go to active payroll admins until the month's regular run is approved.
 - **Out-of-office cover** is set from the Inbox (and by HR in Settings → Approvals), not from My profile.
@@ -33,7 +33,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 
 - **Home** shows real work from `GET /api/v1/inbox`; its payroll card lists open runs and the month's run when not started, or "Payroll isn't set up yet" before payroll settings are saved.
 - **Command palette** "People" results come from the live directory (people module).
-- **Every module** has real screens now (People, Payroll, Claims, Leave, Attendance, Schedules, Documents, Reports). Settings lists future sections as "Not available yet".
+- **Every module** has real screens now (People, Payroll, Claims, Leave, Attendance, Schedules, Documents, Reports). Payroll's settings are a dialog on the Payroll page, which Settings → Payroll opens.
 - **No dark mode.** The landing site's dark tokens were not ported.
 
 ## Platform
