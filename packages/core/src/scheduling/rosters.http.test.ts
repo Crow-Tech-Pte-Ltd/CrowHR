@@ -211,6 +211,20 @@ describe("rosters and shifts", () => {
     expect((await view(manager, "2026-11-16")).shifts).toHaveLength(0);
   });
 
+  it("copying last week twice adds its open shifts once (two identical ones stay two)", async () => {
+    const wk1 = await open(manager, "2026-11-23");
+    for (let i = 0; i < 2; i++)
+      await ok(
+        manager.post(`${api}/rosters/${wk1}/shifts`, { employeeId: null, date: "2026-11-26", templateId: am }),
+        201,
+      );
+    const wk2 = await open(manager, "2026-11-30");
+    await ok(manager.post(`${api}/rosters/${wk2}/copy-previous`));
+    await ok(manager.post(`${api}/rosters/${wk2}/copy-previous`));
+    const openShifts = (await view(manager, "2026-11-30")).shifts.filter((s) => s.employeeId === null);
+    expect(openShifts.map((s) => s.date)).toEqual(["2026-12-03", "2026-12-03"]);
+  });
+
   it(`a roster holds at most ${MAX_ROSTER_EMPLOYEES} employees`, async () => {
     const id = await open(hr, "2026-11-23");
     const rows = [];

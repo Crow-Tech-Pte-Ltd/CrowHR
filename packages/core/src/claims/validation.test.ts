@@ -24,6 +24,22 @@ describe("claim drafts and submission validation", () => {
   const issuesOf = (body: { error: { details?: { issues?: { path: string; message: string }[] } } }) =>
     body.error.details?.issues ?? [];
 
+  it("a total too large to store, or a line worth S$0.00 after conversion, is a 400 that says what to fix", async () => {
+    const huge = await submitNew([
+      line(above, { amountMinor: Number.MAX_SAFE_INTEGER, receiptIds: [] }),
+      line(above, { amountMinor: Number.MAX_SAFE_INTEGER, receiptIds: [] }),
+    ]);
+    expect(huge.status).toBe(400);
+    expect(issuesOf(huge.body).map((i) => i.path)).toContain("lines");
+    expect(issuesOf(huge.body).find((i) => i.path === "lines")?.message).toMatch(/total is too large/);
+    // VND 50 at 0.000053 SGD is S$0.00265, which rounds to S$0.00.
+    const zero = await submitNew([line(above, { currency: "VND", amountMinor: 50, rate: "0.000053" })]);
+    expect(zero.status).toBe(400);
+    expect(issuesOf(zero.body)).toEqual([
+      { path: "lines.0.amountMinor", message: expect.stringMatching(/Line 1: .*S\$0\.00.*Check the amount and rate/) },
+    ]);
+  });
+
   it("1 to 30 lines", async () => {
     expect((await submitNew([])).status).toBe(400);
     const many = Array.from({ length: 31 }, () => line(above, { amountMinor: 100 }));
@@ -155,6 +171,19 @@ describe("claim drafts and submission validation", () => {
     expect(
       (await (await w.as("manager")).post("/api/v1/claims", { employeeId: w.emp.staff, lines: [line(above)] })).status,
     ).toBe(404);
+    // An employee who isn't in this organisation: the same 404 for HR, on every on-behalf route.
+    const nobody = w.deps.ids.newId();
+    const create = await hr.post("/api/v1/claims", { employeeId: nobody, lines: [line(above)] });
+    expect([create.status, (await json(create)).error.message]).toEqual([
+      404,
+      "That employee doesn't exist or you can't claim for them.",
+    ]);
+    expect((await hr.get(`/api/v1/claims/eligible-types?employeeId=${nobody}`)).status).toBe(404);
+    const upload = await uploadAs(hr, pngBytes(7), "receipt.png", `&employeeId=${nobody}`);
+    expect([upload.status, (await json(upload)).error.message]).toEqual([
+      404,
+      "That employee doesn't exist or you can't claim for them.",
+    ]);
   });
 
   it("list scope: own, team (manager), all (HR/payroll); `mine` is the caller's own", async () => {

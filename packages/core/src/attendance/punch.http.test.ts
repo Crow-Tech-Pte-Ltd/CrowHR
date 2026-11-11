@@ -206,6 +206,20 @@ describe("attendance punches", () => {
     expect(((await flagged.json()) as { flags: string[] }).flags).toEqual(["outside_location"]);
     const noLoc = await punch(staff, "out", "2026-11-12T01:20:00.000Z");
     expect(((await noLoc.json()) as { flags: string[] }).flags).toEqual(["no_location"]);
+
+    // Blocked without a location: the web, iOS and Android apps show this message as is.
+    await configure({
+      locationMode: "required",
+      offices: [{ name: "Tanjong Pagar HQ", ...HQ, radiusMetres: 200 }],
+      locationEnforcement: "block",
+    });
+    const blocked = await punch(staff, "out", "2026-11-12T01:20:00.000Z");
+    expect(blocked.status).toBe(422);
+    const error = ((await blocked.json()) as { error: { code: string; message: string; details: unknown } }).error;
+    expect(error).toMatchObject({ code: "outside_location", details: { reason: "no_location" } });
+    expect(error.message).toBe(
+      "Your company needs your location to clock in. Allow location for Crow HR in your browser or phone settings, then clock in again.",
+    );
   });
 
   it("allowed IP ranges flag or block other networks", async () => {
@@ -283,6 +297,10 @@ describe("today's punches on the clock screen", () => {
       const open = await me();
       expect(open.clockedIn).toBe(true);
       expect(open.today.map((p) => p.workDate)).toEqual(["2026-11-12"]);
+      // From 04:00 a clock-out no longer closes yesterday's shift (it starts a new day), so a
+      // forgotten clock-out leaves the employee clocked out, ready to clock in today.
+      w.clock.set("2026-11-13T00:55:00.000Z"); // 08:55 Friday
+      expect(await me()).toMatchObject({ clockedIn: false, today: [] });
     } finally {
       await w.close();
     }

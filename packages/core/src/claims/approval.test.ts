@@ -12,9 +12,11 @@ import {
   uploadAs,
 } from "../../testing/claims.ts";
 import type { TestClient } from "../../testing/http.ts";
+import { systemAuditContext } from "../audit/audit.ts";
 import { claims } from "../db/schema/claims.ts";
 import { notifications } from "../db/schema/notifications.ts";
 import { approvalRequests, approvalSteps } from "../db/schema/workflows.ts";
+import { replacePolicies } from "../workflows/policies.ts";
 import { primaryTypeCode } from "./service.ts";
 
 describe("claims × workflows (SubjectAdapter)", () => {
@@ -185,5 +187,24 @@ describe("claims × workflows (SubjectAdapter)", () => {
     ]);
     const [row] = await w.deps.db.select().from(claims).where(eq(claims.id, claim.id));
     expect(row?.approvalRequestId).toBeTruthy();
+  });
+
+  it("an approver whose task was withdrawn no longer lists the claim (as they can't open it)", async () => {
+    // A colleague outside the claimant's team approves claims, by name.
+    await replacePolicies(w.deps.db, w.deps, systemAuditContext(w.orgId, "system", "test"), w.orgId, "claim", [
+      {
+        name: "Colleague",
+        condition: null,
+        priority: 0,
+        steps: [{ approverRule: `member:${w.m.other.membershipId}`, escalateAfterDays: 3 }],
+      },
+    ]);
+    const claim = await submit([line(transport)]);
+    const other = await w.as("other");
+    const ids = async () => (await json(await other.get("/api/v1/claims"))).items.map((i: { id: string }) => i.id);
+    expect(await ids()).toContain(claim.id);
+    expect((await staff.post(`/api/v1/claims/${claim.id}/withdraw`)).status).toBe(200);
+    expect((await other.get(`/api/v1/claims/${claim.id}`)).status).toBe(404);
+    expect(await ids()).not.toContain(claim.id);
   });
 });

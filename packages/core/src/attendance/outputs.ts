@@ -108,7 +108,10 @@ export async function listRosterDaysWorked(db: Db, orgId: string, periodStart: s
     let halves = 0;
     for (const day of sheets.days.get(t.employeeId) ?? []) {
       if (day.dayType === "not_employed") continue;
-      if (day.workedMinutes > 0 || dayInfo(t, day.date).holiday) {
+      // A public holiday counts as a day worked unless it falls on the rostered rest day, the same
+      // rule as scheduling's scheduled days (otherwise worked could exceed scheduled, and no-pay
+      // leave in the month would go undeducted).
+      if (day.workedMinutes > 0 || (dayInfo(t, day.date).holiday && day.dayType !== "rest")) {
         halves += 2;
         continue;
       }

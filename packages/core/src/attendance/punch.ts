@@ -172,7 +172,7 @@ export function checkControls(settings: AttendanceSettings, input: PunchInput, i
     if (settings.locationEnforcement === "block") {
       throw new AppError(
         "outside_location",
-        "Your company needs your location to clock in. Allow location for this site in your browser, then try again.",
+        "Your company needs your location to clock in. Allow location for Crow HR in your browser or phone settings, then clock in again.",
         { reason: "no_location" },
       );
     }
@@ -334,11 +334,12 @@ export async function punchStatus(db: Db, orgId: string, employeeId: string, now
     .limit(40);
   const last = rows[0] ?? null;
   // Yesterday's punches belong on today's screen only while that shift is still open (overnight
-  // work); once clocked out, after midnight they are yesterday's.
-  const overnight = last?.kind === "in" && last.workDate === yesterday;
+  // work) and a clock-out can still close it, i.e. before the 04:00 cut-off; once clocked out, or
+  // after the cut-off, they are yesterday's (a clock-out then starts a new day).
+  const overnight = last?.kind === "in" && last.workDate === yesterday && sgHour(now) < OVERNIGHT_CUTOFF_HOUR;
   const todays = rows.filter((r) => r.workDate === today || (overnight && r.workDate === yesterday));
   return {
-    clockedIn: last?.kind === "in" && (last.workDate === today || last.workDate === yesterday),
+    clockedIn: last?.kind === "in" && (last.workDate === today || overnight),
     lastPunch: last,
     today: todays.reverse(),
   };

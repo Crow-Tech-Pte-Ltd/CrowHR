@@ -5,7 +5,7 @@ import { seedMember } from "../../testing/fixtures.ts";
 import { clientAs, type TestClient, testClient } from "../../testing/http.ts";
 import { createLeaveWorld, type LeaveWorld } from "../../testing/leave.ts";
 import { auditEvents } from "../db/schema/audit.ts";
-import { documentRetentionReviews, documents, documentVersions } from "../db/schema/documents.ts";
+import { documentRetentionReviews, documents, documentVersions, letterTemplates } from "../db/schema/documents.ts";
 import { checklistItems, checklists, tenures } from "../db/schema/employees.ts";
 import { files } from "../db/schema/files.ts";
 import { notifications } from "../db/schema/notifications.ts";
@@ -79,6 +79,33 @@ describe("letters and acknowledgements", () => {
       "offer",
       "salary_adjustment",
     ]);
+  });
+
+  it("won't ask for an acknowledgement of a letter filed where the employee can't see it", async () => {
+    const cats = (await ok<{ items: { id: string; name: string }[] }>(hr.get("/api/v1/documents/categories"))).items;
+    const hrOnly = cats.find((c) => c.name === "Other")?.id as string;
+    const ket = templates.ket as Template;
+    const [before] = await w.deps.db.select().from(letterTemplates).where(eq(letterTemplates.id, ket.id));
+    await w.deps.db.update(letterTemplates).set({ targetCategoryId: hrOnly }).where(eq(letterTemplates.id, ket.id));
+    try {
+      const count = async () => (await w.deps.db.select().from(documents).where(eq(documents.orgId, w.orgId))).length;
+      const docs = await count();
+      const res = await hrPay.post("/api/v1/documents/generate", {
+        templateId: ket.id,
+        employeeId: w.emp.newbie,
+        asAt: "2026-07-14",
+        overrides: KET_TERMS,
+        requestAcknowledgement: true,
+      });
+      expect(res.status).toBe(409);
+      expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(/can't acknowledge/);
+      expect(await count()).toBe(docs);
+    } finally {
+      await w.deps.db
+        .update(letterTemplates)
+        .set({ targetCategoryId: before?.targetCategoryId as string })
+        .where(eq(letterTemplates.id, ket.id));
+    }
   });
 
   it("refuses to save a template with an unknown field, naming the line and a suggestion", async () => {
