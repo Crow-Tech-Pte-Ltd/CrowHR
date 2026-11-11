@@ -388,6 +388,9 @@ function ItemList({ items, runId, editable }: { items: PayrollItemDto[]; runId: 
             {i.awPayableDate ? (
               <span className="ml-1.5 text-2xs text-primary-300">payable {formatDate(i.awPayableDate)}</span>
             ) : null}
+            {i.kind === "hours" && i.date ? (
+              <span className="ml-1.5 text-2xs text-primary-300">worked {formatDate(i.date)}</span>
+            ) : null}
           </span>
           <span className="num shrink-0">
             {i.amountCents !== null
@@ -432,6 +435,7 @@ function AddItem({ runId, employeeId }: { runId: string; employeeId: string }) {
   const [wageClass, setWageClass] = React.useState<"OW" | "AW">("AW");
   const [payable, setPayable] = React.useState("");
   const [hours, setHours] = React.useState("");
+  const [workedOn, setWorkedOn] = React.useState("");
   const [days, setDays] = React.useState("");
   const [category, setCategory] = React.useState("consented");
   const add = useMutation({
@@ -444,6 +448,7 @@ function AddItem({ runId, employeeId }: { runId: string; employeeId: string }) {
         wageClass: ["bonus", "commission", "backpay", "other_earning"].includes(kind) ? wageClass : null,
         awPayableDate: wageClass === "AW" && payable ? payable : null,
         minutes: hours ? Math.round(Number(hours) * 60) : null,
+        date: kind === "hours" && workedOn ? workedOn : null,
         days: days ? Number(days) : null,
         deductionCategory: kind === "deduction" ? (category as never) : null,
       }),
@@ -453,6 +458,7 @@ function AddItem({ runId, employeeId }: { runId: string; employeeId: string }) {
       setLabel("");
       setAmount(null);
       setHours("");
+      setWorkedOn("");
       setDays("");
     },
   });
@@ -539,6 +545,15 @@ function AddItem({ runId, employeeId }: { runId: string; employeeId: string }) {
       {kind === "overtime" || kind === "hours" ? (
         <FormField label="Hours" error={errors.minutes}>
           <Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="e.g. 4.5" />
+        </FormField>
+      ) : null}
+      {kind === "hours" ? (
+        <FormField
+          label="Date worked (optional)"
+          error={errors.date}
+          hint="Needed when the hourly rate changes this month: add one item per rate, dated on or after the change."
+        >
+          <Input type="date" value={workedOn} onChange={(e) => setWorkedOn(e.target.value)} />
         </FormField>
       ) : null}
       {kind === "scheduled_days" || kind === "days_worked" ? (

@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
   singaporeToday,
+  singaporeTodayIso,
   toast,
   toIsoDate,
 } from "@crowhr/ui";
@@ -81,6 +82,12 @@ const EMPTY_TITLE: Record<string, string> = {
   paid: "No paid claims",
   "rejected,withdrawn": "No rejected or withdrawn claims",
 };
+
+function addIsoDays(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
 
 function monthRange(): { from: string; to: string } {
   const now = singaporeToday();
@@ -510,6 +517,9 @@ function MarkPaidDialog({
 }) {
   const [paidOn, setPaidOn] = React.useState(toIsoDate(singaporeToday()));
   const [reference, setReference] = React.useState("");
+  // The server takes a payment date from the last approval up to 31 days ahead (claims/payouts.ts).
+  const earliest = claims.reduce((max, c) => (c.approvedOn && c.approvedOn > max ? c.approvedOn : max), "");
+  const latest = addIsoDays(singaporeTodayIso(), 31);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const total = claims.reduce((s, c) => s + c.totalCents, 0);
   const pay = useMutation({
@@ -546,7 +556,14 @@ function MarkPaidDialog({
           }}
         >
           <FormField label="Paid on" error={errors.paidOn} required>
-            <Input type="date" className="num" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
+            <Input
+              type="date"
+              className="num"
+              value={paidOn}
+              min={earliest || undefined}
+              max={latest}
+              onChange={(e) => setPaidOn(e.target.value)}
+            />
           </FormField>
           <FormField
             label="Payment reference"
