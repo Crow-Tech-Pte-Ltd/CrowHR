@@ -17,6 +17,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import crowtech.crowhr.R
@@ -96,7 +98,8 @@ private val DarkCrow = CrowColors(
     onAccent = CrowTokens.Ink, accentSoft = Color(0xFF3A3220),
     success = CrowTokens.Success200, successSoft = Color(0xFF15301F),
     warning = CrowTokens.Warning200, warningSoft = Color(0xFF3A2A12),
-    danger = CrowTokens.Danger100, dangerSoft = Color(0xFF3A1717), shadow = Color(0xFF000000),
+    // Light hard shadow on dark surfaces (iOS strongBorder 0xF5F5F5); black would vanish.
+    danger = CrowTokens.Danger100, dangerSoft = Color(0xFF3A1717), shadow = Color(0xFFF5F5F5),
 )
 
 private val LightScheme: ColorScheme = lightColorScheme(
@@ -192,6 +195,16 @@ val CrowShapes = Shapes(
 )
 
 val LocalCrowColors = staticCompositionLocalOf { LightCrow }
+
+/**
+ * [size] grown with the user's text size up to [maxScale], for the few labels that must fit side
+ * by side (five tab labels); everything else scales fully. iOS caps its tab bar labels too.
+ */
+@Composable
+fun cappedTextSize(size: TextUnit, maxScale: Float = 1.5f): TextUnit {
+    val scale = LocalDensity.current.fontScale
+    return if (scale <= maxScale) size else (size.value * maxScale / scale).sp
+}
 
 object Crow {
     val colors: CrowColors @Composable get() = LocalCrowColors.current

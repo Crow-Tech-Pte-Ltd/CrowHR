@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import crowtech.crowhr.ui.theme.Crow
+import crowtech.crowhr.ui.theme.CrowTokens
 import crowtech.crowhr.ui.theme.Numeric
 
 private val Radius = RoundedCornerShape(6.dp)
@@ -75,7 +76,9 @@ fun PrimaryButton(
             }
             .offset { val d = if (pressed) 2.dp.roundToPx() else 0; androidx.compose.ui.unit.IntOffset(d, d) }
             .background(if (enabled) colors.accent else colors.hairline, Radius)
-            .border(2.dp, if (focused) colors.focus else if (enabled) colors.shadow else colors.muted, Radius)
+            // The border is near-black in both themes (it frames the kuning fill); the hard shadow
+            // is light in dark mode so it stays visible, as on iOS.
+            .border(2.dp, if (focused) colors.focus else if (enabled) CrowTokens.Ink else colors.muted, Radius)
             .clickable(interactionSource = interaction, indication = null, enabled = active, role = Role.Button, onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,

@@ -90,6 +90,7 @@ import crowtech.crowhr.ui.screens.ProfileScreen
 import crowtech.crowhr.ui.screens.ScheduleScreen
 import crowtech.crowhr.ui.screens.SettingsScreen
 import crowtech.crowhr.ui.theme.Crow
+import crowtech.crowhr.ui.theme.cappedTextSize
 
 enum class Tab(val label: String, val icon: ImageVector, val screen: AppScreen?) {
     Clock("Clock", CrowIcons.Clock, AppScreen.Clock),
@@ -279,7 +280,10 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
                     selected = tab == t.name,
                     onClick = { select(t.name) },
                     icon = { Icon(t.icon, contentDescription = null, modifier = Modifier.size(22.dp)) },
-                    label = { Text(t.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Visible, softWrap = false) },
+                    label = {
+                        val style = MaterialTheme.typography.labelSmall
+                        Text(t.label, style = style.copy(fontSize = cappedTextSize(style.fontSize)), maxLines = 1, overflow = TextOverflow.Visible, softWrap = false)
+                    },
                     modifier = Modifier.testTag("tab-${t.name.lowercase()}"),
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Crow.colors.onAccent,
