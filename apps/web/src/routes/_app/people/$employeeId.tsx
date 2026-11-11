@@ -8,7 +8,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  EmptyState,
   FormField,
   formatDate,
   formatMoney,
@@ -32,10 +31,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRightLeft, Lock, Pencil, UserMinus, Wallet } from "lucide-react";
 import * as React from "react";
 import { canForEmployee, useMe } from "../../../auth/session.ts";
+import { isNotFound, NotFoundPage } from "../../../components/not-found.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { EmployeeDocuments } from "../../../documents/employee-tab.tsx";
 import { Encashments } from "../../../leave/encashments.tsx";
-import { ApiError } from "../../../lib/api.ts";
 import {
   api,
   checklistsQuery,
@@ -89,16 +88,11 @@ function EmployeePage() {
     );
   }
   if (q.isError) {
-    const notFound = q.error instanceof ApiError && q.error.status === 404;
-    return notFound ? (
-      <EmptyState
+    return isNotFound(q.error) ? (
+      <NotFoundPage
         title="Employee not found"
-        description="This record doesn't exist, or you don't have access to it."
-        actions={
-          <Button asChild size="sm">
-            <Link to="/people">Back to People</Link>
-          </Button>
-        }
+        crumbs={[{ label: "People", to: "/people" }]}
+        back={{ to: "/people", label: "Back to People" }}
       />
     ) : (
       <ErrorPanel error={q.error} onRetry={() => void q.refetch()} />
