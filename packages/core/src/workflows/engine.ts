@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import type { AssignedRole } from "../access/matrix.ts";
 import { orgScope } from "../access/org-scope.ts";
 import { singaporeDate } from "../access/scope.ts";
@@ -575,6 +575,31 @@ async function finalise(ctx: Ctx, request: ApprovalRequest, decision: FinalDecis
       actionLabel: "View request",
     },
   });
+}
+
+/**
+ * After a step was skipped outside a decision (re-routing, a member who left): moves the chain on
+ * and, when every later step is skipped and an earlier one was approved, finishes the request as
+ * approved by its last approval, exactly as the decision that approved that step would have.
+ */
+async function advanceOrFinish(ctx: Ctx, request: ApprovalRequest): Promise<"pending" | "approved"> {
+  if ((await advance(ctx, request)) === "pending") return "pending";
+  const [last] = await ctx.db
+    .select()
+    .from(approvalTasks)
+    .where(and(eq(approvalTasks.requestId, request.id), eq(approvalTasks.status, "approved")))
+    .orderBy(desc(approvalTasks.decidedAt))
+    .limit(1);
+  if (!last) throw new Error(`approval request ${request.id} completed without an approved task`);
+  await finalise(ctx, request, {
+    outcome: "approved",
+    decidedByMembershipId: last.assigneeMembershipId,
+    onBehalfOfMembershipId: last.onBehalfOfMembershipId,
+    comment: last.comment,
+    selfApproved: last.selfApproved,
+    decidedAt: ctx.now,
+  });
+  return "approved";
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1154,6 +1179,7 @@ export async function onReportingLineChanged(
     if (step?.status !== "active") continue;
     if (step.approverRule !== "manager" && step.approverRule !== "manager_of_manager") continue;
     const resolution = await resolveRule(ctx, request, step.approverRule);
+    let requestStatus: "pending" | "approved" = "pending";
     const open = await db
       .select()
       .from(approvalTasks)
@@ -1191,14 +1217,14 @@ export async function onReportingLineChanged(
           .update(approvalSteps)
           .set({ status: "skipped", skipReason: resolution.skipReason })
           .where(and(eq(approvalSteps.requestId, id), eq(approvalSteps.position, step.position)));
-        await advance(ctx, request);
+        requestStatus = await advanceOrFinish(ctx, request);
       }
     }
     await recordAudit(db, deps, audit, {
       action: "approval.rerouted",
       targetType: "approval_request",
       targetId: id,
-      meta: { position: step.position, from: [...current], to: [...next] },
+      meta: { position: step.position, from: [...current], to: [...next], requestStatus },
     });
     moved++;
   }
@@ -1348,10 +1374,25 @@ async function reresolveEmptyStep(ctx: Ctx, request: ApprovalRequest, position: 
     .from(approvalSteps)
     .where(and(eq(approvalSteps.requestId, request.id), eq(approvalSteps.position, position)));
   if (step?.status !== "active") return;
-  let resolution: Resolution = await resolveRule(ctx, request, step.approverRule);
-  if (!resolution.members.length) resolution = (await fallbackResolution(ctx, request)) ?? resolution;
+  const resolution: Resolution = await resolveRule(ctx, request, step.approverRule);
   const created = resolution.members.length ? await createStepTasks(ctx, request, step, resolution) : [];
+  let requestStatus: "pending" | "approved" = "pending";
   if (!created.length) {
+    // Like at submission, a step nobody can decide is skipped and the chain moves on (the fallback
+    // applies only when no step is left). Giving its task to HR here made HR decide the default
+    // manager-then-HR chain twice.
+    await ctx.db
+      .update(approvalSteps)
+      .set({ status: "skipped", skipReason: resolution.skipReason ?? "inactive" })
+      .where(and(eq(approvalSteps.requestId, request.id), eq(approvalSteps.position, position)));
+    requestStatus = await advanceOrFinish(ctx, request);
+  }
+  const [now] = await ctx.db
+    .select({ id: approvalTasks.id })
+    .from(approvalTasks)
+    .where(and(eq(approvalTasks.requestId, request.id), eq(approvalTasks.status, "pending")))
+    .limit(1);
+  if (requestStatus === "pending" && !now) {
     ctx.deps.logger.warn("Approval request has no eligible approver after a member left", { requestId: request.id });
   }
   await recordAudit(ctx.db, ctx.deps, ctx.audit, {
@@ -1363,6 +1404,7 @@ async function reresolveEmptyStep(ctx: Ctx, request: ApprovalRequest, position: 
       reason: "member_inactive",
       from: [...new Set(gone.filter((t) => t.position === position).map((t) => t.assigneeMembershipId))],
       to: created.map((t) => t.assigneeMembershipId),
+      requestStatus,
     },
   });
 }

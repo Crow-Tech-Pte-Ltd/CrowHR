@@ -1,10 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clientAs, createWorkflowWorld, EMP, type WorkflowWorld } from "../../testing/index.ts";
+import { markMembershipFormer } from "../access/members-routes.ts";
 import { systemAuditContext } from "../audit/audit.ts";
 import { auditEvents } from "../db/schema/audit.ts";
-import { approvalTasks } from "../db/schema/workflows.ts";
-import { onReportingLineChanged } from "./engine.ts";
+import { approvalRequests, approvalTasks } from "../db/schema/workflows.ts";
+import { decideTask, onReportingLineChanged } from "./engine.ts";
+import { replacePolicies } from "./policies.ts";
 
 describe("re-routing and reassignment", () => {
   let w: WorkflowWorld;
@@ -57,6 +59,56 @@ describe("re-routing and reassignment", () => {
     );
     const open = (await tasks(requestId)).filter((t) => t.status === "pending").map((t) => t.assigneeMembershipId);
     expect(open.sort()).toEqual([w.m.hr.membershipId, w.m.hr2.membershipId].sort());
+  });
+
+  it("losing the last step's approver after an approval finishes the request as approved", async () => {
+    const audit = systemAuditContext(w.org.id, "system", "test");
+    await replacePolicies(w.deps.db, w.deps, audit, w.org.id, "claim", [
+      {
+        name: "Two managers",
+        condition: null,
+        priority: 0,
+        steps: [
+          { approverRule: "manager", escalateAfterDays: 3 },
+          { approverRule: "manager_of_manager", escalateAfterDays: 3 },
+        ],
+      },
+    ]);
+    const { requestId, subjectId } = await w.submit(w.m.staff, "claim", { amountCents: 3_000 });
+    const [first] = (await tasks(requestId)).filter((t) => t.status === "pending");
+    await decideTask(
+      w.deps,
+      { orgId: w.org.id, membershipId: w.m.manager.membershipId, roles: [], audit },
+      { taskId: first?.id as string, decision: "approve" },
+    );
+    expect((await tasks(requestId)).find((t) => t.status === "pending")?.assigneeMembershipId).toBe(
+      w.m.head.membershipId,
+    );
+    // Staff now report to the owner, who has no manager: step 2 has nobody left to decide.
+    w.managers[EMP.staff] = EMP.owner;
+    await w.deps.db.transaction((tx) =>
+      onReportingLineChanged(tx, w.deps, audit, { orgId: w.org.id, employeeId: EMP.staff }),
+    );
+    const [request] = await w.deps.db.select().from(approvalRequests).where(eq(approvalRequests.id, requestId));
+    expect(request?.status).toBe("approved");
+    expect(w.fake.state.get(subjectId)).toBe("approved");
+    expect((await tasks(requestId)).filter((t) => t.status === "pending")).toEqual([]);
+  });
+
+  it("a manager who leaves: their step is skipped, so HR decides once, not twice", async () => {
+    const audit = systemAuditContext(w.org.id, "system", "test");
+    const { requestId, subjectId } = await w.submit(w.m.staff, "claim", { amountCents: 3_000 });
+    await markMembershipFormer(w.deps, w.deps.db, audit, { orgId: w.org.id, employeeId: EMP.manager });
+    const open = () => tasks(requestId).then((all) => all.filter((t) => t.status === "pending"));
+    const hrTask = (await open()).find((t) => t.assigneeMembershipId === w.m.hr.membershipId);
+    expect(hrTask?.position).toBe(2);
+    await decideTask(
+      w.deps,
+      { orgId: w.org.id, membershipId: w.m.hr.membershipId, roles: ["hr_admin"], audit },
+      { taskId: hrTask?.id as string, decision: "approve" },
+    );
+    expect(w.fake.state.get(subjectId)).toBe("approved");
+    expect(await open()).toEqual([]);
   });
 
   it("an hr_admin reassigns a pending task with a reason; it is audited", async () => {
