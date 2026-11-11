@@ -110,7 +110,13 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
             payroll is approved and paid; October is a computed draft with warnings. Claims, leave, change requests and
             approvals are waiting for each persona. Every name, NRIC/FIN, bank account and email address is invented.
           </p>
-          <div className="overflow-x-auto rounded-md border border-border bg-surface-50">
+          {/* A table wider than a phone scrolls; keyboard users need to reach it too (WCAG 2.1.1). */}
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Demo personas"
+            className="focus-ring overflow-x-auto rounded-md border border-border bg-surface-50"
+          >
             <table className="w-full min-w-[520px] text-left text-ui">
               <thead className="border-b border-border bg-surface-100/60 font-azeret text-2xs uppercase tracking-wider text-primary-300">
                 <tr>
@@ -144,7 +150,13 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
           <p className="mb-3 max-w-2xl text-ui leading-6 text-primary-300">
             Everything below exists only in the demo. A self-hosted install behaves as in the right-hand column.
           </p>
-          <div className="overflow-x-auto rounded-md border border-border bg-surface-50">
+          {/* A table wider than a phone scrolls; keyboard users need to reach it too (WCAG 2.1.1). */}
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Demo compared with a self-hosted install"
+            className="focus-ring overflow-x-auto rounded-md border border-border bg-surface-50"
+          >
             <table className="w-full min-w-[640px] text-left text-ui" data-testid="demo-differences">
               <thead className="border-b border-border bg-surface-100/60 font-azeret text-2xs uppercase tracking-wider text-primary-300">
                 <tr>
