@@ -1,5 +1,5 @@
 import { employmentRecordRetention } from "@crowhr/sg-rules";
-import { and, asc, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Role } from "../access/matrix.ts";
 import { orgScope } from "../access/org-scope.ts";
@@ -95,29 +95,57 @@ export function documentExpiryReminderSource(deps: AppDeps): ReminderSource {
             lte(documentVersions.expiresOn, addDaysIso(today, Math.max(...EXPIRY_THRESHOLDS))),
           ),
         );
-      // Later expiries in the same employee + category supersede the old document's reminders.
-      const later = await db
-        .select({
-          orgId: documents.orgId,
-          employeeId: documents.employeeId,
-          categoryId: documents.categoryId,
-          max: sql<string>`max(${documentVersions.expiresOn})::text`,
-        })
-        .from(documents)
-        .innerJoin(
-          documentVersions,
-          and(eq(documentVersions.orgId, documents.orgId), eq(documentVersions.id, documents.currentVersionId)),
-        )
-        .where(and(isNull(documents.deletedAt), isNull(documents.purgedAt)))
-        .groupBy(documents.orgId, documents.employeeId, documents.categoryId);
-      const latest = new Map(later.map((l) => [`${l.orgId}|${l.employeeId}|${l.categoryId}`, l.max]));
+      // A newer document (added later) for the same employee and category with a later expiry is a
+      // renewal and stops the old document's reminders; an older one with a later expiry does not
+      // (a long-valid certificate must not silence another one that is about to lapse).
+      const employeeIds = [...new Set(rows.map((r) => r.d.employeeId))];
+      const others = employeeIds.length
+        ? await db
+            .select({
+              id: documents.id,
+              orgId: documents.orgId,
+              employeeId: documents.employeeId,
+              categoryId: documents.categoryId,
+              createdAt: documents.createdAt,
+              expiresOn: sql<string | null>`${documentVersions.expiresOn}::text`,
+            })
+            .from(documents)
+            .innerJoin(
+              documentVersions,
+              and(eq(documentVersions.orgId, documents.orgId), eq(documentVersions.id, documents.currentVersionId)),
+            )
+            .where(
+              and(
+                inArray(documents.employeeId, employeeIds),
+                isNull(documents.deletedAt),
+                isNull(documents.purgedAt),
+                sql`${documentVersions.expiresOn} is not null`,
+              ),
+            )
+        : [];
+      const renewed = (r: (typeof rows)[number], expiresOn: string) =>
+        others.some(
+          (o) =>
+            o.id !== r.d.id &&
+            o.orgId === r.d.orgId &&
+            o.employeeId === r.d.employeeId &&
+            o.categoryId === r.d.categoryId &&
+            o.createdAt > r.d.createdAt &&
+            (o.expiresOn ?? "") > expiresOn,
+        );
+      const hrByOrg = new Map<string, string[]>();
       const out: DueReminder[] = [];
       for (const r of rows) {
         const expiresOn = r.v.expiresOn as string;
-        if ((latest.get(`${r.d.orgId}|${r.d.employeeId}|${r.d.categoryId}`) ?? expiresOn) > expiresOn) continue;
+        if (renewed(r, expiresOn)) continue;
         const threshold = expiryThreshold(today, expiresOn, EXPIRY_THRESHOLDS);
         if (threshold === null) continue;
-        const recipients = new Set(await hrRecipients(db, deps, r.d.orgId));
+        let hr = hrByOrg.get(r.d.orgId);
+        if (!hr) {
+          hr = await hrRecipients(db, deps, r.d.orgId);
+          hrByOrg.set(r.d.orgId, hr);
+        }
+        const recipients = new Set(hr);
         if (r.c.employeeVisible)
           for (const m of await employeeMembers(db, r.d.orgId, r.d.employeeId)) recipients.add(m);
         const name = displayName(r.e);
