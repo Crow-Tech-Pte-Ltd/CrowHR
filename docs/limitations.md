@@ -28,6 +28,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Browser demo tick** runs every 30 s and on navigation while a demo tab is open (`createManualScheduler` in the demo worker); nothing runs while no demo tab is open, so reminders and escalations catch up on the next visit.
 - **Inbox speed** is tested with 40 open tasks (< 1 s on PGlite) and measured at 200 employees with `node packages/core/scripts/bench-hot-paths.ts` (PGlite, in process; 12 Nov 2026: Home 7–16 ms for every role, 15 ms for a manager with 18 tasks and 20 000 older audit events). It is not measured on a real PostgreSQL server or under concurrent load.
 - **Work-pass reminders read the latest pass per employee**: a renewal must be added as a new pass (with a later expiry) to stop the old pass's reminders.
+- **Lock order on a real PostgreSQL server** (found in the 12 Nov 2026 review, not reproducible on PGlite, not fixed): the escalation sweep locks due tasks before their request, while decisions lock the request first; cancelling or expiring a shift swap locks the swap before the request, while approving it locks the request first. A decision at the same moment can deadlock: PostgreSQL aborts one side, which answers 500 (retrying works) or, for the sweep, marks those tasks escalated without escalating. The bulk decision endpoint answers 500 for the whole batch when one decision fails with a non-domain error, although earlier decisions in the batch were committed.
 
 ## Screens
 
@@ -88,6 +89,8 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Bank file is generic**: Singapore's SS611 standard adopts pain.001.001.03 and leaves the details to each bank, and banks publish guides (ANZ's Singapore MIG, for example), so service level (FAST or GIRO), charge bearer and 11-character BICs depend on the bank's profile. The file is not mapped to any bank's guide and has not been tested with any bank; it validates against the official ISO 20022 XSD.
 - **CPF EZPay file** (not confirmed by CPF Board): SHG for foreigners (MBMF/SINDA/CDAC/ECF for non-SC/PR staff) is written as a summary record only; a CPF top-up on earlier AW is reported in the current month's amount with no new AW in that month's AW column; each run gets its own advice code (the regular run keeps the settings code, others the next free one) and a month past code 99 is refused rather than reusing a code.
 - **AW top-up recovery** (CPF Act s 7(9)): the employee share may be deducted with a "CPF AW recovery" item up to 30 June of the following year; otherwise the employer bears it, shown as "Employee share absorbed" apart from statutory employer CPF. Remittance never waits for recovery. Recovery of other CPF arrears caused by the employer is blocked; the s 7(6A) route (non-negligent error, recovery with consent) and a waiver workflow for leavers' unrecoverable shares are not supported.
+- **AW recovery in an adjustment** (found in the 12 Nov 2026 review, not fixed): when a run with an absorbed AW top-up share is reopened, the adjustment can offer that share for recovery twice (the replaced run's open lot and the adjustment's own share), so a "CPF AW recovery" item without an amount could deduct up to twice the share. Enter the recovery amount explicitly on an adjustment.
+- **Payroll writes per employee**: compute inserts one payslip per employee and release sends one notification per payslip (about 210 ms and 260 statements for 200 employees on PGlite; fine for a monthly action, not batched).
 - **Deduction limits** (`packages/sg-rules`): accommodation, amenities and services share one 25% cap (EA s 30(2)); employee CPF and SHG count toward the 50% limit (s 32), which is lifted on final pay. Whether a deduction is one s 27 permits (and has the employee's consent) is HR's responsibility.
 - **Payment deadlines**: salary is checked against 7 days after the period (EA s 21(1)) and each OT entry against 14 days after the salary period in which it was performed (s 21(2)). Interpretation Act s 50 (a deadline on a Sunday or public holiday moves to the next day) is not applied, so a run can be flagged a day early. Paying on a non-working day is allowed (s 25(2)) and only noted.
 - **Hourly rate change within a period**: hours are paid at the rate in force on the date worked, so each "Hours worked" item needs its `date` (split the hours at the change). Undated hours block the run (`HOURLY_RATE_CHANGES_IN_PERIOD`). The web pay-item form has no date field yet, so for now such hours are dated through the API.
@@ -111,6 +114,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **FX sanity warning NOT IMPLEMENTED**: the design's "rate deviates more than 20% from the last rate" warning to approvers is not built; approvers see the original amount, rate and SGD amount.
 - **On-behalf claims**: owners and hr_admins can create claims for an employee through the API (`employeeId`); the web form only files claims for yourself.
 - **Uploaded but unattached receipts** are kept until the uploader deletes them; there is no cleanup sweep.
+- **Claim numbers sort as text** (`C-0001`…): after C-9999, sorting by number puts C-10000 before C-9999.
 
 ## Leave (add-leave, WS5)
 
@@ -140,6 +144,8 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Clock skew** is estimated as server time minus the device's send time, so slow networks add their latency to the estimate (default threshold 2 minutes; flags never block).
 - **Rest-day and public-holiday base pay** is not passed to payroll; the OT feed carries OT minutes only, and payroll prices rest-day work from day rates.
 - **Punches older than 7 days** are refused; a manager or HR adds them as corrections.
+- **Corrections don't re-date earlier punches** (found in the 12 Nov 2026 review, not fixed): a manager's corrected clock-in at 22:00 on day D doesn't pick up a lone clock-out at 02:00 on D+1 that was already dated D+1 (it had no clock-in before it), so both days show a missing punch. Void the clock-out and add it again as a correction after the clock-in.
+- **A break during an overnight shift**: a clock-in after midnight (back from a break at 01:00) is dated by its own day, so the rest of the shift counts on the next day. Only a clock-out before 04:00 closes the previous day's shift.
 
 ## Public demo (packages/demo, apps/demo — WS8b)
 
@@ -170,6 +176,7 @@ The demo is the real web app and the real core API running in the visitor's brow
 - **Swaps** stay within one roster. A shift with unpublished edits can't be offered until the roster is published again. Deleting a shift removes its swap requests, and both employees are notified.
 - **Managers roster only their team** (matrix scope T), so a manager can't roster themselves; an owner or hr_admin can.
 - **Open shifts** are picked up through approval only; there is no first-come auto-assignment.
+- **Overlapping roster scopes** (found in the 12 Nov 2026 review, not fixed): when one employee falls in two rosters' scopes (for example a location and a department roster for the same week) and only the one without them is published, their week counts as covered with no shifts: every day is off, so all their work counts as OT, leave that week counts 0 days and payroll's scheduled days come out low. Keep each employee on one roster per week.
 - **Week grid**: drag moves a shift (no copy-drag); a cell holds several shifts but the keyboard shortcuts act on the first. Below 1400 px the chip drops the template code (it stays in the tooltip and the editor). At phone width the grid becomes a day list.
 - **The approver's link** from a shift-swap task opens My schedule, not the roster week (the workflows link callback has no database access).
 - **CSV export** is for editors only; staff see the published roster on screen.
@@ -191,6 +198,9 @@ The demo is the real web app and the real core API running in the visitor's brow
 - **Expiry reminders** run on the existing reminders sweep: 30 days, 7 days and on the day, to hr_admins (owners when there is none) and to the employee for employee-visible categories. Home shows only acknowledgement requests; expiring documents are on Documents → Expiring.
 - **DOCX/XLSX** are checked by package structure (OOXML parts present, no VBA project, macro sheets or ActiveX) and always downloaded, never previewed. Macro checks look at part names only; content is not inflated.
 - **Employment letter requests** are approved by hr_admins by default and generated from the first active "employment certificate" template with the approver as signatory ("for and on behalf of the employer").
+- **Default categories and templates come back** (found in the 12 Nov 2026 review, not fixed): setup re-creates any default category missing by its system key and any default template missing by name when the server restarts (and on each load of the browser demo), so a deleted empty default category or a renamed default template reappears. Archive or edit them instead of deleting or renaming.
+- **Acknowledgement requests of replaced versions** stay listed as outstanding for HR; the employee can only acknowledge the current version (request it again after replacing a file).
+- **The document list is not paginated**: HR and managers get every matching document of the organisation in one response.
 
 ## Correctness review follow-up (1 Nov 2026)
 
