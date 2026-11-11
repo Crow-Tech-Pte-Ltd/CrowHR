@@ -11,6 +11,7 @@ import crowtech.crowhr.punch.LocationAccess
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -206,19 +207,20 @@ fun ClockScreen(ctx: ScreenContext) {
                 "Every tap is kept here until the server has answered. Nothing is deleted without asking you.",
                 style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted,
             )
-            punches.asReversed().forEach { p ->
+            PunchQueue.shown(punches).forEach { p ->
                 PunchRow(p, onDiscard = { discard = p }, onDismiss = { queue.dismiss(p.key) })
+                // Confirmed right under the punch it concerns, not below the whole list.
+                if (discard?.key == p.key) {
+                    Notice("Discard this ${if (p.kind == "in") "clock-in" else "clock-out"} from ${Formats.dateTime(Instant.parse(p.deviceTime))}? It hasn't been sent and will be lost.", Tone.Warning)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+                        SecondaryButton("Discard", { queue.discard(p.key); discard = null; version++ }, Modifier.weight(1f), tone = Tone.Danger)
+                        SecondaryButton("Keep", { discard = null }, Modifier.weight(1f))
+                    }
+                }
                 Hairline()
             }
             if (queue.pending().isNotEmpty()) {
                 SecondaryButton("Send now", { scope.launch { drain() } }, Modifier.fillMaxWidth().padding(top = 8.dp))
-            }
-        }
-        discard?.let { p ->
-            Notice("Discard this ${if (p.kind == "in") "clock-in" else "clock-out"} from ${Formats.dateTime(Instant.parse(p.deviceTime))}? It hasn't been sent and will be lost.", Tone.Warning)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SecondaryButton("Discard", { queue.discard(p.key); discard = null; version++ }, Modifier.weight(1f), tone = Tone.Danger)
-                SecondaryButton("Keep", { discard = null }, Modifier.weight(1f))
             }
         }
     }
@@ -246,7 +248,10 @@ private fun StatusCard(me: AttendanceMe, pending: List<QueuedPunch>) {
 
 @Composable
 private fun ServerPunchRow(p: PunchView) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp).semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Text(Formats.parseInstant(p.recordedAt)?.let(Formats::time) ?: "--:--", style = Numeric)
         Text(if (p.kind == "in") "In" else "Out", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         if (p.voided) StatusChip("Voided", Tone.Neutral) else if (p.status == "flagged") StatusChip("Flagged", Tone.Warning)
@@ -255,17 +260,23 @@ private fun ServerPunchRow(p: PunchView) {
 
 @Composable
 private fun PunchRow(p: QueuedPunch, onDiscard: () -> Unit, onDismiss: () -> Unit) {
-    val labels = PunchLabels.of(p)
+    val chip = when (p.state) { PunchQueue.PENDING -> "Waiting"; PunchQueue.SYNCED -> "Synced"; PunchQueue.FLAGGED -> "Flagged"; else -> "Not accepted" }
+    // The status line repeats a plain "Synced" chip; say it once.
+    val labels = PunchLabels.of(p).filterNot { it == chip }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(Formats.dateTime(Instant.parse(p.deviceTime)), style = Numeric.copy(fontSize = MaterialTheme.typography.bodyMedium.fontSize))
-            Text(if (p.kind == "in") "Clock in" else "Clock out", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            StatusChip(
-                when (p.state) { PunchQueue.PENDING -> "Waiting"; PunchQueue.SYNCED -> "Synced"; PunchQueue.FLAGGED -> "Flagged"; else -> "Not accepted" },
-                when (p.state) { PunchQueue.PENDING -> Tone.Accent; PunchQueue.SYNCED -> Tone.Success; PunchQueue.FLAGGED -> Tone.Warning; else -> Tone.Danger },
-            )
+        // One TalkBack item: time, kind, status and the server's reason; the buttons stay separate.
+        Column(Modifier.semantics(mergeDescendants = true) {}) {
+            // Wraps at large text sizes instead of squeezing "Clock in" into a sliver.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+                Text(Formats.dateTime(Instant.parse(p.deviceTime)), style = Numeric.copy(fontSize = MaterialTheme.typography.bodyMedium.fontSize))
+                Text(if (p.kind == "in") "Clock in" else "Clock out", style = MaterialTheme.typography.bodyMedium)
+                StatusChip(
+                    chip,
+                    when (p.state) { PunchQueue.PENDING -> Tone.Accent; PunchQueue.SYNCED -> Tone.Success; PunchQueue.FLAGGED -> Tone.Warning; else -> Tone.Danger },
+                )
+            }
+            labels.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted) }
         }
-        labels.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted) }
         if (p.isPending) LinkButton("Discard…", onDiscard)
         // A refused punch stays with the server's reason until the employee has read it.
         if (p.state == PunchQueue.REJECTED) LinkButton("Dismiss", onDismiss)
