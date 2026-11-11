@@ -36,6 +36,7 @@ import { addDays, dateLabel, maxDate, monthLabel, sgd } from "./dates.ts";
 import { prorate, roundHalfUp, workingDaysBetween } from "./proration.ts";
 import {
   ENGINE_VERSION,
+  isBonusRun,
   type MonthCharged,
   type PayInput,
   type PayIssue,
@@ -98,7 +99,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
   const working: WorkingLine[] = [];
   const rules: RuleRef[] = [];
   const lines: PayLine[] = [];
-  const isBonusRun = run.kind === "off_cycle" && run.offCycleReason === "bonus";
+  const bonusRun = isBonusRun(run);
   const lastWorkingDayInPeriod =
     employment.lastWorkingDay !== null &&
     employment.lastWorkingDay >= run.periodStart &&
@@ -121,7 +122,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
   let prorated = false;
   let monthlyBasicAtEnd: number | null = null;
   let hourly: PayResult["hourly"] = null;
-  if (!isBonusRun) {
+  if (!bonusRun) {
     const p = prorate(input);
     lines.push(...p.lines);
     working.push(...p.working);
@@ -732,7 +733,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
   }
   let fwlCents = 0;
   const pass = employee.workPass;
-  if (!isBonusRun && pass && (pass.type === "S_PASS" || pass.type === "WP")) {
+  if (!bonusRun && pass && (pass.type === "S_PASS" || pass.type === "WP")) {
     if (pass.type === "WP" && !input.fwl) {
       issues.push({
         code: "FWL_SETTINGS_MISSING",

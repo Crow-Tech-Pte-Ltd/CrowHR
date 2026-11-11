@@ -1,7 +1,7 @@
 import { CPF_RATE_TABLES } from "@crowhr/sg-rules";
 import type { PayrollPayslip, PayrollRun } from "../db/schema/payroll.ts";
 import { dateLabel } from "./engine/dates.ts";
-import type { PayInput, PayLine, PayResult } from "./engine/types.ts";
+import { isBonusRun, type PayInput, type PayLine, type PayResult } from "./engine/types.ts";
 
 /**
  * Payslip view model: MOM's itemised payslip items (research/sg-regulatory.md §7, MOM "Itemised
@@ -185,7 +185,7 @@ export function missingPayslipItems(input: PayInput, result: PayResult): string[
   if (!input.employee.legalName.trim()) missing.push("Employee's full name");
   if (!input.run.payDate) missing.push("Date of payment");
   if (!input.run.periodStart || !input.run.periodEnd) missing.push("Start and end date of the salary period");
-  const bonusOnly = input.run.kind === "off_cycle" && input.run.offCycleReason === "bonus";
+  const bonusOnly = isBonusRun(input.run);
   if (!bonusOnly && !result.lines.some((l) => l.category === "basic")) missing.push("Basic salary");
   for (const p of result.overtime?.periods ?? []) {
     if (p.payCents > 0 && p.minutes <= 0 && !missing.includes("Overtime hours worked"))

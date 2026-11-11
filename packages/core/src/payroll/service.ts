@@ -28,7 +28,14 @@ import { isEarningsInput, selfEarningsEditors } from "../workflows/payroll-eligi
 import { canonicalHash } from "./engine/canonical.ts";
 import { computeEmployeePay } from "./engine/compute.ts";
 import { dateLabel, dayOfWeek, daysInMonth, maxDate, minDate, monthBounds, monthLabel } from "./engine/dates.ts";
-import type { PayInput, PayIssue, PayResult, RunItemInput, RunItemKind } from "./engine/types.ts";
+import {
+  isBonusRun,
+  type PayInput,
+  type PayIssue,
+  type PayResult,
+  type RunItemInput,
+  type RunItemKind,
+} from "./engine/types.ts";
 import { reserveFeeds, unavailableFeeds } from "./feed-reservations.ts";
 import { appendHolidayPay } from "./holiday-pay.ts";
 import { changedPayees, changedPayeesMessage, liveAccounts, toPayee } from "./payees.ts";
@@ -625,18 +632,16 @@ async function computeAll(deps: AppDeps, run: PayrollRun): Promise<{ computed: C
   const ports = payrollPorts(deps);
   // An adjustment carries the reimbursements its replaced chain reserved or paid (finding #8).
   const carryFromRunIds = run.kind === "adjustment" ? await replacedChain(deps.db, run.orgId, run) : [];
-  const claims =
-    run.kind === "off_cycle" && run.offCycleReason === "bonus"
-      ? []
-      : await ports.reimbursements.listPayable(run.orgId, run.periodEnd, { runId: run.id, carryFromRunIds });
+  const bonusOnly = isBonusRun(run);
+  const claims = bonusOnly
+    ? []
+    : await ports.reimbursements.listPayable(run.orgId, run.periodEnd, { runId: run.id, carryFromRunIds });
   const unavailable = await unavailableFeeds(deps.db, run, carryFromRunIds);
-  const overtime =
-    run.kind === "off_cycle" && run.offCycleReason === "bonus"
-      ? []
-      : (await ports.overtime.listApproved(run.orgId, "0001-01-01", run.periodEnd)).filter(
-          (o) => !unavailable.has(`attendance:${o.sourceId}`),
-        );
-  const bonusOnly = run.kind === "off_cycle" && run.offCycleReason === "bonus";
+  const overtime = bonusOnly
+    ? []
+    : (await ports.overtime.listApproved(run.orgId, "0001-01-01", run.periodEnd)).filter(
+        (o) => !unavailable.has(`attendance:${o.sourceId}`),
+      );
   const unpaidLeave = bonusOnly ? [] : await ports.unpaidLeave.listUnpaid(run.orgId, run.periodStart, run.periodEnd);
   const daysWorked = bonusOnly ? [] : await ports.daysWorked.listDaysWorked(run.orgId, run.periodStart, run.periodEnd);
   const scheduledDays = bonusOnly

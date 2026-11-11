@@ -10,6 +10,14 @@ export const ENGINE_VERSION = 1;
 
 export type RunKind = "regular" | "off_cycle" | "adjustment";
 export type OffCycleReason = "final_pay" | "bonus";
+
+/**
+ * A bonus run, or an adjustment that reopens one (the adjustment keeps the original's reason): it
+ * pays only its items, never basic pay, allowances, FWL or the module feeds (claims, OT, leave).
+ */
+export function isBonusRun(run: { kind: RunKind; offCycleReason: OffCycleReason | null }): boolean {
+  return (run.kind === "off_cycle" || run.kind === "adjustment") && run.offCycleReason === "bonus";
+}
 export type WageClass = "OW" | "AW";
 
 export type RunItemKind =
