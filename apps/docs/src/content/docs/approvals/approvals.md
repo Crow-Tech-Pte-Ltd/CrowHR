@@ -56,7 +56,7 @@ A step is skipped (and the reason recorded) when it resolves to the requester th
 
 ## Delegation (out-of-office cover)
 
-Anyone can set cover from the Inbox: a delegate, a start and end date (inclusive) and optionally which request types. While cover is active, the delegate also gets the delegator's tasks; the delegator keeps them too. A delegate must be eligible for the subject and cannot be the requester, filer or an excluded beneficiary. Role-based steps only go to delegates who hold that role, and the delegate can read a request only while its task is open. HR admins can set cover for anyone in Settings → Approvals.
+Anyone who approves requests (an approver role, or tasks waiting) can set cover from the Inbox: a delegate, a start and end date (inclusive) and optionally which request types. While cover is active, the delegate also gets the delegator's tasks; the delegator keeps them too. A delegate must be eligible for the subject and cannot be the requester, filer or an excluded beneficiary. Role-based steps only go to delegates who hold that role, and the delegate can read a request only while its task is open. HR admins can set cover for anyone in Settings → Approvals.
 
 ## Escalation and reassignment
 
