@@ -1,10 +1,12 @@
 #if DEBUG
 import SwiftUI
 
-/// Task 3.7 investigation, DEBUG and UI tests only (`-uitest -uitest-a11y-lab`): the same app rows
-/// (leave balance, leave request, empty state, choice field) built three ways, inside the same tab
-/// bar and navigation stack as the real screens, so `A11yAuditLabUITests` can compare Xcode's
-/// Dynamic Type audit on identical content in a `List`, a `Form` and a plain `ScrollView`.
+/// Task 3.7, DEBUG and UI tests only (`-uitest -uitest-a11y-lab`; Release builds don't contain
+/// it): the same app rows (leave balance, leave request, empty state, choice field) built three
+/// ways, inside the same tab bar and navigation stack as the real screens, so
+/// `A11yAuditLabUITests` can compare Xcode's Dynamic Type audit on identical content. "List" and
+/// "Form" are the SwiftUI containers the 1.0.0 screens used (with 1.0.0's `ChoiceField`); "Scroll"
+/// is built from the pieces the screens use now (`RowsScreen`, `RowGroup`, `ChoiceRow`).
 /// Fictional data; no server.
 struct A11yAuditLabView: View {
     static let balances = [
@@ -20,6 +22,7 @@ struct A11yAuditLabView: View {
     static let options: [(id: String, name: String)] = [("t", "Transport"), ("c", "Client entertainment")]
 
     @State private var choice = "c"
+    @State private var segment = "n"
 
     var body: some View {
         TabView {
@@ -50,18 +53,16 @@ struct A11yAuditLabView: View {
             }
             Tab("Scroll", systemImage: "scroll") {
                 NavigationStack {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) {
-                            SectionLabel("Balances")
-                            ForEach(Self.balances) { BalanceRow(balance: $0); Divider() }
-                            SectionLabel("My leave")
-                            ForEach(Self.requests) { LeaveRequestRow(request: $0); Divider() }
+                    RowsScreen {
+                        RowGroup(header: "Balances") { ForEach(Self.balances) { BalanceRow(balance: $0).crowRowPadding() } }
+                        RowGroup(header: "My leave") { ForEach(Self.requests) { LeaveRequestRow(request: $0).crowRowPadding() } }
+                        RowGroup {
                             EmptyStateView(title: "No leave yet", message: "Leave you apply for appears here.", systemImage: "calendar")
-                            ChoiceField(title: "Type", options: Self.options, selection: $choice)
                         }
-                        .padding(20)
+                        ChoiceRow(title: "Type", options: Self.options, selection: $choice).padding(16)
+                        SegmentedChoice(title: "Inbox", options: [(id: "a", name: "Approvals"), (id: "n", name: "Notifications")], selection: $segment)
+                            .padding(16)
                     }
-                    .crowScreen()
                     .navigationTitle("Scroll rows")
                     .navigationBarTitleDisplayMode(.inline)
                 }

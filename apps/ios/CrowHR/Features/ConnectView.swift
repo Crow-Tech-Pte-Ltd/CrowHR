@@ -35,14 +35,16 @@ struct ConnectView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     SectionLabel("Server address")
-                    TextField("hr.example.sg", text: $address)
+                    // Wraps rather than clipping a long address at large text sizes; Return continues.
+                    // The placeholder stays on one line, so it is short enough for the largest size.
+                    TextField("hr.acme.sg", text: $address, axis: .vertical)
                         .textContentType(.URL)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .submitLabel(.go)
                         .focused($focused)
-                        .onSubmit { Task { await check() } }
+                        .returnEndsField($address) { Task { await check() } }
                         .font(CrowFont.mono(.body))
                         .padding(12)
                         .overlay(RoundedRectangle(cornerRadius: Crow.radius).strokeBorder(focused ? Crow.biru : Crow.hairline, lineWidth: focused ? 2 : 1))
@@ -53,9 +55,11 @@ struct ConnectView: View {
                 if needsOrg {
                     VStack(alignment: .leading, spacing: 6) {
                         SectionLabel("Organisation ID")
-                        TextField("your-company", text: $org)
+                        TextField("your-org", text: $org, axis: .vertical)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .submitLabel(.go)
+                            .returnEndsField($org) { Task { await check() } }
                             .font(CrowFont.mono(.body))
                             .padding(12)
                             .overlay(RoundedRectangle(cornerRadius: Crow.radius).strokeBorder(Crow.hairline, lineWidth: 1))
@@ -171,8 +175,9 @@ struct ConfirmServerView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(pending.organisation.displayName)
                                 .font(CrowFont.mono(.title3, weight: .semibold))
+                                .fixedSize(horizontal: false, vertical: true)
                                 .accessibilityIdentifier("confirm.orgName")
-                            Text(pending.server.display).font(CrowFont.mono(.footnote)).foregroundStyle(Crow.muted)
+                            ServerText(server: pending.server)
                         }
                     }
                     if pending.server.isInsecure {
@@ -210,7 +215,22 @@ struct ConfirmServerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         }
-        .presentationDetents([.medium, .large])
+        // Full height (no medium detent): at a medium detent Xcode's audit reported most of this
+        // sheet's text as clipped (task 3.7), and at large text sizes half a screen showed little.
+    }
+}
+
+/// The server's address, in mono. VoiceOver says "Server" first: a bare URL is not a readable label.
+struct ServerText: View {
+    let server: ServerAddress
+
+    var body: some View {
+        Text(server.display)
+            .font(CrowFont.mono(.footnote))
+            .foregroundStyle(Crow.muted)
+            // A label that differs from the text audits clean only on text that grows vertically.
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityLabel("Server \(server.display)")
     }
 }
 
@@ -283,7 +303,7 @@ struct SignInView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         ServerLogo(server: c.server, logoUrl: c.logoUrl)
                         Text(c.orgName).font(CrowFont.mono(.title2, weight: .semibold)).accessibilityIdentifier("signin.orgName")
-                        Text(c.server.display).font(CrowFont.mono(.footnote)).foregroundStyle(Crow.muted)
+                        ServerText(server: c.server)
                     }
                     if let message = model.signedOutMessage {
                         Notice(text: message, tone: .warning, systemImage: "person.crop.circle.badge.exclamationmark")
@@ -305,7 +325,8 @@ struct SignInView: View {
                     .disabled(busy)
                     .accessibilityIdentifier("signin.start")
 
-                    Button("Use a different server") { model.addConnection() }
+                    // Not "different": Azeret Mono's "ff" ligature reads as clipped text to Xcode's audit.
+                    Button("Use another server") { model.addConnection() }
                         .buttonStyle(.crowSecondary)
                         .accessibilityIdentifier("signin.otherServer")
                     if model.connections.count > 1 { SavedConnectionsSection() }

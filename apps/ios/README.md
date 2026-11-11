@@ -29,10 +29,25 @@ shut it down in a trap. Screenshots from the last UI run are in `artifacts/ios/`
   `e2e/seed.ts` + `scripts/ios-ui-seed.ts`, which adds a released payslip and a fictional logo.
 - **Network allow-list:** two checks prove it, the app's own transport recorder and an `lsof`
   sampler of the app process on the Mac.
-- **QA** (`QAScreenshotsUITests`) runs light XXXL, dark and dark XXXL with Xcode's accessibility
-  audit. It checks element descriptions, clipped text and Dynamic Type. It still fails on text in
-  `List` and `Form` rows (task 3.7): `A11yAuditLabUITests` audits the same rows built three ways
-  and shows the audit flags them in a `List` or `Form` but never in a `ScrollView`.
+- **QA** (`QAScreenshotsUITests`) runs Xcode's accessibility audit (element descriptions,
+  clipped text, Dynamic Type) on every screen of four tours:
+  - an employee in light XXXL, dark and dark XXXL, from connecting to the server to Settings;
+  - a manager in light XXXL: approvals, the decision sheet and notifications.
+
+  A tour visits all its screens, then fails with every finding (`AUDIT FAIL` lines; per screen
+  `AUDIT SCREEN`, per tour `AUDIT TOTAL`). Only Dynamic Type on system navigation-bar buttons and
+  on text under the floating tab bar is excused, and logged.
+- **No `List` or `Form`.** The audit reports text in SwiftUI `List` and `Form` cells as not
+  supporting Dynamic Type (and clipped) although it scales. So screens are `ScrollView`s built
+  from `Design/Rows.swift` (`RowsScreen`, `RowGroup`, `ChoiceRow`, `FormField`, ...). Two more
+  audit quirks shape the code:
+  - A `Text` whose VoiceOver label differs from its text (a spoken amount) is reported as "may be
+    clipped". Rows combine into one element and carry the spoken amount on the row (`AmountText`).
+  - Azeret Mono draws "ft", "fi", "ff" and "fj" as one ligature glyph, which the audit also reports
+    as clipped. Fixed UI text in Azeret Mono avoids them ("Save for later", "Use another server").
+- `A11yAuditLabUITests` (DEBUG-only `A11yAuditLabView`) shows identical rows in a `List`, a `Form`
+  and a `ScrollView` built from `Rows.swift`. It fails if the `ScrollView` variant gets any
+  finding, and prints what the `List` and `Form` variants still get.
 - **Store screenshots** (`StoreScreenshotsUITests`) on the 6.9-inch simulator; see Release.
 
 ## Server contract the app relies on
@@ -119,8 +134,9 @@ ssh "$CROWHR_MAC_HOST" 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CRO
   SUCCEEDED" and "UPLOAD SUCCEEDED" (delivery `ccbbf84b-c37f-4b31-a657-d756bdf078be`). App Store
   Connect processed it (VALID), and `ios-store-listing.py attach-build 4` attached it to the 1.0.0
   version. Nothing has been submitted for review.
-- The release gate runs the user-flow UI tests (`EssJourneyUITests`), not `QAScreenshotsUITests`:
-  that class's accessibility audit is the open task 3.7 (text in `List`/`Form` rows).
+- The release gate runs the user-flow UI tests (`EssJourneyUITests`), not `QAScreenshotsUITests`
+  (about 15 minutes). Run the QA audit by hand before a release; task 3.7 stays open only for the
+  manual VoiceOver and Dynamic Type pass on a real device.
 - Internal TestFlight group **Crow HR Internal** (access to all builds) was created on 7 Nov 2026;
   the team's Account Holder was invited at Daniel's request. Add testers with
   `scripts/ios-store-register.py invite-internal EMAIL` on the Mac; internal testers must be
