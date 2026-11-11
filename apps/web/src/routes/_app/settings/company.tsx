@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, Building2 } from "lucide-react";
 import * as React from "react";
+import { canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { api, companyQuery, errorMessage, fieldErrors, invalidatePeople } from "../people/-lib/api.ts";
 import { ErrorPanel, PanelSkeleton, TextInput } from "../people/-lib/ui.tsx";
@@ -22,6 +23,8 @@ const empty = {
 };
 
 function CompanyPage() {
+  // Everyone may read the company profile; only owners and HR admins change it.
+  const editable = canForAll(useMe(), "org_structure:update");
   const qc = useQueryClient();
   const q = useQuery(companyQuery);
   const [f, setF] = React.useState(empty);
@@ -106,7 +109,10 @@ function CompanyPage() {
               </div>
             </Alert>
           ) : null}
-          <fieldset className="grid gap-4 rounded-lg border border-border bg-surface-50 p-4 sm:grid-cols-2 sm:p-5">
+          <fieldset
+            disabled={!editable}
+            className="grid gap-4 rounded-lg border border-border bg-surface-50 p-4 sm:grid-cols-2 sm:p-5"
+          >
             <legend className="-ml-1 px-1 font-azeret text-2xs font-semibold uppercase tracking-wider">
               Legal entity
             </legend>
@@ -145,7 +151,10 @@ function CompanyPage() {
               className="sm:col-span-2"
             />
           </fieldset>
-          <fieldset className="grid gap-4 rounded-lg border border-border bg-surface-50 p-4 sm:grid-cols-2 sm:p-5">
+          <fieldset
+            disabled={!editable}
+            className="grid gap-4 rounded-lg border border-border bg-surface-50 p-4 sm:grid-cols-2 sm:p-5"
+          >
             <legend className="-ml-1 px-1 font-azeret text-2xs font-semibold uppercase tracking-wider">
               Registered address
             </legend>
@@ -186,11 +195,15 @@ function CompanyPage() {
             />
           </fieldset>
           <p className="text-2xs text-primary-200">Time zone Asia/Singapore · currency SGD (fixed).</p>
-          <div>
-            <Button type="submit" variant="primary" disabled={save.isPending}>
-              {save.isPending ? "Saving…" : "Save company profile"}
-            </Button>
-          </div>
+          {editable ? (
+            <div>
+              <Button type="submit" variant="primary" disabled={save.isPending}>
+                {save.isPending ? "Saving…" : "Save company profile"}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-ui text-primary-300">Only owners and HR admins can change the company profile.</p>
+          )}
         </form>
       )}
     </>

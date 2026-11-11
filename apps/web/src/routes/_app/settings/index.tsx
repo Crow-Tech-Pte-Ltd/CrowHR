@@ -17,7 +17,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { can, useMe } from "../../../auth/session.ts";
+import { can, canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 
 export const Route = createFileRoute("/_app/settings/")({
@@ -134,45 +134,48 @@ function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" description="Organisation, security and module defaults." />
-      <section aria-labelledby="org-heading" className="mb-8">
-        <h2
-          id="org-heading"
-          className="mb-2 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200"
-        >
-          Organisation
-        </h2>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {[
-            {
-              to: "/settings/company",
-              title: "Company",
-              body: "Legal name, UEN, CPF submission number, address.",
-              Icon: Building2,
-            },
-            {
-              to: "/settings/structure",
-              title: "Structure",
-              body: "Departments, teams, locations, cost centres, work schedules.",
-              Icon: Network,
-            },
-          ].map(({ to, title, body, Icon }) => (
-            <Link
-              key={to}
-              to={to}
-              className="focus-ring group flex items-center gap-3 rounded-lg border border-border bg-surface-50 px-4 py-3 hover:border-ink/40"
-            >
-              <span className="flex size-8 items-center justify-center rounded-md border border-ink/15 bg-surface-100">
-                <Icon className="size-4" aria-hidden />
-              </span>
-              <span className="flex-1">
-                <span className="block font-azeret text-xs font-semibold">{title}</span>
-                <span className="block text-ui text-primary-300">{body}</span>
-              </span>
-              <ChevronRight className="size-4 text-primary-200 group-hover:text-ink" aria-hidden />
-            </Link>
-          ))}
-        </div>
-      </section>
+      {/* Company and structure are for the people who maintain them; everyone else has nothing to set here. */}
+      {canForAll(me, "org_structure:update") ? (
+        <section aria-labelledby="org-heading" className="mb-8">
+          <h2
+            id="org-heading"
+            className="mb-2 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200"
+          >
+            Organisation
+          </h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[
+              {
+                to: "/settings/company",
+                title: "Company",
+                body: "Legal name, UEN, CPF submission number, address.",
+                Icon: Building2,
+              },
+              {
+                to: "/settings/structure",
+                title: "Structure",
+                body: "Departments, teams, locations, cost centres, work schedules.",
+                Icon: Network,
+              },
+            ].map(({ to, title, body, Icon }) => (
+              <Link
+                key={to}
+                to={to}
+                className="focus-ring group flex items-center gap-3 rounded-lg border border-border bg-surface-50 px-4 py-3 hover:border-ink/40"
+              >
+                <span className="flex size-8 items-center justify-center rounded-md border border-ink/15 bg-surface-100">
+                  <Icon className="size-4" aria-hidden />
+                </span>
+                <span className="flex-1">
+                  <span className="block font-azeret text-xs font-semibold">{title}</span>
+                  <span className="block text-ui text-primary-300">{body}</span>
+                </span>
+                <ChevronRight className="size-4 text-primary-200 group-hover:text-ink" aria-hidden />
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
       <section aria-labelledby="security-heading" className="mb-8">
         <h2
           id="security-heading"

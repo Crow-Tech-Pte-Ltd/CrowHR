@@ -118,7 +118,13 @@ function ShiftLine({ s }: { s: MyShift }) {
       <span className="min-w-0">
         <span className="num block text-sm font-semibold">
           {s.start}–{s.end}
-          {s.templateCode ? <span className="ml-2 text-2xs font-normal text-primary-300">{s.templateCode}</span> : null}
+          {/* A chip, so a template code such as "AM" or "PM" doesn't read as part of the 24-hour time. */}
+          {s.templateCode ? (
+            <span className="ml-2 rounded-sm border border-border px-1 align-middle text-2xs font-normal text-primary-300">
+              <span className="sr-only">shift </span>
+              {s.templateCode}
+            </span>
+          ) : null}
         </span>
         <span className="block text-2xs text-primary-300">
           {s.scopeLabel} · <span className="num">{hm(s.paidMinutes)}</span> paid
