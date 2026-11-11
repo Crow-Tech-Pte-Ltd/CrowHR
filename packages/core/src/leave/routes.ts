@@ -24,7 +24,7 @@ import {
   updatePolicy,
 } from "./admin.ts";
 import { applyLeave, quoteLeave, resolveTargetEmployee, storeAttachments } from "./apply.ts";
-import { balancesFor } from "./balances.ts";
+import { balancesFor, loadBalanceFacts } from "./balances.ts";
 import { loadEmployeeTime } from "./calendar.ts";
 import { ensureLeaveSetup } from "./defaults.ts";
 import {
@@ -149,7 +149,8 @@ async function balancesView(
   const asOf =
     y === Number(today.slice(0, 4)) ? today : y < Number(today.slice(0, 4)) ? `${y + 1}-01-01` : `${y}-01-01`;
   const t = await loadEmployeeTime(deps.db, auth.orgId, target);
-  const rows = await balancesFor(deps.db, t, types, y, asOf);
+  const facts = await loadBalanceFacts(deps.db, auth.orgId, [target], y, asOf);
+  const rows = await balancesFor(deps.db, t, types, y, asOf, facts);
   return rows.map((b) => ({
     ...b,
     entitlement: b.entitlement / 100,
