@@ -198,6 +198,10 @@ describe("leave counts rostered days", () => {
     expect(rest.days[0]).toMatchObject({ quantity: 0, note: "Rest day" });
     const fallback = await quote(crewA, "2026-11-11", "2026-11-13");
     expect(fallback.quantity).toBe(3);
-    expect(fallback.warnings.join(" ")).toMatch(/no published roster/);
+    // Read by the person applying (often the employee, in the web or the apps), not only HR.
+    expect(fallback.warnings).toContain(
+      "Some of these dates have no published roster yet, so every one of them except public holidays is counted. Leave out any rest days, or apply once the roster is published.",
+    );
+    expect(fallback.warnings.join(" ")).not.toMatch(/This employee/);
   });
 });

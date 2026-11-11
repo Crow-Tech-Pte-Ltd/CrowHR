@@ -536,7 +536,8 @@ export function countLeave(t: EmployeeTime, input: CountInput): CountResult {
   const warnings = [...t.warnings];
   if (shift) {
     warnings.push(
-      "This employee is on a shift schedule and some of these dates have no published roster, so every one of them except public holidays is counted. Publish the roster first, or check and exclude rest days.",
+      // Read by whoever applies: often the employee themselves, in the web or the apps.
+      "Some of these dates have no published roster yet, so every one of them except public holidays is counted. Leave out any rest days, or apply once the roster is published.",
     );
   }
   const totalHundredths = days.reduce((s, d) => s + d.hundredths, 0);

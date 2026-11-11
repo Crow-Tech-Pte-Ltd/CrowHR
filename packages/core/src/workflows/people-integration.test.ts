@@ -22,6 +22,7 @@ import { addWorkPass } from "../employees/work-pass.ts";
 import { tick } from "../jobs/tick.ts";
 import { createPeopleHarness, HR, hirePayload, OWNER, seedBasicStructure } from "../testing/people-harness.ts";
 import { resolveRule } from "./engine.ts";
+import { profileValueLabel } from "./people.ts";
 import { replacePolicies } from "./policies.ts";
 
 /**
@@ -114,7 +115,9 @@ describe("workflows × people", () => {
 
   it("a profile change goes through the engine: HR approves in the inbox and the change is applied", async () => {
     const asStaff = await clientAs(app, deps, m.staff);
-    const sub = await asStaff.post("/api/v1/people/me/change-requests", { personal: { religion: "christianity" } });
+    const sub = await asStaff.post("/api/v1/people/me/change-requests", {
+      personal: { religion: "christianity", race: "eurasian" },
+    });
     expect(sub.status).toBe(201);
     const changeId = ((await sub.json()) as { items: { id: string }[] }).items[0]?.id as string;
     const [request] = await deps.db.select().from(approvalRequests).where(eq(approvalRequests.subjectId, changeId));
@@ -135,7 +138,32 @@ describe("workflows × people", () => {
     const detail = (await (await asHr.get(`/api/v1/approvals/requests/${request?.id}`)).json()) as {
       summary: { lines: { label: string; value: string }[] };
     };
-    expect(detail.summary.lines).toEqual([{ label: "Religion", value: "christianity" }]);
+    // The labels people see on the forms, not stored values.
+    expect(detail.summary.lines).toEqual([
+      { label: "Race", value: "Eurasian" },
+      { label: "Religion", value: "Christianity" },
+    ]);
+    expect(
+      [
+        ["idType", "fin"],
+        ["residencyStatus", "pr"],
+        ["religion", "undisclosed"],
+        ["raceSecondary", "sikh"],
+        ["dob", "1990-04-12"],
+        ["bankCode", "OCBCSGSG"],
+        ["legalName", "Tan Mei Ling"],
+        ["religion", null],
+      ].map(([f, v]) => profileValueLabel(f as string, v ?? null)),
+    ).toEqual([
+      "FIN",
+      "Permanent resident",
+      "Prefer not to say",
+      "Sikh",
+      "12 Apr 1990",
+      "OCBC Bank",
+      "Tan Mei Ling",
+      "(cleared)",
+    ]);
 
     const res = await asHr.post(`/api/v1/approvals/tasks/${item?.task?.id}/decision`, { decision: "approve" });
     expect(res.status).toBe(200);

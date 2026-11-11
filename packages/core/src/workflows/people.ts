@@ -8,8 +8,10 @@ import { users } from "../db/schema/users.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { buildActor } from "../employees/access.ts";
+import { SG_BANKS } from "../employees/banks.ts";
 import { decideChangeRequest } from "../employees/change-requests.ts";
 import { checklistInbox } from "../employees/checklists.ts";
+import { displayDate } from "../employees/dates.ts";
 import { runFormerTransitions } from "../employees/former.ts";
 import type { ApprovalSubmission, ApprovalsPort } from "../employees/ports.ts";
 import { peoplePorts } from "../employees/ports.ts";
@@ -228,7 +230,10 @@ export function profileChangeAdapter(deps: AppDeps): SubjectAdapter<z.output<typ
       const display = (row?.fields.display ?? {}) as Record<string, string | null>;
       return {
         title,
-        lines: (row?.fieldNames ?? []).map((f) => ({ label: FIELD_LABEL[f] ?? f, value: display[f] ?? "(cleared)" })),
+        lines: (row?.fieldNames ?? []).map((f) => ({
+          label: FIELD_LABEL[f] ?? f,
+          value: profileValueLabel(f, display[f] ?? null),
+        })),
         context: row ? [{ label: "Applies from", value: "the day it is approved" }] : [],
       };
     },
@@ -248,6 +253,28 @@ export function profileChangeAdapter(deps: AppDeps): SubjectAdapter<z.output<typ
     },
     link: () => "/me/profile",
   };
+}
+
+/** Stored values as the forms label them (the summary is shown to approvers in the web and apps). */
+const VALUE_LABEL: Record<string, Record<string, string>> = {
+  idType: { nric: "NRIC", fin: "FIN", other: "Other" },
+  residencyStatus: { citizen: "Singapore citizen", pr: "Permanent resident", foreigner: "Foreigner" },
+  religion: { none: "None", undisclosed: "Prefer not to say" },
+};
+const DATE_FIELDS = new Set(["dob", "prStartDate"]);
+const BANK_NAME = new Map<string, string>(SG_BANKS.map((b) => [b.code, b.name]));
+
+export function profileValueLabel(field: string, value: string | null): string {
+  if (value === null || value === "") return "(cleared)";
+  const known = VALUE_LABEL[field]?.[value];
+  if (known) return known;
+  if (DATE_FIELDS.has(field) && /^\d{4}-\d{2}-\d{2}$/.test(value)) return displayDate(value);
+  if (field === "bankCode") return BANK_NAME.get(value) ?? value;
+  // Religion and race are stored in lower case ("islam", "malay", "sikh"): capitalise each word.
+  if (field === "religion" || field === "race" || field === "raceSecondary") {
+    return value.replace(/(^|[\s/-])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
+  }
+  return value;
 }
 
 const FIELD_LABEL: Record<string, string> = {
