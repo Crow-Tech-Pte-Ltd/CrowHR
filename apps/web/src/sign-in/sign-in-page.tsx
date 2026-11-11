@@ -50,6 +50,9 @@ export function SignInPage({
   const qc = useQueryClient();
   const orgName = methods.organisation?.name ?? orgSlug;
   const [notice, setNotice] = React.useState<SignInNotice | null>(initialNotice);
+  // A failed email sign-in shows its message in the form, beside the fields: at the top of the page
+  // it would be off screen on a phone, above the demo personas or single sign-on buttons.
+  const [noticeAtForm, setNoticeAtForm] = React.useState(false);
   const [showOwnerLogin, setShowOwnerLogin] = React.useState(false);
   const [step, setStep] = React.useState<{ kind: "credentials" } | { kind: "mfa"; token?: string }>({
     kind: ssoMfaPending ? "mfa" : "credentials",
@@ -124,6 +127,7 @@ export function SignInPage({
       );
     } catch (err) {
       handleError(err);
+      setNoticeAtForm(true);
     } finally {
       setBusy(false);
     }
@@ -142,6 +146,7 @@ export function SignInPage({
     } catch (err) {
       setCode("");
       handleError(err);
+      setNoticeAtForm(false);
     } finally {
       setBusy(false);
     }
@@ -173,15 +178,9 @@ export function SignInPage({
                   : "Sign in with your work email and password."}
           </p>
 
-          {notice ? (
-            <Alert variant={notice.tone} className="mb-6" data-testid="sign-in-notice">
-              {notice.tone === "danger" ? <AlertTriangle aria-hidden /> : <Info aria-hidden />}
-              <div>
-                <AlertTitle>{notice.title}</AlertTitle>
-                <AlertDescription>{notice.body}</AlertDescription>
-              </div>
-            </Alert>
-          ) : null}
+          {notice && !(noticeAtForm && step.kind === "credentials" && passwordVisible)
+            ? noticeAlert(notice, "mb-6")
+            : null}
 
           {step.kind === "mfa" ? (
             <form noValidate onSubmit={onMfa} className="flex flex-col gap-4" aria-label="Two-step verification">
@@ -272,6 +271,7 @@ export function SignInPage({
 
               {passwordVisible ? (
                 <form noValidate onSubmit={onSubmit} className="flex flex-col gap-4" aria-label="Sign in with email">
+                  {notice && noticeAtForm ? noticeAlert(notice) : null}
                   <FormField label="Work email" error={fieldErrors.email}>
                     <Input
                       type="email"
@@ -466,5 +466,17 @@ function SamplePayslipStrip() {
         ))}
       </dl>
     </div>
+  );
+}
+
+function noticeAlert(notice: SignInNotice, className?: string) {
+  return (
+    <Alert variant={notice.tone} className={className} data-testid="sign-in-notice">
+      {notice.tone === "danger" ? <AlertTriangle aria-hidden /> : <Info aria-hidden />}
+      <div>
+        <AlertTitle>{notice.title}</AlertTitle>
+        <AlertDescription>{notice.body}</AlertDescription>
+      </div>
+    </Alert>
   );
 }

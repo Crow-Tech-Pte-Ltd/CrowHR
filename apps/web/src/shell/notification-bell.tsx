@@ -52,7 +52,7 @@ export function NotificationBell() {
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(92vw,380px)] p-0">
+      <PopoverContent align="end" className="w-[min(92vw,380px)] p-0" aria-label="Notifications">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <p className="font-azeret text-2xs font-semibold uppercase tracking-wider">Notifications</p>
           {count ? (
