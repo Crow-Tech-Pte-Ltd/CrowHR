@@ -1,3 +1,7 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import { brotliCompress, constants, gzip } from "node:zlib";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
@@ -49,8 +53,44 @@ function checkChunkGroups(): Plugin {
   };
 }
 
+/**
+ * Writes `.br` and `.gz` copies beside each compressible asset, which apps/server sends to browsers
+ * that accept them (`serveStatic({ precompressed: true })`). Installs without a compressing reverse
+ * proxy then send about a third of the bytes; compressing once at build time also costs the server
+ * nothing per request. Source maps are left alone (the Docker image drops them).
+ */
+function precompressAssets(): Plugin {
+  const brotli = promisify(brotliCompress);
+  const gz = promisify(gzip);
+  let outDir = "dist";
+  return {
+    name: "crowhr:precompress-assets",
+    apply: "build",
+    configResolved(config) {
+      outDir = config.build.outDir;
+    },
+    async writeBundle(_options, bundle) {
+      const files = Object.keys(bundle).filter((f) => f.startsWith("assets/") && /\.(js|css|svg|json|txt)$/.test(f));
+      await Promise.all(
+        files.map(async (file) => {
+          const path = join(outDir, file);
+          const body = await readFile(path);
+          if (body.length < 1024) return;
+          await writeFile(`${path}.br`, await brotli(body, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }));
+          await writeFile(`${path}.gz`, await gz(body, { level: 9 }));
+        }),
+      );
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react(), checkChunkGroups()],
+  plugins: [
+    tanstackRouter({ target: "react", autoCodeSplitting: true }),
+    react(),
+    checkChunkGroups(),
+    precompressAssets(),
+  ],
   server: {
     port: 5173,
     strictPort: true,

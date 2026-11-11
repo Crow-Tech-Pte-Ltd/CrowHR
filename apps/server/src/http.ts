@@ -107,9 +107,11 @@ export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
     return app;
   }
 
-  // Vite fingerprints everything under /assets; index.html must always revalidate.
+  // Vite fingerprints everything under /assets; index.html must always revalidate. The web build
+  // writes .br and .gz copies beside each asset, so installs without a compressing reverse proxy
+  // still send about a third of the bytes (proxies leave an already-encoded response alone).
   app.use("/assets/*", cacheControl("public, max-age=31536000, immutable"));
-  app.use("/assets/*", serveStatic({ root: webDistDir }));
+  app.use("/assets/*", serveStatic({ root: webDistDir, precompressed: true }));
   if (browserMonitoring) {
     // index.html carries this install's monitoring settings, so it is served from memory.
     const indexHtml = injectMonitoringMeta(readFileSync(join(webDistDir, "index.html"), "utf8"), browserMonitoring);

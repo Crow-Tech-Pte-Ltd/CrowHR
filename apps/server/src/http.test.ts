@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { brotliCompressSync, brotliDecompressSync, gzipSync } from "node:zlib";
 import type { ErrorEnvelope } from "@crowhr/core";
 import { createTestDb, createTestDeps, type TestDb } from "@crowhr/core/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -17,6 +18,9 @@ describe("server HTTP surface", () => {
     await mkdir(join(dist, "assets"));
     await writeFile(join(dist, "index.html"), "<!doctype html><title>Crow HR</title>");
     await writeFile(join(dist, "assets", "app-abc123.js"), "console.log(1)");
+    // The web build writes compressed copies beside each asset (apps/web/vite.config.ts).
+    await writeFile(join(dist, "assets", "app-abc123.js.br"), brotliCompressSync("console.log(1)"));
+    await writeFile(join(dist, "assets", "app-abc123.js.gz"), gzipSync("console.log(1)"));
     testDb = await createTestDb();
     app = createServerApp(createTestDeps(testDb.db), { webDistDir: dist });
   });
@@ -45,6 +49,19 @@ describe("server HTTP surface", () => {
     const res = await app.request("/assets/app-abc123.js");
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toContain("immutable");
+  });
+
+  it("serves an asset's compressed copy to browsers that accept it", async () => {
+    const br = await app.request("/assets/app-abc123.js", { headers: { "accept-encoding": "gzip, deflate, br" } });
+    expect(br.headers.get("content-encoding")).toBe("br");
+    expect(br.headers.get("vary")).toContain("Accept-Encoding");
+    expect(br.headers.get("content-type")).toContain("javascript");
+    expect(brotliDecompressSync(Buffer.from(await br.arrayBuffer())).toString()).toBe("console.log(1)");
+    const gz = await app.request("/assets/app-abc123.js", { headers: { "accept-encoding": "gzip" } });
+    expect(gz.headers.get("content-encoding")).toBe("gzip");
+    const plain = await app.request("/assets/app-abc123.js");
+    expect(plain.headers.get("content-encoding")).toBeNull();
+    expect(await plain.text()).toBe("console.log(1)");
   });
 
   it("never falls back to the SPA for unknown API paths", async () => {
