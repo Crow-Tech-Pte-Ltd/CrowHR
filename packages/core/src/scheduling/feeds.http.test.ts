@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TestClient } from "../../testing/http.ts";
 import { createSchedulingWorld, ok, type SchedulingWorld } from "../../testing/scheduling.ts";
+import { listRosterDaysWorked } from "../attendance/outputs.ts";
 import { attendancePunches } from "../db/schema/attendance.ts";
+import { listScheduledDays } from "./feeds.ts";
 
 /**
  * The published roster as the expected schedule (spec "The published roster as the schedule"):
@@ -70,6 +72,7 @@ beforeAll(async () => {
   await add(w.emp.staff, "2026-11-02", "12:00", "20:00"); // Ravi works a fixed office week
   await add(w.crew.crewB, "2026-11-02", "07:00", "15:00");
   await add(w.crew.crewB, "2026-11-04", "07:00", "15:00");
+  await add(w.crew.crewB, "2026-11-08", "", "", "rest"); // Deepavali falls on Nurul's rest day
   await ok(manager.post(`${api}/rosters/${id}/publish`, {}));
   // A draft for the week after: never used by attendance or leave.
   const draft = (
@@ -93,12 +96,30 @@ beforeAll(async () => {
   await punch(w.crew.crewA, "2026-11-05", "out", "14:00");
   await punch(w.crew.crewA, "2026-11-09", "in", "07:00");
   await punch(w.crew.crewA, "2026-11-09", "out", "15:30");
+  await punch(w.crew.crewB, "2026-11-02", "in", "07:00");
+  await punch(w.crew.crewB, "2026-11-02", "out", "15:00");
+  await punch(w.crew.crewB, "2026-11-04", "in", "07:00");
+  await punch(w.crew.crewB, "2026-11-04", "out", "15:00");
   await punch(w.emp.staff, "2026-11-02", "in", "09:00");
   await punch(w.emp.staff, "2026-11-02", "out", "18:00");
   w.clock.set("2026-11-10T04:00:00.000Z");
   manager = await w.as("manager");
 }, 60_000);
 afterAll(() => w.close());
+
+describe("payroll's roster days", () => {
+  it("a public holiday on a rostered rest day counts in neither scheduled days nor days worked", async () => {
+    const scheduled = (await listScheduledDays(w.deps.db, w.orgId, "2026-11-02", "2026-11-08")).find(
+      (r) => r.employeeId === w.crew.crewB,
+    );
+    const worked = (await listRosterDaysWorked(w.deps.db, w.orgId, "2026-11-02", "2026-11-08")).find(
+      (r) => r.employeeId === w.crew.crewB,
+    );
+    // Two shifts, both worked; Deepavali (Sun 8 Nov) is the rest day: no no-pay leave, full pay.
+    expect(scheduled?.scheduledDays).toBe(2);
+    expect(worked?.daysWorked).toBe(2);
+  });
+});
 
 describe("attendance uses the published roster", () => {
   it("lateness and OT against the shift; early out; unrostered days are all OT", async () => {
