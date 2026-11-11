@@ -65,12 +65,13 @@ function InboxPage() {
   const navigate = useNavigate({ from: "/inbox" });
   const me = useMe();
   const [oooOpen, setOooOpen] = React.useState(false);
-  // Staff who approve nothing land on their own requests; approvers on what waits for them.
-  const approver = canUseAdminLayout(me.roles);
-  const defaultView = approver ? "decide" : "mine";
-  const view = search.view ?? (search.request ? "mine" : search.task ? "decide" : defaultView);
   const tasks = useQuery(tasksQuery);
   const count = tasks.data?.items.length ?? 0;
+  // Staff who approve nothing land on their own requests; approvers on what waits for them. A named
+  // approver or cover holder may have no approver role, so having tasks counts too.
+  const approver = canUseAdminLayout(me.roles) || count > 0;
+  const defaultView = approver ? "decide" : "mine";
+  const view = search.view ?? (search.request ? "mine" : search.task ? "decide" : defaultView);
   return (
     <>
       <PageHeader
