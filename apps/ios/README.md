@@ -207,8 +207,15 @@ ssh "$CROWHR_MAC_HOST" 'cd ~/Developer/crowhr-ios && CROWHR_BUILD_NUMBER=<n> CRO
   (`store/build4-verification.json`, not internal-only), and altool reported "VERIFY
   SUCCEEDED" and "UPLOAD SUCCEEDED" (delivery `ccbbf84b-c37f-4b31-a657-d756bdf078be`). App Store
   Connect processed it (VALID), and `ios-store-listing.py attach-build 4` attached it to the 1.0.0
-  version. Nothing has been submitted for review. Build 4 is iPhone only (`UIDeviceFamily` [1]): 1.0.0
-  needs a new build with iPad support, approved and uploaded, attached in its place before review.
+  version. Build 4 is iPhone only (`UIDeviceFamily` [1]), so build 5 replaced it.
+- **Build 5 (1.0.0, iPhone and iPad) was uploaded for the App Store on 11 Nov 2026**
+  (`store/approvals/2026-11-11-app-store-1.0.0-build5.txt`: "Submit both" plus Daniel's request for
+  iPad support and the accessibility rebuild) through `ios-release.sh production`: 82 unit tests
+  and the three user-flow UI tests on both the iPhone and the iPad 13-inch simulator passed, the
+  IPA checks passed (`store/build5-verification.json`: `UIDeviceFamily` [1, 2], not internal-only),
+  and altool reported "VERIFY SUCCEEDED" and "UPLOAD SUCCEEDED" (delivery
+  `be48e8a0-bff6-4a3c-a934-b7230cfa9fcb`). It replaces build 4 on the 1.0.0 version
+  (`ios-store-listing.py attach-build 5`). Nothing has been submitted for review.
 - The release gate runs the user-flow UI tests (`EssJourneyUITests`) on the iPhone simulator
   (`CROWHR_SIM_UDID`) and the iPad one (`CROWHR_IPAD_SIM_UDID`, required), not
   `QAScreenshotsUITests` (about 15 minutes). Run the QA audit by hand before a release, on both;
@@ -235,8 +242,15 @@ none or no) and the price (free, every territory). `screenshots` replaces the 6.
 screenshots (`APP_IPHONE_67`) with `store/screenshots/*.png` and the 13-inch iPad ones
 (`APP_IPAD_PRO_3GEN_129`) with `store/screenshots/ipad/*.png`, after checking every PNG's size
 (iPhone 1320 x 2868 or 1290 x 2796, iPad 2064 x 2752 or 2048 x 2732, either orientation);
-`attach-build` attaches a processed build. App Review contact and demo account, the App Privacy
-answers and the submission stay in the web UI.
+`attach-build` attaches a processed build.
+
+`scripts/ios-store-review.py` (same variables) does the App Review side: `status` (which fields are
+set, never their values), `review-details` (contact, demo account and reviewer notes, read as JSON
+on stdin, e.g. piped from `agent-secrets run`; `--contact-from-team` reuses the team's App Review
+contact), `content-rights`, `exclude CHN` (mainland China needs an ICP filing number) and
+`submit --build <n> --yes`, which refuses unless build n is the attached, VALID build and the review
+details are complete. The App Privacy answers ("Data Not Collected") have no public API: set them
+in the web UI.
 
 Store screenshots come from `StoreScreenshotsUITests` on Crow HR's own 6.9-inch simulator
 (`CrowHR · Store 6.9`, iPhone 17 Pro Max, 1320 x 2868) with a 9:41 demo status bar:
