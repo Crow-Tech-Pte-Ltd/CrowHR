@@ -26,7 +26,7 @@ may be described as working. Remove an entry only in the change that fixes it.
 - **Out-of-office cover** is set from the Inbox (and by HR in Settings → Approvals), not from My profile.
 - **Email templates are fixed in code** (spec non-goal); they carry the organisation name but not its logo yet.
 - **Browser demo tick** runs every 30 s and on navigation while a demo tab is open (`createManualScheduler` in the demo worker); nothing runs while no demo tab is open, so reminders and escalations catch up on the next visit.
-- **Inbox speed** is tested with 40 open tasks (< 1 s on PGlite), not benchmarked at 200 employees.
+- **Inbox speed** is tested with 40 open tasks (< 1 s on PGlite) and measured at 200 employees with `node packages/core/scripts/bench-hot-paths.ts` (PGlite, in process; 12 Nov 2026: Home 7–16 ms for every role, 15 ms for a manager with 18 tasks and 20 000 older audit events). It is not measured on a real PostgreSQL server or under concurrent load.
 - **Work-pass reminders read the latest pass per employee**: a renewal must be added as a new pass (with a later expiry) to stop the old pass's reminders.
 
 ## Screens
