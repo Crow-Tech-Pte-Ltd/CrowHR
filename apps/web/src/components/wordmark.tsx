@@ -12,7 +12,7 @@ export function Wordmark({ className, compact = false }: { className?: string; c
       )}
       <span
         aria-hidden="true"
-        className="rounded-[4px] border-2 border-ink bg-kuning-200 px-1 py-px text-[11px] font-bold leading-none"
+        className="rounded-[4px] border-2 border-ink bg-kuning-200 px-1 py-px text-[11px] font-bold leading-none text-accent-foreground"
       >
         HR
       </span>

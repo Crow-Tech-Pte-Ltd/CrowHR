@@ -16,6 +16,7 @@ import { FileText, LogOut, MonitorSmartphone, Settings, UserRound } from "lucide
 import { useMe } from "../auth/session.ts";
 import { useSignOut } from "../auth/sign-out.ts";
 import { ROLE_LABEL } from "../auth/types.ts";
+import { type ThemePreference, useThemePreference } from "./theme.ts";
 import { useLayoutMode, type ViewMode } from "./view-mode.tsx";
 
 export function UserMenu() {
@@ -25,6 +26,7 @@ export function UserMenu() {
   const { mode, setMode, canSwitch } = useLayoutMode(me.roles);
   const assigned = me.roles.filter((r) => r !== "employee");
   const signOut = useSignOut();
+  const [theme, setTheme] = useThemePreference();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="focus-ring flex items-center gap-2 rounded-md p-1 hover:bg-ink/[0.04] data-[state=open]:bg-ink/[0.05] lg:pr-2">
@@ -65,6 +67,14 @@ export function UserMenu() {
             </DropdownMenuRadioGroup>
           </>
         ) : null}
+        <DropdownMenuSeparator />
+        {/* Kept in this browser; System follows the device's light or dark setting. */}
+        <DropdownMenuLabel>Theme</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as ThemePreference)}>
+          <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => navigate({ to: "/me/profile" })}>
           <UserRound />

@@ -398,7 +398,7 @@ function SessionPicker({
           onClick={() => onChange(v)}
           className={cn(
             "focus-ring h-8 flex-1 whitespace-nowrap rounded-sm px-1.5 font-azeret text-2xs font-semibold",
-            value === v ? "bg-kuning-200 text-ink" : "text-primary-300 hover:bg-ink/5",
+            value === v ? "bg-kuning-200 text-accent-foreground" : "text-primary-300 hover:bg-ink/5",
           )}
         >
           {label}

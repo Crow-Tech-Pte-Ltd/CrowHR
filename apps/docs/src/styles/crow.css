@@ -5,7 +5,8 @@
  * numbers; Ubuntu for body text. Hairline borders by default; the 2px ink border + hard offset
  * shadow is reserved for the primary call to action and the search dialog. No blurred shadows,
  * no gradients. Uppercase is kept for the sidebar group labels and "On this page" only; every other
- * label is sentence case. Dark mode is the docs' own (the app has none) and keeps WCAG AA contrast.
+ * label is sentence case. Dark mode follows the same landing-site dark tokens as the app and keeps
+ * WCAG AA contrast.
  */
 
 :root {

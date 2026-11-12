@@ -13,6 +13,9 @@ const scale = (name: string, steps: number[]) =>
 
 const preset = {
   content: [],
+  // Colours are CSS variables that `html.dark` swaps (src/styles/globals.css), so components need no
+  // `dark:` variants. The class strategy lets the rare exception use one.
+  darkMode: "class",
   theme: {
     extend: {
       fontFamily: {
@@ -42,6 +45,8 @@ const preset = {
         input: hsl("input"),
         ring: hsl("ring"),
         ink: hsl("ink"),
+        // Modal backdrop, alpha included: a dimming ink in light, near-black in dark.
+        overlay: "hsl(var(--overlay))",
         surface: scale("surface", [50, 100, 200]),
         kuning: scale("kuning", [50, 100, 200, 300, 400]),
         biru: scale("biru", [50, 100, 200, 300, 400]),
@@ -57,12 +62,13 @@ const preset = {
       },
       boxShadow: {
         // The signature hard offset. Reserved for emphasis: primary button,
-        // active payroll run, modal dialogs. Never blurred.
-        brutal: "4px 4px 0 0 hsl(var(--ink))",
-        "brutal-sm": "2px 2px 0 0 hsl(var(--ink))",
-        "brutal-xs": "1px 1px 0 0 hsl(var(--ink))",
+        // active payroll run, modal dialogs. Never blurred. --shadow is ink in
+        // light and a light grey in dark, where an ink shadow would vanish.
+        brutal: "4px 4px 0 0 hsl(var(--shadow))",
+        "brutal-sm": "2px 2px 0 0 hsl(var(--shadow))",
+        "brutal-xs": "1px 1px 0 0 hsl(var(--shadow))",
         // Floating menus: a faint hard offset to lift them off the page.
-        float: "3px 3px 0 0 hsl(var(--ink) / 0.08)",
+        float: "3px 3px 0 0 hsl(var(--shadow) / 0.08)",
       },
       keyframes: {
         "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },

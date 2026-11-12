@@ -23,9 +23,35 @@ export function singaporeToday(now = appNowMs()): Date {
   return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
 }
 
-export function Calendar({ className, classNames, showOutsideDays = true, today, ...props }: CalendarProps) {
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * A day button's name, "Tuesday 10 November 2026": it contains the visible "10" as a word (WCAG
+ * 2.5.3; the library's "November 10th" does not) and reads in Singapore's day-month order.
+ */
+export function dayButtonLabel(date: Date, modifiers: { today?: boolean; selected?: boolean }): string {
+  const name = `${WEEKDAY_NAMES[date.getDay()]} ${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+  return `${modifiers.today ? "Today, " : ""}${name}${modifiers.selected ? ", selected" : ""}`;
+}
+
+export function Calendar({ className, classNames, showOutsideDays = true, today, labels, ...props }: CalendarProps) {
   return (
     <DayPicker
+      labels={{ labelDayButton: dayButtonLabel, ...labels }}
       today={today ?? singaporeToday()}
       showOutsideDays={showOutsideDays}
       weekStartsOn={1}
@@ -53,7 +79,8 @@ export function Calendar({ className, classNames, showOutsideDays = true, today,
         selected: "[&>button]:bg-ink [&>button]:text-surface-50 [&>button]:hover:bg-ink",
         today:
           "[&>button]:font-bold [&>button]:underline [&>button]:decoration-kuning-400 [&>button]:decoration-2 [&>button]:underline-offset-4",
-        outside: "text-primary-100 aria-selected:text-primary-200",
+        // Outside days can be picked, so they keep readable contrast (primary-100 is decorative only).
+        outside: "text-primary-200",
         disabled: "text-primary-100 opacity-50",
         range_middle: "[&>button]:bg-kuning-100 [&>button]:text-ink",
         hidden: "invisible",

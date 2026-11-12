@@ -20,7 +20,7 @@ export function NavLink({
       activeOptions={{ exact: m.to === "/", includeSearch: false }}
       className={cn(
         "focus-ring group flex h-8 items-center gap-2.5 rounded-md px-2.5 font-azeret text-xs text-primary-300 transition-colors hover:bg-ink/[0.05] hover:text-ink",
-        "data-[status=active]:bg-kuning-200 data-[status=active]:font-semibold data-[status=active]:text-ink",
+        "data-[status=active]:bg-kuning-200 data-[status=active]:font-semibold data-[status=active]:text-accent-foreground",
         collapsed && "w-9 justify-center px-0",
       )}
     >

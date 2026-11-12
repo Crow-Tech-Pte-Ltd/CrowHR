@@ -34,3 +34,9 @@ Approvers act from Home or the Inbox. Nobody approves their own request, except 
 Nobody, including owners and payroll admins, edits their own compensation or bank details directly. A payroll admin who needs a raise or a new bank account gets it through someone else, which leaves an audit trail.
 
 Bank-change requests, including the holder name and account ending, are visible only to the requester, payroll admins and owners. An HR admin needs the payroll admin role to see them.
+
+## Light or dark
+
+Crow HR follows your device's light or dark setting. To choose for yourself, open the account menu (your name or initials, top right) and pick **Theme: System, Light or Dark**. The choice is kept in this browser only, so a shared computer and your phone can differ, and signing out doesn't change it. The in-browser demo has the same setting.
+
+Payslip PDFs and letters are documents for printing and filing, so they always stay black on white.

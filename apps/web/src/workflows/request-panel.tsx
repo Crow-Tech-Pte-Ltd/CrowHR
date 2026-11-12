@@ -115,7 +115,7 @@ export function RequestPanel({
                     "mt-0.5 flex size-5 items-center justify-center rounded-full border [&_svg]:size-3",
                     s.status === "approved" && "border-success-300 bg-success-50 text-success-400",
                     s.status === "rejected" && "border-danger-200 bg-danger-50 text-danger-300",
-                    s.status === "active" && "border-ink bg-kuning-200 text-ink",
+                    s.status === "active" && "border-ink bg-kuning-200 text-accent-foreground",
                     (s.status === "waiting" || s.status === "skipped") && "border-ink/20 text-primary-200",
                   )}
                   aria-hidden

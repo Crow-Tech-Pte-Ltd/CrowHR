@@ -53,7 +53,7 @@ export function NotificationBell() {
           <Bell />
           {count ? (
             <span
-              className="num absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-ink bg-kuning-200 px-1 text-[10px] font-semibold leading-none text-ink"
+              className="num absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-ink bg-kuning-200 px-1 text-[10px] font-semibold leading-none text-accent-foreground"
               data-testid="unread-count"
             >
               {count > 99 ? "99+" : count}

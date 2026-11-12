@@ -8,7 +8,13 @@
  * - --border is a hairline (ink at ~13% on white), not mid-grey;
  * - --muted-foreground is #666 (AA on white) instead of #999;
  * - --ring is biru-400 (focus rings are blue per the design language);
- * - --accent-foreground is ink (yellow needs dark text).
+ * - --accent-foreground is ink (yellow needs dark text), in both themes;
+ * - --shadow is the hard offset shadow's colour (ink in light, light grey in dark).
+ *
+ * Light is the default. `html.dark` (set by /theme.js before the first paint, from the account
+ * menu's Theme choice or the device) swaps the values below; the names stay the same, so
+ * components never branch on the theme. Payslip and letter PDFs are made on the server and stay
+ * black on white.
  */
 @layer base {
   :root {
@@ -80,6 +86,72 @@
     --border: 0 0% 87%;
     --input: 0 0% 80%;
     --ring: var(--biru-400);
+    --shadow: var(--ink);
+    --overlay: 0 0% 4% / 0.4;
+    color-scheme: light;
+  }
+  /*
+   * Dark theme: the landing site's dark tokens (crow-tech-landing app/globals.css, `.docs-root.dark`:
+   * #141414 page, warm off-white ink, kuning kept for the primary action and the brand chip, a light
+   * biru for links and focus) under the same semantic names, so components don't change per theme.
+   * Scales that are text in light (300/400) become light tints; scales that are tinted fills (50/100)
+   * become dark tints. kuning-200/300/400 stay yellow, so text on them uses accent-foreground (dark
+   * in both themes). The hard offset shadow is light here: an ink shadow would vanish.
+   */
+  .dark {
+    --surface-50: 0 0% 8%; /* #141414 page and cards */
+    --surface-100: 40 6% 11%; /* #1E1C1A sidebar, table footers */
+    --surface-200: 0 0% 16%; /* #292929 muted fills */
+
+    --primary-50: 0 0% 24%;
+    --primary-100: 0 0% 46%; /* decorative only */
+    --primary-200: 0 0% 66%; /* #A8A8A8 muted text */
+    --primary-300: 0 0% 82%; /* #D1D1D1 secondary text */
+    --primary-400: 40 33% 96%;
+
+    --danger-50: 0 40% 15%;
+    --danger-100: 0 45% 30%;
+    --danger-200: 0 70% 62%;
+    --danger-300: 0 85% 72%;
+    --danger-400: 0 90% 80%;
+
+    --success-50: 125 30% 13%;
+    --success-100: 120 30% 22%;
+    --success-200: 119 40% 35%;
+    --success-300: 119 45% 52%;
+    --success-400: 120 50% 70%;
+
+    --warning-50: 36 45% 13%;
+    --warning-100: 35 45% 22%;
+    --warning-200: 35 70% 40%;
+    --warning-300: 34 85% 55%;
+    --warning-400: 36 90% 66%;
+
+    --biru-50: 220 40% 17%;
+    --biru-100: 220 50% 30%;
+    --biru-200: 220 70% 50%;
+    --biru-300: 220 80% 65%;
+    --biru-400: 220 80% 64%; /* links: 5.5:1 on the page, 3:1 against ink text */
+
+    --oren-50: 19 50% 15%;
+    --oren-100: 19 60% 30%;
+    --oren-200: 19 90% 55%;
+    --oren-300: 19 95% 62%;
+    --oren-400: 23 95% 68%;
+
+    --kuning-50: 43 32% 16%; /* selected row */
+    --kuning-100: 43 30% 19%;
+
+    --ink: 40 33% 96%; /* #F7F5F1 */
+    --shadow: 40 8% 70%;
+    --overlay: 0 0% 0% / 0.6;
+
+    --popover: 0 0% 11%;
+    --accent-foreground: 0 0% 4%;
+    --destructive-foreground: 0 0% 4%;
+    --border: 0 0% 22%;
+    --input: 0 0% 36%;
+    color-scheme: dark;
   }
 
   * {
@@ -125,7 +197,7 @@
 
   ::selection {
     background: hsl(var(--kuning-200));
-    color: hsl(var(--ink));
+    color: hsl(var(--accent-foreground));
   }
 
   :focus-visible {

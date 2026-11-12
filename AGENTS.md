@@ -92,6 +92,7 @@ Requirements live in the changes under `openspec/changes/<name>/` (proposal, des
 Crow HR is a calm, precise work tool that is recognisably Crow Tech: restrained neo-brutalism.
 
 - **Tokens** from crow-tech-landing: near-white `surface-*`, near-black ink `primary`, yellow `kuning-*` accent (brand chip / selected / primary CTA), blue `biru-*` for links + focus rings, orange `oren-*` very sparingly. Status uses `success`/`warning`/`danger` only.
+- **Light and dark**: the same semantic tokens, swapped by `html.dark` (landing site's dark set: #141414 page, warm off-white ink, kuning kept for the primary action). Use tokens only, never hard-coded colours; text on a yellow fill (`kuning-200/300`) is `text-accent-foreground`, which stays dark in both themes; hard shadows use `--shadow`. Check new screens with axe in both themes. PDFs stay black on white.
 - **Type**: Azeret Mono for headings, labels, nav, and **all numbers** (`tabular-nums`). Ubuntu for body text.
 - **Edges**: hairline 1px ink-at-low-opacity borders by default. The signature 2px ink border + hard offset shadow is reserved for a few emphasised surfaces (primary button, the active payroll run, modal dialogs). No soft blurry shadows, no gradients, no glassmorphism, no purple, no emoji.
 - **Content over chrome**: no vanity stat cards with fake trend arrows. Home screens show work to do (approvals waiting, payroll due, expiring work passes), not decoration.

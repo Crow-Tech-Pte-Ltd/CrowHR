@@ -650,7 +650,7 @@ function LineEditor({
                 className={cn(
                   "focus-ring h-9 rounded-md border px-3 text-ui transition-colors",
                   selected
-                    ? "border-ink bg-kuning-200 font-medium text-ink"
+                    ? "border-ink bg-kuning-200 font-medium text-accent-foreground"
                     : "border-ink/15 bg-surface-50 text-primary-400 hover:border-ink/40",
                 )}
               >
