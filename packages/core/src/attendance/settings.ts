@@ -31,6 +31,10 @@ export function defaultSettings(): AttendanceSettings {
     skewThresholdSeconds: 120,
     otBlockMinutes: 15,
     otMinimumMinutes: 30,
+    timesheetApproval: false,
+    timesheetPeriod: "monthly",
+    timesheetSubmitter: "employee",
+    payrollApprovedTimesheetsOnly: false,
   };
 }
 
@@ -42,6 +46,30 @@ export async function loadAttendanceSettings(db: Db, orgId: string): Promise<Att
 }
 
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use the 24-hour format HH:MM, like 09:00.");
+
+/** Timesheet approval (add-timesheet-approval spec "Timesheet approval setting"). */
+export const timesheetSettings = z.object({
+  /** Off by default: nothing is submitted, approved or locked. */
+  approval: z.boolean(),
+  period: z.enum(["monthly", "semi_monthly", "weekly"]).meta({
+    description: "`monthly`: calendar month; `semi_monthly`: 1st–15th and 16th–end; `weekly`: Monday–Sunday.",
+  }),
+  submittedBy: z.enum(["employee", "manager"]).meta({
+    description: "`employee`: employees submit their own; `manager`: their manager (or HR) submits.",
+  }),
+  /** Payroll's attendance feeds pass only overtime and days worked inside approved timesheets. */
+  payrollApprovedOnly: z.boolean(),
+});
+export type TimesheetSettings = z.output<typeof timesheetSettings>;
+
+export function timesheetSettingsOf(s: AttendanceSettings): TimesheetSettings {
+  return {
+    approval: s.timesheetApproval,
+    period: s.timesheetPeriod,
+    submittedBy: s.timesheetSubmitter,
+    payrollApprovedOnly: s.timesheetApproval && s.payrollApprovedTimesheetsOnly,
+  };
+}
 
 export const settingsInput = z.object({
   locationMode: z.enum(["off", "optional", "required"]),
@@ -75,6 +103,9 @@ export const settingsInput = z.object({
   skewThresholdSeconds: z.int().min(10).max(3_600),
   otBlockMinutes: z.int().min(1).max(60),
   otMinimumMinutes: z.int().min(0).max(240),
+  timesheets: timesheetSettings.optional().meta({
+    description: "Timesheet approval. Leave it out to keep the current settings (clients that predate it).",
+  }),
 });
 
 export const settingsView = settingsInput.extend({
@@ -87,12 +118,20 @@ export const settingsView = settingsInput.extend({
       radiusMetres: z.number(),
     }),
   ),
+  timesheets: timesheetSettings,
   /** The notice employees see (the default when none is set). */
   effectivePdpaNotice: z.string(),
 });
 
 export function toSettingsView(s: AttendanceSettings): z.input<typeof settingsView> {
-  return { ...s, effectivePdpaNotice: s.pdpaNotice || DEFAULT_PDPA_NOTICE };
+  const {
+    timesheetApproval: _a,
+    timesheetPeriod: _p,
+    timesheetSubmitter: _s,
+    payrollApprovedTimesheetsOnly: _o,
+    ...rest
+  } = s;
+  return { ...rest, timesheets: timesheetSettingsOf(s), effectivePdpaNotice: s.pdpaNotice || DEFAULT_PDPA_NOTICE };
 }
 
 export async function saveAttendanceSettings(
@@ -110,13 +149,25 @@ export async function saveAttendanceSettings(
       },
     );
   }
-  const next: AttendanceSettings = {
-    ...input,
-    offices: input.offices.map((o) => ({ ...o, id: o.id ?? deps.ids.newId() })),
-    pdpaNotice: input.pdpaNotice || null,
-  };
+  if (input.timesheets?.payrollApprovedOnly && !input.timesheets.approval) {
+    throw new AppError("validation_failed", "Payroll can use approved timesheets only when timesheet approval is on.", {
+      issues: [{ path: "timesheets.payrollApprovedOnly", message: "Turn timesheet approval on first." }],
+    });
+  }
+  const { timesheets, ...flat } = input;
   return deps.db.transaction(async (tx) => {
     const before = await loadAttendanceSettings(tx, orgId);
+    // Clients that predate timesheet approval leave it out: keep what is stored.
+    const ts = timesheets ?? timesheetSettingsOf(before);
+    const next: AttendanceSettings = {
+      ...flat,
+      offices: input.offices.map((o) => ({ ...o, id: o.id ?? deps.ids.newId() })),
+      pdpaNotice: input.pdpaNotice || null,
+      timesheetApproval: ts.approval,
+      timesheetPeriod: ts.period,
+      timesheetSubmitter: ts.submittedBy,
+      payrollApprovedTimesheetsOnly: ts.approval && ts.payrollApprovedOnly,
+    };
     const now = deps.clock.now();
     await tx
       .insert(attendanceSettings)

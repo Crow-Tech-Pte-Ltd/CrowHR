@@ -4,6 +4,10 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ## [Unreleased]
 
+### Added
+
+- **Timesheet approval** (optional, off by default; Settings → Attendance): employees, or their managers, submit each month, half month or week for approval through the usual approval chains; managers approve or return it with a comment. An approved period is locked: punches, manager corrections and new overtime claims are refused, and an HR correction reopens it (audited, employee notified). Payroll can be set to take overtime and days worked only from approved timesheets. New API: `/api/v1/attendance/timesheets` (additive).
+
 ### Fixed
 
 - **Payroll**: reopening a bonus run no longer pays the month's salary again; a second final-pay run for the same month is refused; same-month reviews and hourly rate changes within a period are handled ("Hours worked" takes the date worked).

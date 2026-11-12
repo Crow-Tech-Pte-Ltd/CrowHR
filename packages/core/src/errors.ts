@@ -44,6 +44,11 @@ export const ERROR_STATUS = {
   stale: 409,
   /** Scheduling: publishing needs each on-leave and outside-employment conflict acknowledged; details list them. */
   unacknowledged_conflicts: 409,
+  /**
+   * Attendance: the date is inside the employee's approved timesheet. Details give the timesheet and
+   * `canReopen` (owners and HR admins may resend a correction with `reopen: true`).
+   */
+  timesheet_locked: 409,
   /** No organisation exists yet: finish the setup wizard at /setup first. */
   setup_required: 409,
   /** Upload larger than the endpoint allows (claim receipts: 10 MB). */

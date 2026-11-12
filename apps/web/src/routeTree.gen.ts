@@ -23,6 +23,7 @@ import { Route as AppAttendanceIndexRouteImport } from './routes/_app/attendance
 import { Route as AppAttendanceSummaryRouteImport } from './routes/_app/attendance/summary'
 import { Route as AppAttendanceTeamRouteImport } from './routes/_app/attendance/team'
 import { Route as AppAttendanceTimesheetRouteImport } from './routes/_app/attendance/timesheet'
+import { Route as AppAttendanceTimesheetsRouteImport } from './routes/_app/attendance/timesheets'
 import { Route as AppClaimsIndexRouteImport } from './routes/_app/claims/index'
 import { Route as AppClaimsClaimIdRouteImport } from './routes/_app/claims/$claimId'
 import { Route as AppClaimsAdminRouteImport } from './routes/_app/claims/admin'
@@ -126,6 +127,11 @@ const AppAttendanceTeamRoute = AppAttendanceTeamRouteImport.update({
 const AppAttendanceTimesheetRoute = AppAttendanceTimesheetRouteImport.update({
   id: '/attendance/timesheet',
   path: '/attendance/timesheet',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAttendanceTimesheetsRoute = AppAttendanceTimesheetsRouteImport.update({
+  id: '/attendance/timesheets',
+  path: '/attendance/timesheets',
   getParentRoute: () => AppRoute,
 } as any)
 const AppClaimsIndexRoute = AppClaimsIndexRouteImport.update({
@@ -320,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/attendance/summary': typeof AppAttendanceSummaryRoute
   '/attendance/team': typeof AppAttendanceTeamRoute
   '/attendance/timesheet': typeof AppAttendanceTimesheetRoute
+  '/attendance/timesheets': typeof AppAttendanceTimesheetsRoute
   '/claims/$claimId': typeof AppClaimsClaimIdRoute
   '/claims/admin': typeof AppClaimsAdminRoute
   '/leave/team': typeof AppLeaveTeamRoute
@@ -370,6 +377,7 @@ export interface FileRoutesByTo {
   '/attendance/summary': typeof AppAttendanceSummaryRoute
   '/attendance/team': typeof AppAttendanceTeamRoute
   '/attendance/timesheet': typeof AppAttendanceTimesheetRoute
+  '/attendance/timesheets': typeof AppAttendanceTimesheetsRoute
   '/claims/$claimId': typeof AppClaimsClaimIdRoute
   '/claims/admin': typeof AppClaimsAdminRoute
   '/leave/team': typeof AppLeaveTeamRoute
@@ -422,6 +430,7 @@ export interface FileRoutesById {
   '/_app/attendance/summary': typeof AppAttendanceSummaryRoute
   '/_app/attendance/team': typeof AppAttendanceTeamRoute
   '/_app/attendance/timesheet': typeof AppAttendanceTimesheetRoute
+  '/_app/attendance/timesheets': typeof AppAttendanceTimesheetsRoute
   '/_app/claims/$claimId': typeof AppClaimsClaimIdRoute
   '/_app/claims/admin': typeof AppClaimsAdminRoute
   '/_app/leave/team': typeof AppLeaveTeamRoute
@@ -474,6 +483,7 @@ export interface FileRouteTypes {
     | '/attendance/summary'
     | '/attendance/team'
     | '/attendance/timesheet'
+    | '/attendance/timesheets'
     | '/claims/$claimId'
     | '/claims/admin'
     | '/leave/team'
@@ -524,6 +534,7 @@ export interface FileRouteTypes {
     | '/attendance/summary'
     | '/attendance/team'
     | '/attendance/timesheet'
+    | '/attendance/timesheets'
     | '/claims/$claimId'
     | '/claims/admin'
     | '/leave/team'
@@ -575,6 +586,7 @@ export interface FileRouteTypes {
     | '/_app/attendance/summary'
     | '/_app/attendance/team'
     | '/_app/attendance/timesheet'
+    | '/_app/attendance/timesheets'
     | '/_app/claims/$claimId'
     | '/_app/claims/admin'
     | '/_app/leave/team'
@@ -721,6 +733,13 @@ declare module '@tanstack/react-router' {
       path: '/attendance/timesheet'
       fullPath: '/attendance/timesheet'
       preLoaderRoute: typeof AppAttendanceTimesheetRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/attendance/timesheets': {
+      id: '/_app/attendance/timesheets'
+      path: '/attendance/timesheets'
+      fullPath: '/attendance/timesheets'
+      preLoaderRoute: typeof AppAttendanceTimesheetsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/claims/': {
@@ -990,6 +1009,7 @@ interface AppRouteChildren {
   AppAttendanceSummaryRoute: typeof AppAttendanceSummaryRoute
   AppAttendanceTeamRoute: typeof AppAttendanceTeamRoute
   AppAttendanceTimesheetRoute: typeof AppAttendanceTimesheetRoute
+  AppAttendanceTimesheetsRoute: typeof AppAttendanceTimesheetsRoute
   AppClaimsClaimIdRoute: typeof AppClaimsClaimIdRoute
   AppClaimsAdminRoute: typeof AppClaimsAdminRoute
   AppLeaveTeamRoute: typeof AppLeaveTeamRoute
@@ -1034,6 +1054,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAttendanceSummaryRoute: AppAttendanceSummaryRoute,
   AppAttendanceTeamRoute: AppAttendanceTeamRoute,
   AppAttendanceTimesheetRoute: AppAttendanceTimesheetRoute,
+  AppAttendanceTimesheetsRoute: AppAttendanceTimesheetsRoute,
   AppClaimsClaimIdRoute: AppClaimsClaimIdRoute,
   AppClaimsAdminRoute: AppClaimsAdminRoute,
   AppLeaveTeamRoute: AppLeaveTeamRoute,
