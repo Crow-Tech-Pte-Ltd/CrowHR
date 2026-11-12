@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { singaporeDate } from "../access/scope.ts";
+import type { AuditContext } from "../audit/audit.ts";
 import { claims, claimTypes, type PayoutMethod } from "../db/schema/claims.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
@@ -10,8 +11,10 @@ import { AppError } from "../errors.ts";
 import { fileScannerOf, runScanSweep } from "../files/scanner.ts";
 import type { SubjectAdapter, SubjectRef, WorkflowPlugin } from "../workflows/types.ts";
 import { assertWithinCaps, claimCapUsage, lockCaps } from "./caps.ts";
+import { fxWarnings, fxWarningText } from "./fx-check.ts";
 import { formatMinor, formatRateMicros, sgd } from "./money.ts";
 import { employeeSummaries } from "./people.ts";
+import { sweepUnattachedReceipts } from "./receipt-cleanup.ts";
 import { loadClaim } from "./service.ts";
 import type { ClaimTypeRow } from "./types.ts";
 
@@ -93,6 +96,14 @@ export function claimSubjectAdapter(deps: AppDeps): SubjectAdapter<Attrs> {
         })),
         types,
       });
+      // Rates far from the last one used in the organisation (a warning, not a block).
+      const fx = await fxWarnings(db, ref.orgId, claim, lines);
+      const rateChecks = lines.flatMap((l, i) => {
+        const warning = fx[i];
+        return warning && l.rateMicros !== null
+          ? [{ label: "Exchange rate", value: fxWarningText(l.currency, formatRateMicros(l.rateMicros), warning) }]
+          : [];
+      });
       return {
         title: `${typeList(names)} claim`,
         lines: [
@@ -101,6 +112,7 @@ export function claimSubjectAdapter(deps: AppDeps): SubjectAdapter<Attrs> {
           ...out,
         ],
         context: [
+          ...rateChecks,
           ...(person?.departmentName ? [{ label: "Department", value: person.departmentName }] : []),
           ...usage.map((u) => ({
             label: `${u.typeName} cap (${u.period === "per_claim" ? "per claim" : u.periodLabel})`,
@@ -175,13 +187,22 @@ export function receiptScanTransition(deps: AppDeps) {
   return { id: "claim_receipt_scan", run: () => runScanSweep(deps) };
 }
 
+/** Deletes receipts on no claim line uploaded more than 7 days ago, as a `tick` transition. */
+export function receiptCleanupTransition(deps: AppDeps) {
+  return {
+    id: "claim_receipt_cleanup",
+    run: (db: Db, input: { now: Date; audit: (orgId: string) => AuditContext }) =>
+      sweepUnattachedReceipts(db, deps, input),
+  };
+}
+
 /** Workflows contributions of the claims module (registered in workflows/registry.ts). */
 export function claimsWorkflowPlugin(deps: AppDeps): WorkflowPlugin {
   return {
     name: "claims",
     subjects: [claimSubjectAdapter(deps)],
     // The scan sweep only exists when the host configured a scanner.
-    transitions: fileScannerOf(deps) ? [receiptScanTransition(deps)] : [],
+    transitions: [...(fileScannerOf(deps) ? [receiptScanTransition(deps)] : []), receiptCleanupTransition(deps)],
   };
 }
 

@@ -31,7 +31,7 @@ This page describes Crow HR 1.0.0. A module is listed as built when it works end
 | Singpass login | Implemented to Singpass's FAPI 2.0 login profile and tested against **Singpass staging**; not yet against Singpass production. The official Singpass logo for the button has to be added by whoever runs the server, because it can't ship in the repository. See the [Singpass guide](/docs/admin/sso/singpass/). |
 | Virus scanning | Receipts, documents and medical certificates are scanned by your own ClamAV when you set `CLAMAV_HOST` ([configuration](/docs/self-hosting/configuration/#optional-virus-scanning)). No scanner ships with Crow HR, so without one uploads are stored unscanned. |
 | Payroll inputs from other modules | Rest-day and public-holiday work premiums are entered by hand, and overtime fed from attendance for staff outside Part 4 or paid by the hour needs its contractual amount entered on the run. See [payroll limitations](/docs/payroll/limitations/#payroll-inputs). |
-| Features without a screen | These work through the [API](/docs/api/) but have no control in the web app yet: adding allowance types and recurring allowances, per-schedule start times for lateness, leave balance adjustments, editing a child's record, and filing claims or overtime for another employee. |
+| Features without a screen | These work through the [API](/docs/api/) but have no control in the web app yet: adding allowance types and recurring allowances, per-schedule start times for lateness, leave balance adjustments, editing a child's record, and filing overtime for another employee. |
 
 ## Not built
 

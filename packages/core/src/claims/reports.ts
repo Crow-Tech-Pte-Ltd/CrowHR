@@ -134,7 +134,7 @@ export async function claimLinesReport(
       join employees e on e.org_id = c.org_id and e.id = c.employee_id
      where l.org_id = ${orgId} and c.status <> 'draft'
        and l.expense_date >= ${input.from} and l.expense_date <= ${input.to}
-     order by l.expense_date, c.claim_number, l.position
+     order by l.expense_date, length(c.claim_number), c.claim_number, l.position
   `);
   return rowsOf<Record<string, unknown>>(result).map((r) => {
     const hidden = r.category === "medical" && !input.medical;
@@ -184,7 +184,7 @@ export async function payoutRegister(db: Db, orgId: string, input: { from: strin
       from claims c
       join employees e on e.org_id = c.org_id and e.id = c.employee_id
      where c.org_id = ${orgId} and c.status = 'paid' and c.paid_on >= ${input.from} and c.paid_on <= ${input.to}
-     order by c.paid_on, c.claim_number
+     order by c.paid_on, length(c.claim_number), c.claim_number
   `);
   return rowsOf<Record<string, unknown>>(result).map((r) => ({
     claimNumber: (r.claim_number as string | null) ?? null,

@@ -3,10 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ChevronRight, Plus, ReceiptText, Users } from "lucide-react";
 import * as React from "react";
-import { can, useMe } from "../../../auth/session.ts";
+import { can, canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
-import { type ClaimRowDto, claimListQuery, myTotalsQuery } from "./-lib/api.ts";
+import { type ClaimDto, type ClaimRowDto, claimListQuery, myTotalsQuery } from "./-lib/api.ts";
+import { compareClaimNumbers } from "./-lib/claim-number.ts";
 import { ClaimSheet } from "./-lib/claim-sheet.tsx";
 import { ClaimStatusPill } from "./-lib/ui.tsx";
 
@@ -45,7 +46,10 @@ const columns: ColumnDef<ClaimRowDto, unknown>[] = [
   {
     id: "claim",
     header: "Claim",
-    accessorFn: (r) => r.claimNumber ?? "",
+    accessorFn: (r) => r.claimNumber ?? undefined,
+    // Numeric (C-9999 before C-10000); drafts have no number and stay last either way.
+    sortUndefined: "last",
+    sortingFn: (a, b) => compareClaimNumbers(a.original.claimNumber, b.original.claimNumber),
     cell: ({ row }) => (
       <span className="num whitespace-nowrap">
         {row.original.claimNumber ?? <span className="text-primary-200">Draft</span>}
@@ -114,6 +118,20 @@ function MyClaimsPage() {
   const totals = useQuery({ ...myTotalsQuery, enabled: !!me.employeeId });
   const scopes = me.permissions["claims:read"] ?? [];
   const reviewer = scopes.includes("all") || scopes.includes("team");
+  // Owners and HR admins file claims for employees too (the sheet shows an employee picker).
+  const onBehalf = canForAll(me, "claims:create");
+  const openClaim = (claim: ClaimDto) => {
+    if (claim.employee.id !== me.employeeId) void navigate({ to: "/claims/$claimId", params: { claimId: claim.id } });
+  };
+  const sheetProps = {
+    open: sheet,
+    onOpenChange: (open: boolean) => {
+      setSheet(open);
+      if (!open && search.new)
+        void navigate({ search: (s: ClaimsSearch) => ({ ...s, new: undefined }), replace: true });
+    },
+    onDone: openClaim,
+  };
 
   const reviewLink = reviewer ? (
     <Button asChild variant="ghost" size="sm">
@@ -131,18 +149,30 @@ function MyClaimsPage() {
           icon={<ReceiptText />}
           title="Your account isn't linked to an employee record"
           description={
-            can(me, "claims:read")
-              ? "You can review everyone's claims, mark them paid and export reports in All claims."
-              : "Ask HR to link your account to your employee record to submit claims."
+            onBehalf
+              ? "You can file a claim for an employee, and review everyone's claims in All claims."
+              : can(me, "claims:read")
+                ? "You can review everyone's claims, mark them paid and export reports in All claims."
+                : "Ask HR to link your account to your employee record to submit claims."
           }
           actions={
-            reviewer ? (
-              <Button asChild variant="primary">
-                <Link to="/claims/admin">Open all claims</Link>
-              </Button>
+            onBehalf || reviewer ? (
+              <>
+                {onBehalf ? (
+                  <Button variant="primary" onClick={() => setSheet(true)} data-testid="new-claim">
+                    <Plus aria-hidden /> New claim for an employee
+                  </Button>
+                ) : null}
+                {reviewer ? (
+                  <Button asChild variant={onBehalf ? "secondary" : "primary"}>
+                    <Link to="/claims/admin">Open all claims</Link>
+                  </Button>
+                ) : null}
+              </>
             ) : undefined
           }
         />
+        {onBehalf ? <ClaimSheet {...sheetProps} /> : null}
       </>
     );
   }
@@ -255,14 +285,7 @@ function MyClaimsPage() {
           }
         />
       ) : null}
-      <ClaimSheet
-        open={sheet}
-        onOpenChange={(open) => {
-          setSheet(open);
-          if (!open && search.new)
-            void navigate({ search: (s: ClaimsSearch) => ({ ...s, new: undefined }), replace: true });
-        }}
-      />
+      <ClaimSheet {...sheetProps} />
     </>
   );
 }

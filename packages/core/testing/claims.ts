@@ -2,6 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { createApp } from "../src/app.ts";
 import { buildClaimsActor, type ClaimsActor } from "../src/claims/access.ts";
 import { type ClaimTypeInput, createClaimType } from "../src/claims/types.ts";
+import { claimLineFiles, claimLines, claims, claimTypes } from "../src/db/schema/claims.ts";
+import { files } from "../src/db/schema/files.ts";
 import { approvalRequests, approvalTasks } from "../src/db/schema/workflows.ts";
 import type { AppDeps } from "../src/deps.ts";
 import { singaporeToday } from "../src/employees/dates.ts";
@@ -10,7 +12,7 @@ import { defaultPeoplePorts } from "../src/employees/ports.ts";
 import { createReportingScopeResolver } from "../src/employees/reports/reporting-scope.ts";
 import type { FileScanner } from "../src/files/scanner.ts";
 import { createPeopleHarness, hirePayload, OWNER, seedBasicStructure } from "../src/testing/people-harness.ts";
-import { type SeededMember, seedMember } from "./fixtures.ts";
+import { type SeededMember, seedEmployee, seedMember, seedOrg } from "./fixtures.ts";
 import { clientAs, movableClock, type TestClient } from "./http.ts";
 import { createTestDb, createTestDeps, type TestDb } from "./index.ts";
 
@@ -238,4 +240,108 @@ export async function managerOnlyPolicy(w: ClaimsWorld, extra: unknown[] = []) {
     policies: [{ name: "Claims", condition: null, steps: [{ approverRule: "manager" }] }, ...extra],
   });
   if (res.status !== 200) throw new Error(`policy update failed: ${res.status} ${await res.text()}`);
+}
+
+/**
+ * A second organisation in the same database (one employee, their member and a Transport type),
+ * for cross-organisation checks. Its claims and receipts are inserted directly.
+ */
+export async function seedOtherClaimsOrg(w: ClaimsWorld) {
+  const org = await seedOrg(w.deps, { name: "Teh Tarik Trading Pte. Ltd." });
+  const employeeId = await seedEmployee(w.deps, org.id, { legalName: "Aminah Ali" });
+  const member = await seedMember(w.deps, org.id, { employeeId, email: "aminah@tehtarik.example" });
+  const typeId = w.deps.ids.newId();
+  await w.deps.db.insert(claimTypes).values({
+    id: typeId,
+    orgId: org.id,
+    code: "TRANSPORT",
+    name: "Transport",
+    category: "transport",
+    receiptRule: "never",
+    capPeriod: "none",
+  });
+  return { orgId: org.id, employeeId, membershipId: member.membershipId, typeId };
+}
+
+type OtherOrg = Awaited<ReturnType<typeof seedOtherClaimsOrg>>;
+
+/** Inserts a claim with its lines directly (no validation, no workflow). Returns the claim and line IDs. */
+export async function insertClaim(
+  deps: AppDeps,
+  org: OtherOrg,
+  input: {
+    status: "draft" | "submitted" | "approved" | "paid" | "rejected" | "withdrawn";
+    submittedAt: Date | null;
+    lines: {
+      currency: string;
+      amountMinor: number;
+      rateMicros: number | null;
+      sgdCents: number;
+      receiptIds?: string[];
+    }[];
+  },
+) {
+  const claimId = deps.ids.newId();
+  await deps.db.insert(claims).values({
+    id: claimId,
+    orgId: org.orgId,
+    employeeId: org.employeeId,
+    status: input.status,
+    totalCents: input.lines.reduce((s, l) => s + l.sgdCents, 0),
+    createdByMembershipId: org.membershipId,
+    submittedAt: input.submittedAt,
+    ...(input.status === "paid" ? { paidOn: "2026-11-01", paidVia: "outside" as const } : {}),
+  });
+  const lineIds: string[] = [];
+  let position = 0;
+  for (const l of input.lines) {
+    const id = deps.ids.newId();
+    lineIds.push(id);
+    await deps.db.insert(claimLines).values({
+      id,
+      orgId: org.orgId,
+      claimId,
+      position: ++position,
+      claimTypeId: org.typeId,
+      expenseDate: "2026-10-30",
+      merchant: "Kedai Kopi",
+      description: "Teh tarik",
+      currency: l.currency,
+      currencyExponent: 2,
+      amountMinor: l.amountMinor,
+      rateMicros: l.rateMicros,
+      sgdCents: l.sgdCents,
+    });
+    let fp = 0;
+    for (const fileId of l.receiptIds ?? [])
+      await deps.db.insert(claimLineFiles).values({ orgId: org.orgId, claimLineId: id, fileId, position: ++fp });
+  }
+  return { claimId, lineIds };
+}
+
+/** Stores a PNG in the file store and inserts its `files` row directly, uploaded at `createdAt`. */
+export async function insertUpload(
+  deps: AppDeps,
+  org: { orgId: string; employeeId: string; membershipId: string },
+  input: { createdAt: Date; purpose?: string; seed?: number },
+) {
+  const id = deps.ids.newId();
+  const storageKey = `org/${org.orgId}/files/${id}.png`;
+  const bytes = pngBytes(input.seed ?? 1);
+  await deps.fileStore.put(storageKey, bytes, { contentType: "image/png" });
+  await deps.db.insert(files).values({
+    id,
+    orgId: org.orgId,
+    purpose: input.purpose ?? "claim_receipt",
+    sha256: id.replace(/-/g, "").padEnd(64, "0"),
+    mime: "image/png",
+    sizeBytes: bytes.byteLength,
+    storageKey,
+    originalName: "receipt.png",
+    scanStatus: "unscanned",
+    ownerEmployeeId: org.employeeId,
+    uploadedByMembershipId: org.membershipId,
+    createdAt: input.createdAt,
+  });
+  return { id, storageKey };
 }

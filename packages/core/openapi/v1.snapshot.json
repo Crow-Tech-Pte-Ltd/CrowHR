@@ -11679,6 +11679,39 @@
                               "null"
                             ]
                           },
+                          "fxWarning": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lastRate": {
+                                    "type": "string",
+                                    "description": "The last rate used in the organisation for this currency."
+                                  },
+                                  "lastRateOn": {
+                                    "type": "string",
+                                    "description": "Singapore date the claim carrying that rate was submitted."
+                                  },
+                                  "deviationBasisPoints": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991,
+                                    "description": "(rate − last rate) / last rate in basis points: positive above, negative below; magnitude rounded up."
+                                  }
+                                },
+                                "required": [
+                                  "lastRate",
+                                  "lastRateOn",
+                                  "deviationBasisPoints"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Set when a submitted claim's rate is more than 20% away from the last rate used in the organisation for the currency: the rate on the most recently submitted other claim (submitted before this one, now submitted, approved or paid) with a line in it. A warning for the approver; it never blocks."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "sgdCents": {
                             "type": "integer",
                             "minimum": 0,
@@ -11748,6 +11781,7 @@
                           "currency",
                           "amountMinor",
                           "rate",
+                          "fxWarning",
                           "sgdCents",
                           "gstCents",
                           "receiptRequired",
@@ -15811,6 +15845,39 @@
                               "null"
                             ]
                           },
+                          "fxWarning": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lastRate": {
+                                    "type": "string",
+                                    "description": "The last rate used in the organisation for this currency."
+                                  },
+                                  "lastRateOn": {
+                                    "type": "string",
+                                    "description": "Singapore date the claim carrying that rate was submitted."
+                                  },
+                                  "deviationBasisPoints": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991,
+                                    "description": "(rate − last rate) / last rate in basis points: positive above, negative below; magnitude rounded up."
+                                  }
+                                },
+                                "required": [
+                                  "lastRate",
+                                  "lastRateOn",
+                                  "deviationBasisPoints"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Set when a submitted claim's rate is more than 20% away from the last rate used in the organisation for the currency: the rate on the most recently submitted other claim (submitted before this one, now submitted, approved or paid) with a line in it. A warning for the approver; it never blocks."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "sgdCents": {
                             "type": "integer",
                             "minimum": 0,
@@ -15880,6 +15947,7 @@
                           "currency",
                           "amountMinor",
                           "rate",
+                          "fxWarning",
                           "sgdCents",
                           "gstCents",
                           "receiptRequired",
@@ -16401,6 +16469,39 @@
                               "null"
                             ]
                           },
+                          "fxWarning": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lastRate": {
+                                    "type": "string",
+                                    "description": "The last rate used in the organisation for this currency."
+                                  },
+                                  "lastRateOn": {
+                                    "type": "string",
+                                    "description": "Singapore date the claim carrying that rate was submitted."
+                                  },
+                                  "deviationBasisPoints": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991,
+                                    "description": "(rate − last rate) / last rate in basis points: positive above, negative below; magnitude rounded up."
+                                  }
+                                },
+                                "required": [
+                                  "lastRate",
+                                  "lastRateOn",
+                                  "deviationBasisPoints"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Set when a submitted claim's rate is more than 20% away from the last rate used in the organisation for the currency: the rate on the most recently submitted other claim (submitted before this one, now submitted, approved or paid) with a line in it. A warning for the approver; it never blocks."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "sgdCents": {
                             "type": "integer",
                             "minimum": 0,
@@ -16470,6 +16571,7 @@
                           "currency",
                           "amountMinor",
                           "rate",
+                          "fxWarning",
                           "sgdCents",
                           "gstCents",
                           "receiptRequired",
@@ -17238,6 +17340,39 @@
                               "null"
                             ]
                           },
+                          "fxWarning": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lastRate": {
+                                    "type": "string",
+                                    "description": "The last rate used in the organisation for this currency."
+                                  },
+                                  "lastRateOn": {
+                                    "type": "string",
+                                    "description": "Singapore date the claim carrying that rate was submitted."
+                                  },
+                                  "deviationBasisPoints": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991,
+                                    "description": "(rate − last rate) / last rate in basis points: positive above, negative below; magnitude rounded up."
+                                  }
+                                },
+                                "required": [
+                                  "lastRate",
+                                  "lastRateOn",
+                                  "deviationBasisPoints"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Set when a submitted claim's rate is more than 20% away from the last rate used in the organisation for the currency: the rate on the most recently submitted other claim (submitted before this one, now submitted, approved or paid) with a line in it. A warning for the approver; it never blocks."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "sgdCents": {
                             "type": "integer",
                             "minimum": 0,
@@ -17307,6 +17442,7 @@
                           "currency",
                           "amountMinor",
                           "rate",
+                          "fxWarning",
                           "sgdCents",
                           "gstCents",
                           "receiptRequired",
@@ -17844,6 +17980,39 @@
                               "null"
                             ]
                           },
+                          "fxWarning": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lastRate": {
+                                    "type": "string",
+                                    "description": "The last rate used in the organisation for this currency."
+                                  },
+                                  "lastRateOn": {
+                                    "type": "string",
+                                    "description": "Singapore date the claim carrying that rate was submitted."
+                                  },
+                                  "deviationBasisPoints": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991,
+                                    "description": "(rate − last rate) / last rate in basis points: positive above, negative below; magnitude rounded up."
+                                  }
+                                },
+                                "required": [
+                                  "lastRate",
+                                  "lastRateOn",
+                                  "deviationBasisPoints"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Set when a submitted claim's rate is more than 20% away from the last rate used in the organisation for the currency: the rate on the most recently submitted other claim (submitted before this one, now submitted, approved or paid) with a line in it. A warning for the approver; it never blocks."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "sgdCents": {
                             "type": "integer",
                             "minimum": 0,
@@ -17913,6 +18082,7 @@
                           "currency",
                           "amountMinor",
                           "rate",
+                          "fxWarning",
                           "sgdCents",
                           "gstCents",
                           "receiptRequired",
@@ -18464,6 +18634,39 @@
                               "null"
                             ]
                           },
+                          "fxWarning": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lastRate": {
+                                    "type": "string",
+                                    "description": "The last rate used in the organisation for this currency."
+                                  },
+                                  "lastRateOn": {
+                                    "type": "string",
+                                    "description": "Singapore date the claim carrying that rate was submitted."
+                                  },
+                                  "deviationBasisPoints": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991,
+                                    "description": "(rate − last rate) / last rate in basis points: positive above, negative below; magnitude rounded up."
+                                  }
+                                },
+                                "required": [
+                                  "lastRate",
+                                  "lastRateOn",
+                                  "deviationBasisPoints"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Set when a submitted claim's rate is more than 20% away from the last rate used in the organisation for the currency: the rate on the most recently submitted other claim (submitted before this one, now submitted, approved or paid) with a line in it. A warning for the approver; it never blocks."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "sgdCents": {
                             "type": "integer",
                             "minimum": 0,
@@ -18533,6 +18736,7 @@
                           "currency",
                           "amountMinor",
                           "rate",
+                          "fxWarning",
                           "sgdCents",
                           "gstCents",
                           "receiptRequired",

@@ -3,6 +3,7 @@ import {
   AlertDescription,
   Button,
   cn,
+  FormField,
   formatMoney,
   Input,
   Label,
@@ -22,6 +23,7 @@ import {
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Camera, Loader2, Paperclip, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
+import { canForAll, useMe } from "../../../../auth/session.ts";
 import {
   api,
   type ClaimDto,
@@ -36,6 +38,7 @@ import {
   type LineDraft,
   uploadReceipt,
 } from "./api.ts";
+import { EmployeePicker, type PickedEmployee } from "./employee-picker.tsx";
 import { CURRENCIES, exponentOf, formatMinorAmount, parseMinor, previewSgd } from "./money.ts";
 import { CapRemaining, ReceiptChip, ReceiptViewer } from "./ui.tsx";
 
@@ -113,10 +116,19 @@ function useIsMobile() {
   return mobile;
 }
 
+/** The employee a draft belongs to, when it isn't the member's own. */
+function onBehalfOf(draft: ClaimDto | null | undefined, myEmployeeId: string | null): PickedEmployee | null {
+  if (!draft || draft.employee.id === myEmployeeId) return null;
+  return { id: draft.employee.id, name: draft.employee.name, employeeNumber: draft.employee.employeeNumber };
+}
+
 /**
  * New claim / edit draft. Mobile-first: snap the receipt first (camera via `<input capture>`),
  * then amount, type and date; the remaining cap for the type updates as you type. Multi-line,
  * foreign currency with a manual rate and a live SGD preview, optional GST.
+ *
+ * Owners and HR admins (`claims:create` for everyone) choose who the claim is for: the offered
+ * types, the caps and the receipts' owner follow that employee. The server checks every request.
  */
 export function ClaimSheet({
   open,
@@ -132,8 +144,12 @@ export function ClaimSheet({
 }) {
   const mobile = useIsMobile();
   const qc = useQueryClient();
+  const me = useMe();
+  const mayPick = canForAll(me, "claims:create");
   const [lines, setLines] = React.useState<FormLine[]>(() => (draft ? fromClaim(draft) : [emptyLine()]));
   const [draftId, setDraftId] = React.useState<string | null>(draft?.id ?? null);
+  const [forEmployee, setForEmployee] = React.useState<PickedEmployee | null>(() => onBehalfOf(draft, me.employeeId));
+  const [recheckTypes, setRecheckTypes] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
   const [viewer, setViewer] = React.useState<{ line: number; index: number } | null>(null);
@@ -142,18 +158,53 @@ export function ClaimSheet({
     if (open) {
       setLines(draft ? fromClaim(draft) : [emptyLine()]);
       setDraftId(draft?.id ?? null);
+      setForEmployee(onBehalfOf(draft, me.employeeId));
       setErrors({});
       setFormError(null);
     }
-  }, [open, draft]);
+  }, [open, draft, me.employeeId]);
+
+  // Whose claim this is: a draft keeps its employee; a new claim is the chosen employee's, or yours.
+  const targetId = draft ? draft.employee.id : (forEmployee?.id ?? me.employeeId);
+  /** Sent as `employeeId` when the claim isn't the member's own. */
+  const behalfId = targetId && targetId !== me.employeeId ? targetId : undefined;
+  const behalfName = behalfId ? (forEmployee?.name ?? draft?.employee.name ?? "") : null;
 
   const dates = [...new Set(lines.map((l) => l.expenseDate || today()))];
   const typeQueries = useQueries({
-    queries: dates.map((d) => ({ ...eligibleTypesQuery(d, { excludeClaimId: draftId ?? undefined }), enabled: open })),
+    queries: dates.map((d) => ({
+      ...eligibleTypesQuery(d, { employeeId: behalfId, excludeClaimId: draftId ?? undefined }),
+      enabled: open && !!targetId,
+    })),
   });
   const typesByDate = new Map(dates.map((d, i) => [d, typeQueries[i]?.data?.items ?? []]));
   const types = typeQueries[0]?.data?.items ?? [];
-  const typesLoading = typeQueries.some((q) => q.isPending);
+  const typesLoading = !!targetId && typeQueries.some((q) => q.isPending);
+
+  // After choosing another employee, drop the line types that employee can't use.
+  React.useEffect(() => {
+    if (!recheckTypes || typesLoading || !targetId) return;
+    setRecheckTypes(false);
+    setLines((ls) =>
+      ls.map((l) =>
+        !l.claimTypeId || (typesByDate.get(l.expenseDate || today()) ?? []).some((t) => t.id === l.claimTypeId)
+          ? l
+          : { ...l, claimTypeId: "" },
+      ),
+    );
+  }, [recheckTypes, typesLoading, targetId, typesByDate]);
+
+  const uploading = lines.some((l) => l.uploading > 0);
+  const chooseEmployee = (next: PickedEmployee | null) => {
+    if ((next?.id ?? null) === (forEmployee?.id ?? null)) return;
+    // A receipt belongs to the employee it was uploaded for, so it can't move to another claimant.
+    const hadReceipts = lines.some((l) => l.receipts.length > 0);
+    setForEmployee(next);
+    setLines((ls) => ls.map((l) => ({ ...l, receipts: [] })));
+    setRecheckTypes(true);
+    setErrors(({ employeeId: _, ...rest }) => rest);
+    if (hadReceipts) toast(`Receipts removed. Attach them again for ${next?.name ?? "yourself"}.`);
+  };
 
   const update = (key: string, patch: Partial<FormLine> | ((l: FormLine) => Partial<FormLine>)) =>
     setLines((ls) =>
@@ -165,7 +216,7 @@ export function ClaimSheet({
     for (const file of [...files]) {
       update(key, (l) => ({ uploading: l.uploading + 1 }));
       try {
-        const uploaded = await uploadReceipt(file);
+        const uploaded = await uploadReceipt(file, behalfId);
         update(key, (l) => ({ receipts: [...l.receipts, uploaded], uploading: l.uploading - 1 }));
       } catch (err) {
         update(key, (l) => ({ uploading: l.uploading - 1 }));
@@ -176,9 +227,10 @@ export function ClaimSheet({
 
   const total = lines.reduce((s, l) => s + (sgdOf(l) ?? 0), 0);
 
-  const payload = (): { lines: LineDraft[] } | null => {
+  const payload = (): { employeeId?: string; lines: LineDraft[] } | null => {
     const errs: Record<string, string> = {};
     const out: LineDraft[] = [];
+    if (!targetId) errs.employeeId = "Choose who this claim is for.";
     lines.forEach((l, i) => {
       const amount = amountOf(l);
       if (!l.claimTypeId) errs[`lines.${i}.claimTypeId`] = "Pick what the expense was for.";
@@ -202,7 +254,9 @@ export function ClaimSheet({
       });
     });
     setErrors(errs);
-    return Object.keys(errs).length ? null : { lines: out };
+    if (Object.keys(errs).length) return null;
+    // A draft keeps its employee; a new claim names the employee when it isn't the member's own.
+    return draftId || !behalfId ? { lines: out } : { employeeId: behalfId, lines: out };
   };
 
   const save = useMutation({
@@ -217,7 +271,12 @@ export function ClaimSheet({
     },
     onSuccess: (claim) => {
       void qc.invalidateQueries({ queryKey: claimKeys.all });
-      toast.success(claim.status === "submitted" ? `Claim ${claim.claimNumber} sent for approval` : "Draft saved");
+      const forWhom = behalfName ? ` for ${behalfName}` : "";
+      toast.success(
+        claim.status === "submitted"
+          ? `Claim ${claim.claimNumber}${forWhom} sent for approval`
+          : `Draft saved${forWhom}`,
+      );
       onOpenChange(false);
       onDone?.(claim);
     },
@@ -273,12 +332,48 @@ export function ClaimSheet({
                 <AlertDescription>{formError}</AlertDescription>
               </Alert>
             ) : null}
-            {!typesLoading && types.length === 0 ? (
+            {mayPick && !draftId ? (
+              <FormField
+                label="Claim for"
+                className="mb-5"
+                required={!me.employeeId}
+                error={errors.employeeId}
+                hint={
+                  uploading
+                    ? "Wait for the receipts to finish uploading to change the employee."
+                    : "The claim types, caps and receipts follow this employee."
+                }
+              >
+                <EmployeePicker
+                  value={forEmployee}
+                  onChange={chooseEmployee}
+                  me={me.employeeId ? { id: me.employeeId } : null}
+                  disabled={uploading}
+                />
+              </FormField>
+            ) : behalfName ? (
+              <p className="mb-5 text-ui" data-testid="claim-for">
+                <span className="font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200">For </span>
+                {behalfName}
+                <span className="num text-primary-200">
+                  {" "}
+                  {forEmployee?.employeeNumber ?? draft?.employee.employeeNumber}
+                </span>
+              </p>
+            ) : null}
+            {targetId && !typesLoading && types.length === 0 ? (
               <Alert className="mb-4">
                 <AlertDescription>
-                  No claim types are set up for you yet. Ask HR to add them in Settings → Claim types.
+                  {behalfName
+                    ? `No claim types are open to ${behalfName}. Check who can claim each type in Settings → Claim types.`
+                    : "No claim types are set up for you yet. Ask HR to add them in Settings → Claim types."}
                 </AlertDescription>
               </Alert>
+            ) : null}
+            {!targetId ? (
+              <p className="mb-4 text-ui text-primary-300" data-testid="choose-employee-first">
+                Choose the employee first: the claim types and caps depend on who the claim is for.
+              </p>
             ) : null}
             <ol className="flex flex-col gap-5">
               {lines.map((l, i) => (

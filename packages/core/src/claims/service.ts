@@ -13,6 +13,7 @@ import { toLimitOffset } from "../http/list.ts";
 import { submitApproval, withdrawSubject } from "../workflows/engine.ts";
 import { approverRole, type ClaimsActor, canSeeMedical, claimsWithTasks, inScope, scopeFor } from "./access.ts";
 import { assertWithinCaps, type CapUsage, claimCapUsage, lockCaps, usageFor } from "./caps.ts";
+import { fxWarnings } from "./fx-check.ts";
 import {
   currencyExponent,
   formatRateMicros,
@@ -235,8 +236,9 @@ export async function toClaimDto(deps: AppDeps, actor: ClaimsActor, loaded: Load
   );
   const people = await employeeSummaries(db, actor.orgId, [claim.employeeId], actor.today);
   const medicalOk = await canSeeMedical(db, actor, claim);
+  const fx = await fxWarnings(db, actor.orgId, claim, lines);
   const outLines = [];
-  for (const l of lines) {
+  for (const [i, l] of lines.entries()) {
     const t = types.get(l.claimTypeId);
     const medical = t?.category === "medical";
     const hidden = medical && !medicalOk;
@@ -253,6 +255,7 @@ export async function toClaimDto(deps: AppDeps, actor: ClaimsActor, loaded: Load
       currency: l.currency,
       amountMinor: l.amountMinor,
       rate: l.rateMicros === null ? null : formatRateMicros(l.rateMicros),
+      fxWarning: fx[i] ?? null,
       sgdCents: l.sgdCents,
       gstCents: l.gstCents,
       receiptRequired: t ? receiptRequired(t, l.sgdCents) : false,
@@ -560,6 +563,14 @@ export async function deleteDraft(deps: AppDeps, actor: ClaimsActor, claimId: st
 // ---------------------------------------------------------------------------------------------
 // Submit
 // ---------------------------------------------------------------------------------------------
+
+/**
+ * Claim numbers in numeric order (`C-9999` before `C-10000`): they are `C-` and at least four
+ * digits, so a shorter number is a smaller one. Use for every ORDER BY on a claim number.
+ */
+export function claimNumberOrder(column: SQL, dir: SQL = sql`asc`): SQL[] {
+  return [sql`length(${column}) ${dir}`, sql`${column} ${dir}`];
+}
 
 async function nextClaimNumber(tx: Db, orgId: string): Promise<string> {
   const [row] = await tx
@@ -901,23 +912,28 @@ export async function listClaims(deps: AppDeps, actor: ClaimsActor, query: Claim
   const where = and(eq(claims.orgId, actor.orgId), ...conds);
   const desc_ = query.sort.startsWith("-");
   const field = query.sort.replace(/^-/, "");
-  const col =
-    field === "totalCents"
-      ? claims.totalCents
-      : field === "claimNumber"
-        ? claims.claimNumber
-        : field === "submittedAt"
-          ? claims.submittedAt
-          : field === "approvedOn"
-            ? claims.approvedOn
-            : claims.createdAt;
+  const dir = desc_ ? sql`desc nulls last` : sql`asc nulls last`;
+  const order: SQL[] =
+    field === "claimNumber"
+      ? claimNumberOrder(sql`${claims.claimNumber}`, dir)
+      : [
+          sql`${
+            field === "totalCents"
+              ? claims.totalCents
+              : field === "submittedAt"
+                ? claims.submittedAt
+                : field === "approvedOn"
+                  ? claims.approvedOn
+                  : claims.createdAt
+          } ${dir}`,
+        ];
   const { limit, offset } = toLimitOffset(query);
   const [totalRow] = await db.select({ n: count() }).from(claims).where(where);
   const rows = await db
     .select()
     .from(claims)
     .where(where)
-    .orderBy(desc_ ? sql`${col} desc nulls last` : sql`${col} asc nulls last`, desc(claims.createdAt))
+    .orderBy(...order, desc(claims.createdAt))
     .limit(limit)
     .offset(offset);
   const ids = rows.map((r) => r.id);

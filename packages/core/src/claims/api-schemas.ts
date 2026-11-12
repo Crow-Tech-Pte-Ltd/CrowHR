@@ -115,6 +115,20 @@ export const createClaimSchema = claimInputSchema.extend({
     .meta({ description: "Submit at once; when submission fails the draft is kept (details.draftId)." }),
 });
 
+const fxWarningSchema = z
+  .object({
+    lastRate: z.string().meta({ description: "The last rate used in the organisation for this currency." }),
+    lastRateOn: z.string().meta({ description: "Singapore date the claim carrying that rate was submitted." }),
+    deviationBasisPoints: z.int().meta({
+      description:
+        "(rate − last rate) / last rate in basis points: positive above, negative below; magnitude rounded up.",
+    }),
+  })
+  .meta({
+    description:
+      "Set when a submitted claim's rate is more than 20% away from the last rate used in the organisation for the currency: the rate on the most recently submitted other claim (submitted before this one, now submitted, approved or paid) with a line in it. A warning for the approver; it never blocks.",
+  });
+
 const claimLineSchema = z.object({
   id: z.uuid(),
   position: z.int(),
@@ -130,6 +144,7 @@ const claimLineSchema = z.object({
   currency: z.string(),
   amountMinor: z.int(),
   rate: z.string().nullable(),
+  fxWarning: fxWarningSchema.nullable(),
   sgdCents: cents,
   gstCents: cents.nullable(),
   receiptRequired: z.boolean(),
