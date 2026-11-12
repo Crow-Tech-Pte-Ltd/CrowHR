@@ -215,7 +215,7 @@ async function price(
   if (unclassified.length)
     throw new AppError(
       "validation_failed",
-      `Classify ${unclassified.map((a) => a.name).join(", ")} using grossRateIncluded in Payroll allowance settings before requesting encashment. Include fixed contractual salary allowances; exclude variable incentives, reimbursements, travel, food and housing allowances.`,
+      `Classify ${unclassified.map((a) => a.name).join(", ")} for the gross rate of pay before requesting encashment: an owner or payroll admin sets it in Payroll → Allowance treatment. Include fixed contractual salary allowances; exclude variable incentives, reimbursements, travel, food and housing allowances.`,
     );
   const included = allowances.filter((a) => a.included === true);
   const allowanceCents = included.reduce((sum, a) => sum + BigInt(a.allowance.amountCents), 0n);

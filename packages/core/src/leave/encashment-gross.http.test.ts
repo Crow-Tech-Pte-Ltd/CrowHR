@@ -180,7 +180,9 @@ describe("leave encashment gross rate", () => {
       });
       expect(res.status).toBe(400);
       expect(await res.json()).toMatchObject({
-        error: { message: expect.stringContaining("Classify Variable productivity incentive") },
+        error: {
+          message: expect.stringMatching(/^Classify Variable productivity incentive .*Payroll → Allowance treatment/),
+        },
       });
     }
     await t.db

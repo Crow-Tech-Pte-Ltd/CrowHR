@@ -152,6 +152,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
         severity: "blocking",
         message: `Overtime "${item.label}": give both the start and the end of the overtime period, or neither when it is the salary period (MOM payslip item 11).`,
         source: "https://www.mom.gov.sg/employment-practices/salary/itemised-payslips",
+        ref: { itemId: item.id },
       });
     }
     if (minutes <= 0) {
@@ -160,6 +161,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
         severity: "blocking",
         message: `Overtime "${item.label}": enter the overtime hours; a payslip must show the hours worked with the OT pay.`,
         source: "https://www.mom.gov.sg/employment-practices/salary/itemised-payslips",
+        ref: { itemId: item.id },
       });
     }
     // EA s 21(2): due 14 days after the salary period in which the OT was performed.
@@ -170,6 +172,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
         severity: "warning",
         message: `Overtime "${item.label}"${item.periodEnd ? ` (performed to ${dateLabel(item.periodEnd)})` : ""} must be paid within 14 days after the salary period it was worked in, by ${dateLabel(due)}; the pay date is ${dateLabel(run.payDate)}.`,
         source: EA_S21,
+        ref: { itemId: item.id },
       });
     }
     let pay = item.amountCents;
@@ -178,8 +181,9 @@ export function computeEmployeePay(input: PayInput): PayResult {
         issues.push({
           code: "OT_AMOUNT_REQUIRED",
           severity: "blocking",
-          message: `Overtime "${item.label}": enter the overtime amount (statutory OT is computed only for monthly-rated staff).`,
+          message: `Overtime "${item.label}": enter the overtime amount on the item (statutory OT is computed only for monthly-rated staff).`,
           source: null,
+          ref: { itemId: item.id },
         });
         continue;
       }
@@ -197,8 +201,9 @@ export function computeEmployeePay(input: PayInput): PayResult {
           issues.push({
             code: "OT_NOT_STATUTORY",
             severity: "blocking",
-            message: `Overtime "${item.label}": the employee is not covered by Part 4 of the Employment Act, so there is no statutory OT rate. Enter the contractual OT amount.`,
+            message: `Overtime "${item.label}": the employee is not covered by Part 4 of the Employment Act, so there is no statutory OT rate. Enter the contractual OT amount on the item.`,
             source: resolveRules(run.periodEnd).employmentAct.part4.source,
+            ref: { itemId: item.id },
           });
           continue;
         }
@@ -272,6 +277,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
           severity: "blocking",
           message: `"${item.label}" is AW: enter the date it became due and payable (CPF keys the AW ceiling to it).`,
           source: CPF_WAGES_SOURCE,
+          ref: { itemId: item.id },
         });
         continue;
       }
@@ -279,6 +285,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
         issues.push({
           code: "AW_PAYABLE_OUTSIDE_PERIOD",
           severity: "blocking",
+          ref: { itemId: item.id },
           message: `"${item.label}" is AW payable on ${dateLabel(payable)}, outside this run's period (${dateLabel(run.periodStart)}–${dateLabel(run.periodEnd)}). CPF treats AW in the month it is due and payable: pay it in that month's run or an adjustment of it.`,
           source: CPF_WAGES_SOURCE,
         });
@@ -634,6 +641,7 @@ export function computeEmployeePay(input: PayInput): PayResult {
       issues.push({
         code: "CPF_ARREARS_RECOVERY_BLOCKED",
         severity: "blocking",
+        ref: { itemId: item.id },
         message: `"${item.label}" looks like a recovery of employee CPF. Employee CPF missed by the employer's oversight or a system error cannot be deducted from later wages (CPF Board); only the narrow non-negligent route in CPF Act s 7(6A), with prior payment and the employee's consent or the Board's permission, allows it. Use "Recover AW top-up CPF" for AW-ceiling reconciliations, or remove this deduction.`,
         source: CPF_RECOVERY_FAQ,
       });

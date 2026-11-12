@@ -40,16 +40,16 @@ When the run is computed, Crow HR adds these items itself, each labelled with wh
 | Days worked | Attendance | Rostered staff who clock in. An item you enter wins. |
 | Scheduled days | [Published rosters](/docs/scheduling/scheduling/#payroll-scheduled-days) | Only when the whole month is published and the employee was employed all month. An item you enter wins. |
 | Claims reimbursement | [Claims](/docs/claims/claims/#through-payroll) | Approved claims paid with payroll, approved by the end of the month and not yet paid. Shown under "Reimbursements (not wages)": no CPF, not in gross pay. |
-| Public holiday pay | [Leave rules](/docs/leave/leave/#public-holidays-and-days-in-lieu) | With **Pay an extra day (payroll)**, one day's gross pay for each public holiday on an off day, for employees covered by the Employment Act on a monthly rate and a fixed week. Others need an item through the API ([payroll settings](/docs/payroll/settings/#run-items-without-a-screen)). |
+| Public holiday pay | [Leave rules](/docs/leave/leave/#public-holidays-and-days-in-lieu) | With **Pay an extra day (payroll)**, one day's gross pay for each public holiday on an off day, for employees covered by the Employment Act on a monthly rate and a fixed week. For others the run blocks until you enter the day's gross pay ([holiday pay and contractual overtime](/docs/payroll/settings/#holiday-pay-and-contractual-overtime-on-a-run)). |
 | Leave encashment | [Leave](/docs/leave/leave/#encash-unused-leave) | Approved encashment requests, approved before both the pay date and the end of the period. Additional wages, CPF-liable. |
 
-Fed overtime, holiday pay, encashment and claims are each paid by one run only: recomputing keeps them, another run skips them, deleting a draft run releases them, and an adjustment run pays only the difference. Bonus-only off-cycle runs take none of these; a leaver's final-pay run takes theirs. Fed overtime carries minutes only: for employees not covered by Part 4, or paid by the hour, the run blocks (`OT_NOT_STATUTORY`, `OT_AMOUNT_REQUIRED`), and the web app can't put an amount on the fed item (the API can, see [payroll settings](/docs/payroll/settings/#run-items-without-a-screen)). Otherwise pay their overtime as a manual item instead of approving it in attendance. Something approved after you computed the run makes **Submit for approval** ask you to recompute.
+Fed overtime, holiday pay, encashment and claims are each paid by one run only: recomputing keeps them, another run skips them, deleting a draft run releases them, and an adjustment run pays only the difference. Bonus-only off-cycle runs take none of these; a leaver's final-pay run takes theirs. Fed overtime carries minutes only: for employees not covered by Part 4, or paid by the hour, the run blocks (`OT_NOT_STATUTORY`, `OT_AMOUNT_REQUIRED`) until you enter the contractual amount for it in the employee's drawer ([holiday pay and contractual overtime](/docs/payroll/settings/#holiday-pay-and-contractual-overtime-on-a-run)). Something approved after you computed the run makes **Submit for approval** ask you to recompute.
 
 ## 3. Compute and review
 
 **Recompute** calculates every employee from the current records and the items. The overview shows, in this order:
 
-1. **Blocking issues** and **warnings**, each with a code and a link to its source.
+1. **Blocking issues** and **warnings**, each with a code, a link to its source and a link to where it is fixed: the employee's drawer with the item ready to fill in (holiday pay, an overtime amount, hours, scheduled days, an item to correct), **Allowance treatment**, the company profile or the employee's record.
 2. **Totals**: people, gross pay, employee CPF, SHG, employer CPF, SDL, FWL estimate, claims and net pay.
 3. **Changes since last month**: joiners, leavers, pay changes, new items.
 4. **The employee table**: dense, numbers right-aligned. Move with the arrow keys or `j`/`k`, open an employee with Enter, close with Escape, and step through employees in the drawer with `[` and `]`.
@@ -87,6 +87,8 @@ After approval:
 Crow HR does not submit anything to CPF Board, IRAS or your bank itself.
 
 ## Correcting an approved or paid run
+
+**Return to draft** (an approved run that is not marked paid) is for a change that must not be paid as an adjustment, such as an employee's new bank account: give the reason, kept in the audit log, then recompute and approve the run again. Its payslips are hidden from employees until it is released again. It is refused once a later run of the year has used this run's CPF figures; reopen it as an adjustment instead.
 
 **Reopen as an adjustment** creates an adjustment run for the same month, starting from a copy of the original inputs, with a reason kept in the audit log. The original run, its payslips and its files never change; it is marked superseded only when the adjustment is approved. The adjustment charges only the difference in CPF, SHG and SDL, its payslips are labelled as a revision and show the net amount still to pay (or overpaid), and its EZPay file is a supplementary file.
 

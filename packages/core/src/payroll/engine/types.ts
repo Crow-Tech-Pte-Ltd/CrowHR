@@ -207,11 +207,26 @@ export interface PayLine {
 
 export type IssueSeverity = "info" | "warning" | "blocking";
 
+/**
+ * What an issue is about, so a client can open the place that fixes it. Set only when known; a key
+ * is left out rather than set to undefined (the snapshot is plain JSON).
+ */
+export interface IssueRef {
+  /** The run item: a manual item's ID, or a fed item's ID (`attendance:<overtime claim ID>` for approved overtime). */
+  itemId?: string;
+  /** The public holiday an off-day holiday pay issue is about. */
+  holidayDate?: string;
+  holidayName?: string;
+  /** Allowance type codes still to classify for the gross rate of pay. */
+  allowanceCodes?: string[];
+}
+
 export interface PayIssue {
   code: string;
   severity: IssueSeverity;
   message: string;
   source: string | null;
+  ref?: IssueRef;
 }
 
 export type WorkingSection = "basic" | "allowances" | "overtime" | "cpf" | "shg" | "sdl" | "fwl" | "deductions" | "pay";

@@ -777,8 +777,39 @@ async function runInputHash(run: PayrollRun, computed: Computed[]): Promise<stri
   });
 }
 
-async function runLevelIssues(db: Db, run: PayrollRun, headcount: number): Promise<PayIssue[]> {
+const MOM_GROSS_RATE = "https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary";
+
+/**
+ * Allowances paid in this run that have no gross-rate answer yet. Asked up front, every run, so it is
+ * settled before a public holiday on an off day blocks payroll or an encashment request is refused.
+ */
+function unclassifiedAllowances(run: PayrollRun, inputs: readonly PayInput[]): PayIssue | null {
+  if (isBonusRun(run)) return null;
+  const names = new Map<string, string>();
+  for (const input of inputs)
+    for (const a of input.allowances)
+      if (a.grossRateIncluded === null || a.grossRateIncluded === undefined) names.set(a.code, a.name);
+  if (!names.size) return null;
+  const codes = [...names.keys()].sort();
+  const list = codes.map((c) => names.get(c)).join(", ");
+  return {
+    code: "ALLOWANCE_GROSS_RATE_UNSET",
+    severity: "warning",
+    message: `${list} ${codes.length === 1 ? "isn't" : "aren't"} classified for the gross rate of pay yet. Payroll needs it to pay a public holiday that falls on an off day, and leave encashment needs it too. Set it in Payroll → Allowance treatment: include fixed salary allowances; exclude travelling, food and housing allowances and variable payments.`,
+    source: MOM_GROSS_RATE,
+    ref: { allowanceCodes: codes },
+  };
+}
+
+async function runLevelIssues(
+  db: Db,
+  run: PayrollRun,
+  headcount: number,
+  inputs: readonly PayInput[] = [],
+): Promise<PayIssue[]> {
   const issues: PayIssue[] = [];
+  const unclassified = unclassifiedAllowances(run, inputs);
+  if (unclassified) issues.push(unclassified);
   const [profile] = await db.select().from(companyProfiles).where(eq(companyProfiles.orgId, run.orgId));
   const missing = [
     !profile?.legalName && "legal name",
@@ -966,7 +997,12 @@ export async function computeRun(deps: AppDeps, actor: PayrollActor, runId: stri
   const run = await loadRun(deps.db, actor.orgId, runId);
   assertDraft(run);
   const { computed, claimIds } = await computeAll(deps, run);
-  const runIssues = await runLevelIssues(deps.db, run, computed.length);
+  const runIssues = await runLevelIssues(
+    deps.db,
+    run,
+    computed.length,
+    computed.map((c) => c.input),
+  );
   const totals = await totalsFor(deps.db, run, computed, runIssues);
   const inputHash = await runInputHash(run, computed);
   const resultHash = await canonicalHash(computed.map((c) => [c.input.employee.id, c.resultHash]));
