@@ -1,9 +1,11 @@
-import { and, asc, count, eq, gt, isNotNull, isNull, lte, min } from "drizzle-orm";
+import { and, asc, count, eq, gt, isNotNull, isNull, like, lte, min, or } from "drizzle-orm";
 import { clientIp, recordAudit, systemAuditContext } from "../audit/audit.ts";
 import { findOrgBySlug, onlyOrganisation } from "../auth/credentials.ts";
 import { DAY, HOUR, MINUTE } from "../auth/settings.ts";
 import { hitWindow } from "../auth/throttle.ts";
 import type { AppContext } from "../context.ts";
+import { SECRET_PURPOSES } from "../crypto/secret-box.ts";
+import { authThrottle } from "../db/schema/auth.ts";
 import { type Organisation, organisations } from "../db/schema/organisations.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
@@ -225,9 +227,11 @@ export async function startDemoCompany(c: AppContext): Promise<StartedDemoCompan
       now,
     );
   }
-  const net = networkKey(clientIp(c));
-  const hour = await hitWindow(deps.db, `demo-companies:hour:${net}`, HOUR, now);
-  const day = await hitWindow(deps.db, `demo-companies:day:${net}`, DAY, now);
+  // Counts only: the counters are keyed by an HMAC of the network under the server's key, so no
+  // IP address is stored, and each is deleted when its window ends (sweepDemoCounters).
+  const net = await deps.secretBox.blindIndex(SECRET_PURPOSES.demoNetwork, networkKey(clientIp(c)));
+  const hour = await hitWindow(deps.db, `${COUNTER_PREFIX.hour}${net}`, HOUR, now);
+  const day = await hitWindow(deps.db, `${COUNTER_PREFIX.day}${net}`, DAY, now);
   if (day.count > config.dailyLimitPerNetwork) {
     throw tooMany(
       `Your network has started ${config.dailyLimitPerNetwork} demo companies today, the most a network can start in a day. Keep using the ones you have, or try again after the time shown.`,
@@ -289,6 +293,30 @@ export async function startDemoCompany(c: AppContext): Promise<StartedDemoCompan
     signInUrl: `${server}/sign-in/${slug}`,
     expiresAt: (org.demoExpiresAt as Date).toISOString(),
   };
+}
+
+/** Keys of the per-network start counters in `auth_throttle` (fixed windows). */
+export const COUNTER_PREFIX = { hour: "demo-companies:hour:", day: "demo-companies:day:" } as const;
+
+/**
+ * Deletes every start counter whose window has ended: an hourly count lives at most an hour (plus
+ * one scheduler tick), a daily one at most a day. Runs on every tick, mode on or off.
+ */
+export async function sweepDemoCounters(db: Db, now: Date): Promise<void> {
+  await db
+    .delete(authThrottle)
+    .where(
+      or(
+        and(
+          like(authThrottle.key, `${COUNTER_PREFIX.hour}%`),
+          lte(authThrottle.windowStart, new Date(now.getTime() - HOUR)),
+        ),
+        and(
+          like(authThrottle.key, `${COUNTER_PREFIX.day}%`),
+          lte(authThrottle.windowStart, new Date(now.getTime() - DAY)),
+        ),
+      ),
+    );
 }
 
 /** Expired demo companies, oldest first (the sweep deletes `limit` of them per tick). */

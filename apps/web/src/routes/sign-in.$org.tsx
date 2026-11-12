@@ -5,6 +5,7 @@ import { AuthLayout } from "../auth/auth-layout.tsx";
 import { meQuery } from "../auth/session.ts";
 import type { SignInMethods } from "../auth/types.ts";
 import { RoutePending } from "../components/route-states.tsx";
+import { DemoCompanyEndedPage } from "../demo-company/notices.tsx";
 import { ApiError, apiGet } from "../lib/api.ts";
 import { noticeFor, SignInPage } from "../sign-in/sign-in-page.tsx";
 
@@ -38,26 +39,30 @@ export const Route = createFileRoute("/sign-in/$org")({
       <RoutePending />
     </div>
   ),
-  errorComponent: ({ error }) => (
-    <AuthLayout title="Can't show the sign-in page">
-      <Alert variant="danger">
-        <AlertTriangle aria-hidden />
-        <div>
-          <AlertTitle>
-            {error instanceof ApiError && error.status === 404 ? "Organisation not found" : "Something went wrong"}
-          </AlertTitle>
-          <AlertDescription>
-            {error instanceof ApiError && error.status === 404
-              ? `${error.message}`
-              : "The server didn't answer. Check your connection and try again."}
-          </AlertDescription>
-        </div>
-      </Alert>
-      <Button asChild variant="secondary" className="mt-4 self-start">
-        <Link to="/sign-in">Choose another organisation</Link>
-      </Button>
-    </AuthLayout>
-  ),
+  errorComponent: ({ error }) =>
+    error instanceof ApiError &&
+    (error.envelope?.error.details as { demoCompanyEnded?: boolean } | undefined)?.demoCompanyEnded ? (
+      <DemoCompanyEndedPage message={error.message} />
+    ) : (
+      <AuthLayout title="Can't show the sign-in page">
+        <Alert variant="danger">
+          <AlertTriangle aria-hidden />
+          <div>
+            <AlertTitle>
+              {error instanceof ApiError && error.status === 404 ? "Organisation not found" : "Something went wrong"}
+            </AlertTitle>
+            <AlertDescription>
+              {error instanceof ApiError && error.status === 404
+                ? `${error.message}`
+                : "The server didn't answer. Check your connection and try again."}
+            </AlertDescription>
+          </div>
+        </Alert>
+        <Button asChild variant="secondary" className="mt-4 self-start">
+          <Link to="/sign-in">Choose another organisation</Link>
+        </Button>
+      </AuthLayout>
+    ),
   component: SignInRoute,
 });
 

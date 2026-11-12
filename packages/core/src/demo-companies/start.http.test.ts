@@ -12,6 +12,7 @@ import {
 } from "../../testing/index.ts";
 import { createApp } from "../app.ts";
 import { memberships } from "../db/schema/access.ts";
+import { authThrottle } from "../db/schema/auth.ts";
 import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
 import type { ErrorEnvelope } from "../errors.ts";
@@ -139,6 +140,26 @@ describe("demo companies: starting one", () => {
     // Another network is not affected; an IPv6 /64 counts as one network.
     expect((await start("203.0.113.99")).status).toBe(201);
     expect(demo.calls).toHaveLength(6);
+  });
+
+  it("keeps counts only: no IP address is stored, and each counter goes when its window ends", async () => {
+    for (const ip of ["203.0.113.7", "2001:db8:1:2::a"]) expect((await start(ip)).status).toBe(201);
+    const counters = async () =>
+      (await t.db.select().from(authThrottle)).filter((r) => r.key.startsWith("demo-companies:"));
+    const rows = await counters();
+    expect(rows).toHaveLength(4);
+    for (const r of rows) {
+      expect(r.key).not.toContain("203.0.113");
+      expect(r.key).not.toContain("2001:db8");
+      expect(r.key).toMatch(/^demo-companies:(hour|day):[A-Za-z0-9_-]{43}$/);
+    }
+    // 02:15 → the hourly windows end at 03:00, the daily ones at midnight UTC.
+    clock.set("2026-11-10T03:01:00.000Z");
+    await tick(deps, clock.now());
+    expect((await counters()).map((r) => r.key.split(":")[1])).toEqual(["day", "day"]);
+    clock.set("2026-11-11T00:01:00.000Z");
+    await tick(deps, clock.now());
+    expect(await counters()).toEqual([]);
   });
 
   it("counts an IPv6 /64 as one network", async () => {

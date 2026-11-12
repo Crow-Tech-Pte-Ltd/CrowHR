@@ -15,6 +15,7 @@ import { createApp } from "../app.ts";
 import { recordAudit, systemAuditContext } from "../audit/audit.ts";
 import { memberships } from "../db/schema/access.ts";
 import { auditEvents } from "../db/schema/audit.ts";
+import { deviceSessions, recoveryCodes, sessions } from "../db/schema/auth.ts";
 import { files } from "../db/schema/files.ts";
 import * as schema from "../db/schema/index.ts";
 import { organisations } from "../db/schema/organisations.ts";
@@ -106,6 +107,35 @@ describe("demo companies: expiry sweep", () => {
       membershipId: personas.items[0]?.membershipId,
       org: expiring.slug,
     });
+    // An app signed in on a phone, and a recovery code, so device sessions and user rows are covered.
+    const [m] = await t.db.select().from(memberships).where(eq(memberships.orgId, expiring.id)).limit(1);
+    const at = clock.now();
+    await t.db.insert(deviceSessions).values({
+      id: deps.ids.newId(),
+      orgId: expiring.id,
+      userId: m?.userId as string,
+      membershipId: m?.id as string,
+      authMethod: "password",
+      platform: "android",
+      deviceName: "Android phone",
+      appVersion: "1.0.0",
+      accessHash: "a".repeat(64),
+      accessExpiresAt: at,
+      refreshFamilyId: deps.ids.newId(),
+      currentRefreshHash: "b".repeat(64),
+      createdAt: at,
+      lastUsedAt: at,
+      lastIp: "203.0.113.1",
+      idleExpiresAt: at,
+      absoluteExpiresAt: at,
+      authenticatedAt: at,
+      mfaSatisfied: true,
+    });
+    await t.db
+      .insert(recoveryCodes)
+      .values({ id: deps.ids.newId(), userId: m?.userId as string, codeHash: "c".repeat(64), createdAt: at });
+    expect(await t.db.select().from(deviceSessions).where(eq(deviceSessions.orgId, expiring.id))).toHaveLength(1);
+    expect(await t.db.select().from(sessions).where(eq(sessions.orgId, expiring.id))).toHaveLength(1);
     const [file] = await t.db.select().from(files).where(eq(files.orgId, expiring.id));
     expect(await deps.fileStore.get(file?.storageKey as string)).not.toBeNull();
     const userIds = (
@@ -121,6 +151,14 @@ describe("demo companies: expiry sweep", () => {
     expect(report.demoCompanies.purged).toBe(1);
 
     expect(await snapshot(t.db, expiring.id)).toEqual({});
+    expect(await t.db.select().from(deviceSessions).where(eq(deviceSessions.orgId, expiring.id))).toEqual([]);
+    expect(await t.db.select().from(sessions).where(eq(sessions.orgId, expiring.id))).toEqual([]);
+    expect(
+      await t.db
+        .select()
+        .from(recoveryCodes)
+        .where(eq(recoveryCodes.userId, m?.userId as string)),
+    ).toEqual([]);
     const leftUsers = await t.db.select().from(users);
     expect(leftUsers.some((u) => userIds.includes(u.id))).toBe(false);
     expect(await deps.fileStore.get(file?.storageKey as string)).toBeNull();
