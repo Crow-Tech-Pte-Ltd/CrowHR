@@ -288,10 +288,11 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
 
 - **No remote push**: the apps refresh in the background and show local notifications, so Crow Tech
   needs no push service that would see your data.
-- **Done on the web, not in the apps**: on iOS, the leave team calendar, shift swaps, open shifts,
-  leave types that need a child, and foreign-currency and multi-line claims. On Android, half days
-  on requests longer than a day, leave or claims filed for someone else, adding a child's record,
-  GST on a claim line, viewing a receipt photo, and opening a request from the calendar.
+- **Done on the web, not in the apps**: adding a child's record, leave or claims filed for someone
+  else, GST on a claim line, and half days on requests longer than a day (Android). On iOS also
+  editing or copying a sent claim, opening leave attachments and downloading a payslip PDF other than
+  through the share sheet; on Android also viewing a receipt photo and opening a request from the
+  team calendar.
 - **The "Data Not Collected" store answers** haven't had a legal review.
 - **Not covered by automated tests**: the camera (QR scanning and receipts), Face ID and Touch ID,
   the system browser's sign-in page, the Android permission prompts (their decision logic is
