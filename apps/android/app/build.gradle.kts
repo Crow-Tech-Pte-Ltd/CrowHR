@@ -18,7 +18,7 @@ android {
     namespace = "crowtech.crowhr"
     compileSdk { version = release(37) { minorApiLevel = 2 } }
     defaultConfig {
-        // Registered in Play Console (app 4976368088435434771) and with Apple, 7 Nov 2026.
+        // Registered with Google Play and Apple: never change it.
         applicationId = "crowtech.crowhr"
         minSdk = 29
         targetSdk = 37

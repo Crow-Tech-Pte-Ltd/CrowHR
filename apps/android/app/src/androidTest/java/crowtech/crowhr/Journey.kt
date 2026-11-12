@@ -6,7 +6,10 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
+import androidx.test.espresso.Espresso
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -70,6 +73,24 @@ class Journey(private val compose: ComposeTestRule) {
     }
 
     fun has(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+
+    /**
+     * Opens the dropdown [tag] and chooses the item that reads exactly [text]. The keyboard of the
+     * field before is closed first; a tap it swallowed is tried again.
+     */
+    fun pick(tag: String, text: String) {
+        val item = hasText(text) and !hasTestTag(tag)
+        repeat(3) {
+            runCatching { Espresso.closeSoftKeyboard() }
+            tap(tag)
+            val shown = runCatching { compose.waitUntil(5_000) { compose.onAllNodes(item).fetchSemanticsNodes().isNotEmpty() } }.isSuccess
+            if (shown) {
+                compose.onNode(item).performClick()
+                return
+            }
+        }
+        throw AssertionError("\"$text\" not offered by $tag; on screen: ${screenTexts()}")
+    }
 
     /** The text of the node tagged [tag]. */
     fun textOf(tag: String): String =

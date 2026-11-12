@@ -130,7 +130,7 @@ class EssJourneyTest {
     }
 
     /**
-     * The test server hosts several organisations (the e2e seed), like the store reviewer server:
+     * The test server hosts several organisations (the e2e seed), like a shared hosted server:
      * a typed address asks for the organisation ID, as on iOS, then connects and signs in.
      */
     @Test fun typedAddressOnAMultiOrganisationServerAsksForTheOrganisationId() {

@@ -50,11 +50,7 @@ class ParityJourneyTest {
     @After fun tearDown() = j.tearDown()
 
     /** Opens the dropdown [tag] and chooses the item that reads exactly [text]. */
-    private fun pick(tag: String, text: String) {
-        j.tap(tag)
-        j.waitForText(text, substring = false)
-        compose.onNode(hasText(text) and !hasTestTag(tag)).performClick()
-    }
+    private fun pick(tag: String, text: String) = j.pick(tag, text)
 
     @Test fun infantCareLeaveForAChild() {
         val (childId, childName) = TestServer.ensureChildOfNadia()

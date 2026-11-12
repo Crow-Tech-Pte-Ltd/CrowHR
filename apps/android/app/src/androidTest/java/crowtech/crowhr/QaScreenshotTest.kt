@@ -172,6 +172,7 @@ class QaScreenshotTest {
         pick("claim-currency-0", "MYR · Malaysian ringgit")
         compose.onNodeWithTag("claim-amount-0").performScrollTo().performTextInput("50.00")
         compose.onNodeWithTag("claim-rate-0").performScrollTo().performTextInput("0.301234")
+        runCatching { androidx.test.espresso.Espresso.closeSoftKeyboard() }
         compose.onNodeWithTag("claim-sgd-0").performScrollTo()
         shot("claim-foreign-currency")
         tap("save-claim-draft")
@@ -224,9 +225,5 @@ class QaScreenshotTest {
         }
     }
 
-    private fun pick(tag: String, text: String) {
-        tap(tag)
-        compose.waitUntil(10_000) { compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNode(hasText(text) and !hasTestTag(tag)).performClick()
-    }
+    private fun pick(tag: String, text: String) = Journey(compose).pick(tag, text)
 }

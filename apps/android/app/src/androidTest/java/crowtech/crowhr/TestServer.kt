@@ -264,12 +264,29 @@ object TestServer {
         return get("/api/v1/scheduling/me?from=$tuesday&to=$tuesday", nurul).jsonObject["openShifts"]!!.jsonArray.first().jsonObject["id"]!!.jsonPrimitive.content
     }
 
-    /** Nurul offers [shiftId] to Marcus (give-away) through the API: the offer's id. */
+    /**
+     * Nurul offers [shiftId] to Marcus (give-away) through the API: the offer's id. A shift of
+     * Marcus's at the same time (left by another run) is taken off the roster first, as his
+     * manager would, so the offer isn't refused as an overlap.
+     */
     fun offerToMarcus(shiftId: String): String {
         val marcusId = get("/api/v1/me", token(MARCUS)).jsonObject["employeeId"]!!.jsonPrimitive.content
-        return post("/api/v1/scheduling/swaps", token(NURUL), buildJsonObject {
+        val body = buildJsonObject {
             put("kind", "giveaway"); put("shiftId", shiftId); put("peerEmployeeId", marcusId); put("note", "Family dinner, sorry")
-        }).jsonObject["id"]!!.jsonPrimitive.content
+        }
+        var reply = call("POST", "/api/v1/scheduling/swaps", token(NURUL), body)
+        val clash = (reply.body as? JsonObject)?.get("error")?.jsonObject?.takeIf { it["code"]?.jsonPrimitive?.content == "shift_overlap" }
+        if (reply.status == 409 && clash != null) {
+            val kw = token(KAIWEN)
+            val theirs = clash["details"]!!.jsonObject["shiftId"]!!.jsonPrimitive.content
+            val rosterId = get("/api/v1/scheduling/me", token(MARCUS)).jsonObject["shifts"]!!.jsonArray.map { it.jsonObject }
+                .first { it["id"]!!.jsonPrimitive.content == theirs }["rosterId"]!!.jsonPrimitive.content
+            check(call("DELETE", "/api/v1/scheduling/shifts/$theirs", kw).status in 200..299) { "remove Marcus's clashing shift" }
+            post("/api/v1/scheduling/rosters/$rosterId/publish", kw, buildJsonObject { })
+            reply = call("POST", "/api/v1/scheduling/swaps", token(NURUL), body)
+        }
+        check(reply.status in 200..299) { "offer → ${reply.status} ${reply.body}" }
+        return reply.body.jsonObject["id"]!!.jsonPrimitive.content
     }
 
     /** Ahmad's claims still waiting (from earlier runs) are withdrawn, drafts deleted. */
