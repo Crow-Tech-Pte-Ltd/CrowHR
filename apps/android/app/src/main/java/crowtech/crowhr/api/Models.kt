@@ -15,14 +15,21 @@ import kotlinx.serialization.Serializable
 // --- GET /api/v1/me ---
 @Serializable data class MeUser(val id: String, val email: String, val displayName: String, val preferredName: String? = null, val fullName: String = "")
 @Serializable data class MeOrg(val id: String, val name: String, val slug: String? = null)
+@Serializable data class DemoCompanyInfo(val expiresAt: String)
 @Serializable data class Me(
     val user: MeUser,
     val organisation: MeOrg,
     val membershipId: String,
     val employeeId: String? = null,
     val roles: List<String> = emptyList(),
+    /** Effective permission scopes ("leave:read" → ["team"]), for hiding UI only: the server decides. */
+    val permissions: Map<String, List<String>> = emptyMap(),
     val demoMode: Boolean = false,
-)
+    /** Set in a demo company (servers from Nov 2026): fictional data, deleted at [DemoCompanyInfo.expiresAt]. */
+    val demoCompany: DemoCompanyInfo? = null,
+) {
+    fun scopes(permission: String): List<String> = permissions[permission].orEmpty()
+}
 
 // --- Profile (GET /api/v1/people/me/profile), read-only ---
 @Serializable data class Named(val id: String = "", val name: String)
@@ -108,6 +115,8 @@ import kotlinx.serialization.Serializable
     val archived: Boolean = false,
 )
 @Serializable data class LeaveRef(val id: String, val name: String, val code: String = "")
+/** GET /api/v1/leave/children: the employee's children, for leave types with `needsChild`. */
+@Serializable data class LeaveChild(val id: String, val name: String, val birthDate: String? = null, val expectedDeliveryDate: String? = null)
 @Serializable data class LeaveRequest(
     val id: String,
     val employee: LeaveRef,
@@ -120,6 +129,7 @@ import kotlinx.serialization.Serializable
     val quantity: Double = 0.0,
     val reason: String? = null,
     val status: String,
+    val child: LeaveRef? = null,
     val createdAt: String = "",
 )
 @Serializable data class LeaveAttachment(val filename: String, val contentType: String, val dataBase64: String)
@@ -131,8 +141,16 @@ import kotlinx.serialization.Serializable
     val endSession: String = "full",
     val reason: String? = null,
     val attachments: List<LeaveAttachment>? = null,
+    val childId: String? = null,
 )
-@Serializable data class LeaveQuoteRequest(val leaveTypeId: String, val startDate: String, val endDate: String, val startSession: String = "full", val endSession: String = "full")
+@Serializable data class LeaveQuoteRequest(
+    val leaveTypeId: String,
+    val startDate: String,
+    val endDate: String,
+    val startSession: String = "full",
+    val endSession: String = "full",
+    val childId: String? = null,
+)
 @Serializable data class QuoteIssue(val code: String = "", val path: String = "", val message: String)
 @Serializable data class QuoteYear(val year: Int, val quantity: Double, val tracked: Boolean = true, val available: Double? = null, val after: Double? = null)
 @Serializable data class LeaveQuote(
@@ -144,6 +162,24 @@ import kotlinx.serialization.Serializable
     val ok: Boolean,
 )
 @Serializable data class CancelLeave(val reason: String? = null)
+
+// --- Leave calendar (GET /api/v1/leave/calendar) ---
+@Serializable data class CalendarEntry(
+    val date: String,
+    val session: String = "full",
+    val status: String = "approved",
+    val label: String,
+    val typeCode: String? = null,
+    val requestId: String? = null,
+)
+@Serializable data class CalendarPerson(val employeeId: String, val name: String, val self: Boolean = false, val entries: List<CalendarEntry> = emptyList())
+@Serializable data class CalendarHoliday(val date: String, val name: String = "")
+@Serializable data class LeaveCalendar(
+    val from: String,
+    val to: String,
+    val holidays: List<CalendarHoliday> = emptyList(),
+    val people: List<CalendarPerson> = emptyList(),
+)
 
 // --- Claims ---
 @Serializable data class ClaimSummary(
@@ -179,11 +215,53 @@ import kotlinx.serialization.Serializable
     val receiptIds: List<String> = emptyList(),
 )
 @Serializable data class ClaimInput(val title: String? = null, val lines: List<ClaimLineInput>, val submit: Boolean)
-@Serializable data class ClaimCreated(val id: String, val claimNumber: String? = null, val status: String, val totalCents: Long)
+/** PUT /api/v1/claims/{id}: replaces a draft's title and lines. */
+@Serializable data class ClaimUpdate(val title: String? = null, val lines: List<ClaimLineInput>)
+@Serializable data class ClaimReceipt(val id: String, val name: String, val mime: String = "", val sizeBytes: Long = 0, val removed: Boolean = false)
+@Serializable data class ClaimLine(
+    val id: String = "",
+    val claimTypeId: String,
+    val typeCode: String = "",
+    val typeName: String = "",
+    val category: String = "other",
+    val expenseDate: String,
+    /** Absent when hidden from this reader (medical lines). */
+    val merchant: String? = null,
+    val description: String? = null,
+    val receipts: List<ClaimReceipt> = emptyList(),
+    val receiptCount: Int = 0,
+    val currency: String = "SGD",
+    val amountMinor: Long,
+    val rate: String? = null,
+    val sgdCents: Long,
+    val gstCents: Long? = null,
+)
+/** What the server lets this reader do with the claim now. Absent on older servers: nothing. */
+@Serializable data class ClaimActions(
+    val edit: Boolean = false,
+    val submit: Boolean = false,
+    val delete: Boolean = false,
+    val withdraw: Boolean = false,
+    val copy: Boolean = false,
+)
+/** GET /api/v1/claims/{id}, and the answer to create, update, submit, withdraw and copy. */
+@Serializable data class ClaimDetail(
+    val id: String,
+    val claimNumber: String? = null,
+    val status: String,
+    val title: String? = null,
+    val totalCents: Long,
+    val submittedAt: String? = null,
+    val decidedAt: String? = null,
+    val decisionComment: String? = null,
+    val lines: List<ClaimLine> = emptyList(),
+    val actions: ClaimActions = ClaimActions(),
+)
 
 // --- Scheduling ---
 @Serializable data class Shift(
     val id: String,
+    val rosterId: String = "",
     val scopeLabel: String = "",
     val date: String,
     val kind: String = "shift",
@@ -203,6 +281,50 @@ import kotlinx.serialization.Serializable
     val shifts: List<Shift> = emptyList(),
     val weeks: List<RosterWeek> = emptyList(),
     val openShifts: List<Shift> = emptyList(),
+    /** Swaps and pickups I sent or was offered (servers from Nov 2026; absent before). */
+    val swaps: List<SwapRequest> = emptyList(),
+)
+@Serializable data class SwapShift(val id: String, val date: String, val time: String = "")
+@Serializable data class SwapRequest(
+    val id: String,
+    /** swap | giveaway | pickup */
+    val kind: String,
+    /** pending_peer | pending_approval | approved | rejected | declined | cancelled | expired */
+    val status: String,
+    /** outgoing | incoming | other */
+    val direction: String = "other",
+    val requester: Named,
+    val peer: Named? = null,
+    val shift: SwapShift,
+    val peerShift: SwapShift? = null,
+    val note: String? = null,
+    val reason: String? = null,
+    val createdAt: String = "",
+    val expiresAt: String = "",
+)
+@Serializable data class SwapInput(
+    val kind: String,
+    val shiftId: String,
+    val peerEmployeeId: String? = null,
+    val peerShiftId: String? = null,
+    val note: String? = null,
+)
+// GET /api/v1/scheduling/rosters/{id}: only what the swap offer needs.
+@Serializable data class RosterInfo(val id: String? = null, val weekStart: String = "", val scopeLabel: String = "")
+@Serializable data class RosterPerson(val id: String, val name: String)
+@Serializable data class RosterShift(
+    val id: String,
+    val employeeId: String? = null,
+    val kind: String = "shift",
+    val date: String,
+    val start: String? = null,
+    val end: String? = null,
+    val pendingSwap: Boolean = false,
+)
+@Serializable data class RosterView(
+    val roster: RosterInfo = RosterInfo(),
+    val employees: List<RosterPerson> = emptyList(),
+    val shifts: List<RosterShift> = emptyList(),
 )
 
 // --- Approvals ---
