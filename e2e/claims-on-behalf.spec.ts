@@ -117,7 +117,9 @@ test("HR files a claim for an employee; the rate far from the last one used is f
 
   const line = sheet.getByTestId("claim-line-0");
   await expect(line.getByRole("radio", { name: "Transport" })).toBeVisible();
-  await line.getByTestId("receipt-file-0").setInputFiles({ name: "grab-bkk.png", mimeType: "image/png", buffer: png() });
+  await line
+    .getByTestId("receipt-file-0")
+    .setInputFiles({ name: "grab-bkk.png", mimeType: "image/png", buffer: png() });
   await expect(line.getByRole("button", { name: /View receipt grab-bkk/ })).toBeVisible();
   await line.getByLabel("Currency").click();
   await hr.getByRole("option", { name: /THB/ }).click();
