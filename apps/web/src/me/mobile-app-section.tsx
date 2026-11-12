@@ -1,6 +1,6 @@
 import { Skeleton } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
-import { Info, Smartphone } from "lucide-react";
+import { ExternalLink, Info, Smartphone } from "lucide-react";
 import { useMe } from "../auth/session.ts";
 import { CopyField } from "../components/copy-field.tsx";
 import { Section } from "../components/section.tsx";
@@ -9,8 +9,11 @@ import { connectQrDataUrl, isHttps, mobileConnectPayload } from "./mobile-connec
 /**
  * My profile → Mobile app (add-mobile-apps task 1.1). The QR code tells the Crow HR app which
  * server and organisation to connect to; it holds no credentials, so it is safe to show on screen
- * or print. The apps are not in the stores yet, so the store entries say "coming soon".
+ * or print. The Android app is on Google Play; the iPhone and iPad app is still in App Store review, so its
+ * entry says "coming soon".
  */
+const GOOGLE_PLAY_URL = "https://play.google.com/store/apps/details?id=crowtech.crowhr";
+
 export function MobileAppSection() {
   const me = useMe();
   const slug = me.organisation.slug ?? "";
@@ -80,15 +83,23 @@ export function MobileAppSection() {
               The code holds only the server address and organisation, never your password or a sign-in.
             </p>
             <ul className="flex flex-wrap gap-2" aria-label="App stores">
-              {["App Store", "Google Play"].map((store) => (
-                <li
-                  key={store}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-border px-2.5 py-1 font-azeret text-2xs text-primary-300"
+              <li>
+                <a
+                  href={GOOGLE_PLAY_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="focus-ring inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 font-azeret text-2xs text-biru-400 underline-offset-2 hover:underline"
                 >
                   <Smartphone className="size-3.5" aria-hidden />
-                  {store}: coming soon
-                </li>
-              ))}
+                  Get it on Google Play
+                  <ExternalLink className="size-3" aria-hidden />
+                  <span className="sr-only">(opens in a new tab)</span>
+                </a>
+              </li>
+              <li className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-border px-2.5 py-1 font-azeret text-2xs text-primary-300">
+                <Smartphone className="size-3.5" aria-hidden />
+                App Store: coming soon
+              </li>
             </ul>
           </div>
         </div>
