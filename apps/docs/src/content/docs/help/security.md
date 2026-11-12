@@ -10,7 +10,7 @@ Please **do not open a public issue** for a security problem.
 - Use GitHub's private vulnerability reporting on the repository ([**Security → Report a vulnerability**](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/security/advisories/new)), or
 - email **hello@crow.sg**.
 
-Include what you found, the version or commit, steps to reproduce and the impact you expect. Do not include real personal data. We aim to acknowledge reports within 5 working days and will tell you when a fix is released. Please give us reasonable time to fix the issue before disclosing it. The same policy is in `SECURITY.md` in the repository.
+Include what you found, the version or commit, steps to reproduce and the impact you expect. Do not include real personal data. We aim to acknowledge reports within 5 working days and will tell you when a fix is released. Please give us reasonable time to fix the issue before disclosing it. The same policy is in [`SECURITY.md`](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/blob/main/SECURITY.md) in the repository.
 
 Security fixes go into the latest release of the current major version (1.x); upgrade promptly with `docker compose pull && docker compose up -d`.
 
@@ -23,6 +23,7 @@ Security fixes go into the latest release of the current major version (1.x); up
 | Two-step verification | TOTP with replay protection, hashed single-use recovery codes, required for owners, HR and payroll admins by default. |
 | Sessions | 256-bit random tokens stored as SHA-256 hashes; `__Host-` HttpOnly, Secure, SameSite=Lax cookies over HTTPS; idle and absolute timeouts; rotation on sign-in; revocation. |
 | CSRF | State-changing requests must come from `PUBLIC_URL`'s origin. |
+| Email | SMTP on port 587 requires STARTTLS by default (`SMTP_REQUIRE_TLS`); `smtps://` uses implicit TLS. Emails never contain amounts, NRIC/FIN, bank or medical details. |
 | Re-authentication | Sensitive actions need a sign-in within 10 minutes. |
 | Encryption at rest | NRIC/FIN, passport and work pass numbers, bank numbers, TOTP secrets, SSO secrets and keys: AES-256-GCM under `CROWHR_SECRET_KEY`. Backups can be encrypted with age. |
 | Authorisation | One permission matrix enforced on the server for every route; other organisations' records answer 404; field-level redaction. |
@@ -40,6 +41,4 @@ Security fixes go into the latest release of the current major version (1.x); up
 
 ## Known gaps
 
-See [limitations](/docs/payroll/limitations/#platform-and-sign-in): security notification emails are not all sent yet, there is no row-level security in the database (isolation is in the application, with tests), and the common-password list is curated rather than a breach corpus.
-
-SMTP submission on port 587 requires STARTTLS by default. `SMTP_REQUIRE_TLS=true` also requires it on another SMTP port; `false` explicitly permits a server without STARTTLS. Implicit TLS (`smtps://`, usually port 465) remains supported.
+There is no row-level security in the database (isolation between organisations is enforced by the application, with tests), the common-password list is curated rather than a breach corpus, and invitation and password-reset emails are not retried. See [limitations](/docs/payroll/limitations/#platform-and-sign-in).

@@ -44,6 +44,8 @@ Hiring an employee in People sends their invitation automatically (see [adding e
 | Suspended | Cannot sign in; their sessions are revoked. |
 | Former | The employee's last working day has passed. The membership becomes former the day after, automatically, and keeps read-only access to their own released payslips. |
 
+Suspending a member, or their membership becoming former, also ends any out-of-office cover to or from them and passes their open approval tasks to other eligible approvers ([approvals](/docs/approvals/approvals/#when-a-step-has-nobody)).
+
 Owners can clear lockouts, reset two-step verification and sign members out everywhere (also removing their SSO links in this organisation). Only an owner, after re-authentication within 10 minutes, may create a password reset link. The target must have no assigned roles and no memberships in other organisations, because passwords are shared across organisations. With SMTP the affected member receives the link by email; otherwise the owner gets a copyable link, valid 60 minutes. The action is audited.
 
 ## Audit log
@@ -53,5 +55,3 @@ Every sign-in, role change, configuration change and change to employee or payro
 - Owners see all events.
 - HR admins see everything except security settings, SSO configuration and payroll events.
 - Payroll admins see payroll, compensation and bank events.
-
-Suspension and former-member transitions also revoke approval cover in both directions, supersede open tasks and find eligible replacement approvers. These changes commit with the membership change.

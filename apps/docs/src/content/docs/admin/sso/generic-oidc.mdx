@@ -3,7 +3,7 @@ title: OpenID Connect (Okta, Keycloak, Authentik)
 description: Connect any OpenID Connect identity provider with discovery - Okta, Keycloak, Authentik and others - to Crow HR.
 ---
 
-Any identity provider that publishes an OpenID Connect discovery document (`<issuer>/.well-known/openid-configuration`) and supports the authorisation code flow can be used. The same code serves Google and Entra; this preset just has no provider-specific checks.
+Any identity provider that publishes an OpenID Connect discovery document (`<issuer>/.well-known/openid-configuration`) and supports the authorisation code flow can be used. It uses the same implementation as the Google and Microsoft presets, without their provider-specific checks.
 
 ## What your provider must support
 
@@ -23,7 +23,6 @@ Any identity provider that publishes an OpenID Connect discovery document (`<iss
 
 4. Use **Test sign-in**, then switch the method on.
 
-
 ## Common errors
 
 | Symptom | Cause |
@@ -32,4 +31,4 @@ Any identity provider that publishes an OpenID Connect discovery document (`<iss
 | Save fails: issuer does not match | Enter the issuer exactly as the discovery document's `issuer` value, including any trailing slash. |
 | Audit reason `email_not_verified` | The ID token lacks `email_verified: true`. Configure the provider to send it, or link through invitations. |
 
-The flow is tested end to end against an in-process mock identity provider (`packages/core/testing/mock-oidc.ts`). Okta, Keycloak and Authentik themselves have not been tested.
+Crow HR's automated tests run this flow end to end against a mock identity provider. Okta, Keycloak and Authentik themselves have not been tested.

@@ -33,11 +33,11 @@ An adjustment run's payslip is labelled as a revision of the original and shows 
 
 ## PDF
 
-PDFs are rendered by a pure-JavaScript renderer with fonts shipped in the repository, with no downloads at run time. The same payslip always renders to a byte-identical PDF, so a payslip downloaded twice has the same SHA-256. Amounts are formatted `S$1,234.56` and dates `31 Oct 2026`.
+PDFs are generated on your server with fonts shipped in the image; nothing is downloaded at run time. The same payslip always renders to a byte-identical PDF, so a payslip downloaded twice has the same SHA-256. Amounts are formatted `S$1,234.56` and dates `31 Oct 2026`.
+
+Names and other text in Chinese or Tamil script print with embedded Noto Sans SC and Noto Sans Tamil. A character that none of the fonts has prints as `?`, and the PDF shows a warning naming its Unicode code point: check the name in Crow HR before issuing the payslip.
 
 ## Not available
 
 - Payslip emails with the PDF attached (by design, emails never carry pay data).
 - Daily-rated and piece-rated pay units on the payslip.
-
-PDFs embed subsetted Noto Sans SC and Noto Sans Tamil when names or other text need those scripts. Latin-only documents do not load those fonts. A character missing from every loaded font is replaced with `?`, with a visible warning on the PDF naming its Unicode code point. Check the name in Crow HR before issuing the document. Downloads use a UTF-8 filename with an ASCII fallback.

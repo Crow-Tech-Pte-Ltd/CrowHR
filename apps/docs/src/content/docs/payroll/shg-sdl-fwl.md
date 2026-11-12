@@ -20,11 +20,11 @@ Check race and religion on import: a missing value means no fund is chosen. The 
 
 ## Skills Development Levy (SDL)
 
-SDL is paid by the employer for each employee, never deducted from pay:
+SDL is paid by the employer for each employee, never deducted from pay ([CPF: Skills Development Levy](https://www.cpf.gov.sg/employer/employer-obligations/skills-development-levy)):
 
 - 0.25% of the month's total wages, at least **S$2** (for wages below S$800) and at most **S$11.25** (for wages above S$4,500);
 - **S$0** for a month with no wages paid or payable;
-- exemptions encoded from the SSG FAQ (domestic workers, no service in Singapore, approved training, school-holiday students and others) are applied only when recorded.
+- exemptions from SSG's [SDL FAQ](https://file.go.gov.sg/sdl-generic-faq.pdf) (domestic workers, no service in Singapore, approved training, school-holiday students and others) are applied only when recorded.
 
 SDL is included in the CPF EZPay file under payment code 11.
 

@@ -9,8 +9,8 @@ For an approved run, a payroll admin can download a **bank payment file** for th
 
 - Category purpose `SALA` (salary) on the payment information and transaction purpose.
 - The debit account from [payroll settings](/docs/payroll/settings/) (bank BIC, account number, account name).
-- One credit transfer per employee to the bank account snapshotted at compute for the pay date, for their net pay.
-- Employees without a bank account are left out and listed as excluded in the response and on screen.
+- One credit transfer per employee, for their net pay, to the bank account that was current on the pay date when the run was computed.
+- Employees without a bank account are left out and listed as excluded on screen.
 
 The file validates against the official ISO 20022 XSD.
 
@@ -31,6 +31,12 @@ Send your bank a sample file and ask for their validation before paying salaries
 
 ## Bank details changed after computation
 
-Compute snapshots the bank account, and submit, approval and the bank file check it against the current effective-dated record. A changed account makes the run stale. For a run in review, withdraw it, recompute and submit again. For an approved unpaid run, the API `POST /api/v1/payroll/runs/{id}/return-to-draft` (with a reason) allows recomputation and fresh approval; a later run using its CPF figures may require an adjustment instead. Paid runs require an adjustment. Administrative bank changes require recent re-authentication and notify the employee.
+A run records each employee's bank account when it is computed. If an account changes afterwards, submitting, approving or downloading the bank file tells you the run is out of date:
 
-Creditor names containing Chinese, Tamil or other unsupported non-Latin scripts block file generation with an actionable error. Enter the bank-recognised Latin spelling as the account holder name, then recompute and re-approve. Crow HR does not silently strip these names from the file.
+- a run in review: withdraw it, recompute and submit again;
+- an approved run that is not paid yet: return it to draft with a reason, recompute and approve it again. This is only in the API for now (`POST /api/v1/payroll/runs/{id}/return-to-draft`). If a later run already used its CPF figures, use an adjustment instead;
+- a paid run: use an adjustment.
+
+An administrator changing someone's bank details needs a recent sign-in, and the employee is notified.
+
+Account holder names in Chinese, Tamil or another non-Latin script stop the file from being generated, with a message saying which. Enter the Latin spelling your bank has on record as the holder name, then recompute and approve again. Crow HR never strips such names from the file silently.

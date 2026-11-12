@@ -52,7 +52,7 @@ Generated documents are frozen: the PDF, the template and version, the as-at dat
 
 ## Key Employment Terms
 
-The KET template has a section for each of the items MOM requires in [Key Employment Terms](https://www.mom.gov.sg/employment-practices/contract-of-service/key-employment-terms), in MOM's order. The list is kept, with its source, in `packages/sg-rules`:
+The KET template has a section for each of the items MOM requires in [Key Employment Terms](https://www.mom.gov.sg/employment-practices/contract-of-service/key-employment-terms), in MOM's order:
 
 1. Full name of employer
 2. Full name of employee
