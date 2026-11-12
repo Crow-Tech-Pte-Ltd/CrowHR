@@ -288,9 +288,10 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
 
 - **No remote push**: the apps refresh in the background and show local notifications, so Crow Tech
   needs no push service that would see your data.
-- **Done on the web, not in the apps**: the leave team calendar, shift swaps and open shifts. On
-  iOS also leave types that need a child, foreign-currency and multi-line claims. On Android also
-  leave types that need a child, and editing, submitting, withdrawing or copying a saved claim draft.
+- **Done on the web, not in the apps**: on iOS, the leave team calendar, shift swaps, open shifts,
+  leave types that need a child, and foreign-currency and multi-line claims. On Android, half days
+  on requests longer than a day, leave or claims filed for someone else, adding a child's record,
+  GST on a claim line, viewing a receipt photo, and opening a request from the calendar.
 - **The "Data Not Collected" store answers** haven't had a legal review.
 - **Not covered by automated tests**: the camera (QR scanning and receipts), Face ID and Touch ID,
   the system browser's sign-in page, the Android permission prompts (their decision logic is
@@ -313,8 +314,8 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
   time per process; several replicas each keep their own pool.
 - **The 1.0.0 apps** need a sign-in method in `GET /api/v1/meta`, and `kind` is a closed enum, so a
   demo company is listed with `kind: "password"` and the name "Pick a person (demo company, no
-  password)". The Android app's manual address entry has no organisation field: on Android, open a
-  demo company with the link or QR code.
+  password)". Both apps ask for the organisation when the server hosts several, so a demo company
+  opens by link, QR code or by typing the server address and its company code.
 - **On a server with demo companies**, `/sign-in` and `GET /api/v1/meta` never fall back to the only
   organisation, so a real organisation's people there use `/sign-in/<slug>`.
 - **In a demo company** people hired there get no sign-in (invitations are refused) and so aren't on
