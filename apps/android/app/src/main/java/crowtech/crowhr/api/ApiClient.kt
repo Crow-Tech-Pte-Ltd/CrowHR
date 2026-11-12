@@ -61,6 +61,11 @@ class ApiClient(
     suspend fun <B, T> post(path: String, body: B, serializer: SerializationStrategy<B>, deserializer: DeserializationStrategy<T>): T =
         decode(deserializer, execute("POST", path, CrowJson.encodeToString(serializer, body).toRequestBody(jsonType)))
 
+    suspend fun <B, T> put(path: String, body: B, serializer: SerializationStrategy<B>, deserializer: DeserializationStrategy<T>): T =
+        decode(deserializer, execute("PUT", path, CrowJson.encodeToString(serializer, body).toRequestBody(jsonType)))
+
+    suspend fun delete(path: String) { execute("DELETE", path, null) }
+
     suspend fun postEmpty(path: String) { execute("POST", path, ByteArray(0).toRequestBody(null)) }
 
     suspend fun <T> postEmpty(path: String, deserializer: DeserializationStrategy<T>): T =

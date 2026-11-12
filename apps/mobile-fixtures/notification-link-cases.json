@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "description": "Where a notification opens in the app. Every notification has a `link`: a path in Crow HR on the web (GET /api/v1/notifications items). The apps map the paths they have a screen for; `opens: null` means the app has no screen for it (owners' and HR's pages, payroll runs, documents, sessions), so tapping it in the inbox only marks it read.",
+  "rules": [
+    "Only relative paths starting with a single `/` are followed. Absolute URLs, `//host` and anything else open nothing.",
+    "The query string matters only where a case below uses it; unknown query parameters are ignored.",
+    "Ids are path segments of letters, digits and hyphens; anything else opens nothing.",
+    "Tapping a row in the notifications inbox marks it read, then opens its destination when there is one.",
+    "A local notification for exactly one new item opens that item's destination (and marks it read). When several items are new, or the app has no screen for the one item, it opens the inbox given by `opens` in background-refresh-cases.json."
+  ],
+  "cases": [
+    { "link": "/inbox", "opens": "approvals", "id": null },
+    { "link": "/inbox?task=0f9c2d8e-1b7a-4c3e-9a51-2d6f8e4b7c10", "opens": "approvals", "id": null },
+    { "link": "/inbox?request=0f9c2d8e-1b7a-4c3e-9a51-2d6f8e4b7c10", "opens": "approvals", "id": null },
+    { "link": "/leave", "opens": "leave", "id": null },
+    { "link": "/leave?request=5a1d0c2e-7f3b-4b8e-a1c4-9e2f6d3b8a70", "opens": "leave", "id": null },
+    { "link": "/leave/team", "opens": "leave-calendar", "id": null },
+    { "link": "/claims", "opens": "claims", "id": null },
+    {
+      "link": "/claims/7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31",
+      "opens": "claim",
+      "id": "7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31"
+    },
+    { "link": "/me/payslips", "opens": "payslips", "id": null },
+    {
+      "link": "/me/payslips/2b8d4f1a-6c3e-4a9b-b7d2-1e5f8c3a9d40",
+      "opens": "payslip",
+      "id": "2b8d4f1a-6c3e-4a9b-b7d2-1e5f8c3a9d40"
+    },
+    { "link": "/schedules/me", "opens": "schedule", "id": null },
+    { "link": "/schedules/me?week=2026-11-16", "opens": "schedule", "id": null },
+    { "link": "/me/profile", "opens": "profile", "id": null },
+    { "link": "/attendance", "opens": "clock", "id": null },
+    { "link": "/", "opens": null, "id": null },
+    { "link": "", "opens": null, "id": null },
+    { "link": "/schedules?week=2026-11-16", "opens": null, "id": null },
+    { "link": "/me/sessions", "opens": null, "id": null },
+    { "link": "/settings/security", "opens": null, "id": null },
+    { "link": "/payroll/runs/3d9a1c7e-5b2f-4e8a-9c6d-7f1b3e5a2c80", "opens": null, "id": null },
+    { "link": "/documents?open=3d9a1c7e-5b2f-4e8a-9c6d-7f1b3e5a2c80", "opens": null, "id": null },
+    { "link": "/people/3d9a1c7e-5b2f-4e8a-9c6d-7f1b3e5a2c80", "opens": null, "id": null },
+    { "link": "https://elsewhere.example/claims/7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31", "opens": null, "id": null },
+    { "link": "//elsewhere.example/claims", "opens": null, "id": null },
+    { "link": "/claims/../settings", "opens": null, "id": null },
+    { "link": "/claims/7c3e1a9b/receipts", "opens": null, "id": null }
+  ]
+}

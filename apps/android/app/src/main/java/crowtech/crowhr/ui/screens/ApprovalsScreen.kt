@@ -68,6 +68,7 @@ fun ApprovalsScreen(ctx: ScreenContext) {
                         open = null
                         done = message
                         loader.reload()
+                        ctx.refreshBadges()
                     })
                 } else {
                     CrowCard(onClick = { open = task.taskId; done = null }, modifier = Modifier.testTag("task-${task.taskId}")) {

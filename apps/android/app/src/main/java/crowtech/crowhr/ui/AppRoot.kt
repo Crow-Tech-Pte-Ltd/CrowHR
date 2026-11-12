@@ -119,7 +119,13 @@ private fun SignInScreen(
             Text(c.signInMethods.joinToString(", ") { it.displayName }.ifEmpty { "Set by your organisation" }, style = MaterialTheme.typography.bodyMedium)
         }
         if (c.insecure) Notice("This connection is not encrypted. Only sign in on your company's own network.", Tone.Warning, title = "Not encrypted")
-        if (c.demo) Notice("This is a demo server with fictional data. Single sign-on buttons are shown but disabled in demo mode.", Tone.Neutral)
+        // A demo company (servers with DEMO_COMPANIES): its people have no passwords.
+        if (c.demo) {
+            Notice(
+                "A demo company with fictional data. The sign-in page lists its people: pick one to sign in as, no password needed.",
+                Tone.Neutral, Modifier.testTag("demo-sign-in-note"), title = "Demo company",
+            )
+        }
         if (pendingPunches > 0) {
             Notice("$pendingPunches clock-in${if (pendingPunches == 1) " is" else "s are"} saved on this phone and will be sent after you sign in.", Tone.Accent)
         }
