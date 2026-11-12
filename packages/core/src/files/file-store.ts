@@ -10,6 +10,11 @@ export interface FileStore {
   put(key: string, data: Uint8Array, meta: { contentType: string }): Promise<StoredFile>;
   get(key: string): Promise<StoredFileWithData | null>;
   delete(key: string): Promise<void>;
+  /**
+   * Removes every file whose key starts with `prefix` (which ends with `/`), e.g. a deleted demo
+   * company's `org/<orgId>/`. Optional: callers also delete the keys they know one by one.
+   */
+  deletePrefix?(prefix: string): Promise<void>;
 }
 
 export interface StoredFile {

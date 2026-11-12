@@ -1,6 +1,12 @@
-import { type Db, schema } from "@crowhr/core";
-import { and, count, eq, getTableColumns, inArray, is, type SQL, sql } from "drizzle-orm";
-import { getTableConfig, PgTable } from "drizzle-orm/pg-core";
+import {
+  type Db,
+  INSTALL_TABLES,
+  type NewOrganisation,
+  schema,
+  type TableInfo,
+  tablesInDependencyOrder,
+} from "@crowhr/core";
+import { and, count, eq, inArray, type SQL, sql } from "drizzle-orm";
 
 /**
  * Copies one organisation, and only that organisation, from a scratch database into another
@@ -15,56 +21,6 @@ import { getTableConfig, PgTable } from "drizzle-orm/pg-core";
  * produced in a scratch database, where the scheduled sweeps can run without touching anyone
  * else's data, and then lands in the server's database all at once or not at all.
  */
-
-/** Install-wide tables that belong to no organisation and are never copied. */
-const INSTALL_TABLES = new Set(["auth_throttle", "backup_runs", "secret_key_checks", "system_settings"]);
-
-interface TableInfo {
-  name: string;
-  table: PgTable;
-  columns: Record<string, ReturnType<typeof getTableColumns>[string]>;
-  /** JS keys of columns that reference this same table (filled in after the insert). */
-  selfRefs: string[];
-  parents: Set<string>;
-}
-
-function tablesOf(): TableInfo[] {
-  const infos = new Map<string, TableInfo>();
-  for (const value of Object.values(schema)) {
-    if (!is(value, PgTable)) continue;
-    const config = getTableConfig(value);
-    const columns = getTableColumns(value);
-    const byDbName = new Map(Object.entries(columns).map(([key, col]) => [col.name, key]));
-    const selfRefs = new Set<string>();
-    const parents = new Set<string>();
-    for (const fk of config.foreignKeys) {
-      const ref = fk.reference();
-      const parent = getTableConfig(ref.foreignTable).name;
-      if (parent === config.name) {
-        for (const col of ref.columns) if (col.name !== "org_id") selfRefs.add(byDbName.get(col.name) as string);
-      } else {
-        parents.add(parent);
-      }
-    }
-    infos.set(config.name, { name: config.name, table: value, columns, selfRefs: [...selfRefs], parents });
-  }
-  // Parents before children (the schema has no cycles apart from self-references).
-  const ordered: TableInfo[] = [];
-  const state = new Map<string, "visiting" | "done">();
-  const visit = (name: string) => {
-    const s = state.get(name);
-    if (s === "done") return;
-    if (s === "visiting") throw new Error(`Foreign keys form a cycle through ${name}`);
-    state.set(name, "visiting");
-    const info = infos.get(name);
-    if (!info) throw new Error(`Unknown table ${name}`);
-    for (const parent of info.parents) visit(parent);
-    state.set(name, "done");
-    ordered.push(info);
-  };
-  for (const name of [...infos.keys()].sort()) visit(name);
-  return ordered;
-}
 
 // biome-ignore lint/suspicious/noExplicitAny: drizzle columns of any table.
 type AnyColumn = any;
@@ -139,12 +95,25 @@ export interface CopyReport {
   total: number;
 }
 
+export interface CopyOptions {
+  /**
+   * Values for the organisation row as inserted in the target, e.g. a demo company's slug and
+   * demo expiry (which can only be set on insert) or `uen: null`. The source is not changed.
+   */
+  organisation?: Partial<Pick<NewOrganisation, "name" | "slug" | "uen" | "demoExpiresAt" | "demoClaimedAt">>;
+}
+
 /**
  * Copies organisation `orgId` from `source` into `target` (same schema) in one transaction.
  * Throws, with the target unchanged, if anything fails or a refusal rule applies.
  */
-export async function copyOrganisation(source: Db, target: Db, orgId: string): Promise<CopyReport> {
-  const tables = tablesOf();
+export async function copyOrganisation(
+  source: Db,
+  target: Db,
+  orgId: string,
+  options: CopyOptions = {},
+): Promise<CopyReport> {
+  const tables = tablesInDependencyOrder();
   const known = new Set(tables.map((t) => t.name));
   // A table outside the Drizzle schema would be silently skipped: refuse if it holds data.
   for (const name of await publicTables(source)) {
@@ -157,7 +126,8 @@ export async function copyOrganisation(source: Db, target: Db, orgId: string): P
     if ((res.rows[0]?.n ?? 0) > 0) throw new Error(`Table ${name} is not in the schema the copy knows about.`);
   }
 
-  const [org] = await source.select().from(schema.organisations).where(eq(schema.organisations.id, orgId));
+  const [found] = await source.select().from(schema.organisations).where(eq(schema.organisations.id, orgId));
+  const org = found ? { ...found, ...options.organisation } : null;
   if (!org?.slug) throw new Error(`No organisation ${orgId} (with a slug) in the source database`);
 
   // Read everything first, so the target transaction is short.
@@ -165,7 +135,8 @@ export async function copyOrganisation(source: Db, target: Db, orgId: string): P
   for (const info of tables) {
     const scope = await scopeOf(source, info, orgId);
     if (!scope) continue;
-    const rows = (await source.select().from(info.table).where(scope)) as Record<string, unknown>[];
+    let rows = (await source.select().from(info.table).where(scope)) as Record<string, unknown>[];
+    if (info.name === "organisations") rows = rows.map((row) => ({ ...row, ...options.organisation }));
     plan.push({ info, rows, scope });
   }
   const emails = (plan.find((p) => p.info.name === "users")?.rows ?? []).map((u) => String(u.email));

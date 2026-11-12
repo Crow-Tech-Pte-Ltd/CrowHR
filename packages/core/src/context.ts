@@ -51,6 +51,11 @@ export interface AuthContext {
   /** Present for SSO sessions; null for email + password. */
   identity: IdentityProviderInfo | null;
   session: SessionInfo;
+  /**
+   * Set when the organisation is a demo company (demo-companies): the guard rails apply and the
+   * session ends with the company. Absent or null for a real organisation.
+   */
+  demoCompany?: { expiresAt: Date } | null;
 }
 
 /**

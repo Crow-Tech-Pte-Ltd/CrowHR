@@ -7,8 +7,10 @@ import type { AppContext, AppEnv, AuthContext, AuthMethod } from "../context.ts"
 import { newToken, sha256Hex } from "../crypto/tokens.ts";
 import { membershipRoles, memberships } from "../db/schema/access.ts";
 import { deviceSessions, sessions, userIdentities } from "../db/schema/auth.ts";
+import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
 import type { Db } from "../db/types.ts";
+import { isLiveDemoCompany } from "../demo-companies/config.ts";
 import { AppError } from "../errors.ts";
 import { HOUR, loadSecuritySettings, MINUTE, sessionCookie } from "./settings.ts";
 
@@ -146,6 +148,8 @@ export async function loadMember(
   status: "invited" | "active" | "suspended" | "former";
   employeeId: string | null;
   roles: AssignedRole[];
+  /** The organisation's demo flag (demo companies); null for a real organisation. */
+  demo: { expiresAt: Date; claimedAt: Date | null } | null;
 } | null> {
   const [row] = await db
     .select({
@@ -155,9 +159,12 @@ export async function loadMember(
       userId: users.id,
       email: users.email,
       displayName: users.displayName,
+      demoExpiresAt: organisations.demoExpiresAt,
+      demoClaimedAt: organisations.demoClaimedAt,
     })
     .from(memberships)
     .innerJoin(users, eq(users.id, memberships.userId))
+    .innerJoin(organisations, eq(organisations.id, memberships.orgId))
     .where(eq(memberships.id, membershipId));
   if (!row) return null;
   const roles = await db
@@ -171,7 +178,18 @@ export async function loadMember(
     employeeId: row.employeeId,
     // Former members hold no roles even if a stale row survived.
     roles: row.status === "former" ? [] : roles.map((r) => r.role),
+    demo: row.demoExpiresAt ? { expiresAt: row.demoExpiresAt, claimedAt: row.demoClaimedAt } : null,
   };
+}
+
+/**
+ * A session in a demo company works only while the company is live and the server still offers
+ * demo companies (demo-companies "Expiry"): after that it is treated as expired, before the sweep
+ * deletes it.
+ */
+function demoSessionEnded(c: AppContext, demo: { expiresAt: Date; claimedAt: Date | null } | null, now: Date) {
+  if (!demo) return false;
+  return !isLiveDemoCompany(c.var.deps, { demoExpiresAt: demo.expiresAt, demoClaimedAt: demo.claimedAt }, now);
 }
 
 async function identityInfo(db: Db, identityId: string | null): Promise<AuthContext["identity"]> {
@@ -232,6 +250,10 @@ async function resolveCookie(c: AppContext, db: Db, token: string, now: Date) {
     c.set("authFailure", "session_revoked");
     return;
   }
+  if (demoSessionEnded(c, member.demo, now)) {
+    c.set("authFailure", "session_expired");
+    return;
+  }
   if (now.getTime() - session.lastSeenAt.getTime() >= LAST_SEEN_WRITE_INTERVAL) {
     await db.update(sessions).set({ lastSeenAt: now }).where(eq(sessions.id, id));
   }
@@ -250,6 +272,7 @@ async function resolveCookie(c: AppContext, db: Db, token: string, now: Date) {
       authenticatedAt: session.authenticatedAt,
       mfaSatisfied: session.mfaSatisfied,
     },
+    demoCompany: member.demo ? { expiresAt: member.demo.expiresAt } : null,
   });
 }
 
@@ -274,6 +297,10 @@ async function resolveBearer(c: AppContext, db: Db, token: string, now: Date) {
     c.set("authFailure", "session_revoked");
     return;
   }
+  if (demoSessionEnded(c, member.demo, now)) {
+    c.set("authFailure", "session_expired");
+    return;
+  }
   if (now.getTime() - device.lastUsedAt.getTime() >= LAST_SEEN_WRITE_INTERVAL) {
     await db
       .update(deviceSessions)
@@ -295,6 +322,7 @@ async function resolveBearer(c: AppContext, db: Db, token: string, now: Date) {
       authenticatedAt: device.authenticatedAt,
       mfaSatisfied: device.mfaSatisfied,
     },
+    demoCompany: member.demo ? { expiresAt: member.demo.expiresAt } : null,
   });
 }
 

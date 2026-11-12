@@ -1,6 +1,7 @@
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
 import { files } from "../db/schema/files.ts";
 import type { Db } from "../db/types.ts";
+import { assertDemoUploadQuota } from "../demo-companies/quota.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import { contentDisposition } from "./disposition.ts";
@@ -118,6 +119,7 @@ async function storeFileWith(deps: AppDeps, input: StoreFileInput, run: <T>(fn: 
   await deps.fileStore.put(storageKey, input.data, { contentType: type });
   try {
     return await run(async (tx) => {
+      await assertDemoUploadQuota(deps, tx, input.orgId, input.data.byteLength);
       const [row] = await tx
         .insert(files)
         .values({
