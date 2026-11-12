@@ -54,7 +54,7 @@ test.describe("My profile → Mobile app", () => {
     await page.setViewportSize({ width: 360, height: 780 });
     await uiSignInOk(page, E2E.members.owner.email);
     await page.goto("/me/profile");
-    await expect(page.getByText("No employee record linked")).toBeVisible();
+    await expect(page.getByText("Your sign-in isn't linked to an employee record.")).toBeVisible();
     const section = page.getByRole("region", { name: "Mobile app" });
     await expect(section.getByRole("img", { name: /QR code/ })).toBeVisible();
     // No horizontal scroll at phone width.

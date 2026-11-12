@@ -25,7 +25,8 @@ test("a profile change goes submit → manager approves → HR approves → appl
   browser,
 }) => {
   const requester = await signedIn(browser, E2E.members.requester.email);
-  await expect(requester.getByRole("heading", { level: 1, name: "Hi, Ahmad" })).toBeVisible();
+  await expect(requester.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
+  await expect(requester.getByRole("button", { name: /^Account menu/ })).toContainText("Ahmad");
   await requestChange(requester, { personal: { religion: "christianity" } });
   await requester.reload();
   const mine = requester.getByTestId("employee-requests");
@@ -90,14 +91,16 @@ test("Home: rejecting inline needs a comment; the requester sees it", async ({ b
   for (const p of [requester, manager]) await p.context().close();
 });
 
-test("Home with nothing to do: empty state with leave and claim links; admins see real people data", async ({
+test("Home with nothing to do: a plain empty state under the leave and claim buttons; admins see real people data", async ({
   browser,
 }) => {
   const staff = await signedIn(browser, E2E.members.staff.email);
   const todo = staff.getByTestId("employee-todo");
-  await expect(todo).toContainText("Nothing waiting for you");
-  await expect(todo.getByRole("link", { name: "Apply for leave" })).toBeVisible();
-  await expect(todo.getByRole("link", { name: "Submit a claim" })).toBeVisible();
+  await expect(todo).toContainText("Nothing to do.");
+  // The quick actions above the card are the only way in: the empty state doesn't repeat them.
+  await expect(staff.getByRole("link", { name: "Apply leave" })).toBeVisible();
+  await expect(staff.getByRole("link", { name: "New claim" })).toBeVisible();
+  await expect(todo.getByRole("link")).toHaveCount(0);
   await expect(staff.getByTestId("sample-data-notice")).toHaveCount(0);
 
   const owner = await signedIn(browser, E2E.members.owner.email);

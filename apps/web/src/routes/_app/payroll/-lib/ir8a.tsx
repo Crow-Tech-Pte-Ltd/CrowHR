@@ -1,5 +1,5 @@
 import type { PayrollIr8aPreviewDto } from "@crowhr/core";
-import { Button, Card, formatDate, singaporeTodayIso, toast } from "@crowhr/ui";
+import { Button, Card, formatDate, singaporeTodayIso, textStyle, toast } from "@crowhr/ui";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Download, ExternalLink } from "lucide-react";
@@ -54,7 +54,7 @@ export function Ir8aPanel({ years }: { years: number[] }) {
   return (
     <section aria-labelledby="ir8a-title" className="mt-8" data-testid="payroll-ir8a">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 id="ir8a-title" className="font-azeret text-xs font-semibold uppercase tracking-wider">
+        <h2 id="ir8a-title" className={textStyle.section}>
           Year end: IR8A
         </h2>
         {options.length > 1 ? (
@@ -63,7 +63,9 @@ export function Ir8aPanel({ years }: { years: number[] }) {
               <Button
                 key={y}
                 size="sm"
-                variant={y === year ? "primary" : "secondary"}
+                variant="secondary"
+                // A toggle, not a call to action: selected is the yellow selection, without the hard shadow.
+                className="num aria-pressed:border-ink aria-pressed:bg-kuning-50"
                 aria-pressed={y === year}
                 onClick={() => {
                   setYear(y);

@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle, Button, StatusPill, toast } from "@crowhr/ui";
+import { Alert, AlertDescription, AlertTitle, Button, cn, StatusPill, textStyle, toast } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, Building2, ImageUp } from "lucide-react";
@@ -67,7 +67,9 @@ function CompanyPage() {
         actions={
           profile ? (
             profile.payrollReady ? (
-              <StatusPill tone="success">Ready for payroll</StatusPill>
+              <span className="text-ui text-primary-300" data-testid="payroll-ready">
+                Ready for payroll
+              </span>
             ) : (
               <StatusPill tone="warning">
                 Payroll blocked: add {profile.missingForPayroll.join(", ").toUpperCase()}
@@ -113,9 +115,7 @@ function CompanyPage() {
             disabled={!editable}
             className="grid gap-4 rounded-lg border border-border bg-surface-50 p-4 sm:grid-cols-2 sm:p-5"
           >
-            <legend className="-ml-1 px-1 font-azeret text-2xs font-semibold uppercase tracking-wider">
-              Legal entity
-            </legend>
+            <legend className={cn("-ml-1 px-1", textStyle.group)}>Legal entity</legend>
             <TextInput
               label="Legal name"
               required
@@ -155,9 +155,7 @@ function CompanyPage() {
             disabled={!editable}
             className="grid gap-4 rounded-lg border border-border bg-surface-50 p-4 sm:grid-cols-2 sm:p-5"
           >
-            <legend className="-ml-1 px-1 font-azeret text-2xs font-semibold uppercase tracking-wider">
-              Registered address
-            </legend>
+            <legend className={cn("-ml-1 px-1", textStyle.group)}>Registered address</legend>
             <TextInput
               label="Block / house no."
               value={f.addressBlock}
@@ -254,7 +252,7 @@ function LogoField({ hasLogo, version, editable }: { hasLogo: boolean; version: 
   };
   return (
     <fieldset className="flex flex-col gap-3 rounded-lg border border-border bg-surface-50 p-4 sm:p-5">
-      <legend className="-ml-1 px-1 font-azeret text-2xs font-semibold uppercase tracking-wider">Logo</legend>
+      <legend className={cn("-ml-1 px-1", textStyle.group)}>Logo</legend>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="flex h-20 w-40 shrink-0 items-center justify-center rounded-md border border-border bg-card p-2">
           {hasLogo ? (

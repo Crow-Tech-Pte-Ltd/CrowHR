@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import type * as React from "react";
 import { DayPicker } from "react-day-picker";
 import { appNowMs } from "../lib/clock.ts";
@@ -7,6 +7,7 @@ import { buttonVariants } from "./button.tsx";
 
 /** Ported from crow-tech-landing calendar.tsx, updated to react-day-picker v9. Weeks start Monday. */
 function Chevron({ orientation }: { orientation?: "left" | "right" | "up" | "down" }) {
+  if (orientation === "down") return <ChevronDown className="size-3" aria-hidden />;
   return orientation === "left" ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />;
 }
 
@@ -33,7 +34,12 @@ export function Calendar({ className, classNames, showOutsideDays = true, today,
         months: "relative flex flex-col gap-4 sm:flex-row",
         month: "flex flex-col gap-3",
         month_caption: "flex h-8 items-center justify-center",
-        caption_label: "font-azeret text-xs font-semibold",
+        caption_label: "inline-flex items-center gap-0.5 font-azeret text-xs font-semibold",
+        // captionLayout="dropdown": native selects laid over their labels, so the label shows the value.
+        dropdowns: "z-20 flex items-center gap-1.5",
+        dropdown_root:
+          "relative inline-flex h-7 items-center rounded-sm border border-border px-1.5 focus-within:ring-2 focus-within:ring-ring",
+        dropdown: "absolute inset-0 z-10 w-full cursor-pointer appearance-none opacity-0",
         nav: "absolute inset-x-0 top-0 flex items-center justify-between",
         button_previous: cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "z-10"),
         button_next: cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "z-10"),

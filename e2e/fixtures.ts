@@ -82,8 +82,8 @@ export async function mockIdpNextUser(
 
 export const SHOTS = process.env.SHOTS_DIR;
 
-/** Home's h1: "Work to do" for approvers and admins, "Hi, <first name>" for everyone else. */
-export const HOME_HEADING = /^(Work to do|Hi, .+)$/;
+/** Home's h1: "Work to do" for approvers and admins, "Today" for everyone else. */
+export const HOME_HEADING = /^(Work to do|Today)$/;
 
 export async function shot(page: Page, name: string) {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/ws1-${name}.png`, fullPage: true });

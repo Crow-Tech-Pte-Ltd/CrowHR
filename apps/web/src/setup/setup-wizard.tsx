@@ -121,9 +121,6 @@ export function SetupWizard() {
       <main className="mx-auto flex w-full max-w-[460px] flex-col px-5 py-6">
         <Wordmark />
         <div className="py-10">
-          <p className="mb-2 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200">
-            First-run setup
-          </p>
           {state === null ? (
             <div className="flex flex-col gap-3" role="status" aria-busy="true" aria-label="Loading">
               <Skeleton className="h-8 w-2/3" />
@@ -156,7 +153,7 @@ export function SetupWizard() {
                     <li
                       key={s.id}
                       aria-current={status === "current" ? "step" : undefined}
-                      className={`flex-1 border-t-2 pt-2 font-azeret text-[10px] uppercase tracking-wider ${
+                      className={`flex-1 border-t-2 pt-2 font-azeret text-2xs font-medium ${
                         status === "todo" ? "border-ink/15 text-primary-200" : "border-ink text-ink"
                       }`}
                     >

@@ -1,6 +1,6 @@
 import { Button, EmptyState } from "@crowhr/ui";
 import { Link } from "@tanstack/react-router";
-import { SearchX } from "lucide-react";
+
 import { ApiError } from "../lib/api.ts";
 import { type Crumb, PageHeader } from "./page-header.tsx";
 
@@ -26,9 +26,8 @@ export function NotFoundPage({
     <>
       <PageHeader crumbs={crumbs} title={title} />
       <EmptyState
-        icon={<SearchX />}
-        title="Nothing here"
-        description="It doesn't exist, or your role can't see it. Check the link, or find it from the list."
+        title="It doesn't exist, or your role can't see it."
+        description="Check the link, or find it from the list."
         actions={
           <Button asChild size="sm">
             <Link to={back.to}>{back.label}</Link>

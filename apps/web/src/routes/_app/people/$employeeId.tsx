@@ -2,6 +2,7 @@ import type { EmployeeDetailDto } from "@crowhr/core";
 import {
   Avatar,
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -24,6 +25,7 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -46,6 +48,7 @@ import {
   referenceQuery,
   structureQuery,
 } from "./-lib/api.ts";
+import { daysBetween, formatPhone, passExpiry } from "./-lib/format.ts";
 import { RevealValue } from "./-lib/reveal.tsx";
 import {
   DateInput,
@@ -104,14 +107,19 @@ function EmployeePage() {
     <>
       <PageHeader
         crumbs={[{ label: "People", to: "/people" }]}
-        kicker={<span className="num">{e.employeeNumber}</span>}
         leading={
           <span aria-hidden="true" className="contents">
             <Avatar name={e.name} />
           </span>
         }
         title={e.name}
-        trailing={<EmployeeStatus status={e.status} />}
+        trailing={
+          <>
+            <span className="num text-ui text-primary-200">{e.employeeNumber}</span>
+            {/* Active is the normal state: a chip only when they are leaving, starting or gone. */}
+            {e.status.code !== "active" ? <EmployeeStatus status={e.status} /> : null}
+          </>
+        }
         description={
           e.job ? (
             <>
@@ -202,7 +210,7 @@ function Overview({ e }: { e: EmployeeDetailDto }) {
   const me = useMe();
   const [editingNames, setEditingNames] = React.useState(false);
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
       <Section
         title="Names"
         actions={
@@ -265,7 +273,7 @@ function Overview({ e }: { e: EmployeeDetailDto }) {
               ) : null}
             </Field>
             <Field term="Mobile" mono>
-              {p.mobile}
+              {formatPhone(p.mobile)}
             </Field>
             <Field term="Personal email">{p.personalEmail}</Field>
             <Field term="Address">{address(p.address)}</Field>
@@ -279,8 +287,8 @@ function Overview({ e }: { e: EmployeeDetailDto }) {
           e.emergencyContacts.length ? (
             <dl>
               {e.emergencyContacts.map((c) => (
-                <Field key={c.id} term={c.relationship}>
-                  {c.name} · <span className="num">{c.phone}</span>
+                <Field key={c.id} term={c.relationship.charAt(0).toUpperCase() + c.relationship.slice(1)}>
+                  {c.name} · <span className="num">{formatPhone(c.phone)}</span>
                 </Field>
               ))}
             </dl>
@@ -297,17 +305,20 @@ function Overview({ e }: { e: EmployeeDetailDto }) {
             <dl>
               {e.workPasses.map((w) => (
                 <Field key={w.id} term={w.passTypeLabel}>
-                  <span className="num">{w.passNumberMasked ?? "—"}</span> · expires{" "}
-                  <span className="num">{formatDate(w.expiresOn)}</span>{" "}
-                  <StatusPill tone={w.state === "valid" ? "success" : w.state === "expiring" ? "warning" : "danger"}>
-                    {w.state === "valid"
-                      ? "Valid"
-                      : w.state === "expiring"
-                        ? "Expiring soon"
-                        : w.state === "expired"
-                          ? "Expired"
-                          : "Cancelled"}
-                  </StatusPill>
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="num">{w.passNumberMasked ?? "—"}</span>
+                    {/* A chip only when the pass needs someone; otherwise the date says it all. */}
+                    {w.state === "expired" || w.state === "expiring" ? (
+                      <StatusPill
+                        tone={w.state === "expired" ? "danger" : "warning"}
+                        className="h-auto min-h-5 whitespace-normal py-0.5"
+                      >
+                        <span className="num">{passExpiry(w, today())}</span>
+                      </StatusPill>
+                    ) : (
+                      <span className="num text-primary-300">{passExpiry(w, today())}</span>
+                    )}
+                  </span>
                 </Field>
               ))}
             </dl>
@@ -328,7 +339,7 @@ function JobTab({ e }: { e: EmployeeDetailDto }) {
   if (!emp) return <Restricted what="employment records" />;
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <Section title="Current terms">
           <dl>
             <Field term="Employment type">{label(emp.employmentType)}</Field>
@@ -405,22 +416,20 @@ function JobTab({ e }: { e: EmployeeDetailDto }) {
         ) : checklists.data?.items.length ? (
           checklists.data.items.map((c) => (
             <div key={c.id} className="py-2">
-              <p className="mb-1 font-azeret text-2xs uppercase tracking-wider text-primary-200">
-                {c.kind === "onboarding" ? "Onboarding" : "Offboarding"} · from {formatDate(c.anchorDate)}
-                {c.status === "cancelled" ? " · cancelled" : ""}
-              </p>
+              <h3 className={cn(textStyle.group, "mb-1")}>
+                {c.kind === "onboarding" ? "Onboarding" : "Offboarding"}{" "}
+                <span className="font-sans font-normal text-primary-300">
+                  from <span className="num">{formatDate(c.anchorDate)}</span>
+                  {c.status === "cancelled" ? " · cancelled" : ""}
+                </span>
+              </h3>
               <ul className="divide-y divide-border">
                 {c.items.map((i) => (
                   <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-ui">
                     <span>
                       {i.title} <span className="text-primary-200">· {label(i.assigneeRole)}</span>
                     </span>
-                    <span className="flex items-center gap-2">
-                      <span className="num text-2xs text-primary-200">due {formatDate(i.dueOn)}</span>
-                      <StatusPill tone={i.status === "done" ? "success" : i.status === "open" ? "info" : "neutral"}>
-                        {label(i.status)}
-                      </StatusPill>
-                    </span>
+                    <ChecklistItemState status={i.status} dueOn={i.dueOn} />
                   </li>
                 ))}
               </ul>
@@ -438,7 +447,7 @@ function PayTab({ e, onChangePay }: { e: EmployeeDetailDto; onChangePay: () => v
   const c = e.compensation;
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <Section
           title="Basic pay"
           actions={
@@ -460,8 +469,8 @@ function PayTab({ e, onChangePay }: { e: EmployeeDetailDto; onChangePay: () => v
                   .filter((h) => h.effectiveFrom > today())
                   .map((h) => (
                     <Field key={h.id} term="Scheduled">
-                      <span className="num">{formatMoney(h.amountCents)}</span> from {formatDate(h.effectiveFrom)}{" "}
-                      <StatusPill tone="info">Scheduled</StatusPill>
+                      <span className="num">{formatMoney(h.amountCents)}</span> from{" "}
+                      <span className="num">{formatDate(h.effectiveFrom)}</span>
                     </Field>
                   ))}
               </dl>
@@ -561,9 +570,12 @@ function HistoryTab({ e }: { e: EmployeeDetailDto }) {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <StatusPill tone={ev.status === "scheduled" ? "info" : ev.status === "effective" ? "success" : "neutral"}>
-                {ev.status === "scheduled" ? "Scheduled" : ev.status === "effective" ? "Effective" : "Cancelled"}
-              </StatusPill>
+              {/* Effective is the normal state; only a scheduled or cancelled event is marked. */}
+              {ev.status === "scheduled" ? (
+                <StatusPill tone="info">Scheduled</StatusPill>
+              ) : ev.status === "cancelled" ? (
+                <span className="text-2xs text-primary-300">Cancelled</span>
+              ) : null}
               {ev.status === "scheduled" && ev.type !== "hire" && ev.type !== "rehire" ? (
                 <Button size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => cancel.mutate(ev.id)}>
                   Cancel
@@ -574,6 +586,20 @@ function HistoryTab({ e }: { e: EmployeeDetailDto }) {
         ))}
       </ol>
     </Section>
+  );
+}
+
+/** A checklist item's due date, and a mark only when it needs someone (overdue) or is finished. */
+function ChecklistItemState({ status, dueOn }: { status: string; dueOn: string }) {
+  if (status === "done") return <span className="text-2xs text-primary-300">Done</span>;
+  if (status !== "open") return <span className="text-2xs text-primary-300">{label(status)}</span>;
+  const overdue = daysBetween(today(), dueOn) < 0;
+  return overdue ? (
+    <StatusPill tone="warning">
+      <span className="num">Overdue · due {formatDate(dueOn)}</span>
+    </StatusPill>
+  ) : (
+    <span className="num text-2xs text-primary-300">Due {formatDate(dueOn)}</span>
   );
 }
 
@@ -921,6 +947,7 @@ function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
               />
               <DateInput
                 label="Agreed last day (optional)"
+                min={noticeOn || undefined}
                 value={lastDay}
                 onChange={setLastDay}
                 error={errs.agreedLastWorkingDay}

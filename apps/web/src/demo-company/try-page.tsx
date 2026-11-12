@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle, Button, Skeleton } from "@crowhr/ui";
+import { Alert, AlertDescription, AlertTitle, Button, cn, Skeleton, textStyle } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ExternalLink, Smartphone } from "lucide-react";
 import * as React from "react";
@@ -89,7 +89,7 @@ function TryLayout({ children }: { children: React.ReactNode }) {
       <div className="mx-auto flex w-full max-w-[640px] flex-1 flex-col py-10" data-testid="try-page">
         {children}
       </div>
-      <footer className="flex flex-wrap gap-x-4 gap-y-1 font-azeret text-[10px] uppercase tracking-wider text-primary-200">
+      <footer className="flex flex-wrap gap-x-4 gap-y-1 text-2xs text-primary-200">
         <span>Crow HR</span>
         <span>Free and open source</span>
         <span>MIT licensed</span>
@@ -113,8 +113,8 @@ function Step({
   return (
     <li className="border-t border-border py-6" aria-labelledby={id} data-testid={testId}>
       <h2 id={id} className="mb-3 flex items-baseline gap-3">
-        <span className="num font-azeret text-2xs font-semibold text-primary-200">{String(n).padStart(2, "0")}</span>
-        <span className="font-azeret text-2xs font-semibold uppercase tracking-wider">{title}</span>
+        <span className="num font-azeret text-2xs font-semibold text-primary-200">{n}.</span>
+        <span className={textStyle.section}>{title}</span>
       </h2>
       <div className="flex flex-col gap-3 pl-8">{children}</div>
     </li>
@@ -163,7 +163,6 @@ function TryContent({ config }: { config: TryConfig }) {
 
   return (
     <>
-      <p className="mb-2 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200">Try Crow HR</p>
       <h1 className="mb-2 text-2xl font-semibold leading-8">Your own demo company, on your phone and the web</h1>
       <p className="mb-6 text-ui text-primary-300">
         Get a private copy of Kopi Kaki, a fictional café group with three outlets: payroll since July, leave, claims,
@@ -320,21 +319,17 @@ function OpenCompany({
 
       <div className="flex flex-col gap-2 rounded-md border border-border p-3">
         <p className="text-2xs text-primary-300">
-          Or type it into the app: the server address, then the company code when it asks for the organisation. The
-          Android app connects to a demo company through the link or QR code.
+          Or type it into the app, on Android or iPhone: the server address, then the company code when it asks for the
+          organisation.
         </p>
-        <span className="font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300">
-          Server address
-        </span>
+        <span className={textStyle.group}>Server address</span>
         <CopyField value={company.server} label="Server address" testId="try-server" />
-        <span className="font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300">
-          Company code
-        </span>
+        <span className={textStyle.group}>Company code</span>
         <CopyField value={company.slug} label="Company code" testId="try-slug" />
       </div>
 
       <div className="text-ui text-primary-300">
-        <p className="mb-1 font-azeret text-2xs font-semibold uppercase tracking-wider text-ink">Things to try</p>
+        <p className={cn("mb-1", textStyle.group)}>Things to try</p>
         <ul className="list-disc pl-4">
           <li>On your phone, sign in as Hafiz (Employee) and apply for leave or claim a taxi with a photo.</li>
           <li>In the browser, sign in as Siti (Manager) and approve it. Hafiz sees the answer in the app.</li>

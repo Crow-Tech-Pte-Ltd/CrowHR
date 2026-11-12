@@ -1,13 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, createTestDeps, type TestDb } from "../../testing/index.ts";
-import { checklistItems, compensationRecords, employmentRecords, tenures } from "../db/schema/employees.ts";
+import { checklistItems, checklists, compensationRecords, employmentRecords, tenures } from "../db/schema/employees.ts";
 import { AppError } from "../errors.ts";
 import {
   type BasicStructure,
   createPeopleHarness,
   HR,
   hirePayload,
+  nextNric,
   OWNER,
   PAYROLL,
   type PeopleHarness,
@@ -222,6 +223,30 @@ describe("resignation and termination", () => {
     expect(await asAt(t.db, employmentRecords, h.orgId, a, "2026-12-03")).toBeUndefined();
     const items = await t.db.select().from(checklistItems).where(eq(checklistItems.orgId, h.orgId));
     expect(items.some((i) => i.title === "Collect company property" && i.dueOn === "2026-12-02")).toBe(true);
+  });
+
+  it("only a leaver holding a work pass gets the cancel-work-pass item", async () => {
+    const citizen = (await hire(owner(), hirePayload(s))).employeeId;
+    const foreigner = (
+      await hire(owner(), {
+        ...hirePayload(s, { person: { idType: "fin", idNumber: nextNric("G"), residencyStatus: "foreigner" } }),
+        workPass: { passType: "EP", passNumber: "G1234567X", issuedOn: "2025-12-01", expiresOn: "2027-11-30" },
+      })
+    ).employeeId;
+    const titles = async (employeeId: string) => {
+      await applyEvent(owner(), employeeId, { type: "resignation", noticeGivenOn: "2026-11-03", noticeDays: 30 });
+      const [list] = await t.db
+        .select()
+        .from(checklists)
+        .where(and(eq(checklists.employeeId, employeeId), eq(checklists.kind, "offboarding")));
+      const items = await t.db
+        .select()
+        .from(checklistItems)
+        .where(eq(checklistItems.checklistId, list?.id as string));
+      return items.map((i) => i.title);
+    };
+    expect(await titles(citizen)).not.toContain("Cancel work pass");
+    expect(await titles(foreigner)).toContain("Cancel work pass");
   });
 
   it("without a contractual notice period, the Employment Act minimum for the service applies", async () => {
