@@ -15,5 +15,5 @@
 - [x] 4.1 `packages/core` claims: `receipt-cleanup.ts` sweep registered as the `claim_receipt_cleanup` transition of the claims workflow plugin, run by `tick`. Proved by `packages/core/src/claims/receipt-cleanup.test.ts` (older than 7 days deleted with bytes and audit, exactly 7 days kept, draft-attached kept, other purposes kept, other organisation's attached receipts kept, idempotent, two concurrent ticks delete once).
 
 ## 5. Documentation and verification
-- [ ] 5.1 Update `docs/limitations.md` (Claims), `apps/docs/src/content/docs/claims/claims.md` and the "Features without a screen" row of `apps/docs/src/content/docs/status.md`. Proved by `bun run docs:build` (inside `bun run check`).
-- [ ] 5.2 Run `bun run check`, the web build and `e2e/claims.spec.ts`, `e2e/claim-types.spec.ts` and `e2e/claims-on-behalf.spec.ts`.
+- [x] 5.1 Update `docs/limitations.md` (Claims), `apps/docs/src/content/docs/claims/claims.md` and the "Features without a screen" row of `apps/docs/src/content/docs/status.md`. Proved by `bun run docs:build` (inside `bun run check`).
+- [x] 5.2 Run `bun run check`, the web build and `e2e/claims.spec.ts`, `e2e/claim-types.spec.ts` and `e2e/claims-on-behalf.spec.ts` (270 test files, 2,473 tests passed, 2 skipped; OpenAPI current; 83-page docs build and link checks passed; 4 e2e tests passed).
