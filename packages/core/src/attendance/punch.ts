@@ -14,7 +14,9 @@ import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { addDays } from "../employees/dates.ts";
 import { AppError } from "../errors.ts";
+import { approvedCovering, punchLockedError } from "./locks.ts";
 import { distanceMetres, ipAllowed } from "./network.ts";
+import { OVERNIGHT_CUTOFF_HOUR } from "./periods.ts";
 import { type AttendanceSettings, loadAttendanceSettings } from "./settings.ts";
 
 /**
@@ -34,8 +36,7 @@ const DAY_MS = 86_400_000;
 export const MAX_PUNCH_AGE_MS = 7 * DAY_MS;
 /** A punch that reaches the server this long after the tap is flagged `late_sync`. */
 export const LATE_SYNC_MS = 10 * 60_000;
-/** An out punch before this hour (SGT) closes the previous day's open shift. */
-export const OVERNIGHT_CUTOFF_HOUR = 4;
+export { OVERNIGHT_CUTOFF_HOUR };
 /** Location accuracy (metres) credited towards an office radius, at most. */
 export const MAX_ACCURACY_SLACK_METRES = 50;
 
@@ -275,6 +276,10 @@ export async function recordPunch(
   return deps.db.transaction(async (tx) => {
     const id = deps.ids.newId();
     const workDate = await workDateFor(tx, orgId, employeeId, punch.kind, recordedAt);
+    if (settings.timesheetApproval) {
+      const locked = await approvedCovering(tx, orgId, employeeId, workDate);
+      if (locked) throw punchLockedError(locked);
+    }
     const [row] = await tx
       .insert(attendancePunches)
       .values({

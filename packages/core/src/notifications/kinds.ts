@@ -25,6 +25,7 @@ export const NOTIFICATION_KINDS = {
   request_approved: "requests",
   request_rejected: "requests",
   request_comment: "requests",
+  timesheet_reopened: "requests",
   work_pass_expiry: "reminders",
   probation_end: "reminders",
   payroll_cutoff: "reminders",

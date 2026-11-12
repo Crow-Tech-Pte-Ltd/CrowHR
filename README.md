@@ -44,7 +44,7 @@ Version 1.0.0 ([changelog](CHANGELOG.md)). Crow HR has not yet been used for a r
 - Company, structure, employees, CSV import, lifecycle, work passes, change requests
 - Approvals, notifications, a Home list of work to do, and a ⌘K command palette
 - Leave: statutory and Government-paid types, policies, calendar, part-timers in hours, the Government-paid leave report, year end
-- Attendance: clock in/out with an offline queue, optional location/IP checks, timesheets, overtime claims (Part 4, 72-hour warning)
+- Attendance: clock in/out with an offline queue, optional location/IP checks, timesheets with optional approval and locking, overtime claims (Part 4, 72-hour warning)
 - Claims: types and caps, receipts, foreign currency, reimbursement through payroll or outside it
 - Scheduling: shift templates, weekly rosters, conflicts and hour warnings, publishing, swaps and open shifts
 - Payroll: CPF/SHG/SDL and an FWL estimate, inputs fed from leave, attendance, rosters and claims, payslips, the CPF EZPay file, an ISO 20022 bank file, the IR8A export

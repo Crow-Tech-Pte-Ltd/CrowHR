@@ -1,9 +1,9 @@
 ---
 title: Attendance and overtime
-description: Clock in and out (also offline), optional location and office-network checks, timesheets and corrections, lateness rules, overtime claims under Part 4 of the Employment Act, and how approved overtime reaches payroll.
+description: Clock in and out (also offline), optional location and office-network checks, timesheets and corrections, optional timesheet approval, lateness rules, overtime claims under Part 4 of the Employment Act, and how approved overtime reaches payroll.
 ---
 
-**Attendance** has four tabs: **Clock** and **My timesheet** for everyone with an employee record, **Team** for managers and HR, and **Summary** for the period report. Owners and HR admins set the rules under **Settings → Attendance**.
+**Attendance** has up to five tabs: **Clock** and **My timesheet** for everyone with an employee record, **Team** for managers and HR, **Timesheets** for managers and HR when [timesheet approval](#timesheet-approval-optional) is on, and **Summary** for the period report. Owners and HR admins set the rules under **Settings → Attendance**.
 
 ## Clocking in and out
 
@@ -50,7 +50,7 @@ Location is personal data. Before an employee's first punch with location on, Cr
 
 ## Timesheets
 
-**My timesheet** shows one week (Monday to Sunday) with each day's type (working day, half day, off day, rest day, public holiday, leave, shift), first in, last out, hours worked, overtime and notes, and the week's totals: worked, overtime, late and missing punches. Timesheets are calculated from the punches whenever you open them; nothing is stored separately.
+**My timesheet** shows one week (Monday to Sunday; with [timesheet approval](#timesheet-approval-optional) on, the approval period) with each day's type (working day, half day, off day, rest day, public holiday, leave, shift), first in, last out, hours worked, overtime and notes, and the week's totals: worked, overtime, late and missing punches. Timesheets are calculated from the punches whenever you open them; nothing is stored separately.
 
 **Team** shows one day for your team (managers) or everyone (owners, HR admins, payroll admins): "6 in · 1 late · 1 missing a punch".
 
@@ -64,7 +64,38 @@ Location is personal data. Before an employee's first punch with location on, Cr
 
 ### Corrections
 
-Managers correct their team's timesheets, and owners and HR admins anyone's, from **Team → Correct**: **Remove** a wrong punch, or **Add a punch** (clock in or out, the time in SGT and a reason of 3 to 300 characters, which the employee sees). Removed punches are kept, marked void. Every correction is audit-logged. Nobody can correct their own timesheet, whatever their role. Corrections have no 7-day limit.
+Managers correct their team's timesheets, and owners and HR admins anyone's, from **Team → Correct**: **Remove** a wrong punch, or **Add a punch** (clock in or out, the time in SGT and a reason of 3 to 300 characters, which the employee sees). Removed punches are kept, marked void. Every correction is audit-logged. Nobody can correct their own timesheet, whatever their role. Corrections have no 7-day limit. With timesheet approval on, days in an approved timesheet are [locked](#what-an-approved-timesheet-locks).
+
+## Timesheet approval (optional)
+
+Off by default: until an owner or HR admin turns it on under **Settings → Attendance → Timesheet approval**, nothing is submitted or locked and managers and HR correct attendance directly. When it is on, each period's timesheet is submitted, approved and then locked. The setting chooses:
+
+- **Period**: **Calendar month** (default), **Half month** (1st–15th and 16th–end) or **Week** (Monday–Sunday).
+- **Who submits**: **The employee** (default; owners and HR admins can also submit on an employee's behalf), or **their manager or HR**. When managers submit, employees can't submit their own, and the manager who submitted a timesheet can't approve it: with the default chain it goes to the HR admins.
+
+### Submitting
+
+**My timesheet** then shows a period instead of a week, with its status: **Not submitted**, **Waiting for approval**, **Approved**, **Returned**, **Withdrawn** or **Reopened**. A period can be submitted from 04:00 on the day after it ends (the overnight cut-off, so no shift can still be open); before that the screen says from when. **Submit for approval** records the period's totals and sends the timesheet through the **Timesheets** chain in **Settings → Approvals** (default: the employee's manager, escalating after 3 days). Submitting warns, without stopping you, about days with a missing punch, overtime not yet claimed and overtime claims still waiting. Claim overtime before the timesheet is approved.
+
+Home shows "Submit your timesheet for 1–31 Oct 2026" for the latest ended period until it is submitted; when managers submit, the manager sees "Submit 3 timesheets for 1–31 Oct 2026" instead. The employee, or whoever submitted it, can **Withdraw** a timesheet while it waits.
+
+### Approving or returning
+
+Approvers find the task in the Inbox, with days worked, hours, overtime by the clock and claimed, late days, early outs, missing punches and leave days. **Attendance → Timesheets** lists everyone you can see for the period with their status and totals ("4 approved · 2 waiting (1 for you) · 3 to submit"); **Review** opens the person's days with **Approve** and **Return**. Returning needs a comment, which the employee sees; they get the days corrected and submit again.
+
+A timesheet waiting for approval is not locked: the manager can still correct punches, and what is approved is the figures at the moment of approval. The request says when the figures changed after it was sent.
+
+### What an approved timesheet locks
+
+For the employee's days in an approved timesheet:
+
+- **punches are refused**, including punches queued offline that arrive later: "Your timesheet for 2–8 Nov 2026 is approved, so this punch can't be added. Ask HR to add it if it was right.";
+- **managers can't correct them**: those days show **Locked**, and the correction sheet says to ask an HR admin;
+- **new overtime claims** for those days are refused.
+
+Owners and HR admins can still correct a locked day. The correction sheet warns that saving reopens the timesheet, and the button reads **Add punch and reopen** (or **Remove and reopen**); through the API, send `reopen: true` (without it the API answers `409 timesheet_locked`). They can also **Reopen** an approved timesheet from **Timesheets**, with a reason. Reopening is audit-logged, the employee (and whoever submitted it) is notified, and the period must be submitted and approved again. Nobody can reopen their own timesheet.
+
+Turning timesheet approval off lifts every lock; approved timesheets stay as history.
 
 ## Overtime
 
@@ -100,6 +131,15 @@ Approved overtime goes to payroll automatically; nobody retypes it.
 - Overtime typed in by hand on the run is still possible and is **added on top**; it does not replace the fed items, so don't enter the same hours twice.
 - **Days worked** for rostered staff who clock in also comes from attendance ("Days worked (from attendance)"): days with worked time, plus public holidays and paid leave; no-pay leave days don't count. A "Days worked" item entered by hand on the run takes precedence. See [scheduling](/docs/scheduling/scheduling/#payroll-scheduled-days).
 
+### Payroll from approved timesheets only
+
+With timesheet approval on, **Payroll uses approved timesheets only** (off by default) limits both feeds:
+
+- an approved overtime claim reaches payroll only when its date is inside an approved timesheet. Overtime whose timesheet is approved later is paid by the next run computed, because payroll also reads unpaid overtime from earlier periods;
+- **days worked** reaches payroll only for rostered staff whose every employed day in the pay period is inside an approved timesheet. Otherwise the run has no days-worked item for them and, for an incomplete month, blocks as it does for staff who don't clock in: approve the timesheet (or enter the figure by hand) and recompute.
+
+Without it, payroll reads attendance as described above, approved timesheets or not.
+
 :::caution[Contractual and hourly-rated overtime]
 A fed overtime item carries minutes, not an amount. For an employee **not covered by Part 4** the run blocks with `OT_NOT_STATUTORY` ("Enter the contractual OT amount"), and for an **hourly-rated** employee with `OT_AMOUNT_REQUIRED`. The issue links to the employee's drawer in the run, where you enter the contractual amount for that overtime claim ([holiday pay and contractual overtime](/docs/payroll/settings/#holiday-pay-and-contractual-overtime-on-a-run)); it replaces the fed amount, so the overtime is paid once.
 :::
@@ -125,6 +165,10 @@ Work on a rest day or public holiday reaches payroll as plain overtime minutes. 
 | Early out grace (min) | 5 |
 | OT in blocks of (min), rounded down | 15 |
 | Minimum OT (min) | 30 |
+| Submit timesheets for approval | Off |
+| Period | Calendar month |
+| Who submits | The employee |
+| Payroll uses approved timesheets only | Off (needs approval on) |
 
 Office checks that refuse punches need location, so saving location off with offices set to refuse is refused. Every change is audit-logged.
 
@@ -135,6 +179,9 @@ Office checks that refuse punches need location, so saving location off with off
 | Clock in, claim overtime | Own | — | Own (as an employee) | Own |
 | See timesheets | Everyone | Everyone | Team | Own |
 | Correct timesheets | Everyone except themselves | — | Team | — |
+| Submit a timesheet (approval on) | Anyone's, on their behalf | — | Team, when managers submit | Own, when employees submit |
+| Approve or return a timesheet | Their approval tasks | Their approval tasks | Their approval tasks | Their approval tasks |
+| Correct a locked day, reopen a timesheet | Everyone except themselves | — | — | — |
 | Attendance settings | Yes | — | — | — |
 
 Owners and HR admins can also file an overtime claim for an employee through the API; the web app files claims for yourself only. The full rules are in the [permission matrix](/docs/roles-and-permissions/).
@@ -145,3 +192,7 @@ Owners and HR admins can also file an overtime claim for an employee through the
 - After a claim is rejected or withdrawn, the day shows that status instead of **Claim OT**; a new claim for that day can only be made through the API.
 - The late-sync threshold (10 minutes) is fixed.
 - There is no list of all overtime claims in the web app; approvers work from the Inbox.
+- Timesheet approval is per organisation, not per team. Hours of hourly-rated staff are not taken from approved timesheets; payroll asks for them per run.
+- Leave approved after a timesheet is approved still shows on its days. The approved totals keep the figures that were approved, but payroll's days-worked figure is worked out from the days as they are.
+- Changing the period setting doesn't move timesheets already submitted; a new period that overlaps one waiting or approved can't be submitted until that one is withdrawn or reopened.
+- Home reminds you only of the latest ended period, without a due date.

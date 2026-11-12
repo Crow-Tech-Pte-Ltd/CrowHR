@@ -1,22 +1,33 @@
 import { cn } from "@crowhr/ui";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { can, useMe } from "../auth/session.ts";
+import { statusQuery } from "./api.ts";
 
-type Tab = "clock" | "timesheet" | "team" | "summary";
+type Tab = "clock" | "timesheet" | "team" | "timesheets" | "summary";
 
-/** Clock | My timesheet | Team | Summary, under the page header. */
+/** Clock | My timesheet | Team | Timesheets (with approval on) | Summary, under the page header. */
 export function AttendanceNav({ current }: { current: Tab }) {
   const me = useMe();
+  // Only to know whether timesheet approval is on; the Clock screen does the polling.
+  const status = useQuery({ ...statusQuery, refetchInterval: false });
   const scopes = me.permissions["attendance:read"] ?? [];
+  const seesOthers = scopes.includes("all") || scopes.includes("team");
   const items: {
-    to: "/attendance" | "/attendance/timesheet" | "/attendance/team" | "/attendance/summary";
+    to: "/attendance" | "/attendance/timesheet" | "/attendance/team" | "/attendance/timesheets" | "/attendance/summary";
     tab: Tab;
     label: string;
     show: boolean;
   }[] = [
     { to: "/attendance", tab: "clock", label: "Clock", show: !!me.employeeId },
     { to: "/attendance/timesheet", tab: "timesheet", label: "My timesheet", show: !!me.employeeId },
-    { to: "/attendance/team", tab: "team", label: "Team", show: scopes.includes("all") || scopes.includes("team") },
+    { to: "/attendance/team", tab: "team", label: "Team", show: seesOthers },
+    {
+      to: "/attendance/timesheets",
+      tab: "timesheets",
+      label: "Timesheets",
+      show: seesOthers && (!!status.data?.timesheets.approval || current === "timesheets"),
+    },
     { to: "/attendance/summary", tab: "summary", label: "Summary", show: can(me, "reports_attendance:read") },
   ];
   return (

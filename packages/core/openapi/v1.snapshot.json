@@ -2627,6 +2627,7 @@
       "post": {
         "operationId": "attendance.postCorrections",
         "summary": "Add a missing punch to someone's timesheet, with a reason (audited)",
+        "description": "A day inside an approved timesheet answers 409 `timesheet_locked`; owners and HR admins resend with `reopen: true` to correct it and reopen the timesheet.",
         "tags": [
           "Attendance"
         ],
@@ -2842,6 +2843,19 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Error: timesheet_locked.",
+            "x-error-codes": [
+              "timesheet_locked"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -2872,6 +2886,10 @@
                     "type": "string",
                     "minLength": 3,
                     "maxLength": 300
+                  },
+                  "reopen": {
+                    "description": "Set to true to correct a day inside an approved timesheet: the timesheet is reopened (owners and HR admins only; answered 409 `timesheet_locked` otherwise).",
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -3260,6 +3278,37 @@
                     },
                     "networkRestricted": {
                       "type": "boolean"
+                    },
+                    "timesheets": {
+                      "type": "object",
+                      "properties": {
+                        "approval": {
+                          "type": "boolean"
+                        },
+                        "period": {
+                          "type": "string",
+                          "enum": [
+                            "monthly",
+                            "semi_monthly",
+                            "weekly"
+                          ],
+                          "description": "`monthly`: calendar month; `semi_monthly`: 1st–15th and 16th–end; `weekly`: Monday–Sunday."
+                        },
+                        "submittedBy": {
+                          "type": "string",
+                          "enum": [
+                            "employee",
+                            "manager"
+                          ],
+                          "description": "`employee`: employees submit their own; `manager`: their manager (or HR) submits."
+                        }
+                      },
+                      "required": [
+                        "approval",
+                        "period",
+                        "submittedBy"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -3269,7 +3318,8 @@
                     "lastPunch",
                     "today",
                     "location",
-                    "networkRestricted"
+                    "networkRestricted",
+                    "timesheets"
                   ],
                   "additionalProperties": false
                 }
@@ -3502,9 +3552,10 @@
             }
           },
           "409": {
-            "description": "Error: conflict.",
+            "description": "Error: conflict, timesheet_locked.",
             "x-error-codes": [
-              "conflict"
+              "conflict",
+              "timesheet_locked"
             ],
             "content": {
               "application/json": {
@@ -5004,9 +5055,10 @@
             }
           },
           "409": {
-            "description": "Error: conflict.",
+            "description": "Error: conflict, timesheet_locked.",
             "x-error-codes": [
-              "conflict"
+              "conflict",
+              "timesheet_locked"
             ],
             "content": {
               "application/json": {
@@ -5028,6 +5080,10 @@
                     "type": "string",
                     "minLength": 3,
                     "maxLength": 300
+                  },
+                  "reopen": {
+                    "description": "Set to true to correct a day inside an approved timesheet: the timesheet is reopened (owners and HR admins only; answered 409 `timesheet_locked` otherwise).",
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -5423,6 +5479,41 @@
                       "minimum": 0,
                       "maximum": 240
                     },
+                    "timesheets": {
+                      "type": "object",
+                      "properties": {
+                        "approval": {
+                          "type": "boolean"
+                        },
+                        "period": {
+                          "type": "string",
+                          "enum": [
+                            "monthly",
+                            "semi_monthly",
+                            "weekly"
+                          ],
+                          "description": "`monthly`: calendar month; `semi_monthly`: 1st–15th and 16th–end; `weekly`: Monday–Sunday."
+                        },
+                        "submittedBy": {
+                          "type": "string",
+                          "enum": [
+                            "employee",
+                            "manager"
+                          ],
+                          "description": "`employee`: employees submit their own; `manager`: their manager (or HR) submits."
+                        },
+                        "payrollApprovedOnly": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "approval",
+                        "period",
+                        "submittedBy",
+                        "payrollApprovedOnly"
+                      ],
+                      "additionalProperties": false
+                    },
                     "effectivePdpaNotice": {
                       "type": "string"
                     }
@@ -5442,6 +5533,7 @@
                     "skewThresholdSeconds",
                     "otBlockMinutes",
                     "otMinimumMinutes",
+                    "timesheets",
                     "effectivePdpaNotice"
                   ],
                   "additionalProperties": false
@@ -5621,6 +5713,41 @@
                       "minimum": 0,
                       "maximum": 240
                     },
+                    "timesheets": {
+                      "type": "object",
+                      "properties": {
+                        "approval": {
+                          "type": "boolean"
+                        },
+                        "period": {
+                          "type": "string",
+                          "enum": [
+                            "monthly",
+                            "semi_monthly",
+                            "weekly"
+                          ],
+                          "description": "`monthly`: calendar month; `semi_monthly`: 1st–15th and 16th–end; `weekly`: Monday–Sunday."
+                        },
+                        "submittedBy": {
+                          "type": "string",
+                          "enum": [
+                            "employee",
+                            "manager"
+                          ],
+                          "description": "`employee`: employees submit their own; `manager`: their manager (or HR) submits."
+                        },
+                        "payrollApprovedOnly": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "approval",
+                        "period",
+                        "submittedBy",
+                        "payrollApprovedOnly"
+                      ],
+                      "additionalProperties": false
+                    },
                     "effectivePdpaNotice": {
                       "type": "string"
                     }
@@ -5640,6 +5767,7 @@
                     "skewThresholdSeconds",
                     "otBlockMinutes",
                     "otMinimumMinutes",
+                    "timesheets",
                     "effectivePdpaNotice"
                   ],
                   "additionalProperties": false
@@ -5823,6 +5951,41 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 240
+                  },
+                  "timesheets": {
+                    "description": "Timesheet approval. Leave it out to keep the current settings (clients that predate it).",
+                    "type": "object",
+                    "properties": {
+                      "approval": {
+                        "type": "boolean"
+                      },
+                      "period": {
+                        "type": "string",
+                        "enum": [
+                          "monthly",
+                          "semi_monthly",
+                          "weekly"
+                        ],
+                        "description": "`monthly`: calendar month; `semi_monthly`: 1st–15th and 16th–end; `weekly`: Monday–Sunday."
+                      },
+                      "submittedBy": {
+                        "type": "string",
+                        "enum": [
+                          "employee",
+                          "manager"
+                        ],
+                        "description": "`employee`: employees submit their own; `manager`: their manager (or HR) submits."
+                      },
+                      "payrollApprovedOnly": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "approval",
+                      "period",
+                      "submittedBy",
+                      "payrollApprovedOnly"
+                    ]
                   }
                 },
                 "required": [
@@ -6204,6 +6367,10 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "locked": {
+                                  "type": "boolean",
+                                  "description": "Inside an approved timesheet while timesheet approval is on: punches, manager corrections and new overtime claims are refused."
                                 }
                               },
                               "required": [
@@ -6224,7 +6391,8 @@
                                 "flags",
                                 "otMinutes",
                                 "punches",
-                                "otClaim"
+                                "otClaim",
+                                "locked"
                               ],
                               "additionalProperties": false
                             }
@@ -6694,6 +6862,10 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "locked": {
+                            "type": "boolean",
+                            "description": "Inside an approved timesheet while timesheet approval is on: punches, manager corrections and new overtime claims are refused."
                           }
                         },
                         "required": [
@@ -6714,7 +6886,8 @@
                           "flags",
                           "otMinutes",
                           "punches",
-                          "otClaim"
+                          "otClaim",
+                          "locked"
                         ],
                         "additionalProperties": false
                       }
@@ -6803,6 +6976,1840 @@
             "x-error-codes": [
               "forbidden",
               "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/timesheets": {
+      "get": {
+        "operationId": "attendance.getTimesheets",
+        "summary": "Timesheet approval for a period: each person you can see, with their status and totals",
+        "description": "The period containing `date` (default today) under the organisation's setting. Employees see themselves, managers their team, owners, HR and payroll admins everyone.",
+        "tags": [
+          "Attendance"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "attendance:read",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "employeeId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "settings": {
+                      "type": "object",
+                      "properties": {
+                        "approval": {
+                          "type": "boolean"
+                        },
+                        "period": {
+                          "type": "string",
+                          "enum": [
+                            "monthly",
+                            "semi_monthly",
+                            "weekly"
+                          ],
+                          "description": "`monthly`: calendar month; `semi_monthly`: 1st–15th and 16th–end; `weekly`: Monday–Sunday."
+                        },
+                        "submittedBy": {
+                          "type": "string",
+                          "enum": [
+                            "employee",
+                            "manager"
+                          ],
+                          "description": "`employee`: employees submit their own; `manager`: their manager (or HR) submits."
+                        },
+                        "payrollApprovedOnly": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "approval",
+                        "period",
+                        "submittedBy",
+                        "payrollApprovedOnly"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "period": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "string"
+                        },
+                        "end": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "start",
+                        "end",
+                        "label"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "previous": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "string"
+                        },
+                        "end": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "start",
+                        "end",
+                        "label"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "next": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "string"
+                        },
+                        "end": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "start",
+                        "end",
+                        "label"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "over": {
+                      "type": "boolean"
+                    },
+                    "submittableFrom": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "employee": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "totals": {
+                            "type": "object",
+                            "properties": {
+                              "daysWorked": {
+                                "type": "number"
+                              },
+                              "workedMinutes": {
+                                "type": "number"
+                              },
+                              "lateCount": {
+                                "type": "number"
+                              },
+                              "lateMinutes": {
+                                "type": "number"
+                              },
+                              "earlyOutCount": {
+                                "type": "number"
+                              },
+                              "missingPunches": {
+                                "type": "number"
+                              },
+                              "otMinutes": {
+                                "type": "number"
+                              },
+                              "leaveDays": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "daysWorked",
+                              "workedMinutes",
+                              "lateCount",
+                              "lateMinutes",
+                              "earlyOutCount",
+                              "missingPunches",
+                              "otMinutes",
+                              "leaveDays"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "not_submitted",
+                              "submitted",
+                              "approved",
+                              "returned",
+                              "withdrawn",
+                              "reopened"
+                            ]
+                          },
+                          "timesheet": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "employee": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "periodStart": {
+                                    "type": "string"
+                                  },
+                                  "periodEnd": {
+                                    "type": "string"
+                                  },
+                                  "periodLabel": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "submitted",
+                                      "approved",
+                                      "returned",
+                                      "withdrawn",
+                                      "reopened"
+                                    ]
+                                  },
+                                  "submittedAt": {
+                                    "type": "string"
+                                  },
+                                  "submittedBy": {
+                                    "type": "string"
+                                  },
+                                  "submittedTotals": {
+                                    "type": "object",
+                                    "properties": {
+                                      "daysWorked": {
+                                        "type": "number"
+                                      },
+                                      "workedMinutes": {
+                                        "type": "number"
+                                      },
+                                      "lateCount": {
+                                        "type": "number"
+                                      },
+                                      "lateMinutes": {
+                                        "type": "number"
+                                      },
+                                      "earlyOutCount": {
+                                        "type": "number"
+                                      },
+                                      "missingPunches": {
+                                        "type": "number"
+                                      },
+                                      "otMinutes": {
+                                        "type": "number"
+                                      },
+                                      "leaveDays": {
+                                        "type": "number"
+                                      }
+                                    },
+                                    "required": [
+                                      "daysWorked",
+                                      "workedMinutes",
+                                      "lateCount",
+                                      "lateMinutes",
+                                      "earlyOutCount",
+                                      "missingPunches",
+                                      "otMinutes",
+                                      "leaveDays"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "approvedTotals": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "daysWorked": {
+                                            "type": "number"
+                                          },
+                                          "workedMinutes": {
+                                            "type": "number"
+                                          },
+                                          "lateCount": {
+                                            "type": "number"
+                                          },
+                                          "lateMinutes": {
+                                            "type": "number"
+                                          },
+                                          "earlyOutCount": {
+                                            "type": "number"
+                                          },
+                                          "missingPunches": {
+                                            "type": "number"
+                                          },
+                                          "otMinutes": {
+                                            "type": "number"
+                                          },
+                                          "leaveDays": {
+                                            "type": "number"
+                                          }
+                                        },
+                                        "required": [
+                                          "daysWorked",
+                                          "workedMinutes",
+                                          "lateCount",
+                                          "lateMinutes",
+                                          "earlyOutCount",
+                                          "missingPunches",
+                                          "otMinutes",
+                                          "leaveDays"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "decidedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "decidedBy": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "comment": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "reopenedAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "reopenedBy": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "reopenReason": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "approvalRequestId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "employee",
+                                  "periodStart",
+                                  "periodEnd",
+                                  "periodLabel",
+                                  "status",
+                                  "submittedAt",
+                                  "submittedBy",
+                                  "submittedTotals",
+                                  "approvedTotals",
+                                  "decidedAt",
+                                  "decidedBy",
+                                  "comment",
+                                  "reopenedAt",
+                                  "reopenedBy",
+                                  "reopenReason",
+                                  "approvalRequestId"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "taskId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "canSubmit": {
+                            "type": "boolean"
+                          },
+                          "canWithdraw": {
+                            "type": "boolean"
+                          },
+                          "canReopen": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "employee",
+                          "totals",
+                          "status",
+                          "timesheet",
+                          "taskId",
+                          "canSubmit",
+                          "canWithdraw",
+                          "canReopen"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "settings",
+                    "period",
+                    "previous",
+                    "next",
+                    "over",
+                    "submittableFrom",
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "attendance.postTimesheets",
+        "summary": "Submit a period's timesheet for approval (once the period is over)",
+        "description": "Employees submit their own (owners and HR admins on their behalf), or, when the organisation has managers submit, a manager submits their team's. Warns, without blocking, about missing punches and unclaimed overtime.",
+        "tags": [
+          "Attendance"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "attendance:read",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "timesheet": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "employee": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "periodStart": {
+                          "type": "string"
+                        },
+                        "periodEnd": {
+                          "type": "string"
+                        },
+                        "periodLabel": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "submitted",
+                            "approved",
+                            "returned",
+                            "withdrawn",
+                            "reopened"
+                          ]
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedTotals": {
+                          "type": "object",
+                          "properties": {
+                            "daysWorked": {
+                              "type": "number"
+                            },
+                            "workedMinutes": {
+                              "type": "number"
+                            },
+                            "lateCount": {
+                              "type": "number"
+                            },
+                            "lateMinutes": {
+                              "type": "number"
+                            },
+                            "earlyOutCount": {
+                              "type": "number"
+                            },
+                            "missingPunches": {
+                              "type": "number"
+                            },
+                            "otMinutes": {
+                              "type": "number"
+                            },
+                            "leaveDays": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "daysWorked",
+                            "workedMinutes",
+                            "lateCount",
+                            "lateMinutes",
+                            "earlyOutCount",
+                            "missingPunches",
+                            "otMinutes",
+                            "leaveDays"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "approvedTotals": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "daysWorked": {
+                                  "type": "number"
+                                },
+                                "workedMinutes": {
+                                  "type": "number"
+                                },
+                                "lateCount": {
+                                  "type": "number"
+                                },
+                                "lateMinutes": {
+                                  "type": "number"
+                                },
+                                "earlyOutCount": {
+                                  "type": "number"
+                                },
+                                "missingPunches": {
+                                  "type": "number"
+                                },
+                                "otMinutes": {
+                                  "type": "number"
+                                },
+                                "leaveDays": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "daysWorked",
+                                "workedMinutes",
+                                "lateCount",
+                                "lateMinutes",
+                                "earlyOutCount",
+                                "missingPunches",
+                                "otMinutes",
+                                "leaveDays"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "decidedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decidedBy": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "comment": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reopenedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reopenedBy": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reopenReason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "approvalRequestId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "employee",
+                        "periodStart",
+                        "periodEnd",
+                        "periodLabel",
+                        "status",
+                        "submittedAt",
+                        "submittedBy",
+                        "submittedTotals",
+                        "approvedTotals",
+                        "decidedAt",
+                        "decidedBy",
+                        "comment",
+                        "reopenedAt",
+                        "reopenedBy",
+                        "reopenReason",
+                        "approvalRequestId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "timesheet",
+                    "warnings"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "csrf_rejected",
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: conflict.",
+            "x-error-codes": [
+              "conflict"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "employeeId": {
+                    "description": "Default: your own timesheet.",
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "date": {
+                    "type": "string",
+                    "description": "Any date in the period, e.g. its first day."
+                  }
+                },
+                "required": [
+                  "date"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/timesheets/{id}": {
+      "get": {
+        "operationId": "attendance.getTimesheetsById",
+        "summary": "Get a submitted timesheet",
+        "tags": [
+          "Attendance"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "attendance:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "employee": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "periodStart": {
+                      "type": "string"
+                    },
+                    "periodEnd": {
+                      "type": "string"
+                    },
+                    "periodLabel": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "submitted",
+                        "approved",
+                        "returned",
+                        "withdrawn",
+                        "reopened"
+                      ]
+                    },
+                    "submittedAt": {
+                      "type": "string"
+                    },
+                    "submittedBy": {
+                      "type": "string"
+                    },
+                    "submittedTotals": {
+                      "type": "object",
+                      "properties": {
+                        "daysWorked": {
+                          "type": "number"
+                        },
+                        "workedMinutes": {
+                          "type": "number"
+                        },
+                        "lateCount": {
+                          "type": "number"
+                        },
+                        "lateMinutes": {
+                          "type": "number"
+                        },
+                        "earlyOutCount": {
+                          "type": "number"
+                        },
+                        "missingPunches": {
+                          "type": "number"
+                        },
+                        "otMinutes": {
+                          "type": "number"
+                        },
+                        "leaveDays": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "daysWorked",
+                        "workedMinutes",
+                        "lateCount",
+                        "lateMinutes",
+                        "earlyOutCount",
+                        "missingPunches",
+                        "otMinutes",
+                        "leaveDays"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "approvedTotals": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "daysWorked": {
+                              "type": "number"
+                            },
+                            "workedMinutes": {
+                              "type": "number"
+                            },
+                            "lateCount": {
+                              "type": "number"
+                            },
+                            "lateMinutes": {
+                              "type": "number"
+                            },
+                            "earlyOutCount": {
+                              "type": "number"
+                            },
+                            "missingPunches": {
+                              "type": "number"
+                            },
+                            "otMinutes": {
+                              "type": "number"
+                            },
+                            "leaveDays": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "daysWorked",
+                            "workedMinutes",
+                            "lateCount",
+                            "lateMinutes",
+                            "earlyOutCount",
+                            "missingPunches",
+                            "otMinutes",
+                            "leaveDays"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "decidedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decidedBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "comment": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reopenedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reopenedBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reopenReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvalRequestId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "employee",
+                    "periodStart",
+                    "periodEnd",
+                    "periodLabel",
+                    "status",
+                    "submittedAt",
+                    "submittedBy",
+                    "submittedTotals",
+                    "approvedTotals",
+                    "decidedAt",
+                    "decidedBy",
+                    "comment",
+                    "reopenedAt",
+                    "reopenedBy",
+                    "reopenReason",
+                    "approvalRequestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/timesheets/{id}/reopen": {
+      "post": {
+        "operationId": "attendance.postTimesheetsByIdReopen",
+        "summary": "Reopen an approved timesheet (owners and HR admins; never your own)",
+        "description": "Unlocks the period; it must be submitted and approved again. Audited; the employee is notified.",
+        "tags": [
+          "Attendance"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "attendance:reopen",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "employee": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "periodStart": {
+                      "type": "string"
+                    },
+                    "periodEnd": {
+                      "type": "string"
+                    },
+                    "periodLabel": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "submitted",
+                        "approved",
+                        "returned",
+                        "withdrawn",
+                        "reopened"
+                      ]
+                    },
+                    "submittedAt": {
+                      "type": "string"
+                    },
+                    "submittedBy": {
+                      "type": "string"
+                    },
+                    "submittedTotals": {
+                      "type": "object",
+                      "properties": {
+                        "daysWorked": {
+                          "type": "number"
+                        },
+                        "workedMinutes": {
+                          "type": "number"
+                        },
+                        "lateCount": {
+                          "type": "number"
+                        },
+                        "lateMinutes": {
+                          "type": "number"
+                        },
+                        "earlyOutCount": {
+                          "type": "number"
+                        },
+                        "missingPunches": {
+                          "type": "number"
+                        },
+                        "otMinutes": {
+                          "type": "number"
+                        },
+                        "leaveDays": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "daysWorked",
+                        "workedMinutes",
+                        "lateCount",
+                        "lateMinutes",
+                        "earlyOutCount",
+                        "missingPunches",
+                        "otMinutes",
+                        "leaveDays"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "approvedTotals": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "daysWorked": {
+                              "type": "number"
+                            },
+                            "workedMinutes": {
+                              "type": "number"
+                            },
+                            "lateCount": {
+                              "type": "number"
+                            },
+                            "lateMinutes": {
+                              "type": "number"
+                            },
+                            "earlyOutCount": {
+                              "type": "number"
+                            },
+                            "missingPunches": {
+                              "type": "number"
+                            },
+                            "otMinutes": {
+                              "type": "number"
+                            },
+                            "leaveDays": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "daysWorked",
+                            "workedMinutes",
+                            "lateCount",
+                            "lateMinutes",
+                            "earlyOutCount",
+                            "missingPunches",
+                            "otMinutes",
+                            "leaveDays"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "decidedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decidedBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "comment": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reopenedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reopenedBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reopenReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvalRequestId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "employee",
+                    "periodStart",
+                    "periodEnd",
+                    "periodLabel",
+                    "status",
+                    "submittedAt",
+                    "submittedBy",
+                    "submittedTotals",
+                    "approvedTotals",
+                    "decidedAt",
+                    "decidedBy",
+                    "comment",
+                    "reopenedAt",
+                    "reopenedBy",
+                    "reopenReason",
+                    "approvalRequestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required, self_change_requires_approval.",
+            "x-error-codes": [
+              "csrf_rejected",
+              "forbidden",
+              "mfa_enrolment_required",
+              "self_change_requires_approval"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: conflict.",
+            "x-error-codes": [
+              "conflict"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              },
+              "example": {
+                "reason": "Missing clock-out on 14 Oct"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attendance/timesheets/{id}/withdraw": {
+      "post": {
+        "operationId": "attendance.postTimesheetsByIdWithdraw",
+        "summary": "Withdraw a timesheet waiting for approval (the employee or whoever submitted it)",
+        "tags": [
+          "Attendance"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "x-permission": "attendance:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "employee": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "periodStart": {
+                      "type": "string"
+                    },
+                    "periodEnd": {
+                      "type": "string"
+                    },
+                    "periodLabel": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "submitted",
+                        "approved",
+                        "returned",
+                        "withdrawn",
+                        "reopened"
+                      ]
+                    },
+                    "submittedAt": {
+                      "type": "string"
+                    },
+                    "submittedBy": {
+                      "type": "string"
+                    },
+                    "submittedTotals": {
+                      "type": "object",
+                      "properties": {
+                        "daysWorked": {
+                          "type": "number"
+                        },
+                        "workedMinutes": {
+                          "type": "number"
+                        },
+                        "lateCount": {
+                          "type": "number"
+                        },
+                        "lateMinutes": {
+                          "type": "number"
+                        },
+                        "earlyOutCount": {
+                          "type": "number"
+                        },
+                        "missingPunches": {
+                          "type": "number"
+                        },
+                        "otMinutes": {
+                          "type": "number"
+                        },
+                        "leaveDays": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "daysWorked",
+                        "workedMinutes",
+                        "lateCount",
+                        "lateMinutes",
+                        "earlyOutCount",
+                        "missingPunches",
+                        "otMinutes",
+                        "leaveDays"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "approvedTotals": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "daysWorked": {
+                              "type": "number"
+                            },
+                            "workedMinutes": {
+                              "type": "number"
+                            },
+                            "lateCount": {
+                              "type": "number"
+                            },
+                            "lateMinutes": {
+                              "type": "number"
+                            },
+                            "earlyOutCount": {
+                              "type": "number"
+                            },
+                            "missingPunches": {
+                              "type": "number"
+                            },
+                            "otMinutes": {
+                              "type": "number"
+                            },
+                            "leaveDays": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "daysWorked",
+                            "workedMinutes",
+                            "lateCount",
+                            "lateMinutes",
+                            "earlyOutCount",
+                            "missingPunches",
+                            "otMinutes",
+                            "leaveDays"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "decidedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "decidedBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "comment": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reopenedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reopenedBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reopenReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvalRequestId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "employee",
+                    "periodStart",
+                    "periodEnd",
+                    "periodLabel",
+                    "status",
+                    "submittedAt",
+                    "submittedBy",
+                    "submittedTotals",
+                    "approvedTotals",
+                    "decidedAt",
+                    "decidedBy",
+                    "comment",
+                    "reopenedAt",
+                    "reopenedBy",
+                    "reopenReason",
+                    "approvalRequestId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "csrf_rejected",
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: conflict.",
+            "x-error-codes": [
+              "conflict"
             ],
             "content": {
               "application/json": {

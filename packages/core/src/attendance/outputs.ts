@@ -1,17 +1,32 @@
 import { and, asc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { orgScope } from "../access/org-scope.ts";
-import { attendancePunches, overtimeClaims } from "../db/schema/attendance.ts";
+import { type AttendanceTimesheet, attendancePunches, overtimeClaims } from "../db/schema/attendance.ts";
 import { leaveRequestDays, leaveRequests, leaveTypes } from "../db/schema/leave.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { datesBetween, dayInfo, loadEmployeesTime, scheduleOn } from "../leave/calendar.ts";
 import type { ApprovedOvertime, DaysWorkedSource, OvertimeSource, RosterDaysWorked } from "../payroll/ports.ts";
+import { approvedOverlapping } from "./locks.ts";
+import { loadAttendanceSettings } from "./settings.ts";
 import { timesheets } from "./timesheet.ts";
 
 /** The payroll overtime feed (spec "Payroll overtime feed"): implements `payroll/ports.ts` `OvertimeSource`. */
 export type { ApprovedOvertime, DaysWorkedSource, OvertimeSource, RosterDaysWorked };
 
-/** Approved claims dated within [periodStart, periodEnd], one entry per claim (period = that date). */
+/** Payroll is limited to approved timesheets (add-timesheet-approval spec "Payroll from approved timesheets"). */
+async function payrollLimited(db: Db, orgId: string): Promise<boolean> {
+  const s = await loadAttendanceSettings(db, orgId);
+  return s.timesheetApproval && s.payrollApprovedTimesheetsOnly;
+}
+
+const covers = (approved: readonly AttendanceTimesheet[], employeeId: string, date: string) =>
+  approved.some((a) => a.employeeId === employeeId && a.periodStart <= date && date <= a.periodEnd);
+
+/**
+ * Approved claims dated within [periodStart, periodEnd], one entry per claim (period = that date).
+ * When payroll is limited to approved timesheets, only claims dated inside one; the others are
+ * listed once their timesheet is approved (payroll reads unpaid claims from earlier periods too).
+ */
 export async function listApprovedOvertime(db: Db, orgId: string, periodStart: string, periodEnd: string) {
   const rows = await db
     .select()
@@ -25,7 +40,18 @@ export async function listApprovedOvertime(db: Db, orgId: string, periodStart: s
       ),
     )
     .orderBy(asc(overtimeClaims.employeeId), asc(overtimeClaims.workDate));
-  return rows.map(
+  let payable = rows;
+  if (rows.length && (await payrollLimited(db, orgId))) {
+    const approved = await approvedOverlapping(
+      db,
+      orgId,
+      [...new Set(rows.map((r) => r.employeeId))],
+      periodStart,
+      periodEnd,
+    );
+    payable = rows.filter((r) => covers(approved, r.employeeId, r.workDate));
+  }
+  return payable.map(
     (r): ApprovedOvertime => ({
       sourceId: r.id,
       employeeId: r.employeeId,
@@ -104,7 +130,23 @@ export async function listRosterDaysWorked(db: Db, orgId: string, periodStart: s
         inArray(leaveRequests.status, ["approved", "cancellation_pending"]),
       ),
     );
-  return rostered.map((t): RosterDaysWorked => {
+  // Limited to approved timesheets: only employees whose employed days are all inside one.
+  const approved = (await payrollLimited(db, orgId))
+    ? await approvedOverlapping(
+        db,
+        orgId,
+        rostered.map((t) => t.employeeId),
+        periodStart,
+        periodEnd,
+      )
+    : null;
+  const covered = (employeeId: string) =>
+    !approved ||
+    (sheets.days.get(employeeId) ?? [])
+      .filter((d) => d.dayType !== "not_employed")
+      .every((d) => covers(approved, employeeId, d.date));
+  return rostered.flatMap((t): RosterDaysWorked[] => {
+    if (!covered(t.employeeId)) return [];
     let halves = 0;
     for (const day of sheets.days.get(t.employeeId) ?? []) {
       if (day.dayType === "not_employed") continue;
@@ -120,13 +162,15 @@ export async function listRosterDaysWorked(db: Db, orgId: string, periodStart: s
         .reduce((s, l) => s + l.hundredths, 0);
       halves += Math.min(2, Math.round(leave / 50));
     }
-    return {
-      sourceId: `days-worked:${t.employeeId}:${periodStart}:${periodEnd}`,
-      employeeId: t.employeeId,
-      daysWorked: halves / 2,
-      periodStart,
-      periodEnd,
-    };
+    return [
+      {
+        sourceId: `days-worked:${t.employeeId}:${periodStart}:${periodEnd}`,
+        employeeId: t.employeeId,
+        daysWorked: halves / 2,
+        periodStart,
+        periodEnd,
+      },
+    ];
   });
 }
 

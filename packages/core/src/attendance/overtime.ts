@@ -16,6 +16,7 @@ import { isUniqueViolation } from "../employees/validation.ts";
 import { AppError } from "../errors.ts";
 import { employmentNear, loadEmployeeTime, scheduleOn } from "../leave/calendar.ts";
 import { submitApproval, withdrawSubject } from "../workflows/engine.ts";
+import { approvedCovering, overtimeLockedError } from "./locks.ts";
 import { timesheets } from "./timesheet.ts";
 
 /**
@@ -174,6 +175,10 @@ export async function createClaim(
     });
   }
   const sheet = await timesheets(deps.db, actor.orgId, [employeeId], input.date, input.date, today);
+  if (sheet.settings.timesheetApproval) {
+    const locked = await approvedCovering(deps.db, actor.orgId, employeeId, input.date);
+    if (locked) throw overtimeLockedError(locked);
+  }
   const day = sheet.days.get(employeeId)?.[0];
   const computed = day?.otMinutes ?? 0;
   if (input.minutes > computed) {
@@ -248,7 +253,8 @@ export async function createClaim(
   }
 }
 
-async function memberOf(db: Db, orgId: string, employeeId: string): Promise<string | null> {
+/** The employee's active or invited membership, if they have a sign-in. */
+export async function memberOf(db: Db, orgId: string, employeeId: string): Promise<string | null> {
   const r = await db.execute(
     sql`select id from memberships where org_id = ${orgId} and employee_id = ${employeeId} and status in ('active', 'invited') limit 1`,
   );

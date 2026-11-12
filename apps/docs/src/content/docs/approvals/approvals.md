@@ -10,10 +10,9 @@ Every request that needs a decision goes through one approval engine:
 - **leave**, **leave cancellation** ([leave](/docs/leave/leave/#approval)) and **leave encashment** ([encashment](/docs/leave/leave/#encash-unused-leave));
 - **claims** ([claims](/docs/claims/claims/#approval));
 - **overtime** claims ([attendance](/docs/attendance/attendance/#claiming-it));
+- **timesheets**, when your organisation turns on [timesheet approval](/docs/attendance/attendance/#timesheet-approval-optional) (off by default; until then managers and HR correct attendance directly, without a request);
 - **shift swaps** and open-shift pickups ([scheduling](/docs/scheduling/scheduling/#swaps-and-open-shifts));
 - employees' **employment letter requests** ([letters](/docs/documents/letters-and-kets/#employment-letter-requests)).
-
-**Settings → Approvals** also lists **Timesheets** as "Not in use yet": timesheet corrections are made directly by managers and HR, without a request.
 
 ## Where approvers decide
 
@@ -43,7 +42,7 @@ Defaults, used until you edit them:
 | --- | --- |
 | Payroll run | Owner |
 | Profile change | Bank details: payroll admin. Other fields: HR admin. |
-| Leave, leave cancellation, overtime | Manager |
+| Leave, leave cancellation, overtime, timesheets | Manager |
 | Leave encashment | HR admin |
 | Shift swap | Manager (escalates after 2 days) |
 | Employment letter request | HR admin |

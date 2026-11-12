@@ -47,7 +47,7 @@ const RULES = [
 ] as const;
 
 /** Types where an amount threshold makes sense in the editor. */
-const AMOUNT_TYPES = new Set(["claim", "overtime", "timesheet"]);
+const AMOUNT_TYPES = new Set(["claim", "overtime"]);
 
 interface DraftStep {
   key: string;
@@ -82,12 +82,15 @@ function toDraft(p: Policy): DraftPolicy {
 }
 
 function defaultDraft(type: string): DraftPolicy {
+  // The server's built-in defaults (workflows/policies.ts and the modules' adapters).
   const steps =
     type === "payroll_run"
       ? ["role:owner"]
       : type === "profile_change"
         ? ["role:hr_admin"]
-        : ["manager", "role:hr_admin"];
+        : type === "overtime" || type === "timesheet"
+          ? ["manager"]
+          : ["manager", "role:hr_admin"];
   return {
     key: k(),
     name: "Default",

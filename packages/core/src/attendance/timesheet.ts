@@ -12,6 +12,7 @@ import type { Db } from "../db/types.ts";
 import { addDays } from "../employees/dates.ts";
 import { type DayInfo, dayInfo, type EmployeeTime, loadEmployeesTime, scheduleOn } from "../leave/calendar.ts";
 import { attachRosters } from "../scheduling/feeds.ts";
+import { approvedOverlapping } from "./locks.ts";
 import { type PunchView, toPunchView } from "./punch.ts";
 import { type AttendanceSettings, loadAttendanceSettings } from "./settings.ts";
 
@@ -54,6 +55,8 @@ export interface DayRecord {
     claimedMinutes: number;
     approvedMinutes: number | null;
   } | null;
+  /** Inside an approved timesheet while timesheet approval is on (add-timesheet-approval). */
+  locked: boolean;
 }
 
 /** `HH:MM` (SGT) of an instant. */
@@ -188,6 +191,7 @@ export function computeDay(input: ComputeDayInput): DayRecord {
     otMinutes,
     punches: [...input.punches].sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()).map(toPunchView),
     otClaim: null,
+    locked: false,
   };
 }
 
@@ -284,8 +288,11 @@ export async function timesheets(
   // The latest claim of a day wins (claims are ordered by creation).
   const claimBy = new Map<string, (typeof claims)[number]>();
   for (const c of claims) claimBy.set(key(c.employeeId, c.workDate), c);
+  // Approved timesheets lock their days only while the organisation has approval on.
+  const locks = settings.timesheetApproval ? await approvedOverlapping(db, orgId, ids, from, to) : [];
   for (const [employeeId, t] of times) {
     const out: DayRecord[] = [];
+    const mine = locks.filter((l) => l.employeeId === employeeId);
     for (let d = from; d <= to; d = addDays(d, 1)) {
       const record = computeDay({
         date: d,
@@ -305,6 +312,7 @@ export async function timesheets(
           approvedMinutes: claim.approvedMinutes,
         };
       }
+      record.locked = mine.some((l) => l.periodStart <= d && d <= l.periodEnd);
       out.push(record);
     }
     days.set(employeeId, out);

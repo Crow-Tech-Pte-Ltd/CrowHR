@@ -100,6 +100,8 @@ export const MATRIX = {
   "attendance:create": { cells: TIME_CREATE, note: "owner and hr_admin create on behalf of employees." },
   // Timesheet corrections: add or void punches with a reason (add-attendance)
   "attendance:update": { cells: { owner: A, hr_admin: A, manager: T }, note: "Nobody corrects their own timesheet." },
+  // Reopen an approved timesheet, alone or by correcting a locked day (add-timesheet-approval)
+  "attendance:reopen": { cells: STAFF_ADMIN, note: "Nobody reopens their own timesheet." },
   // Approval tasks
   "approval_tasks:decide": {
     cells: {

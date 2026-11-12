@@ -34,8 +34,6 @@ the change that fixes it.
 
 ## Approvals and notifications
 
-- **Timesheet approval is not in use**: no module submits timesheets (managers and HR correct
-  attendance directly). Settings → Approvals lists the type as "Not in use yet".
 - **No eligible approver**: filer and beneficiary exclusions never fall back to self-approval. If every
   eligible member is excluded, the request stays pending; appoint an uninvolved approver, then
   withdraw and resubmit. Granting a role doesn't re-resolve a chain with no open tasks.
@@ -183,6 +181,14 @@ the change that fixes it.
 - **Punches older than 7 days** are refused; a manager or HR adds them as corrections.
 - **Corrections don't re-date earlier punches** (not fixed): a corrected 22:00 clock-in doesn't pick
   up a lone 02:00 clock-out already dated the next day. Void the clock-out and add it again.
+- **Timesheet approval** (optional, off by default) is per organisation, not per team. Hourly-rated
+  staff's hours aren't fed to payroll from approved timesheets (no hours feed; entered per run).
+  Leave approved after a timesheet is approved isn't locked out: the approved totals keep what was
+  approved, payroll's days-worked figure uses the day as it is. Home reminds only of the latest
+  ended period, with no due date.
+- **Overlapping timesheet periods** (not fixed): after the period setting changes, two submissions of
+  differently shaped overlapping periods at the same instant could both be accepted; the overlap
+  check runs in each transaction, and only same-start duplicates are stopped by the database.
 
 ## Scheduling
 
