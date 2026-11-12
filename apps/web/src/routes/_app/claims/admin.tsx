@@ -33,9 +33,9 @@ import {
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { BadgeCheck, Download, ReceiptText, Search } from "lucide-react";
+import { BadgeCheck, Download, Plus, ReceiptText, Search } from "lucide-react";
 import * as React from "react";
-import { can, useMe } from "../../../auth/session.ts";
+import { can, canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import {
@@ -50,6 +50,8 @@ import {
   fieldErrors,
   summaryQuery,
 } from "./-lib/api.ts";
+import { compareClaimNumbers } from "./-lib/claim-number.ts";
+import { ClaimSheet } from "./-lib/claim-sheet.tsx";
 import { ClaimStatusPill } from "./-lib/ui.tsx";
 
 interface AdminSearch {
@@ -138,6 +140,9 @@ function ClaimsAdminPage() {
   const isAll = scopes.includes("all");
   const canPay = can(me, "claims:pay");
   const canReport = can(me, "reports_claims:read");
+  // Owners and HR admins file claims for employees from here too.
+  const onBehalf = canForAll(me, "claims:create");
+  const [sheet, setSheet] = React.useState(false);
   const range = monthRange();
   const from = search.from ?? range.from;
   const to = search.to ?? range.to;
@@ -205,7 +210,10 @@ function ClaimsAdminPage() {
     {
       id: "claim",
       header: "Claim",
-      accessorFn: (r) => r.claimNumber ?? "",
+      accessorFn: (r) => r.claimNumber ?? undefined,
+      // Numeric (C-9999 before C-10000); drafts have no number and stay last either way.
+      sortUndefined: "last",
+      sortingFn: (a, b) => compareClaimNumbers(a.original.claimNumber, b.original.claimNumber),
       cell: ({ row }) => (
         <Link
           to="/claims/$claimId"
@@ -334,51 +342,58 @@ function ClaimsAdminPage() {
           )
         }
         actions={
-          canReport ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="secondary">
-                  <Download aria-hidden /> Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="num">
-                  Expenses {formatDate(from)} – {formatDate(to)}
-                </DropdownMenuLabel>
-                {(
-                  [
-                    ["lines", "Line register"],
-                    ["summary", "Totals by type"],
-                    ["payouts", "Payout register"],
-                  ] as const
-                ).map(([report, label]) => (
-                  <React.Fragment key={report}>
-                    <DropdownMenuItem asChild>
-                      <a href={exportHref({ report, by: "type", from, to, format: "csv" })} download>
-                        {label} (CSV)
-                      </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href={exportHref({ report, by: "type", from, to, format: "xlsx" })} download>
-                        {label} (Excel)
-                      </a>
-                    </DropdownMenuItem>
-                  </React.Fragment>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <a href={exportHref({ report: "summary", by: "department", from, to, format: "xlsx" })} download>
-                    Totals by department (Excel)
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a href={exportHref({ report: "summary", by: "employee", from, to, format: "xlsx" })} download>
-                    Totals by employee (Excel)
-                  </a>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null
+          <>
+            {onBehalf ? (
+              <Button size="sm" variant="primary" onClick={() => setSheet(true)} data-testid="new-claim">
+                <Plus aria-hidden /> New claim
+              </Button>
+            ) : null}
+            {canReport ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="secondary">
+                    <Download aria-hidden /> Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel className="num">
+                    Expenses {formatDate(from)} – {formatDate(to)}
+                  </DropdownMenuLabel>
+                  {(
+                    [
+                      ["lines", "Line register"],
+                      ["summary", "Totals by type"],
+                      ["payouts", "Payout register"],
+                    ] as const
+                  ).map(([report, label]) => (
+                    <React.Fragment key={report}>
+                      <DropdownMenuItem asChild>
+                        <a href={exportHref({ report, by: "type", from, to, format: "csv" })} download>
+                          {label} (CSV)
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <a href={exportHref({ report, by: "type", from, to, format: "xlsx" })} download>
+                          {label} (Excel)
+                        </a>
+                      </DropdownMenuItem>
+                    </React.Fragment>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <a href={exportHref({ report: "summary", by: "department", from, to, format: "xlsx" })} download>
+                      Totals by department (Excel)
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a href={exportHref({ report: "summary", by: "employee", from, to, format: "xlsx" })} download>
+                      Totals by employee (Excel)
+                    </a>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </>
         }
       />
 
@@ -500,6 +515,13 @@ function ClaimsAdminPage() {
           void qc.invalidateQueries({ queryKey: claimKeys.all });
         }}
       />
+      {onBehalf ? (
+        <ClaimSheet
+          open={sheet}
+          onOpenChange={setSheet}
+          onDone={(claim) => void navigate({ to: "/claims/$claimId", params: { claimId: claim.id } })}
+        />
+      ) : null}
     </>
   );
 }

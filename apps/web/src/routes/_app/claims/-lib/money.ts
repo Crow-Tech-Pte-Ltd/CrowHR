@@ -71,3 +71,9 @@ export function previewSgd(currency: string, amountMinor: number | null, rate: s
   const micros = rate ? parseRateMicros(rate) : null;
   return micros === null ? null : toSgdCents(amountMinor, exponentOf(currency), micros);
 }
+
+/** 3334 → "33.34%" (basis points, sign dropped). Mirrors core `formatBasisPoints`. */
+export function formatBasisPoints(bp: number): string {
+  const a = Math.abs(bp);
+  return `${Math.trunc(a / 100)}.${String(a % 100).padStart(2, "0")}%`;
+}

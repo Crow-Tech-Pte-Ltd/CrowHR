@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMinorAmount, parseMinor, parseRateMicros, previewSgd, toSgdCents } from "./money.ts";
+import { formatBasisPoints, formatMinorAmount, parseMinor, parseRateMicros, previewSgd, toSgdCents } from "./money.ts";
 
 describe("claim form money helpers (mirror core claims/money.ts)", () => {
   it("converts with integer half-up rounding", () => {
@@ -28,5 +28,13 @@ describe("claim form money helpers (mirror core claims/money.ts)", () => {
     expect(previewSgd("USD", 1000, "")).toBeNull();
     expect(formatMinorAmount(5000, 0)).toBe("5,000");
     expect(formatMinorAmount(12_550, 2)).toBe("125.50");
+  });
+});
+
+describe("exchange-rate warning percentage", () => {
+  it("shows basis points as a percentage with two decimals, without the sign", () => {
+    expect(formatBasisPoints(3334)).toBe("33.34%");
+    expect(formatBasisPoints(-2001)).toBe("20.01%");
+    expect(formatBasisPoints(5)).toBe("0.05%");
   });
 });
