@@ -135,6 +135,17 @@ object Notifications {
             context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
         }
 
+    /** The intent a tap on the notification starts (the device tests send the same one). */
+    fun openIntent(context: Context, target: RefreshLogic.Target): Intent {
+        val intent = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .putExtra(EXTRA_OPEN, target.opens)
+        target.link?.let { intent.putExtra(EXTRA_LINK, it) }
+        target.notificationId?.let { intent.putExtra(EXTRA_NOTIFICATION, it) }
+        target.connectionKey?.let { intent.putExtra(EXTRA_CONNECTION, it) }
+        return intent
+    }
+
     /**
      * Title "Crow HR", text a count only: no names, no amounts, no dates. Tapping it opens
      * [target] (the one new item, or an inbox); what to open travels only in the PendingIntent.
@@ -142,12 +153,7 @@ object Notifications {
     fun post(context: Context, text: String, target: RefreshLogic.Target) {
         if (!canPost(context)) return
         ensureChannel(context)
-        val intent = Intent(context, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            .putExtra(EXTRA_OPEN, target.opens)
-        target.link?.let { intent.putExtra(EXTRA_LINK, it) }
-        target.notificationId?.let { intent.putExtra(EXTRA_NOTIFICATION, it) }
-        target.connectionKey?.let { intent.putExtra(EXTRA_CONNECTION, it) }
+        val intent = openIntent(context, target)
         val pending = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val notification = Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_crowhr)

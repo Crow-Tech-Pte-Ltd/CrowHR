@@ -37,24 +37,24 @@ class LeaveFormTest {
         assertEquals("full" to "full", leaveSessions(mon, mon, halfDays, "evening"))
     }
 
-    private val childcare = LeaveType("t3", "childcare", "Childcare leave", halfDays = true, needsChild = true)
+    private val infantCare = LeaveType("t3", "infant_care", "Unpaid infant care leave", halfDays = true, needsChild = true)
     private val kids = listOf(LeaveChild("k1", "Tan Yu Xuan", birthDate = "2026-11-03"), LeaveChild("k2", "Tan Yu Ming", expectedDeliveryDate = "2027-02-01"))
 
     @Test fun aChildIsSentOnlyForATypeThatNeedsOne() {
-        assertEquals("k1", leaveChildId(childcare, "k1", kids))
-        // Chosen for childcare, then the type changed to annual leave: no child is sent.
+        assertEquals("k1", leaveChildId(infantCare, "k1", kids))
+        // Chosen for infant care, then the type changed to annual leave: no child is sent.
         assertNull(leaveChildId(halfDays, "k1", kids))
         // Not one of the employee's children (another employee's, or since removed).
-        assertNull(leaveChildId(childcare, "k9", kids))
-        assertNull(leaveChildId(childcare, null, kids))
+        assertNull(leaveChildId(infantCare, "k9", kids))
+        assertNull(leaveChildId(infantCare, null, kids))
         // Children not loaded yet: wait.
-        assertNull(leaveChildId(childcare, "k1", null))
+        assertNull(leaveChildId(infantCare, "k1", null))
     }
 
     @Test fun theFormSaysWhatIsMissingBeforeSending() {
         assertEquals("Choose a leave type.", leaveFormProblem(null, null, false, null))
-        assertEquals("Choose the child this leave is for.", leaveFormProblem(childcare, null, false, true))
-        assertNull(leaveFormProblem(childcare, "k1", false, true))
+        assertEquals("Choose the child this leave is for.", leaveFormProblem(infantCare, null, false, true))
+        assertNull(leaveFormProblem(infantCare, "k1", false, true))
         val mc = LeaveType("t4", "sick_outpatient", "Sick leave", attachment = "required", attachmentLabel = "your medical certificate")
         assertEquals("Attach your medical certificate (take a photo or choose a file).", leaveFormProblem(mc, null, false, true))
         assertEquals("Fix the problems above before sending.", leaveFormProblem(halfDays, null, false, false))
@@ -75,7 +75,7 @@ class LeaveFormTest {
         assertFalse(plain, plain.contains("childId"))
         val request = CrowJson.decodeFromString(
             LeaveRequest.serializer(),
-            """{"id":"r1","employee":{"id":"e1","name":"Tan Wei Ming"},"type":{"id":"t3","name":"Childcare leave","code":"childcare"},
+            """{"id":"r1","employee":{"id":"e1","name":"Tan Wei Ming"},"type":{"id":"t3","name":"Unpaid infant care leave","code":"infant_care"},
                "startDate":"2026-11-16","endDate":"2026-11-16","status":"pending","child":{"id":"k1","name":"Tan Yu Xuan"}}""",
         )
         assertEquals("Tan Yu Xuan", request.child!!.name)

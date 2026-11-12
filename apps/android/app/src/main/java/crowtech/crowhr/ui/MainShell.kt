@@ -25,7 +25,6 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import crowtech.crowhr.api.ApprovalTask
 import crowtech.crowhr.api.Items
 import crowtech.crowhr.api.UnreadCount
@@ -248,7 +247,7 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
                         selected = tab == t.name,
                         onClick = { select(t.name) },
                         icon = { TabIcon(t, badge(t)) },
-                        label = { Text(t.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                        label = { Text(t.label, Modifier.tabLabelSemantics(t, badge(t)), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
                         modifier = Modifier.testTag("tab-${t.name.lowercase()}"),
                         colors = NavigationRailItemDefaults.colors(
                             selectedIconColor = Crow.colors.onAccent,
@@ -343,7 +342,10 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
                     icon = { TabIcon(t, badge(t)) },
                     label = {
                         val style = MaterialTheme.typography.labelSmall
-                        Text(t.label, style = style.copy(fontSize = cappedTextSize(style.fontSize)), maxLines = 1, overflow = TextOverflow.Visible, softWrap = false)
+                        Text(
+                            t.label, Modifier.tabLabelSemantics(t, badge(t)), style = style.copy(fontSize = cappedTextSize(style.fontSize)),
+                            maxLines = 1, overflow = TextOverflow.Visible, softWrap = false,
+                        )
                     },
                     modifier = Modifier.testTag("tab-${t.name.lowercase()}"),
                     colors = NavigationBarItemDefaults.colors(
@@ -359,7 +361,10 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
     }
 }
 
-/** A tab's icon, with a count when something waits there (TalkBack reads it after the label). */
+/**
+ * A tab's icon, with a count when something waits there. Material clears the icon's semantics
+ * when the tab has a label, so TalkBack hears the count from [tabLabelSemantics] instead.
+ */
 @Composable
 private fun TabIcon(t: Tab, count: Int?) {
     if (count == null) {
@@ -368,19 +373,16 @@ private fun TabIcon(t: Tab, count: Int?) {
     }
     BadgedBox(
         badge = {
-            Badge(
-                containerColor = Crow.colors.ink,
-                contentColor = MaterialTheme.colorScheme.background,
-                modifier = Modifier.semantics { contentDescription = Destinations.badgeSpoken(t, count) }.testTag("badge-${t.name.lowercase()}"),
-            ) {
-                Text(
-                    Destinations.badgeText(count),
-                    style = Numeric.copy(fontSize = cappedTextSize(MaterialTheme.typography.labelSmall.fontSize, 1.3f)),
-                    modifier = Modifier.clearAndSetSemantics { },
-                )
+            Badge(containerColor = Crow.colors.ink, contentColor = MaterialTheme.colorScheme.background) {
+                Text(Destinations.badgeText(count), style = Numeric.copy(fontSize = cappedTextSize(MaterialTheme.typography.labelSmall.fontSize, 1.3f)))
             }
         },
     ) {
         Icon(t.icon, contentDescription = null, modifier = Modifier.size(22.dp))
     }
 }
+
+/** "Tasks, 3 to approve" for TalkBack when the tab shows a count (tagged "badge-tasks" for tests). */
+private fun Modifier.tabLabelSemantics(t: Tab, count: Int?): Modifier =
+    if (count == null) this
+    else semantics { contentDescription = "${t.label}, ${Destinations.badgeSpoken(t, count)}" }.testTag("badge-${t.name.lowercase()}")
