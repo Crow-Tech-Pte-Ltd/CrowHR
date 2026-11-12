@@ -31,6 +31,7 @@ import { Route as AppLeaveTeamRouteImport } from './routes/_app/leave/team'
 import { Route as AppMeProfileRouteImport } from './routes/_app/me/profile'
 import { Route as AppMeSessionsRouteImport } from './routes/_app/me/sessions'
 import { Route as AppPayrollIndexRouteImport } from './routes/_app/payroll/index'
+import { Route as AppPayrollAllowancesRouteImport } from './routes/_app/payroll/allowances'
 import { Route as AppPeopleIndexRouteImport } from './routes/_app/people/index'
 import { Route as AppPeopleEmployeeIdRouteImport } from './routes/_app/people/$employeeId'
 import { Route as AppPeopleImportRouteImport } from './routes/_app/people/import'
@@ -165,6 +166,11 @@ const AppMeSessionsRoute = AppMeSessionsRouteImport.update({
 const AppPayrollIndexRoute = AppPayrollIndexRouteImport.update({
   id: '/payroll/',
   path: '/payroll/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPayrollAllowancesRoute = AppPayrollAllowancesRouteImport.update({
+  id: '/payroll/allowances',
+  path: '/payroll/allowances',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPeopleIndexRoute = AppPeopleIndexRouteImport.update({
@@ -319,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/leave/team': typeof AppLeaveTeamRoute
   '/me/profile': typeof AppMeProfileRoute
   '/me/sessions': typeof AppMeSessionsRoute
+  '/payroll/allowances': typeof AppPayrollAllowancesRoute
   '/people/$employeeId': typeof AppPeopleEmployeeIdRoute
   '/people/import': typeof AppPeopleImportRoute
   '/people/new': typeof AppPeopleNewRoute
@@ -368,6 +375,7 @@ export interface FileRoutesByTo {
   '/leave/team': typeof AppLeaveTeamRoute
   '/me/profile': typeof AppMeProfileRoute
   '/me/sessions': typeof AppMeSessionsRoute
+  '/payroll/allowances': typeof AppPayrollAllowancesRoute
   '/people/$employeeId': typeof AppPeopleEmployeeIdRoute
   '/people/import': typeof AppPeopleImportRoute
   '/people/new': typeof AppPeopleNewRoute
@@ -419,6 +427,7 @@ export interface FileRoutesById {
   '/_app/leave/team': typeof AppLeaveTeamRoute
   '/_app/me/profile': typeof AppMeProfileRoute
   '/_app/me/sessions': typeof AppMeSessionsRoute
+  '/_app/payroll/allowances': typeof AppPayrollAllowancesRoute
   '/_app/people/$employeeId': typeof AppPeopleEmployeeIdRoute
   '/_app/people/import': typeof AppPeopleImportRoute
   '/_app/people/new': typeof AppPeopleNewRoute
@@ -470,6 +479,7 @@ export interface FileRouteTypes {
     | '/leave/team'
     | '/me/profile'
     | '/me/sessions'
+    | '/payroll/allowances'
     | '/people/$employeeId'
     | '/people/import'
     | '/people/new'
@@ -519,6 +529,7 @@ export interface FileRouteTypes {
     | '/leave/team'
     | '/me/profile'
     | '/me/sessions'
+    | '/payroll/allowances'
     | '/people/$employeeId'
     | '/people/import'
     | '/people/new'
@@ -569,6 +580,7 @@ export interface FileRouteTypes {
     | '/_app/leave/team'
     | '/_app/me/profile'
     | '/_app/me/sessions'
+    | '/_app/payroll/allowances'
     | '/_app/people/$employeeId'
     | '/_app/people/import'
     | '/_app/people/new'
@@ -765,6 +777,13 @@ declare module '@tanstack/react-router' {
       path: '/payroll'
       fullPath: '/payroll/'
       preLoaderRoute: typeof AppPayrollIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/payroll/allowances': {
+      id: '/_app/payroll/allowances'
+      path: '/payroll/allowances'
+      fullPath: '/payroll/allowances'
+      preLoaderRoute: typeof AppPayrollAllowancesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/people/': {
@@ -976,6 +995,7 @@ interface AppRouteChildren {
   AppLeaveTeamRoute: typeof AppLeaveTeamRoute
   AppMeProfileRoute: typeof AppMeProfileRoute
   AppMeSessionsRoute: typeof AppMeSessionsRoute
+  AppPayrollAllowancesRoute: typeof AppPayrollAllowancesRoute
   AppPeopleEmployeeIdRoute: typeof AppPeopleEmployeeIdRoute
   AppPeopleImportRoute: typeof AppPeopleImportRoute
   AppPeopleNewRoute: typeof AppPeopleNewRoute
@@ -1019,6 +1039,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppLeaveTeamRoute: AppLeaveTeamRoute,
   AppMeProfileRoute: AppMeProfileRoute,
   AppMeSessionsRoute: AppMeSessionsRoute,
+  AppPayrollAllowancesRoute: AppPayrollAllowancesRoute,
   AppPeopleEmployeeIdRoute: AppPeopleEmployeeIdRoute,
   AppPeopleImportRoute: AppPeopleImportRoute,
   AppPeopleNewRoute: AppPeopleNewRoute,

@@ -104,7 +104,7 @@ When a holiday doesn't fall on a working day, Crow HR follows MOM's rules for le
 - A holiday on an **off day** (for example a Saturday in a Monday-to-Friday week) depends on the rule above. With **Give the next working day off**, the next working day is a holiday in lieu and is not counted as leave. With **Pay an extra day (payroll); no day off**, no day off is created, and the extra day's salary is owed instead.
 
 :::note[How the extra day is paid]
-With **Pay an extra day (payroll)**, payroll adds one day's gross pay for the holiday to employees covered by the Employment Act who are paid monthly on a fixed week, once their allowances are classified for the gross rate ([allowance treatment](/docs/payroll/settings/#allowance-treatment)). For hourly-paid or rostered staff the run blocks until the amount is added through the API ([run items without a screen](/docs/payroll/settings/#run-items-without-a-screen)).
+With **Pay an extra day (payroll)**, payroll adds one day's gross pay for the holiday to employees covered by the Employment Act who are paid monthly on a fixed week, once their allowances are classified for the gross rate ([allowance treatment](/docs/payroll/settings/#allowance-treatment)). For hourly-paid or rostered staff the run blocks until you enter the day's gross pay on the run ([holiday pay and contractual overtime](/docs/payroll/settings/#holiday-pay-and-contractual-overtime-on-a-run)).
 :::
 
 ## Part-timers: leave in hours

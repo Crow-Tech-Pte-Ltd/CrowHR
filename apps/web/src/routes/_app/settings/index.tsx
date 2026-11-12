@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ChevronRight,
   Clock,
+  Coins,
   FileText,
   GitBranch,
   KeyRound,
@@ -39,7 +40,8 @@ function SettingsPage() {
       | "/settings/attendance"
       | "/settings/shift-templates"
       | "/settings/documents"
-      | "/payroll";
+      | "/payroll"
+      | "/payroll/allowances";
     title: string;
     body: string;
     icon: LucideIcon;
@@ -119,8 +121,15 @@ function SettingsPage() {
       // Payroll's settings live with the runs (Payroll → Settings); this opens that dialog.
       to: "/payroll",
       title: "Payroll",
-      body: "Pay day, payslip release, CPF advice code, FWL levy details and the bank account for salary files.",
+      body: "Pay day, cutoff, payslip release, CPF advice code, FWL levy details and the bank account for salary files.",
       icon: Wallet,
+      show: can(me, "payroll:read"),
+    },
+    {
+      to: "/payroll/allowances",
+      title: "Allowance treatment",
+      body: "How each allowance counts for CPF, in incomplete months, and in the gross rate of pay for holiday pay and leave encashment.",
+      icon: Coins,
       show: can(me, "payroll:read"),
     },
     {
