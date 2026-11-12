@@ -348,7 +348,10 @@ struct NewClaimView: View {
                     .padding(16)
                 }
             }
-            .crowScreen()
+            // The background only: `RowsScreen` sets the readable column itself. A second column
+            // around it here never settled on an iPad when the text size changed with the claim
+            // type's list open: its measured width kept growing, so Xcode's audit timed out.
+            .background(Crow.background.ignoresSafeArea())
             .navigationTitle("New claim")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -498,15 +501,14 @@ private struct ClaimLineEditor: View {
                     .accessibilityIdentifier(id("claim.description"))
                     .crowFieldBox(focused: focus.wrappedValue == .detail(line.id))
             }
-            // The currency beside the amount, as on the web; stacked at accessibility sizes.
-            if typeSize.isAccessibilitySize {
-                currencyField
+            // The currency beside the amount, as on the web; stacked at accessibility sizes. One
+            // `AnyLayout` for both, so a text-size change (Xcode's audit makes one) keeps the
+            // fields' identity and the currency list's navigation destination.
+            let large = typeSize.isAccessibilitySize
+            let pair = large ? AnyLayout(VStackLayout(alignment: .leading, spacing: 18)) : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+            pair {
+                currencyField.frame(width: large ? nil : currencyWidth)
                 amountField
-            } else {
-                HStack(alignment: .top, spacing: 12) {
-                    currencyField.frame(width: currencyWidth)
-                    amountField
-                }
             }
             if line.isForeign { rateField }
             receiptField(needsReceipt: needsReceipt, hint: type?.receiptHint)

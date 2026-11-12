@@ -430,7 +430,8 @@ struct ApplyLeaveView: View {
                     .padding(16)
                 }
             }
-            .crowScreen()
+            // The background only: `RowsScreen` sets the readable column (see New claim).
+            .background(Crow.background.ignoresSafeArea())
             // Short like "New claim": at the largest text sizes the inline title has room for
             // about 12 characters of Azeret Mono, and "Apply for leave" was cut off.
             .navigationTitle("New leave")

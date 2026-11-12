@@ -71,7 +71,10 @@ final class QAScreenshotsUITests: CrowUITestCase {
         // On an iPad the latest payslip opens beside the list: let it load before the audit.
         waitUntilLoaded()
         try check("Payslips", "\(prefix)-payslips")
-        payslip.tap()
+        // On an iPad at XXXL the audit's Dynamic Type check can make room for the payslip beside
+        // the list for a moment, which opens the latest one (`openLatestIfSideBySide`); back at
+        // XXXL the view collapses onto that payslip. Then it is open already.
+        if !app.staticTexts["payslip.net"].exists { (payslip.exists ? payslip : wait(app.buttons["payslip.row"].firstMatch)).tap() }
         wait(app.staticTexts["payslip.net"])
         try check("Payslip", "\(prefix)-payslip")
 

@@ -49,7 +49,14 @@ final class Session {
     var unread: Int?
 
     func refreshUnread() async {
-        if let c: UnreadCount = try? await api.get("/api/v1/notifications/unread-count") { unread = c.unread }
+        if let c: UnreadCount = try? await api.get("/api/v1/notifications/unread-count") { setUnread(c.unread) }
+    }
+
+    /// Only a changed count is written: every write redraws the tab bar (an `@Observable` property
+    /// notifies even when the value is the same), and on an iPad that could make the inbox load,
+    /// and so write the count, again without end.
+    func setUnread(_ count: Int) {
+        if unread != count { unread = count }
     }
 
     /// Sends this person's queued punches (FIFO). Punches from someone else stay untouched.
@@ -440,7 +447,8 @@ final class AppModel {
 
     /// Sets the count after a list that carries it (the notifications inbox) loaded.
     func setUnread(_ count: Int) {
-        session?.unread = count
+        guard let s = session, s.unread != count else { return }
+        s.setUnread(count)
         updateIconBadge()
     }
 

@@ -337,7 +337,8 @@ struct SwapOfferSheet: View {
                     .padding(16)
                 }
             }
-            .crowScreen()
+            // The background only: `RowsScreen` sets the readable column (see New claim).
+            .background(Crow.background.ignoresSafeArea())
             // Short: "Swap" is what the button that opens it says.
             .navigationTitle("Swap")
             .navigationBarTitleDisplayMode(.inline)
