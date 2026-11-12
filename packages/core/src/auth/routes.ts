@@ -4,6 +4,7 @@ import { AppError } from "../errors.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 import { accountRoutes } from "./account-routes.ts";
 import { demoRoutes } from "./demo.ts";
+import { emailChangeAuthRoutes } from "./email-change.ts";
 import { publicSignInMethods } from "./methods.ts";
 import { oidcRoutes } from "./oidc/routes.ts";
 import { signInRoutes } from "./sign-in-routes.ts";
@@ -93,6 +94,7 @@ export const authModule = defineModule({
     }),
     ...signInRoutes,
     ...accountRoutes,
+    ...emailChangeAuthRoutes,
     ...oidcRoutes,
     ...demoRoutes,
   ],

@@ -115,6 +115,30 @@ export const passwordResets = pgTable("password_resets", {
 });
 
 /**
+ * A member's request to change their own sign-in email (users.email, shared by all their
+ * organisations). The one-time link sent to the new address carries the token; only its hash is
+ * stored. `usedAt` is set when it is confirmed, replaced by a newer request, or cancelled.
+ */
+export const emailChanges = pgTable(
+  "email_changes",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    /** The organisation the change was requested in (audit and the sign-in link). */
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organisations.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    newEmail: text("new_email").notNull(),
+    expiresAt: tz("expires_at").notNull(),
+    usedAt: tz("used_at"),
+    createdAt: tz("created_at").notNull(),
+  },
+  (t) => [index("email_changes_user_idx").on(t.userId)],
+);
+
+/**
  * Sign-in throttling (security infrastructure, deliberately not org-scoped). Keys:
  * `acct:<userId>` (all networks), `acct:<userId>:<ip>` (one network), `mfa:<userId>`,
  * `ip:<ip>`, `ipmfa:<ip>`, `reveal:<membershipId>`. Swept after a day. See auth/throttle.ts.
