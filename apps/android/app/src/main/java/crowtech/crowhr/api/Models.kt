@@ -258,6 +258,12 @@ import kotlinx.serialization.Serializable
 ) {
     val supportsCursor: Boolean get() = cursor != NO_CURSOR_FIELD
 
+    /** The page once [id] has been marked read on the server, without fetching it again. */
+    fun markingRead(id: String, at: String): NotificationPage {
+        if (items.none { it.id == id && it.readAt == null }) return this
+        return copy(items = items.map { if (it.id == id) it.copy(readAt = at) else it }, unread = maxOf(0, unread - 1))
+    }
+
     companion object {
         const val NO_CURSOR_FIELD = "\u0000no-cursor-field"
     }
