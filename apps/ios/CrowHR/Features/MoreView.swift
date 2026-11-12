@@ -56,6 +56,7 @@ private struct MoreRow: View {
 
 /// Read-only profile. Identity numbers arrive already masked from the server.
 struct ProfileView: View {
+    @Environment(AppModel.self) private var model
     @Environment(Session.self) private var session
     @State private var state: LoadState<MyProfile> = .loading
 
@@ -90,6 +91,10 @@ struct ProfileView: View {
         .crowScreen()
         .navigationTitle("My profile")
         .navigationBarTitleDisplayMode(.inline)
+        // A decision on a change to my details ("/me/profile") opens here.
+        .onChange(of: model.pendingTarget, initial: true) { _, target in
+            if target == .profile { model.pendingTarget = nil }
+        }
     }
 
     private func load() async throws -> MyProfile { try await session.api.get("/api/v1/people/me/profile") }

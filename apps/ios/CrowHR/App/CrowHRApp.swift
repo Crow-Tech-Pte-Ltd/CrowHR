@@ -11,7 +11,7 @@ struct CrowHRApp: App {
         CrowAppearance.apply()
         let model = AppModel(env: .live())
         _model = State(initialValue: model)
-        AppDelegate.onRoute = { route in model.open(route: route) }
+        AppDelegate.onOpen = { target, notificationID in model.open(target, notificationID: notificationID) }
     }
 
     var body: some Scene {
@@ -43,9 +43,10 @@ struct CrowHRApp: App {
     }
 }
 
-/// Routes taps on the content-free local notification to the right inbox.
+/// Routes taps on the content-free local notification: to the item it announces (one new item),
+/// or to the right inbox (several).
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
-    @MainActor static var onRoute: (@MainActor (LocalNotice.Route) -> Void)?
+    @MainActor static var onOpen: (@MainActor (AppTarget, String?) -> Void)?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
@@ -53,9 +54,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        let raw = response.notification.request.content.userInfo["route"] as? String
-        let route = raw.flatMap(LocalNotice.Route.init(rawValue:)) ?? .notifications
-        await MainActor.run { AppDelegate.onRoute?(route) }
+        let tapped = LocalNotice.tapped(userInfo: response.notification.request.content.userInfo)
+        await MainActor.run { AppDelegate.onOpen?(tapped.target, tapped.notificationID) }
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {

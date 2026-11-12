@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 /// sidebar, it collapses to the list that pushes a payslip, as before. Rows are plain buttons, not
 /// a `List` (task 3.7): choosing one selects it and, collapsed, shows the payslip column.
 struct PayslipsView: View {
+    @Environment(AppModel.self) private var model
     @Environment(Session.self) private var session
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -69,8 +70,19 @@ struct PayslipsView: View {
         .environment(\.horizontalSizeClass, sideBySide ? sizeClass : .compact)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         // Side by side, open the latest payslip rather than an empty pane.
-        .onChange(of: state.value?.first?.id, initial: true) { _, _ in openLatestIfSideBySide() }
+        .onChange(of: state.value?.first?.id, initial: true) { _, _ in
+            openTarget()
+            openLatestIfSideBySide()
+        }
         .onChange(of: sideBySide) { _, _ in openLatestIfSideBySide() }
+        .onChange(of: model.pendingTarget, initial: true) { _, _ in openTarget() }
+    }
+
+    /// A notification about a payslip ("Your payslip is ready") opens that payslip.
+    private func openTarget() {
+        guard let target = model.pendingTarget, target.tab == .pay, let items = state.value else { return }
+        model.pendingTarget = nil
+        if case .payslip(let id) = target, let p = items.first(where: { $0.id == id }) { open(p) }
     }
 
     private func open(_ p: PayslipSummary) {

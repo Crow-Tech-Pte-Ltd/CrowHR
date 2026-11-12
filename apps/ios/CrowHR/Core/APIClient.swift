@@ -113,13 +113,32 @@ enum APIError: Error, Equatable, Sendable {
 }
 
 private struct ErrorEnvelope: Decodable {
-    struct Body: Decodable { let code: String; let message: String }
+    struct Issue: Decodable { let message: String }
+    struct Details: Decodable { let issues: [Issue]? }
+    struct Body: Decodable {
+        let code: String
+        let message: String
+        let details: Details?
+
+        enum CodingKeys: String, CodingKey { case code, message, details }
+        init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            code = try c.decode(String.self, forKey: .code)
+            message = try c.decode(String.self, forKey: .message)
+            // `details` differs by error (who decided, a cap, a list): only issues are read.
+            details = try? c.decodeIfPresent(Details.self, forKey: .details)
+        }
+    }
     let error: Body
 }
 
+/// The server's error envelope. With several field problems the message only counts them ("Fix 2
+/// problems before submitting."), so each problem's own message follows on its own line.
 func decodeServerError(status: Int, data: Data) -> APIError {
     if let env = try? JSONDecoder().decode(ErrorEnvelope.self, from: data) {
-        return .server(status: status, code: env.error.code, message: env.error.message)
+        let issues = (env.error.details?.issues ?? []).map(\.message).filter { $0 != env.error.message }
+        let message = issues.count > 1 ? ([env.error.message] + issues).joined(separator: "\n") : env.error.message
+        return .server(status: status, code: env.error.code, message: message)
     }
     return .server(status: status, code: "http_\(status)", message: "The server returned an error (\(status)). Try again later.")
 }
@@ -235,6 +254,12 @@ final class APIClient: Sendable {
 
     func post<T: Decodable>(_ path: String, json: some Encodable) async throws -> T {
         let (data, _) = try await raw("POST", path, body: try Self.encoder.encode(json), contentType: "application/json")
+        return try decode(data)
+    }
+
+    /// A POST with no body (an action on a record: submit, withdraw, accept), decoding the reply.
+    func post<T: Decodable>(_ path: String) async throws -> T {
+        let (data, _) = try await raw("POST", path)
         return try decode(data)
     }
 

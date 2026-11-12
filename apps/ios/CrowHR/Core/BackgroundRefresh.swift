@@ -28,12 +28,40 @@ struct BGTaskRefreshScheduler: RefreshScheduling {
     }
 }
 
-/// The local notification to post, and where tapping it goes.
+/// The local notification to post, and where tapping it goes: the inbox (`route`) or, when it
+/// announces one item, that item (`link`, the notification's own web path, and its id so opening
+/// it marks it read). Neither is shown: they ride in the notification's `userInfo`.
 struct LocalNotice: Equatable, Sendable {
     enum Route: String, Sendable { case approvals, notifications }
     let title: String
     let body: String
     let route: Route
+    var link: String? = nil
+    var notificationID: String? = nil
+
+    /// Where tapping it opens.
+    var target: AppTarget {
+        if let link { return AppTarget.from(link: link) }
+        return route == .approvals ? .approvals : .notifications
+    }
+
+    static let routeKey = "route"
+    static let linkKey = "link"
+    static let idKey = "notificationId"
+
+    var userInfo: [String: String] {
+        var info = [Self.routeKey: route.rawValue]
+        if let link { info[Self.linkKey] = link }
+        if let notificationID { info[Self.idKey] = notificationID }
+        return info
+    }
+
+    /// What a tap opens, from the notification's `userInfo`.
+    static func tapped(userInfo: [AnyHashable: Any]) -> (target: AppTarget, notificationID: String?) {
+        let route = (userInfo[routeKey] as? String).flatMap(Route.init(rawValue:)) ?? .notifications
+        let notice = LocalNotice(title: "", body: "", route: route, link: userInfo[linkKey] as? String, notificationID: userInfo[idKey] as? String)
+        return (notice.target, notice.notificationID)
+    }
 }
 
 protocol LocalNotifying: Sendable {
@@ -46,7 +74,7 @@ struct UserNotificationPoster: LocalNotifying {
         content.title = notice.title
         content.body = notice.body
         content.sound = .default
-        content.userInfo = ["route": notice.route.rawValue]
+        content.userInfo = notice.userInfo
         content.threadIdentifier = "crowhr.inbox"
         return content
     }
@@ -57,12 +85,14 @@ struct UserNotificationPoster: LocalNotifying {
     }
 }
 
-/// One inbox item as far as the refresher needs it: no titles, no names.
+/// One inbox item as far as the refresher needs it: no titles, no names. The link (a web path
+/// holding at most an id) lets a tap on the notification open the item.
 struct InboxItemRef: Equatable, Sendable {
     let id: String
     let category: String
     let createdAt: String
     let readAt: String?
+    var link: String? = nil
 }
 
 /// What the refresher asks the notifications endpoint for.
@@ -96,11 +126,14 @@ enum InboxCursor {
         let cursor: String?
     }
 
+    /// One new item: tapping opens that item (its link); several: the inbox, as before.
     static func notice(for fresh: [InboxItemRef], notificationsEnabled: Bool) -> LocalNotice? {
         let unread = fresh.filter { $0.readAt == nil }
         guard !unread.isEmpty, notificationsEnabled else { return nil }
         let route: LocalNotice.Route = unread.contains { $0.category == "approvals" } ? .approvals : .notifications
-        return LocalNotice(title: BackgroundRefresh.notificationTitle, body: BackgroundRefresh.notificationBody(newItems: unread.count), route: route)
+        let only = unread.count == 1 ? unread.first : nil
+        return LocalNotice(title: BackgroundRefresh.notificationTitle, body: BackgroundRefresh.notificationBody(newItems: unread.count), route: route,
+                           link: only?.link, notificationID: only?.link == nil ? nil : only?.id)
     }
 
     /// The `createdAt` cursor, for servers without the opaque one.
@@ -195,7 +228,7 @@ struct APIInboxFetcher: InboxFetching {
     static let maxPages = 10
 
     private struct Page: Decodable {
-        struct Item: Decodable { let id: String; let category: String; let createdAt: String; let readAt: String? }
+        struct Item: Decodable { let id: String; let category: String; let createdAt: String; let readAt: String?; let link: String? }
         let items: [Item]
         let cursor: String?
         let hasCursor: Bool
@@ -237,7 +270,7 @@ struct APIInboxFetcher: InboxFetching {
     }
 
     private func ref(_ i: Page.Item) -> InboxItemRef {
-        InboxItemRef(id: i.id, category: i.category, createdAt: i.createdAt, readAt: i.readAt)
+        InboxItemRef(id: i.id, category: i.category, createdAt: i.createdAt, readAt: i.readAt, link: i.link)
     }
 }
 

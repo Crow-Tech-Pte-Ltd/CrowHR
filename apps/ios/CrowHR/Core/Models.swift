@@ -77,6 +77,7 @@ struct LeaveBalance: Decodable, Sendable, Identifiable, Equatable {
     let taken: Double
     let pending: Double
     let available: Double?
+    var statutoryCode: String? = nil
 }
 
 struct LeaveTypeList: Decodable, Sendable { let items: [LeaveType] }
@@ -92,20 +93,32 @@ struct LeaveType: Decodable, Sendable, Identifiable, Equatable, Hashable {
     let archived: Bool
 }
 
-struct LeaveApplication: Encodable, Sendable {
-    struct Attachment: Encodable, Sendable { let filename: String; let contentType: String; let dataBase64: String }
+struct LeaveChildList: Decodable, Sendable { let items: [LeaveChild] }
+
+/// A child on the employee's record (`GET /api/v1/leave/children`), for the leave types that
+/// must name one (maternity, paternity, shared parental, adoption, unpaid infant care).
+struct LeaveChild: Decodable, Sendable, Identifiable, Equatable, Hashable {
+    let id: String
+    let name: String
+}
+
+struct LeaveApplication: Encodable, Sendable, Equatable {
+    struct Attachment: Encodable, Sendable, Equatable { let filename: String; let contentType: String; let dataBase64: String }
     let leaveTypeId: String
     let startDate: String
     let endDate: String
     let startSession: String
     let endSession: String
+    /// Only for a type that needs a child; left out otherwise.
+    var childId: String? = nil
     var reason: String? = nil
     var attachments: [Attachment]? = nil
 }
 
 struct LeaveQuote: Decodable, Sendable, Equatable {
     struct Year: Decodable, Sendable, Equatable { let year: Int; let quantity: Double; let tracked: Bool; let available: Double?; let after: Double? }
-    struct Issue: Decodable, Sendable, Equatable { let code: String; let message: String }
+    /// `path` names the field (`childId`, `startDate`, ...), so the form can show it there.
+    struct Issue: Decodable, Sendable, Equatable { let code: String; var path: String? = nil; let message: String }
     let unit: String
     let quantity: Double
     let years: [Year]
@@ -142,6 +155,60 @@ struct LeaveRequest: Decodable, Sendable, Identifiable, Equatable {
     }
 }
 
+/// `GET /api/v1/leave/requests/{id}`: one request, opened from the team calendar or a
+/// notification.
+struct LeaveRequestDetail: Decodable, Sendable, Equatable, Identifiable {
+    struct Ref: Decodable, Sendable, Equatable { let id: String; let name: String }
+    struct Attachment: Decodable, Sendable, Equatable, Identifiable { let id: String; let filename: String }
+    struct Day: Decodable, Sendable, Equatable, Hashable { let date: String; let session: String; let quantity: Double }
+    let id: String
+    let employee: Ref
+    let type: Ref
+    let startDate: String
+    let endDate: String
+    let startSession: String
+    let endSession: String
+    let unit: String
+    let quantity: Double
+    let reason: String?
+    let status: String
+    let child: Ref?
+    let attachments: [Attachment]
+    let cancelReason: String?
+    let days: [Day]?
+
+    /// The same request as a row of "My leave" (status label, dates, quantity).
+    var row: LeaveRequest {
+        LeaveRequest(id: id, type: .init(id: type.id, name: type.name), startDate: startDate, endDate: endDate,
+                     startSession: startSession, endSession: endSession, unit: unit, quantity: quantity, reason: reason, status: status)
+    }
+}
+
+/// `GET /api/v1/leave/calendar`: who is on leave, by half day, with the public holidays.
+struct LeaveCalendar: Decodable, Sendable, Equatable {
+    struct Holiday: Decodable, Sendable, Equatable, Hashable { let date: String; let name: String }
+    struct Entry: Decodable, Sendable, Equatable, Hashable {
+        let date: String
+        let session: String
+        let status: String
+        let label: String
+        let requestId: String?
+    }
+    struct Person: Decodable, Sendable, Equatable, Identifiable {
+        var id: String { employeeId }
+        let employeeId: String
+        let name: String
+        let isSelf: Bool
+        let entries: [Entry]
+
+        enum CodingKeys: String, CodingKey { case employeeId, name, isSelf = "self", entries }
+    }
+    let from: String
+    let to: String
+    let holidays: [Holiday]
+    let people: [Person]
+}
+
 struct AttendanceMe: Decodable, Sendable, Equatable {
     struct Punch: Decodable, Sendable, Equatable, Identifiable {
         let id: String
@@ -168,6 +235,15 @@ struct ClaimType: Decodable, Sendable, Identifiable, Equatable, Hashable {
     let receiptRule: String
     let receiptAboveCents: Int?
     let receiptHint: String
+
+    /// The server's rule (claims `receiptRequired`), on the line's amount in SGD.
+    func receiptRequired(sgdCents: Int?) -> Bool {
+        switch receiptRule {
+        case "always": true
+        case "above": (sgdCents ?? 0) > (receiptAboveCents ?? 0)
+        default: false
+        }
+    }
 }
 
 struct ClaimPage: Decodable, Sendable { let items: [ClaimSummary]; let total: Int }
@@ -181,7 +257,9 @@ struct ClaimSummary: Decodable, Sendable, Identifiable, Equatable {
     let typeNames: [String]
     let expenseFrom: String?
 
-    var statusLabel: (String, Tone) {
+    var statusLabel: (String, Tone) { Self.statusLabel(status) }
+
+    static func statusLabel(_ status: String) -> (String, Tone) {
         switch status {
         case "draft": ("Draft", .neutral)
         case "submitted": ("Waiting", .warning)
@@ -196,14 +274,16 @@ struct ClaimSummary: Decodable, Sendable, Identifiable, Equatable {
 
 struct ReceiptUpload: Decodable, Sendable { let id: String; let name: String }
 
-struct NewClaim: Encodable, Sendable {
-    struct Line: Encodable, Sendable {
+struct NewClaim: Encodable, Sendable, Equatable {
+    struct Line: Encodable, Sendable, Equatable {
         let claimTypeId: String
         let expenseDate: String
         let merchant: String
         let description: String
         let currency: String
         let amountMinor: Int
+        /// SGD per 1 unit of a foreign currency, as typed (at most 6 decimals); nil for SGD.
+        var rate: String? = nil
         let receiptIds: [String]
     }
     let title: String?
@@ -213,19 +293,149 @@ struct NewClaim: Encodable, Sendable {
 
 struct CreatedClaim: Decodable, Sendable { let id: String; let status: String; let claimNumber: String? }
 
+/// `GET /api/v1/claims/{id}`: the lines (with currency, rate and SGD amount), status and actions.
+struct ClaimDetail: Decodable, Sendable, Equatable, Identifiable {
+    struct Line: Decodable, Sendable, Equatable, Identifiable {
+        let id: String
+        let typeName: String
+        let expenseDate: String
+        let merchant: String?
+        let description: String?
+        let currency: String
+        let amountMinor: Int
+        let rate: String?
+        let sgdCents: Int
+        let receiptCount: Int
+        let receiptRequired: Bool
+        let redactedFields: [String]?
+    }
+    struct Actions: Decodable, Sendable, Equatable { let submit: Bool; let delete: Bool; let withdraw: Bool }
+    let id: String
+    let claimNumber: String?
+    let status: String
+    let title: String?
+    let totalCents: Int
+    let payoutMethod: String?
+    let reservedByPayrollRun: Bool?
+    let paidVia: String?
+    let paidOn: String?
+    let paidReference: String?
+    let submittedAt: String?
+    let approvedOn: String?
+    let decisionComment: String?
+    let lines: [Line]
+    let actions: Actions
+
+    /// The title, the type of a one-line claim, or "3 expenses", as on the web.
+    var heading: String {
+        title ?? (lines.count == 1 ? lines[0].typeName : "\(lines.count) expenses")
+    }
+
+    /// When it is paid ("With the next payroll", "Paid 30 Nov 2026 by transfer (TT-123)").
+    var payout: String {
+        switch status {
+        case "paid":
+            let on = paidOn.map { " \(Fmt.dayString($0))" } ?? ""
+            let via = paidVia == "payroll" ? " with payroll" : " by transfer"
+            return "Paid\(on)\(via)" + (paidReference.map { " (\($0))" } ?? "")
+        case "approved":
+            if payoutMethod == "payroll" { return reservedByPayrollRun == true ? "In the current payroll run" : "With the next payroll" }
+            return "By transfer, outside payroll"
+        default:
+            return "After approval"
+        }
+    }
+}
+
+/// `GET /api/v1/scheduling/me`: published shifts (the next 14 days), the open shifts this person
+/// may pick up, and their swap and pickup requests. Lists a server doesn't send are empty.
 struct ScheduleMe: Decodable, Sendable, Equatable {
     struct Shift: Decodable, Sendable, Identifiable, Equatable {
         let id: String
+        var rosterId: String? = nil
         let scopeLabel: String
         let date: String
         let kind: String
         let start: String?
         let end: String?
         let breakMinutes: Double
+        var paidMinutes: Double? = nil
+        var templateCode: String? = nil
         let note: String?
+        var pendingSwap: Bool? = nil
     }
+    struct Week: Decodable, Sendable, Equatable { let weekStart: String; let published: Bool }
+    let employeeId: String?
     let from: String
     let to: String
+    let shifts: [Shift]
+    let weeks: [Week]
+    let openShifts: [Shift]
+    let swaps: [ShiftSwap]
+
+    enum CodingKeys: String, CodingKey { case employeeId, from, to, shifts, weeks, openShifts, swaps }
+
+    init(employeeId: String? = nil, from: String, to: String, shifts: [Shift], weeks: [Week] = [], openShifts: [Shift] = [], swaps: [ShiftSwap] = []) {
+        self.employeeId = employeeId
+        self.from = from
+        self.to = to
+        self.shifts = shifts
+        self.weeks = weeks
+        self.openShifts = openShifts
+        self.swaps = swaps
+    }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        employeeId = try c.decodeIfPresent(String.self, forKey: .employeeId)
+        from = try c.decode(String.self, forKey: .from)
+        to = try c.decode(String.self, forKey: .to)
+        shifts = try c.decode([Shift].self, forKey: .shifts)
+        weeks = try c.decodeIfPresent([Week].self, forKey: .weeks) ?? []
+        openShifts = try c.decodeIfPresent([Shift].self, forKey: .openShifts) ?? []
+        swaps = try c.decodeIfPresent([ShiftSwap].self, forKey: .swaps) ?? []
+    }
+}
+
+/// A swap, give-away or open-shift pickup (`/api/v1/scheduling/swaps`).
+struct ShiftSwap: Decodable, Sendable, Identifiable, Equatable {
+    struct Person: Decodable, Sendable, Equatable { let id: String; let name: String }
+    struct ShiftRef: Decodable, Sendable, Equatable { let id: String; let date: String; let time: String }
+    let id: String
+    let kind: String
+    let status: String
+    let direction: String
+    let requester: Person
+    let peer: Person?
+    let shift: ShiftRef
+    let peerShift: ShiftRef?
+    let note: String?
+    let reason: String?
+}
+
+/// `POST /api/v1/scheduling/swaps`.
+struct NewSwap: Encodable, Sendable, Equatable {
+    let kind: String
+    let shiftId: String
+    var peerEmployeeId: String? = nil
+    var peerShiftId: String? = nil
+    var note: String? = nil
+}
+
+/// `GET /api/v1/scheduling/rosters/{id}`, as far as offering a shift needs it: who is on the
+/// published roster, and their shifts.
+struct RosterWeek: Decodable, Sendable, Equatable {
+    struct Employee: Decodable, Sendable, Equatable, Identifiable { let id: String; let name: String }
+    struct Shift: Decodable, Sendable, Equatable, Identifiable {
+        let id: String
+        let employeeId: String?
+        let kind: String
+        let date: String
+        let start: String?
+        let end: String?
+        var pendingSwap: Bool? = nil
+    }
+    let employees: [Employee]
     let shifts: [Shift]
 }
 
@@ -281,9 +491,13 @@ struct InboxNotification: Decodable, Sendable, Identifiable, Equatable {
     let category: String
     let title: String
     let body: String?
+    /// The web path of what it is about (`/inbox?task=…`, `/leave?request=…`; `AppTarget`).
+    var link: String? = nil
     let createdAt: String
     let readAt: String?
 }
+
+struct UnreadCount: Decodable, Sendable { let unread: Int }
 
 struct MyProfile: Decodable, Sendable, Equatable {
     struct Employee: Decodable, Sendable, Equatable {

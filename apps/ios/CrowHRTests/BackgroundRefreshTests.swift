@@ -226,7 +226,9 @@ struct BackgroundRefreshTests {
         store.set(Data("srv:cur-1".utf8), forKey: "inbox.cursor.c")
         let r = InboxRefresher(fetcher: APIInboxFetcher(api: api), poster: FakePoster(), store: store, account: "c", enabled: { true })
         let notice = try #require(try await r.refresh())
-        #expect(notice == LocalNotice(title: "Crow HR", body: "You have 1 new item in Crow HR", route: .approvals))
+        // One new item: its link and id ride along (not in the text) so a tap opens it.
+        #expect(notice == LocalNotice(title: "Crow HR", body: "You have 1 new item in Crow HR", route: .approvals,
+                                      link: "/approvals", notificationID: "0190a0b0-0000-7000-8000-0000000000f2"))
         for word in ["Ahmad", "Leave", "annual", "3 days"] {
             #expect(!notice.body.contains(word) && !notice.title.contains(word))
         }

@@ -45,6 +45,13 @@ final class Session {
         if let list: ApprovalTaskList = try? await api.get("/api/v1/approvals/tasks") { approvalTasksWaiting = list.items.count }
     }
 
+    /// Unread notifications, for the Inbox tab's badge; nil until known.
+    var unread: Int?
+
+    func refreshUnread() async {
+        if let c: UnreadCount = try? await api.get("/api/v1/notifications/unread-count") { unread = c.unread }
+    }
+
     /// Sends this person's queued punches (FIFO). Punches from someone else stay untouched.
     func drainPunches(force: Bool = false) async {
         guard let membershipId = me?.membershipId ?? connection.membershipId else { return }
@@ -70,7 +77,9 @@ final class AppModel {
     var pendingLink: ConnectLink?
     var linkError: String?
     var locked = false
-    var route: LocalNotice.Route?
+    /// What a tapped notification (local, or a row in the inbox) opens, waiting for the screen
+    /// that shows it to take it (`AppTarget.tab`).
+    var pendingTarget: AppTarget?
     var selectedTab: MainTab = .today
     /// Screens pushed on More's stack (phone tab bar). On an iPad with the sidebar they are tabs.
     var morePath: [MainTab] = []
@@ -281,6 +290,7 @@ final class AppModel {
             reloadConnections()
         }
         await s.refreshApprovalTasks()
+        await refreshUnread()
         await s.drainPunches()
         if afterSignIn { await refresher(for: s).markAllSeen() }
     }
@@ -304,6 +314,7 @@ final class AppModel {
         env.kv.set(nil, forKey: "inbox.cursor.\(s.connection.id.uuidString)")
         session = nil
         resetNavigation()
+        updateIconBadge()
         screen = .signIn
     }
 
@@ -312,7 +323,7 @@ final class AppModel {
     private func resetNavigation() {
         selectedTab = .today
         morePath = []
-        route = nil
+        pendingTarget = nil
     }
 
     // MARK: Lifecycle
@@ -330,6 +341,7 @@ final class AppModel {
         if let s = session {
             Task {
                 await self.refreshMeIfNeeded()
+                await self.refreshUnread()
                 await s.drainPunches(force: true)
             }
         }
@@ -416,6 +428,26 @@ final class AppModel {
         scheduleBackgroundRefresh()
         guard let s = session else { return }
         _ = try? await refresher(for: s).refresh()
+        await refreshUnread()
+    }
+
+    /// The unread count for the Inbox tab's badge, and the app icon's when notifications are on.
+    func refreshUnread() async {
+        guard let s = session else { return }
+        await s.refreshUnread()
+        updateIconBadge()
+    }
+
+    /// Sets the count after a list that carries it (the notifications inbox) loaded.
+    func setUnread(_ count: Int) {
+        session?.unread = count
+        updateIconBadge()
+    }
+
+    /// The app icon shows the unread count only while the app may notify; otherwise none.
+    func updateIconBadge() {
+        let count = notificationsEnabled ? (session?.unread ?? 0) : 0
+        Task { try? await UNUserNotificationCenter.current().setBadgeCount(count) }
     }
 
     func setNotifications(_ on: Bool) async {
@@ -430,6 +462,7 @@ final class AppModel {
             notificationsEnabled = false
         }
         if notificationsEnabled { scheduleBackgroundRefresh() }
+        updateIconBadge()
     }
 
     /// Whether iOS Settings has notifications off for the app (turned off there after being
@@ -438,9 +471,21 @@ final class AppModel {
         notificationsBlocked = (await UNUserNotificationCenter.current().notificationSettings()).authorizationStatus == .denied
     }
 
-    func open(route: LocalNotice.Route) {
-        self.route = route
-        selectedTab = .inbox
+    /// Opens what a notification is about: its screen, with the item for that screen to open
+    /// (`pendingTarget`). Opened from a local notification, the notification is marked read, as a
+    /// tap on it in the inbox does. A screen the server doesn't offer leaves it in the inbox.
+    func open(_ target: AppTarget, notificationID: String? = nil) {
+        guard screen == .main, let s = session else { return }
+        if let notificationID {
+            Task {
+                try? await s.api.postNoContent("/api/v1/notifications/\(notificationID)/read")
+                await self.refreshUnread()
+            }
+        }
+        var t = target
+        if let feature = t.tab.feature, !s.isAvailable(feature) { t = .notifications }
+        pendingTarget = t
+        go(to: t.tab)
     }
 
     /// Keyboard shortcuts (`GoShortcuts`): the screen's tab, or More with the screen pushed

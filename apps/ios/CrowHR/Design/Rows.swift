@@ -267,9 +267,11 @@ struct ChoiceRow: View {
     let options: [(id: String, name: String)]
     @Binding var selection: String
     var identifier: String? = nil
+    /// Shown until something is chosen ("Choose the child").
+    var placeholder = "Choose"
     @State private var choosing = false
 
-    private var chosen: String { options.first { $0.id == selection }?.name ?? "Choose" }
+    private var chosen: String { options.first { $0.id == selection }?.name ?? placeholder }
 
     var body: some View {
         Group {

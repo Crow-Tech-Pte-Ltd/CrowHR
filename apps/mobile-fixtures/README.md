@@ -15,6 +15,8 @@ is a behaviour change on both platforms and needs a note in the change's tasks.
 | `punch-queue-cases.json` | Offline clock-in queue: FIFO, idempotency key reuse on retry, 200 cap, late-send label, never drops; the exact request body and per-punch labels | Android `PunchQueueTest`, iOS `PunchQueueTests` (2.4 / 3.4) |
 | `background-refresh-cases.json` | Background refresh: what counts as new, the content-free local notification text, cursor rules | Android `BackgroundRefreshTest`, iOS `BackgroundRefreshTests` (2.6 / 3.6) |
 | `format-cases.json` | `S$1,234.56`, `31 Oct 2026`, Singapore time, NRIC/FIN masking (same as `packages/ui/src/lib/format.ts`) | both apps' formatter tests |
+| `claim-money-cases.json` | Foreign-currency claim lines: amounts in minor units per currency, the manual rate, the SGD amount rounded half-up per line, the receipt rule on the SGD amount, the form's messages (same as the web form and `packages/core/src/claims/money.ts`) | iOS `ClaimFormTests` |
+| `notification-link-cases.json` | A notification's `link` mapped to the screen and item it opens, and what tapping the local notification for one or several new items opens | iOS `NotificationTargetTests` |
 
 ## Conventions
 

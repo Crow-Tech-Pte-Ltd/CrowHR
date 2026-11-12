@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "description": "Where a notification takes the app. Every item of GET /api/v1/notifications has a `link`: the web path of what it is about. The apps map it to a screen and the item on it (`kind`, `id`). A tap on a notification in the app's inbox, or on the local notification for a single new item, opens it.",
+  "rules": [
+    "A link is a path on the company's own server, starting with a single '/'. A full URL, a '//host' link or no link opens the notifications inbox.",
+    "IDs must be UUIDs (compared lower-case). A link to a screen with an ID that isn't one opens that screen without an item; /inbox with neither opens the approvals inbox.",
+    "Links to screens the apps don't have (documents, people, payroll runs, settings, the outlet roster, the home page) open the notifications inbox, where the item is.",
+    "approvalTask opens that task's decision when it still waits for this person; approvalRequest opens the waiting task for that request. Otherwise the approvals inbox says the request no longer waits.",
+    "The local notification text never changes (a count only, background-refresh-cases.json). When it announces exactly one new unread item with a link, its tap opens that item and marks the notification read; with several it opens the approvals inbox when any is an approval, otherwise the notifications inbox.",
+    "A screen the server has switched off (meta features) opens the notifications inbox instead."
+  ],
+  "cases": [
+    { "link": "/inbox?task=0190A0B0-0000-7000-8000-0000000000A1", "kind": "approvalTask", "id": "0190a0b0-0000-7000-8000-0000000000a1" },
+    { "link": "/inbox?request=0190a0b0-0000-7000-8000-0000000000a2", "kind": "approvalRequest", "id": "0190a0b0-0000-7000-8000-0000000000a2" },
+    { "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1&request=0190a0b0-0000-7000-8000-0000000000a2", "kind": "approvalTask", "id": "0190a0b0-0000-7000-8000-0000000000a1" },
+    { "link": "/inbox", "kind": "approvals", "id": null },
+    { "link": "/inbox?task=not-a-uuid", "kind": "approvals", "id": null },
+    { "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1", "kind": "leaveRequest", "id": "0190a0b0-0000-7000-8000-0000000000b1" },
+    { "link": "/leave", "kind": "leave", "id": null },
+    { "link": "/leave/team?from=2026-11-16", "kind": "leaveCalendar", "id": null },
+    { "link": "/claims/0190a0b0-0000-7000-8000-0000000000c1", "kind": "claim", "id": "0190a0b0-0000-7000-8000-0000000000c1" },
+    { "link": "/claims", "kind": "claims", "id": null },
+    { "link": "/claims/admin", "kind": "notifications", "id": null },
+    { "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1", "kind": "payslip", "id": "0190a0b0-0000-7000-8000-0000000000d1" },
+    { "link": "/me/payslips", "kind": "payslips", "id": null },
+    { "link": "/schedules/me", "kind": "schedule", "id": null },
+    { "link": "/schedules/me?week=2026-11-16", "kind": "schedule", "id": null },
+    { "link": "/schedules?week=2026-11-16", "kind": "notifications", "id": null },
+    { "link": "/me/profile", "kind": "profile", "id": null },
+    { "link": "/documents?open=0190a0b0-0000-7000-8000-0000000000e1", "kind": "notifications", "id": null },
+    { "link": "/people/0190a0b0-0000-7000-8000-0000000000f1", "kind": "notifications", "id": null },
+    { "link": "/payroll", "kind": "notifications", "id": null },
+    { "link": "/settings/security", "kind": "notifications", "id": null },
+    { "link": "/", "kind": "notifications", "id": null },
+    { "link": "https://evil.example/inbox?task=0190a0b0-0000-7000-8000-0000000000a1", "kind": "notifications", "id": null },
+    { "link": "//evil.example/leave", "kind": "notifications", "id": null },
+    { "link": "", "kind": "notifications", "id": null },
+    { "link": null, "kind": "notifications", "id": null }
+  ],
+  "localNotification": [
+    {
+      "id": "one-new-item-opens-it",
+      "fresh": [{ "id": "n1", "category": "requests", "readAt": null, "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1" }],
+      "expected": { "route": "notifications", "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1", "notificationId": "n1", "kind": "leaveRequest" }
+    },
+    {
+      "id": "one-new-approval-opens-its-task",
+      "fresh": [{ "id": "n2", "category": "approvals", "readAt": null, "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1" }],
+      "expected": { "route": "approvals", "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1", "notificationId": "n2", "kind": "approvalTask" }
+    },
+    {
+      "id": "one-new-and-one-read-opens-the-new-one",
+      "fresh": [
+        { "id": "n3", "category": "updates", "readAt": "2026-11-13T01:00:00.000Z", "link": "/schedules/me" },
+        { "id": "n4", "category": "updates", "readAt": null, "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1" }
+      ],
+      "expected": { "route": "notifications", "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1", "notificationId": "n4", "kind": "payslip" }
+    },
+    {
+      "id": "several-open-the-inbox",
+      "fresh": [
+        { "id": "n5", "category": "approvals", "readAt": null, "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1" },
+        { "id": "n6", "category": "updates", "readAt": null, "link": "/schedules/me" }
+      ],
+      "expected": { "route": "approvals", "link": null, "notificationId": null, "kind": "approvals" }
+    },
+    {
+      "id": "one-without-a-link-opens-the-inbox",
+      "fresh": [{ "id": "n7", "category": "updates", "readAt": null, "link": null }],
+      "expected": { "route": "notifications", "link": null, "notificationId": null, "kind": "notifications" }
+    }
+  ]
+}
