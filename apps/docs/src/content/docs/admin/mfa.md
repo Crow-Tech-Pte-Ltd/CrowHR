@@ -19,7 +19,7 @@ In **Settings → Security → Two-step verification policy**, owners choose whi
 
 - A member who gets such a role has **7 days** from the role grant to enrol. During that time every page shows a banner with the deadline.
 - After 7 days without enrolment, they can only enrol or sign out until they do (`403 mfa_enrolment_required` for everything else).
-- The policy also covers **SSO and mobile app sessions**. An SSO session satisfies it when the identity provider's ID token explicitly asserts MFA (`amr` contains `mfa`; [RFC 8176](https://www.rfc-editor.org/rfc/rfc8176.html)); a single method such as `otp` is not enough. Google does not send this claim, Microsoft Entra ID does when the user completed MFA. Without the assertion, the member enrols a Crow HR authenticator. While someone is blocked, the mobile app can't sign them in; they enrol in the browser first.
+- The policy also covers **SSO and mobile app sessions**. An SSO session satisfies it when the identity provider's ID token explicitly asserts MFA (`amr` contains `mfa`; [RFC 8176](https://www.rfc-editor.org/rfc/rfc8176.html)); a single method such as `otp` is not enough. Google does not send this claim, so Google sign-ins never satisfy it. Without the assertion, the member enrols a Crow HR authenticator. While someone is blocked, the mobile app can't sign them in; they enrol in the browser first.
 
 ## When someone loses their device
 
