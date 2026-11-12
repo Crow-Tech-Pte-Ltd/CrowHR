@@ -1,10 +1,11 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { MATRIX, type Permission, ROLES, type Role, type Scope } from "../access/matrix.ts";
 import { effectiveRoles } from "../access/scope.ts";
 import { auditContext, recordAudit } from "../audit/audit.ts";
 import type { AppContext } from "../context.ts";
 import { SECRET_PURPOSES } from "../crypto/secret-box.ts";
+import { memberships } from "../db/schema/access.ts";
 import { deviceSessions, recoveryCodes, sessions, ssoProviders, userIdentities } from "../db/schema/auth.ts";
 import { employees } from "../db/schema/employees.ts";
 import { organisations } from "../db/schema/organisations.ts";
@@ -578,6 +579,52 @@ export const meModule = defineModule({
           body: `${provider?.name ?? "A single sign-on method"} can no longer be used to sign in to your Crow HR account. If this wasn't you, change your password and tell your administrator.`,
         });
         return undefined;
+      },
+    }),
+    defineRoute({
+      method: "get",
+      path: "/organisations",
+      summary: "Organisations I can switch to (for the organisation switcher)",
+      description:
+        "Organisations where the signed-in person has an active or former membership, by name, the current one marked. Switch with `POST /auth/switch-organisation`.",
+      access: "authenticated",
+      allowDuringMfaEnrolment: true,
+      responses: {
+        200: z.object({
+          items: z.array(
+            z.object({
+              id: z.uuid(),
+              name: z.string(),
+              slug: z.string(),
+              current: z.boolean(),
+              status: z.enum(["active", "former"]),
+            }),
+          ),
+        }),
+      },
+      handler: async ({ deps, auth }) => {
+        const rows = await deps.db
+          .select({
+            id: organisations.id,
+            name: organisations.name,
+            slug: organisations.slug,
+            status: memberships.status,
+          })
+          .from(memberships)
+          .innerJoin(organisations, eq(organisations.id, memberships.orgId))
+          .where(and(eq(memberships.userId, auth.user.id), inArray(memberships.status, ["active", "former"])));
+        return {
+          items: rows
+            .filter((r): r is typeof r & { slug: string } => r.slug !== null)
+            .map((r) => ({
+              id: r.id,
+              name: r.name,
+              slug: r.slug,
+              current: r.id === auth.orgId,
+              status: r.status as "active" | "former",
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name) || a.slug.localeCompare(b.slug)),
+        };
       },
     }),
   ],

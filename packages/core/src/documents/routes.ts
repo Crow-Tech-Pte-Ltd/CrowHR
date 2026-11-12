@@ -242,10 +242,19 @@ export const documentsModule = defineModule({
       method: "get",
       path: "/",
       summary: "Documents the member may see (`mine=true`, `employeeId`, `categoryId`, `expiry`)",
+      description:
+        "Paging is opt-in: pass `page` (from 1) and/or `pageSize` (default 50, at most 200). Without them every matching document is returned. `total` always counts every matching document the member may see.",
       access: { permission: "documents:read" },
       request: { query: listQuery },
-      responses: { 200: z.object({ items: z.array(documentView) }) },
-      handler: async ({ c, deps, query }) => ({ items: await listDocuments(deps, await docActor(c), query) }),
+      responses: {
+        200: z.object({
+          items: z.array(documentView),
+          total: z.number().int(),
+          page: z.number().int().optional(),
+          pageSize: z.number().int().optional(),
+        }),
+      },
+      handler: async ({ c, deps, query }) => listDocuments(deps, await docActor(c), query),
     }),
     defineRoute({
       method: "post",

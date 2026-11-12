@@ -386,17 +386,28 @@ export const listQuery = z.object({
   mine: z.enum(["true", "false"]).optional(),
   expiry: z.enum(["expiring", "expired", "attention"]).optional(),
   deleted: z.enum(["true"]).optional(),
+  /** Paging is opt-in: without `page` the whole list is returned, as in 1.0. */
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(200, "Ask for at most 200 documents a page.").optional(),
 });
 
+export interface DocumentPage {
+  items: DocumentView[];
+  total: number;
+  page?: number;
+  pageSize?: number;
+}
+
 /** Documents the actor may see, filtered. Out-of-scope rows are never loaded into the response. */
-export async function listDocuments(
-  deps: AppDeps,
-  a: DocActor,
-  q: z.output<typeof listQuery>,
-): Promise<DocumentView[]> {
+export async function listDocuments(deps: AppDeps, a: DocActor, q: z.output<typeof listQuery>): Promise<DocumentPage> {
   await ensureDocumentSetup(deps.db, deps.ids, a.orgId);
+  const paged = q.page !== undefined || q.pageSize !== undefined;
+  const page = q.page ?? 1;
+  const pageSize = q.pageSize ?? 50;
+  const out = (items: DocumentView[], total: number): DocumentPage =>
+    paged ? { items, total, page, pageSize } : { items, total };
   const employeeId = q.mine === "true" ? a.employeeId : q.employeeId;
-  if (q.mine === "true" && !employeeId) return [];
+  if (q.mine === "true" && !employeeId) return out([], 0);
   const rows = await deps.db
     .select({ doc: documents, category: documentCategories, emp: employees })
     .from(documents)
@@ -414,7 +425,8 @@ export async function listDocuments(
         q.categoryId ? eq(documents.categoryId, q.categoryId) : undefined,
       ),
     )
-    .orderBy(asc(documentCategories.position), desc(documents.createdAt));
+    // The ID breaks ties, so pages never repeat or skip a document.
+    .orderBy(asc(documentCategories.position), desc(documents.createdAt), desc(documents.id));
   const visible: Loaded[] = [];
   for (const r of rows) {
     if (!(await canReadCategory(a, r.category, r.doc.employeeId))) continue;
@@ -424,11 +436,14 @@ export async function listDocuments(
       employee: { id: r.emp.id, name: displayName(r.emp), number: r.emp.employeeNumber },
     });
   }
+  const window = <T>(list: T[]) => (paged ? list.slice((page - 1) * pageSize, page * pageSize) : list);
+  // The expiry filter needs each document's current version; without it, only the page is loaded.
+  if (!q.expiry) return out(await toViews(deps, a, window(visible)), visible.length);
   let views = await toViews(deps, a, visible);
   if (q.expiry === "expiring") views = views.filter((v) => v.expiry === "expiring");
   if (q.expiry === "expired") views = views.filter((v) => v.expiry === "expired");
   if (q.expiry === "attention") views = views.filter((v) => v.expiry === "expiring" || v.expiry === "expired");
-  return views;
+  return out(window(views), views.length);
 }
 
 export async function getDocument(deps: AppDeps, a: DocActor, id: string): Promise<DocumentView> {
