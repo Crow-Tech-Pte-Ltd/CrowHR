@@ -1,10 +1,11 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { MATRIX, type Permission, ROLES, type Role, type Scope } from "../access/matrix.ts";
 import { effectiveRoles } from "../access/scope.ts";
 import { auditContext, recordAudit } from "../audit/audit.ts";
 import type { AppContext } from "../context.ts";
 import { SECRET_PURPOSES } from "../crypto/secret-box.ts";
+import { memberships } from "../db/schema/access.ts";
 import { deviceSessions, recoveryCodes, sessions, ssoProviders, userIdentities } from "../db/schema/auth.ts";
 import { employees } from "../db/schema/employees.ts";
 import { organisations } from "../db/schema/organisations.ts";
@@ -151,6 +152,8 @@ const meResponse = z.object({
   /** Session cookies over plain http (owners see a warning in Settings → Security). */
   insecureTransport: z.boolean(),
   demoMode: z.boolean(),
+  /** Set in a demo company (demo-companies): fictional data, deleted with everything at `expiresAt`. */
+  demoCompany: z.object({ expiresAt: z.iso.datetime() }).nullable(),
   mailerConfigured: z.boolean(),
   /** The server's PUBLIC_URL (no trailing slash): what the mobile apps connect to. */
   publicUrl: z.string(),
@@ -219,6 +222,7 @@ export const meModule = defineModule({
           hasPassword: !!user?.passwordHash,
           insecureTransport: !sessionCookie(publicUrl).secure,
           demoMode: !!deps.demoMode,
+          demoCompany: auth.demoCompany ? { expiresAt: auth.demoCompany.expiresAt.toISOString() } : null,
           mailerConfigured: !!deps.mailer,
           publicUrl: publicUrl.replace(/\/+$/, ""),
         };
@@ -293,6 +297,7 @@ export const meModule = defineModule({
       path: "/password",
       summary: "Change my password",
       access: "authenticated",
+      refusedInDemoCompany: true,
       allowDuringMfaEnrolment: true,
       recentAuth: true,
       request: {
@@ -346,6 +351,7 @@ export const meModule = defineModule({
       summary: "Start authenticator-app enrolment",
       description: "Returns a new secret and otpauth URI. Enrolment completes only after a valid code is confirmed.",
       access: "authenticated",
+      refusedInDemoCompany: true,
       allowDuringMfaEnrolment: true,
       responses: { 200: z.object({ secret: z.string(), otpauthUri: z.string() }) },
       errors: ["conflict"],
@@ -373,6 +379,7 @@ export const meModule = defineModule({
       summary: "Finish enrolment with a code from the authenticator app",
       description: "Returns 10 single-use recovery codes, shown once.",
       access: "authenticated",
+      refusedInDemoCompany: true,
       allowDuringMfaEnrolment: true,
       request: {
         body: z.object({
@@ -446,6 +453,7 @@ export const meModule = defineModule({
       summary: "Replace my recovery codes",
       description: "Invalidates every previous recovery code.",
       access: "authenticated",
+      refusedInDemoCompany: true,
       recentAuth: true,
       responses: { 200: z.object({ recoveryCodes: z.array(z.string()) }) },
       errors: ["conflict"],
@@ -463,6 +471,7 @@ export const meModule = defineModule({
       path: "/mfa",
       summary: "Turn off two-step verification",
       access: "authenticated",
+      refusedInDemoCompany: true,
       recentAuth: true,
       responses: { 204: null },
       handler: async ({ c, deps, auth }) => {
@@ -570,6 +579,52 @@ export const meModule = defineModule({
           body: `${provider?.name ?? "A single sign-on method"} can no longer be used to sign in to your Crow HR account. If this wasn't you, change your password and tell your administrator.`,
         });
         return undefined;
+      },
+    }),
+    defineRoute({
+      method: "get",
+      path: "/organisations",
+      summary: "Organisations I can switch to (for the organisation switcher)",
+      description:
+        "Organisations where the signed-in person has an active or former membership, by name, the current one marked. Switch with `POST /auth/switch-organisation`.",
+      access: "authenticated",
+      allowDuringMfaEnrolment: true,
+      responses: {
+        200: z.object({
+          items: z.array(
+            z.object({
+              id: z.uuid(),
+              name: z.string(),
+              slug: z.string(),
+              current: z.boolean(),
+              status: z.enum(["active", "former"]),
+            }),
+          ),
+        }),
+      },
+      handler: async ({ deps, auth }) => {
+        const rows = await deps.db
+          .select({
+            id: organisations.id,
+            name: organisations.name,
+            slug: organisations.slug,
+            status: memberships.status,
+          })
+          .from(memberships)
+          .innerJoin(organisations, eq(organisations.id, memberships.orgId))
+          .where(and(eq(memberships.userId, auth.user.id), inArray(memberships.status, ["active", "former"])));
+        return {
+          items: rows
+            .filter((r): r is typeof r & { slug: string } => r.slug !== null)
+            .map((r) => ({
+              id: r.id,
+              name: r.name,
+              slug: r.slug,
+              current: r.id === auth.orgId,
+              status: r.status as "active" | "former",
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name) || a.slug.localeCompare(b.slug)),
+        };
       },
     }),
   ],

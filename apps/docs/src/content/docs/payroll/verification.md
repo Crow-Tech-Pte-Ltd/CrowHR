@@ -3,7 +3,7 @@ title: How we verify statutory calculations
 description: How Crow HR's CPF, SDL, SHG, FWL and Employment Act rules were checked - cited tables, CPF's worked examples, an independent recomputation and 15 cases confirmed in CPF's online calculator.
 ---
 
-Singapore's statutory numbers live in one package, `packages/sg-rules`: pure, dependency-free TypeScript with effective-dated rule tables and calculators. This page summarises how they were checked. The full record, including every disagreement and how it was resolved, is `packages/sg-rules/VERIFICATION.md` in the repository.
+Singapore's statutory numbers live in one package, `packages/sg-rules`: pure, dependency-free TypeScript with effective-dated rule tables and calculators. This page summarises how they were checked. The full record, including every disagreement and how it was resolved, is [`packages/sg-rules/VERIFICATION.md`](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/blob/main/packages/sg-rules/VERIFICATION.md) in the repository.
 
 :::note[What this does and does not mean]
 These checks show that the engine reproduces the official sources and examples listed below. They are not an approval: CPF Board, IRAS and MOM have not reviewed or endorsed Crow HR. You remain responsible for your payroll and filings.
@@ -25,13 +25,13 @@ Each constant (CPF rates and ceilings, SDL, SHG tables, FWL rates, Employment Ac
 | Working-day calendar | Reproduces all 36 cells of MOM's 2026 incomplete-month salary table (5, 5.5 and 6-day weeks). |
 | Research test vectors | 91 of 91 pass to the cent (62 CPF, 12 SDL, 17 SHG), after two fixture corrections found by the independent review. |
 
-`bun run check` fails if `packages/sg-rules` drops below 95% line coverage (it is at 99.6%).
+The build fails if the tests of `packages/sg-rules` cover less than 95% of its lines.
 
 ## Independent review
 
-Two separate reviews were run by a different AI model (OpenAI Codex), working from primary CPF, MOM, IRAS and SSG sources, not from the research notes:
+Two reviews were made separately from the implementation, by a second AI model working from primary CPF, MOM, IRAS and SSG sources rather than from the research notes. They are not a professional or agency review.
 
-- **Statutory data review** (`research/verification/codex-verification.md`): recomputed all 91 vectors with a standalone Python script using integer and decimal arithmetic. It found real problems: AW keyed to the payment date instead of the *due and payable* date, a missing zero-wage branch and history for SDL, an AW fixture that overstated SDL, a 2028 rate table that does not exist, and an unsafe low-wage AW case. Each was fixed or turned into a refusal; the resolutions are listed in `VERIFICATION.md`.
+- **Review of the statutory research data** (`research/verification/statutory-data-review.md`): recomputed all 91 vectors with a standalone Python script using integer and decimal arithmetic. It found real problems: AW keyed to the payment date instead of the *due and payable* date, a missing zero-wage branch and history for SDL, an AW fixture that overstated SDL, a 2028 rate table that does not exist, and an unsafe low-wage AW case. Each was fixed or turned into a refusal; the resolutions are listed in `VERIFICATION.md`.
 - **Payroll choices review** (`research/verification/payroll-choices.md`): checked seven legal and format choices in the payroll implementation (deduction limits, CPF recovery, the EZPay file, shift pro-ration, payslip items, payment deadlines, the bank file). Items marked wrong were fixed: pro-ration for rostered staff no longer guesses a week, overtime deadlines run from the period in which it was worked, payslips keep full names and every overtime period, the AW top-up recovery and its deadline are modelled, EZPay advice codes are stable. Items marked **unclear** are listed on the [limitations](/docs/payroll/limitations/#where-the-law-or-format-is-unclear) page.
 
 ## Confirmed in CPF's online calculator
@@ -66,5 +66,4 @@ On top of the engine, the payroll module has end-to-end tests with exact cents: 
 
 - Overtime rounding: MOM publishes no rule; the default reproduces MOM's only worked example (S$13.60 an hour cap for non-workmen).
 - The CPF EZPay file and the bank file have not been accepted by CPF's or any bank's systems.
-- Singpass login against real Singpass.
 - Anything listed on the [limitations](/docs/payroll/limitations/) page.

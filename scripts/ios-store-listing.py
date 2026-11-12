@@ -19,7 +19,7 @@ Never submits anything for review, and leaves App Review contact and demo accoun
 Privacy answers and the submission to the App Store Connect web UI. Uses the Crow Tech team API key
 kept on the Mac (APPLE_KEY_ID, APPLE_ISSUER_ID, and APPLE_KEY_PATH or APPLE_SIGNING_SECRET_DIR with
 AuthKey_<key id>.p8), like scripts/ios-store-register.py. JWTs and key material are never printed.
-Listing text is the approved copy in apps/ios/store/app-store-metadata.md (Daniel, 10 Nov 2026).
+Listing text is the approved copy in apps/ios/store/app-store-metadata.md.
 """
 import argparse
 import hashlib

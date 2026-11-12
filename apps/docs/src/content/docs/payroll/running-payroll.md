@@ -36,18 +36,20 @@ When the run is computed, Crow HR adds these items itself, each labelled with wh
 | Item | From | Rule |
 | --- | --- | --- |
 | No-pay leave, unpaid infant care leave, unpaid company leave | [Leave](/docs/leave/leave/#how-leave-reaches-payroll) | Approved days in the run's period, in half days. A no-pay leave item you enter for the same date replaces it. |
-| Overtime | [Attendance](/docs/attendance/attendance/#how-approved-overtime-reaches-payroll) | Approved overtime claims for dates in the period. Items you enter are added on top, so don't enter the same hours twice. |
+| Overtime | [Attendance](/docs/attendance/attendance/#how-approved-overtime-reaches-payroll) | Approved overtime claims for dates in the period, plus earlier approved claims that no run has paid yet. Items you enter are added on top, so don't enter the same hours twice. |
 | Days worked | Attendance | Rostered staff who clock in. An item you enter wins. |
 | Scheduled days | [Published rosters](/docs/scheduling/scheduling/#payroll-scheduled-days) | Only when the whole month is published and the employee was employed all month. An item you enter wins. |
 | Claims reimbursement | [Claims](/docs/claims/claims/#through-payroll) | Approved claims paid with payroll, approved by the end of the month and not yet paid. Shown under "Reimbursements (not wages)": no CPF, not in gross pay. |
+| Public holiday pay | [Leave rules](/docs/leave/leave/#public-holidays-and-days-in-lieu) | With **Pay an extra day (payroll)**, one day's gross pay for each public holiday on an off day, for employees covered by the Employment Act on a monthly rate and a fixed week. For others the run blocks until you enter the day's gross pay ([holiday pay and contractual overtime](/docs/payroll/settings/#holiday-pay-and-contractual-overtime-on-a-run)). |
+| Leave encashment | [Leave](/docs/leave/leave/#encash-unused-leave) | Approved encashment requests, approved before both the pay date and the end of the period. Additional wages, CPF-liable. |
 
-Bonus-only off-cycle runs take none of these. Fed overtime carries minutes only: for employees not covered by Part 4, or paid by the hour, the run blocks (`OT_NOT_STATUTORY`, `OT_AMOUNT_REQUIRED`) and the fed item can't be given an amount, so pay their overtime as a manual item instead of approving it in attendance. Something approved after you computed the run makes **Submit for approval** ask you to recompute.
+Fed overtime, holiday pay, encashment and claims are each paid by one run only: recomputing keeps them, another run skips them, deleting a draft run releases them, and an adjustment run pays only the difference. Bonus-only off-cycle runs take none of these; a leaver's final-pay run takes theirs. Fed overtime carries minutes only: for employees not covered by Part 4, or paid by the hour, the run blocks (`OT_NOT_STATUTORY`, `OT_AMOUNT_REQUIRED`) until you enter the contractual amount for it in the employee's drawer ([holiday pay and contractual overtime](/docs/payroll/settings/#holiday-pay-and-contractual-overtime-on-a-run)). Something approved after you computed the run makes **Submit for approval** ask you to recompute.
 
 ## 3. Compute and review
 
 **Recompute** calculates every employee from the current records and the items. The overview shows, in this order:
 
-1. **Blocking issues** and **warnings**, each with a code and a link to its source.
+1. **Blocking issues** and **warnings**, each with a code, a link to its source and a link to where it is fixed: the employee's drawer with the item ready to fill in (holiday pay, an overtime amount, hours, scheduled days, an item to correct), **Allowance treatment**, the company profile or the employee's record.
 2. **Totals**: people, gross pay, employee CPF, SHG, employer CPF, SDL, FWL estimate, claims and net pay.
 3. **Changes since last month**: joiners, leavers, pay changes, new items.
 4. **The employee table**: dense, numbers right-aligned. Move with the arrow keys or `j`/`k`, open an employee with Enter, close with Escape, and step through employees in the drawer with `[` and `]`.
@@ -71,7 +73,7 @@ Warnings do not block: a pay date more than 7 days after the period (salary) or 
 
 **Submit for approval** needs a computation with no blocking issues whose inputs still match the records. If someone changed a salary or an item after you computed, submission fails with `409` and asks you to recompute.
 
-The run goes through the [approvals engine](/docs/approvals/approvals/) as a `payroll_run` request with the net total. By default an **owner** approves. An owner who submitted the run may approve it themselves when nobody else can; that decision is recorded as self-approved. A rejection returns the run to draft with the approver's comment. You can **withdraw** a run in review back to draft.
+The run goes through the [approvals engine](/docs/approvals/approvals/) as a **Payroll runs** request with the net total. By default an **owner** approves. An owner who submitted the run may approve it themselves when nobody else can; that decision is recorded as self-approved. Someone who entered or edited earnings for themselves on the run can never approve it, even as an owner: the approval summary names them, and another eligible owner must decide. A rejection returns the run to draft with the approver's comment. You can **withdraw** a run in review back to draft.
 
 ## 5. Release, pay, file
 
@@ -86,6 +88,8 @@ Crow HR does not submit anything to CPF Board, IRAS or your bank itself.
 
 ## Correcting an approved or paid run
 
+**Return to draft** (an approved run that is not marked paid) is for a change that must not be paid as an adjustment, such as an employee's new bank account: give the reason, kept in the audit log, then recompute and approve the run again. Its payslips are hidden from employees until it is released again. It is refused once a later run of the year has used this run's CPF figures; reopen it as an adjustment instead.
+
 **Reopen as an adjustment** creates an adjustment run for the same month, starting from a copy of the original inputs, with a reason kept in the audit log. The original run, its payslips and its files never change; it is marked superseded only when the adjustment is approved. The adjustment charges only the difference in CPF, SHG and SDL, its payslips are labelled as a revision and show the net amount still to pay (or overpaid), and its EZPay file is a supplementary file.
 
 Adjustments do not recompute later months. If you reopen a month after later months were finalised, Crow HR warns; CPF's year-end (or last-month) AW recomputation absorbs the difference.
@@ -94,14 +98,6 @@ Adjustments do not recompute later months. If you reopen a month after later mon
 
 Each employee's result is computed from a stored snapshot of their inputs and the rate tables used. Inputs and results are stored with SHA-256 hashes, and recomputing a snapshot gives a byte-identical result, so you can show later exactly how a figure was produced.
 
-When an administrator enters or edits earnings for themselves, the approval summary names them as having entered their own earnings. They cannot approve that run, even if they also hold the owner role. Another eligible owner must decide it. The flag remains if the item is later changed or removed, preserving the audit trail.
-
 ## Leave encashment
 
-Approved leave encashment enters the next regular payroll automatically (approval must precede both its pay date and period end), or a leaver's off-cycle **Final pay** run. It appears in the run's change list and as **Leave encashment (N days)** on the payslip. Hour-based balances show hours. The payslip working records basic pay + each included fixed allowance → monthly gross → daily gross rate, effective schedule, rate date, quantity and rounding. See [Encash unused leave](/docs/leave/leave/#encash-unused-leave) for requesting and approval.
-
-The daily gross rate is `12 × (monthly basic salary + included fixed recurring allowances) / (52 × average workdays per week)`, following [MOM's annual-leave encashment basis](https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary). Salary and allowances use their effective records on the request's rate date (cessation date for someone who has already left). Only allowance types explicitly marked `grossRateIncluded: true` enter the gross rate; excluded variable payments do not. An unclassified active allowance blocks the request. The exact rate is multiplied by the days and rounded once half up to integer cents; intermediate rates are not rounded. Existing requests keep their snapshotted amount and working when salary or allowances change.
-
-Accumulated unused leave is **AW and CPF-liable**, including on termination: [CPF leave encashment FAQ](https://www.cpf.gov.sg/service/article/are-cpf-contributions-payable-on-encashment-of-leave), [OW/AW classification](https://www.cpf.gov.sg/employer/employer-obligations/what-constitutes-wages-for-cpf-contributions). Unused-leave wages are distinct from non-CPF termination compensation. The normal AW ceiling applies, with the existing cessation-year reconciliation for leavers. [Post-cessation CPF eligibility](https://www.cpf.gov.sg/service/article/are-cpf-contributions-payable-on-additional-wages-payable-to-ex-employees-after-they-have-left-employment) requires SC/SPR status at cessation and when AW is payable.
-
-Compute reserves each earning for one run. Recompute retains it, another run excludes it, and adjustments preserve its original amount and payable date while paying only the overall net difference. Draft and rejected payrolls keep their reservations for recompute. Deleting a draft releases them so another run can pick them up. Bonus-only runs do not pick up encashments. Existing year-end leave entries require HR to submit their payout for approval; they never pay automatically without a decision.
+Approved [leave encashment](/docs/leave/leave/#encash-unused-leave) enters the next regular run, or a leaver's off-cycle **Final pay** run, as **Leave encashment (N days)** (hours for balances kept in hours), and appears in the run's change list. Its amount and rate working are fixed when the request is made: the payslip shows basic pay and each included allowance, the monthly and daily gross rate, the quantity and the rounding. Encashment is additional wages and CPF-liable, with the normal AW ceiling.

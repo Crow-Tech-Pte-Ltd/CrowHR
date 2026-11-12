@@ -14,13 +14,13 @@ Two settings matter:
 
 | Setup | Status | How |
 | --- | --- | --- |
-| No proxy (LAN) | <span class="crow-pill crow-pill--tested">Tested</span> | The default compose install in `e2e/self-host.sh`. |
-| Caddy | <span class="crow-pill crow-pill--tested">Tested</span> | `e2e/self-host.sh`: the shipped `Caddyfile.example` (below) in a `caddy:2-alpine` container on the compose network. The test starts that container itself rather than through the shipped override file. Caddy on the host was not run. |
-| nginx | <span class="crow-pill crow-pill--tested">Tested</span> | `e2e/self-host.sh`: the config below in `nginx:1.30-alpine`, as written in a container on the compose network, and with the host edits below using host networking to stand in for nginx installed on the host. Only nginx 1.30 was run. |
-| Traefik | <span class="crow-pill crow-pill--tested">Tested</span> | `e2e/self-host.sh`: the labels below as written, with `traefik:v3.7` in a container on the compose network (Docker provider, `exposedByDefault=false`, entrypoint `websecure` on port 443). By hand on a staging server (9 Nov 2026): Cloudflare Tunnel → Traefik v3.7 with a file-provider route → Crow HR. |
-| Cloudflare Tunnel | <span class="crow-pill crow-pill--tested">Tested</span> | The same staging server: a remote-managed tunnel (cloudflared 2026.10.4, token) in front of Traefik. Routing the hostname straight to `http://app:8080`, as below, was not run. |
+| No proxy (LAN) | <span class="crow-pill crow-pill--tested">Tested</span> | Automated: the default compose install. |
+| Caddy | <span class="crow-pill crow-pill--tested">Tested</span> | Automated: the shipped `Caddyfile.example` (below) in a `caddy:2-alpine` container on the compose network. Caddy installed on the host was not tested. |
+| nginx | <span class="crow-pill crow-pill--tested">Tested</span> | Automated: the config below in `nginx:1.30-alpine` on the compose network, and the host variant below (with host networking standing in for nginx installed on the host). Only nginx 1.30. |
+| Traefik | <span class="crow-pill crow-pill--tested">Tested</span> | Automated: the labels below with `traefik:v3.7` on the compose network (Docker provider, `exposedByDefault=false`, entrypoint `websecure` on port 443). Also by hand behind Cloudflare Tunnel, with a file-provider route. |
+| Cloudflare Tunnel | <span class="crow-pill crow-pill--tested">Tested</span> | By hand: a remote-managed tunnel (token) in front of Traefik. Routing the hostname straight to `http://app:8080`, as below, was not tested. |
 
-`e2e/self-host.sh` runs in CI on every change. For each proxy it sets `.env` as below (`PUBLIC_URL=https://hr.example.sg`), sends requests in which the client adds its own `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto`, and checks:
+The automated test runs on every change to Crow HR. For each proxy it sets `.env` as below (`PUBLIC_URL=https://hr.example.sg`), sends requests in which the client adds its own `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto`, and checks:
 
 - With `TRUSTED_PROXIES=private`, the app sees the client's real address (in Settings → System and in the sign-in audit entry), scheme `https` and host `hr.example.sg`. The client's own headers are ignored.
 - The session cookie is `__Host-` and `Secure`, and plain `http://` redirects to `https://` (Caddy and nginx; the Traefik labels add no port 80 route).
@@ -29,7 +29,7 @@ Two settings matter:
 
 Not tested: getting or renewing a Let's Encrypt certificate, because the test machine has no public name. Instead, Caddy used its internal CA, nginx a self-signed certificate at the paths below, and Traefik (which has no `letsencrypt` resolver there) its default self-signed certificate. Also not tested: HTTP/3, IPv6, and clients on another machine (the test client is the Docker host).
 
-If you run a setup this page does not cover, please report what worked (or did not) so this table can be updated.
+If you run a setup this page does not cover, please [open an issue](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/issues) saying what worked or did not.
 
 ## No proxy (LAN)
 
@@ -68,7 +68,7 @@ hr.example.sg {
 
 `docker compose up -d` starts Caddy too. Caddy replaces any client-supplied `X-Forwarded-For` with the real client address.
 
-Caddy installed on the host instead of in Docker: `reverse_proxy 127.0.0.1:8080` and still `TRUSTED_PROXIES=private`. Docker's port forwarding hands the app connections from the host via the Docker network's gateway address (e.g. `172.19.0.1`), not `127.0.0.1`, so `loopback` does not match. The test saw this with nginx on the host. Caddy on the host was not run.
+Caddy installed on the host instead of in Docker: `reverse_proxy 127.0.0.1:8080` and still `TRUSTED_PROXIES=private`. Docker's port forwarding hands the app connections from the host via the Docker network's gateway address (e.g. `172.19.0.1`), not `127.0.0.1`, so `loopback` does not match (seen in the test with nginx on the host).
 
 ## nginx
 

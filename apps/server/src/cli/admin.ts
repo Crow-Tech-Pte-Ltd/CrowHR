@@ -1,7 +1,9 @@
 import {
   type AppDeps,
   createUuidV7Generator,
+  endAllDemoCompanies,
   newResetLinkForCli,
+  purgeExpiredDemoCompanies,
   schema,
   systemAuditContext,
   systemClock,
@@ -65,6 +67,21 @@ export async function resetOwnerPasswordCommand(
         : []),
     ],
   };
+}
+
+/**
+ * `crowhr demo-companies purge [--expired]` (add-demo-companies rollback): deletes every demo
+ * company, live ones included, or only the expired ones. Real organisations (no demo expiry) are
+ * never selected, and the database refuses to delete their audit events anyway.
+ */
+export async function demoCompaniesPurgeCommand(
+  deps: Pick<AppDeps, "db" | "fileStore" | "logger">,
+  input: { expiredOnly: boolean },
+): Promise<{ ok: boolean; lines: string[] }> {
+  const now = new Date();
+  const n = input.expiredOnly ? await purgeExpiredDemoCompanies(deps, now) : await endAllDemoCompanies(deps, now);
+  const what = `${n} ${input.expiredOnly ? "expired " : ""}demo compan${n === 1 ? "y" : "ies"}`;
+  return { ok: true, lines: [`Deleted ${what}. Real organisations were not touched.`] };
 }
 
 export function cliDeps(db: Database["db"], publicUrl: string) {

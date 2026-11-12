@@ -1464,7 +1464,7 @@
         "employerOnAW": 680000,
         "employeeOnAW": 800000
       },
-      "notes": "Corrected per codex-verification.md: the $40,000 is a shortfall on AW already paid Feb-May, not new June AW. Official figures: OW 255/300, AW shortfall 6,800/8,000."
+      "notes": "Corrected per research/verification/statutory-data-review.md: the $40,000 is a shortfall on AW already paid Feb-May, not new June AW. Official figures: OW 255/300, AW shortfall 6,800/8,000."
     },
     {
       "id": "AGE-T1",
@@ -2760,7 +2760,7 @@
     }
   ],
   "crowhrFixtureNotes": [
-    "Copied from research/sg-test-vectors.json (generatedOn 2026-10-31). Two vectors were corrected after the independent verification in research/verification/codex-verification.md; see packages/sg-rules/VERIFICATION.md.",
+    "Copied from research/sg-test-vectors.json (generatedOn 2026-10-31). Two vectors were corrected after the independent verification in research/verification/statutory-data-review.md; see packages/sg-rules/VERIFICATION.md.",
     "AW-11: June AW payable is 0. The $40,000 is earlier AW (Feb-May) newly subjected on the last-month recomputation, modelled as inputs.awHistory + ytdOwSubjectCents + employmentLastMonth. expected.total/employee/employer remain the month's CPF including that shortfall; expected.currentMonth and expected.priorAwShortfall split it. SDL is on June wages only ($1,500): $3.75.",
     "SPR-04: 2028 CPF tables are not published. Expected rate table is 2027:T1 carried forward, with ratesAssumedCarriedForward = true.",
     "CALC-*: the 15 cases confirmed in CPF Board's public CPF contribution calculator on 31 Oct 2026 (VERIFICATION.md \"CPF calculator check\"), provenance OFFICIAL_CALCULATOR. Expected total/employee/employer are the calculator's figures; the DERIVED_FROM_FORMULA vectors with the same base ids are kept unchanged."

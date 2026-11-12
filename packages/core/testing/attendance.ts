@@ -1,4 +1,4 @@
-import { attendancePunches, overtimeClaims } from "../src/db/schema/attendance.ts";
+import { attendancePunches, attendanceTimesheets, overtimeClaims } from "../src/db/schema/attendance.ts";
 import type { TestClient } from "./http.ts";
 import type { createTestDeps } from "./index.ts";
 
@@ -74,4 +74,44 @@ export async function seedAttendanceOnePerTable(
     status: "pending",
     createdByMembershipId: membershipId,
   });
+  // An approved timesheet, so the reopen and withdraw routes are swept with a foreign ID.
+  await deps.db.insert(attendanceTimesheets).values({
+    id: deps.ids.newId(),
+    orgId,
+    employeeId,
+    periodStart: "2026-10-01",
+    periodEnd: "2026-10-31",
+    status: "approved",
+    submittedByMembershipId: membershipId,
+    submittedAt: at,
+    submittedTotals: {
+      daysWorked: 1,
+      workedMinutes: 480,
+      lateCount: 0,
+      lateMinutes: 0,
+      earlyOutCount: 0,
+      missingPunches: 1,
+      otMinutes: 0,
+      leaveDays: 0,
+    },
+  });
+}
+
+/** Turns timesheet approval on (or changes it) through the API, as an owner or HR admin. */
+export async function setTimesheetApproval(
+  admin: TestClient,
+  timesheets: {
+    approval: boolean;
+    period?: "monthly" | "semi_monthly" | "weekly";
+    submittedBy?: "employee" | "manager";
+    payrollApprovedOnly?: boolean;
+  },
+): Promise<void> {
+  const current = (await (await admin.get("/api/v1/attendance/settings")).json()) as Record<string, unknown>;
+  const { effectivePdpaNotice: _e, ...rest } = current;
+  const res = await admin.put("/api/v1/attendance/settings", {
+    ...rest,
+    timesheets: { period: "monthly", submittedBy: "employee", payrollApprovedOnly: false, ...timesheets },
+  });
+  if (res.status !== 200) throw new Error(`setTimesheetApproval: ${res.status} ${await res.text()}`);
 }

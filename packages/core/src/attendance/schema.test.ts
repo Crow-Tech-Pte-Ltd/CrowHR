@@ -13,11 +13,12 @@ describe("attendance schema", () => {
 
   it("every attendance table has a non-null org_id", async () => {
     const { rows } = await t.pglite.query<{ table_name: string; is_nullable: string }>(
-      "select table_name, is_nullable from information_schema.columns where column_name = 'org_id' and table_name in ('attendance_settings', 'attendance_punches', 'overtime_claims')",
+      "select table_name, is_nullable from information_schema.columns where column_name = 'org_id' and table_name in ('attendance_settings', 'attendance_punches', 'overtime_claims', 'attendance_timesheets')",
     );
     expect(rows.map((r) => r.table_name).sort()).toEqual([
       "attendance_punches",
       "attendance_settings",
+      "attendance_timesheets",
       "overtime_claims",
     ]);
     expect(rows.every((r) => r.is_nullable === "NO")).toBe(true);
@@ -44,5 +45,25 @@ describe("attendance schema", () => {
         [a.id, empB],
       ),
     ).rejects.toThrow(/overtime_claims_employee_fk/);
+  });
+
+  it("timesheets: cross-org employee rejected, one open or approved per period start, ordered range", async () => {
+    const a = await seedOrg(deps);
+    const b = await seedOrg(deps);
+    const empA = await seedEmployee(deps, a.id);
+    const empB = await seedEmployee(deps, b.id);
+    const sheet = (org: string, emp: string, status: string, start = "2026-10-01", end = "2026-10-31") =>
+      t.pglite.query(
+        `insert into attendance_timesheets (id, org_id, employee_id, period_start, period_end, status, submitted_by_membership_id, submitted_at, submitted_totals)
+         values (gen_random_uuid(), $1, $2, $3, $4, $5, gen_random_uuid(), now(), '{}'::jsonb)`,
+        [org, emp, start, end, status],
+      );
+    await expect(sheet(a.id, empB, "submitted")).rejects.toThrow(/attendance_timesheets_employee_fk/);
+    await sheet(a.id, empA, "returned");
+    await sheet(a.id, empA, "submitted");
+    await expect(sheet(a.id, empA, "approved")).rejects.toThrow(/attendance_timesheets_one_open/);
+    await expect(sheet(a.id, empA, "submitted", "2026-11-30", "2026-11-01")).rejects.toThrow(
+      /attendance_timesheets_period_order/,
+    );
   });
 });

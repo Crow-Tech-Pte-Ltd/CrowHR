@@ -3,6 +3,7 @@ import type { PayrollRun } from "../db/schema/payroll.ts";
 import type { AppDeps } from "../deps.ts";
 import { dayInfo, employmentNear, loadEmployeesTime, mondayIndex, scheduleOn } from "../leave/calendar.ts";
 import { attachRosters } from "../scheduling/feeds.ts";
+import { dateLabel } from "./engine/dates.ts";
 import { isBonusRun, type PayInput } from "./engine/types.ts";
 
 const SOURCE = "https://www.mom.gov.sg/employment-practices/public-holidays-entitlement-and-pay";
@@ -41,15 +42,26 @@ export async function appendHolidayPay(deps: AppDeps, run: PayrollRun, inputs: P
       const comp = input.compensation.find((c) => c.from <= h.date && (!c.to || c.to > h.date));
       const allowances = input.allowances.filter((a) => a.from <= h.date && (!a.to || a.to > h.date));
       const unknown = allowances.filter((a) => a.grossRateIncluded === null || a.grossRateIncluded === undefined);
-      if (comp?.payBasis !== "monthly" || !schedule?.days || unknown.length) {
+      const automatic = comp?.payBasis === "monthly" && !!schedule?.days;
+      if (!automatic || unknown.length) {
+        const day = `${h.name} (${dateLabel(h.date)}) falls on an off day, so it is paid as one extra day's gross pay.`;
+        const codes = [...new Set(unknown.map((a) => a.code))].sort();
         input.snapshotIssues.push({
           code: "PH_GROSS_RATE_REQUIRED",
           severity: "blocking",
-          message: `Public holiday ${h.name} (${h.date}) needs one day's gross pay. ${unknown.length ? `Classify ${unknown.map((a) => a.name).join(", ")} for the EA gross rate in Payroll allowance settings (exclude travelling, food and housing allowances).` : "Automatic off-day holiday pay currently requires a monthly rate and fixed work week. Add an other earning with holidayDate and the agreed daily gross amount before paying this run."}`,
+          message: automatic
+            ? `${day} Classify ${unknown.map((a) => a.name).join(", ")} for the gross rate of pay in Payroll → Allowance treatment (include fixed salary allowances; exclude travelling, food and housing allowances), or enter the day's gross pay as holiday pay in this employee's run items.`
+            : `${day} Crow HR works it out only for monthly-rated staff on a fixed week: enter the day's gross pay as holiday pay in this employee's run items.`,
           source: SOURCE,
+          ref: {
+            holidayDate: h.date,
+            holidayName: h.name,
+            ...(automatic && codes.length ? { allowanceCodes: codes } : {}),
+          },
         });
         continue;
       }
+      if (!schedule?.days || !comp) continue;
       const workingDaysPerWeek = schedule.days.reduce(
         (n, d) => n + (d.type === "working" ? 1 : d.type === "half" ? 0.5 : 0),
         0,

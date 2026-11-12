@@ -21,9 +21,18 @@ import {
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, ExternalLink, FileText, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
-import { addItem, deleteItem, employeeDetailQuery, errorMessage, fieldErrors, invalidateRun } from "./api.ts";
+import {
+  addItem,
+  deleteItem,
+  employeeDetailQuery,
+  errorMessage,
+  fieldErrors,
+  invalidateRun,
+  updateItem,
+} from "./api.ts";
+import { type DrawerTask, fixesFor } from "./fixes.ts";
 import { IssueList, sourceHost } from "./ui.tsx";
 
 const SECTION_TITLE: Record<string, string> = {
@@ -79,12 +88,17 @@ export function EmployeeDrawer({
   rows,
   employeeId,
   onNavigate,
+  task,
+  onTask,
 }: {
   runId: string;
   run: PayrollOverviewDto["run"];
   rows: PayrollRowDto[];
   employeeId: string | null;
   onNavigate: (id: string | undefined) => void;
+  /** An item form to open with (from an issue's fix), or null. */
+  task: DrawerTask | null;
+  onTask: (task: DrawerTask | null) => void;
 }) {
   const index = rows.findIndex((r) => r.employeeId === employeeId);
   const prev = index > 0 ? rows[index - 1] : undefined;
@@ -146,7 +160,7 @@ export function EmployeeDrawer({
               {errorMessage(detail.error)}
             </p>
           ) : (
-            <DrawerBody d={detail.data} runId={runId} editable={run.status === "draft"} />
+            <DrawerBody d={detail.data} runId={runId} editable={run.status === "draft"} task={task} onTask={onTask} />
           )}
         </div>
       </SheetContent>
@@ -162,9 +176,23 @@ function H({ children }: { children: React.ReactNode }) {
   );
 }
 
-function DrawerBody({ d, runId, editable }: { d: PayrollEmployeeDetailDto; runId: string; editable: boolean }) {
+function DrawerBody({
+  d,
+  runId,
+  editable,
+  task,
+  onTask,
+}: {
+  d: PayrollEmployeeDetailDto;
+  runId: string;
+  editable: boolean;
+  task: DrawerTask | null;
+  onTask: (task: DrawerTask | null) => void;
+}) {
   const r = d.result;
   const input = d.input as Record<string, unknown> | null;
+  const fed = (input?.items as InputItem[] | undefined) ?? [];
+  const form = task && editable ? formFor(task, d.items, fed) : null;
   const emp = input?.employee as
     | { dob: string; residency: { status: string; sprDate?: string; option?: string }; idMasked: string }
     | undefined;
@@ -180,7 +208,13 @@ function DrawerBody({ d, runId, editable }: { d: PayrollEmployeeDetailDto; runId
         <>
           <H>Issues</H>
           <div className="rounded-md border border-border">
-            <IssueList issues={r.issues.filter((i) => i.severity !== "info")} limit={10} />
+            <IssueList
+              issues={r.issues.filter((i) => i.severity !== "info")}
+              limit={10}
+              // In the drawer a fix either opens another page or the item form below.
+              fixes={(i) => fixesFor(i, d.employeeId).filter((f) => f.kind !== "drawer" || (editable && f.task))}
+              onFix={(f) => (f.kind === "drawer" && f.task ? onTask(f.task) : undefined)}
+            />
           </div>
         </>
       ) : null}
@@ -351,8 +385,26 @@ function DrawerBody({ d, runId, editable }: { d: PayrollEmployeeDetailDto; runId
       ) : null}
 
       <H>Items in this run</H>
-      <ItemList items={d.items} runId={runId} editable={editable} />
-      {editable ? <AddItem runId={runId} employeeId={d.employeeId} /> : null}
+      <ItemList
+        items={d.items}
+        runId={runId}
+        editable={editable}
+        onEdit={(itemId) => onTask({ kind: "edit", itemId })}
+      />
+      <FedItems items={fed} manual={d.items} editable={editable} onTask={onTask} />
+      {form ? (
+        <ItemForm
+          key={JSON.stringify(task)}
+          runId={runId}
+          employeeId={d.employeeId}
+          initial={form}
+          onClose={() => onTask(null)}
+        />
+      ) : editable ? (
+        <Button size="sm" className="mt-2" onClick={() => onTask({ kind: "add", itemKind: "bonus" })}>
+          <Plus aria-hidden /> Add item
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -366,7 +418,44 @@ function Fact({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
   );
 }
 
-function ItemList({ items, runId, editable }: { items: PayrollItemDto[]; runId: string; editable: boolean }) {
+/** A run item as it went into the last computation (manual or fed from another module). */
+interface InputItem {
+  id: string;
+  kind: PayrollItemDto["kind"];
+  label: string;
+  amountCents: number | null;
+  minutes: number | null;
+  days: number | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+}
+
+const FED_SOURCE: [string, string][] = [
+  ["attendance:", "Attendance"],
+  ["leave:", "Leave"],
+  ["scheduling:", "Roster"],
+  ["encashment:", "Leave encashment"],
+  ["holiday:", "Holiday pay"],
+];
+
+function quantity(i: { amountCents: number | null; minutes: number | null; days: number | null }): string {
+  if (i.amountCents !== null) return formatMoney(i.amountCents);
+  if (i.minutes) return `${i.minutes / 60} h`;
+  if (i.days) return `${i.days} d`;
+  return "";
+}
+
+function ItemList({
+  items,
+  runId,
+  editable,
+  onEdit,
+}: {
+  items: PayrollItemDto[];
+  runId: string;
+  editable: boolean;
+  onEdit: (itemId: string) => void;
+}) {
   const qc = useQueryClient();
   const del = useMutation({
     mutationFn: (id: string) => deleteItem(runId, id),
@@ -391,24 +480,95 @@ function ItemList({ items, runId, editable }: { items: PayrollItemDto[]; runId: 
             {i.kind === "hours" && i.date ? (
               <span className="ml-1.5 text-2xs text-primary-300">worked {formatDate(i.date)}</span>
             ) : null}
+            {i.holidayDate ? (
+              <span className="ml-1.5 text-2xs text-primary-300">holiday {formatDate(i.holidayDate)}</span>
+            ) : null}
+            {i.overtimeSourceId ? (
+              <span className="ml-1.5 text-2xs text-primary-300">prices overtime approved in attendance</span>
+            ) : null}
           </span>
-          <span className="num shrink-0">
-            {i.amountCents !== null
-              ? formatMoney(i.amountCents)
-              : i.minutes
-                ? `${i.minutes / 60} h`
-                : i.days
-                  ? `${i.days} d`
-                  : ""}
-          </span>
+          <span className="num shrink-0">{quantity(i)}</span>
           {editable ? (
-            <Button variant="ghost" size="icon-sm" aria-label={`Remove ${i.label}`} onClick={() => del.mutate(i.id)}>
-              <Trash2 />
-            </Button>
+            <>
+              <Button variant="ghost" size="icon-sm" aria-label={`Edit ${i.label}`} onClick={() => onEdit(i.id)}>
+                <Pencil />
+              </Button>
+              <Button variant="ghost" size="icon-sm" aria-label={`Remove ${i.label}`} onClick={() => del.mutate(i.id)}>
+                <Trash2 />
+              </Button>
+            </>
           ) : null}
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Items fed in from Attendance, Leave and rosters, and automatic holiday pay, as computed. Approved
+ * overtime with no statutory rate needs an amount: entered as an overtime item for that claim, which
+ * replaces the fed amount (so it is never paid twice).
+ */
+function FedItems({
+  items,
+  manual,
+  editable,
+  onTask,
+}: {
+  items: InputItem[];
+  manual: PayrollItemDto[];
+  editable: boolean;
+  onTask: (t: DrawerTask) => void;
+}) {
+  const fed = items.filter(
+    (i) =>
+      i.id.includes(":") &&
+      !(i.id.startsWith("holiday:") && manual.some((m) => m.holidayDate && i.id.endsWith(`:${m.holidayDate}`))),
+  );
+  if (!fed.length) return null;
+  return (
+    <>
+      <H>From other modules</H>
+      <ul className="divide-y divide-border rounded-md border border-border">
+        {fed.map((i) => {
+          const source = FED_SOURCE.find(([p]) => i.id.startsWith(p))?.[1] ?? "";
+          const claimId = i.kind === "overtime" && i.id.startsWith("attendance:") ? i.id.slice(11) : null;
+          const priced = claimId ? manual.find((m) => m.overtimeSourceId === claimId) : undefined;
+          return (
+            <li key={i.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 text-ui">
+              <span className="w-24 shrink-0 font-azeret text-[10px] uppercase text-primary-200">{source}</span>
+              <span className="min-w-0 flex-1">
+                {i.label}
+                {i.periodStart && i.periodEnd ? (
+                  <span className="ml-1.5 text-2xs text-primary-300">
+                    {formatDate(i.periodStart)}
+                    {i.periodEnd !== i.periodStart ? ` – ${formatDate(i.periodEnd)}` : ""}
+                  </span>
+                ) : null}
+              </span>
+              <span className="num shrink-0">
+                {i.kind === "overtime" && i.minutes ? `${i.minutes / 60} h` : quantity(i)}
+                {i.kind === "overtime" && i.amountCents !== null ? ` · ${formatMoney(i.amountCents)}` : ""}
+              </span>
+              {claimId && editable ? (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() =>
+                    onTask(
+                      priced ? { kind: "edit", itemId: priced.id } : { kind: "overtime", overtimeSourceId: claimId },
+                    )
+                  }
+                >
+                  {priced ? "Change amount" : i.amountCents === null ? "Enter amount" : "Use a contract amount"}
+                </Button>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
@@ -426,103 +586,236 @@ const DEDUCTION_OPTIONS: [string, string][] = [
   ["court_order", "Court order or tax"],
 ];
 
-function AddItem({ runId, employeeId }: { runId: string; employeeId: string }) {
+const EARNINGS: PayrollItemDto["kind"][] = ["bonus", "commission", "backpay", "other_earning"];
+
+interface FormState {
+  editId: string | null;
+  kind: PayrollItemDto["kind"];
+  label: string;
+  amount: number | null;
+  wageClass: "OW" | "AW";
+  cpfLiable: boolean;
+  payable: string;
+  hours: string;
+  workedOn: string;
+  days: string;
+  category: string;
+  holidayDate: string | null;
+  holidayName: string | null;
+  overtimeSourceId: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+}
+
+function fromItem(i: PayrollItemDto): FormState {
+  return {
+    editId: i.id,
+    kind: i.kind,
+    label: i.label,
+    amount: i.amountCents,
+    wageClass: i.wageClass ?? (i.kind === "bonus" ? "AW" : "OW"),
+    cpfLiable: i.cpfLiable,
+    payable: i.awPayableDate ?? "",
+    hours: i.minutes ? String(i.minutes / 60) : "",
+    workedOn: i.date ?? "",
+    days: i.days !== null ? String(i.days) : "",
+    category: i.deductionCategory ?? "consented",
+    holidayDate: i.holidayDate,
+    holidayName: null,
+    overtimeSourceId: i.overtimeSourceId,
+    periodStart: i.periodStart,
+    periodEnd: i.periodEnd,
+  };
+}
+
+const blank = (kind: PayrollItemDto["kind"]): FormState => ({
+  editId: null,
+  kind,
+  label: "",
+  amount: null,
+  wageClass: kind === "bonus" ? "AW" : "OW",
+  cpfLiable: true,
+  payable: "",
+  hours: "",
+  workedOn: "",
+  days: "",
+  category: "consented",
+  holidayDate: null,
+  holidayName: null,
+  overtimeSourceId: null,
+  periodStart: null,
+  periodEnd: null,
+});
+
+/** The form a task opens with. An item that already covers the holiday or overtime claim is edited instead. */
+function formFor(task: DrawerTask, items: PayrollItemDto[], fed: InputItem[]): FormState | null {
+  switch (task.kind) {
+    case "add":
+      return blank(task.itemKind);
+    case "edit": {
+      const item = items.find((i) => i.id === task.itemId);
+      return item ? fromItem(item) : null;
+    }
+    case "holiday": {
+      const existing = items.find((i) => i.holidayDate === task.holidayDate);
+      if (existing) return { ...fromItem(existing), holidayName: task.holidayName };
+      return {
+        ...blank("other_earning"),
+        label: `Public holiday: ${task.holidayName} (off day)`,
+        holidayDate: task.holidayDate,
+        holidayName: task.holidayName,
+      };
+    }
+    case "overtime": {
+      const existing = items.find((i) => i.overtimeSourceId === task.overtimeSourceId);
+      if (existing) return fromItem(existing);
+      const source = fed.find((i) => i.id === `attendance:${task.overtimeSourceId}`);
+      return {
+        ...blank("overtime"),
+        label: "Overtime (contract rate)",
+        hours: source?.minutes ? String(source.minutes / 60) : "",
+        overtimeSourceId: task.overtimeSourceId,
+        periodStart: source?.periodStart ?? null,
+        periodEnd: source?.periodEnd ?? null,
+      };
+    }
+  }
+}
+
+function ItemForm({
+  runId,
+  employeeId,
+  initial,
+  onClose,
+}: {
+  runId: string;
+  employeeId: string;
+  initial: FormState;
+  onClose: () => void;
+}) {
   const qc = useQueryClient();
-  const [open, setOpen] = React.useState(false);
-  const [kind, setKind] = React.useState<PayrollItemDto["kind"]>("bonus");
-  const [label, setLabel] = React.useState("");
-  const [amount, setAmount] = React.useState<number | null>(null);
-  const [wageClass, setWageClass] = React.useState<"OW" | "AW">("AW");
-  const [payable, setPayable] = React.useState("");
-  const [hours, setHours] = React.useState("");
-  const [workedOn, setWorkedOn] = React.useState("");
-  const [days, setDays] = React.useState("");
-  const [category, setCategory] = React.useState("consented");
-  const add = useMutation({
-    mutationFn: () =>
-      addItem(runId, {
+  const [f, setF] = React.useState(initial);
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
+  const first = React.useRef<HTMLFormElement>(null);
+  const fixed = !!(initial.editId || initial.holidayDate || initial.overtimeSourceId);
+  React.useEffect(() => {
+    first.current?.scrollIntoView({ block: "nearest" });
+    first.current?.querySelector<HTMLElement>("[data-first]")?.focus();
+  }, []);
+  const earning = EARNINGS.includes(f.kind);
+  const save = useMutation({
+    mutationFn: () => {
+      const body = {
         employeeId,
-        kind,
-        label: label || ITEM_KIND[kind],
-        amountCents: amount,
-        wageClass: ["bonus", "commission", "backpay", "other_earning"].includes(kind) ? wageClass : null,
-        awPayableDate: wageClass === "AW" && payable ? payable : null,
-        minutes: hours ? Math.round(Number(hours) * 60) : null,
-        date: kind === "hours" && workedOn ? workedOn : null,
-        days: days ? Number(days) : null,
-        deductionCategory: kind === "deduction" ? (category as never) : null,
-      }),
+        kind: f.kind,
+        label: f.label || ITEM_KIND[f.kind],
+        amountCents: f.amount,
+        wageClass: earning ? f.wageClass : null,
+        cpfLiable: f.cpfLiable,
+        awPayableDate: earning && f.wageClass === "AW" && f.payable ? f.payable : null,
+        minutes: f.hours ? Math.round(Number(f.hours) * 60) : null,
+        date: f.kind === "hours" && f.workedOn ? f.workedOn : null,
+        days: f.days ? Number(f.days) : null,
+        deductionCategory: f.kind === "deduction" ? (f.category as never) : null,
+        holidayDate: f.kind === "other_earning" ? f.holidayDate : null,
+        overtimeSourceId: f.kind === "overtime" ? f.overtimeSourceId : null,
+        periodStart: f.kind === "overtime" ? f.periodStart : null,
+        periodEnd: f.kind === "overtime" ? f.periodEnd : null,
+      };
+      return f.editId ? updateItem(runId, f.editId, body) : addItem(runId, body).then(() => undefined);
+    },
     onSuccess: async () => {
       await invalidateRun(qc, runId);
-      toast.success("Item added. Recompute to apply it.");
-      setLabel("");
-      setAmount(null);
-      setHours("");
-      setWorkedOn("");
-      setDays("");
+      toast.success(f.editId ? "Item saved. Recompute to apply it." : "Item added. Recompute to apply it.");
+      if (fixed) onClose();
+      else setF((s) => ({ ...blank(s.kind), wageClass: s.wageClass, category: s.category }));
     },
   });
-  const errors = fieldErrors(add.error);
-  const earning = ["bonus", "commission", "backpay", "other_earning"].includes(kind);
-  if (!open) {
-    return (
-      <Button size="sm" className="mt-2" onClick={() => setOpen(true)}>
-        <Plus aria-hidden /> Add item
-      </Button>
-    );
-  }
+  const errors = fieldErrors(save.error);
+  const title = f.holidayDate
+    ? `Holiday pay: ${f.holidayName ?? "public holiday"}, ${formatDate(f.holidayDate)}`
+    : f.overtimeSourceId
+      ? "Overtime approved in attendance"
+      : f.editId
+        ? `Edit ${ITEM_KIND[f.kind].toLowerCase()}`
+        : "Add an item";
   return (
     <form
+      ref={first}
+      aria-label={title}
       className="mt-3 grid grid-cols-1 gap-3 rounded-md border border-border p-3 sm:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
-        add.mutate();
+        save.mutate();
       }}
     >
-      <FormField label="Item">
-        <Select
-          value={kind}
-          onValueChange={(v) => {
-            setKind(v as PayrollItemDto["kind"]);
-            setWageClass(v === "bonus" ? "AW" : "OW");
-          }}
-        >
-          <SelectTrigger aria-label="Item">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(ITEM_KIND).map(([k, v]) => (
-              <SelectItem key={k} value={k}>
-                {v}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormField>
+      <p className="font-azeret text-[10px] font-semibold uppercase tracking-wider sm:col-span-2">{title}</p>
+      {f.holidayDate ? (
+        <p className="text-2xs text-primary-300 sm:col-span-2">
+          The holiday falls on this employee's off day, so they get one extra day's pay at the gross rate of pay (basic
+          pay and fixed allowances; not overtime, bonuses or travelling, food and housing allowances). Crow HR works it
+          out itself only for monthly-rated staff on a fixed week.
+        </p>
+      ) : null}
+      {f.overtimeSourceId ? (
+        <p className="text-2xs text-primary-300 sm:col-span-2">
+          {f.hours ? `${f.hours} h approved` : "Approved"}
+          {f.periodStart && f.periodEnd
+            ? ` for ${formatDate(f.periodStart)}${f.periodEnd !== f.periodStart ? ` – ${formatDate(f.periodEnd)}` : ""}`
+            : ""}
+          . Enter the overtime pay your contract gives for these hours; it replaces the statutory rate for this claim
+          and is paid once.
+        </p>
+      ) : null}
+      {fixed ? null : (
+        <FormField label="Item">
+          <Select
+            value={f.kind}
+            onValueChange={(v) => {
+              const kind = v as PayrollItemDto["kind"];
+              setF((s) => ({ ...s, kind, wageClass: kind === "bonus" ? "AW" : "OW" }));
+            }}
+          >
+            <SelectTrigger aria-label="Item" data-first>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(ITEM_KIND).map(([k, v]) => (
+                <SelectItem key={k} value={k}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormField>
+      )}
       <FormField label="Label on payslip" error={errors.label}>
-        <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={ITEM_KIND[kind]} />
+        <Input value={f.label} onChange={(e) => set("label", e.target.value)} placeholder={ITEM_KIND[f.kind]} />
       </FormField>
-      {earning || kind === "deduction" || kind === "overtime" || kind === "cpf_aw_recovery" ? (
+      {earning || f.kind === "deduction" || f.kind === "overtime" || f.kind === "cpf_aw_recovery" ? (
         <FormField
-          label="Amount"
+          label={f.holidayDate ? "Day's gross pay" : "Amount"}
           error={errors.amountCents}
+          required={!!(f.holidayDate || f.overtimeSourceId)}
           hint={
-            kind === "overtime"
-              ? "Leave empty to use the statutory 1.5× rate."
-              : kind === "cpf_aw_recovery"
-                ? "Leave empty to recover all that CPF Act s 7(9) allows."
-                : undefined
+            f.overtimeSourceId
+              ? undefined
+              : f.kind === "overtime"
+                ? "Leave empty to use the statutory 1.5× rate."
+                : f.kind === "cpf_aw_recovery"
+                  ? "Leave empty to recover all that CPF Act s 7(9) allows."
+                  : undefined
           }
         >
-          <MoneyInput value={amount} onChange={(c) => setAmount(c)} />
+          <MoneyInput value={f.amount} onChange={(c) => set("amount", c)} data-first={fixed ? true : undefined} />
         </FormField>
       ) : null}
-      {earning ? (
+      {earning && !f.holidayDate ? (
         <FormField
           label="CPF class"
           hint="AW: bonus, AWS, non-monthly commission. OW: earned for this month, payable by the 14th."
         >
-          <Select value={wageClass} onValueChange={(v) => setWageClass(v as "OW" | "AW")}>
+          <Select value={f.wageClass} onValueChange={(v) => set("wageClass", v as "OW" | "AW")}>
             <SelectTrigger aria-label="CPF class">
               <SelectValue />
             </SelectTrigger>
@@ -533,50 +826,55 @@ function AddItem({ runId, employeeId }: { runId: string; employeeId: string }) {
           </Select>
         </FormField>
       ) : null}
-      {earning && wageClass === "AW" ? (
+      {earning && f.wageClass === "AW" && !f.holidayDate ? (
         <FormField
           label="AW payable on"
           error={errors.awPayableDate}
           hint="The date it became due and payable (CPF keys the AW ceiling to it)."
         >
-          <Input type="date" value={payable} onChange={(e) => setPayable(e.target.value)} required />
+          <Input type="date" value={f.payable} onChange={(e) => set("payable", e.target.value)} required />
         </FormField>
       ) : null}
-      {kind === "overtime" || kind === "hours" ? (
+      {(f.kind === "overtime" && !f.overtimeSourceId) || f.kind === "hours" ? (
         <FormField label="Hours" error={errors.minutes}>
-          <Input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="e.g. 4.5" />
+          <Input
+            inputMode="decimal"
+            value={f.hours}
+            onChange={(e) => set("hours", e.target.value)}
+            placeholder="e.g. 4.5"
+          />
         </FormField>
       ) : null}
-      {kind === "hours" ? (
+      {f.kind === "hours" ? (
         <FormField
           label="Date worked (optional)"
           error={errors.date}
           hint="Needed when the hourly rate changes this month: add one item per rate, dated on or after the change."
         >
-          <Input type="date" value={workedOn} onChange={(e) => setWorkedOn(e.target.value)} />
+          <Input type="date" value={f.workedOn} onChange={(e) => set("workedOn", e.target.value)} />
         </FormField>
       ) : null}
-      {kind === "scheduled_days" || kind === "days_worked" ? (
+      {f.kind === "scheduled_days" || f.kind === "days_worked" ? (
         <FormField
           label="Days"
           error={errors.days}
           hint={
-            kind === "scheduled_days"
+            f.kind === "scheduled_days"
               ? "Working days the roster required this month, including public holidays."
               : "Days worked, including public holidays and paid leave, excluding no-pay leave."
           }
         >
-          <Input inputMode="decimal" value={days} onChange={(e) => setDays(e.target.value)} />
+          <Input inputMode="decimal" value={f.days} onChange={(e) => set("days", e.target.value)} />
         </FormField>
       ) : null}
-      {kind === "unpaid_leave" ? (
+      {f.kind === "unpaid_leave" ? (
         <FormField label="Days" error={errors.days} hint="Half days allowed, e.g. 1.5.">
-          <Input inputMode="decimal" value={days} onChange={(e) => setDays(e.target.value)} />
+          <Input inputMode="decimal" value={f.days} onChange={(e) => set("days", e.target.value)} />
         </FormField>
       ) : null}
-      {kind === "deduction" ? (
+      {f.kind === "deduction" ? (
         <FormField label="Category" error={errors.deductionCategory} hint="Employment Act limits apply per category.">
-          <Select value={category} onValueChange={setCategory}>
+          <Select value={f.category} onValueChange={(v) => set("category", v)}>
             <SelectTrigger aria-label="Category">
               <SelectValue />
             </SelectTrigger>
@@ -590,17 +888,17 @@ function AddItem({ runId, employeeId }: { runId: string; employeeId: string }) {
           </Select>
         </FormField>
       ) : null}
-      {add.isError && !Object.keys(errors).length ? (
+      {save.isError && !Object.keys(errors).length ? (
         <p role="alert" className="text-ui text-danger-300 sm:col-span-2">
-          {errorMessage(add.error)}
+          {errorMessage(save.error)}
         </p>
       ) : null}
       <div className="flex gap-2 sm:col-span-2">
-        <Button type="submit" size="sm" variant="primary" disabled={add.isPending}>
-          Add item
+        <Button type="submit" size="sm" variant="primary" disabled={save.isPending}>
+          {f.editId ? "Save item" : "Add item"}
         </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
-          Done
+        <Button type="button" size="sm" variant="ghost" onClick={onClose}>
+          {fixed ? "Cancel" : "Done"}
         </Button>
       </div>
     </form>

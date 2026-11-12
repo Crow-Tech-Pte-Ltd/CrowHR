@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, createTestDeps, type TestDb } from "../../../testing/index.ts";
 import { createPeopleTestApp } from "../../../testing/people-http.ts";
-import { employees } from "../../db/schema/employees.ts";
+import { employees, employmentRecords } from "../../db/schema/employees.ts";
 import { fixedClock } from "../../deps.ts";
 import {
   type BasicStructure,
@@ -125,6 +125,35 @@ describe("employee import", () => {
     expect((await t.db.select().from(employees)).map((e) => e.employeeNumber).sort()).toEqual(["E101", "E102", "E103"]);
     expect(h.ports.audit.events.some((e) => e.action === "import.employees.committed")).toBe(true);
     expect((await owner.post(`/people/imports/${res.body.jobId}/commit`)).status).toBe(409);
+  });
+
+  it("imports the workman and manager/executive flags (Employment Act Part 4); yes or no, empty means no", async () => {
+    const owner = api.as(h.orgId, ["owner"]);
+    const head = `${HEAD},manager_or_executive`;
+    const bad = await owner.post("/people/imports/employees/preview", {
+      content: `${head}\n${row(1)},maybe\n`,
+    });
+    expect(bad.body.errors).toEqual([
+      expect.objectContaining({ row: 2, column: "manager_or_executive", value: "maybe", message: "Use yes or no." }),
+    ]);
+    const res = await owner.post("/people/imports/employees/preview", {
+      content: `${head},workman\n${row(1)},Yes,\n${row(2)},no,y\n${row(3)},,\n`,
+    });
+    expect(res.body).toMatchObject({ validRows: 3, canCommit: true, errors: [] });
+    expect((await owner.post(`/people/imports/${res.body.jobId}/commit`)).status).toBe(200);
+    const flags = await t.db
+      .select({
+        number: employees.employeeNumber,
+        flag: employmentRecords.isManagerOrExecutive,
+        workman: employmentRecords.isWorkman,
+      })
+      .from(employmentRecords)
+      .innerJoin(employees, eq(employees.id, employmentRecords.employeeId));
+    expect(flags.sort((a, b) => a.number.localeCompare(b.number))).toEqual([
+      { number: "E101", flag: true, workman: false },
+      { number: "E102", flag: false, workman: true },
+      { number: "E103", flag: false, workman: false },
+    ]);
   });
 
   it("re-validates at commit: a conflicting change since the preview aborts everything", async () => {

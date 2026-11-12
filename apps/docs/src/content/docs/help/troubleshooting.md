@@ -9,11 +9,11 @@ For problems with the server itself (startup errors, setup code, backups, proxie
 
 | Symptom | What to do |
 | --- | --- |
-| Sign-in keeps failing for someone who is sure of their password | After 10 failed attempts in 15 minutes an account is locked for 15 minutes, with the same message. Wait, or an owner clears the lockout in Settings → Members. |
+| Sign-in keeps failing or is slow for someone who is sure of their password | After 10 wrong passwords from one network within 15 minutes, each further attempt has to wait (doubling up to 30 seconds), and the message stays the same. Wait a minute and try again, or an owner uses **Clear sign-in lockout** in Settings → Members. |
 | Everyone in the office is rate-limited at once | The server sees one IP for everyone because it does not trust your proxy. Set `TRUSTED_PROXIES` ([reverse proxy](/docs/self-hosting/reverse-proxy/)). |
 | "You were signed out after a period of inactivity" | The idle timeout (default 30 minutes) passed. Owners can change it in Settings → Security. |
 | Signed out immediately after signing in | `PUBLIC_URL` does not match the address in the browser, or it is `https` while the browser uses `http`. |
-| Every page says to set up two-step verification | Your role requires it and the 7-day grace period is over. Enrol, or ask an owner to change the [MFA policy](/docs/admin/mfa/). |
+| Every page says to set up two-step verification | Your role requires it and the 7-day grace period is over. Enrol, or ask an owner to change the [MFA policy](/docs/admin/mfa/). This also applies when you sign in with Google or another provider that doesn't report MFA. |
 | "Password sign-in is disabled" | Your organisation uses single sign-on; use the provider's button. Owners can always use their password. |
 | Asked for the password again before saving | Sensitive actions need a sign-in within the last 10 minutes. This is expected. |
 | The owner lost their password and authenticator | On the server: `crowhr reset-owner-mfa --email <owner>` ([CLI](/docs/self-hosting/cli/#reset-owner-mfa)). |
@@ -51,7 +51,9 @@ For problems with the server itself (startup errors, setup code, backups, proxie
 | --- | --- |
 | Run cannot be submitted: company profile | Add UEN, CSN and address in Settings → Company. |
 | `409` "recompute the run" on submit | Records or items changed after computing. Recompute, review, submit again. |
-| `OT_NOT_STATUTORY` | The employee is not covered by Part 4 of the Employment Act (basic pay above the limit, or flagged as a manager or executive on the Job tab). Enter the contractual overtime amount. |
+| `OT_NOT_STATUTORY` | The employee is not covered by Part 4 of the Employment Act (basic pay above the limit, or flagged as a manager or executive on the Job tab). Choose **Enter the overtime amount** on the issue and enter the contractual amount. |
+| `PH_GROSS_RATE_REQUIRED` | A public holiday falls on the employee's off day and is paid as an extra day's gross pay. Classify the allowances it names in **Payroll → Allowance treatment**, or, for hourly or rostered staff, choose **Enter holiday pay** and enter the day's gross pay. |
+| `ALLOWANCE_GROSS_RATE_UNSET` | A warning: an allowance paid in the run has no answer for the gross rate of pay. Set it in **Payroll → Allowance treatment** before a holiday on an off day or an encashment request needs it. |
 | `YTD_BEFORE_CROWHR_MISSING` | Import [YTD opening balances](/docs/people/importing/#year-to-date-opening-balances) for months paid before Crow HR. |
 | `CPF_LOW_WAGE_CAPPED_AW_UNSUPPORTED` | A case CPF has no rule for. Compute that employee's CPF with CPF Board's guidance and pay outside Crow HR, or adjust the AW timing. |
 | Scheduled days / days worked missing | The employee has no fixed working week. Add both items for the month. |
@@ -64,4 +66,4 @@ For problems with the server itself (startup errors, setup code, backups, proxie
 
 ## Still stuck
 
-Collect `docker compose exec app crowhr doctor`, the request ID shown with the error (every API error carries one) and the matching lines of `docker compose logs app`, and open an issue. Do not post NRIC numbers, salaries or other personal data in public issues.
+Collect `docker compose exec app crowhr doctor`, the request ID shown with the error (every API error carries one) and the matching lines of `docker compose logs app`, and [open an issue](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/issues). Do not post NRIC numbers, salaries or other personal data in public issues.

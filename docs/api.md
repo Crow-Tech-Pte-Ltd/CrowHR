@@ -1,6 +1,6 @@
 # HTTP API
 
-The web app, the native apps (M4) and integrations all use the same versioned REST API. The contract is generated from the route declarations in `packages/core` and served at `GET /api/v1/openapi.json`. A committed snapshot lives in `packages/core/openapi/v1.snapshot.json`.
+The web app, the iOS and Android apps and integrations all use the same versioned REST API. The contract is generated from the route declarations in `packages/core` and served at `GET /api/v1/openapi.json`. A committed snapshot lives in `packages/core/openapi/v1.snapshot.json`.
 
 ## Versions and compatibility
 

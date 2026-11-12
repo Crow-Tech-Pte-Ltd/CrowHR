@@ -311,6 +311,7 @@ export const membersModule = defineModule({
       description:
         "hr_admins may only invite members with no assigned roles, and may not link the invitation to a manager's employee record. An employee record that already has a (non-former) sign-in is refused with 409. Without email configured, the response carries a link to copy.",
       access: { permission: "members:create" },
+      refusedInDemoCompany: true,
       request: {
         body: z.object({
           email: emailInput(),
@@ -351,6 +352,7 @@ export const membersModule = defineModule({
       path: "/:id/invitation/resend",
       summary: "Resend an invitation (replaces the link)",
       access: { permission: "members:create" },
+      refusedInDemoCompany: true,
       request: { params: idParams },
       responses: { 200: invitationResult },
       errors: ["not_found", "conflict"],
@@ -569,6 +571,7 @@ export const membersModule = defineModule({
       path: "/:id/sessions/:sessionId",
       summary: "Revoke one of a member's sessions or devices",
       access: { permission: "security_settings:update" },
+      refusedInDemoCompany: true,
       request: { params: z.object({ id: z.uuid(), sessionId: z.string().min(1).max(100) }) },
       responses: { 204: null },
       errors: ["not_found"],
@@ -593,6 +596,7 @@ export const membersModule = defineModule({
       summary: "Sign a member out of every browser and device",
       description: "Also unlinks the member's SSO sign-in methods in this organisation (`unlinked` counts them).",
       access: { permission: "security_settings:update" },
+      refusedInDemoCompany: true,
       request: { params: idParams },
       responses: { 200: z.object({ revoked: z.number().int(), unlinked: z.number().int() }) },
       errors: ["not_found"],
@@ -629,6 +633,7 @@ export const membersModule = defineModule({
       summary: "Reset a member's two-step verification",
       description: "Owner only. The member enrols again at next sign-in (subject to the MFA policy).",
       access: { permission: "security_settings:update" },
+      refusedInDemoCompany: true,
       recentAuth: true,
       request: { params: idParams },
       responses: { 204: null },
@@ -659,6 +664,7 @@ export const membersModule = defineModule({
       description:
         "Owner only, after a recent sign-in. With email configured the reset link goes to the member (forced reset by email; `url` is null). Without email the owner gets a link to hand over, shown once and valid 60 minutes. Refused for members who hold a role or belong to another organisation (the password is shared across organisations).",
       access: { permission: "members:update" },
+      refusedInDemoCompany: true,
       recentAuth: true,
       request: { params: idParams },
       responses: {

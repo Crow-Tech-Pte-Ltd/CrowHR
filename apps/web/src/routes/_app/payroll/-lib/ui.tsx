@@ -1,7 +1,9 @@
 import type { PayrollIssueDto, PayslipViewDto } from "@crowhr/core";
 import { Button, cn, formatDate, formatMoney, StatusPill } from "@crowhr/ui";
-import { AlertOctagon, AlertTriangle, Download, ExternalLink } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { AlertOctagon, AlertTriangle, ArrowRight, Download, ExternalLink } from "lucide-react";
 import * as React from "react";
+import type { IssueFix } from "./fixes.ts";
 
 /** Right-aligned tabular money. Zero shows as an en dash so real amounts stand out in dense tables. */
 export function Money({
@@ -59,15 +61,73 @@ export function sourceHost(url: string): string {
 
 export type IssueRow = PayrollIssueDto & { employeeId?: string | null; employeeName?: string | null };
 
-/** Issues, blocking first. Each says what is wrong and how to fix it, with its source. */
+const fixLinkClass =
+  "focus-ring inline-flex items-center gap-1 rounded-sm font-azeret text-2xs font-semibold text-biru-400 underline-offset-2 hover:underline";
+
+/** A fix: a link to the page that holds the record, or (via `onFix`) a task in the employee drawer. */
+export function FixAction({ fix, onFix }: { fix: IssueFix; onFix?: (fix: IssueFix) => void }) {
+  const inner = (
+    <>
+      {fix.label} <ArrowRight className="size-3" aria-hidden />
+    </>
+  );
+  switch (fix.kind) {
+    case "allowances":
+      return (
+        <Link
+          to="/payroll/allowances"
+          search={fix.codes.length ? { highlight: fix.codes.join(",") } : {}}
+          className={fixLinkClass}
+        >
+          {inner}
+        </Link>
+      );
+    case "company":
+      return (
+        <Link to="/settings/company" className={fixLinkClass}>
+          {inner}
+        </Link>
+      );
+    case "people":
+      return (
+        <Link to="/people" className={fixLinkClass}>
+          {inner}
+        </Link>
+      );
+    case "person":
+      return (
+        <Link
+          to="/people/$employeeId"
+          params={{ employeeId: fix.employeeId }}
+          search={fix.tab ? { tab: fix.tab } : {}}
+          className={fixLinkClass}
+        >
+          {inner}
+        </Link>
+      );
+    case "drawer":
+      return onFix ? (
+        <button type="button" className={fixLinkClass} onClick={() => onFix(fix)}>
+          {inner}
+        </button>
+      ) : null;
+  }
+}
+
+/** Issues, blocking first. Each says what is wrong and how to fix it, with its source and a way to the fix. */
 export function IssueList({
   issues,
   onEmployee,
   limit = 6,
+  fixes,
+  onFix,
 }: {
   issues: IssueRow[];
   onEmployee?: (id: string) => void;
   limit?: number;
+  /** Ways to fix each issue (see fixes.ts); drawer fixes need `onFix`. */
+  fixes?: (issue: IssueRow) => IssueFix[];
+  onFix?: (fix: IssueFix) => void;
 }) {
   const [all, setAll] = React.useState(false);
   const shown = all ? issues : issues.slice(0, limit);
@@ -97,6 +157,7 @@ export function IssueList({
               ) : null}
               {i.message}
             </p>
+            {fixes ? <FixRow fixes={fixes(i)} onFix={onFix} /> : null}
             <p className="mt-0.5 flex flex-wrap gap-x-3 font-azeret text-[10px] uppercase tracking-wide text-primary-200">
               <span>{i.code}</span>
               {i.source ? (
@@ -121,6 +182,18 @@ export function IssueList({
         </li>
       ) : null}
     </ul>
+  );
+}
+
+function FixRow({ fixes, onFix }: { fixes: IssueFix[]; onFix?: (fix: IssueFix) => void }) {
+  const shown = fixes.filter((f) => f.kind !== "drawer" || onFix);
+  if (!shown.length) return null;
+  return (
+    <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+      {shown.map((f) => (
+        <FixAction key={`${f.kind}-${f.label}`} fix={f} onFix={onFix} />
+      ))}
+    </p>
   );
 }
 

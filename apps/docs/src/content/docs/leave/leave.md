@@ -43,7 +43,7 @@ Each type's policy is edited from **Settings → Leave → Policies**:
 - **Pro-rate in the first year and the year of leaving**. Annual leave is pro-rated by completed months in the first calendar year of service and the year of leaving, half a day or more rounding up; later years use the service year reached by 31 December. Each balance explains how it was worked out.
 - **Earned**: **All on 1 January**, or **Month by month** (completed months × yearly days ÷ 12, rounded down to a half day). With monthly accrual, a request is checked against what will have been earned by its last day.
 - **Carry unused days into next year**, **Up to (days)** (blank means all) and **Use within (months)** (blank means they never expire). Annual leave carries everything forward by default, to be used within 12 months.
-- **Encash days that can't be carried forward**.
+- **Allow leave encashment (including unused year-end days)**, and **Allow employees to request encashment** if staff may ask themselves (see [encash unused leave](#encash-unused-leave)).
 - **Allow half days**, **Private** (colleagues see only "On leave"), and the **Supporting document**: not asked for, optional or required.
 
 The Employment Act sets the floor, and Crow HR refuses a policy below it (`below_statutory`): annual leave below the statutory scale in any service year, sick leave below 14 days or hospitalisation below 60, more than 3 months' service required, or parental and childcare types moved off the statutory entitlement. Parental, childcare, infant care, NS and no-pay entitlements are fixed by law and can't be edited.
@@ -68,7 +68,7 @@ As you fill it in, Crow HR shows how many days the request takes from each leave
 
 A request is refused when it overlaps another pending or approved request (a morning and an afternoon don't clash), the balance after pending requests is too small, you are not eligible yet, the type doesn't allow half days, a date is outside your employment, no date is a working day, it spans more than 200 calendar days, or a required document is missing. Leave across 31 December is split between the two leave years.
 
-**Supporting documents** (PDF, JPEG, PNG, WebP or HEIC, up to 5 MB) are checked by their content. A medical certificate is required for outpatient sick and hospitalisation leave and an NS call-up notice for NS leave by default. Attachments can be opened only by the employee, owners, HR admins and the request's approvers; to anyone else they don't exist.
+**Supporting documents** (PDF, JPEG, PNG, WebP or HEIC, up to 5 MB) are checked by their content. A medical certificate is required for outpatient sick and hospitalisation leave and an NS call-up notice for NS leave by default. Attachments can be opened only by the employee, owners, HR admins and an approver while their task on the request is open; to anyone else they don't exist. Uploads go through the same content checks and optional virus scan as other files.
 
 **On behalf**: owners and HR admins can apply for an employee (the form has an **Employee** field for them). The request is routed exactly as if the employee had made it and shows "Entered by HR".
 
@@ -95,7 +95,7 @@ Outpatient sick, hospitalisation, maternity, unpaid infant care, compassionate a
 
 ## Public holidays and days in lieu
 
-Crow HR carries the gazetted public holidays (2026 and 2027 in the current version). Add extra holidays, such as Polling Day, under **Settings → Leave → Holidays → Add an extra holiday**.
+Crow HR includes the gazetted public holidays for 2026 and 2027. Add extra holidays, such as Polling Day, under **Settings → Leave → Holidays → Add an extra holiday**.
 
 When a holiday doesn't fall on a working day, Crow HR follows MOM's rules for leave counting:
 
@@ -103,8 +103,8 @@ When a holiday doesn't fall on a working day, Crow HR follows MOM's rules for le
 - A holiday on any other **rest day** moves to the next working day, shown as "Deepavali (in lieu)".
 - A holiday on an **off day** (for example a Saturday in a Monday-to-Friday week) depends on the rule above. With **Give the next working day off**, the next working day is a holiday in lieu and is not counted as leave. With **Pay an extra day (payroll); no day off**, no day off is created, and the extra day's salary is owed instead.
 
-:::caution[The extra day's pay is not added for you]
-"Pay an extra day (payroll)" only stops a day in lieu being created. Payroll does not add the extra day's pay automatically; enter it on the run as another earning.
+:::note[How the extra day is paid]
+With **Pay an extra day (payroll)**, payroll adds one day's gross pay for the holiday to employees covered by the Employment Act who are paid monthly on a fixed week, once their allowances are classified for the gross rate ([allowance treatment](/docs/payroll/settings/#allowance-treatment)). For hourly-paid or rostered staff the run blocks until you enter the day's gross pay on the run ([holiday pay and contractual overtime](/docs/payroll/settings/#holiday-pay-and-contractual-overtime-on-a-run)).
 :::
 
 ## Part-timers: leave in hours
@@ -131,11 +131,11 @@ The report lists **days only**: it does not compute amounts or apply the schemes
 
 At the start of each new year, a background job closes the previous leave year for every employee, once:
 
-- unused days carry forward up to the policy's cap, and expire after the policy's period (carried days are used first);
+- unused days carry forward up to the policy's cap, and expire after the policy's period (carried days are used first, and expired days never carry forward again);
 - for employees covered by Part 4 of the Employment Act (monthly-paid, under the salary threshold), at least their unused statutory annual leave carries forward for 12 months, whatever the policy says;
 - the rest is forfeited or, where the policy allows encashment, recorded as encashed days.
 
-There is no button: it runs on the server's regular background sweep, and running it again changes nothing. Encashed days need an approved payout request before payroll pays them; use **Request payout** on the employee's Leave tab.
+There is no button: it runs in the server's background jobs, and running it again changes nothing. Encashed days need an approved payout request before payroll pays them; use **Request payout** on the employee's Leave tab.
 
 ## How leave reaches payroll
 
@@ -145,21 +145,24 @@ The unpaid weeks of Employment Act maternity leave (weeks 9 to 12, for a non-cit
 
 ## Encash unused leave
 
-In **Settings → Leave policies**, enable **Allow leave encashment** on an eligible paid leave type. Enable **Allow employees to request encashment** separately if staff may submit their own requests; existing policies default to HR-only requests.
+Turn on **Allow leave encashment** in a paid leave type's policy (**Settings → Leave → Policies**). Turn on **Allow employees to request encashment** as well if staff may ask themselves; otherwise only HR can.
 
-HR can open **People → employee → Leave → Encash leave**. Employees use **Leave → Leave encashment → Encash leave** when enabled. Choose the type and quantity, then send for approval. The card shows pending, awaiting payroll, in payroll, paid, rejected or withdrawn status, with the rate working. Year-end entries have a **Request payout** action on the employee's Leave tab; their days have already been deducted and are not charged again.
+- HR: **People → employee → Leave → Encash leave**. Employees: **Leave → Leave encashment → Encash leave**. Choose the type and quantity, and **Send for approval**.
+- Days encashed at year end have a **Request payout** action instead. They were deducted at year end and are not deducted again; if the payout is rejected or withdrawn, they go back to that year's balance.
+- A pending request holds its quantity. Approval deducts it from the balance; rejection or withdrawal releases it. Only a pending request can be withdrawn; an approved payout needs a payroll correction.
+- The request goes through [approvals](/docs/approvals/approvals/) as **Leave encashment**, to HR admins by default (escalating after 3 days). Only HR admins, payroll admins and owners can decide, and never on their own payout.
+- The card shows each request as awaiting approval, awaiting payroll, in payroll, paid, rejected or withdrawn, with the rate working.
 
-Pending requests reserve their quantity. Final approval deducts it from the balance; rejection or withdrawal releases it. Rejecting or withdrawing a year-end payout restores its earlier ledger movement in that leave year. Only pending requests can be withdrawn. An approved payout needs a payroll correction. Approval policies are configured in **Settings → Approvals**; the default routes to HR, with the workflow engine's owner fallback. Only HR, payroll admins or owners can decide, and beneficiaries cannot approve their own payout.
+Approved encashment is paid by the next regular payroll run, or a leaver's off-cycle **Final pay** run ([running payroll](/docs/payroll/running-payroll/#leave-encashment)).
 
-The next eligible regular payroll, or an off-cycle **Final pay** run for a leaver, picks up approved encashment. Bonus-only runs exclude it. Recomputing a run keeps the earning, and an adjustment carries the original earning without paying it twice.
+**Rate.** Encashment uses the [MOM gross rate of pay](https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary): monthly gross is basic salary plus the fixed allowances included in the gross rate, in force when the request is made (on the last working day if the employee has left). For monthly-paid staff the daily gross rate is `12 × monthly gross / (52 × average workdays per week)`; the exact rate is multiplied by the days and rounded once, half up, to the cent. For example, S$2,600 basic plus a S$260 included allowance is S$2,860 monthly gross, S$132 a day on a five-day week, and S$330 for 2.5 days.
 
-**Rate basis:** encashment uses the [MOM gross rate of pay](https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary). Monthly gross is the effective basic salary plus included fixed recurring allowances in force when the request is submitted (the last working day if already left). For monthly-paid staff, the daily gross rate is `12 × monthly gross / (52 × average workdays per week)`. Multiply the exact rate by the days, then round once half up to integer cents. For example, S$2,600 basic plus S$260 included fixed allowance gives S$2,860 monthly gross, S$132 daily gross on a five-day week, and S$330 for 2.5 days.
+- Each of the employee's active allowances must be classified as in or out of the gross rate first ([allowance treatment](/docs/payroll/settings/#allowance-treatment)); an unclassified one blocks the request and is named.
+- For shift staff, enter the contractual average workdays per week on the request; the approver checks it.
+- Balances kept in hours use the gross hourly rate: monthly gross × 12 / (52 × contractual weekly hours). For hourly-paid staff, the hourly equivalent of included monthly allowances is added to the hourly rate.
+- Later changes to salary, allowances or their classification don't reprice a request already made.
 
-Each active allowance type must be classified with `grossRateIncluded` in the [payroll settings API](/docs/payroll/settings/#allowance-treatment): `true` includes a fixed contractual salary allowance; `false` excludes it. Exclude variable or irregular payments, overtime, bonuses, AWS, productivity incentives, expense reimbursements, and travel, food and housing allowances. Missing or null classification blocks the request and names the allowance to correct. CPF liability and pro-ration are separate settings and do not decide gross-rate inclusion. One-off payroll earnings are not included in this rate.
-
-The approval and payslip working show basic pay + each included allowance → monthly gross → daily rate, effective date, quantity and rounding. Later salary, allowance or classification changes do not reprice an existing request. For shift staff, enter the contractual average workdays per week in the request; the approver must verify that denominator. Hour balances use the gross hourly rate: monthly gross × 12 / (52 × contractual weekly hours). For hourly-paid staff, add the hourly equivalent of included monthly allowances to hourly basic pay; day balances then use contractual weekly hours divided by workdays per week.
-
-[CPF is payable on encashment of unused leave](https://www.cpf.gov.sg/service/article/are-cpf-contributions-payable-on-encashment-of-leave). Accumulated unused leave is classified as **Additional Wages (AW)** under the [CPF wage classification rules](https://www.cpf.gov.sg/employer/employer-obligations/what-constitutes-wages-for-cpf-contributions), including leave paid on termination. It is earned leave, rather than exempt termination compensation. The final-pay engine uses the cessation-year AW ceiling and reconciliation. For payments after cessation, [CPF's ex-employee rules](https://www.cpf.gov.sg/service/article/are-cpf-contributions-payable-on-additional-wages-payable-to-ex-employees-after-they-have-left-employment) still apply.
+**CPF.** [CPF is payable on encashed leave](https://www.cpf.gov.sg/service/article/are-cpf-contributions-payable-on-encashment-of-leave), including leave paid on termination: it is earned leave, not termination compensation, and accumulated leave is [additional wages](https://www.cpf.gov.sg/employer/employer-obligations/what-constitutes-wages-for-cpf-contributions). For payments after someone has left, [CPF's rules for ex-employees](https://www.cpf.gov.sg/service/article/are-cpf-contributions-payable-on-additional-wages-payable-to-ex-employees-after-they-have-left-employment) apply.
 
 ## Reports
 
@@ -176,13 +179,8 @@ The approval and payslip working show basic pay + each included allowance → mo
 
 ## Limitations
 
-- **Balance adjustments**, editing a child's record, and the adoption and stillbirth details of a child exist only in the API. The **Add a child** form has no adoption date or stillbirth option, so adoption leave and the stillbirth rules can't be used from the web app yet.
+- **Balance adjustments** and editing a child's record exist only in the API.
 - An employee can attach one document when applying; more, or later, only through the API.
 - **Shift workers**: dates in a week covered by the employee's published roster count only when they have a shift. Dates without a published roster count every day except public holidays, with a warning on the quote. Leave already applied for keeps its count even if the roster changes later. Parental leave assumes a 5-day week for shift workers.
 - Employment Act maternity leave for a non-citizen child approximates "fewer than 2 living children" by birth order.
 - The lifetime caps per child for childcare leave are not enforced, and the 2026 National Day Rally childcare changes are not applied.
-- Part 4 coverage for the carry-forward floor uses the salary threshold and Employment Act coverage on the employment record.
-
-Medical certificates use the same content-sniffing, polyglot checks, virus-scan metadata and sandboxed download headers as other uploads. An approver needs a current pending assignment and current eligibility; an old or rerouted task does not retain medical access. The employee, owner and HR retain their normal access.
-
-The year-end job expires old carry before closing the year so a delayed January run cannot carry expired days forward again. Part IV statutory annual leave is retained for at least the next 12 months even when company policy expires other carry earlier.

@@ -27,7 +27,6 @@ Lets staff sign in with their Microsoft 365 / Entra ID work account. You need an
 
 7. **Crow HR**: use **Test sign-in**, then switch the method on.
 
-
 ## Check
 
 - A member whose email matches and whose token has `xms_edov: true` can link automatically; otherwise start from their invitation.
@@ -42,4 +41,4 @@ Lets staff sign in with their Microsoft 365 / Entra ID work account. You need an
 | Sign-in worked, then stopped months later | The client secret expired. Create a new one and paste it in **Edit**. |
 | "Your account has not been set up" | No member with that email, or the token lacks a verified email (`xms_edov: true`). Use the invitation link. |
 
-Tested against an in-process mock identity provider in Crow HR's test suite, not against a live Entra tenant in CI.
+Crow HR's automated tests run this flow against a mock identity provider, not a live Entra tenant.

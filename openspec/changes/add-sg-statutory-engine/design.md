@@ -1,6 +1,6 @@
 ## Context
 
-See proposal.md for motivation. `packages/sg-rules` must stay pure and dependency-free: it runs in Node and in the browser demo. Its consumer is the future payroll run in `packages/core`, which will persist runs and payslips. Research inputs are `research/sg-regulatory.md`, `research/sg-rule-tables.json` and `research/sg-test-vectors.json`. An independent verification is in `research/verification/codex-verification.md`; its resolutions are recorded in `packages/sg-rules/VERIFICATION.md`.
+See proposal.md for motivation. `packages/sg-rules` must stay pure and dependency-free: it runs in Node and in the browser demo. Its consumer is the future payroll run in `packages/core`, which will persist runs and payslips. Research inputs are `research/sg-regulatory.md`, `research/sg-rule-tables.json` and `research/sg-test-vectors.json`. An independent verification is in `research/verification/statutory-data-review.md`; its resolutions are recorded in `packages/sg-rules/VERIFICATION.md`.
 
 ## Goals / Non-Goals
 

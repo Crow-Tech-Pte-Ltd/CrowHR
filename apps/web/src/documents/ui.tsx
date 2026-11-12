@@ -12,6 +12,7 @@ import {
   FormField,
   formatDate,
   Input,
+  Pagination,
   Select,
   SelectContent,
   SelectItem,
@@ -83,6 +84,28 @@ export function AckPill({ doc }: { doc: Doc }) {
   if (a.status === "acknowledged" && a.current) return <StatusPill tone="success">Acknowledged</StatusPill>;
   if (a.status === "requested") return <StatusPill tone="info">To acknowledge</StatusPill>;
   return <StatusPill tone="warning">New version</StatusPill>;
+}
+
+/** Page controls under a document list, shown only when there is more than one page. */
+export function DocumentsPager({
+  list,
+  page,
+  onPage,
+}: {
+  list: { total: number; pageSize?: number } | undefined;
+  page: number;
+  onPage: (page: number) => void;
+}) {
+  if (!list?.pageSize || list.total <= list.pageSize) return null;
+  return (
+    <Pagination
+      page={page}
+      pageSize={list.pageSize}
+      total={list.total}
+      onPageChange={onPage}
+      className="border-t border-border px-3"
+    />
+  );
 }
 
 /** Dense list of documents; click a row (or Enter) to open the detail sheet. */

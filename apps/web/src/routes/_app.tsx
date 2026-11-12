@@ -3,6 +3,7 @@ import { createFileRoute, isRedirect, Link, Outlet, redirect } from "@tanstack/r
 import { ShieldAlert } from "lucide-react";
 import { ReauthProvider } from "../auth/reauth.tsx";
 import { meQuery, reasonFor, rememberOrg, useMe } from "../auth/session.ts";
+import { DemoCompanyBanner } from "../demo-company/notices.tsx";
 import { ApiError } from "../lib/api.ts";
 import { AppShell } from "../shell/app-shell.tsx";
 
@@ -30,9 +31,11 @@ export const Route = createFileRoute("/_app")({
 });
 
 function SignedInLayout() {
+  const me = useMe();
   return (
     <ReauthProvider>
       <AppShell>
+        {me.demoCompany ? <DemoCompanyBanner expiresAt={me.demoCompany.expiresAt} /> : null}
         <MfaBanner />
         <Outlet />
       </AppShell>

@@ -32,4 +32,5 @@
 /setup          /            200
 /sign-in        /            200
 /sign-in/*      /            200
+/try            /            200
 /docs           /docs/       301

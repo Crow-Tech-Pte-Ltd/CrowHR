@@ -16,9 +16,10 @@ import {
   SheetDescription,
   SheetTitle,
 } from "@crowhr/ui";
-import { BookOpen, Info, Mail, RotateCcw, Server, Users } from "lucide-react";
+import { BookOpen, Info, Mail, RotateCcw, Server, Smartphone, Users } from "lucide-react";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
+import { tryUrl } from "./try-url.ts";
 import { OPEN_OUTBOX } from "./web-extensions.tsx";
 
 /**
@@ -47,6 +48,7 @@ function DemoBanner({ client, info, outboxEvents }: BannerProps) {
   const [resetOpen, setResetOpen] = React.useState(false);
   const [count, setCount] = React.useState<number | null>(null);
   const [resetting, setResetting] = React.useState(false);
+  const phoneTry = tryUrl();
 
   React.useEffect(() => {
     const open = () => setOutboxOpen(true);
@@ -105,6 +107,12 @@ function DemoBanner({ client, info, outboxEvents }: BannerProps) {
             <Users className="size-3.5" aria-hidden />
             <span className="sr-only sm:not-sr-only">Switch persona</span>
           </button>
+          {phoneTry ? (
+            <a className={linkClass} href={phoneTry} data-testid="demo-try-phone">
+              <Smartphone className="size-3.5" aria-hidden />
+              <span className="sr-only lg:not-sr-only">Try it on your phone</span>
+            </a>
+          ) : null}
           <a className={linkClass} href="/about-demo" data-testid="demo-about">
             <Info className="size-3.5" aria-hidden />
             <span className="hidden md:inline">About this demo</span>

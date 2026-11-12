@@ -17,6 +17,23 @@ export const issueSchema = z.object({
   severity: z.enum(["info", "warning", "blocking"]),
   message: z.string(),
   source: z.string().nullable(),
+  ref: z
+    .object({
+      itemId: z
+        .string()
+        .optional()
+        .describe(
+          "The run item the issue is about: a manual item's ID, or a fed item's ID (`attendance:<overtime claim ID>` for approved overtime; price it with an overtime item whose `overtimeSourceId` is that claim ID).",
+        ),
+      holidayDate: isoDate.optional().describe("The public holiday the issue is about (holiday pay for an off day)."),
+      holidayName: z.string().optional(),
+      allowanceCodes: z
+        .array(z.string())
+        .optional()
+        .describe("Allowance type codes to classify (`PUT /payroll/allowance-settings/{allowanceTypeId}`)."),
+    })
+    .optional()
+    .describe("What the issue is about, so a client can open the place that fixes it. Absent on older results."),
 });
 
 export const totalsSchema = z.object({

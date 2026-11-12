@@ -1,252 +1,327 @@
 # Known limitations
 
-Everything listed here is stubbed, placeholder or missing. Nothing on this list
-may be described as working. Remove an entry only in the change that fixes it.
+What Crow HR doesn't do, or does only in part, so nothing here gets described as working. Users get
+the same facts where they need them on the documentation site (the
+[project status](https://hr.crow.sg/docs/status/) page and each module's guide). Remove an entry in
+the change that fixes it.
 
-## Authentication and access (identity workstream)
+## Sign-in and security
 
-- **Singpass is verified against Singpass staging only.** A test sign-in against Singpass staging passed on 9 Nov 2026 (FAPI 2.0: PAR, PKCE, `private_key_jwt`, DPoP, encrypted ID token; issuer `https://stg-id.singpass.gov.sg/fapi`). Production Singpass has not been tried: the public demo's production Singpass app was submitted on 9 Nov 2026 and is under review (up to two weeks). The official Singpass logo the button specification requires is not in the repository: the deployer adds it (`<DATA_DIR>/branding/singpass-logo.svg`, or `VITE_SINGPASS_LOGO_SRC` for the demo). Behind Cloudflare Bot Fight Mode, Singpass cannot fetch the JWKS URL; use a JWKS object in the portal.
-- **Singpass button is not brand-compliant yet.** Singpass's [button design specification](https://docs.developer.singpass.gov.sg/docs/getting-started/singpass-button-design-specification) (effective 1 Sep 2026) requires the official Singpass logo inside the button. The logo is not published under a licence that allows redistribution in this MIT repository, so it is not bundled. Whoever runs the server adds it (`<DATA_DIR>/branding/singpass-logo.svg` or `.png`, served at `/branding/singpass-logo`; `VITE_SINGPASS_LOGO_SRC` for the demo build), and the button then shows it; hr.crow.sg and hr-demo.crow.sg do. Without it the button renders plain text "Log in with Singpass" (no imitation of the wordmark colouring), which is not compliant. Do not go live with Singpass without it.
-- **Security notices** (new sign-in from an unknown browser, new app device, password changed or reset, reset link created, sign-in attempts blocked, two-step verification on/off/paused/reset, recovery code used, sign-in method linked/unlinked, app session ended by token reuse, sign-in settings changed to owners, JIT-provisioned members to HR) are in-app notifications for every install and, with `SMTP_URL`, emails through the retryable outbox (`packages/core/src/auth/security-notices.ts`). "New browser" relies on the known-device cookie, so clearing cookies reports the next sign-in again; a member's first sign-in is never reported. **Invitation and password-reset link emails are still sent directly**, not through the outbox: their links carry one-time tokens that are only ever stored hashed, so they are not queued and not retried; a failed send falls back to a link to copy (reset by an owner) or a resend. Without SMTP an owner must hand over reset links securely.
-- **Common-password list is curated, not a breach corpus**: a few hundred entries plus pattern rules (`packages/core/src/auth/common-passwords.ts`).
-- **Organisation logo** in `GET /api/v1/meta` is always `null` until the company profile exists.
-- **No email change** endpoint yet (it would be a `recentAuth` action).
-- **Native app sign-in** creates no browser session at all (stricter than the design's create-then-revoke). The apps themselves are under "Mobile apps" below.
-- **No RLS**: isolation is app-level (`orgScope`) plus composite FKs, as designed.
-- **Org switcher** in the web shell lists only the current organisation (the API supports `POST /api/v1/auth/switch-organisation`).
-- **Layout by role**: members who are only employees always get the employee layout (bottom tab bar on phones, the employee Home). Owners, admins and managers get the admin layout and can switch to the employee one from the user menu (or `?view=employee`); the choice is kept per browser, not per account. The server enforces roles on every request regardless.
-- **E2E gaps**: the SSO round trip, audit-log filtering/export and device sessions are covered by core integration tests (mock IdP, PGlite), not by Playwright. The idle-timeout message is unit-tested; an e2e with a mocked server clock is not feasible against the real server.
-- **QR code** for authenticator enrolment is generated in the browser (`qrcode` package); nothing is sent to a third party.
+- **Singpass is tested against Singpass staging only** (FAPI 2.0: PAR, PKCE, `private_key_jwt`, DPoP,
+  encrypted ID token). Production Singpass has not been tried. Singpass's
+  [button specification](https://docs.developer.singpass.gov.sg/docs/getting-started/singpass-button-design-specification)
+  requires its official logo, which can't be redistributed in this repository: whoever runs the
+  server adds it (`<DATA_DIR>/branding/singpass-logo.svg` or `.png`; `VITE_SINGPASS_LOGO_SRC` for the
+  demo). Without it the button is plain text and not compliant, so don't go live with Singpass
+  without it. Behind Cloudflare Bot Fight Mode, Singpass can't fetch the JWKS URL; paste a JWKS object
+  in the Singpass portal instead.
+- **Google Workspace and Microsoft Entra ID** have been tested against the mock identity provider
+  only, not the real services.
+- **Invitation and password-reset emails are sent directly**, not through the retryable outbox: their
+  one-time links are stored only hashed, so a failed send isn't retried; HR copies the link or
+  resends. Security notices (new browser or device, password and two-step changes, blocked
+  attempts) go through the outbox. A member's first sign-in is never reported, and clearing cookies
+  makes the next sign-in look like a new browser.
+- **Common passwords** are a curated list of a few hundred entries plus patterns, not a breach corpus.
+- **No email change**: a member's email address can't be changed.
+- **No row-level security**: tenant isolation is enforced by the application (org-scoped queries)
+  and composite foreign keys, with a test that every route refuses another organisation's IDs.
+- **Audit integrity**: verification compares the hash chain with `audit_heads` and detects a
+  truncated tail, but a database superuser who rewrites both the history and its head can forge a
+  consistent chain. There are no external checkpoints.
 
-## Approvals and notifications (workflows workstream)
+## Approvals and notifications
 
-- **Timesheet approval is not in use yet**: no module submits timesheets for approval (attendance corrections are made directly by managers and HR). Settings → Approvals lists the type as "Not in use yet"; every other type (leave, leave cancellation, claims, overtime, profile changes, shift swaps, payroll runs, leave encashment, employment letters) is live.
-- **Default policies are not stored per org.** Organisations without a saved policy use the built-in defaults at submission (same behaviour as seeding them); they are listed as "Default" in Settings → Approvals until edited.
-- **Payroll-cutoff reminders** (`payroll_cutoff`, 3 days before the cutoff day in payroll settings, or the pay day when none is set) go to active payroll admins until the month's regular run is approved.
-- **Out-of-office cover** is set from the Inbox (and by HR in Settings → Approvals), not from My profile.
-- **Email templates are fixed in code** (spec non-goal); they carry the organisation name but not its logo yet.
-- **Browser demo tick** runs every 30 s and on navigation while a demo tab is open (`createManualScheduler` in the demo worker); nothing runs while no demo tab is open, so reminders and escalations catch up on the next visit.
-- **Inbox speed** is tested with 40 open tasks (< 1 s on PGlite) and measured at 200 employees with `node packages/core/scripts/bench-hot-paths.ts` (PGlite, in process; 12 Nov 2026: Home 7–16 ms for every role, 15 ms for a manager with 18 tasks and 20 000 older audit events). It is not measured on a real PostgreSQL server or under concurrent load.
-- **Work-pass reminders read the latest pass per employee**: a renewal must be added as a new pass (with a later expiry) to stop the old pass's reminders.
-- **Lock order on a real PostgreSQL server** (found in the 12 Nov 2026 review, not reproducible on PGlite, not fixed): the escalation sweep locks due tasks before their request, while decisions lock the request first; cancelling or expiring a shift swap locks the swap before the request, while approving it locks the request first. A decision at the same moment can deadlock: PostgreSQL aborts one side, which answers 500 (retrying works) or, for the sweep, marks those tasks escalated without escalating. The bulk decision endpoint answers 500 for the whole batch when one decision fails with a non-domain error, although earlier decisions in the batch were committed.
+- **No eligible approver**: filer and beneficiary exclusions never fall back to self-approval. If every
+  eligible member is excluded, the request stays pending; appoint an uninvolved approver, then
+  withdraw and resubmit. Granting a role doesn't re-resolve a chain with no open tasks.
+- **Email templates are fixed in code**; they carry the organisation's name, not its logo.
+- **Work-pass renewals** must be added as a new pass with a later expiry; reminders read each
+  employee's latest pass.
+- **Lock order on PostgreSQL** (not fixed, not reproducible on PGlite): the escalation sweep locks due
+  tasks before their request while decisions lock the request first, and cancelling or expiring a
+  shift swap locks the swap first while approving it locks the request first. A decision at the same
+  moment can deadlock: PostgreSQL aborts one side, which answers 500 (a retry works) or, for the
+  sweep, marks those tasks escalated without escalating them. A bulk decision answers 500 for the
+  whole batch when one decision fails with a non-domain error, although earlier decisions in the
+  batch were committed.
 
-## Screens
+## People
 
-- **Home** shows real work from `GET /api/v1/inbox`; its payroll card lists open runs and the month's run when not started, or "Payroll isn't set up yet" before payroll settings are saved.
-- **Command palette** "People" results come from the live directory (people module).
-- **Every module** has real screens now (People, Payroll, Claims, Leave, Attendance, Schedules, Documents, Reports). Payroll's settings are a dialog on the Payroll page, which Settings → Payroll opens.
-- **No dark mode.** The landing site's dark tokens were not ported.
+- **Invitations from an import** go out once the import is confirmed; without SMTP their links are
+  not shown, so HR resends them from Settings → Members.
+- **Hire age checks**: hires under 13 are refused and start dates before 2025 are not checked. The
+  Employment Act's family-only exception is not supported. The under-16 conditions (light duties, MOM
+  notification for industrial work, hour limits) are shown in the hire form, not enforced or tracked.
+- **Personal-details changes apply from the approval date**; future-dated personal details aren't
+  supported.
+- **A scheduled hire or rehire can't be cancelled**; record a termination instead.
+- **Duplicate inbox endpoint**: `GET /api/v1/people/inbox` repeats part of the Home inbox (kept for
+  API compatibility).
+- **Error codes** `duplicate_id_number`, `in_use` and `reporting_cycle` are sent as `409 conflict`
+  with `details.reason`.
 
-## Platform
+## Payroll
 
-- **`packages/sg-rules`** implements effective-dated, cited rule tables and calculators for CPF (2025–2027 tables, OW/AW ceilings, SPR phases), SDL, SHG funds, FWL estimates, Employment Act Part IV coverage, overtime, rest-day and public-holiday pay, incomplete-month salary, annual and sick leave entitlements and the 2026–2027 public holidays. How it was checked is in `packages/sg-rules/VERIFICATION.md` (91/91 research vectors, all 16 CPF AW-ceiling examples, 15/15 cases against CPF's online calculator; `bun run check` enforces ≥ 95% line coverage). Its limits:
-  - **CPF rates from 2028** are not published: the 2027 tables are carried forward with warning `CPF_RATES_ASSUMED_CARRIED_FORWARD`.
-  - **Low-wage months (TW $50–$750) with AW above the ceiling** are refused (`CPF_LOW_WAGE_CAPPED_AW_UNSUPPORTED`); no official rule exists.
-  - **Open CPF questions** (VERIFICATION.md "Open legal and design questions"): delayed AW across years, a known leaving month in the AW-ceiling projection, SPR F/G election timing, mid-month residency changes.
-  - **Not encoded yet**: parental leave (maternity, paternity, shared parental, childcare, infant care, adoption), part-time leave in hours, income tax, IR21, CPF late-payment interest, work-pass salary thresholds.
-  - **Overtime rounding** has no MOM rule; the default reproduces MOM's published example ($13.60/h cap for non-workmen).
-- **Browser demo**: see "Public demo" below.
-- **PGlite server mode** (`DATABASE_URL=pglite:…`) is for local development and e2e only: single process, no pooling, no backups.
+- **No direct submission** to CPF Board, IRAS or banks. Payroll produces the CPF EZPay file, an ISO
+  20022 `pain.001.001.03` bank file and the IR8A rows for you to upload. IRAS's AIS API needs an
+  approved software vendor, Corppass and APEX credentials.
+- **The bank file is generic**: SS611 leaves service level (FAST or GIRO), charge bearer and BIC
+  details to each bank. It validates against the ISO 20022 schema but is not mapped to any bank's
+  guide and hasn't been tested with a bank.
+- **CPF EZPay file** (not confirmed by CPF Board): SHG for staff who aren't citizens or PRs is a summary
+  record only; a top-up on earlier AW is reported in the current month's amount with no AW in that
+  month's AW column; each run gets its own advice code, and a month past code 99 is refused.
+- **IR8A** is exported as rows in the column layout of IRAS's IR8A import template (version 1.0), at
+  most 200 records per part, to paste into the template and import in myTax Portal. Not filled:
+  residential address, director's fees, d3 gratuity and notice pay, d6 excess employer CPF, tax
+  borne by the employer, remission and exempt income. Employees with another ID type or without a
+  recorded sex are left out and listed; IR21-cleared leavers are only flagged.
+- **Appendix 8A and 8B are not implemented**: Crow HR records no benefits-in-kind or share plans.
+- **Back pay** from a retroactive pay change is flagged on the next run (`BACKPAY_OWED`) but not
+  computed: enter it as a "Back pay" item.
+- **Hours for hourly staff** and other one-off items are entered per run. Hours are paid at the rate
+  in force on the date worked, so split them at a rate change; undated hours in a period with a
+  change block the run.
+- **Pro-ration without a fixed week** (rostered or shift staff) needs "Scheduled days" and "Days
+  worked" (EA s 20A); scheduled days come from published rosters only when the whole period is
+  published and the person was employed throughout. A mid-month rate change and an SPR
+  graduated-to-full change are blocked for these staff. Daily-rated and piece-rated pay are not
+  handled.
+- **Allowance types and recurring allowances** are added through the API only (allowance types, then
+  `allowances` on hire and pay-change events); the web app shows them on the Pay tab and sets their
+  treatment in Payroll → Allowance treatment.
+- **The gross rate of pay has no default** for an allowance: every run warns
+  (`ALLOWANCE_GROSS_RATE_UNSET`) until each allowance paid in it is classified, and an off-day public
+  holiday blocks payroll for the staff who get an unclassified one.
+- **Off-day holiday pay for hourly or rostered staff** is entered on the run (one day's gross pay per
+  holiday); it is computed only for monthly-rated staff on a fixed week.
+- **CPF AW top-up recovery** (CPF Act s 7(9)) can be deducted up to 30 June of the following year;
+  otherwise the employer bears it. Recovering other employer-caused arrears, the s 7(6A) route and
+  waivers for leavers are not supported. An adjustment of a run with an absorbed share can offer that
+  share for recovery twice (not fixed): enter the recovery amount explicitly on adjustments.
+- **Payment deadlines** don't apply the Interpretation Act's next-working-day rule, so a run can be
+  flagged a day early.
+- **Deductions**: whether a deduction is one the Employment Act permits, with the employee's
+  consent, is HR's responsibility; Crow HR checks the 25% and 50% limits only.
+- **FWL** is an estimate from the organisation's sector, tier and skill; MOM's bill is authoritative.
+- **Adjustments don't recompute later months**: reopening a month after later months are final warns,
+  and CPF's year-end AW recomputation absorbs the difference.
+- **Tax classification**: non-cash benefits, employer-borne tax and the CPF treatment of a taxable
+  allowance remain the employer's call.
+- **PDF scripts**: Latin, Chinese and Tamil are embedded; other characters print as `?` with a
+  warning (`packages/core/src/pdf/fonts.md`).
+
+## Claims
+
+- **Exchange rates are manual** (no rate feed, at most 6 decimal places), and approvers get no warning
+  when a rate is far from the last one used.
+- **On-behalf claims**: owners and HR admins can file a claim for an employee through the API only;
+  the web form files claims for yourself.
+- **Receipts uploaded but never attached** are kept until the uploader deletes them.
+- **Claim numbers sort as text**: after C-9999, C-10000 sorts before C-9999.
+- **HEIC receipts** are stored but not previewed.
+- **Approval policies see one claim type**: a claim with several types is routed by its largest type
+  by SGD amount.
+- **Claims reports** cover the whole organisation; there's no manager team view. Per-claim caps are
+  checked on each claim but not listed in the cap report.
+- **Virus scanning** needs your own ClamAV (`CLAMAV_HOST`); none ships with Crow HR. Polyglot
+  detection is heuristic.
+
+## Leave
+
+- **The leave year is the calendar year.** Annual leave is pro-rated by completed months in the first
+  calendar year of service and the year of leaving, an interpretation of MOM's service-year rules
+  explained on every balance.
+- **No-pay leave and service**: MOM's guidance is ambiguous on whether one unpaid day excludes a whole
+  month; the default counts a month as excluded only when every working day was no-pay leave.
+- **Shift workers**: a day counts only when the published roster has a shift; without a published
+  roster every day except the holiday counts, with a warning. Parental leave assumes a 5-day week for
+  shift workers.
+- **Part-time leave in hours** rounds to 1 decimal place, as MOM's examples do; the regulation's own
+  rounding couldn't be confirmed.
+- **Government-paid leave** is not claimed from the Government (the portal has no API): the report lists
+  the days and deadlines, without amounts. The other parent's shared parental leave isn't known.
+- **EA maternity leave** for a child who isn't a citizen approximates "fewer than 2 living children" by
+  birth order.
+- **The 2026 National Day Rally childcare changes** are recorded without an effective date and not
+  applied.
+- **Encashment** for shift staff needs their contractual average workdays per week; approved payouts
+  need a payroll correction to undo.
+- **The manager/executive flag** (Part 4 carry-forward floor) is set by HR; it's not inferred.
+- **Not fixed:**
+  - Counted days are fixed when leave is applied for: a holiday added later doesn't recount it. Cancel
+    and re-apply.
+  - Changes after a leave year is closed stay in that year (a December request decided in January,
+    for example); fix with a balance adjustment.
+  - A leaver's unused leave can be encashed only in the calendar year they left.
+  - A change between part-time and full-time mid-year mixes hours and days in one balance.
+  - Carry-forward expiry longer than 12 months has no effect once the next year is closed.
+- **Roster conflicts**: leave approved after a roster is published notifies the publisher and HR;
+  the shift isn't removed.
+
+## Attendance
+
+- **Part 4 overtime** is never applied to staff flagged as managers or executives.
+- **Overnight work** is split at 04:00: a clock-out before 04:00 closes the previous day's shift. A
+  clock-in after midnight (back from a break) starts the next day.
+- **Without a published roster** there's no start time, so lateness and early out aren't computed for
+  shift staff.
+- **Location** comes from the device and can be spoofed on a rooted phone; office IP ranges are the
+  stronger check.
+- **Clock skew** includes network latency (default threshold 2 minutes; flags never block).
+- **Rest-day and public-holiday base pay** isn't passed to payroll; the overtime feed carries
+  overtime only.
+- **Punches older than 7 days** are refused; a manager or HR adds them as corrections.
+- **Corrections don't re-date earlier punches** (not fixed): a corrected 22:00 clock-in doesn't pick
+  up a lone 02:00 clock-out already dated the next day. Void the clock-out and add it again.
+- **Timesheet approval** (optional, off by default) is per organisation, not per team. Hourly-rated
+  staff's hours aren't fed to payroll from approved timesheets (no hours feed; entered per run).
+  Leave approved after a timesheet is approved isn't locked out: the approved totals keep what was
+  approved, payroll's days-worked figure uses the day as it is. Home reminds only of the latest
+  ended period, with no due date.
+- **Overlapping timesheet periods** (not fixed): after the period setting changes, two submissions of
+  differently shaped overlapping periods at the same instant could both be accepted; the overlap
+  check runs in each transaction, and only same-start duplicates are stopped by the database.
+
+## Scheduling
+
+- **No real-time collaboration**: editors see each other's changes on reload, and editing a shift
+  someone else changed answers 409.
+- **Hour warnings are planning checks** on rostered time, shown for everyone (Part 4 coverage isn't
+  checked).
+- **Rest days**: one marked rest cell per week, else the work schedule's or Sunday. The rule that a
+  non-Sunday rest-day roster must be issued before the month starts isn't checked.
+- **Pay implications** of rest-day and holiday shifts are shown as text; payroll doesn't price them
+  from the roster.
+- **Swaps** stay within one roster, and a shift with unpublished edits can't be offered.
+- **Open shifts** are picked up through approval only.
+- **Managers roster only their team**, so they can't roster themselves.
+- **Overlapping roster scopes** (not fixed): someone in two rosters' scopes for one week, where only the
+  one without them is published, counts as off all week. Keep each person on one roster per week.
+- **The week grid** moves shifts by drag (no copy-drag), and keyboard shortcuts act on the first shift
+  in a cell.
+- **A shift-swap approval task** links to My schedule, not the roster week.
+- **CSV export** is for roster editors only.
+
+## Documents
+
+- **No e-signature**: "I acknowledge" records the time, IP address, browser and the file's SHA-256; it
+  isn't a binding signature.
+- **Italic** in letter templates prints upright (the embedded fonts have no italic). Logos must be PNG.
+- **Retention** defaults to the Employment Act minimum (12 months after the last day); IRAS and CPF
+  keeping periods weren't researched. Nothing is deleted automatically.
+- **Word and Excel files** are checked by structure (no macros) and always downloaded, never
+  previewed.
+- **Default categories and templates come back** (not fixed): a deleted default category or a renamed
+  default template reappears when the server restarts. Archive or edit them instead.
+- **Acknowledgement requests for replaced versions** stay listed as outstanding; ask again after
+  replacing a file.
+- **My documents is one list**: an employee's own documents aren't paginated (HR's lists and each
+  employee's Documents tab are, 25 a page).
+
+## Reports
+
+- **The report set is fixed**: no custom builder, saved views or scheduled reports.
+- **Charts** draw the current page's rows only and are hidden when a label repeats; the table is the
+  accessible view.
+- **Exports** hold at most 50,000 rows; XLSX is built in memory without compression.
+- **SDL by department** is an allocation of the employer's total, not a statutory figure.
+- **Leave liability** values annual leave for monthly-rated staff only.
+- **Manager scope** uses today's reporting lines, not those in force on the report's dates.
+
+## Statutory rules (`packages/sg-rules`)
+
+How the rules were checked is in `packages/sg-rules/VERIFICATION.md`.
+
+- **CPF rates from 2028** aren't published: the 2027 tables carry forward with a warning.
+- **Low-wage months** (total wages $50 to $750) with AW above the ceiling are refused; no official rule
+  covers them.
+- **Open CPF questions** (listed in VERIFICATION.md): delayed AW across years, a known leaving month in
+  the AW-ceiling projection, SPR election timing, mid-month residency changes.
+- **Not encoded**: income tax, IR21, CPF late-payment interest and work-pass salary thresholds.
+- **Overtime rounding** has no MOM rule; the default reproduces MOM's published example.
 
 ## Self-hosting
 
-- **Images**: `.github/workflows/release.yml` builds `ghcr.io/crow-tech-pte-ltd/crowhr` natively on amd64 and arm64 runners, smoke-tests each against PostgreSQL 17 (health, version, setup page, licence files) and publishes it when a version tag is pushed. 1.0.0 was published on 11 Nov 2026 (tag `v1.0.0`, tags `1`, `1.0`, `1.0.0` and `latest`, amd64 and arm64 with build attestations; anonymous pulls work), with a GitHub Release from the changelog; the repository is public since the same day. Pull-request CI builds and tests amd64 only, and the full self-host test (`e2e/self-host.sh`: setup wizard, backup, restore, Caddy, nginx and Traefik) runs on amd64 only.
-- **Reverse proxies:** `e2e/self-host.sh` (CI) runs the Caddy, nginx and Traefik-label examples from the docs site's reverse-proxy page (`apps/docs/src/content/docs/self-hosting/reverse-proxy.md`), read from the page itself: `caddy:2-alpine`, `nginx:1.30-alpine` (in a container on the compose network, and with host networking standing in for a host-installed nginx), `traefik:v3.7` with the Docker provider. It checks the client IP, `https` scheme and host the app sees, `__Host-`/`Secure` cookies, spoofed `X-Forwarded-*` being ignored, headers being refused without `TRUSTED_PROXIES`, and each proxy following the app container to a new address. TLS uses test certificates (Caddy's internal CA, a self-signed one for nginx, Traefik's default), so getting and renewing Let's Encrypt certificates is not tested, nor are Caddy installed on the host, nginx other than 1.30, HTTP/3 or IPv6. Traefik (file-provider route) behind a remote-managed Cloudflare Tunnel was tested by hand on the staging server on 9 Nov 2026. The tunnel-straight-to-app example has not been run.
-- **Scheduled backups** are checked on the shared in-process scheduler (`apps/server/src/scheduler.ts`, every 60 s with the workflows sweep) but stay in `apps/server`: `pg_dump` is Node-only, so the backup is a host job rather than a core `tick` sweep. One attempt per day; a failed attempt is retried the next day.
-- **Restore restarts the app** by signalling PID 1 inside the container; under `docker compose run` (or outside Docker) it prints "restart the app" instead.
-- **Dependency audit**: `bun audit` reports one moderate, dev-only advisory (GHSA-67mh-4wv8-2f99, esbuild ≤ 0.24.2 dev server) via drizzle-kit's `@esbuild-kit` loader. It is never shipped or run as a server. CI fails on high/critical only.
-- **CI runs on GitHub-hosted runners.** The unit and integration suite is split into four shards because one 4-core runner takes over 15 minutes; a self-hosted runner with more cores can use fewer.
+- **Pull-request CI** builds and tests the amd64 image only; arm64 is built and smoke-tested when a
+  version is released.
+- **Reverse proxies**: the Caddy, nginx and Traefik examples are tested automatically with test
+  certificates, so getting and renewing Let's Encrypt certificates isn't. Cloudflare Tunnel in front of
+  Traefik was tested by hand; the tunnel-straight-to-app example hasn't been run.
+- **Scheduled backups** try once a day; a failed attempt is retried the next day.
+- **Restore** restarts the app by signalling the container's main process; outside Docker it asks you
+  to restart instead.
+- **Dependency audit**: one moderate advisory in a development-only tool (esbuild's dev server through
+  drizzle-kit), never shipped.
+- **PGlite server mode** (`DATABASE_URL=pglite:…`) is for development and tests only.
+- **Performance** is measured on PGlite in process (`packages/core/scripts/bench-hot-paths.ts`), not on
+  PostgreSQL or under concurrent load.
 
-## Documentation site (apps/docs)
+## Public demo
 
-- **Deployed by hand.** It is published at `https://hr.crow.sg/docs/` with the demo (9 Nov 2026, docs/deploy-demo.md). Nothing deploys it automatically: a change reaches the site only when someone runs the deploy.
-- **Generated, not hand-kept**: the permission matrix and import-template columns are rendered from `packages/core` sources at build time, and the API reference from the OpenAPI snapshot. The configuration and CLI pages are hand-written and checked by `apps/docs/tests/` against the code.
-- **SSO guides** describe the provider consoles from their public documentation; apart from the mock identity provider, only Singpass staging has been exercised (9 Nov 2026). Google Workspace and Microsoft Entra ID have not been tried against the real providers.
-- **Starlight's `<Steps>` component is not used**: it renders with satteri, whose native binding cannot be resolved from Astro's prerender chunks under bun's isolated `node_modules`.
+The demo (https://hr.crow.sg) is the real web app and API running in the visitor's browser; see
+`docs/architecture.md`. What differs from a real install:
 
-## Organisation and people (add-organisation-and-people)
+- **Sign-in** is one click per persona, or the shared password `kopi-kaki-demo`, without two-step
+  verification. The SSO buttons explain they're unavailable, and Singpass works only when the build
+  is configured for the demo's Singpass round trip.
+- **Email** goes to the demo outbox; nothing is sent.
+- **Passwords** use a demo-only hash a real server refuses, and the encryption key is stored with the
+  data. Fine for fictional data, never a pattern for real data.
+- **The clock** shows 31 Oct 2026 at the visitor's Singapore time of day.
+- **One tab at a time** can open the demo company.
+- **A tab closed mid-request** can lose that request.
+- **Downloads and receipt previews** need a service worker; where there is none (some private modes),
+  they fail.
+- **History**: past onboarding checklist items are closed at seed time without audit entries, and the
+  year-to-date balances for January to June are deliberately missing, so payroll shows that warning.
+- **The docs** under `/docs` allow inline scripts; they hold no user data.
+- **Deployed by hand**: a change reaches hr.crow.sg only when a maintainer deploys it
+  (`docs/deploy-demo.md`).
 
-- **People dev server**: besides the first-run setup wizard, the people screens are exercised by `packages/core/testing/people-dev-server.ts` (DEV ONLY, 127.0.0.1): the real app with real sessions, seeded with fictional staff, where `/__dev/as/<persona>` creates a session for a seeded member. The people e2e (`e2e/people/`) runs against it.
-- **Invitations sent by an import** go out after the import is confirmed; without SMTP their one-time links are not shown, so HR resends them from Settings → Members (a single hire shows its link).
-- **No eligible approver**: explicit filer/beneficiary exclusions never fall back to self-approval. If every eligible member is excluded, the request stays pending; appoint an uninvolved approver, then withdraw and resubmit it. Role grants do not automatically re-resolve a chain with no open tasks.
-- **Duplicate people inbox**: `GET /api/v1/people/inbox` still duplicates the Home inbox. The direct change-request decision endpoint has been removed; decisions use the approval engine.
-- **Payroll guard**: a compensation change effective in a period with an approved or paid payroll run is refused unless it is marked retroactive; a retroactive change records a back-pay notice that the next run shows as a warning (the amount is entered as a "Back pay" item).
-- **Minimum employment age and default notice** come from `packages/sg-rules` (MOM-cited, rules from 1 Jan 2025): hires under 13 are refused (the Employment Act's family-only industrial undertaking exception is not supported; start dates before 2025 are not checked), and a resignation without a contractual notice period gets the statutory minimum by service. The under-16 conditions (light duties, MOM notification for industrial work, hour limits) are returned as warnings by `checkEmploymentAge` but not shown in the hire flow yet.
-- **Personal-details change requests apply from the approval date only** (no future-dated personal details). Bank changes through the approval engine apply on the approval date.
-- **Cancelling a scheduled hire or rehire** is not supported; record a termination instead.
-- **Statutory lookups** (CSN payment types, rest-day rule, work pass types) live in `packages/sg-rules/src/tables/registrations.ts` with citations; the 90-day work-pass reminder lead is a Crow HR default.
-- **NRIC/bank reveal** (`POST /api/v1/employees/:id/nric/reveal`, `/bank/reveal`) has no web unit test: apps/web has no DOM test environment; it is covered by Playwright (`e2e/people/reveal.people.ts`).
-- **Company logo** upload has an API only; there is no upload control on the Company screen yet.
-- **Error codes** `duplicate_id_number`, `in_use`, `reporting_cycle` are sent as `409 conflict` with `details.reason` until they are added to `ERROR_STATUS`.
+## Mobile apps
 
-## Payroll (add-payroll)
+- **No remote push**: the apps refresh in the background and show local notifications, so Crow Tech
+  needs no push service that would see your data.
+- **Done on the web, not in the apps**: the leave team calendar, shift swaps and open shifts. On
+  iOS also leave types that need a child, foreign-currency and multi-line claims. On Android also
+  leave types that need a child, and editing, submitting, withdrawing or copying a saved claim draft.
+- **The "Data Not Collected" store answers** haven't had a legal review.
+- **Not covered by automated tests**: the camera (QR scanning and receipts), Face ID and Touch ID,
+  the system browser's sign-in page, the Android permission prompts (their decision logic is
+  unit-tested), and iPad Split View, Slide Over and Stage Manager resizing.
+- **Accessibility**: Xcode's accessibility audit is clean on iPhone and iPad, but the manual
+  VoiceOver and Dynamic Type pass on a real iPhone is still to do.
 
-- **Approvals** go through the workflows engine (`payroll_run` subject, default policy: an owner approves; an owner who submitted may self-approve, which is recorded). There is no payroll-specific decision endpoint.
-- **Inputs fed from other modules**: approved overtime (attendance), approved no-pay and unpaid infant care leave, leave encashment, days worked and rostered scheduled days reach each run automatically (see "Payroll inputs" under Leave below). Hours for hourly staff and any other one-off items are still entered by hand per run.
-- **Claims reimbursement** comes from the claims module by default (`createClaimsReimbursementSource`); `noClaimsYet` is now only a test double.
-- **Back pay from people's retroactive changes** is flagged on the next run (`BACKPAY_OWED`) but not computed; the amount is entered as a "Back pay" item, and approving the run closes the notice.
-- **No direct submission** to CPF Board, IRAS or banks: payroll produces the CPF EZPay (FTP) file and a generic ISO 20022 `pain.001.001.03` file for upload. IRAS's AIS API needs an approved software vendor and CorpPass authorisation, so IR8A is exported for manual upload (below).
-- **Bank file is generic**: Singapore's SS611 standard adopts pain.001.001.03 and leaves the details to each bank, and banks publish guides (ANZ's Singapore MIG, for example), so service level (FAST or GIRO), charge bearer and 11-character BICs depend on the bank's profile. The file is not mapped to any bank's guide and has not been tested with any bank; it validates against the official ISO 20022 XSD.
-- **CPF EZPay file** (not confirmed by CPF Board): SHG for foreigners (MBMF/SINDA/CDAC/ECF for non-SC/PR staff) is written as a summary record only; a CPF top-up on earlier AW is reported in the current month's amount with no new AW in that month's AW column; each run gets its own advice code (the regular run keeps the settings code, others the next free one) and a month past code 99 is refused rather than reusing a code.
-- **AW top-up recovery** (CPF Act s 7(9)): the employee share may be deducted with a "CPF AW recovery" item up to 30 June of the following year; otherwise the employer bears it, shown as "Employee share absorbed" apart from statutory employer CPF. Remittance never waits for recovery. Recovery of other CPF arrears caused by the employer is blocked; the s 7(6A) route (non-negligent error, recovery with consent) and a waiver workflow for leavers' unrecoverable shares are not supported.
-- **AW recovery in an adjustment** (found in the 12 Nov 2026 review, not fixed): when a run with an absorbed AW top-up share is reopened, the adjustment can offer that share for recovery twice (the replaced run's open lot and the adjustment's own share), so a "CPF AW recovery" item without an amount could deduct up to twice the share. Enter the recovery amount explicitly on an adjustment.
-- **Payroll writes per employee**: compute inserts one payslip per employee and release sends one notification per payslip (about 210 ms and 260 statements for 200 employees on PGlite; fine for a monthly action, not batched).
-- **Deduction limits** (`packages/sg-rules`): accommodation, amenities and services share one 25% cap (EA s 30(2)); employee CPF and SHG count toward the 50% limit (s 32), which is lifted on final pay. Whether a deduction is one s 27 permits (and has the employee's consent) is HR's responsibility.
-- **Payment deadlines**: salary is checked against 7 days after the period (EA s 21(1)) and each OT entry against 14 days after the salary period in which it was performed (s 21(2)). Interpretation Act s 50 (a deadline on a Sunday or public holiday moves to the next day) is not applied, so a run can be flagged a day early. Paying on a non-working day is allowed (s 25(2)) and only noted.
-- **Hourly rate change within a period**: hours are paid at the rate in force on the date worked, so each "Hours worked" item needs its `date` (split the hours at the change). Undated hours block the run (`HOURLY_RATE_CHANGES_IN_PERIOD`). The web pay-item form has no date field yet, so for now such hours are dated through the API.
-- **Pro-ration for staff without a fixed week** (rostered or shift): the run needs "Scheduled days" and "Days worked" items (EA s 20A) and blocks without them; Crow HR does not guess a week. Scheduled days come from published rosters (scheduling's `ScheduledDaysSource`) when the whole period is published and the employee is employed for all of it; otherwise HR enters them. A mid-month rate change and SPR graduated-to-full conversion are blocked for these staff. Part-time leave in hours, daily-rated and piece-rated pay (payslip units) are not handled.
-- **FWL** is an estimate from org-level sector, tier and skill in payroll settings; MOM's bill is authoritative.
-- **Adjustments do not recompute later months**: a reopened month after later months were finalised warns, and CPF's December (or last-month) AW recomputation absorbs the difference.
-- **IR8A** is exported as CSV rows in the column layout of IRAS's IR8A import template (version 1.0), at most 200 records per part, to paste at row 6 of the template's IR8A sheet and import in myTax Portal. Crow HR does not fill or redistribute IRAS's workbook itself (its licence is unconfirmed), and **direct AIS-API submission is not available** (it needs IRAS's approval of the software, Corppass and APEX credentials and whitelisted servers). Filled from approved payslips plus YTD opening balances: basic pay after no-pay leave, overtime, back pay and "other earnings" go to (a), bonuses to (b) dated by their last pay date, allowances to d1, commissions to d2, employee CPF (with AW top-up recoveries) and SHG to the deduction columns. Not filled: residential address (not recorded), director's fees, d3 gratuity/notice pay (other earnings must be moved by hand), d6 excess employer CPF, tax borne by employer, remission or exempt income. Employees with an ID type other than NRIC/FIN or without a recorded sex are left out and listed; IR21-cleared leavers are only flagged. Back pay is reported in the year paid.
-- **Appendix 8A and 8B are NOT IMPLEMENTED**: Crow HR records no benefits-in-kind or share plans, so the export says to fill those sheets by hand.
-- **Allowance CPF and pro-ration treatment** has an API (`/payroll/allowance-settings`) but no screen yet; the default is CPF-liable OW, pro-rated.
-- **Payslip release notifications** go to each employee with an active sign-in when the run's payslips are released (in-app, and by email when SMTP is set; month and pay date only, no amounts).
-- **Payroll dev server**: like the people screens, payroll e2e and screenshots run against `packages/core/testing/payroll-dev-server.ts` (DEV ONLY, 127.0.0.1).
+## Demo companies
 
-## Claims (add-claims)
+- **Not switched on anywhere yet.** `DEMO_COMPANIES` is off by default. Until a demo server runs with
+  it, the docs say the try page opens soon (`TRY_LIVE` in `apps/docs/src/lib/links.ts`) and the
+  in-browser demo shows no try link (`VITE_TRY_URL`). Seeding was measured on a workstation with the
+  same CPU as the intended demo server, not on that server.
+- **Seeding slows over time.** A copy is the sample company's June–October 2026 history plus a
+  catch-up to the seeding day (rosters, clocked shifts, fresh requests), which grows every day:
+  about 18 s per copy in November 2026. No payroll runs exist after October until a visitor makes
+  one.
+- **Memory**: each seed runs in its own in-memory PGlite. With PostgreSQL the app went from about
+  320 MB to a peak of about 1.1 GB during a seed and stayed near 950 MB after. One seed runs at a
+  time per process; several replicas each keep their own pool.
+- **The 1.0.0 apps** need a sign-in method in `GET /api/v1/meta`, and `kind` is a closed enum, so a
+  demo company is listed with `kind: "password"` and the name "Pick a person (demo company, no
+  password)". The Android app's manual address entry has no organisation field: on Android, open a
+  demo company with the link or QR code.
+- **On a server with demo companies**, `/sign-in` and `GET /api/v1/meta` never fall back to the only
+  organisation, so a real organisation's people there use `/sign-in/<slug>`.
+- **In a demo company** people hired there get no sign-in (invitations are refused) and so aren't on
+  the sign-in page, re-authentication is not asked for, and a browser signed in to one company is
+  sent to its home page from another company's sign-in page (sign out first).
+- **Backups on a demo server** contain the demo companies live at that moment; keep scheduled
+  backups off there.
+- The image keeps PGlite (27 MB) for the seed; it loads only when the first copy is made.
 
-- **Money rule**: foreign lines convert as `roundHalfUp(amountMinor × rateMicros × 100 / (10^exponent × 10^6))` with BigInt, rounded once per line to the cent; the claim total is the sum of rounded lines (`packages/core/src/claims/money.ts`). Rates are manual (no FX feed), at most 6 decimal places.
-- **ClamAV is optional and externally operated**: the server reads `CLAMAV_HOST` / `CLAMAV_PORT` and scans through INSTREAM on the existing upload sweep. Crow HR does not bundle clamd or FreshClam. Without configuration, uploads are explicitly unscanned.
-- **Polyglot detection is heuristic**: HTML/script/SVG/PHP markers in the first kilobyte and a ZIP end-of-central-directory record near the end are refused. Downloads are always served with the detected type, `nosniff` and a sandbox CSP; PDFs and HEIC as attachments.
-- **HEIC receipts** are accepted and stored but not previewed ("Preview not available. Download to view").
-- **Approval type code**: the workflows engine takes one `typeCode`, so a claim with several types sends its largest type by SGD amount (first on a tie). A `typeCodes` policy condition therefore matches on that type only.
-- **Reports**: registered with reporting as `claims.summary`, `claims.ageing`, `claims.cap_usage` (monthly and yearly caps; per-claim caps are checked on each claim and not listed), `claims.payouts` and `claims.lines`. Organisation scope only (no manager team view). The older `/claims/reports/*` export routes remain.
-- **FX sanity warning NOT IMPLEMENTED**: the design's "rate deviates more than 20% from the last rate" warning to approvers is not built; approvers see the original amount, rate and SGD amount.
-- **On-behalf claims**: owners and hr_admins can create claims for an employee through the API (`employeeId`); the web form only files claims for yourself.
-- **Uploaded but unattached receipts** are kept until the uploader deletes them; there is no cleanup sweep.
-- **Claim numbers sort as text** (`C-0001`…): after C-9999, sorting by number puts C-10000 before C-9999.
+## Testing
 
-## Leave (add-leave, WS5)
-
-- **Leave year is the calendar year.** Annual leave is pro-rated by completed months in the first calendar year of service and the year of leaving; later years use the service year reached by 31 Dec. This is an interpretation of MOM's service-year rules for calendar leave years, explained on every balance.
-- **No-pay leave and service**: whether a single unpaid day excludes a whole month is ambiguous in MOM's guidance; the org setting defaults to `whole_month` (a month counts as excluded only when every working day was no-pay leave).
-- **Shift schedules**: dates in a week covered by the employee's published roster count only when they have a shift. Dates without a published roster still count every day except the gazetted holiday date, with a warning on the quote. Leave already applied for keeps the count from when it was applied, even if the roster is published or changed later. Parental leave assumes a 5-day week for shift workers.
-- **Part-time leave in hours** rounds to 1 decimal place, matching MOM's examples; the regulation's own rounding could not be read (sg-rules warning `PT_LEAVE_ROUNDING_UNVERIFIED`). The comparable full-timer is the org's default fixed schedule unless Settings names another.
-- **Government-paid leave claims** are not submitted (the MSF portal has no API). The report lists employer-paid and Government-paid days and the claim deadline; amounts are not computed. Shared parental leave weeks are shared between the parents as the employee declares; the other parent's usage is not known.
-- **EA maternity leave** for a non-citizen child approximates "fewer than 2 living children" by birth order.
-- **Encashment setup and corrections**: encashment uses effective basic pay plus fixed recurring allowances classified for the [MOM gross rate](https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary). Active allowances require an explicit `grossRateIncluded` classification through the payroll settings API; there is no dedicated classification screen yet. A fixed workweek supplies the rate denominator; shift staff must supply contractual average workdays per week for the approver to verify. Pending requests can be withdrawn; approved payouts require a payroll correction. Existing requests retain their original rate snapshot, including requests made on the former basic-salary basis; correct those before paying if necessary.
-- **Payroll inputs**: approved no-pay and unpaid infant care leave and approved OT reach the run automatically (payroll's port defaults). A manual `unpaid_leave` item on the same date, or a manual `days_worked` item, takes precedence over the fed one. Rostered staff's **scheduled days** come from published rosters (a manual `scheduled_days` item wins); attendance supplies days worked, only for staff who clock in.
-- **Manager/executive flag**: Part 4 coverage (carry-forward floor) reads the flag on the employment record in force at year end. The flag is set by HR from the duties; Crow HR does not infer it from the job title or pay.
-- **Counted days are fixed when leave is applied for** (found in the 12 Nov 2026 review, not fixed): a public holiday added in Settings, or a change to the off-day holiday rule, after leave was applied for doesn't recount that leave. The day stays charged (and, for unpaid types, fed to payroll) until HR cancels and re-applies it.
-- **Changes after a leave year is closed stay in that year** (not fixed): the year-end close carries the balance net of pending requests and encashments. A pending request on 29–31 Dec rejected in January, approved December leave cancelled in January, or December leave applied for in January, is counted in the closed year and never carried or forfeited. Fix by hand with a balance adjustment in the new year.
-- **A leaver's unused leave can be encashed only in the calendar year they left** (not fixed): in January the encashment is checked against the new year, where a December leaver has no entitlement.
-- **Employment type changing mid-year** (part-time ↔ full-time) mixes hours and days in one balance (not fixed): balances sum the ledger without converting units.
-- **Carry-forward expiry longer than 12 months** has no effect once the next year is closed (not fixed): the close carries the days again and the later expiry lands in the earlier year.
-- **Scheduling conflicts**: leave approved after a roster was published notifies the roster's last publisher and hr_admins; the affected shifts show `on_leave` on the grid. Shifts are not removed automatically.
-- **The NDR 2026 childcare changes** are recorded in sg-rules with no effective date and are not applied.
-
-## Attendance (WS5)
-
-- **Statutory (Part 4) OT** is never applied to employees flagged as a manager or executive on their employment record (HR sets the flag; it is not inferred from the job title). The CSV import has no column for it yet: set it on the profile after importing. Hourly-rated staff are checked against a monthly equivalent (rate × weekly hours × 52 / 12).
-- **Overnight work** is split at 04:00 SGT: an out punch before 04:00 closes the previous day's open shift; anything later starts a new day. A published overnight shift uses the same rule, so a shift ending after 04:00 splits its punches across two work dates.
-- **Shift schedules**: on a date covered by a published roster, lateness, early out and OT are measured against the shift (its own break replaces the default break); work on an unrostered or rest day is all OT. Without a published roster there is no start time, so lateness and early-out are not computed, and OT is worked minutes beyond a fifth of the weekly hours. Fixed-week staff are always measured against their work schedule, even when they also appear on a roster.
-- **Geolocation accuracy** comes from the browser; up to 50 m of the reported accuracy is credited towards an office radius. Location is spoofable on a rooted device; IP ranges are the stronger control.
-- **Clock skew** is estimated as server time minus the device's send time, so slow networks add their latency to the estimate (default threshold 2 minutes; flags never block).
-- **Rest-day and public-holiday base pay** is not passed to payroll; the OT feed carries OT minutes only, and payroll prices rest-day work from day rates.
-- **Punches older than 7 days** are refused; a manager or HR adds them as corrections.
-- **Corrections don't re-date earlier punches** (found in the 12 Nov 2026 review, not fixed): a manager's corrected clock-in at 22:00 on day D doesn't pick up a lone clock-out at 02:00 on D+1 that was already dated D+1 (it had no clock-in before it), so both days show a missing punch. Void the clock-out and add it again as a correction after the clock-in.
-- **A break during an overnight shift**: a clock-in after midnight (back from a break at 01:00) is dated by its own day, so the rest of the shift counts on the next day. Only a clock-out before 04:00 closes the previous day's shift.
-
-## Public demo (packages/demo, apps/demo — WS8b)
-
-The demo is the real web app and the real core API running in the visitor's browser (see docs/architecture.md "The public demo"). These behaviours exist only in the demo; the About page (`/about-demo`) lists them for visitors too.
-
-- **Deployed by hand** at https://hr.crow.sg (Cloudflare Pages, 9 Nov 2026; docs/deploy-demo.md). Nothing deploys it automatically, and each deploy needs Daniel's approval. The live site has the Singpass button switched off until the production Singpass app is approved (see "Singpass in the demo" in docs/deploy-demo.md).
-- **Demo-only sign-in**: one-click personas (`/api/v1/auth/demo/*`, 404 outside demo mode), a shared password `kopi-kaki-demo` for every seeded account, and no MFA requirement (the demo org's `mfa_required_roles` is empty). Google, Microsoft and Singpass are seeded with placeholder client IDs so their buttons show; core refuses to start them in demo mode without any network call.
-- **Email** goes to the "Demo outbox" (a `demo_outbox` table in the visitor's database), shown from the banner and the notifications popover. Nothing is sent.
-- **Password hashing** is PBKDF2 (10,000 rounds, `$demo-pbkdf2$`), which a real server refuses. **Encryption at rest** uses a throwaway key included with the fictional build snapshot and stored in the same IndexedDB database as the data it protects; the browser-seeding fallback generates a fresh key (fine for fictional data; never a pattern for real data).
-- **Clock**: the demo company lives on 31 Oct 2026. The demo clock maps the visitor's real time onto that date at the same Singapore time of day, then runs normally; reset re-anchors it. Without this, a visit months later would show October as a stale "current" run.
-- **One tab at a time**: a Web Lock keeps a second tab from opening the same PGlite database (two writers would corrupt it); the second tab offers "Use it here instead".
-- **Durability**: PGlite runs with relaxed durability; the worker writes the database back to IndexedDB after every state-changing request and after each scheduled tick. A tab killed mid-request can lose that one request.
-- **Cookies** never reach the browser's cookie store. Browsers forbid script-set `Cookie` and script-read `Set-Cookie` headers, so the worker keeps a small cookie jar (persisted with the database) and the bridge captures `Set-Cookie` where Hono writes it. Core sees an ordinary cookie session (same CSRF and session code as the server); there is no bearer-token special case.
-- **Non-fetch API requests** (receipt `<img>` previews, PDF/CSV download links, an API URL opened in a new tab) go through a service worker (`/demo-sw.js`) to the open demo tab. Where service workers are unavailable (e.g. some private-browsing modes), those previews and downloads fail; everything else works.
-- **Seed shortcuts**: historical onboarding checklist items (from hires backdated to 2019–2025) are closed by one SQL update at seed time rather than one audited completion each, so the audit log has no entries for them. Everything else (hires, payroll runs, approvals, claims, leave, change requests) goes through the real services or the public API as the person who would do it.
-- **Seed coverage**: October clock-ins follow published outlet rosters (including late arrivals); workflow-approved OT feeds the October draft. Current and next-week rosters, a pending manager shift swap, generated KETs, employee acknowledgements, an expiring fictional work-pass attachment and payroll cost reports are populated. July–September OT remains historical run input. The part-month joiner and leaver get explicit full-month denominators counted from the outlet roster because core's scheduled-days feed covers whole-month tenures. The YTD opening balances for January–June are deliberately not imported, so every run shows the `YTD_BEFORE_CROWHR_MISSING` warning, as it would for a company that moved to Crow HR mid-year.
-- **Startup** restores a gzip PGlite snapshot generated at build time from the real migrations and seed, skipping initdb and seeding. Missing, corrupt or stale snapshots fall back to browser seeding. A seed-source/migration hash versions the asset and IndexedDB copy. The snapshot adds approximately 7.6 MiB to the first-visit download; optional language fonts load only when needed. Clock anchoring happens on first restore and reset; subsequent opens preserve it. Local first-visit median: 1.20 s versus 4.93 s before (three fresh Chromium contexts each; docs/deploy-demo.md records the method and samples).
-- **Docs site under /docs** has a looser CSP than the app (`script-src 'unsafe-inline'` for Starlight's inline scripts); it holds no user data.
-- **Name display**: demo accounts and people use preferred names (for example Jun Jie and Hafiz); legal names remain in payroll and statutory records.
-
-## Scheduling (add-scheduling, WS5b)
-
-- **No real-time collaboration.** Two editors on one roster see each other's changes on reload; editing a shift someone else changed answers 409 `stale`.
-- **Hour warnings are planning checks only.** The 12-hour day, 44-hour week, rest-day and 72-hour monthly OT warnings use rostered paid time. The 72-hour projection counts rostered overtime only; approved OT claims are checked by attendance separately. Part 4 coverage is not checked: the warnings show for everyone.
-- **Rest day**: one marked rest cell per week. Without one, the work schedule's rest day applies (fixed week), or Sunday (shift schedules). The rule that a non-Sunday rest-day roster must be issued before the month starts is not checked.
-- **Pay implications** of rest-day and public-holiday shifts are shown as text from sg-rules; payroll does not price them from the roster.
-- **Scheduled days for payroll** are omitted, and HR enters them, when any date of the period has no published roster for the employee or the employee joined or left during the period (MOM's denominator is the whole month). Days worked on an unrostered day count as worked in attendance's figure, so they can exceed the scheduled days and block the run (`ROSTER_DAYS_INVALID`) for HR to decide.
-- **Swaps** stay within one roster. A shift with unpublished edits can't be offered until the roster is published again. Deleting a shift removes its swap requests, and both employees are notified.
-- **Managers roster only their team** (matrix scope T), so a manager can't roster themselves; an owner or hr_admin can.
-- **Open shifts** are picked up through approval only; there is no first-come auto-assignment.
-- **Overlapping roster scopes** (found in the 12 Nov 2026 review, not fixed): when one employee falls in two rosters' scopes (for example a location and a department roster for the same week) and only the one without them is published, their week counts as covered with no shifts: every day is off, so all their work counts as OT, leave that week counts 0 days and payroll's scheduled days come out low. Keep each employee on one roster per week.
-- **Week grid**: drag moves a shift (no copy-drag); a cell holds several shifts but the keyboard shortcuts act on the first. Below 1400 px the chip drops the template code (it stays in the tooltip and the editor). At phone width the grid becomes a day list.
-- **The approver's link** from a shift-swap task opens My schedule, not the roster week (the workflows link callback has no database access).
-- **CSV export** is for editors only; staff see the published roster on screen.
-## Reports (add-reporting, WS6b)
-
-- **Report set is fixed**: headcount, headcount over time, joiners/leavers/turnover, work-pass expiry, leave taken, leave balances and liability, attendance exceptions, scheduled hours (published rosters), claims (summary, waiting by age, cap usage, payout register, line register) and payroll cost. No custom builder, saved views or scheduled reports (proposal non-goals).
-- **Charts** are a single bar chart under the table, drawn from the rows on the current page only, and hidden when a label repeats (e.g. a month split by department). The table is the accessible view.
-- **Exports** are streamed as CSV; XLSX is built in memory from 500-row batches (store-only ZIP, no compression). The runner holds at most 50 000 rows to sort; larger results answer 422 `too_many_rows`.
-- **Payroll cost SDL by department** is an allocation: payroll rounds SDL once for the employer per month, and the report splits that total across departments by SDL-liable wages (largest remainder), so departments add up exactly but a department's SDL is not a statutory figure. FWL is payroll's estimate.
-- **Leave liability** values available annual leave at the daily basic rate for monthly-rated staff only; hourly and daily-rated staff show none.
-- **Manager scope** comes from the current reporting lines, not the lines in force on the report's dates.
-
-## Documents (add-documents, WS6b)
-
-- **Italic** in letter templates prints in the regular face (the embedded fonts have no italic). **Logo**: only sniffed PNG logos are accepted; legacy SVG logos must be re-uploaded as PNG.
-- **No e-signature.** "I acknowledge" records the time, IP, user agent and the file's SHA-256; it is not a legally binding signature (proposal non-goal).
-- **Contract terms Crow HR doesn't store** (main duties, fixed deductions, OT period and rate, other salary components, medical benefits, notice period when no notice is recorded, signatory title) are entered per document at generation and kept on the document version, not on the employee record.
-- **Retention review** flags documents of ex-employees 12 months after the last working day (Employment Act; per-category months are configurable) and never deletes anything: HR keeps or soft-deletes, and only an owner purges. IRAS/CPF keeping periods were not researched (research §11.2, UNVERIFIED), so the default is the Employment Act minimum.
-- **Expiry reminders** run on the existing reminders sweep: 30 days, 7 days and on the day, to hr_admins (owners when there is none) and to the employee for employee-visible categories. Home shows only acknowledgement requests; expiring documents are on Documents → Expiring.
-- **DOCX/XLSX** are checked by package structure (OOXML parts present, no VBA project, macro sheets or ActiveX) and always downloaded, never previewed. Macro checks look at part names only; content is not inflated.
-- **Employment letter requests** are approved by hr_admins by default and generated from the first active "employment certificate" template with the approver as signatory ("for and on behalf of the employer").
-- **Default categories and templates come back** (found in the 12 Nov 2026 review, not fixed): setup re-creates any default category missing by its system key and any default template missing by name when the server restarts (and on each load of the browser demo), so a deleted empty default category or a renamed default template reappears. Archive or edit them instead of deleting or renaming.
-- **Acknowledgement requests of replaced versions** stay listed as outstanding for HR; the employee can only acknowledge the current version (request it again after replacing a file).
-- **The document list is not paginated**: HR and managers get every matching document of the organisation in one response.
-
-## Correctness review follow-up (1 Nov 2026)
-
-- **API-only payroll inputs**: contractual fed OT amounts use an overtime item's `overtimeSourceId`; off-day holiday amounts for hourly/rostered staff use an `other_earning` item's `holidayDate`. Allowance `grossRateIncluded` must be classified for automatic daily gross pay and leave encashment. Dedicated UI controls are NOT IMPLEMENTED; the API paths are documented in the payroll settings guide. Fixed-week monthly holiday pay is automatic; other known off-day holiday amounts block until provided explicitly. Rest-day/public-holiday *work premiums* remain separate from the holiday entitlement fixed here.
-- **Tax classifications**: taxable cash reimbursements enter IR8A d1 (including outside-payroll payments). New payrolls snapshot the flag; legacy snapshots and outside-payroll claims use the current type classification. Non-cash benefits, employer-borne tax, and determining any CPF liability of a taxable allowance remain the employer's responsibility. This change does not treat taxability as CPF liability.
-- **PDF coverage**: Noto Sans SC and Tamil are loaded only when needed, subsetted per document. Characters outside the embedded fonts show `?` and a visible warning; other scripts still need font support. The font source/size record is in `packages/core/src/pdf/fonts.md`.
-- **Bank correction workflow**: returning an approved unpaid run to draft is API-only; a later run relying on its CPF state may require an adjustment. Re-authentication and employee bank-change notifications are enforced on the server.
-- **Audit integrity**: verification compares the event chain with `audit_heads` and detects tail truncation. A database superuser who rewrites both history and its head can still forge an internally consistent chain; external checkpoints are not implemented.
-
-## Mobile apps (add-mobile-apps, M4)
-
-Both apps:
-
-- **Android 1.0.0 is live on Google Play; iOS 1.0.0 is still in App Store review.** Google Play approved the production release and published it on 12 Nov 2026 (Play Console: "Last published on November 12, 2026"; the public listing https://play.google.com/store/apps/details?id=crowtech.crowhr shows "Updated on 12 Nov 2026"). The App Store submission was still Waiting for Review when checked at 10:55 UTC on 12 Nov 2026. Daniel approved submitting both apps as 1.0.0 on 10 Nov 2026 ("Submit both") and on 11 Nov asked for iPad support and the accessibility rebuild first; both were submitted on 12 Nov 2026. **App Store** (app 6831992308): version 1.0.0 with build 5 (iPhone and iPad, uploaded 11 Nov through `scripts/ios-release.sh production`) is **Waiting for Review** (review submission `3a2fa300-c04c-43d4-9cd0-bec8a678cbea`, sent with `scripts/ios-store-review.py submit --build 5 --yes`) and is set to release automatically once approved. Set before submitting: the listing, age rating, price, availability (every territory except mainland China, which needs an ICP filing number), content rights (no third-party content), 6.9-inch iPhone and 13-inch iPad screenshots, the App Review contact, demo account (Hafiz) and notes with the manager account (`ios-store-review.py review-details`), and the App Privacy answers, published as "Data Not Collected" in the web UI. **Google Play** (app 4976368088435434771): production release "2 (1.0.0)" for all 178 countries and regions, with the en-GB listing, the declarations (privacy policy, ads, advertising ID, government app, financial and health features, content rating IARC Everyone / PEGI 3), sign-in details (the Hafiz and Siti accounts with connection instructions), target audience (18 and over) and Data safety ("No data collected or shared"), was sent for review in Play Console on 12 Nov 2026 (12 changes; managed publishing is off, so it goes live once approved). Play's pre-review check flagged the privacy policy URL as "page not found": Cloudflare's logs show Google fetched it once, at 03:00 UTC on 11 Nov, before the page went live, and got a 404, and not since. The page returns 200 now, so the changes were sent with "Proceed anyway". If the review still reports it, that is the cause. **Not done:** the legal and policy review of the "Data Not Collected" / "No data collected" reading that the design's Risks section asks for (data goes only to the employer's own server, never to Crow Tech; Apple's definition fits that directly, while Google's "transmitted off the user's device to you or a third party" is less explicit). Both labels can be changed later if that review disagrees. The privacy policy and support pages the stores link to are live on crow.sg since 11 Nov 2026 (crow-tech-landing PR #44); the store buttons there stay "coming soon" until the apps are live; its Google Play button still needs switching to the listing (landing repo, not done here). My profile → Mobile app in the web app links Google Play since 12 Nov 2026. Earlier test builds: iOS 0.1.0 builds 2 and 3 on internal TestFlight, Android versionCode 1 as an internal-testing draft.
-- **Remote push is not implemented** by design (design decision 6). The apps refresh in the background and post content-free local notifications instead.
-- **Not in the apps, done on the web:** the leave team calendar for managers, and shift swaps and open-shift pickup.
-
-Android (`apps/android`):
-
-- Claim drafts can be saved ("Save for later") but not edited, submitted later, withdrawn or copied in the app; the app says to finish them on the web.
-- Leave types that need a child (childcare and similar) are not offered in the app; a note says to apply on the web (as on iOS). Before 12 Nov 2026 they were listed and the server refused the request.
-- The live QR camera preview (CameraX + ZXing) has not run in an automated test; the emulator has no QR to point at. The tests open the same `crowhr://connect` link it produces. Leave attachments from the camera or files are not covered by a device test.
-- Device tests install with all runtime permissions granted. The permission prompts (camera, location, notifications, Android 17 local network) are covered by unit tests of the decision logic only. On 12 Nov 2026 they were also walked by hand on the emulator (approximate-only location, notification and camera refusals, the system camera app for a receipt).
-- The real Chrome Custom Tabs sign-in was verified by hand on the emulator (`apps/android/README.md` "Real browser sign-in", with screenshots), not by an automated test. The device tests stand in for the browser through the same server API.
-
-iOS (`apps/ios`):
-
-- Not in the app, done on the web: leave types that need a child, foreign-currency and multi-line claims, and payslip PDF download outside the share sheet.
-- **iPad: in build 5, not yet on a real iPad.** 1.0.0 is for iPhone and iPad (`TARGETED_DEVICE_FAMILY` '1,2', all four iPad orientations, multitasking); build 5 is the first with iPad support, and once 1.0.0 ships with it no later version can drop it. What the simulator can't show: Split View, Slide Over and Stage Manager resizing are not driven by the UI tests (the compact width is simulated with a DEBUG-only `-uitest-width`, which lays the app out in a 375-point strip with the compact width class; sheets still present over the whole window there); the QR scanner and receipt camera (the camera opens inside the form-sized sheet, which Apple allows on iPad, not full screen) and Face ID or Touch ID are untested on an iPad. In build 5 approvals open as a sheet rather than beside the list, and New claim's form-sized sheet leaves its Submit button below the fold on a 13-inch iPad (scrolling reaches it; the store screenshot shows the form without it). Both are fixed on main for the next version (12 Nov 2026 QA pass): approvals sit beside the list where payslips do, and Apply for leave and New claim are page-sized.
-- **Fixed on main after build 5 (12 Nov 2026 QA pass), not in 1.0.0:** a certificate error, captive portal or proxy page during a token refresh signed the person out; another person signing in on the same connection could send the previous person's queued punches under their sign-in before `/me` answered; the biometric lock was skipped on a cold start; settled punches were never pruned; every launch marked the inbox seen (racing a background refresh); `/me` was never retried after an offline launch; "My leave" could list a manager's whole team before `/me` loaded; date pickers used the phone's time zone; a tab switch mid-load left "You're offline" on screen; the approval decision didn't show the amount, dates or reason; Approvals were hidden from approvers without a manager or admin role (a reporting-line manager, a named approver, out-of-office cover). Details in `apps/ios/README.md` ("Server contract").
-- **Release gate:** `ios-release.sh` runs the user-flow UI tests on an iPhone and an iPad simulator, not the QA accessibility audit (about 15 minutes; clean, run it by hand before a release, task 3.7 below). It uploads builds and never submits. Submission is `scripts/ios-store-review.py submit --build <n> --yes`, which refuses unless that build is the attached, VALID one and the App Review contact, demo account, notes and content rights are set; the App Privacy answers have no public API and stay in the web UI.
-- The QR scanner (AVFoundation) and Face ID are not exercised by tests, because the simulator has neither a camera nor biometrics. The camera is stubbed with `-uitest-camera-stub` (DEBUG only).
-- **Accessibility QA (task 3.7) is not signed off: the manual VoiceOver and Dynamic Type pass on a real device (Daniel's) is still needed.** Xcode's accessibility audit in `QAScreenshotsUITests` (element descriptions, clipped text, Dynamic Type) has been clean since 11 Nov 2026. Three consecutive runs that day each audited 61 screens with 0 findings (result bundles `20261111-121953-ui`, `20261111-122824-ui` and `20261111-123646-ui` in `~/Developer/crowhr-ios-a11y/results/` on the Mac). An employee in light XXXL, dark at the default size and dark XXXL goes from connecting to the server through Settings (19, 17 and 18 screens). The claim-type list exists only at accessibility sizes, and the first tour applies for leave and audits Leave with the pending request and its Withdraw button. A manager in light XXXL covers connect, approvals, the decision sheet and notifications (7 screens). A tour visits every screen, then fails with all its findings. Only Dynamic Type on system navigation-bar buttons (Cancel, Apply, Mark all read) and on text under the floating tab bar is excused, and logged. How it got clean:
-  - **On an iPad** (iPad Pro 13-inch simulator, portrait, 11 Nov 2026) the four tours are clean too: 17, 16, 17 and 7 screens, 0 findings. Excused and logged there, besides navigation-bar buttons: the titles of iPadOS's floating tab bar (UIKit labels the audit reports without an element, at most one per visible tab) and Settings' UI-test-only list of contacted servers, which an iPad shows on screen. One genuine iPad finding was fixed: the payslip opened beside the list was reported as not supporting Dynamic Type until it was tapped, and is now opened exactly as a tap opens it.
-  - **No SwiftUI `List` or `Form`.** The audit reports their cells' text as not supporting Dynamic Type, and as clipped, although it scales (Apple DTS: the audit looks for UIKit's `adjustsFontForContentSizeCategory`, which SwiftUI's accessibility nodes don't always expose, [forum thread](https://developer.apple.com/forums/thread/828525)). Every screen is now a `ScrollView` built from `apps/ios/CrowHR/Design/Rows.swift`. `A11yAuditLabUITests` still shows the effect on identical rows, five audits each on 11 Nov 2026: `List` 30 findings at the default size and 25 at XXXL; `Form` 5 and 65; the `ScrollView` built from `Rows.swift` 0 and 0. The test fails if that `ScrollView` variant gets a finding.
-  - **Three more audit quirks**, isolated with one-view probes (each view audited alone, default size and XXXL):
-    - A `Text` whose VoiceOver label differs from its text (a spoken amount, `MoneyText`) is reported "may be clipped at larger Dynamic Type sizes". It isn't when the text is fixed vertically, or when the label is on the combined row. Amounts now read through the row's label (`AmountText`).
-    - A one-line `TextField` is reported clipped; a wrapping one (`axis: .vertical`) is not. Fields wrap now, and Return still moves on.
-    - Azeret Mono draws "ft", "fi", "ff" and "fj" as one ligature glyph. The audit reports such text as clipped in every button style, while the same words in Ubuntu are clean. Two labels were reworded: "Save as draft" became "Save for later", "Use a different server" became "Use another server". The "Draft" claim status chip is still in Azeret Mono and would be reported. The tours have no draft claims, and nothing is visibly clipped.
-  - **Real problems fixed on the way:**
-    - The leave sheet's title was cut off at large sizes (now "New leave").
-    - "Notifications" (Inbox segments) and "Client entertainment" (claim type field and list) broke mid-word at XXXL. Navigation rows drop their chevron at accessibility sizes for the same reason.
-    - The claim-type list closed when the text size changed.
-    - The brand chip's "HR" became "…" at XXXL.
-    - Long placeholders were cut off.
-    - The confirm-server sheet no longer opens at half height.
-  - **Not audited:** the system browser's sign-in page (not the app), the camera and photo picker, error and offline states, the payslip PDF viewer, and claim rows (the seeded employee has no claims during the tours; `EssJourneyUITests` checks a claim row's VoiceOver label). Server addresses have no spaces and wrap by character at XXXL. Screenshots: `artifacts/ios/qa-*.png`.
-  - On Today at XXXL, the "Schedule" link beside "Next shifts" broke mid-word ("Schedul/e"), under the floating tab bar where the audit's Dynamic Type check is excused. Fixed with the iPad work: that header (and "On this phone" with "Send now") stacks at accessibility sizes.
-  - **Allow-list check on a shared Mac (fixed):** `ios-mac-test.sh` sampled the sockets of every process named `CrowHR.app/CrowHR` on the Mac, so on 11 Nov 2026 another Crow HR run on a different simulator (iPad, test server on port 3196) was picked up and the check reported `FAILED`. Since #7 it samples only the app inside this run's simulator (`/Devices/$CROWHR_SIM_UDID/…/CrowHR.app/CrowHR`); every run after that passed it.
+- **End-to-end gaps**: the SSO round trip, audit-log filtering and export, and device sessions are
+  covered by integration tests against a mock identity provider, not by Playwright.
+- **NRIC and bank reveal** have no web unit test (no DOM test environment); Playwright covers them.

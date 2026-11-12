@@ -25,7 +25,7 @@ Changes to these fields create a **change request** with an optional attachment:
 
 While the request is pending, the employee sees the new values marked **Awaiting approval**; everywhere else, including payroll, the current values stay in force.
 
-Requests go through the [approvals engine](/docs/approvals/approvals/): by default **bank details go to payroll admins** and everything else to **HR admins**. The approver sees the change and the attachment and approves or rejects with a comment. Bank changes apply from the approval date; other personal details apply from the approval date (future-dated personal details are not supported).
+Requests go through the [approvals engine](/docs/approvals/approvals/): by default **bank details go to payroll admins** and everything else to **HR admins**. The approver sees the change and the attachment and approves or rejects with a comment. An approved change applies from the approval date; changes can't be dated in the future.
 
 Approvers act from Home or the Inbox. Nobody approves their own request, except an owner when no one else can.
 
@@ -33,4 +33,4 @@ Approvers act from Home or the Inbox. Nobody approves their own request, except 
 
 Nobody, including owners and payroll admins, edits their own compensation or bank details directly. A payroll admin who needs a raise or a new bank account gets it through someone else, which leaves an audit trail.
 
-Bank-change summaries, including holder names and account endings, are restricted to the requester, payroll admins and owners. HR admins need the payroll admin role to read them. All decisions use the approval chain; the former direct people decision endpoint has been removed.
+Bank-change requests, including the holder name and account ending, are visible only to the requester, payroll admins and owners. An HR admin needs the payroll admin role to see them.

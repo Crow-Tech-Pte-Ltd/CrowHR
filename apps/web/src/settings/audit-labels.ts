@@ -84,6 +84,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "sso.identity_unlinked": "Sign-in account unlinked",
   // Organisation
   "setup.completed": "Setup completed",
+  "demo_company.started": "Demo company started",
   "company_profile.created": "Company profile created",
   "company_profile.updated": "Company profile updated",
   "company_profile.logo_updated": "Company logo updated",

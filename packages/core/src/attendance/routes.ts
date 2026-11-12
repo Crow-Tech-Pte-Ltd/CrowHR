@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { authorize, can, type Grant } from "../access/authorize.ts";
+import type { Permission } from "../access/matrix.ts";
 import { auditContext, clientIp } from "../audit/audit.ts";
 import type { AppContext, AuthContext } from "../context.ts";
 import { isIsoDate } from "../employees/dates.ts";
@@ -17,6 +19,15 @@ import {
   toClaimViews,
   withdrawClaim,
 } from "./overtime.ts";
+import {
+  isPeriodOver,
+  nextPeriod,
+  type Period,
+  periodLabel,
+  periodOf,
+  previousPeriod,
+  submittableFrom,
+} from "./periods.ts";
 import { punchInput, punchStatus, punchView, recordPunch, toPunchView } from "./punch.ts";
 import { assertRange, attendanceSummary, employeesInScope, summaryCsv, summaryQuery, summaryRow } from "./reports.ts";
 import {
@@ -25,9 +36,24 @@ import {
   saveAttendanceSettings,
   settingsInput,
   settingsView,
+  timesheetSettings,
+  timesheetSettingsOf,
   toSettingsView,
 } from "./settings.ts";
 import { timesheets, totalsOf } from "./timesheet.ts";
+import {
+  latestTimesheets,
+  loadTimesheet,
+  myTasks,
+  reopenInput,
+  reopenTimesheet,
+  submitInput,
+  submitTimesheet,
+  timesheetView,
+  toTimesheetViews,
+  totalsView,
+  withdrawTimesheet,
+} from "./timesheet-approval.ts";
 
 /** HTTP surface of attendance and overtime (`/api/v1/attendance`). */
 
@@ -76,18 +102,13 @@ const dayRecord = z.object({
       approvedMinutes: z.number().nullable(),
     })
     .nullable(),
+  locked: z.boolean().meta({
+    description:
+      "Inside an approved timesheet while timesheet approval is on: punches, manager corrections and new overtime claims are refused.",
+  }),
 });
 
-const totals = z.object({
-  daysWorked: z.number(),
-  workedMinutes: z.number(),
-  lateCount: z.number(),
-  lateMinutes: z.number(),
-  earlyOutCount: z.number(),
-  missingPunches: z.number(),
-  otMinutes: z.number(),
-  leaveDays: z.number(),
-});
+const totals = totalsView;
 
 const sheetView = z.object({
   employee: z.object({ id: z.uuid(), name: z.string() }),
@@ -108,11 +129,53 @@ const statusView = z.object({
     offices: z.array(z.object({ name: z.string(), radiusMetres: z.number() })),
   }),
   networkRestricted: z.boolean(),
+  /** Whether timesheets are submitted for approval, by period, and by whom. */
+  timesheets: timesheetSettings.pick({ approval: true, period: true, submittedBy: true }),
 });
 
 const claimResult = z.object({ claim: claimView, warnings: z.array(z.string()) });
 
 const sheetQuery = z.object({ employeeId: z.uuid().optional(), from: isoDate, to: isoDate });
+
+const periodView = z.object({ start: z.string(), end: z.string(), label: z.string() });
+
+const overviewItem = z.object({
+  employee: z.object({ id: z.uuid(), name: z.string() }),
+  /** The period's totals as they are now. */
+  totals,
+  status: z.enum(["not_submitted", "submitted", "approved", "returned", "withdrawn", "reopened"]),
+  /** The latest submission overlapping the period. */
+  timesheet: timesheetView.nullable(),
+  /** Your open approval task for it (decide with `POST /approvals/tasks/{id}/decision`). */
+  taskId: z.uuid().nullable(),
+  canSubmit: z.boolean(),
+  canWithdraw: z.boolean(),
+  canReopen: z.boolean(),
+});
+
+const overviewView = z.object({
+  settings: timesheetSettings,
+  period: periodView,
+  previous: periodView,
+  next: periodView,
+  /** True once the period can be submitted (from 04:00 SGT the day after it ends). */
+  over: z.boolean(),
+  submittableFrom: z.string(),
+  items: z.array(overviewItem),
+});
+
+const submitResult = z.object({ timesheet: timesheetView, warnings: z.array(z.string()) });
+
+async function grantOrNull(c: AppContext, permission: Permission): Promise<Grant | null> {
+  try {
+    return await authorize(c, permission);
+  } catch (err) {
+    if (err instanceof AppError && err.code === "forbidden") return null;
+    throw err;
+  }
+}
+
+const withLabel = (p: Period) => ({ ...p, label: periodLabel(p) });
 
 export const attendanceModule = defineModule({
   name: "attendance",
@@ -137,6 +200,11 @@ export const attendanceModule = defineModule({
             offices: settings.offices.map((o) => ({ name: o.name, radiusMetres: o.radiusMetres })),
           },
           networkRestricted: settings.allowedIps.length > 0,
+          timesheets: {
+            approval: settings.timesheetApproval,
+            period: settings.timesheetPeriod,
+            submittedBy: settings.timesheetSubmitter,
+          },
         };
         if (!auth.employeeId) return { ...base, employeeId: null, clockedIn: false, lastPunch: null, today: [] };
         const s = await punchStatus(deps.db, auth.orgId, auth.employeeId, now);
@@ -217,12 +285,16 @@ export const attendanceModule = defineModule({
       method: "post",
       path: "/corrections",
       summary: "Add a missing punch to someone's timesheet, with a reason (audited)",
+      description:
+        "A day inside an approved timesheet answers 409 `timesheet_locked`; owners and HR admins resend with `reopen: true` to correct it and reopen the timesheet.",
       access: { permission: "attendance:update" },
       request: { body: correctionInput },
       responses: { 201: punchView },
-      errors: ["not_found", "self_change_requires_approval"],
+      errors: ["not_found", "self_change_requires_approval", "timesheet_locked"],
       handler: async ({ c, deps, auth, grant, body }) =>
-        toPunchView(await addCorrection(deps, actorOf(c, auth), grant, body)),
+        toPunchView(
+          await addCorrection(deps, actorOf(c, auth), grant, body, { canReopen: await can(c, "attendance:reopen") }),
+        ),
     }),
     defineRoute({
       method: "post",
@@ -231,10 +303,14 @@ export const attendanceModule = defineModule({
       access: { permission: "attendance:update" },
       request: { params: id, body: voidInput },
       responses: { 200: punchView },
-      errors: ["not_found", "conflict", "self_change_requires_approval"],
+      errors: ["not_found", "conflict", "self_change_requires_approval", "timesheet_locked"],
       example: { body: { reason: "Clocked in twice" } },
       handler: async ({ c, deps, auth, grant, params, body }) =>
-        toPunchView(await voidPunch(deps, actorOf(c, auth), grant, params.id, body.reason)),
+        toPunchView(
+          await voidPunch(deps, actorOf(c, auth), grant, params.id, body, {
+            canReopen: await can(c, "attendance:reopen"),
+          }),
+        ),
     }),
     defineRoute({
       method: "post",
@@ -243,7 +319,7 @@ export const attendanceModule = defineModule({
       access: { permission: "attendance:create" },
       request: { body: claimInput },
       responses: { 201: claimResult },
-      errors: ["not_found", "conflict"],
+      errors: ["not_found", "conflict", "timesheet_locked"],
       handler: async ({ c, deps, auth, grant, body }) => {
         const r = await createClaim(deps, actorOf(c, auth), grant, body);
         const [view] = await toClaimViews(deps.db, auth.orgId, [r.claim]);
@@ -289,6 +365,145 @@ export const attendanceModule = defineModule({
         const claim = await withdrawClaim(deps, actorOf(c, auth), grant, params.id);
         const [view] = await toClaimViews(deps.db, auth.orgId, [claim]);
         if (!view) throw new Error("claim view missing");
+        return view;
+      },
+    }),
+    defineRoute({
+      method: "get",
+      path: "/timesheets",
+      summary: "Timesheet approval for a period: each person you can see, with their status and totals",
+      description:
+        "The period containing `date` (default today) under the organisation's setting. Employees see themselves, managers their team, owners, HR and payroll admins everyone.",
+      access: { permission: "attendance:read" },
+      request: { query: z.object({ date: isoDate.optional(), employeeId: z.uuid().optional() }) },
+      responses: { 200: overviewView },
+      handler: async ({ c, deps, auth, grant, query }) => {
+        const settings = await loadAttendanceSettings(deps.db, auth.orgId);
+        const now = deps.clock.now();
+        const today = todaySg(deps);
+        const period = periodOf(query.date ?? today, settings.timesheetPeriod);
+        let ids: string[];
+        if (query.employeeId) {
+          await grant.assertEmployee(query.employeeId, "employee");
+          ids = [query.employeeId];
+        } else ids = await employeesInScope(deps.db, auth.orgId, grant, period.start, period.end);
+        const sheet = await timesheets(deps.db, auth.orgId, ids, period.start, period.end, today);
+        const latest = await latestTimesheets(deps.db, auth.orgId, [...sheet.days.keys()], period);
+        const views = new Map(
+          (await toTimesheetViews(deps.db, auth.orgId, [...latest.values()])).map((v) => [v.employee.id, v]),
+        );
+        const tasks = await myTasks(
+          deps.db,
+          auth.orgId,
+          auth.membershipId,
+          [...latest.values()].flatMap((t) => (t.approvalRequestId ? [t.approvalRequestId] : [])),
+        );
+        const manager = settings.timesheetSubmitter === "manager";
+        const submitGrant = settings.timesheetApproval
+          ? await grantOrNull(c, manager ? "attendance:update" : "attendance:create")
+          : null;
+        const mayReopen = await can(c, "attendance:reopen");
+        const over = isPeriodOver(period, now);
+        const items: z.input<typeof overviewItem>[] = [];
+        for (const [employeeId, days] of sheet.days) {
+          const ts = latest.get(employeeId) ?? null;
+          const open = ts?.status === "submitted" || ts?.status === "approved";
+          const self = employeeId === auth.employeeId;
+          const canSubmit =
+            over &&
+            !open &&
+            !!submitGrant &&
+            !(manager && self) &&
+            days.some((d) => d.dayType !== "not_employed") &&
+            (await submitGrant.canAccessEmployee(employeeId));
+          items.push({
+            employee: { id: employeeId, name: sheet.times.get(employeeId)?.name ?? "" },
+            totals: totalsOf(days),
+            status: ts?.status ?? "not_submitted",
+            timesheet: views.get(employeeId) ?? null,
+            taskId:
+              ts?.status === "submitted" && ts.approvalRequestId ? (tasks.get(ts.approvalRequestId) ?? null) : null,
+            canSubmit,
+            canWithdraw: ts?.status === "submitted" && (self || ts.submittedByMembershipId === auth.membershipId),
+            canReopen: ts?.status === "approved" && mayReopen && !self,
+          });
+        }
+        items.sort((a, b) => a.employee.name.localeCompare(b.employee.name));
+        return {
+          settings: timesheetSettingsOf(settings),
+          period: withLabel(period),
+          previous: withLabel(previousPeriod(period, settings.timesheetPeriod)),
+          next: withLabel(nextPeriod(period, settings.timesheetPeriod)),
+          over,
+          submittableFrom: submittableFrom(period).toISOString(),
+          items,
+        };
+      },
+    }),
+    defineRoute({
+      method: "post",
+      path: "/timesheets",
+      summary: "Submit a period's timesheet for approval (once the period is over)",
+      description:
+        "Employees submit their own (owners and HR admins on their behalf), or, when the organisation has managers submit, a manager submits their team's. Warns, without blocking, about missing punches and unclaimed overtime.",
+      access: { permission: "attendance:read" },
+      request: { body: submitInput },
+      responses: { 201: submitResult },
+      errors: ["not_found", "conflict"],
+      handler: async ({ c, deps, auth, body }) => {
+        const settings = await loadAttendanceSettings(deps.db, auth.orgId);
+        const r = await submitTimesheet(deps, actorOf(c, auth), settings, body, (p) => authorize(c, p));
+        const [view] = await toTimesheetViews(deps.db, auth.orgId, [r.timesheet]);
+        if (!view) throw new Error("timesheet view missing");
+        return { timesheet: view, warnings: r.warnings };
+      },
+    }),
+    defineRoute({
+      method: "get",
+      path: "/timesheets/:id",
+      summary: "Get a submitted timesheet",
+      access: { permission: "attendance:read" },
+      request: { params: id },
+      responses: { 200: timesheetView },
+      errors: ["not_found"],
+      handler: async ({ deps, auth, grant, params }) => {
+        const ts = await loadTimesheet(deps.db, auth.orgId, params.id);
+        await grant.assertEmployee(ts.employeeId, "timesheet");
+        const [view] = await toTimesheetViews(deps.db, auth.orgId, [ts]);
+        if (!view) throw new Error("timesheet view missing");
+        return view;
+      },
+    }),
+    defineRoute({
+      method: "post",
+      path: "/timesheets/:id/withdraw",
+      summary: "Withdraw a timesheet waiting for approval (the employee or whoever submitted it)",
+      access: { permission: "attendance:read" },
+      request: { params: id },
+      responses: { 200: timesheetView },
+      errors: ["not_found", "conflict"],
+      example: { body: {} },
+      handler: async ({ c, deps, auth, grant, params }) => {
+        const ts = await withdrawTimesheet(deps, actorOf(c, auth), grant, params.id);
+        const [view] = await toTimesheetViews(deps.db, auth.orgId, [ts]);
+        if (!view) throw new Error("timesheet view missing");
+        return view;
+      },
+    }),
+    defineRoute({
+      method: "post",
+      path: "/timesheets/:id/reopen",
+      summary: "Reopen an approved timesheet (owners and HR admins; never your own)",
+      description: "Unlocks the period; it must be submitted and approved again. Audited; the employee is notified.",
+      access: { permission: "attendance:reopen" },
+      request: { params: id, body: reopenInput },
+      responses: { 200: timesheetView },
+      errors: ["not_found", "conflict", "self_change_requires_approval"],
+      example: { body: { reason: "Missing clock-out on 14 Oct" } },
+      handler: async ({ c, deps, auth, grant, params, body }) => {
+        const ts = await reopenTimesheet(deps, actorOf(c, auth), grant, params.id, body.reason);
+        const [view] = await toTimesheetViews(deps.db, auth.orgId, [ts]);
+        if (!view) throw new Error("timesheet view missing");
         return view;
       },
     }),

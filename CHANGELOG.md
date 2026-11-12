@@ -2,6 +2,27 @@
 
 All notable changes to Crow HR are recorded here. Versions follow [semantic versioning](https://semver.org/): the Docker image tags `1`, `1.x` and `1.x.y` move with it, and the `/api/v1` API stays additive-only within a major version.
 
+## [Unreleased]
+
+### Added
+
+- **Timesheet approval** (optional, off by default; Settings → Attendance): employees, or their managers, submit each month, half month or week for approval through the usual approval chains; managers approve or return it with a comment. An approved period is locked: punches, manager corrections and new overtime claims are refused, and an HR correction reopens it (audited, employee notified). Payroll can be set to take overtime and days worked only from approved timesheets. New API: `/api/v1/attendance/timesheets` (additive).
+
+### Fixed
+
+- **Payroll**: reopening a bonus run no longer pays the month's salary again; a second final-pay run for the same month is refused; same-month reviews and hourly rate changes within a period are handled ("Hours worked" takes the date worked).
+- **Leave**: part-timers' unpaid leave in hours is deducted as hours, not days; open-ended carry-forward for Part 4 staff; per-child adjustments.
+- **Approvals**: requests no longer get stuck after a manager change; no double HR approval; role removal, out-of-office cover and reassignment fixes. The Inbox treats anyone with tasks as an approver.
+- **Everywhere**: another organisation's IDs answer 404 instead of 500; claims, documents, attendance and scheduling fixes.
+- **Web app**: the demo opens on its own date; employees get the employee layout with the bottom tab bar; buttons only appear when you're allowed to use them; the command palette's Sign out signs out; payroll levy sector and tier are dropdowns; the leave balances report shows hours for part-timers; many accessibility fixes (page titles, headings, focus, contrast, screen-reader names).
+- **Mobile apps** (next version): iOS session, punch-queue and leave fixes, approval details, approvals beside the list on iPad; Android keeps forms across rotation, accepts approximate location, asks for notification permission and fixes receipt orientation.
+
+### Changed
+
+- **Faster**: Home's inbox, leave balances, audit lookups and timesheets at 200 employees; payroll compute and submit; the sign-in page loads 143 kB of JavaScript instead of 251 kB; the server sends the web app's files pre-compressed.
+- **API**: the 1.0 contract is frozen, and CI allows only additive changes.
+- My profile → Mobile app links the Android app on Google Play.
+
 ## [1.0.0] - 2026-11-11
 
 The first public release: free, MIT-licensed HR and payroll for Singapore SMEs that you host yourself.

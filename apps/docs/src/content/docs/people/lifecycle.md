@@ -33,11 +33,11 @@ Only an owner can record leaving for an employee whose sign-in holds an assigned
 
 Resignations and terminations create the offboarding checklist from the default template. The day after the last working day the person's membership becomes **former**: they can still sign in to read their own released payslips, and nothing else. For the final month's pay, use an off-cycle **final pay** run or include them in the regular run (see [running payroll](/docs/payroll/running-payroll/)).
 
-Each leaver is processed independently. A failure leaves that tenure pending for retry and alerts active owners once; other leavers still transition. Open approval tasks are superseded and re-resolved, and cover to and from the former member is revoked.
+When the membership becomes former, their open approval tasks pass to other eligible approvers and any out-of-office cover to or from them ends. If that change fails for one leaver, Crow HR retries it and tells the owners once; other leavers are not held up.
 
 ## Pay changes and finalised payroll
 
-Recurring allowances are pay: adding them at hire or rehire, scheduling changes, and cancelling those changes require compensation permission. Nobody can change or cancel their own allowances; these writes are audited without storing allowance amounts.
+Recurring allowances are pay: adding them at hire or rehire, scheduling changes to them and cancelling those changes need compensation access (payroll admins and owners). Nobody can change or cancel their own allowances. The audit log records these changes without the amounts.
 
 A pay change dated in a month whose payroll is already approved or paid is refused unless you mark it **retroactive**. Crow HR then shows a back-pay warning (`BACKPAY_OWED`) on the next run. The back-pay amount is not computed: enter it as a "Back pay" item on that run.
 

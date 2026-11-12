@@ -52,7 +52,18 @@ export {
   verifySecretKeyAgainstDb,
 } from "./crypto/secret-box.ts";
 export * as schema from "./db/schema/index.ts";
+export type { NewOrganisation, Organisation } from "./db/schema/organisations.ts";
+export { INSTALL_TABLES, type TableInfo, tablesInDependencyOrder } from "./db/table-order.ts";
 export type { Db, Schema } from "./db/types.ts";
+export {
+  DEMO_COMPANY_DEFAULTS,
+  DEMO_SLUG_PATTERN,
+  type DemoCompaniesDeps,
+  type DemoPersonaInfo,
+  type DemoProvisionInput,
+} from "./demo-companies/config.ts";
+export { purgeDemoCompany } from "./demo-companies/purge.ts";
+export { endAllDemoCompanies, purgeExpiredDemoCompanies } from "./demo-companies/service.ts";
 export {
   type AppDeps,
   type Clock,

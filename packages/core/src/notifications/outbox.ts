@@ -1,4 +1,4 @@
-import { and, eq, inArray, lt, lte, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { singaporeDate } from "../access/scope.ts";
 import { membershipRoles, memberships } from "../db/schema/access.ts";
 import { emailOutbox, notifications, remindersSent } from "../db/schema/notifications.ts";
@@ -39,6 +39,18 @@ export async function sweepOutbox(deps: AppDeps, now: Date): Promise<OutboxRepor
     report.suppressed = rows.length;
     return report;
   }
+  // Demo companies send no email (demo-companies "Guard rails"): whatever was queued for one is
+  // dropped, and the claim below never picks one up.
+  const demoOrgs = deps.db
+    .select({ id: organisations.id })
+    .from(organisations)
+    .where(isNotNull(organisations.demoExpiresAt));
+  const dropped = await deps.db
+    .update(emailOutbox)
+    .set({ status: "suppressed", lastError: "Demo companies send no email.", lockedUntil: null })
+    .where(and(inArray(emailOutbox.status, ["queued", "sending"]), inArray(emailOutbox.orgId, demoOrgs)))
+    .returning({ id: emailOutbox.id });
+  report.suppressed += dropped.length;
   const orgNames = new Map<string, string>();
   const failedOrgs = new Set<string>();
   for (;;) {
@@ -47,9 +59,12 @@ export async function sweepOutbox(deps: AppDeps, now: Date): Promise<OutboxRepor
         .select()
         .from(emailOutbox)
         .where(
-          or(
-            and(eq(emailOutbox.status, "queued"), lte(emailOutbox.nextAttemptAt, now)),
-            and(eq(emailOutbox.status, "sending"), lt(emailOutbox.lockedUntil, now)),
+          and(
+            or(
+              and(eq(emailOutbox.status, "queued"), lte(emailOutbox.nextAttemptAt, now)),
+              and(eq(emailOutbox.status, "sending"), lt(emailOutbox.lockedUntil, now)),
+            ),
+            notInArray(emailOutbox.orgId, demoOrgs),
           ),
         )
         .limit(BATCH)

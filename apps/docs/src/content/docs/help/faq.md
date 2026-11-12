@@ -33,11 +33,11 @@ Import employees and their compensation, then the [year-to-date opening balances
 
 ## Can several companies share one install?
 
-Yes. Each legal entity is its own organisation with its own UEN and CSN, and one person can belong to several. The web app's organisation switcher currently shows only the current organisation; the API supports switching.
+Yes. Each legal entity is its own organisation with its own UEN and CSN, and one person can belong to several. Switch between them with the organisation switcher at the top left: it lists every organisation where you are a member (or a former employee) and moves this browser to the one you choose. An organisation that allows only single sign-on asks you to sign in on its own sign-in page (`/sign-in/<org>`) instead.
 
 ## Does it work on phones?
 
-The web app works on phone screens, with a bottom tab bar for employees. The native [Android app](/docs/coming-soon/mobile-apps/) is on Google Play, and the iPhone and iPad app is in App Store review. My profile → Mobile app shows the code that connects the app to your server.
+The web app works on phone screens, with a bottom tab bar for employees. The native [Android app](/docs/coming-soon/mobile-apps/) is on Google Play, and the iPhone and iPad app is in App Store review. **My profile → Mobile app** shows the code that connects the app to your server.
 
 ## Is there a demo?
 
@@ -45,8 +45,8 @@ Yes: the [in-browser demo](/docs/demo/) at [hr.crow.sg](https://hr.crow.sg/) run
 
 ## Do we need Singpass?
 
-No. Singpass login is optional and requires your company's own Singpass onboarding. It has been tested against Singpass staging, not production yet. Email and password, Google Workspace, Microsoft Entra ID and other OpenID Connect providers work without it.
+No. Singpass login is optional and requires your company's own Singpass onboarding. It has been tested against Singpass staging, not yet against production. Email and password, Google Workspace, Microsoft Entra ID and other OpenID Connect providers work without it.
 
 ## How do we get support?
 
-Through the project's public issue tracker, on a best-effort basis. There is no paid support contract today. Security issues go through the [security policy](/docs/help/security/), not public issues.
+Through the project's [public issue tracker](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/issues), on a best-effort basis. There is no paid support contract today. Security issues go through the [security policy](/docs/help/security/), not public issues.

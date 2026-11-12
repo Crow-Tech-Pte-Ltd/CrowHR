@@ -6,6 +6,8 @@ import { invitations, memberships } from "../db/schema/access.ts";
 import { passwordResets, ssoProviders } from "../db/schema/auth.ts";
 import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
+import { NOT_IN_DEMO_COMPANY } from "../demo-companies/config.ts";
+import { demoCompanyOf } from "../demo-companies/service.ts";
 import { AppError } from "../errors.ts";
 import { defineRoute, reply } from "../http/route.ts";
 import {
@@ -44,9 +46,12 @@ export const accountRoutes = [
     access: "public",
     request: { body: z.object({ org: z.string().min(1), email: emailInput() }) },
     responses: { 202: z.object({ accepted: z.literal(true), emailConfigured: z.boolean() }) },
+    errors: ["disabled_in_demo"],
     handler: async ({ c, deps, body }) => {
       const { db, clock, mailer } = deps;
       const org = await findOrgBySlug(db, body.org);
+      // Demo companies have no passwords and send no email (demo-companies "Guard rails").
+      if (org?.demoExpiresAt) throw new AppError("disabled_in_demo", NOT_IN_DEMO_COMPANY);
       const found = org ? await findMemberByEmail(db, org.id, body.email) : null;
       if (org && found && mailer && (found.membership.status === "active" || found.membership.status === "former")) {
         const now = clock.now();
@@ -104,7 +109,7 @@ export const accountRoutes = [
     access: "public",
     request: { body: tokenBody.extend({ password: z.string().max(1024) }) },
     responses: { 200: z.object({ orgSlug: z.string().nullable() }) },
-    errors: ["conflict"],
+    errors: ["conflict", "disabled_in_demo"],
     handler: async ({ c, deps, body }) => {
       const { db, clock, passwordHasher } = deps;
       const now = clock.now();
@@ -115,6 +120,7 @@ export const accountRoutes = [
           reason: "expired_or_used",
         });
       }
+      if (await demoCompanyOf(db, reset.orgId)) throw new AppError("disabled_in_demo", NOT_IN_DEMO_COMPANY);
       const [user] = await db.select().from(users).where(eq(users.id, reset.userId));
       if (!user)
         throw new AppError("conflict", "This reset link has expired or was already used. Request a new one.", {
@@ -255,11 +261,18 @@ export const accountRoutes = [
       }),
     },
     responses: { 200: z.object({ orgSlug: z.string().nullable() }) },
-    errors: ["conflict", "invalid_credentials", "invalid_mfa_code", "password_sign_in_disabled"],
+    errors: ["conflict", "invalid_credentials", "invalid_mfa_code", "password_sign_in_disabled", "disabled_in_demo"],
     handler: async ({ c, deps, body }) => {
       const { db, clock, passwordHasher } = deps;
       const now = clock.now();
       const hash = await sha256Hex(body.token);
+      const [pending] = await db
+        .select({ orgId: invitations.orgId })
+        .from(invitations)
+        .where(eq(invitations.tokenHash, hash));
+      // No invitation can be made in a demo company; refuse one anyway (demo-companies "Guard rails").
+      if (pending && (await demoCompanyOf(db, pending.orgId)))
+        throw new AppError("disabled_in_demo", NOT_IN_DEMO_COMPANY);
       const [row] = await db
         .select({ invite: invitations, membership: memberships, user: users })
         .from(invitations)

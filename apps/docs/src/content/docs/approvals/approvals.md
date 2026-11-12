@@ -7,13 +7,12 @@ Every request that needs a decision goes through one approval engine:
 
 - **profile changes** (employees' changes to legal, residency, race/religion and bank details);
 - **payroll runs**;
-- **leave** and **leave cancellation** ([leave](/docs/leave/leave/#approval));
+- **leave**, **leave cancellation** ([leave](/docs/leave/leave/#approval)) and **leave encashment** ([encashment](/docs/leave/leave/#encash-unused-leave));
 - **claims** ([claims](/docs/claims/claims/#approval));
 - **overtime** claims ([attendance](/docs/attendance/attendance/#claiming-it));
+- **timesheets**, when your organisation turns on [timesheet approval](/docs/attendance/attendance/#timesheet-approval-optional) (off by default; until then managers and HR correct attendance directly, without a request);
 - **shift swaps** and open-shift pickups ([scheduling](/docs/scheduling/scheduling/#swaps-and-open-shifts));
 - employees' **employment letter requests** ([letters](/docs/documents/letters-and-kets/#employment-letter-requests)).
-
-**Settings → Approvals** also lists **Timesheets** as "Not in use yet": timesheet corrections are made directly by managers and HR, without a request.
 
 ## Where approvers decide
 
@@ -43,7 +42,8 @@ Defaults, used until you edit them:
 | --- | --- |
 | Payroll run | Owner |
 | Profile change | Bank details: payroll admin. Other fields: HR admin. |
-| Leave, leave cancellation, overtime | Manager |
+| Leave, leave cancellation, overtime, timesheets | Manager |
+| Leave encashment | HR admin |
 | Shift swap | Manager (escalates after 2 days) |
 | Employment letter request | HR admin |
 | Claims | Manager, then HR admin |
@@ -72,4 +72,4 @@ A requester can withdraw a pending request; open tasks are superseded and the ap
 
 ## Background processing
 
-Escalations, reminders, the email outbox and date-triggered changes (such as a leaver's membership becoming former) are processed by a sweep the server runs every 60 seconds. Each piece of work is claimed with a row lock, so nothing is processed twice, and after downtime the next sweep catches up.
+Escalations, reminders, the email outbox and date-triggered changes (such as a leaver's membership becoming former) are processed by background jobs the server runs every 60 seconds. Nothing is processed twice, and after downtime the next run catches up.

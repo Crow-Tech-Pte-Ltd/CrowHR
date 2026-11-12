@@ -232,6 +232,7 @@ export const securityModule = defineModule({
       description:
         "Password sign-in can be turned off only once an SSO method is enabled and has passed a test sign-in. Owners keep break-glass password sign-in.",
       access: { permission: "security_settings:update" },
+      refusedInDemoCompany: true,
       recentAuth: true,
       request: {
         body: z.object({
@@ -303,6 +304,7 @@ export const securityModule = defineModule({
       description:
         "Fetches and checks the discovery document before saving. Secrets are encrypted at rest and never returned.",
       access: { permission: "security_settings:update" },
+      refusedInDemoCompany: true,
       recentAuth: true,
       request: { body: providerInput },
       responses: { 201: providerOut },
@@ -420,6 +422,7 @@ export const securityModule = defineModule({
       path: "/providers/:id",
       summary: "Change a single sign-on provider",
       access: { permission: "security_settings:update" },
+      refusedInDemoCompany: true,
       recentAuth: true,
       request: { params: z.object({ id: z.uuid() }), body: providerInput.omit({ kind: true }).partial() },
       responses: { 200: providerOut },
@@ -516,6 +519,7 @@ export const securityModule = defineModule({
       summary: "Remove a single sign-on provider",
       description: "Linked identities are removed with it.",
       access: { permission: "security_settings:update" },
+      refusedInDemoCompany: true,
       recentAuth: true,
       request: { params: z.object({ id: z.uuid() }) },
       responses: { 204: null },

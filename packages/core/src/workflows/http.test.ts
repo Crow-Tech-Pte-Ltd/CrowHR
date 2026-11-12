@@ -135,7 +135,11 @@ describe("approvals HTTP", () => {
     const leave = list.types.find((t) => t.subjectType === "leave");
     expect(leave).toMatchObject({ installed: true, canEdit: true });
     expect(leave?.policies[0]).toMatchObject({ builtIn: true, steps: [{ label: "Manager" }, { label: "HR admin" }] });
-    expect(list.types.find((t) => t.subjectType === "timesheet")?.installed).toBe(false);
+    // Attendance submits timesheets (add-timesheet-approval); their built-in chain is the manager.
+    const timesheet = list.types.find((t) => t.subjectType === "timesheet");
+    expect(timesheet).toMatchObject({ installed: true, canEdit: true });
+    expect(timesheet?.policies[0]).toMatchObject({ builtIn: true, steps: [{ label: "Manager" }] });
+    expect(timesheet?.policies[0]?.steps).toHaveLength(1);
     expect(list.types.find((t) => t.subjectType === "payroll_run")?.canEdit).toBe(false);
 
     const save = await asHr.put("/api/v1/approvals/policies/claim", {
