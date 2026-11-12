@@ -1,15 +1,11 @@
 ---
 title: Mobile apps
 description: Native iOS and Android apps for Crow HR. Version 1.0.0 is on Google Play; the iPhone and iPad app is in App Store review. How connecting a phone to your company's server works.
-sidebar:
-  badge:
-    text: Soon
-    variant: note
 ---
 
 <span class="crow-pill crow-pill--soon">iPhone and iPad: coming soon</span>
 
-Native iOS (SwiftUI, `apps/ios`) and Android (Kotlin and Jetpack Compose, `apps/android`) apps are built and tested against a real Crow HR server. Version 1.0.0 for Android is on [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr) since 12 Nov 2026. The iPhone and iPad app is in App Store review, so it is **not in the App Store yet**; until it is, the web app works on phones, with a bottom tab bar for employees. The iOS app is for iPhone and iPad: on an iPad it shows a sidebar in landscape and can share the screen in Split View, Slide Over and Stage Manager.
+Native iOS (SwiftUI, `apps/ios`) and Android (Kotlin and Jetpack Compose, `apps/android`) apps are built and tested against a real Crow HR server. Version 1.0.0 for Android is on [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr). The iPhone and iPad app is in App Store review, so it is **not in the App Store yet**; until it is, the web app works on phones, with a bottom tab bar for employees. The iOS app is for iPhone and iPad: on an iPad it shows a sidebar in landscape and can share the screen in Split View, Slide Over and Stage Manager.
 
 The apps cover what employees and managers do most: payslips, leave, clock in and out (also offline), claims with a photo of the receipt, your schedule, approvals and notifications. Everything else stays on the web.
 
@@ -34,5 +30,3 @@ On Android 17 and later, connecting to a server on your office network (a privat
 A clock-in made without signal is saved on the phone and sent when it reconnects. The app sends the tap time and how long ago the tap was, measured by the phone's own timer, which changing the phone's clock doesn't affect. So the server records the real time even if the clock was changed while offline, flags a wrong phone clock as clock skew, and marks punches that arrive more than 10 minutes late as sent late. Punches more than 7 days old are refused, as on the web; the app keeps them visible with the server's reason so a manager can add the time to the timesheet.
 
 The server side the apps use is part of every install: native sign-in with PKCE and device sessions (listed in **My sessions**, where you can sign a device out), `GET /api/v1/meta` for the organisation's name, logo, sign-in methods and features, and `GET /api/v1/notifications?since=<cursor>` for background refresh ([API conventions](/docs/developers/api-conventions/#new-notifications-since-a-cursor)). The apps check the server's features rather than its version, so they keep working with servers older than the app.
-
-Progress is tracked on the [project status](/docs/status/) page.

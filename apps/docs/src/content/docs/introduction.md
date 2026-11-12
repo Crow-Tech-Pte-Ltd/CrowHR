@@ -39,24 +39,11 @@ Crow HR runs as one app container and a PostgreSQL 17 database on your machine, 
 
 Sensitive identifiers (NRIC/FIN, passport and work pass numbers, bank account numbers) and secrets (two-step verification, SSO) are encrypted in the database with a key that stays in your data volume and your backups. Your company remains the organisation responsible for the personal data under the PDPA; see [privacy and PDPA](/docs/help/privacy-pdpa/).
 
-## What it does today
+## What it covers
 
-Crow HR is early software. Built and tested today:
+Employee records and self-service, leave, attendance and overtime, shift scheduling, expense claims, approvals, documents and HR letters, reports, and monthly payroll with CPF, SHG, SDL and the files you upload to CPF, your bank and IRAS. Staff use it in the browser or in the [mobile apps](/docs/coming-soon/mobile-apps/).
 
-- sign-in with password and two-step verification, Google Workspace, Microsoft Entra ID and generic OpenID Connect; Singpass is implemented but not yet tested against real Singpass;
-- members, roles and a server-enforced permission matrix, with an append-only audit log;
-- company profile, departments, teams, locations, cost centres and work schedules;
-- employee records with effective-dated history, CSV import (including year-to-date opening balances), lifecycle events, work passes and self-service change requests;
-- an approvals engine with policies, delegation and escalation, in-app and email notifications, and a Home page that lists work to do;
-- [leave](/docs/leave/leave/) with the statutory and Government-paid types, policies, a team calendar and a report of Government-paid leave to claim;
-- [attendance and overtime](/docs/attendance/attendance/): clocking in (also offline), timesheets and overtime claims checked against Part 4 of the Employment Act;
-- [expense claims](/docs/claims/claims/) with receipts, caps and foreign currency, reimbursed through payroll;
-- [shift scheduling](/docs/scheduling/scheduling/) with weekly rosters, hour warnings and shift swaps;
-- monthly payroll with CPF, SHG, SDL and an FWL estimate, fed by approved leave, overtime, rosters and claims, with itemised payslips, the CPF EZPay file, a generic ISO 20022 bank file and an IR8A export;
-- [employee documents](/docs/documents/documents/), HR letters and KETs, and [reports](/docs/reports/running-reports/) with CSV and Excel export;
-- self-hosting with automatic migrations, scheduled backups (encrypted when you set `BACKUP_PASSPHRASE`, which you should) and a `crowhr` CLI.
-
-An [in-browser demo](/docs/demo/) runs at [hr.crow.sg](https://hr.crow.sg/), and native [mobile apps](/docs/coming-soon/mobile-apps/) are on Google Play for Android, with the iPhone and iPad app in App Store review. The [project status](/docs/status/) page lists what is built and what is not.
+The [project status](/docs/status/) page lists what is built, what is partly done and what is not. To look around first, open the [in-browser demo](/docs/demo/) at [hr.crow.sg](https://hr.crow.sg/).
 
 ## Not legal advice
 
