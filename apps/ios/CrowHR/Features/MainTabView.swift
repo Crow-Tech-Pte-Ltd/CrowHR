@@ -321,12 +321,14 @@ struct TodayView: View {
         queueError = nil
         lastPunchID = nil
         let kind: PunchKind = clockedIn ? .out : .in
-        var loc: PunchLocation? = nil
-        if let mode = state.value?.location.mode, mode != "off" {
-            loc = await location.current()
-        }
+        let wantsLocation = state.value.map { $0.location.mode != "off" } ?? false
+        let provider = location
         do throws(PunchQueueError) {
-            lastPunchID = try await session.queue.enqueue(kind: kind, membershipId: membershipId, location: loc).id
+            // The punch's time is the tap's, taken before the location fix (up to 8 s).
+            lastPunchID = try await session.queue.punch(kind: kind, membershipId: membershipId) {
+                guard wantsLocation else { return nil }
+                return await provider.current()
+            }.id
         } catch {
             queueError = error.message
             return
