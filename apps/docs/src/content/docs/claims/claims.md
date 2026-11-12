@@ -44,7 +44,13 @@ Whether an employee can use a type (employment type, probation) is checked again
 3. **Add another expense** for more lines: a claim holds 1 to 30 lines, each with up to 5 receipts, and can mix types.
 4. **Submit**, or **Save draft** to finish later. Drafts are only checked for structure; the full checks run on submit, and a claim that fails them stays as a draft.
 
-Submitting checks that each line's type is open to you, the date is not in the future or older than the submission window, required receipts are attached and every merchant is filled in. The claim then gets a number such as `C-0004`.
+Submitting checks that each line's type is open to you, the date is not in the future or older than the submission window, required receipts are attached and every merchant is filled in. The claim then gets a number such as `C-0004`. Lists and exports sort claim numbers in number order, so `C-10000` comes after `C-9999`.
+
+### Filing for an employee
+
+Owners and HR admins can file a claim for any employee, for example from a paper form or a receipt handed in at the office. **New claim** (on **My claims** or **All claims**; **New claim for an employee** if your account isn't linked to an employee record) has a **Claim for** field at the top: search by name or employee number, or keep **Me**. The claim types, caps and receipts then follow that employee: only the types they may use are offered, the remaining cap is theirs, and receipts are uploaded as theirs. Choosing another employee removes receipts already attached, because a receipt belongs to the employee it was uploaded for.
+
+The claim is the employee's: it goes to their approver, they see it under **My claims**, and either they or you can withdraw it while it is waiting. A draft you save for an employee stays theirs when you edit it. Only owners and HR admins see the **Claim for** field; managers and payroll admins file their own claims only.
 
 ### Caps
 
@@ -59,6 +65,7 @@ A receipt file that is already attached to another submitted claim is flagged, n
 - **Accepted**: PDF, JPEG, PNG, WebP and HEIC/HEIF, up to **10 MB**. The type is checked from the file's content, never its name or extension; anything else is refused with "This file is not a PDF or image. Upload a photo or PDF of the receipt". Files that look like a disguised web page, script or archive are refused too.
 - **Viewing**: JPEG, PNG and WebP receipts preview in the app. PDFs open in your PDF viewer, and HEIC files are stored but not previewed ("Preview not available. Download to view."). Downloads are served with the detected type and headers that stop the browser running them.
 - **Who sees them**: the employee, approvers, HR and payroll admins, and managers for their team; for medical and dental-category lines, only owners, HR admins, the employee and the approver whose task is open.
+- **Uploads never attached**: a receipt that is on no claim line (for example one removed from a draft, or left behind when a draft is deleted) is deleted once it is 7 days old. Receipts on any claim, drafts included, are kept.
 
 :::caution[Scanning is optional]
 Without a configured scanner, receipts are stored **unscanned** and usable after the content and size checks; owners see that scanning is off. With your own clamd configured (`CLAMAV_HOST` / `CLAMAV_PORT`), receipts are scanned in the background and must come back clean before the claim can be submitted. Infected files are removed and the uploader is notified; a receipt that can't be scanned after three attempts stays blocked. See [server configuration](/docs/self-hosting/configuration/#optional-virus-scanning).
@@ -70,7 +77,13 @@ Pick the currency on a line and enter the **rate in SGD per 1 unit** (up to 6 de
 
 Each line is converted once and rounded half-up to the cent: MYR 125.50 at 0.301234 is S$37.80. The claim total is the sum of the rounded lines. Currencies without cents (JPY, KRW, VND) and with three decimals (KWD) are handled. GST can be entered only on SGD lines, from a tax invoice, and never more than the amount.
 
-Approvers see the original amount, the rate and the SGD amount ("MYR 125.50 @ 0.301234"). There is no warning when a rate looks unusual.
+Approvers see the original amount, the rate and the SGD amount ("MYR 125.50 @ 0.301234").
+
+### Unusual rates
+
+When a submitted claim's rate is more than 20% above or below the last rate used in your organisation for that currency, the claim page and the approval request show a warning: "MYR 0.400000 is 33.34% above the last MYR rate used, 0.300000 on 2 Nov 2026." It is a prompt to check the receipt or card statement, never a block; the approver decides.
+
+The last rate used is the rate on the most recently submitted other claim with a line in that currency, among claims submitted before this one that are still waiting, approved or paid (the last such line on it). Drafts, rejected and withdrawn claims don't count, nor do other lines of the same claim. Exactly 20% doesn't warn, and the first claim in a currency has nothing to compare with.
 
 ## Approval
 
@@ -107,13 +120,13 @@ Claims whose types are paid **by transfer**, or any approved claim you choose to
 
 | | Owner | HR admin | Payroll admin | Manager | Employee |
 | --- | --- | --- | --- | --- | --- |
-| File claims | Own | Own | Own | Own | Own |
+| File claims | Anyone | Anyone | Own | Own | Own |
 | See claims | All | All | All | Team | Own |
 | Edit claim types | Yes | Yes | — | — | — |
 | Mark paid outside payroll | Yes | — | Yes | — | — |
 | Claims report and exports | Yes | Yes | Yes | — | — |
 
-Owners and HR admins can also file a claim on an employee's behalf through the API; the web app files claims for yourself only. See the [permission matrix](/docs/roles-and-permissions/).
+Owners and HR admins file claims for any employee ([Filing for an employee](#filing-for-an-employee)). See the [permission matrix](/docs/roles-and-permissions/).
 
 ## Claim reports
 
@@ -121,7 +134,6 @@ Owners and HR admins can also file a claim on an employee's behalf through the A
 
 ## Not available
 
-- Automatic exchange rates, and a warning for unusual rates.
+- Automatic exchange rates.
 - Mileage or per-diem claim types, and corporate cards.
-- Cleanup of receipts uploaded but never attached to a claim.
 - Non-cash benefits as claims: record them under Payroll → Year end ([Appendix 8A](/docs/payroll/ir8a-export/#appendix-8a-and-8b-benefits-and-share-gains)). The **Taxable benefit** flag covers cash reimbursements in IR8A d1.
