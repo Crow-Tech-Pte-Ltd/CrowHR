@@ -119,12 +119,9 @@ the change that fixes it.
 
 ## Claims
 
-- **Exchange rates are manual** (no rate feed, at most 6 decimal places), and approvers get no warning
-  when a rate is far from the last one used.
-- **On-behalf claims**: owners and HR admins can file a claim for an employee through the API only;
-  the web form files claims for yourself.
-- **Receipts uploaded but never attached** are kept until the uploader deletes them.
-- **Claim numbers sort as text**: after C-9999, C-10000 sorts before C-9999.
+- **Exchange rates are manual** (no rate feed, at most 6 decimal places). The warning for a rate more
+  than 20% from the last one used compares with other submitted claims only, never with other lines
+  of the same claim, and never blocks.
 - **HEIC receipts** are stored but not previewed.
 - **Approval policies see one claim type**: a claim with several types is routed by its largest type
   by SGD amount.

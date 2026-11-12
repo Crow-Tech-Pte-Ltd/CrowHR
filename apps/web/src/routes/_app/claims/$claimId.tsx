@@ -14,6 +14,7 @@ import {
   formatDate,
   formatMoney,
   Skeleton,
+  singaporeTodayIso,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +26,7 @@ import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { api, type ClaimDto, type ClaimFileDto, claimKeys, claimQuery, errorMessage } from "./-lib/api.ts";
 import { ClaimSheet } from "./-lib/claim-sheet.tsx";
+import { formatBasisPoints } from "./-lib/money.ts";
 import { CATEGORY_LABEL, ClaimStatusPill, foreignAmount, ReceiptChip, ReceiptViewer } from "./-lib/ui.tsx";
 
 export const Route = createFileRoute("/_app/claims/$claimId")({
@@ -153,6 +155,29 @@ function ClaimPage() {
           </AlertDescription>
         </Alert>
       ) : null}
+      {c.lines.some((l) => l.fxWarning) ? (
+        <Alert variant="warning" className="mb-4" data-testid="fx-warning">
+          <AlertTriangle aria-hidden />
+          <AlertDescription>
+            <span className="block font-medium">Check the exchange rate.</span>
+            {c.lines.map((l, i) =>
+              l.fxWarning ? (
+                <span key={l.id} className="block">
+                  {c.lines.length > 1 ? `Expense ${i + 1}: ` : ""}
+                  <span className="num">
+                    {l.currency} {l.rate}
+                  </span>{" "}
+                  is {formatBasisPoints(l.fxWarning.deviationBasisPoints)}{" "}
+                  {l.fxWarning.deviationBasisPoints >= 0 ? "above" : "below"} the last {l.currency} rate used in your
+                  organisation, <span className="num">{l.fxWarning.lastRate}</span> on{" "}
+                  <span className="num">{formatDate(l.fxWarning.lastRateOn)}</span>. Compare it with the receipt or card
+                  statement.
+                </span>
+              ) : null,
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {c.lines.some((l) => l.duplicates.length) ? (
         <Alert variant="warning" className="mb-4" data-testid="duplicate-warning">
           <AlertTriangle aria-hidden />
@@ -216,6 +241,16 @@ function ClaimPage() {
                       {foreignAmount(l.currency, l.amountMinor)} @ {l.rate}
                     </p>
                   ) : null}
+                  {l.fxWarning ? (
+                    <p
+                      className="num mt-0.5 inline-flex items-center gap-1 text-2xs font-medium text-warning-400"
+                      data-testid="fx-warning-line"
+                    >
+                      <AlertTriangle className="size-3" aria-hidden />
+                      {formatBasisPoints(l.fxWarning.deviationBasisPoints)}{" "}
+                      {l.fxWarning.deviationBasisPoints >= 0 ? "above" : "below"} last rate {l.fxWarning.lastRate}
+                    </p>
+                  ) : null}
                   {l.gstCents ? (
                     <p className="num text-2xs text-primary-200">incl. GST {formatMoney(l.gstCents)}</p>
                   ) : null}
@@ -235,7 +270,9 @@ function ClaimPage() {
           <Card className="p-4">
             <dl className="grid gap-3">
               <Fact label="Payout">{payoutText(c)}</Fact>
-              {c.submittedAt ? <Fact label="Submitted">{formatDate(c.submittedAt.slice(0, 10))}</Fact> : null}
+              {c.submittedAt ? (
+                <Fact label="Submitted">{formatDate(singaporeTodayIso(Date.parse(c.submittedAt)))}</Fact>
+              ) : null}
               {c.approvedOn ? <Fact label="Approved">{formatDate(c.approvedOn)}</Fact> : null}
               {c.gstCents ? <Fact label="GST included">{formatMoney(c.gstCents)}</Fact> : null}
               {c.approvalRequestId && c.status === "submitted" ? (
@@ -279,7 +316,8 @@ function ClaimPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this draft?</AlertDialogTitle>
             <AlertDialogDescription>
-              The draft and its lines are removed. Uploaded receipts stay in your uploads.
+              The draft and its lines are removed. Its receipts are deleted once they are 7 days old, unless they are on
+              another claim.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

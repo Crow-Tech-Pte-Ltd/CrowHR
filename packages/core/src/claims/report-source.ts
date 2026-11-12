@@ -332,7 +332,7 @@ export const claimsPayoutsReport: ReportDefinition<z.output<ReturnType<typeof pa
         from claims c
         join employees e on e.org_id = c.org_id and e.id = c.employee_id
        where c.org_id = ${ctx.orgId} and c.status = 'paid' and c.paid_on >= ${p.from} and c.paid_on <= ${p.to} ${scope}
-       order by c.paid_on, c.claim_number
+       order by c.paid_on, length(c.claim_number), c.claim_number
     `);
     yield* inBatches(
       rowsOf<Record<string, unknown>>(result).map((r) => ({
@@ -406,7 +406,7 @@ export const claimsLinesReport: ReportDefinition<z.output<ReturnType<typeof line
         join employees e on e.org_id = c.org_id and e.id = c.employee_id
        where l.org_id = ${ctx.orgId} and c.status <> 'draft'
          and l.expense_date >= ${p.from} and l.expense_date <= ${p.to} ${scope}
-       order by l.expense_date, c.claim_number, l.position
+       order by l.expense_date, length(c.claim_number), c.claim_number, l.position
     `);
     yield* inBatches(
       rowsOf<Record<string, unknown>>(result).map((r) => {
