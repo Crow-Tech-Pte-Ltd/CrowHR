@@ -186,6 +186,18 @@ object ClaimForm {
         )
     }
 
+    /**
+     * The exchange-rate warning for a line, as the web words it: "MYR 0.380000 is 26.15% above
+     * the last MYR rate used in your organisation, 0.301234 on 1 Nov 2026." Null without one.
+     */
+    fun fxWarningText(line: ClaimLine, index: Int, lineCount: Int): String? {
+        val w = line.fxWarning ?: return null
+        return (if (lineCount > 1) "Item ${index + 1}: " else "") +
+            "${line.currency} ${line.rate ?: "?"} is ${ClaimMoney.formatBasisPoints(w.deviationBasisPoints)} " +
+            "${if (w.deviationBasisPoints >= 0) "above" else "below"} the last ${line.currency} rate used in your organisation, " +
+            "${w.lastRate} on ${Formats.date(w.lastRateOn)}."
+    }
+
     /** "1 item" / "3 items". */
     fun items(count: Int) = "$count ${if (count == 1) "item" else "items"}"
 }
@@ -278,6 +290,13 @@ fun ClaimDetailScreen(ctx: ScreenContext, id: String) {
                 KeyValueRow("Items", c.lines.size.toString(), numeric = true)
                 c.submittedAt?.let { s -> Formats.parseInstant(s)?.let { KeyValueRow("Sent", Formats.dateTime(it), numeric = true) } }
                 c.decidedAt?.let { s -> Formats.parseInstant(s)?.let { KeyValueRow("Decided", Formats.dateTime(it), numeric = true) } }
+            }
+            val fx = c.lines.mapIndexedNotNull { i, l -> ClaimForm.fxWarningText(l, i, c.lines.size) }
+            if (fx.isNotEmpty()) {
+                Notice(
+                    (fx + "Compare it with the receipt or card statement.").joinToString("\n"),
+                    Tone.Warning, Modifier.testTag("fx-warning"), title = "Check the exchange rate",
+                )
             }
             c.decisionComment?.takeIf { it.isNotBlank() }?.let {
                 Notice(it, if (c.status == "rejected") Tone.Danger else Tone.Neutral, title = "Comment from your approver")

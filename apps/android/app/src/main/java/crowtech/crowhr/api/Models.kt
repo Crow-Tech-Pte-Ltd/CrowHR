@@ -217,6 +217,11 @@ import kotlinx.serialization.Serializable
 @Serializable data class ClaimInput(val title: String? = null, val lines: List<ClaimLineInput>, val submit: Boolean)
 /** PUT /api/v1/claims/{id}: replaces a draft's title and lines. */
 @Serializable data class ClaimUpdate(val title: String? = null, val lines: List<ClaimLineInput>)
+/**
+ * Set by servers from Nov 2026 on a submitted claim's foreign line whose rate is more than 20%
+ * away from the last rate used in the organisation for that currency.
+ */
+@Serializable data class FxWarning(val lastRate: String, val lastRateOn: String, val deviationBasisPoints: Long)
 @Serializable data class ClaimReceipt(val id: String, val name: String, val mime: String = "", val sizeBytes: Long = 0, val removed: Boolean = false)
 @Serializable data class ClaimLine(
     val id: String = "",
@@ -235,6 +240,7 @@ import kotlinx.serialization.Serializable
     val rate: String? = null,
     val sgdCents: Long,
     val gstCents: Long? = null,
+    val fxWarning: FxWarning? = null,
 )
 /** What the server lets this reader do with the claim now. Absent on older servers: nothing. */
 @Serializable data class ClaimActions(

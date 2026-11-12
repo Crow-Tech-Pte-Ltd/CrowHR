@@ -93,6 +93,12 @@ object ClaimMoney {
         return toSgdCents(amountMinor, exponentOf(currency), micros)
     }
 
+    /** 3334 → "33.34%": basis points as a percentage, sign dropped (the web's formatBasisPoints). */
+    fun formatBasisPoints(bp: Long): String {
+        val a = if (bp < 0) -bp else bp
+        return "${a / 100}.${(a % 100).toString().padStart(2, '0')}%"
+    }
+
     /** "MYR 125.50", "JPY 5,000". */
     fun formatForeign(currency: String, amountMinor: Long): String = "$currency ${formatMinorAmount(amountMinor, exponentOf(currency))}"
 }

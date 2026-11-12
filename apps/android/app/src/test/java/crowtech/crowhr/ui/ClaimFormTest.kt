@@ -5,6 +5,7 @@ import crowtech.crowhr.api.ClaimDetail
 import crowtech.crowhr.api.ClaimLine
 import crowtech.crowhr.api.ClaimReceipt
 import crowtech.crowhr.api.ClaimTypeOption
+import crowtech.crowhr.api.FxWarning
 import crowtech.crowhr.api.Receipt
 import crowtech.crowhr.core.CrowJson
 import crowtech.crowhr.ui.screens.ClaimForm
@@ -139,6 +140,26 @@ class ClaimFormTest {
         // An older server without `actions` allows nothing in the app.
         val old = CrowJson.decodeFromString(ClaimDetail.serializer(), """{"id":"c1","status":"draft","totalCents":1,"lines":[]}""")
         assertEquals(ClaimActions(), old.actions)
+    }
+
+    @Test fun theExchangeRateWarningAsTheWebWordsIt() {
+        val line = draft.lines[0].copy(rate = "0.380000", fxWarning = FxWarning("0.301234", "2026-11-01", 2615))
+        assertEquals(
+            "MYR 0.380000 is 26.15% above the last MYR rate used in your organisation, 0.301234 on 1 Nov 2026.",
+            ClaimForm.fxWarningText(line, 0, 1),
+        )
+        val below = line.copy(fxWarning = FxWarning("0.301234", "2026-11-01", -2001))
+        assertEquals(
+            "Item 2: MYR 0.380000 is 20.01% below the last MYR rate used in your organisation, 0.301234 on 1 Nov 2026.",
+            ClaimForm.fxWarningText(below, 1, 2),
+        )
+        assertNull(ClaimForm.fxWarningText(draft.lines[1], 1, 2))
+        val decoded = CrowJson.decodeFromString(
+            ClaimLine.serializer(),
+            """{"claimTypeId":"t","expenseDate":"2026-11-03","currency":"MYR","amountMinor":100,"rate":"0.4","sgdCents":40,
+               "fxWarning":{"lastRate":"0.301234","lastRateOn":"2026-11-01","deviationBasisPoints":3279}}""",
+        )
+        assertEquals(3279L, decoded.fxWarning!!.deviationBasisPoints)
     }
 
     @Test fun statusWording() {

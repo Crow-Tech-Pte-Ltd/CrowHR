@@ -65,8 +65,13 @@ class Journey(private val compose: ComposeTestRule) {
     fun waitUntilGone(tag: String, timeout: Long = 20_000) =
         compose.waitUntil(timeout) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isEmpty() }
 
-    /** Scrolls the node into view when it lives in a scrolling column (tabs don't), then taps. */
+    /**
+     * Scrolls the node into view when it lives in a scrolling column (tabs don't), then taps. The
+     * keyboard of a field typed in before is closed first: the layout moving under the tap as it
+     * closes could swallow it.
+     */
     fun tap(tag: String): SemanticsNodeInteraction {
+        runCatching { Espresso.closeSoftKeyboard() }
         val node = compose.onNodeWithTag(tag)
         runCatching { node.performScrollTo() }
         return node.performClick()

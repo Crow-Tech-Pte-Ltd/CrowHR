@@ -247,7 +247,7 @@ fun leaveSessions(start: LocalDate, end: LocalDate, type: LeaveType?, chosen: St
     if (start == end && type?.halfDays == true && chosen in setOf("full", "am", "pm")) chosen to chosen else "full" to "full"
 
 /**
- * The child sent with a request: only for a type that needs one (childcare, parental leave), and
+ * The child sent with a request: only for a type that needs one (infant care, parental leave), and
  * only one of the employee's children, so a child chosen for another type is never sent.
  */
 fun leaveChildId(type: LeaveType?, chosen: String?, children: List<LeaveChild>?): String? =

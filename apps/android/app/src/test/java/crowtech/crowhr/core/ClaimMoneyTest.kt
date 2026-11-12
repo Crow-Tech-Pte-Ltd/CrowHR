@@ -61,6 +61,12 @@ class ClaimMoneyTest {
         assertEquals(2, ClaimMoney.exponentOf("NOPE"))
     }
 
+    @Test fun exchangeRateWarningPercentages() {
+        for (c in fixture.arr("basisPoints").map { it.jsonObject }) {
+            assertEquals(c.str("text"), ClaimMoney.formatBasisPoints(c.longOrNull("deviationBasisPoints")!!))
+        }
+    }
+
     @Test fun overflowGivesNoAmountInsteadOfAWrongOne() {
         assertNull(ClaimMoney.toSgdCents(9_007_199_254_740_991L, 0, 999_000_000_000L))
         assertNull(ClaimMoney.parseMinor("999999999999999", 2))

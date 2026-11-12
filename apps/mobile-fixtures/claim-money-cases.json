@@ -6,7 +6,8 @@
     "A rate is a positive decimal with at most 6 decimal places (no exponent, no comma). Anything else is not a rate.",
     "An amount is a positive number with at most `exponent` decimal places; commas are thousands separators and are ignored.",
     "An SGD line's S$ amount is its amount. A foreign line has no S$ amount until both the amount and the rate are valid.",
-    "The claim total is the sum of the rounded line amounts."
+    "The claim total is the sum of the rounded line amounts.",
+    "A submitted claim's line may carry fxWarning (its rate is more than 20% from the organisation's last rate for that currency); deviationBasisPoints is shown as a percentage with two decimals, without the sign (basisPoints)."
   ],
   "convert": [
     { "currency": "MYR", "exponent": 2, "amountMinor": 12550, "rateMicros": 301234, "sgdCents": 3780 },
@@ -52,5 +53,10 @@
     { "amountMinor": 123456789, "exponent": 2, "text": "1,234,567.89" },
     { "amountMinor": 1250, "exponent": 3, "text": "1.250" }
   ],
-  "exponents": { "SGD": 2, "MYR": 2, "JPY": 0, "KRW": 0, "VND": 0, "KWD": 3 }
+  "exponents": { "SGD": 2, "MYR": 2, "JPY": 0, "KRW": 0, "VND": 0, "KWD": 3 },
+  "basisPoints": [
+    { "deviationBasisPoints": 3334, "text": "33.34%" },
+    { "deviationBasisPoints": -2001, "text": "20.01%" },
+    { "deviationBasisPoints": 5, "text": "0.05%" }
+  ]
 }
