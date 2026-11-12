@@ -16,9 +16,17 @@
     { "link": "/leave?request=5a1d0c2e-7f3b-4b8e-a1c4-9e2f6d3b8a70", "opens": "leave", "id": null },
     { "link": "/leave/team", "opens": "leave-calendar", "id": null },
     { "link": "/claims", "opens": "claims", "id": null },
-    { "link": "/claims/7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31", "opens": "claim", "id": "7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31" },
+    {
+      "link": "/claims/7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31",
+      "opens": "claim",
+      "id": "7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31"
+    },
     { "link": "/me/payslips", "opens": "payslips", "id": null },
-    { "link": "/me/payslips/2b8d4f1a-6c3e-4a9b-b7d2-1e5f8c3a9d40", "opens": "payslip", "id": "2b8d4f1a-6c3e-4a9b-b7d2-1e5f8c3a9d40" },
+    {
+      "link": "/me/payslips/2b8d4f1a-6c3e-4a9b-b7d2-1e5f8c3a9d40",
+      "opens": "payslip",
+      "id": "2b8d4f1a-6c3e-4a9b-b7d2-1e5f8c3a9d40"
+    },
     { "link": "/schedules/me", "opens": "schedule", "id": null },
     { "link": "/schedules/me?week=2026-11-16", "opens": "schedule", "id": null },
     { "link": "/me/profile", "opens": "profile", "id": null },
