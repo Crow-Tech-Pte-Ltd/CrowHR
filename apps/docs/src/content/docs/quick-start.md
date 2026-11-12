@@ -1,17 +1,25 @@
 ---
 title: Quick start
-description: Install Crow HR in three steps with Docker Compose, then finish setup in the browser.
+description: Install Crow HR with Docker Compose, then finish setup in the browser.
 ---
 
-You need a machine with Docker Engine 24+ and the Compose plugin, 2 GB of RAM and a few GB of disk. Get the repository first (`git clone https://github.com/Crow-Tech-Pte-Ltd/CrowHR.git`), then:
+You need a machine with Docker Engine 24+ and the Compose plugin, 2 GB of RAM and a few GB of disk.
 
-## 1. Copy the example settings
+## 1. Get the files
+
+```sh
+git clone https://github.com/Crow-Tech-Pte-Ltd/CrowHR.git && cd CrowHR
+```
+
+Only `docker-compose.yml` and `.env.example` are needed from the checkout.
+
+## 2. Copy the example settings
 
 ```sh
 cp .env.example .env
 ```
 
-## 2. Set the address people will open
+## 3. Set the address people will open
 
 Edit `.env` and set `PUBLIC_URL`:
 
@@ -20,7 +28,7 @@ PUBLIC_URL=https://hr.example.sg        # behind a reverse proxy with HTTPS
 # PUBLIC_URL=http://192.168.1.20:8080   # or on your office network, no proxy
 ```
 
-## 3. Start it
+## 4. Start it
 
 ```sh
 docker compose up -d

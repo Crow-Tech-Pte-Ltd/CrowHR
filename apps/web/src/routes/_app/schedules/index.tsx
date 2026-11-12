@@ -38,6 +38,7 @@ import { ApiError, apiDelete, apiPatch, apiPost } from "../../../lib/api.ts";
 import {
   addDays,
   COLOUR_BAR,
+  defaultLocation,
   mondayOf,
   type Roster,
   type RosterRef,
@@ -80,8 +81,7 @@ function SchedulesPage() {
   const scopes = useQuery(scopesQuery);
   const week = mondayOf(search.week ?? addDays(todaySg(), 7));
   // `loc=any`: a department-wide roster across locations.
-  const loc =
-    search.loc === "any" ? null : (search.loc ?? scopes.data?.mine.locationId ?? scopes.data?.locations[0]?.id ?? null);
+  const loc = search.loc === "any" ? null : (search.loc ?? defaultLocation(scopes.data));
   const dept = search.dept ?? (search.loc || loc ? null : (scopes.data?.mine.departmentId ?? null));
   const ref: RosterRef = { weekStart: week, locationId: loc, departmentId: dept };
   const roster = useQuery(rosterQuery(ref));

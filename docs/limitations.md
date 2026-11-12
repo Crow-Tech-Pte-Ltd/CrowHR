@@ -271,7 +271,7 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
 - **Email** goes to the demo outbox; nothing is sent.
 - **Passwords** use a demo-only hash a real server refuses, and the encryption key is stored with the
   data. Fine for fictional data, never a pattern for real data.
-- **The clock** shows 31 Oct 2026 at the visitor's Singapore time of day.
+- **The clock** always opens on Saturday 31 Oct 2026 at 11:30 Singapore time, then runs normally.
 - **One tab at a time** can open the demo company.
 - **A tab closed mid-request** can lose that request.
 - **Downloads and receipt previews** need a service worker; where there is none (some private modes),

@@ -3,7 +3,7 @@ title: API conventions
 description: Versioning and compatibility rules, request and response conventions, lists, errors and authentication for the Crow HR REST API.
 ---
 
-The web app, the [mobile apps](/docs/coming-soon/mobile-apps/) and integrations all use the same versioned REST API. The contract is generated from the route declarations in `packages/core`, served by a running server at `GET /api/v1/openapi.json`, committed as `packages/core/openapi/v1.snapshot.json` and rendered in the [API reference](/docs/api/).
+The web app, the [mobile apps](/docs/mobile-apps/) and integrations all use the same versioned REST API. The contract is generated from the route declarations in `packages/core`, served by a running server at `GET /api/v1/openapi.json`, committed as `packages/core/openapi/v1.snapshot.json` and rendered in the [API reference](/docs/api/).
 
 ## Versions and compatibility
 

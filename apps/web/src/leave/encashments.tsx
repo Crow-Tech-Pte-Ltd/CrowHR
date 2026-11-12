@@ -135,7 +135,12 @@ export function Encashments({ employeeId, showBalances = false }: { employeeId?:
         }}
       />
     );
-  if (q.isPending || types.isPending || balances.isPending) return <Skeleton className="h-32 w-full" />;
+  // Self-service (no employeeId): most staff can't encash anything, so the card would only explain a
+  // feature they don't have. Show it once their leave policy allows a request or they have one.
+  const selfService = !employeeId;
+  if (q.isPending || types.isPending || balances.isPending)
+    return selfService ? null : <Skeleton className="h-32 w-full" />;
+  if (selfService && !q.data.items.length && !q.data.candidates.length && !eligible.length) return null;
   return (
     <>
       {showBalances ? (

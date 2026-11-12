@@ -14,36 +14,29 @@ hero:
       variant: secondary
 ---
 
-import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
-
-<CardGrid>
-  <Card title="Self-hosted in three steps" icon="rocket">
-    Copy `.env.example` to `.env`, set `PUBLIC_URL`, run `docker compose up -d`. One app container and PostgreSQL 17. No Redis, no queue, no cloud account.
-  </Card>
-  <Card title="Singapore payroll" icon="document">
-    Monthly runs with CPF (OW and AW ceilings, SPR rates), SHG funds, SDL and an FWL estimate; itemised payslips; the CPF EZPay file, a bank file and an IR8A export to upload yourself.
-  </Card>
-  <Card title="Shown working" icon="magnifier">
-    Every CPF figure shows its working, the rate table it used and a link to the source. The statutory engine is tested against CPF's published examples and its online calculator.
-  </Card>
-  <Card title="Your sign-in, your rules" icon="padlock">
-    Email and password with two-step verification, Google Workspace, Microsoft Entra ID, any OpenID Connect provider, and Singpass (needs your own Singpass onboarding).
-  </Card>
-</CardGrid>
-
-## Find your way
-
-<CardGrid>
-  <LinkCard title="Install Crow HR" description="Docker Compose install, reverse proxy, backups and upgrades." href="/docs/self-hosting/install/" />
-  <LinkCard title="Set up your company" description="Setup wizard, company profile, members, roles and sign-in methods." href="/docs/admin/setup-wizard/" />
-  <LinkCard title="Run payroll" description="From a draft run to approved payslips and the files for CPF and your bank." href="/docs/payroll/running-payroll/" />
-  <LinkCard title="Leave, attendance and claims" description="Leave policies and applications, clocking in and overtime, expense claims with receipts." href="/docs/leave/leave/" />
-  <LinkCard title="Schedule shifts" description="Shift templates, weekly rosters, publishing and swaps." href="/docs/scheduling/scheduling/" />
-  <LinkCard title="Limitations and your judgement" description="What Crow HR does not do, and where you must check the result." href="/docs/payroll/limitations/" />
-  <LinkCard title="API reference" description="Every v1 endpoint, generated from the OpenAPI document." href="/docs/api/" />
-  <LinkCard title="Contribute" description="Architecture, modules, tests and the OpenSpec process." href="/docs/developers/contributing/" />
-</CardGrid>
-
-:::caution[Early software]
-Crow HR is under active development and has not been used for a real company's payroll yet. See [what is built](/docs/status/) and the [limitations](/docs/payroll/limitations/). Check every payroll result before you pay or file it. Nothing here is legal or tax advice.
+:::caution[Version 1.0: check every result]
+Crow HR has not yet been used for a real company's payroll. Check every payroll result before you pay or file it, and read [what is built](/docs/status/) and the [limitations](/docs/payroll/limitations/). Nothing here is legal or tax advice.
 :::
+
+## What it does
+
+People records, leave, attendance and overtime, expense claims, shift rosters, documents and HR letters, approvals and reports. Monthly payroll with CPF (OW and AW ceilings, SPR graduated rates), SHG funds, SDL and an FWL estimate, itemised payslips, and the CPF EZPay file, a bank file and an IR8A export that you upload yourself. Each CPF figure shows its working, the rate table it used and a link to CPF's source. Staff sign in with email and password and two-step verification, Google Workspace, Microsoft Entra ID, any OpenID Connect provider, or Singpass once your company has onboarded with Singpass.
+
+## Install
+
+You need Docker with the Compose plugin. Get the files, set `PUBLIC_URL` in `.env`, and start:
+
+```sh
+git clone https://github.com/Crow-Tech-Pte-Ltd/CrowHR.git && cd CrowHR
+cp .env.example .env
+# edit .env: set PUBLIC_URL, e.g. https://hr.example.sg
+docker compose up -d
+```
+
+The first start prints a one-time setup code (`docker compose logs app | grep -A3 'SETUP CODE'`); open `PUBLIC_URL` and enter it to create your company and its owner. Crow HR runs as one app container and PostgreSQL 17, with no Redis, no queue and no cloud account. The [quick start](/docs/quick-start/) has the details.
+
+## Guides
+
+- **Run the server:** [Install](/docs/self-hosting/install/) · [Configuration](/docs/self-hosting/configuration/) · [Reverse proxy](/docs/self-hosting/reverse-proxy/) · [Backups](/docs/self-hosting/backups/) · [Upgrades](/docs/self-hosting/upgrades/)
+- **Set up and run HR:** [Setup wizard](/docs/admin/setup-wizard/) · [Members and roles](/docs/admin/members-and-roles/) · [Running payroll](/docs/payroll/running-payroll/) · [Leave](/docs/leave/leave/) · [Attendance](/docs/attendance/attendance/) · [Claims](/docs/claims/claims/) · [Scheduling](/docs/scheduling/scheduling/)
+- **Build on it:** [API reference](/docs/api/) · [Architecture](/docs/developers/architecture/) · [Contributing](/docs/developers/contributing/)
