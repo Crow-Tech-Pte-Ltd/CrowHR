@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { isNull, sql } from "drizzle-orm";
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
 import { normaliseEmail } from "../auth/credentials.ts";
 import { passwordProblem } from "../auth/password-policy.ts";
@@ -18,7 +18,13 @@ export const SETUP_BLOCK_MINUTES = 15;
 
 /** True while the install has no organisation (first run). */
 export async function isSetupRequired(db: Db): Promise<boolean> {
-  const rows = await db.select({ id: organisations.id }).from(organisations).limit(1);
+  // Demo companies (seeded by the scheduler on a DEMO_COMPANIES server) don't count: the
+  // first real organisation still has to be created by the setup wizard.
+  const rows = await db
+    .select({ id: organisations.id })
+    .from(organisations)
+    .where(isNull(organisations.demoExpiresAt))
+    .limit(1);
   return rows.length === 0;
 }
 

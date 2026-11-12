@@ -307,13 +307,20 @@ export async function expiredDemoCompanies(db: Db, now: Date, limit: number): Pr
  * live and pooled ones included, and deletes them all. Returns how many were deleted. Real
  * organisations are never touched (only rows with a demo expiry are changed or selected).
  */
-export async function endAllDemoCompanies(deps: AppDeps, now: Date): Promise<number> {
+export async function endAllDemoCompanies(deps: PurgeDeps, now: Date): Promise<number> {
   const past = new Date(now.getTime() - 1000);
   // Moving a demo company's expiry is allowed by the flag trigger; setting one is not.
   await deps.db
     .update(organisations)
     .set({ demoExpiresAt: past })
     .where(and(isNotNull(organisations.demoExpiresAt), gt(organisations.demoExpiresAt, past)));
+  return purgeExpiredDemoCompanies(deps, now);
+}
+
+type PurgeDeps = Pick<AppDeps, "db" | "fileStore" | "logger">;
+
+/** Deletes every expired demo company now (the sweep does `PURGE_BATCH` per tick). */
+export async function purgeExpiredDemoCompanies(deps: PurgeDeps, now: Date): Promise<number> {
   let purged = 0;
   for (;;) {
     const ids = await expiredDemoCompanies(deps.db, now, 50);

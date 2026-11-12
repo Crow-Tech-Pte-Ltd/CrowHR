@@ -51,17 +51,21 @@ COPY packages/ui/package.json packages/ui/
 RUN bun install --frozen-lockfile --production --ignore-scripts --filter @crowhr/server \
  && rm -rf /root/.bun
 
-# Application files: server and core sources, migrations, built web app. Tests stay out.
+# Application files: server and core sources, migrations, built web app, and the sample-company
+# seed behind demo companies (packages/demo, loaded only with DEMO_COMPANIES=1). Tests stay out.
 COPY apps/server/src apps/server/src
 COPY packages/core/src packages/core/src
 COPY packages/core/drizzle packages/core/drizzle
 COPY packages/core/testing/migrations-folder.ts packages/core/testing/migrations-folder.ts
+COPY packages/demo/src packages/demo/src
 COPY packages/sg-rules/src packages/sg-rules/src
 COPY --from=build /src/apps/web/dist apps/web/dist
 COPY LICENSE THIRD-PARTY-NOTICES.md ./
-# PGlite is only loaded for pglite: development URLs (dynamic import); type packages are unused.
+# PGlite (27 MB) stays: demo companies seed each copy in an in-memory PGlite (DEMO_COMPANIES=1),
+# and pglite: development URLs use it. Both load it on first use only (dynamic import), so other
+# servers never do. Type packages are unused.
 RUN find apps packages -name '*.test.ts' -delete \
- && rm -rf node_modules/.bun/@electric-sql+pglite@* node_modules/.bun/@types+* \
+ && rm -rf node_modules/.bun/@types+* \
       node_modules/.bun/@node-rs+argon2-linux-*-gnu@* \
  && find apps/server/src -name 'test-helpers.ts' -delete \
  && find apps/web/dist -name '*.map' -delete

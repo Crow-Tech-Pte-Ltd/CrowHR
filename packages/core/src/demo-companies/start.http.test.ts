@@ -16,6 +16,7 @@ import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
 import type { ErrorEnvelope } from "../errors.ts";
 import { tick } from "../jobs/tick.ts";
+import { isSetupRequired } from "../setup/service.ts";
 import { DEMO_SLUG_PATTERN } from "./config.ts";
 
 /**
@@ -210,6 +211,15 @@ describe("demo companies: starting one", () => {
       .where(eq(memberships.orgId, orgB?.id as string));
     expect(inB.map((m) => m.orgId)).toEqual(inB.map(() => orgB?.id));
     expect(orgA?.id).not.toBe(orgB?.id);
+  });
+
+  it("leaves first-run setup to do on a fresh server whose pool is already seeded", async () => {
+    build({ poolSize: 1 });
+    await tick(deps, clock.now());
+    expect(demo.calls).toHaveLength(1);
+    expect(await isSetupRequired(t.db)).toBe(true);
+    const setup = (await (await app.request("/api/v1/setup")).json()) as { required: boolean };
+    expect(setup.required).toBe(true);
   });
 
   it("never sets a demo expiry on an organisation it didn't create", async () => {

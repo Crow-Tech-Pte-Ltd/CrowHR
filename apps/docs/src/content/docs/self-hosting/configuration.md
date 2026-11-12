@@ -114,6 +114,24 @@ Receipt, document and medical certificate uploads are initially `pending_scan`; 
 
 Requests default to a 1 MB body limit. Dedicated receipt/document uploads, CSV import previews, company logos and leave attachment requests have explicit larger limits, with each file's own size validation still enforced.
 
+## Demo companies
+
+Only for a public demo server, such as the one Crow Tech runs for people who want to try the apps. Never turn this on for a company's own install. With `DEMO_COMPANIES=1`, anyone can open `/try` on the server, get a private copy of the fictional sample company Kopi Kaki in one tap, and sign in by picking a person (owner, HR admin, payroll admin, manager, employee), on the web and in the Crow HR mobile apps. Each copy is deleted with everything in it after `DEMO_COMPANY_TTL_HOURS`. The server stays a normal server for its other organisations.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `DEMO_COMPANIES` | off | `1` (or `true`) offers demo companies at `/try`. Off: every demo-company route answers 404 and no organisation can become one. The `DEMO_COMPANY_*` settings are refused without it. |
+| `DEMO_COMPANY_TTL_HOURS` | `72` | Hours a demo company lives, counted from the moment a visitor starts it (1–720). |
+| `DEMO_COMPANY_POOL_SIZE` | `3` | Copies kept ready so a start is instant (0–20). The scheduler seeds one per minute while the pool is short; a copy nobody takes within a day is replaced. `0` seeds each copy while the visitor waits. |
+| `DEMO_COMPANY_MAX_LIVE` | `300` | Demo companies handed out at once, at most (1–10000). The pool stops growing at this number too. |
+| `DEMO_COMPANY_HOURLY_LIMIT` | `5` | Starts per network (client IP after `TRUSTED_PROXIES`; an IPv6 /64 counts as one network) per hour. |
+| `DEMO_COMPANY_DAILY_LIMIT` | `20` | Starts per network per day. Must be at least the hourly limit. |
+| `DEMO_COMPANY_UPLOAD_QUOTA_MB` | `25` | Receipts, documents and letters one demo company may hold (1–1024). Uploads past it are refused with a message naming the limit. |
+
+In a demo company the server refuses changes to sign-in methods and security settings, single sign-on, invitations, passwords and two-step verification, and sends no email. Device sessions record the platform ("Android phone", "iPhone") instead of the device's own name. Demo companies are never listed by the API: the short name (`demo-` and 12 random characters) is the key to a visitor's copy.
+
+Each copy is seeded in its own in-memory database (a few seconds of CPU and up to a few hundred MB of memory while it runs; one seed at a time), then copied into PostgreSQL. Expired copies are deleted by the scheduler on every server, even after the mode is turned off; `crowhr demo-companies purge` deletes them all at once (see [CLI](/docs/self-hosting/cli/)). Set `TRUSTED_PROXIES` so the limits see each visitor's own address rather than the proxy's.
+
 ## Optional error monitoring
 
 Off by default: without a DSN no monitoring code is loaded and nothing is sent anywhere. Set a DSN to report errors and slow requests to **your own** [GlitchTip](https://glitchtip.com) or Sentry project (any Sentry-compatible service). Crow Tech receives nothing.

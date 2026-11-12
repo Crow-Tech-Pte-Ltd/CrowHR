@@ -51,6 +51,18 @@ export interface ServerConfig {
    */
   DEMO_SINGPASS_PROVIDER_ID: string | null;
   DEMO_SINGPASS_RETURN_URL: string | null;
+  /**
+   * Demo companies (DEMO_COMPANIES=1, openspec add-demo-companies): any visitor gets a private
+   * copy of the fictional sample company at /try, deleted after DEMO_COMPANY_TTL_HOURS. Null = off.
+   */
+  demoCompanies: {
+    ttlHours: number;
+    poolSize: number;
+    maxLive: number;
+    hourlyLimitPerNetwork: number;
+    dailyLimitPerNetwork: number;
+    uploadQuotaBytes: number;
+  } | null;
   /** Optional error/performance monitoring (SENTRY_DSN, SENTRY_BROWSER_DSN); null = off. */
   monitoring: MonitoringConfig | null;
 }
@@ -296,6 +308,54 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
       );
     }
   }
+  // --- Demo companies (off by default; only for a public demo server) ----------------------
+  let demoCompanies: ServerConfig["demoCompanies"] = null;
+  const demoSettings = [
+    "DEMO_COMPANY_TTL_HOURS",
+    "DEMO_COMPANY_POOL_SIZE",
+    "DEMO_COMPANY_MAX_LIVE",
+    "DEMO_COMPANY_HOURLY_LIMIT",
+    "DEMO_COMPANY_DAILY_LIMIT",
+    "DEMO_COMPANY_UPLOAD_QUOTA_MB",
+  ];
+  if (bool("DEMO_COMPANIES", false)) {
+    const hint = " See https://hr.crow.sg/docs/self-hosting/configuration/#demo-companies.";
+    demoCompanies = {
+      ttlHours: int(
+        "DEMO_COMPANY_TTL_HOURS",
+        72,
+        1,
+        720,
+        " Demo companies are deleted this many hours after a visitor starts one." + hint,
+      ),
+      poolSize: int(
+        "DEMO_COMPANY_POOL_SIZE",
+        3,
+        0,
+        20,
+        " This many ready copies are kept so a start is instant; 0 seeds on demand." + hint,
+      ),
+      maxLive: int("DEMO_COMPANY_MAX_LIVE", 300, 1, 10_000, hint),
+      hourlyLimitPerNetwork: int("DEMO_COMPANY_HOURLY_LIMIT", 5, 1, 1000, " Starts per network per hour." + hint),
+      dailyLimitPerNetwork: int("DEMO_COMPANY_DAILY_LIMIT", 20, 1, 10_000, " Starts per network per day." + hint),
+      uploadQuotaBytes:
+        int("DEMO_COMPANY_UPLOAD_QUOTA_MB", 25, 1, 1024, " Uploads one demo company may hold." + hint) * 1024 * 1024,
+    };
+    if (demoCompanies.hourlyLimitPerNetwork > demoCompanies.dailyLimitPerNetwork) {
+      fail(
+        `DEMO_COMPANY_HOURLY_LIMIT (${demoCompanies.hourlyLimitPerNetwork}) is more than DEMO_COMPANY_DAILY_LIMIT (${demoCompanies.dailyLimitPerNetwork}), so the hourly limit would never apply. Lower it, or raise the daily limit. Set it in .env.`,
+      );
+    }
+  } else {
+    for (const name of demoSettings) {
+      if (get(name) !== undefined) {
+        fail(
+          `${name} is set but DEMO_COMPANIES is off, so it would do nothing. Set DEMO_COMPANIES=1 to offer demo companies at /try (public demo servers only), or remove ${name}. Set it in .env.`,
+        );
+      }
+    }
+  }
+
   const logLevel = (get("LOG_LEVEL") ?? "info").toLowerCase();
   if (!["debug", "info", "warn", "error"].includes(logLevel)) {
     fail("LOG_LEVEL must be debug, info, warn or error, for example LOG_LEVEL=info. Set it in .env.");
@@ -333,6 +393,7 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     CLAMAV_PORT: int("CLAMAV_PORT", 3310, 1, 65535),
     DEMO_SINGPASS_PROVIDER_ID,
     DEMO_SINGPASS_RETURN_URL,
+    demoCompanies,
     monitoring: monitoring.config,
   };
   if (problems.length) throw new ConfigError(problems);

@@ -63,7 +63,7 @@ export {
   type DemoProvisionInput,
 } from "./demo-companies/config.ts";
 export { purgeDemoCompany } from "./demo-companies/purge.ts";
-export { endAllDemoCompanies } from "./demo-companies/service.ts";
+export { endAllDemoCompanies, purgeExpiredDemoCompanies } from "./demo-companies/service.ts";
 export {
   type AppDeps,
   type Clock,
