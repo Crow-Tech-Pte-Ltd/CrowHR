@@ -32,7 +32,7 @@ Anything outside your access answers `404`, exactly as if it did not exist. Ever
 - Accepted: PDF, JPEG, PNG, WebP, DOCX and XLSX, up to **20 MB**. The type is checked from the file's content, never its name. DOCX and XLSX must be real Office packages; macro-enabled files (`.docm`, `.xlsm`) are refused with "Macro-enabled documents are not accepted. Save as .docx or PDF".
 - Each document has a title (1 to 120 characters), a category, optional notes and an optional expiry date, which is required when the category says so.
 - HR uploads to any category for any employee. Employees upload only to their own employee-uploadable categories (Identity & work pass, Certificates & licences, Medical).
-- **Virus scanning is optional.** Configure your own clamd with `CLAMAV_HOST` / `CLAMAV_PORT` to enable the shared upload scan sweep. Crow HR does not bundle a scanner; without configuration, files are explicitly unscanned after content and size checks. See [configuration](/docs/self-hosting/configuration/#optional-virus-scanning).
+- **Virus scanning is optional.** With your own clamd configured (`CLAMAV_HOST` / `CLAMAV_PORT`), uploads are scanned in the background; without it they are stored unscanned after the content and size checks. Crow HR does not bundle a scanner. See [configuration](/docs/self-hosting/configuration/#optional-virus-scanning).
 - Files are served as downloads (`Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`); PDFs and images can also be opened in the browser. DOCX and XLSX are never rendered in the app.
 
 **Replace** creates a new version. The previous version is marked superseded and stays downloadable by HR under "Previous versions"; the employee sees only the current one.
@@ -43,13 +43,13 @@ A document with an expiry date is **valid**, **expiring** (within 30 days) or **
 
 ## Deleting and purging
 
-Deleting is soft: the document disappears from every list, and the deletion is audit-logged. Owners see deleted documents in **Documents → Deleted**, where they can purge one: give a reason and type the document title to confirm. Purging removes its files from storage and cannot be undone; the row keeps only a tombstone, and the audit event records the reason and a hash of the original title.
+Deleting is soft: the document disappears from every list, and the deletion is audit-logged. Owners see deleted documents in **Documents → Deleted**, where they can purge one: give a reason and type the document title to confirm. Purging removes its files from storage and cannot be undone; only a record that the document existed remains, and the audit event records the reason and a hash of the original title.
 
 ## Retention review
 
-The Employment Act requires employment records to be kept for an ex-employee for one year after they leave ([MOM: employment records](https://www.mom.gov.sg/employment-practices/employment-records)). The scheduled sweep flags an ex-employee's documents for review once the category's keeping period after the last working day has passed (12 months by default, set per category). Tax and CPF records may need longer, so you can raise the period for a category.
+The Employment Act requires employment records to be kept for an ex-employee for one year after they leave ([MOM: employment records](https://www.mom.gov.sg/employment-practices/employment-records)). Crow HR flags an ex-employee's documents for review once the category's keeping period after the last working day has passed (12 months by default, set per category). Tax and CPF records may need longer, so you can raise the period for a category.
 
-Flagging is all the sweep does. **Nothing is deleted automatically.** HR decides on each flagged document under **Documents → Retention review**: keep it for another 12 months (it is flagged again later) or delete it, which is the same soft delete as above, after which an owner may purge it.
+Flagging is all it does. **Nothing is deleted automatically.** HR decides on each flagged document under **Documents → Retention review**: keep it for another 12 months (it is flagged again later) or delete it, which is the same soft delete as above, after which an owner may purge it.
 
 ## Not available
 

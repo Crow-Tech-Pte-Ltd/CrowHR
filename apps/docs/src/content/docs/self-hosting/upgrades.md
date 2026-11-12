@@ -46,10 +46,10 @@ To really go back, restore a backup taken before the upgrade (the pre-migrate ba
 
 ## Multi-arch builds (amd64 and arm64)
 
-The Dockerfile builds on both architectures (no native modules beyond `@node-rs/argon2`, which ships musl binaries for both). Published images are built natively on an amd64 and an arm64 runner, and each is started against PostgreSQL 17 before it is pushed (`.github/workflows/release.yml`). A local multi-arch build uses QEMU:
+Published images are built natively for amd64 and arm64, and each is started against PostgreSQL 17 before it is published. The Dockerfile builds on both architectures; a local multi-arch build uses QEMU:
 
 ```sh
 docker buildx build --platform linux/amd64,linux/arm64 -t crowhr:local .
 ```
 
-Building arm64 under QEMU is slow (several minutes). Pull-request CI builds and tests amd64 only.
+Building arm64 under QEMU is slow (several minutes).

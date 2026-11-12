@@ -25,12 +25,11 @@ Lets staff sign in with their Google Workspace account. You need an owner accoun
 
 6. **Crow HR**: use **Test sign-in** on the Google row. When it succeeds, switch the method on. The sign-in page now shows the Google button.
 
-
 ## Check
 
 - Invite or hire someone with their Workspace email, then have them sign in with Google: they land on Home without setting a password.
 - Someone from another domain is refused; the audit log shows `auth.sso_failed` with reason `hd_mismatch`.
-- Two-step verification for Google sign-ins is Google's job: enforce 2-Step Verification in the Workspace admin console. Crow HR's [MFA policy](/docs/admin/mfa/) applies to password sign-in only.
+- Enforce 2-Step Verification in the Workspace admin console. Google's ID tokens don't tell Crow HR whether it was used, so members in roles covered by Crow HR's [MFA policy](/docs/admin/mfa/) (owners, HR and payroll admins by default) also enrol a Crow HR authenticator and enter its code after signing in with Google. An owner can take roles out of the policy.
 
 ## Common errors
 
@@ -41,4 +40,4 @@ Lets staff sign in with their Google Workspace account. You need an owner accoun
 | Audit reason `hd_mismatch` | The account's domain is not in Allowed Workspace domains (or it is a personal Google account). |
 | Audit reason `email_not_verified` | Google did not assert a verified email; use the invitation link instead. |
 
-Tested against an in-process mock identity provider in Crow HR's test suite; the Google preset uses Google's published OpenID Connect discovery document.
+Crow HR's automated tests run this flow against a mock identity provider, not a live Google Workspace; the preset uses Google's published OpenID Connect discovery document.

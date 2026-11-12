@@ -41,7 +41,7 @@ HR can change both names from the profile (**Overview → Names → Edit**); emp
 
 ### Workmen, managers and executives (Employment Act Part 4)
 
-Part 4 of the Employment Act (hours of work, rest days and statutory overtime at 1.5× the hourly basic rate) covers workmen earning up to S$4,500 basic pay a month and other employees earning up to S$2,600. It **never covers managers and executives**, whatever they earn. Tick **Workman** or **Manager or executive** in the Job section when you add someone, or later with **Record change** on the profile. The **Job** tab shows the classification in force.
+Part 4 of the Employment Act (hours of work, rest days and statutory overtime at 1.5× the hourly basic rate) covers workmen earning up to S$4,500 basic pay a month and other employees earning up to S$2,600 ([MOM: hours of work and overtime](https://www.mom.gov.sg/employment-practices/hours-of-work-overtime-and-rest-days)). It **never covers managers and executives**, whatever they earn. Tick **Workman** or **Manager or executive** in the Job section when you add someone, or later with **Record change** on the profile. The **Job** tab shows the classification in force.
 
 The duties decide the classification, not the job title: a manager or executive has executive or supervisory duties, such as hiring, appraisals or running a team. See [MOM: who is covered](https://www.mom.gov.sg/employment-practices/employment-act/who-is-covered).
 

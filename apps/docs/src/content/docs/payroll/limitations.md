@@ -3,7 +3,7 @@ title: Limitations and what needs your judgement
 description: What Crow HR does not do, statutory questions it cannot settle for you, and the results you must check before paying or filing.
 ---
 
-Crow HR computes what the cited rules say and shows its working, but some questions have no published answer, some inputs only you know, and some features are not built. This page lists them. It is kept in step with `docs/limitations.md` in the repository. Nothing here, or elsewhere in these docs, is legal, tax or CPF advice.
+Crow HR computes what the cited rules say and shows its working, but some questions have no published answer, some inputs only you know, and some features are not built. This page lists them. Nothing here, or elsewhere in these docs, is legal, tax or CPF advice.
 
 ## Decisions that are yours
 
@@ -28,14 +28,13 @@ Crow HR does not decide these; it computes from what you enter.
 ## Payroll inputs
 
 - **Fed inputs**: approved no-pay and other unpaid leave, approved overtime, rostered staff's days worked and scheduled days, and approved claims reach the run automatically ([items fed from other modules](/docs/payroll/running-payroll/#items-fed-from-other-modules)). **Approved claims are paid by payroll**: to pay one by transfer instead, mark it paid outside payroll under Claims before the run is computed, or it is paid twice. Hours for hourly-paid staff are still typed in.
-- **Fed overtime has no amount**: for employees not covered by Part 4, or paid by the hour, approved overtime from attendance blocks the run and can't be priced on it. Enter their overtime by hand instead.
-- **Holiday work premiums** are still entered separately. Off-day holiday entitlement now feeds a daily gross-pay earning when policy chooses extra pay; monthly fixed-week rates are automatic. Hourly or rostered staff need an explicit holiday amount through the API. Rest-day holidays give a substitute day.
-- **Leave encashment** needs an approved payout request, including for year-end entries. It then feeds payroll at the gross rate automatically. Classify active allowances with `grossRateIncluded` through the payroll settings API first; shift staff need an explicit contractual average workweek.
-- **Reopened claims** carry through the replaced run chain. An adjustment settles the chain's unpaid claim reservations without paying an already-paid claim twice.
+- **Fed overtime has no amount**: for employees not covered by Part 4, or paid by the hour, approved overtime from attendance blocks the run, and the web app can't price it. Enter their overtime by hand instead, or set the amount through the API ([run items without a screen](/docs/payroll/settings/#run-items-without-a-screen)).
+- **Rest-day and public-holiday work premiums** are entered by hand. Pay for a public holiday on an off day is automatic for monthly-paid staff on a fixed week; for hourly or rostered staff the amount is added through the API. A holiday on a rest day gives a substitute day off.
+- **Leave encashment**, including days encashed at year end, is paid only after an approved request. The employee's active allowances must first be classified for the gross rate, which needs the API ([allowance treatment](/docs/payroll/settings/#allowance-treatment)); for shift staff the request states the contractual average workdays per week.
 - **Back pay** from a retroactive change is flagged on the next run (`BACKPAY_OWED`) but not computed; enter the amount as a "Back pay" item.
 - **Staff without a fixed week** (rostered or shift) need scheduled days and days worked for an incomplete month; the run blocks without them. They come from published rosters and attendance when the whole month is covered, otherwise HR enters them. A mid-month rate change and SPR graduated-to-full conversion are blocked for these staff.
 - **Not handled**: daily-rated and piece-rated pay.
-- **Allowance CPF and pro-ration settings** have an API but no screen.
+- **Allowance settings** (CPF liability, pro-ration, gross rate) and the payroll **cutoff day** have an API but no screen.
 - **Adjustments do not recompute later months**; CPF's December (or last-month) AW recomputation absorbs the difference, and Crow HR warns when you reopen an earlier month.
 
 ## Employment Act checks
@@ -68,11 +67,11 @@ The independent review of the payroll choices marked these as **unclear**: the a
 ## Platform and sign-in
 
 - **Singpass** is tested against Singpass staging only (not production) and its button needs the official logo, which you add yourself. See [Singpass](/docs/admin/sso/singpass/).
-- **Invitation and password-reset link emails bypass the outbox**: they are sent once, without retries, because their one-time links are never stored. Security notices (lockouts, new devices, two-step verification changes, recovery codes) go to the in-app inbox and the retryable email outbox.
+- **Invitation and password-reset emails are not retried**: they are sent once, because their one-time links are never stored. If one doesn't arrive, resend the invitation or have an owner create a reset link. Other emails are retried.
 - **No email change** for a member's sign-in email yet.
-- **Org switcher** in the web app shows only the current organisation (the API supports switching).
+- **The organisation switcher** in the web app shows only the organisation you are signed in to; to use another, sign in on its own sign-in page. The API supports switching.
 - **No row-level security** in the database: isolation is enforced by the application and composite foreign keys, with a test that every route refuses another organisation's IDs.
 - **The common-password list** is a curated list of a few hundred entries plus patterns, not a breach corpus.
 - **Reverse proxies:** the Caddy, nginx and Traefik examples are tested automatically, with test certificates instead of Let's Encrypt; Cloudflare Tunnel was tested by hand ([reverse proxy](/docs/self-hosting/reverse-proxy/)).
 - **Not in the App Store yet**: the iPhone and iPad [app](/docs/coming-soon/mobile-apps/) is in review. The Android app is on Google Play.
-- **Virus scanning is optional**: configure your own clamd via `CLAMAV_HOST` / `CLAMAV_PORT`; receipts, documents and medical certificates then use the shared scan sweep. Without it, uploads are explicitly unscanned.
+- **Virus scanning is optional**: configure your own clamd with `CLAMAV_HOST` / `CLAMAV_PORT` ([configuration](/docs/self-hosting/configuration/#optional-virus-scanning)) and receipts, documents and medical certificates are scanned in the background. Without it, uploads are stored unscanned.

@@ -30,11 +30,11 @@ Crow HR does not decide this for you. Each earning item is marked OW or AW by wh
 
 ## The OW ceiling
 
-OW subject to CPF is capped per employee, per employer, per month: **S$8,000** from 1 January 2026 (S$7,400 in 2025). OW above it is not subject to CPF.
+OW subject to CPF is capped per employee, per employer, per month: **S$8,000** from 1 January 2026 (S$7,400 in 2025), as in CPF's [contribution rate tables](https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf). OW above it is not subject to CPF.
 
 ## The AW ceiling
 
-The AW subject to CPF in a year is limited by the **AW ceiling**:
+The AW subject to CPF in a year is limited by the **AW ceiling** ([CPF: OW and AW ceilings](https://www.cpf.gov.sg/service/article/what-is-the-ordinary-wage-ow-ceiling)):
 
 > AW ceiling = S$102,000 (annual salary ceiling) − total OW subject to CPF for the year
 
@@ -76,7 +76,7 @@ Money is held as integer cents throughout; nothing uses floating point.
 
 ## Rates for future years
 
-The engine carries CPF rate tables for 2025, 2026 and 2027 as published by CPF. CPF publishes next year's rates during the year; until the 2028 tables exist, months from January 2028 use the 2027 tables and every result carries the warning `CPF_RATES_ASSUMED_CARRIED_FORWARD`. The engine never claims a 2028 table exists.
+The engine carries CPF rate tables for 2025, 2026 and 2027 as published by CPF. CPF publishes next year's rates during the year; until the 2028 tables exist, months from January 2028 use the 2027 tables and every result carries the warning `CPF_RATES_ASSUMED_CARRIED_FORWARD`.
 
 ## Cases Crow HR refuses
 

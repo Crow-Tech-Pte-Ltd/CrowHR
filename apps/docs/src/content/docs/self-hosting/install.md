@@ -3,7 +3,7 @@ title: Install with Docker Compose
 description: Install Crow HR on your own server with Docker Compose, finish setup in the browser and take your first backup.
 ---
 
-These steps are what `e2e/self-host.sh` runs in a throwaway compose project (with an image built from the checkout), so they are tested as written. The short version is on the [quick start](/docs/quick-start/) page.
+The short version is on the [quick start](/docs/quick-start/) page. An automated test runs these steps as written on every change to Crow HR.
 
 You need a machine with Docker Engine 24+ and the Compose plugin (`docker compose version`), 2 GB of RAM and a few GB of disk. Crow HR runs as two containers, the app and PostgreSQL 17. There is no Redis and no queue.
 

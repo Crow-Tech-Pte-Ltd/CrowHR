@@ -3,7 +3,7 @@ title: API conventions
 description: Versioning and compatibility rules, request and response conventions, lists, errors and authentication for the Crow HR REST API.
 ---
 
-The web app, the planned native apps and integrations all use the same versioned REST API. The contract is generated from the route declarations in `packages/core`, served by a running server at `GET /api/v1/openapi.json`, committed as `packages/core/openapi/v1.snapshot.json` and rendered in the [API reference](/docs/api/).
+The web app, the [mobile apps](/docs/coming-soon/mobile-apps/) and integrations all use the same versioned REST API. The contract is generated from the route declarations in `packages/core`, served by a running server at `GET /api/v1/openapi.json`, committed as `packages/core/openapi/v1.snapshot.json` and rendered in the [API reference](/docs/api/).
 
 ## Versions and compatibility
 
@@ -73,5 +73,5 @@ Switch on `code`, never on `message`. Each operation lists its codes under `x-er
 
 - **Browser**: an HttpOnly session cookie (`__Host-crowhr_session`, or `crowhr_session` when `PUBLIC_URL` is plain http). State-changing requests must be same-origin, or they get `403 csrf_rejected`.
 - **Native apps**: `Authorization: Bearer <access token>` from the native authorisation-code + PKCE flow (access tokens last 15 minutes). Tokens are never accepted in query strings, and a request with both a cookie and a bearer token gets `400 ambiguous_credentials`.
-- There are no API keys for server-to-server integrations yet.
+- There are no API keys for server-to-server integrations.
 - In the OpenAPI document, `security: []` marks public operations, `x-permission` names the permission checked and `x-recent-auth: true` means the session must have authenticated in the last 10 minutes.

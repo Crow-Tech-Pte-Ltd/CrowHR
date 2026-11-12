@@ -7,7 +7,7 @@ Foreign employees (residency "foreigner") need a work pass record valid on their
 
 ## Pass types
 
-Employment Pass, S Pass, Work Permit, Dependant's Pass with Letter of Consent, Long-Term Visit Pass with Letter of Consent, Personalised Employment Pass, ONE Pass, Training Employment Pass, or other. The list, with a link to MOM's key-facts page for each, lives in `packages/sg-rules`. In the import template the codes are `EP`, `S_PASS`, `WP`, `DP_LOC`, `LTVP_LOC`, `PEP`, `ONE`, `TEP` and `OTHER`.
+Employment Pass, S Pass, Work Permit, Dependant's Pass with Letter of Consent, Long-Term Visit Pass with Letter of Consent, Personalised Employment Pass, ONE Pass, Training Employment Pass, or other. In the import template the codes are `EP`, `S_PASS`, `WP`, `DP_LOC`, `LTVP_LOC`, `PEP`, `ONE`, `TEP` and `OTHER`.
 
 Each record has the pass type, the pass number (encrypted at rest), issue and expiry dates, and notes.
 

@@ -46,6 +46,6 @@ Direct submission through IRAS's AIS API is **not available**. It requires IRAS 
 
 ## Taxable cash reimbursements
 
-The claim-type **Taxable benefit** flag is snapshotted when payroll is computed. Taxable cash reimbursements enter d1; genuine business reimbursements remain excluded. Claims paid outside payroll enter d1 in their recorded payment year. Legacy payroll snapshots without a tax flag use the claim type's current classification, so review older years when changing a type. Superseded runs are excluded so an adjustment does not double-report the reimbursement.
+A claim type's **Taxable benefit** flag marks its reimbursements as taxable cash benefits. Those enter d1; genuine business reimbursements stay out. The flag is recorded when payroll is computed, so changing a type later does not change past runs; claims paid outside payroll count in the year they were paid. A run replaced by an adjustment is counted once, as the adjustment.
 
 This follows [IRAS's Tax Principles and Flexible Benefits](https://www.iras.gov.sg/taxes/individual-income-tax/employers/understanding-the-tax-treatment/tax-principles-and-flexible-benefits): employers must track taxable benefits for IR8A. The flag does not determine whether a reimbursement legally attracts CPF, nor does it replace the separate Appendix 8A treatment of non-cash benefits or tax borne by the employer. Review those separately.

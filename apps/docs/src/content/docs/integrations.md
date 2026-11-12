@@ -22,11 +22,11 @@ Crow HR is designed to run without any external service. Everything below is opt
 
 ## Files
 
-Uploaded files are stored on the server's disk in the data volume (`FILE_STORAGE_DIR`, default `/data/files`) and included in every backup. Object storage such as S3 is not supported. The core receives file storage as an injected dependency, so another backend can be added later without changing modules.
+Uploaded files are stored on the server's disk in the data volume (`FILE_STORAGE_DIR`, default `/data/files`) and included in every backup. Object storage such as S3 is not supported.
 
 ## API access for integrations
 
-The API authenticates browser sessions (cookie) and native-app tokens (bearer, from the native sign-in flow). There are **no API keys or service accounts** for server-to-server integrations yet. See [API conventions](/docs/developers/api-conventions/).
+The API authenticates browser sessions (cookie) and native-app tokens (bearer, from the native sign-in flow). There are **no API keys or service accounts** for server-to-server integrations. See [API conventions](/docs/developers/api-conventions/).
 
 ## Not available
 
@@ -36,4 +36,4 @@ The API authenticates browser sessions (cookie) and native-app tokens (bearer, f
 - **Myinfo**: Singpass login requests only `openid`; no personal data is retrieved from Myinfo.
 - **MOM systems** (work pass applications, levy billing).
 - **Accounting exports** (journal entries, GL codes), **calendar feeds**, **webhooks**, **Slack or Teams** notifications.
-- **Push notifications** to phones: the planned mobile apps would use in-app inbox and local notifications first.
+- **Push notifications** to phones: the [mobile apps](/docs/coming-soon/mobile-apps/) check for new notifications in the background and show them as local notifications instead.

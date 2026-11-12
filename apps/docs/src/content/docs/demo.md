@@ -13,7 +13,7 @@ Crow HR has an in-browser demo: the same web app and the same API code that a se
 
 - **No backend.** The site is static files. The Crow HR API runs in a Web Worker in your tab, against PostgreSQL compiled to WebAssembly (PGlite), saved in your browser's IndexedDB. Nothing you type reaches a server, and there are no analytics or third-party requests.
 - **The real code.** Payroll is calculated by the real engine with the cited Singapore rules, approvals go through the real workflow engine, and permissions are enforced by the same server code as a self-hosted install.
-- **Your own copy.** Each browser gets its own database, restored from a pre-built, gzip database snapshot on the first visit; if that download is missing or corrupt, the same seed runs in your browser. Local fresh-visit measurements improved from a 4.93 s median to 1.20 s (three Chromium samples each). **Reset** in the demo banner wipes your copy, restores the snapshot and re-anchors the clock; clearing the site's data in your browser does the same. When a new version of the demo changes its data, your next visit starts from a fresh copy automatically.
+- **Your own copy.** Each browser gets its own database, restored from a pre-built database snapshot on the first visit; if that download is missing or corrupt, the same seed runs in your browser. **Reset** in the demo banner wipes your copy, restores the snapshot and re-anchors the clock; clearing the site's data in your browser does the same. When a new version of the demo changes its data, your next visit starts from a fresh copy automatically.
 - **One tab at a time.** Two tabs writing the same local database would corrupt it, so a second tab offers to take over instead.
 
 ## The demo company
@@ -37,7 +37,7 @@ Sign in with one click as one of five personas, or type any seeded account's ema
 | Area | In the demo | Self-hosted |
 | --- | --- | --- |
 | Signing in | One click on a persona, or the shared password. Two-step verification is not required. | Email and password, two-step verification (required for admin roles by default), SSO. |
-| Google, Microsoft, Singpass | Buttons are shown but disabled; no request is made to any identity provider. A demo build can switch on a real Singpass login: you log in, nothing about you is kept, and you then choose HR admin or Employee. On hr.crow.sg that waits for Singpass to approve the production app. | Work once an owner configures them. |
+| Google, Microsoft, Singpass | Buttons are shown but disabled; no request is made to any identity provider. (A demo can be built with a real Singpass login that keeps nothing about the visitor, see [Singpass login](/docs/admin/sso/singpass/#public-demo); hr.crow.sg does not offer it.) | Work once an owner configures them. |
 | Email | Nothing is sent. Messages appear in the **Demo outbox** (from the banner), so invitation and reset links still work. | Sent over SMTP if configured. |
 | Passwords | PBKDF2 in a demo-only format that a real server refuses. | argon2id. |
 | Encryption at rest | NRIC/FIN and bank numbers are encrypted with a throwaway key included with the fictional snapshot and stored next to the database. The fallback seed creates a fresh key. Fine for invented data, never a pattern for real data. | Encrypted with the server's `CROWHR_SECRET_KEY`. |
@@ -46,9 +46,8 @@ Sign in with one click as one of five personas, or type any seeded account's ema
 | Background jobs | Reminders, escalations and the outbox run every 30 seconds while a demo tab is open, and catch up on the next visit. | Every 60 seconds in the server process. |
 | Backups and system status | Not applicable. | Daily `pg_dump` to the backups volume. |
 
-## What the demo does not show
+## Good to know
 
-- July–September overtime is historical payroll input. October OT comes from approved attendance; its joiner and leaver use explicit full-month scheduled-day denominators counted from the published outlet roster because the core roster feed covers whole-month tenures.
 - Every run shows the `YTD_BEFORE_CROWHR_MISSING` warning on purpose: the January–June opening balances are not imported, as for a company that moved to Crow HR mid-year.
 - Receipt previews and PDF or CSV downloads go through a service worker. Where service workers are unavailable (some private-browsing modes), those previews and downloads fail; everything else works.
 - A tab closed in the middle of a request can lose that one request.

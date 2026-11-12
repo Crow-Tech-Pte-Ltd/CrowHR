@@ -29,7 +29,5 @@ A member's rights are the union of their roles. See [members and roles](/docs/ad
 - **Segregation of duties**: nobody changes their own compensation or bank details directly, whatever their role, and nobody decides their own approval request, except an owner when no one else is eligible (recorded as self-approved).
 - **Former members** keep read-only access to their own released payslips and employee-visible documents.
 - **Install-level** information (Settings → System) is visible to owners only.
-
-Every resource in the matrix belongs to a built module and is enforced by the endpoints of that module.
-
-Managers see leave status and employee numbers on rosters only for their reports. They can publish roster changes only for their reports; HR must publish changes affecting other teams. Children’s records require personal-details access; managers reviewing leave receive eligibility information without the child’s identity.
+- **Rosters**: managers see leave status and employee numbers on a roster only for their own reports, and can publish roster changes only for them; HR publishes changes that affect other teams.
+- **Children's records** (for parental and childcare leave) need personal-details access. A manager reviewing a leave request sees whether the employee is eligible, not the child's details.

@@ -5,7 +5,7 @@ import { defineConfig, passthroughImageService } from "astro/config";
 import { apiTagSlug } from "./src/lib/api-tags.ts";
 
 /**
- * Crow HR docs: static files served from https://hr.crow.sg/docs (nothing is deployed yet).
+ * Crow HR docs: static files served from https://hr.crow.sg/docs, next to the in-browser demo.
  * No server runtime, no third-party requests: fonts are self-hosted (@fontsource), search is
  * Pagefind (built into the static output), screenshots are pre-optimised WebP in src/assets.
  */
@@ -23,8 +23,6 @@ const apiTags = [
     ),
   ),
 ].sort((a, b) => a.localeCompare(b));
-
-const soon = { text: "Soon", variant: "note" };
 
 export default defineConfig({
   site: SITE,
@@ -142,11 +140,7 @@ export default defineConfig({
         { label: "Reports", items: [{ slug: "reports/running-reports" }] },
         { label: "Roles and permissions", items: [{ slug: "roles-and-permissions" }] },
         { label: "Integrations", items: [{ slug: "integrations" }] },
-        {
-          label: "Coming soon",
-          collapsed: true,
-          items: [{ slug: "coming-soon/mobile-apps", badge: soon }],
-        },
+        { label: "Mobile apps", items: [{ slug: "coming-soon/mobile-apps" }] },
         {
           label: "Developers",
           collapsed: true,

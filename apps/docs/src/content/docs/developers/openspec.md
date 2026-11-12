@@ -10,7 +10,6 @@ Crow HR keeps its requirements in the repository with [OpenSpec](https://github.
 ```
 openspec/
   config.yaml            # project context and rules for artefacts
-  project-roadmap.md     # milestones, dependencies, workstream ownership
   specs/                 # current requirements (filled as changes are archived)
   changes/<name>/
     proposal.md          # why, what changes, non-goals (under 600 words)
@@ -27,15 +26,13 @@ openspec/
 
 Changing a cell of the permission matrix, the API contract or a statutory rule is a spec change and goes through this process.
 
-## Changes today
+## Where to find changes
 
-Built (some with open tasks): `add-foundation`, `add-api-platform`, `add-identity-and-access`, `add-organisation-and-people`, `add-approvals-and-notifications`, `add-self-hosting`, `add-sg-statutory-engine`, `add-payroll`, `add-leave`, `add-attendance`, `add-claims`, `add-scheduling`, `add-reporting`, `add-documents`, `add-public-demo` (built, not deployed).
-
-Specified, not built: `add-mobile-apps`. See [project status](/docs/status/).
+Every change, finished or in progress, is a directory in [`openspec/changes/`](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/tree/main/openspec/changes); its `tasks.md` shows what is done and what is open. For what the product does today, see [project status](/docs/status/).
 
 ## Ground rules
 
-From the project's working agreement (`AGENTS.md`):
+From the project's working agreement (`AGENTS.md` in the repository):
 
 - Nothing is marked done if it is stubbed or mocked.
 - Statutory numbers come from cited sources, with an effective date and a source URL.

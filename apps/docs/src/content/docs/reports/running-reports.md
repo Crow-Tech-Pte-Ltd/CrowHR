@@ -59,7 +59,7 @@ Every export holds the full result, not just the page on screen, with the same c
 - **CSV**: UTF-8 with a byte-order mark (so Excel on Windows reads it correctly), comma-separated, RFC 4180 quoting, a header row of column titles, dates as `YYYY-MM-DD`, money as plain decimals with two places and no symbol (`1234.56`), percentages with one place. Text cells starting with `=`, `+`, `-` or `@` get a leading apostrophe so a spreadsheet cannot run them as formulas.
 - **XLSX**: typed cells, money as numbers formatted `#,##0.00` (123456 cents is the number 1234.56), dates as real dates formatted `dd mmm yyyy`, a bold frozen header row with filters, a totals row, and a second sheet "Parameters" with the report, its parameters, the columns left out, who generated it and when.
 
-An export of more than 50,000 rows is refused with `422 too_many_rows`; narrow the dates or pick a smaller group. CSV is streamed to the browser; XLSX is built batch by batch on the server.
+An export of more than 50,000 rows is refused with `422 too_many_rows`; narrow the dates or pick a smaller group.
 
 ## Not available
 

@@ -3,7 +3,7 @@ title: Backups and restore
 description: What a Crow HR backup contains, how scheduled and manual backups work, how to copy them off the server and how to restore.
 ---
 
-Verified by `e2e/self-host.sh`: backup, delete everything (`docker compose down -v`), fresh install, restore, then the organisation, uploaded files, encryption key and owner sign-in are back.
+An automated test runs the whole cycle on every change: backup, delete everything (`docker compose down -v`), fresh install, restore, then check that the organisation, uploaded files, encryption key and owner sign-in are back.
 
 ## What a backup contains
 
@@ -14,13 +14,13 @@ One file in the `backups` volume, `crowhr-backup-<UTC time>[-scheduled|-pre-migr
 - `files/…`: every uploaded file;
 - `secrets/crowhr.key`: the encryption key.
 
-**The key is included by default**, because a backup without it cannot restore NRIC, bank or SSO data, and losing the key is far more common than losing a backup to theft. That means an unencrypted backup file is as sensitive as the live system. Set `BACKUP_PASSPHRASE` in `.env` (at least 12 characters, kept outside the server). Then every archive is encrypted with [age](https://age-encryption.org); you can also decrypt it with the standard tool: `age -d backup.tar.gz.age > backup.tar.gz`. Scheduled backups refuse to run until a passphrase is set. Home and Settings → System explain that encryption is required. Manual unencrypted backups remain available with a prominent warning.
+**The key is included by default**, because a backup without it cannot restore NRIC, bank or SSO data, and losing the key is far more common than losing a backup to theft. That means an unencrypted backup file is as sensitive as the live system. Set `BACKUP_PASSPHRASE` in `.env` (at least 12 characters, kept outside the server). Then every archive is encrypted with [age](https://age-encryption.org); you can also decrypt it with the standard tool: `age -d backup.tar.gz.age > backup.tar.gz`. Scheduled backups refuse to run until a passphrase is set. A manual backup without a passphrase still works, with a warning.
 
 ## Automatic backups
 
-**First set `BACKUP_PASSPHRASE` (at least 12 characters) in `.env`, save it outside this server, and restart Crow HR.** The scheduler records an actionable failure without dumping data when it is unset. This keeps a restore-ready archive, including the master key, encrypted as one unit.
+**Scheduled backups need `BACKUP_PASSPHRASE`.** Set it in `.env` (at least 12 characters), keep a copy outside this server and run `docker compose up -d`. Without it, each scheduled backup is recorded as failed and nothing is written.
 
-Daily at `BACKUP_TIME` (default 02:00 Singapore time), keeping the newest `BACKUP_KEEP` (default 14). A backup is also taken before any database upgrade (`BACKUP_BEFORE_MIGRATE`). Results, sizes and failures appear in Settings → System; Owners see a warning on Home when the last successful backup is more than 48 hours old, and when scheduled backups are disabled because `BACKUP_PASSPHRASE` is not set (both, if both apply).
+Daily at `BACKUP_TIME` (default 02:00 Singapore time), keeping the newest `BACKUP_KEEP` (default 14). A backup is also taken before any database upgrade (`BACKUP_BEFORE_MIGRATE`). Results, sizes and failures appear in Settings → System; owners see a warning on Home when the last successful backup is more than 48 hours old, and when scheduled backups are disabled because `BACKUP_PASSPHRASE` is not set (both, if both apply).
 
 ## Manual backup
 
@@ -44,7 +44,7 @@ Nightly copy with rclone (any S3/B2/Drive remote, configured with `rclone config
 30 3 * * * docker run --rm -v crowhr_backups:/backups:ro -v $HOME/.config/rclone:/config/rclone rclone/rclone copy /backups remote:crowhr-backups
 ```
 
-(`crowhr_backups` is `<compose project>_backups`; check with `docker volume ls`. The rclone line is an example and is not part of the tested script.)
+(`crowhr_backups` is `<compose project>_backups`; check with `docker volume ls`. The rclone line is an example and is not tested.)
 
 ## Restore
 
