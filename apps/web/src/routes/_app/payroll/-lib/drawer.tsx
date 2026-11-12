@@ -185,7 +185,11 @@ function H({ children }: { children: React.ReactNode }) {
 /** "the September 2026 payroll (run 783e261c)" in a working line → a link to that run, without its ID. */
 const RUN_REF = /(the [A-Z][a-z]+ \d{4} (?:payroll|[a-z-]+ run)) \(run ([0-9a-f]{8})\)/;
 
-function WorkingText({ text }: { text: string }) {
+/** "→ CPF_2026_SPR2_FG (CPF Table 5)" → "→ CPF Table 5": the published table, not the internal code. */
+const TABLE_REF = /→ [A-Z0-9_]+ \((CPF Table \d+)\)/g;
+
+function WorkingText({ text: raw }: { text: string }) {
+  const text = raw.replace(TABLE_REF, "→ $1");
   const m = RUN_REF.exec(text);
   const runs = useQuery({ ...runsQuery, enabled: !!m });
   if (!m) return <>{text}</>;
@@ -198,7 +202,7 @@ function WorkingText({ text }: { text: string }) {
         <Link
           to="/payroll/runs/$runId"
           params={{ runId: run.id }}
-          className="focus-ring rounded-sm text-biru-400 underline-offset-2 hover:underline"
+          className="focus-ring rounded-sm text-biru-400 underline underline-offset-2"
         >
           {label}
         </Link>
