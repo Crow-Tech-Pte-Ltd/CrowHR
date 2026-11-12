@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#FFFFFF" />
+    <!-- Light, dark or the device's setting, applied before the first paint (account menu → Theme). -->
+    <script src="/theme.js"></script>
     <meta
       name="description"
       content="Try Crow HR, free and open-source HR and payroll for Singapore teams. The demo runs entirely in your browser with a fictional company."
@@ -12,45 +14,54 @@
     <title>Crow HR demo</title>
     <style>
       /* Boot screen: plain CSS so it paints before any script or font loads. */
-      :root { --ink: #0a0a0a; --muted: #666; --line: #dedede; --paper: #fff; --cream: #fdf7e5; --kuning: #fec84b; }
-      html, body { margin: 0; background: var(--paper); color: var(--ink); }
+      :root { --boot-ink: #0a0a0a; --boot-muted: #666; --boot-line: #dedede; --boot-paper: #fff; --boot-cream: #fdf7e5; --boot-kuning: #fec84b; }
+      html, body { margin: 0; background: var(--boot-paper); color: var(--boot-ink); }
       #demo-boot {
         min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px 16px;
-        box-sizing: border-box; font-family: "Ubuntu", ui-sans-serif, system-ui, sans-serif; background: var(--cream);
+        box-sizing: border-box; font-family: "Ubuntu", ui-sans-serif, system-ui, sans-serif; background: var(--boot-cream);
       }
       #demo-boot[hidden] { display: none; }
       .boot-card {
-        width: 100%; max-width: 420px; box-sizing: border-box; background: var(--paper); border: 2px solid var(--ink);
-        border-radius: 8px; box-shadow: 4px 4px 0 0 var(--ink); padding: 24px;
+        width: 100%; max-width: 420px; box-sizing: border-box; background: var(--boot-paper); border: 2px solid var(--boot-ink);
+        border-radius: 8px; box-shadow: 4px 4px 0 0 var(--boot-ink); padding: 24px;
       }
       .boot-mark { display: inline-flex; align-items: center; gap: 6px; font-family: "Azeret Mono", ui-monospace, Menlo, monospace; }
       .boot-mark b { font-size: 15px; letter-spacing: -0.02em; }
       .boot-mark i {
         font-style: normal; font-weight: 700; font-size: 11px; line-height: 1; padding: 1px 4px;
-        border: 2px solid var(--ink); border-radius: 4px; background: var(--kuning);
+        border: 2px solid var(--boot-ink); border-radius: 4px; background: var(--boot-kuning);
       }
-      .boot-mark span { margin-left: 6px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+      .boot-mark span { margin-left: 6px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--boot-muted); }
       .boot-title { margin: 20px 0 4px; font: 600 18px/1.35 "Azeret Mono", ui-monospace, Menlo, monospace; letter-spacing: -0.01em; }
       .boot-sub { margin: 0 0 18px; font-size: 13px; line-height: 20px; color: #333; }
       .boot-steps { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 8px; }
       .boot-steps li {
-        display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 20px; color: var(--muted);
+        display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 20px; color: var(--boot-muted);
       }
       .boot-steps li::before {
         content: ""; flex: none; width: 10px; height: 10px; box-sizing: border-box; border: 1.5px solid #b3b3b3; border-radius: 2px;
       }
-      .boot-steps li[data-state="active"] { color: var(--ink); }
-      .boot-steps li[data-state="active"]::before { border-color: var(--ink); background: var(--kuning); animation: boot-pulse 0.9s ease-in-out infinite alternate; }
+      .boot-steps li[data-state="active"] { color: var(--boot-ink); }
+      .boot-steps li[data-state="active"]::before { border-color: var(--boot-ink); background: var(--boot-kuning); animation: boot-pulse 0.9s ease-in-out infinite alternate; }
       .boot-steps li[data-state="done"] { color: #333; }
-      .boot-steps li[data-state="done"]::before { border-color: var(--ink); background: var(--ink); }
+      .boot-steps li[data-state="done"]::before { border-color: var(--boot-ink); background: var(--boot-ink); }
       .boot-bar { height: 4px; border-radius: 2px; background: #ececee; overflow: hidden; }
-      .boot-bar > div { height: 100%; width: 4%; background: var(--ink); transition: width 0.35s ease; }
-      .boot-foot { margin: 14px 0 0; font: 400 11px/16px "Azeret Mono", ui-monospace, Menlo, monospace; color: var(--muted); }
+      .boot-bar > div { height: 100%; width: 4%; background: var(--boot-ink); transition: width 0.35s ease; }
+      .boot-foot { margin: 14px 0 0; font: 400 11px/16px "Azeret Mono", ui-monospace, Menlo, monospace; color: var(--boot-muted); }
       .boot-error { margin: 14px 0 0; padding: 10px 12px; border: 1px solid #c62828; border-radius: 6px; font-size: 13px; line-height: 20px; color: #8a1c1c; background: #fdecec; }
       .boot-error button, .boot-error a, .boot-slow button { font: inherit; color: inherit; text-decoration: underline; background: none; border: 0; padding: 0; cursor: pointer; }
-      .boot-slow { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; line-height: 20px; color: var(--ink); background: var(--cream); }
+      .boot-slow { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--boot-line); border-radius: 6px; font-size: 13px; line-height: 20px; color: var(--boot-ink); background: var(--boot-cream); }
       .boot-slow[hidden], .boot-error[hidden] { display: none; }
       .boot-slow button:focus-visible, .boot-error button:focus-visible { outline: 2px solid #1a56db; outline-offset: 2px; border-radius: 2px; }
+      /* Dark (html.dark from /theme.js): the app's dark tokens, so the boot card doesn't flash white. */
+      html.dark { --boot-ink: #f7f5f1; --boot-muted: #a8a8a8; --boot-line: #383838; --boot-paper: #141414; --boot-cream: #1e1c1a; }
+      html.dark .boot-mark i { color: #0a0a0a; }
+      html.dark .boot-sub, html.dark .boot-steps li[data-state="done"] { color: #d1d1d1; }
+      html.dark .boot-steps li::before { border-color: #5c5c5c; }
+      html.dark .boot-steps li[data-state="active"]::before, html.dark .boot-steps li[data-state="done"]::before { border-color: var(--boot-ink); }
+      html.dark .boot-bar { background: #292929; }
+      html.dark .boot-error { border-color: #ef8a8a; color: #f6b1b1; background: #3a1717; }
+      html.dark .boot-slow button:focus-visible, html.dark .boot-error button:focus-visible { outline-color: #8db0f7; }
       @keyframes boot-pulse { from { opacity: 1; } to { opacity: 0.45; } }
       @media (prefers-reduced-motion: reduce) { .boot-steps li[data-state="active"]::before { animation: none; } .boot-bar > div { transition: none; } }
     </style>

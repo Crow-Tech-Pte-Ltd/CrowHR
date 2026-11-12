@@ -216,7 +216,7 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
         <div className="mt-12 flex flex-wrap gap-3">
           <a
             href="/"
-            className="focus-ring inline-flex h-10 items-center gap-2 rounded-md border-2 border-ink bg-kuning-200 px-5 font-azeret text-ui font-semibold shadow-brutal-sm hover:bg-kuning-300"
+            className="focus-ring inline-flex h-10 items-center gap-2 rounded-md border-2 border-ink bg-kuning-200 px-5 font-azeret text-ui font-semibold text-accent-foreground shadow-brutal-sm hover:bg-kuning-300"
           >
             Open the demo
           </a>

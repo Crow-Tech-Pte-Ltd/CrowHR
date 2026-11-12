@@ -254,7 +254,13 @@ function LogoField({ hasLogo, version, editable }: { hasLogo: boolean; version: 
     <fieldset className="flex flex-col gap-3 rounded-lg border border-border bg-surface-50 p-4 sm:p-5">
       <legend className={cn("-ml-1 px-1", textStyle.group)}>Logo</legend>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="flex h-20 w-40 shrink-0 items-center justify-center rounded-md border border-border bg-card p-2">
+        {/* The logo is printed on white letters: preview it on white in both themes. */}
+        <div
+          className={cn(
+            "flex h-20 w-40 shrink-0 items-center justify-center rounded-md border border-border p-2",
+            hasLogo ? "bg-white" : "bg-card",
+          )}
+        >
           {hasLogo ? (
             <img
               src={`/api/v1/organisation/profile/logo?v=${encodeURIComponent(version)}`}

@@ -244,7 +244,9 @@ function Cell({
       ) : null;
     const cls = cn(
       "flex min-w-0 flex-1 items-center overflow-hidden rounded-[3px] border",
-      e.status === "approved" ? "border-ink/40 bg-kuning-200" : "border-dashed border-ink/50 bg-surface-50",
+      e.status === "approved"
+        ? "border-ink/40 bg-kuning-200 text-accent-foreground"
+        : "border-dashed border-ink/50 bg-surface-50",
     );
     return e.requestId ? (
       <button

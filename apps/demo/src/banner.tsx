@@ -88,7 +88,7 @@ function DemoBanner({ client, info, outboxEvents }: BannerProps) {
         data-testid="demo-banner"
         className="flex min-h-9 items-center gap-x-3 border-b border-ink/15 bg-kuning-50 px-3 py-1 md:px-5"
       >
-        <span className="rounded-[4px] border-2 border-ink bg-kuning-200 px-1 py-px font-azeret text-[10px] font-bold leading-none tracking-wider">
+        <span className="rounded-[4px] border-2 border-ink bg-kuning-200 px-1 py-px font-azeret text-[10px] font-bold leading-none tracking-wider text-accent-foreground">
           DEMO
         </span>
         <p className="min-w-0 flex-1 truncate text-2xs leading-4 text-primary-300">

@@ -61,7 +61,7 @@ export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
             <CalendarDays className="size-4 text-primary-200" aria-hidden />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-2" align="start">
+        <PopoverContent className="w-auto p-2" align="start" aria-label="Choose a date">
           <Calendar
             mode="single"
             selected={selected}

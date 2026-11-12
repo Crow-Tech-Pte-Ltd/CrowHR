@@ -9,7 +9,7 @@ export const badgeVariants = cva(
     variants: {
       variant: {
         default: "border-ink/15 bg-surface-50 text-ink",
-        brand: "border-ink bg-kuning-200 text-ink",
+        brand: "border-ink bg-kuning-200 text-accent-foreground",
         ink: "border-ink bg-ink text-surface-50",
         muted: "border-transparent bg-surface-200 text-primary-300",
       },

@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { toIsoDate } from "../lib/format.ts";
-import { singaporeToday } from "./calendar.tsx";
+import { dayButtonLabel, singaporeToday } from "./calendar.tsx";
+
+describe("dayButtonLabel", () => {
+  it("names a day in Singapore's order, with the visible day number as a word", () => {
+    expect(dayButtonLabel(new Date(2026, 10, 10), {})).toBe("Tuesday 10 November 2026");
+    expect(dayButtonLabel(new Date(2026, 9, 31), { today: true, selected: true })).toBe(
+      "Today, Saturday 31 October 2026, selected",
+    );
+  });
+});
 
 describe("singaporeToday", () => {
   it("is already tomorrow in Singapore at 00:30 SGT, whatever the browser's time zone", () => {

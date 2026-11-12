@@ -438,7 +438,9 @@ function ClaimsAdminPage() {
                 }
                 className={cn(
                   "focus-ring h-8 shrink-0 rounded-md border px-3 font-azeret text-2xs font-medium",
-                  active ? "border-ink bg-kuning-200 text-ink" : "border-transparent text-primary-300 hover:bg-ink/5",
+                  active
+                    ? "border-ink bg-kuning-200 text-accent-foreground"
+                    : "border-transparent text-primary-300 hover:bg-ink/5",
                 )}
               >
                 {t.label}
