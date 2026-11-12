@@ -19,6 +19,7 @@ import {
   Kbd,
   Skeleton,
   Textarea,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -256,9 +257,7 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
         trailing={
           <span className="flex flex-wrap items-center gap-2.5">
             <RunStatusPill status={run.status} superseded={!!run.supersededByRunId} />
-            {run.releasedAt ? (
-              <span className="font-azeret text-2xs uppercase tracking-wide text-primary-200">Payslips released</span>
-            ) : null}
+            {run.releasedAt ? <span className="text-ui text-primary-300">Payslips released</span> : null}
           </span>
         }
         description={
@@ -422,6 +421,10 @@ function IssuesPanel({
   }
   const blocking = o.issues.filter((i) => i.severity === "blocking");
   const warnings = o.issues.filter((i) => i.severity === "warning");
+  // Counted like the payroll list: one per employee and issue. A warning many people share is one
+  // line below ("24 employees: …"), so the heading can be larger than the number of lines.
+  const blockingCount = o.run.totals?.blocking ?? blocking.length;
+  const warningCount = o.run.totals?.warnings ?? warnings.length;
   const stale = o.run.inputsChangedSinceCompute ? (
     <Alert variant="warning" className="mb-3">
       <RotateCcw aria-hidden />
@@ -444,16 +447,16 @@ function IssuesPanel({
   return (
     <section aria-labelledby="issues-title" className="mb-5">
       {stale}
-      <h2 id="issues-title" className="mb-2 font-azeret text-xs font-semibold uppercase tracking-wider">
+      <h2 id="issues-title" className={cn("mb-2", textStyle.section)}>
         {blocking.length ? (
           <span className="text-danger-300">
-            {blocking.length} blocking {blocking.length === 1 ? "issue" : "issues"}
+            Blocking issues <span className="num">({blockingCount})</span>
           </span>
         ) : null}
         {blocking.length && warnings.length ? <span className="text-primary-200"> · </span> : null}
         {warnings.length ? (
           <span className="text-warning-400">
-            {warnings.length} {warnings.length === 1 ? "warning" : "warnings"}
+            Warnings <span className="num">({warningCount})</span>
           </span>
         ) : null}
       </h2>
@@ -470,44 +473,57 @@ function IssuesPanel({
   );
 }
 
+/**
+ * The run's payables by who receives them: employees (net pay, the bank file), CPF Board (the CPF
+ * EZPay file: CPF, SHG and SDL) and MOM (the levy estimate). The employee table's TOTAL row has the
+ * column sums (gross, CPF, claims), so the strip doesn't repeat them.
+ */
 function TotalsCard({ o }: { o: PayrollOverviewDto }) {
   const t = o.run.totals;
   if (!t) return null;
-  const cells: [string, number | string, string?][] = [
-    ["People", String(t.headcount)],
-    ["Gross pay", t.grossCents],
-    ["Employee CPF", t.cpfEmployeeCents],
-    ["SHG", t.shgCents],
-    ["Employer CPF", t.cpfEmployerCents],
-    ["SDL", t.sdlChargedCents, "Rounded down to the dollar for the month"],
-    ["FWL estimate", t.fwlCents, "MOM's levy bill is authoritative"],
-    ["Claims", t.reimbursementsCents],
-  ];
+  const shgCharged = Object.values(t.shgChargedByFund).reduce((s, v) => s + v, 0);
+  const cpfBoard = t.cpfTotalChargedCents + shgCharged + t.sdlChargedCents;
   const editable = o.run.status === "draft" || o.run.status === "in_review";
   return (
     <Card variant={editable && !o.run.supersededByRunId ? "emphasis" : "default"} className="mb-5">
-      {/* Wrapping flex, not a fixed 9-column grid: amounts of any size fit, and a full row never leaves gaps. */}
+      {/* Wrapping flex, not a fixed grid: amounts of any size fit, and a full row never leaves gaps. */}
       <dl className="flex flex-wrap gap-px overflow-hidden rounded-[inherit] bg-border">
-        {cells.map(([k, v, title]) => (
-          <div key={k} className="flex-[1_1_7rem] bg-card px-3 py-2.5" title={title}>
-            <dt className="font-azeret text-[10px] uppercase tracking-wider text-primary-200">{k}</dt>
-            <dd className="num mt-0.5 whitespace-nowrap text-ui">{typeof v === "number" ? formatMoney(v) : v}</dd>
-          </div>
-        ))}
-        <div className="flex-[1.4_1_9rem] bg-kuning-50 px-3 py-2.5">
-          <dt className="font-azeret text-[10px] uppercase tracking-wider text-primary-300">
-            {o.run.kind === "adjustment" ? "Net to pay now" : "Net pay"}
-          </dt>
+        <div className="flex-[1.4_1_10rem] bg-kuning-50 px-3 py-2.5">
+          <dt className={textStyle.field}>{o.run.kind === "adjustment" ? "Net to pay now" : "Net pay"}</dt>
           <dd className="num mt-0.5 whitespace-nowrap text-base font-semibold">{formatMoney(t.netPayableCents)}</dd>
+        </div>
+        <div className="flex-[1.4_1_14rem] bg-card px-3 py-2.5">
+          <dt className={textStyle.field}>To CPF Board (the CPF EZPay file)</dt>
+          <dd className="num mt-0.5 whitespace-nowrap text-base">{formatMoney(cpfBoard)}</dd>
+          <dd className="mt-0.5 text-2xs text-primary-300">
+            CPF <span className="num">{formatMoney(t.cpfTotalChargedCents)}</span> · SHG{" "}
+            <span className="num">{formatMoney(shgCharged)}</span> ·{" "}
+            <span title="Rounded down to the dollar for the month">
+              SDL <span className="num">{formatMoney(t.sdlChargedCents)}</span>
+            </span>
+          </dd>
+        </div>
+        <div className="flex-[1_1_9rem] bg-card px-3 py-2.5" title="MOM's levy bill is authoritative">
+          <dt className={textStyle.field}>Foreign worker levy, estimate</dt>
+          <dd className="num mt-0.5 whitespace-nowrap text-base">{formatMoney(t.fwlCents)}</dd>
         </div>
       </dl>
     </Card>
   );
 }
 
+/** "Changes since September (12)": the server's headline sentence, as a heading with a count. */
+function changesTitle(o: PayrollOverviewDto): string {
+  const { comparedWith, headline, items } = o.changes;
+  if (!comparedWith || !items.length) return headline.replace(/\.$/, "");
+  const against =
+    o.run.kind === "adjustment" ? "the original run" : (monthName(comparedWith.month).split(" ")[0] ?? "");
+  return `Changes since ${against} (${items.length})`;
+}
+
 function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (id: string) => void }) {
   if (!o.run.computedAt) return null;
-  const { headline, items } = o.changes;
+  const { items } = o.changes;
   // Identical lines (three separate 1 h overtime items for one person) show once with a count;
   // they also shared a React key, which can mis-render the list when it updates.
   const grouped = [
@@ -523,17 +539,15 @@ function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (i
   ];
   return (
     <section aria-labelledby="changes-title" className="mb-5">
-      <h2 id="changes-title" className="mb-2 font-azeret text-xs font-semibold uppercase tracking-wider">
-        {headline}
+      <h2 id="changes-title" className={cn("mb-2", textStyle.section)}>
+        {changesTitle(o)}
       </h2>
       {items.length ? (
         <Card>
           <ul className="grid grid-cols-1 gap-x-6 px-4 py-1.5 lg:grid-cols-2">
             {grouped.map(({ key, c, count }) => (
               <li key={key} className="flex gap-2 py-1.5 text-ui">
-                <span className="w-20 shrink-0 font-azeret text-[10px] uppercase leading-5 tracking-wide text-primary-200">
-                  {CHANGE[c.kind]}
-                </span>
+                <span className="w-20 shrink-0 text-2xs leading-5 text-primary-200">{CHANGE[c.kind]}</span>
                 <span className="min-w-0">
                   <button
                     type="button"
@@ -567,7 +581,7 @@ function FilesPanel({ runId }: { runId: string }) {
       .catch((e) => toast.error(errorMessage(e)));
   return (
     <section aria-labelledby="files-title" className="mt-6">
-      <h2 id="files-title" className="mb-2 font-azeret text-xs font-semibold uppercase tracking-wider">
+      <h2 id="files-title" className={cn("mb-2", textStyle.section)}>
         Files
       </h2>
       <Card>
@@ -618,7 +632,7 @@ const CHANGE: Record<PayrollOverviewDto["changes"]["items"][number]["kind"], str
   joined: "Joined",
   left: "Leaving",
   basic_changed: "Pay change",
-  new_item: "Item",
+  new_item: "Pay item",
   net_changed: "Net change",
   not_in_run: "Missing",
   residency: "Residency",
@@ -634,7 +648,8 @@ const COLS: { key: keyof PayrollRowDto; label: string; className?: string }[] = 
   { key: "cpfEmployeeCents", label: "CPF ee", className: "hidden md:table-cell" },
   { key: "shgCents", label: "SHG", className: "hidden 2xl:table-cell" },
   { key: "otherDeductionsCents", label: "Deduct.", className: "hidden 2xl:table-cell" },
-  { key: "reimbursementsCents", label: "Claims", className: "hidden 2xl:table-cell" },
+  // From lg, so the claims in the totals can be traced to the people they are paid to.
+  { key: "reimbursementsCents", label: "Claims", className: "hidden lg:table-cell" },
   { key: "netPayableCents", label: "Net" },
   { key: "cpfEmployerCents", label: "CPF er", className: "hidden md:table-cell" },
 ];
@@ -683,8 +698,11 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
   return (
     <section aria-labelledby="employees-title">
       <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <h2 id="employees-title" className="font-azeret text-xs font-semibold uppercase tracking-wider">
-          Employees <span className="num text-primary-200">{rows.length}</span>
+        <h2 id="employees-title" className={textStyle.section}>
+          Employees{" "}
+          <span className="num text-primary-200">
+            ({rows.length === o.rows.length ? rows.length : `${rows.length} of ${o.rows.length}`})
+          </span>
         </h2>
         <div className="flex items-center gap-2">
           <label htmlFor="only-issues" className="flex items-center gap-1.5 text-2xs text-primary-300">
@@ -723,17 +741,9 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
         <table className="w-full border-collapse text-ui" aria-label="Pay per employee">
           <thead className="sticky top-0 z-10 bg-surface-100">
             <tr className="h-9 border-b border-border">
-              <th className="sticky left-0 z-10 bg-surface-100 px-3 text-left font-azeret text-[10px] font-medium uppercase tracking-wider text-primary-200">
-                Employee
-              </th>
+              <th className={cn("sticky left-0 z-10 bg-surface-100 px-3 text-left", textStyle.column)}>Employee</th>
               {COLS.map((c) => (
-                <th
-                  key={c.key}
-                  className={cn(
-                    "px-3 text-right font-azeret text-[10px] font-medium uppercase tracking-wider text-primary-200",
-                    c.className,
-                  )}
-                >
+                <th key={c.key} className={cn("px-3 text-right", textStyle.column, c.className)}>
                   {c.label}
                 </th>
               ))}
@@ -745,9 +755,11 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
           <tbody ref={bodyRef}>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={COLS.length + 2} className="px-3 py-8 text-center text-primary-300">
+                <td colSpan={COLS.length + 2} className="px-3 py-5 text-primary-300">
                   {o.rows.length
-                    ? "No employees match the filter."
+                    ? onlyIssues && !filter
+                      ? "No one in this run has an issue."
+                      : "No one matches the filter. Clear it to see everyone."
                     : "Nobody is in this run. Check hire dates and the off-cycle employee list."}
                 </td>
               </tr>
@@ -764,7 +776,7 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
                   <td className="sticky left-0 bg-card px-3 py-1.5 group-hover:bg-surface-100 group-focus-visible:bg-kuning-50">
                     <span className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
                       <span className="truncate font-medium">{r.name}</span>
-                      <span className="num text-[10px] text-primary-200">{r.employeeNumber}</span>
+                      <span className="num text-2xs text-primary-200">{r.employeeNumber}</span>
                       <span className="hidden 2xl:inline-flex">
                         <Flags flags={r.flags} />
                       </span>
@@ -799,9 +811,9 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
           {rows.length ? (
             <tfoot className="sticky bottom-0 bg-surface-100">
               <tr className="h-9 border-t border-ink/30">
-                <td className="sticky left-0 bg-surface-100 px-3 font-azeret text-[10px] uppercase tracking-wider">
-                  Total
-                </td>
+                <th scope="row" className="sticky left-0 bg-surface-100 px-3 text-left font-medium">
+                  {rows.length === o.rows.length ? "Total" : `Total of ${rows.length} shown`}
+                </th>
                 {COLS.map((c) => (
                   <td key={c.key} className={cn("px-3 text-right font-semibold", c.className)}>
                     <Money cents={sum(c.key)} />

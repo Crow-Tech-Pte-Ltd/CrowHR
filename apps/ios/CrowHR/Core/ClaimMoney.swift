@@ -107,6 +107,14 @@ enum ClaimMoney {
         return toSgdCents(amountMinor: amountMinor, exponent: exponent(of: currency), rateMicros: micros)
     }
 
+    /// A rate warning's deviation as the web shows it, without the sign: 3334 → "33.34%",
+    /// -2001 → "20.01%" (the text says above or below).
+    static func formatBasisPoints(_ basisPoints: Int) -> String {
+        let bp = basisPoints.magnitude
+        let rest = String(bp % 100)
+        return "\(bp / 100).\(rest.count == 1 ? "0" + rest : rest)%"
+    }
+
     /// JavaScript's `Number.MAX_SAFE_INTEGER`: money must stay exact on the server.
     static let maxSafeInteger = 9_007_199_254_740_991
 

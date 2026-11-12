@@ -11,9 +11,12 @@ import {
   AlertDialogTitle,
   Button,
   Card,
+  cn,
   formatDate,
   formatMoney,
   Skeleton,
+  singaporeTodayIso,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +28,7 @@ import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { api, type ClaimDto, type ClaimFileDto, claimKeys, claimQuery, errorMessage } from "./-lib/api.ts";
 import { ClaimSheet } from "./-lib/claim-sheet.tsx";
+import { formatBasisPoints } from "./-lib/money.ts";
 import { CATEGORY_LABEL, ClaimStatusPill, foreignAmount, ReceiptChip, ReceiptViewer } from "./-lib/ui.tsx";
 
 export const Route = createFileRoute("/_app/claims/$claimId")({
@@ -34,7 +38,7 @@ export const Route = createFileRoute("/_app/claims/$claimId")({
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="font-azeret text-[10px] font-medium uppercase tracking-wider text-primary-200">{label}</dt>
+      <dt className={textStyle.field}>{label}</dt>
       <dd className="text-ui">{children}</dd>
     </div>
   );
@@ -104,8 +108,8 @@ function ClaimPage() {
     <>
       <PageHeader
         crumbs={[{ label: "Claims", to: "/claims" }]}
-        kicker={c.claimNumber ?? "Draft"}
         title={c.title ?? (c.lines.length === 1 ? (c.lines[0]?.typeName ?? "Claim") : `${c.lines.length} expenses`)}
+        trailing={c.claimNumber ? <span className="num text-ui text-primary-200">{c.claimNumber}</span> : null}
         description={
           <span className="flex flex-wrap items-center gap-2">
             <ClaimStatusPill status={c.status} />
@@ -150,6 +154,29 @@ function ClaimPage() {
         <Alert variant="danger" className="mb-4">
           <AlertDescription>
             <span className="font-medium">Not approved:</span> {c.decisionComment}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {c.lines.some((l) => l.fxWarning) ? (
+        <Alert variant="warning" className="mb-4" data-testid="fx-warning">
+          <AlertTriangle aria-hidden />
+          <AlertDescription>
+            <span className="block font-medium">Check the exchange rate.</span>
+            {c.lines.map((l, i) =>
+              l.fxWarning ? (
+                <span key={l.id} className="block">
+                  {c.lines.length > 1 ? `Expense ${i + 1}: ` : ""}
+                  <span className="num">
+                    {l.currency} {l.rate}
+                  </span>{" "}
+                  is {formatBasisPoints(l.fxWarning.deviationBasisPoints)}{" "}
+                  {l.fxWarning.deviationBasisPoints >= 0 ? "above" : "below"} the last {l.currency} rate used in your
+                  organisation, <span className="num">{l.fxWarning.lastRate}</span> on{" "}
+                  <span className="num">{formatDate(l.fxWarning.lastRateOn)}</span>. Compare it with the receipt or card
+                  statement.
+                </span>
+              ) : null,
+            )}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -216,6 +243,16 @@ function ClaimPage() {
                       {foreignAmount(l.currency, l.amountMinor)} @ {l.rate}
                     </p>
                   ) : null}
+                  {l.fxWarning ? (
+                    <p
+                      className="num mt-0.5 inline-flex items-center gap-1 text-2xs font-medium text-warning-400"
+                      data-testid="fx-warning-line"
+                    >
+                      <AlertTriangle className="size-3" aria-hidden />
+                      {formatBasisPoints(l.fxWarning.deviationBasisPoints)}{" "}
+                      {l.fxWarning.deviationBasisPoints >= 0 ? "above" : "below"} last rate {l.fxWarning.lastRate}
+                    </p>
+                  ) : null}
                   {l.gstCents ? (
                     <p className="num text-2xs text-primary-200">incl. GST {formatMoney(l.gstCents)}</p>
                   ) : null}
@@ -224,7 +261,7 @@ function ClaimPage() {
             ))}
           </ol>
           <div className="flex items-center justify-between border-t border-border bg-surface-100/60 px-4 py-3">
-            <span className="font-azeret text-2xs font-semibold uppercase tracking-wider">Total</span>
+            <span className={textStyle.group}>Total</span>
             <span className="num text-base font-semibold" data-testid="claim-detail-total">
               {formatMoney(c.totalCents)}
             </span>
@@ -235,7 +272,9 @@ function ClaimPage() {
           <Card className="p-4">
             <dl className="grid gap-3">
               <Fact label="Payout">{payoutText(c)}</Fact>
-              {c.submittedAt ? <Fact label="Submitted">{formatDate(c.submittedAt.slice(0, 10))}</Fact> : null}
+              {c.submittedAt ? (
+                <Fact label="Submitted">{formatDate(singaporeTodayIso(Date.parse(c.submittedAt)))}</Fact>
+              ) : null}
               {c.approvedOn ? <Fact label="Approved">{formatDate(c.approvedOn)}</Fact> : null}
               {c.gstCents ? <Fact label="GST included">{formatMoney(c.gstCents)}</Fact> : null}
               {c.approvalRequestId && c.status === "submitted" ? (
@@ -249,15 +288,17 @@ function ClaimPage() {
           </Card>
           {c.capUsage.length ? (
             <Card className="p-4" data-testid="cap-usage">
-              <p className="mb-2 font-azeret text-[10px] font-medium uppercase tracking-wider text-primary-200">Caps</p>
+              <h2 className={cn(textStyle.group, "mb-2")}>Caps</h2>
               <ul className="flex flex-col gap-2">
                 {c.capUsage.map((u) => (
                   <li key={`${u.typeId}-${u.periodLabel}`} className="text-ui">
                     <span className="font-medium">{u.typeName}</span>{" "}
                     <span className="text-primary-200">({u.period === "per_claim" ? "per claim" : u.periodLabel})</span>
-                    <span className="num block text-2xs text-primary-300">
-                      {formatMoney(u.usedCents)} approved · {formatMoney(u.pendingCents)} pending · this claim{" "}
-                      {formatMoney(u.claimCents)} of {formatMoney(u.capCents)}
+                    <span className="block text-2xs text-primary-300">
+                      <span className="num">{formatMoney(u.usedCents)}</span> approved ·{" "}
+                      <span className="num">{formatMoney(u.pendingCents)}</span> pending · this claim{" "}
+                      <span className="num">{formatMoney(u.claimCents)}</span> of{" "}
+                      <span className="num">{formatMoney(u.capCents)}</span>
                     </span>
                   </li>
                 ))}
@@ -279,7 +320,8 @@ function ClaimPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this draft?</AlertDialogTitle>
             <AlertDialogDescription>
-              The draft and its lines are removed. Uploaded receipts stay in your uploads.
+              The draft and its lines are removed. Its receipts are deleted once they are 7 days old, unless they are on
+              another claim.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -12,11 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { AlertTriangle, ExternalLink, Wallet } from "lucide-react";
+import { AlertTriangle, ExternalLink } from "lucide-react";
 import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
@@ -84,15 +85,17 @@ function Allowances({ editable }: { editable: boolean }) {
         </Card>
       ) : q.data.items.length === 0 ? (
         <EmptyState
-          icon={<Wallet />}
-          title="No allowance types yet"
-          description="Allowance types and employees' recurring allowances are added through the API for now (allowance types, then allowances on a hire or pay change). Their treatment is set here."
+          title="No allowance types yet."
+          description="Allowance types and employees' recurring allowances are added through the API for now (allowance types, then allowances on a hire or pay change). Once there are some, you set how each one counts here."
         />
       ) : (
         <Card>
           <div
             aria-hidden
-            className="hidden border-b border-border bg-surface-100 px-4 py-2 font-azeret text-[10px] uppercase tracking-wider text-primary-200 md:grid md:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,1fr))_6rem] md:gap-3"
+            className={cn(
+              "hidden border-b border-border bg-surface-100 px-4 py-2 md:grid md:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,1fr))_6rem] md:gap-3",
+              textStyle.column,
+            )}
           >
             <span>Allowance</span>
             <span>CPF</span>
@@ -275,7 +278,7 @@ function Choice({
   const text = options.find(([v]) => v === value)?.[1] ?? value;
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <span className="font-azeret text-[10px] uppercase tracking-wider text-primary-200 md:sr-only">{label}</span>
+      <span className={cn(textStyle.field, "md:sr-only")}>{label}</span>
       {editable ? (
         <Select value={value} onValueChange={onChange}>
           <SelectTrigger aria-label={`${name}: ${label}`} className={cn("h-8", warn && "border-warning-300")}>

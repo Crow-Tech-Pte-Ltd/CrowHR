@@ -30,6 +30,7 @@ import crowtech.crowhr.api.DecisionResult
 import crowtech.crowhr.api.Items
 import crowtech.crowhr.core.Formats
 import crowtech.crowhr.ui.ScreenContext
+import crowtech.crowhr.ui.ScreenMemory
 import crowtech.crowhr.ui.components.CrowCard
 import crowtech.crowhr.ui.components.EmptyState
 import crowtech.crowhr.ui.components.KeyValueRow
@@ -51,7 +52,9 @@ private val TASKS = Items.serializer(ApprovalTask.serializer())
 
 @Composable
 fun ApprovalsScreen(ctx: ScreenContext) {
-    val loader = rememberLoader(ctx.connection.key) { ctx.api.get("/api/v1/approvals/tasks", TASKS) }
+    val loader = rememberLoader(ctx.connection.key, memoryKey = ScreenMemory.key(ctx.connection.key, "approvals")) {
+        ctx.api.get("/api/v1/approvals/tasks", TASKS)
+    }
     var open by rememberSaveable { mutableStateOf<String?>(null) }
     var done by rememberSaveable { mutableStateOf<String?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -65,6 +68,7 @@ fun ApprovalsScreen(ctx: ScreenContext) {
                         open = null
                         done = message
                         loader.reload()
+                        ctx.refreshBadges()
                     })
                 } else {
                     CrowCard(onClick = { open = task.taskId; done = null }, modifier = Modifier.testTag("task-${task.taskId}")) {

@@ -57,8 +57,51 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
     debitAccountNumber: "0720123456",
     debitAccountName: "Kopi Kaki Pte. Ltd.",
   });
+  // Payroll → Allowance treatment, set once: the fixed shift allowance is part of the gross rate of
+  // pay, the transport allowance (a travelling allowance) is not. Unset, every run would warn.
+  const allowances = await payroll.get<{
+    items: { allowanceTypeId: string; code: string; cpfLiable: boolean; prorate: boolean }[];
+  }>("/api/v1/payroll/allowance-settings");
+  for (const a of allowances.items) {
+    await payroll.put(`/api/v1/payroll/allowance-settings/${a.allowanceTypeId}`, {
+      cpfLiable: a.cpfLiable,
+      prorate: a.prorate,
+      grossRateIncluded: a.code === "SHIFT",
+    });
+  }
   const hr = await as("hr");
   await hr.post("/api/v1/claims/types/starter", {});
+
+  /**
+   * Ticks off open items of someone's onboarding or offboarding checklist, each by the person it is
+   * assigned to (`manager`: the member acting as their manager), for the roles in `roles`. Everyone
+   * the seed hires or lets go is a Singapore citizen, so a work-pass item is skipped with a reason.
+   */
+  const tickChecklist = async (
+    employeeId: string | undefined,
+    kind: "onboarding" | "offboarding",
+    manager: string,
+    roles: readonly string[],
+  ) => {
+    if (!employeeId) throw new Error("No such person in the seed");
+    const lists = await (await as("hr")).get<{
+      items: { kind: string; items: { id: string; title: string; assigneeRole: string; status: string }[] }[];
+    }>(`/api/v1/employees/${employeeId}/checklists`);
+    const by: Record<string, string> = { hr_admin: "hr", payroll_admin: "payroll", manager };
+    for (const item of lists.items.filter((l) => l.kind === kind).flatMap((l) => l.items)) {
+      if (item.status !== "open" || !roles.includes(item.assigneeRole)) continue;
+      await (await as(by[item.assigneeRole] ?? "owner")).post(
+        `/api/v1/people/checklist-items/${item.id}`,
+        /work pass/i.test(item.title)
+          ? { action: "skip", reason: "Singapore citizen: no work pass to cancel." }
+          : { action: "done" },
+      );
+    }
+  };
+  // Farhan's last day was 30 June, before the months this demo shows: his offboarding was done then,
+  // not left on everyone's Home as work four months overdue.
+  clock.set("2026-06-30T17:30");
+  await tickChecklist(e.former, "offboarding", "tp_lead", ["hr_admin", "payroll_admin", "manager"]);
   const types = await hr.get<{ items: { id: string; code: string }[] }>("/api/v1/claims/types");
   const typeId = (code: string) => {
     const t = types.items.find((x) => x.code === code);
@@ -112,6 +155,56 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
     return picked.length;
   };
 
+  /**
+   * Kopi Kaki moved to Crow HR in July 2026, so its January to June figures come from the previous
+   * payroll system, through People → Import → Year-to-date balances (the import an install uses).
+   * The figures are fictional: each person's July pay (ordinary wages, CPF, SHG) for every month
+   * they were employed from January to June, with no bonuses. With them in place, payroll has the
+   * whole year for the AW ceiling and IR8A, and no run warns that January to June are missing.
+   */
+  const importOpeningBalances = async (julyRunId: string) => {
+    const prep = await as("payroll");
+    const view = await prep.get<{ rows: { employeeId: string; employeeNumber: string }[] }>(
+      `/api/v1/payroll/runs/${julyRunId}`,
+    );
+    const dollars = (c: number) => `${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`;
+    const lines = ["employee_number,year,through_month,ow_ytd,ow_cpf_ytd,aw_ytd,cpf_ee_ytd,cpf_er_ytd,shg_ytd"];
+    for (const row of view.rows) {
+      const d = await prep.get<{
+        input: { employment?: { hireDate?: string } } | null;
+        result: {
+          totals: { grossCents: number; cpfEmployeeCents: number; cpfEmployerCents: number; shgCents: number };
+          cpf: { owSubjectCents: number } | null;
+        } | null;
+      }>(`/api/v1/payroll/runs/${julyRunId}/employees/${row.employeeId}`);
+      const hire = d.input?.employment?.hireDate ?? "2026-01-01";
+      // Months employed from January to June 2026 (the month of a mid-month hire counts).
+      const months = hire >= "2026-07-01" ? 0 : hire < "2026-01-01" ? 6 : 7 - Number(hire.slice(5, 7));
+      if (!d.result || months === 0) continue;
+      const t = d.result.totals;
+      const times = (c: number) => dollars(c * months);
+      lines.push(
+        [
+          row.employeeNumber,
+          "2026",
+          "2026-06",
+          times(t.grossCents),
+          times(d.result.cpf?.owSubjectCents ?? 0),
+          "0.00",
+          times(t.cpfEmployeeCents),
+          times(t.cpfEmployerCents),
+          times(t.shgCents),
+        ].join(","),
+      );
+    }
+    const preview = await prep.post<{ jobId: string; canCommit: boolean; errors?: unknown }>(
+      "/api/v1/people/imports/ytd/preview",
+      { fileName: "ytd-jan-jun-2026.csv", content: `${lines.join("\n")}\n` },
+    );
+    if (!preview.canCommit) throw new Error(`YTD import has errors: ${JSON.stringify(preview).slice(0, 2000)}`);
+    await prep.post(`/api/v1/people/imports/${preview.jobId}/commit`, {});
+  };
+
   const runMonth = async (month: string, items: ItemInput[], close = true) => {
     const [y, m] = month.split("-");
     const at = (day: number, time: string) => clock.set(`${y}-${m}-${String(day).padStart(2, "0")}T${time}`);
@@ -121,6 +214,13 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
     for (const item of items) await prep.post(`/api/v1/payroll/runs/${run.id}/items`, item);
     at(21, "11:30");
     await prep.post(`/api/v1/payroll/runs/${run.id}/compute`, {});
+    if (month === "2026-07") {
+      // The first run warns that January to June are missing: the payroll admin imports them and recomputes.
+      at(21, "11:50");
+      await importOpeningBalances(run.id);
+      at(21, "12:05");
+      await prep.post(`/api/v1/payroll/runs/${run.id}/compute`, {});
+    }
     if (!close) return run.id;
     at(22, "09:15");
     const submitter = await as("payroll");
@@ -281,6 +381,16 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
   await decideAll("hr", (t) => t.subjectType === "claim", "approve");
 
   const outletScheduledDays = await seedOperations(h);
+
+  // Darren's first day, 12 Oct: his bank details came with his hire record and his accounts were set
+  // up that morning. HR's and his own items follow during the month.
+  clock.set("2026-10-12T17:00");
+  await tickChecklist(e.joiner, "onboarding", "owner", ["payroll_admin", "manager"]);
+  // Priyanka's last day was 16 Oct: the owner collected her things and HR closed their items that
+  // evening. Her final pay stays open for payroll: it goes out with the October run, still a draft
+  // (see its warning).
+  clock.set("2026-10-16T18:00");
+  await tickChecklist(e.leaver_oct, "offboarding", "owner", ["hr_admin", "manager"]);
 
   // The October run: computed draft, not yet submitted (the payroll admin's next step).
   runs["2026-10"] = await runMonth(

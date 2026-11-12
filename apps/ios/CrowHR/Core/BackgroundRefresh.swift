@@ -41,7 +41,7 @@ struct LocalNotice: Equatable, Sendable {
 
     /// Where tapping it opens.
     var target: AppTarget {
-        if let link { return AppTarget.from(link: link) }
+        if let link, case let t = AppTarget.from(link: link), t != .notifications { return t }
         return route == .approvals ? .approvals : .notifications
     }
 
@@ -131,9 +131,10 @@ enum InboxCursor {
         let unread = fresh.filter { $0.readAt == nil }
         guard !unread.isEmpty, notificationsEnabled else { return nil }
         let route: LocalNotice.Route = unread.contains { $0.category == "approvals" } ? .approvals : .notifications
-        let only = unread.count == 1 ? unread.first : nil
+        // One new item the app has a screen for opens it (and is marked read); otherwise the inbox.
+        let only = unread.count == 1 ? unread.first.flatMap { AppTarget.from(link: $0.link) == .notifications ? nil : $0 } : nil
         return LocalNotice(title: BackgroundRefresh.notificationTitle, body: BackgroundRefresh.notificationBody(newItems: unread.count), route: route,
-                           link: only?.link, notificationID: only?.link == nil ? nil : only?.id)
+                           link: only?.link, notificationID: only?.id)
     }
 
     /// The `createdAt` cursor, for servers without the opaque one.

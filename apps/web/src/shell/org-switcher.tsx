@@ -4,12 +4,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import * as React from "react";
 import { useMe } from "../auth/session.ts";
 import { ApiError, apiGet, apiPost } from "../lib/api.ts";
@@ -81,7 +80,7 @@ export function OrgSwitcher({ className }: { className?: string }) {
         <DropdownMenuItem disabled className="data-[disabled]:opacity-100">
           <Check className="!text-ink" />
           <span className="truncate">{current.name}</span>
-          <span className="ml-auto font-azeret text-[10px] uppercase tracking-wider text-primary-200">Current</span>
+          <span className="ml-auto text-2xs text-primary-200">Current</span>
         </DropdownMenuItem>
         {list.isPending ? (
           <DropdownMenuItem disabled>
@@ -109,11 +108,16 @@ export function OrgSwitcher({ className }: { className?: string }) {
             >
               <span aria-hidden className="size-4" />
               <span className="min-w-0 truncate">{o.name}</span>
-              <span className="ml-auto font-azeret text-[10px] uppercase tracking-wider text-primary-200">
+              <span
+                className={cn(
+                  "ml-auto text-2xs text-primary-200",
+                  !(switchTo.isPending && switchTo.variables?.id === o.id) && o.status !== "former" && "num",
+                )}
+              >
                 {switchTo.isPending && switchTo.variables?.id === o.id
                   ? "Switching…"
                   : o.status === "former"
-                    ? "Former"
+                    ? "Former member"
                     : o.slug}
               </span>
             </DropdownMenuItem>
@@ -122,12 +126,6 @@ export function OrgSwitcher({ className }: { className?: string }) {
         {list.isSuccess && others.length === 0 ? (
           <p className="px-2 py-1.5 text-2xs text-primary-300">You belong to this organisation only.</p>
         ) : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          <Plus />
-          Add organisation
-          <span className="ml-auto font-azeret text-[10px] uppercase tracking-wider">Not yet</span>
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

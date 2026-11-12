@@ -3,6 +3,7 @@ import {
   AlertDescription,
   Badge,
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -19,6 +20,7 @@ import {
   SelectValue,
   Skeleton,
   StatusPill,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -230,9 +232,7 @@ function TypeRow({ type, onEdit }: { type: PolicyType; onEdit: () => void }) {
         <p className="flex flex-wrap items-center gap-2">
           <span className="font-azeret text-xs font-semibold">{type.label}</span>
           {type.ownerOnly ? <Badge variant="muted">Owner only</Badge> : null}
-          {!type.installed ? (
-            <span className="font-azeret text-[10px] uppercase tracking-wider text-primary-200">Not in use yet</span>
-          ) : null}
+          {!type.installed ? <span className="text-2xs text-primary-200">Not in use yet</span> : null}
         </p>
         {def ? (
           <div className="flex flex-wrap items-center gap-2 text-2xs text-primary-300">
@@ -335,7 +335,7 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
               className="flex flex-col gap-2 rounded-md border border-border p-3"
               data-testid="policy-draft"
             >
-              <legend className="px-1 font-azeret text-2xs font-semibold uppercase tracking-wider">
+              <legend className={cn("px-1", textStyle.group)}>
                 {d.condition === null ? "Normally" : "Larger amounts"}
               </legend>
               {d.condition !== null && d.condition.amountGte !== undefined ? (

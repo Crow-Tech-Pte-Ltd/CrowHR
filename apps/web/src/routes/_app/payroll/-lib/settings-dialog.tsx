@@ -1,6 +1,7 @@
 import type { PayrollSettingsDto } from "@crowhr/core";
 import {
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -15,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -133,9 +135,7 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
         </span>
         <Switch checked={autoRelease} onCheckedChange={setAutoRelease} aria-label="Release payslips on approval" />
       </div>
-      <p className="mt-1 font-azeret text-[10px] font-semibold uppercase tracking-wider text-primary-300 sm:col-span-2">
-        Bank file debit account
-      </p>
+      <p className={cn("mt-1 sm:col-span-2", textStyle.group)}>Bank file debit account</p>
       <FormField label="Bank SWIFT/BIC" error={errors.debitBankBic}>
         <Input value={bic} onChange={(e) => setBic(e.target.value)} placeholder="DBSSSGSG" />
       </FormField>
@@ -149,7 +149,7 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
       <FormField label="Account name" className="sm:col-span-2" error={errors.debitAccountName}>
         <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
       </FormField>
-      <p className="mt-1 font-azeret text-[10px] font-semibold uppercase tracking-wider text-primary-300 sm:col-span-2">
+      <p className={cn("mt-1 sm:col-span-2", textStyle.group)}>
         Work Permit levy estimate (MOM's bill is authoritative)
       </p>
       <FormField label="Sector" hint="As on MOM's levy bill.">

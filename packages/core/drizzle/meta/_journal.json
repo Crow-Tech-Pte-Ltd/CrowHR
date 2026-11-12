@@ -141,6 +141,20 @@
       "when": 1794506170719,
       "tag": "0019_timesheet_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794508069889,
+      "tag": "0020_ir8a_appendices",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794509417609,
+      "tag": "0021_email_changes",
+      "breakpoints": true
     }
   ]
 }

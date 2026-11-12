@@ -173,6 +173,11 @@ support once a version has shipped with it, so the iPad layouts are designed, no
 - **Native sign-in:** `/api/v1/native/{authorize,token,revoke}` with PKCE S256.
 - **Punches:** `POST /api/v1/attendance/punches` with `source: "ios"`, the idempotency key and
   `queued`.
+  - The punch's time is the tap's, taken before the location fix (up to 8 s).
+  - The queue file is unreadable while the phone is locked (`NSFileProtectionComplete`), and iOS
+    can start the app in the background then. Until the file has been read, the app neither
+    writes it nor sends anything; it tries again on every use, so the punches appear and are sent
+    once the phone is unlocked.
   - `elapsedMs` (monotonic time since the tap) is sent only when the phone hasn't restarted
     since the tap. The app checks this with the kernel boot session id.
   - The time-zone offset stays on the phone.
@@ -183,11 +188,12 @@ support once a version has shipped with it, so the iPad layouts are designed, no
   start can be iOS launching the app for a background refresh).
   - Each item's `link` (a path on the server, such as `/inbox?task=<id>` or `/leave?request=<id>`)
     says what it is about (`AppTarget`, `notification-link-cases.json`). Tapping it in the inbox
-    marks it read (`POST /api/v1/notifications/{id}/read`) and opens that item; a link the app has
-    no screen for (documents, people, payroll) only marks it read.
-  - The local notification's text is a count only. When it announces one new item, that item's
-    link and id ride in its `userInfo` (never shown), so tapping it opens the item and marks it
-    read; with several it opens the approvals or notifications inbox.
+    marks it read (`POST /api/v1/notifications/{id}/read`) and opens that item (`/attendance`
+    opens the clock on Today); a link the app has no screen for (documents, people, payroll) only
+    marks it read. An id in a link is 1 to 64 letters, digits and hyphens, as on Android.
+  - The local notification's text is a count only. When it announces one new item the app has a
+    screen for, that item's link and id ride in its `userInfo` (never shown), so tapping it opens
+    the item and marks it read; otherwise it opens the approvals or notifications inbox.
   - The Inbox tab's badge is `GET /api/v1/notifications/unread-count` (and the list's `unread`),
     refreshed on sign-in, on return to the app and after a background refresh. The app icon shows
     the same count while notifications are on.
@@ -197,6 +203,9 @@ support once a version has shipped with it, so the iPad layouts are designed, no
   managers, and for anyone `GET /api/v1/approvals/tasks` has tasks for (a reporting-line manager
   without the role, a named approver, out-of-office cover). A notification about a task that no
   longer waits says so above the list.
+- **Redirects** are never followed (as on Android): a 3xx is handed back as the answer, so a
+  request and its token can't be taken to another host. The UI-test recorder also records where
+  each answer came from.
 - **Sessions:** a refresh ends the session only when the server answers a 4xx with its own error
   envelope (`invalid_grant`); a certificate error, an unreadable reply or a proxy's error page keeps
   the tokens. With the lock on, the app asks on every cold start and after more than 5 minutes in
@@ -220,7 +229,9 @@ support once a version has shipped with it, so the iPad layouts are designed, no
     The SGD preview and total use the server's rule (integers, one half-up rounding per line;
     `ClaimMoney`), and a type's receipt rule applies to the SGD amount. Each receipt is uploaded
     first (`POST /api/v1/claims/receipts`) and reused if the claim has to be sent again.
-  - A claim's screen is `GET /api/v1/claims/{id}`; its `actions` decide Submit
+  - A claim's screen is `GET /api/v1/claims/{id}`. A line's `fxWarning` (a rate more than 20%
+    from the organisation's last one for the currency) shows the web's "Check the exchange rate."
+    warning. Its `actions` decide Submit
     (`POST …/submit`), Withdraw (`POST …/withdraw`) and Delete (`DELETE`, drafts only).
 - **Schedule:** `GET /api/v1/scheduling/me` (shifts with `rosterId` and `pendingSwap`, `weeks`,
   `openShifts`, `swaps`; lists a server doesn't send count as empty, and every week as published).

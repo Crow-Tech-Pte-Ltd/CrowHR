@@ -6,6 +6,7 @@ import android.provider.Settings
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.viewModelScope
 import crowtech.crowhr.notify.Notifications
 import crowtech.crowhr.ui.components.LocalRefresh
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,7 +52,9 @@ import crowtech.crowhr.api.UnreadCount
 import crowtech.crowhr.connect.AppScreen
 import crowtech.crowhr.core.Formats
 import crowtech.crowhr.security.Biometric
+import crowtech.crowhr.ui.Destinations
 import crowtech.crowhr.ui.Route
+import crowtech.crowhr.connect.UrlCodec
 import crowtech.crowhr.ui.ScreenContext
 import crowtech.crowhr.ui.components.CrowCard
 import crowtech.crowhr.ui.components.CrowIcons
@@ -95,6 +98,13 @@ fun MoreScreen(ctx: ScreenContext) {
     }
     Column {
         ScreenTitle("More")
+        ctx.me?.demoCompany?.let { demo ->
+            Notice(
+                "Everything here is fictional and private to you. This demo company and all that's in it are deleted on " +
+                    "${Formats.parseInstant(demo.expiresAt)?.let(Formats::dateTime) ?: Formats.date(demo.expiresAt)}.",
+                Tone.Accent, Modifier.padding(bottom = 12.dp).testTag("demo-company-notice"), title = "Demo company",
+            )
+        }
         if (ctx.connection.isAvailable(AppScreen.Notifications)) {
             MenuRow("Notifications", unread?.let { if (it == 0) "Nothing new" else "$it unread" }, "more-notifications") { ctx.push(Route.Notifications) }
         }
@@ -109,14 +119,9 @@ fun MoreScreen(ctx: ScreenContext) {
 fun NotificationsScreen(ctx: ScreenContext) {
     val scope = rememberCoroutineScope()
     val loader = rememberLoader(ctx.connection.key) {
-        ctx.api.get("/api/v1/notifications", NotificationPage.serializer(), mapOf("pageSize" to "50", "sort" to "-createdAt"))
-    }
-    var error by remember { mutableStateOf<String?>(null) }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ScreenTitle("Notifications")
-        error?.let { Notice(it, Tone.Danger) }
-        LoadContent(loader, "Loading notifications…") { page ->
-            // The inbox is open: what's here now doesn't need a local notification later.
+        ctx.api.get("/api/v1/notifications", NotificationPage.serializer(), mapOf("pageSize" to "50", "sort" to "-createdAt")).also { page ->
+            // The inbox is open: what's here now doesn't need a local notification later. Once
+            // per load (it was written on every recomposition of the list).
             if (page.supportsCursor) {
                 page.cursor?.let { ctx.graph.settings.setRefreshCursor(ctx.connection.key, crowtech.crowhr.notify.RefreshRunner.SERVER_PREFIX + it) }
             } else {
@@ -125,29 +130,68 @@ fun NotificationsScreen(ctx: ScreenContext) {
                     if (cursor == null || newest.createdAt > cursor) ctx.graph.settings.setRefreshCursor(ctx.connection.key, newest.createdAt)
                 }
             }
+        }
+    }
+    var error by remember { mutableStateOf<String?>(null) }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ScreenTitle("Notifications")
+        error?.let { Notice(it, Tone.Danger) }
+        LoadContent(loader, "Loading notifications…") { page ->
             if (page.unread > 0) {
                 LinkButton("Mark all as read", {
                     scope.launch {
-                        try { ctx.api.postEmpty("/api/v1/notifications/read-all"); loader.reload() } catch (e: Exception) { error = e.userMessage() }
+                        try {
+                            ctx.api.postEmpty("/api/v1/notifications/read-all")
+                            loader.reload()
+                            ctx.refreshBadges()
+                        } catch (e: Exception) {
+                            error = e.userMessage()
+                        }
                     }
                 })
             }
             if (page.items.isEmpty()) EmptyState("No notifications", "Decisions on your requests and new tasks appear here.")
-            page.items.forEach { n -> NotificationRow(n) {
-                if (n.readAt == null) scope.launch {
-                    runCatching { ctx.api.postEmpty("/api/v1/notifications/${n.id}/read") }
-                    loader.reload()
+            page.items.forEach { n ->
+                val destination = Destinations.forLink(n.link) { ctx.connection.isAvailable(it) }
+                NotificationRow(n, opens = destination != null) {
+                    if (n.readAt == null && destination != null) {
+                        // The inbox is left at once, so it's marked read in the app's scope, not
+                        // this screen's (which ends with it).
+                        ctx.vm.viewModelScope.launch {
+                            runCatching { ctx.api.postEmpty("/api/v1/notifications/${UrlCodec.encode(n.id)}/read") }
+                            ctx.refreshBadges()
+                        }
+                    } else if (n.readAt == null) scope.launch {
+                        try {
+                            ctx.api.postEmpty("/api/v1/notifications/${UrlCodec.encode(n.id)}/read")
+                            // Read on the server: the row and the count change here, without
+                            // fetching all 50 again.
+                            (loader.value as? LoadState.Ready)?.let { shown ->
+                                loader.state.value = shown.copy(value = shown.value.markingRead(n.id, ctx.graph.clock().toString()))
+                            }
+                            ctx.refreshBadges()
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            loader.reload()
+                        }
+                    }
+                    // Tapping opens what it's about, as on the web. Screens on this tab are pushed
+                    // on top, so Back returns to the inbox; another tab's are opened there.
+                    destination?.let(ctx.open)
                 }
-            } }
+            }
         }
     }
 }
 
 @Composable
-private fun NotificationRow(n: AppNotification, onOpen: () -> Unit) {
+private fun NotificationRow(n: AppNotification, opens: Boolean, onOpen: () -> Unit) {
     Row(
         // TalkBack reads the title, text and date once, then "Unread" (as iOS's accessibility value).
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button, onClick = onOpen).padding(vertical = 10.dp).testTag("notification-row")
+        Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClickLabel = if (opens) "Open" else "Mark as read", onClick = onOpen)
+            .padding(vertical = 10.dp).testTag("notification-row")
             .semantics { if (n.readAt == null) stateDescription = "Unread" },
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -157,7 +201,11 @@ private fun NotificationRow(n: AppNotification, onOpen: () -> Unit) {
             Text(n.title, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = if (n.readAt == null) FontWeight.Medium else FontWeight.Normal))
             n.body?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted) }
             Text(Formats.parseInstant(n.createdAt)?.let(Formats::dateTime) ?: "", style = Numeric.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize), color = Crow.colors.muted)
+            if (!opens && n.link.isNotBlank() && n.link != "/") {
+                Text("Open Crow HR on the web to see this.", style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted)
+            }
         }
+        if (opens) Icon(CrowIcons.Chevron, contentDescription = null, tint = Crow.colors.muted, modifier = Modifier.padding(top = 2.dp).size(18.dp))
     }
     Hairline()
 }

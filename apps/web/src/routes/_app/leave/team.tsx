@@ -1,7 +1,7 @@
-import { Button, Card, cn, EmptyState, Skeleton } from "@crowhr/ui";
+import { Button, Card, cn, EmptyState, Skeleton, textStyle } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CalendarCheck2, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import { useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
@@ -102,9 +102,8 @@ function TeamCalendarPage() {
         </Card>
       ) : q.data.people.length === 0 ? (
         <EmptyState
-          icon={<CalendarCheck2 />}
-          title="Nobody is on leave in these two weeks"
-          description="Approved leave shows here. Try the next two weeks, or another view."
+          title="Nobody is on leave in these two weeks."
+          description="Approved and pending leave shows here. Try the next two weeks, or another team."
         />
       ) : (
         <>
@@ -153,7 +152,10 @@ function Grid({ data, onOpen }: { data: CalendarView; onOpen: (id: string) => vo
           <tr>
             <th
               scope="col"
-              className="sticky left-0 z-10 w-48 border-b border-border bg-background px-3 py-2 text-left font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200"
+              className={cn(
+                "sticky left-0 z-10 w-48 border-b border-border bg-background px-3 py-2 text-left",
+                textStyle.column,
+              )}
             >
               Name
             </th>
@@ -286,11 +288,13 @@ function DayList({ data, onOpen }: { data: CalendarView; onOpen: (id: string) =>
     <ol className="flex flex-col gap-3" data-testid="leave-day-list">
       {byDay.map(({ date, people }) => (
         <li key={date}>
-          <h2 className="mb-1 flex items-baseline gap-2 font-azeret text-2xs font-semibold uppercase tracking-wider">
+          <h2 className={cn("mb-1 flex items-baseline gap-2", textStyle.group)}>
             <span className="num">
               {weekdayOf(date)} {dateRange(date, date)}
             </span>
-            {holiday.has(date) ? <span className="normal-case text-ink">{holiday.get(date)}</span> : null}
+            {holiday.has(date) ? (
+              <span className="font-sans font-normal text-primary-300">{holiday.get(date)}</span>
+            ) : null}
           </h2>
           {people.length ? (
             <ul className="divide-y divide-border rounded-lg border border-border bg-surface-50">

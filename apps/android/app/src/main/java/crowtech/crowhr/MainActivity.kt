@@ -19,6 +19,7 @@ import crowtech.crowhr.notify.Notifications
 import crowtech.crowhr.ui.AppRoot
 import crowtech.crowhr.ui.AppViewModel
 import crowtech.crowhr.ui.Images
+import crowtech.crowhr.ui.OpenRequest
 import crowtech.crowhr.ui.theme.CrowTheme
 
 class MainActivity : ComponentActivity() {
@@ -69,7 +70,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handle(intent: Intent?) {
-        intent?.getStringExtra(Notifications.EXTRA_OPEN)?.let { vm.openRequest.value = it }
+        intent?.getStringExtra(Notifications.EXTRA_OPEN)?.let { inbox ->
+            vm.onOpenRequest(
+                OpenRequest(
+                    inbox = inbox,
+                    link = intent.getStringExtra(Notifications.EXTRA_LINK),
+                    connectionKey = intent.getStringExtra(Notifications.EXTRA_CONNECTION),
+                    notificationId = intent.getStringExtra(Notifications.EXTRA_NOTIFICATION),
+                ),
+            )
+        }
         val data = intent?.dataString ?: return
         if (DeepLinks.isOAuthRedirect(data)) vm.onRedirect(data) else vm.onConnectLink(data)
     }

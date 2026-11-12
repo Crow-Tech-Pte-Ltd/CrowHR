@@ -10,15 +10,15 @@ Two settings matter:
 - `PUBLIC_URL` is what people type, e.g. `https://hr.example.sg`. HTTPS cookies follow from it, so TLS can end at the proxy.
 - `TRUSTED_PROXIES` lists the proxy's address so the app believes its `X-Forwarded-For/-Proto/-Host`. If it is wrong, the app logs `Ignoring X-Forwarded-* headers from 172.18.0.5 … set TRUSTED_PROXIES=172.18.0.5`. **Settings → System → This request** and `crowhr doctor` show what the app sees.
 
-## Which examples were tested
+## How each example was tested
 
-| Setup | Status | How |
-| --- | --- | --- |
-| No proxy (LAN) | <span class="crow-pill crow-pill--tested">Tested</span> | Automated: the default compose install. |
-| Caddy | <span class="crow-pill crow-pill--tested">Tested</span> | Automated: the shipped `Caddyfile.example` (below) in a `caddy:2-alpine` container on the compose network. Caddy installed on the host was not tested. |
-| nginx | <span class="crow-pill crow-pill--tested">Tested</span> | Automated: the config below in `nginx:1.30-alpine` on the compose network, and the host variant below (with host networking standing in for nginx installed on the host). Only nginx 1.30. |
-| Traefik | <span class="crow-pill crow-pill--tested">Tested</span> | Automated: the labels below with `traefik:v3.7` on the compose network (Docker provider, `exposedByDefault=false`, entrypoint `websecure` on port 443). Also by hand behind Cloudflare Tunnel, with a file-provider route. |
-| Cloudflare Tunnel | <span class="crow-pill crow-pill--tested">Tested</span> | By hand: a remote-managed tunnel (token) in front of Traefik. Routing the hostname straight to `http://app:8080`, as below, was not tested. |
+| Setup | How it was tested |
+| --- | --- |
+| No proxy (LAN) | Automated: the default compose install. |
+| Caddy | Automated: the shipped `Caddyfile.example` (below) in a `caddy:2-alpine` container on the compose network. Caddy installed on the host was not tested. |
+| nginx | Automated: the config below in `nginx:1.30-alpine` on the compose network, and the host variant below (with host networking standing in for nginx installed on the host). Only nginx 1.30. |
+| Traefik | Automated: the labels below with `traefik:v3.7` on the compose network (Docker provider, `exposedByDefault=false`, entrypoint `websecure` on port 443). Also by hand behind Cloudflare Tunnel, with a file-provider route. |
+| Cloudflare Tunnel | By hand: a remote-managed tunnel (token) in front of Traefik. Routing the hostname straight to `http://app:8080`, as below, was not tested. |
 
 The automated test runs on every change to Crow HR. For each proxy it sets `.env` as below (`PUBLIC_URL=https://hr.example.sg`), sends requests in which the client adds its own `X-Forwarded-For`, `X-Forwarded-Host` and `X-Forwarded-Proto`, and checks:
 

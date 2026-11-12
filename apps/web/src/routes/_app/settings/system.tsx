@@ -1,5 +1,5 @@
 import type { SystemStatus } from "@crowhr/core";
-import { Alert, AlertDescription, AlertTitle, Skeleton, StatusPill } from "@crowhr/ui";
+import { Alert, AlertDescription, AlertTitle, Skeleton, StatusPill, textStyle } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { CircleAlert, Lock, TriangleAlert } from "lucide-react";
@@ -108,7 +108,7 @@ function Section({ title, children, aside }: { title: string; children: React.Re
   return (
     <section className="rounded-lg border border-border bg-surface-50" aria-label={title}>
       <header className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <h2 className="font-azeret text-2xs font-semibold uppercase tracking-wider">{title}</h2>
+        <h2 className={textStyle.section}>{title}</h2>
         {aside}
       </header>
       <dl className="divide-y divide-border px-4">{children}</dl>

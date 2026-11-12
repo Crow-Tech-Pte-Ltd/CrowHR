@@ -2,9 +2,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 import { cn } from "../lib/cn.ts";
 
-/** Status uses success / warning / danger only (plus neutral and info). */
+/**
+ * A status chip. Status uses success / warning / danger only (plus neutral and info).
+ *
+ * Show a chip only when the status carries information: an exception, something that needs
+ * someone, or a row that differs from its neighbours. The normal state (an active member, a
+ * statutory leave type, a paid run) is plain text or nothing, and a list filtered to one status
+ * doesn't repeat it on every row. Sentence case; the colour plus the word is enough, so there is
+ * no dot unless `dot` is set.
+ */
 export const statusPillVariants = cva(
-  "inline-flex h-5 items-center gap-1.5 whitespace-nowrap rounded-sm border px-1.5 font-azeret text-2xs font-medium uppercase tracking-wide",
+  "inline-flex h-5 items-center gap-1.5 whitespace-nowrap rounded-sm border px-1.5 font-azeret text-2xs font-medium",
   {
     variants: {
       tone: {
@@ -33,7 +41,7 @@ export interface StatusPillProps
   dot?: boolean;
 }
 
-export function StatusPill({ className, tone, dot = true, children, ...props }: StatusPillProps) {
+export function StatusPill({ className, tone, dot = false, children, ...props }: StatusPillProps) {
   return (
     <span className={cn(statusPillVariants({ tone }), className)} {...props}>
       {dot ? <span aria-hidden className={cn("size-1.5 rounded-full", DOT[tone ?? "neutral"])} /> : null}

@@ -14,7 +14,7 @@ import {
 } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, FileBarChart } from "lucide-react";
+import { Download } from "lucide-react";
 import * as React from "react";
 import { duration, summaryCsvHref, summaryQuery } from "../../../attendance/api.ts";
 import { AttendanceNav } from "../../../attendance/attendance-nav.tsx";
@@ -69,9 +69,8 @@ function SummaryPage() {
         ) : items.length === 0 ? (
           <EmptyState
             variant="plain"
-            icon={<FileBarChart />}
-            title="No one to report"
-            description="People in your scope appear here."
+            title="No one to report on for these dates."
+            description="The employees you can see show here with their days worked, hours, late arrivals and overtime."
           />
         ) : (
           <div className="overflow-x-auto">
@@ -93,8 +92,11 @@ function SummaryPage() {
                 {items.map((r) => (
                   <TableRow key={r.employeeId} data-testid="summary-row">
                     <TableCell className="max-w-[12rem] truncate font-medium">{r.name}</TableCell>
-                    <TableCell className="num text-right">{r.daysWorked}</TableCell>
-                    <TableCell className="num text-right">{duration(r.workedMinutes)}</TableCell>
+                    {/* A dash for zero, like the other columns: the zero itself isn't the information. */}
+                    <TableCell className="num text-right">{r.daysWorked || "—"}</TableCell>
+                    <TableCell className="num text-right">
+                      {r.workedMinutes ? duration(r.workedMinutes) : "—"}
+                    </TableCell>
                     <TableCell className="num hidden text-right sm:table-cell">
                       {r.lateCount ? `${r.lateCount}× ${duration(r.lateMinutes)}` : "—"}
                     </TableCell>

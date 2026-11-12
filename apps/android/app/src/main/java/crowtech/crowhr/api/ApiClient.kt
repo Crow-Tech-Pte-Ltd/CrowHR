@@ -17,6 +17,7 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.time.Instant
 import javax.net.ssl.SSLException
 
 @Serializable private data class ErrorEnvelope(val error: ErrorBody? = null)
@@ -40,14 +41,16 @@ data class RawResponse(val status: Int, val body: String)
 
 /**
  * Bearer-token client for one saved connection. Tokens only ever travel in the Authorization
- * header. A 401 triggers one refresh and one retry; if the refresh is refused the session has
- * ended ([onSessionEnded]: the app clears local data and returns to sign-in).
+ * header. An access token within a minute of expiring is renewed first (as iOS does); a 401
+ * triggers one refresh and one retry; if the refresh is refused the session has ended
+ * ([onSessionEnded]: the app clears local data and returns to sign-in).
  */
 class ApiClient(
     val connection: SavedConnection,
     private val http: OkHttpClient,
     private val tokens: TokenStore,
     private val auth: NativeAuth,
+    private val now: () -> Instant = Instant::now,
     private val onSessionEnded: (SavedConnection) -> Unit,
 ) {
     private val jsonType = "application/json".toMediaType()
@@ -57,6 +60,11 @@ class ApiClient(
 
     suspend fun <B, T> post(path: String, body: B, serializer: SerializationStrategy<B>, deserializer: DeserializationStrategy<T>): T =
         decode(deserializer, execute("POST", path, CrowJson.encodeToString(serializer, body).toRequestBody(jsonType)))
+
+    suspend fun <B, T> put(path: String, body: B, serializer: SerializationStrategy<B>, deserializer: DeserializationStrategy<T>): T =
+        decode(deserializer, execute("PUT", path, CrowJson.encodeToString(serializer, body).toRequestBody(jsonType)))
+
+    suspend fun delete(path: String) { execute("DELETE", path, null) }
 
     suspend fun postEmpty(path: String) { execute("POST", path, ByteArray(0).toRequestBody(null)) }
 
@@ -89,9 +97,23 @@ class ApiClient(
     private suspend fun executeBytes(method: String, path: String): ByteArray = call(method, path, null, true).second
 
     private suspend fun call(method: String, path: String, body: RequestBody?, throwOnError: Boolean): Pair<Int, ByteArray> {
-        val first = tokens.get(connection.key) ?: run {
+        var first = tokens.get(connection.key) ?: run {
             onSessionEnded(connection)
             throw ApiException(401, "session_ended", "Your session has ended. Sign in again.")
+        }
+        // About to expire: renew it first, rather than send a token the server will refuse. The
+        // refresh is single-flight, so parallel requests share it. If the server can't be
+        // reached, the current token is still tried (a 401 then renews it as before).
+        if (first.needsRefresh(now())) {
+            when (auth.refresh(connection, first.accessToken)) {
+                RefreshResult.Refreshed -> tokens.get(connection.key)?.let { first = it }
+                RefreshResult.Offline -> Unit
+                RefreshResult.SessionEnded -> {
+                    tokens.delete(connection.key)
+                    onSessionEnded(connection)
+                    throw ApiException(401, "session_ended", "Your session has ended. Sign in again.")
+                }
+            }
         }
         var result = send(method, path, body, first.accessToken)
         if (result.first == 401) {

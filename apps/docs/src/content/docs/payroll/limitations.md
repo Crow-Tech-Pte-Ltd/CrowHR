@@ -49,7 +49,7 @@ Crow HR does not decide these; it computes from what you enter.
 - **No direct submission** to CPF Board, IRAS or any bank. Crow HR produces files; you upload them.
 - **CPF EZPay file**: built from CPF's specification and a golden-file test, not confirmed by CPF Board or accepted in a live submission. See [CPF EZPay file](/docs/payroll/cpf-ezpay-file/).
 - **Bank file**: generic ISO 20022 `pain.001.001.03`, not mapped to any bank's guide and not tested with any bank. See [bank file](/docs/payroll/bank-file/).
-- **IR8A**: rows for IRAS's import template; several items are not filled, Appendix 8A and 8B are not produced, and AIS API submission is not available. See [IR8A export](/docs/payroll/ir8a-export/).
+- **IR8A**: rows for IRAS's import template, with Appendix 8A and 8B rows from the benefits and share gains recorded under Year end; several items are not filled, owned-premises 2a and 2b are keyed in myTax, and AIS API submission is not available. See [IR8A export](/docs/payroll/ir8a-export/).
 - **Not available**: IR21 tax clearance, income tax withholding, bank-specific formats (DBS, OCBC, UOB and others), MOM or Myinfo integrations.
 
 ## Where the law or format is unclear
@@ -68,9 +68,9 @@ The independent review of the payroll choices marked these as **unclear**: the a
 
 - **Singpass** is tested against Singpass staging only (not production) and its button needs the official logo, which you add yourself. See [Singpass](/docs/admin/sso/singpass/).
 - **Invitation and password-reset emails are not retried**: they are sent once, because their one-time links are never stored. If one doesn't arrive, resend the invitation or have an owner create a reset link. Other emails are retried.
-- **No email change** for a member's sign-in email yet.
+- **Changing the sign-in email needs SMTP**: the new address is verified by a link, so a server without email can't change it ([changing your sign-in email](/docs/admin/sign-in-methods/#changing-your-sign-in-email)). An owner can't change someone else's sign-in email.
 - **No row-level security** in the database: isolation is enforced by the application and composite foreign keys, with a test that every route refuses another organisation's IDs.
 - **The common-password list** is a curated list of a few hundred entries plus patterns, not a breach corpus.
 - **Reverse proxies:** the Caddy, nginx and Traefik examples are tested automatically, with test certificates instead of Let's Encrypt; Cloudflare Tunnel was tested by hand ([reverse proxy](/docs/self-hosting/reverse-proxy/)).
-- **Not in the App Store yet**: the iPhone and iPad [app](/docs/coming-soon/mobile-apps/) is in review. The Android app is on Google Play.
+- **Not in the App Store yet**: the iPhone and iPad [app](/docs/mobile-apps/) is in review. The Android app is on Google Play.
 - **Virus scanning is optional**: configure your own clamd with `CLAMAV_HOST` / `CLAMAV_PORT` ([configuration](/docs/self-hosting/configuration/#optional-virus-scanning)) and receipts, documents and medical certificates are scanned in the background. Without it, uploads are stored unscanned.

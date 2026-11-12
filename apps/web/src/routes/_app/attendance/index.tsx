@@ -15,11 +15,12 @@ import {
   formatDate,
   Skeleton,
   StatusPill,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { CloudOff, LogIn, LogOut, MapPin, UserRound, X } from "lucide-react";
+import { CloudOff, LogIn, LogOut, MapPin, X } from "lucide-react";
 import * as React from "react";
 import { FLAG_TEXT, type Punch, type PunchFlag, sgTime, statusQuery } from "../../../attendance/api.ts";
 import { AttendanceNav } from "../../../attendance/attendance-nav.tsx";
@@ -101,8 +102,7 @@ function ClockPage() {
         <PageHeader title="Attendance" />
         <AttendanceNav current="clock" />
         <EmptyState
-          icon={<UserRound />}
-          title="Your sign-in isn't linked to an employee record"
+          title="Your sign-in isn't linked to an employee record, so there's no clock for you."
           description="There's nothing to clock in to. Ask HR to link your sign-in to your employee record."
         />
       </>
@@ -138,8 +138,11 @@ function ClockPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card className="flex flex-col items-center gap-5 px-5 py-8 text-center" data-testid="clock-card">
           <div>
-            <p className="font-azeret text-2xs uppercase tracking-wider text-primary-200">
-              Singapore time · {formatDate(new Date(now.getTime() + 8 * 3_600_000).toISOString().slice(0, 10))}
+            <p className={textStyle.field}>
+              Singapore time ·{" "}
+              <span className="num">
+                {formatDate(new Date(now.getTime() + 8 * 3_600_000).toISOString().slice(0, 10))}
+              </span>
             </p>
             <p className="num mt-1 text-5xl font-semibold tracking-tight" data-testid="clock-now">
               {sgTime(now.toISOString(), true)}
@@ -336,9 +339,8 @@ function PunchRow({ p }: { p: Punch }) {
           </span>
         ) : null}
       </span>
-      <StatusPill tone={p.status === "flagged" ? "warning" : "success"}>
-        {p.status === "flagged" ? "Check" : "OK"}
-      </StatusPill>
+      {/* A punch that went through is the normal case; only one to check is marked. */}
+      {p.status === "flagged" ? <StatusPill tone="warning">Check</StatusPill> : null}
     </li>
   );
 }

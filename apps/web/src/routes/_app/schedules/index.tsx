@@ -25,11 +25,12 @@ import {
   SelectValue,
   Skeleton,
   StatusPill,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { CalendarClock, ChevronLeft, ChevronRight, Copy, Download, Eraser, Send, UserRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, Download, Eraser, Send, UserRound } from "lucide-react";
 import * as React from "react";
 import { canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
@@ -38,6 +39,7 @@ import { ApiError, apiDelete, apiPatch, apiPost } from "../../../lib/api.ts";
 import {
   addDays,
   COLOUR_BAR,
+  defaultLocation,
   mondayOf,
   type Roster,
   type RosterRef,
@@ -80,8 +82,7 @@ function SchedulesPage() {
   const scopes = useQuery(scopesQuery);
   const week = mondayOf(search.week ?? addDays(todaySg(), 7));
   // `loc=any`: a department-wide roster across locations.
-  const loc =
-    search.loc === "any" ? null : (search.loc ?? scopes.data?.mine.locationId ?? scopes.data?.locations[0]?.id ?? null);
+  const loc = search.loc === "any" ? null : (search.loc ?? defaultLocation(scopes.data));
   const dept = search.dept ?? (search.loc || loc ? null : (scopes.data?.mine.departmentId ?? null));
   const ref: RosterRef = { weekStart: week, locationId: loc, departmentId: dept };
   const roster = useQuery(rosterQuery(ref));
@@ -111,8 +112,7 @@ function SchedulesPage() {
       />
       {noScope ? (
         <EmptyState
-          icon={<CalendarClock />}
-          title="No locations or departments yet"
+          title="There are no locations or departments yet."
           description="Rosters are built per location or department. Add your outlets or departments first."
           actions={
             canForAll(me, "org_structure:create") ? (
@@ -135,8 +135,7 @@ function SchedulesPage() {
           />
           {!ref.locationId && !ref.departmentId ? (
             <EmptyState
-              icon={<CalendarClock />}
-              title="Pick a location or a department"
+              title="Pick a location or a department above."
               description="A roster covers one location, one department, or a department at one location."
             />
           ) : roster.isPending ? (
@@ -144,8 +143,7 @@ function SchedulesPage() {
           ) : roster.isError ? (
             roster.error instanceof ApiError && roster.error.status === 404 ? (
               <EmptyState
-                icon={<CalendarClock />}
-                title="Nothing to show for this roster"
+                title="There is nothing to show for this roster."
                 description={
                   s.canEdit
                     ? "None of your team works here. Pick a location where your team works."
@@ -387,9 +385,7 @@ function RosterBoard({
       {editable ? (
         <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Shift templates">
-            <span className="mr-1 font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300">
-              Assign
-            </span>
+            <span className={cn("mr-1", textStyle.group)}>Assign</span>
             {templates.length ? (
               templates.slice(0, 9).map((t, i) => (
                 <button

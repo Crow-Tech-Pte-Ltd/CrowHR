@@ -1,7 +1,7 @@
 ---
 /**
- * Renders a JSON Schema's properties as a nested list (name, type, required, constraints,
- * sensitivity). Nested objects collapse into <details> so long payloads stay scannable.
+ * Renders a JSON Schema's properties as a nested list (name, type, "optional" for fields that are
+ * not required, constraints, sensitivity). Nested objects collapse into <details> so long payloads stay scannable.
  */
 import { childProperties, constraints, type JsonSchema, sensitivity, typeLabel } from "../../lib/openapi.ts";
 
@@ -26,7 +26,7 @@ const MAX_DEPTH = 8;
           <span class="field-head">
             <code class="field-name">{field.name}</code>
             <span class="field-type">{typeLabel(field.schema)}</span>
-            {field.required && <span class="field-flag">required</span>}
+            {!field.required && <span class="field-optional">optional</span>}
             {sens && <span class="field-flag field-flag--sensitive">sensitive: {sens}</span>}
           </span>
         );

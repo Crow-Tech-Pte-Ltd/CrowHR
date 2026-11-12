@@ -39,7 +39,7 @@ export function EmployeeDocuments({ employeeId, employeeName }: { employeeId: st
           </div>
         ) : !docs.length ? (
           <DocumentsEmpty
-            title="No documents yet"
+            title={`No documents for ${employeeName} yet.`}
             description={
               hr
                 ? `Upload ${employeeName}'s contract, pass copies and certificates, or generate a letter such as their KETs.`

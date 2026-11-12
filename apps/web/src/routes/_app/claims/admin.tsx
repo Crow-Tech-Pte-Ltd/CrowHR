@@ -4,6 +4,7 @@ import {
   type ColumnDef,
   cn,
   DataTable,
+  DatePicker,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -28,14 +29,16 @@ import {
   SelectValue,
   singaporeToday,
   singaporeTodayIso,
+  TableEmptyRow,
+  textStyle,
   toast,
   toIsoDate,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { BadgeCheck, Download, ReceiptText, Search } from "lucide-react";
+import { BadgeCheck, Download, Plus, Search } from "lucide-react";
 import * as React from "react";
-import { can, useMe } from "../../../auth/session.ts";
+import { can, canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import {
@@ -50,6 +53,8 @@ import {
   fieldErrors,
   summaryQuery,
 } from "./-lib/api.ts";
+import { compareClaimNumbers } from "./-lib/claim-number.ts";
+import { ClaimSheet } from "./-lib/claim-sheet.tsx";
 import { ClaimStatusPill } from "./-lib/ui.tsx";
 
 interface AdminSearch {
@@ -76,12 +81,25 @@ const TABS = [
   { value: "all", label: "All" },
 ];
 
-const EMPTY_TITLE: Record<string, string> = {
-  submitted: "No claims waiting",
-  approved: "No approved claims to pay",
-  paid: "No paid claims",
-  "rejected,withdrawn": "No rejected or withdrawn claims",
+const EMPTY: Record<string, [title: string, description: string]> = {
+  submitted: ["No claims waiting for approval.", "Claims show here as soon as employees submit them."],
+  approved: [
+    "No approved claims to pay.",
+    "Approved claims wait here until the next payroll run pays them, or you record a transfer.",
+  ],
+  paid: ["No paid claims yet.", "Claims paid with payroll or by transfer show here with the payment reference."],
+  "rejected,withdrawn": ["No rejected or withdrawn claims.", "Claims an approver rejects or an employee withdraws."],
 };
+const EMPTY_ALL: [title: string, description: string] = [
+  "No claims yet.",
+  "Claims show here as soon as employees submit them.",
+];
+
+/** Tabs that list one status: there the status column would say the same thing on every row. */
+const ONE_STATUS = new Set(["submitted", "approved", "paid"]);
+
+/** Table cells: a dash for zero, where the zero itself isn't the information. */
+const moneyOrDash = (cents: number) => (cents === 0 ? "—" : formatMoney(cents));
 
 function addIsoDays(iso: string, n: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -97,7 +115,7 @@ function monthRange(): { from: string; to: string } {
 }
 
 /** Phones: one line per claim instead of a table that scrolls sideways. */
-function MobileClaims({ rows, loading }: { rows: ClaimRowDto[]; loading: boolean }) {
+function MobileClaims({ rows, loading, showStatus }: { rows: ClaimRowDto[]; loading: boolean; showStatus: boolean }) {
   if (loading || !rows.length) return null;
   return (
     <ul className="mb-4 divide-y divide-border rounded-lg border border-border sm:hidden" aria-label="Claims">
@@ -116,7 +134,7 @@ function MobileClaims({ rows, loading }: { rows: ClaimRowDto[]; loading: boolean
             </span>
             <span className="flex shrink-0 flex-col items-end gap-1">
               <span className="num text-ui font-medium">{formatMoney(r.totalCents)}</span>
-              <ClaimStatusPill status={r.status} />
+              {showStatus ? <ClaimStatusPill status={r.status} /> : <WaitingDays row={r} />}
             </span>
           </Link>
         </li>
@@ -138,6 +156,9 @@ function ClaimsAdminPage() {
   const isAll = scopes.includes("all");
   const canPay = can(me, "claims:pay");
   const canReport = can(me, "reports_claims:read");
+  // Owners and HR admins file claims for employees from here too.
+  const onBehalf = canForAll(me, "claims:create");
+  const [sheet, setSheet] = React.useState(false);
   const range = monthRange();
   const from = search.from ?? range.from;
   const to = search.to ?? range.to;
@@ -205,7 +226,10 @@ function ClaimsAdminPage() {
     {
       id: "claim",
       header: "Claim",
-      accessorFn: (r) => r.claimNumber ?? "",
+      accessorFn: (r) => r.claimNumber ?? undefined,
+      // Numeric (C-9999 before C-10000); drafts have no number and stay last either way.
+      sortUndefined: "last",
+      sortingFn: (a, b) => compareClaimNumbers(a.original.claimNumber, b.original.claimNumber),
       cell: ({ row }) => (
         <Link
           to="/claims/$claimId"
@@ -267,28 +291,36 @@ function ClaimsAdminPage() {
       cell: ({ row }) => <span className="num">{formatMoney(row.original.totalCents)}</span>,
       meta: { numeric: true },
     },
-    {
-      id: "state",
-      header: "Status",
-      accessorFn: (r) => r.status,
-      cell: ({ row }) => {
-        const r = row.original;
-        return (
-          // Wraps under the pill when space is short, so the table fits a laptop screen without scrolling.
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <ClaimStatusPill status={r.status} />
-            {r.status === "submitted" && r.daysWaiting !== null && r.daysWaiting > 7 ? (
-              <span className="num whitespace-nowrap text-2xs font-medium text-warning-400">{r.daysWaiting} days</span>
-            ) : null}
-            {r.approverTask && r.status === "submitted" ? (
-              <Link to="/inbox" className="whitespace-nowrap text-2xs font-medium text-biru-400 hover:underline">
-                Decide in Inbox
-              </Link>
-            ) : null}
-          </span>
-        );
-      },
-    },
+    // The Waiting tab shows how long each claim has waited instead of "Waiting for approval" on
+    // every row; the To pay and Paid tabs have the Payout column; mixed tabs keep the status chip.
+    ...(status === "submitted"
+      ? [
+          {
+            id: "waiting",
+            header: "Waiting",
+            accessorFn: (r: ClaimRowDto) => r.daysWaiting ?? 0,
+            cell: ({ row }: { row: { original: ClaimRowDto } }) => (
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <WaitingDays row={row.original} />
+                {row.original.approverTask ? (
+                  <Link to="/inbox" className="whitespace-nowrap text-2xs font-medium text-biru-400 hover:underline">
+                    Decide in Inbox
+                  </Link>
+                ) : null}
+              </span>
+            ),
+          } as ColumnDef<ClaimRowDto, unknown>,
+        ]
+      : ONE_STATUS.has(status)
+        ? []
+        : [
+            {
+              id: "state",
+              header: "Status",
+              accessorFn: (r: ClaimRowDto) => r.status,
+              cell: ({ row }: { row: { original: ClaimRowDto } }) => <ClaimStatusPill status={row.original.status} />,
+            } as ColumnDef<ClaimRowDto, unknown>,
+          ]),
     {
       id: "payout",
       header: "Payout",
@@ -334,51 +366,58 @@ function ClaimsAdminPage() {
           )
         }
         actions={
-          canReport ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="secondary">
-                  <Download aria-hidden /> Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="num">
-                  Expenses {formatDate(from)} – {formatDate(to)}
-                </DropdownMenuLabel>
-                {(
-                  [
-                    ["lines", "Line register"],
-                    ["summary", "Totals by type"],
-                    ["payouts", "Payout register"],
-                  ] as const
-                ).map(([report, label]) => (
-                  <React.Fragment key={report}>
-                    <DropdownMenuItem asChild>
-                      <a href={exportHref({ report, by: "type", from, to, format: "csv" })} download>
-                        {label} (CSV)
-                      </a>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href={exportHref({ report, by: "type", from, to, format: "xlsx" })} download>
-                        {label} (Excel)
-                      </a>
-                    </DropdownMenuItem>
-                  </React.Fragment>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <a href={exportHref({ report: "summary", by: "department", from, to, format: "xlsx" })} download>
-                    Totals by department (Excel)
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a href={exportHref({ report: "summary", by: "employee", from, to, format: "xlsx" })} download>
-                    Totals by employee (Excel)
-                  </a>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null
+          <>
+            {onBehalf ? (
+              <Button size="sm" variant="primary" onClick={() => setSheet(true)} data-testid="new-claim">
+                <Plus aria-hidden /> New claim
+              </Button>
+            ) : null}
+            {canReport ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="secondary">
+                    <Download aria-hidden /> Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel className="num">
+                    Expenses {formatDate(from)} – {formatDate(to)}
+                  </DropdownMenuLabel>
+                  {(
+                    [
+                      ["lines", "Line register"],
+                      ["summary", "Totals by type"],
+                      ["payouts", "Payout register"],
+                    ] as const
+                  ).map(([report, label]) => (
+                    <React.Fragment key={report}>
+                      <DropdownMenuItem asChild>
+                        <a href={exportHref({ report, by: "type", from, to, format: "csv" })} download>
+                          {label} (CSV)
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <a href={exportHref({ report, by: "type", from, to, format: "xlsx" })} download>
+                          {label} (Excel)
+                        </a>
+                      </DropdownMenuItem>
+                    </React.Fragment>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <a href={exportHref({ report: "summary", by: "department", from, to, format: "xlsx" })} download>
+                      Totals by department (Excel)
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a href={exportHref({ report: "summary", by: "employee", from, to, format: "xlsx" })} download>
+                      Totals by employee (Excel)
+                    </a>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </>
         }
       />
 
@@ -460,7 +499,7 @@ function ClaimsAdminPage() {
 
       {list.isError ? <ErrorNote error={list.error} retry={() => void list.refetch()} /> : null}
       {/* Phones get a compact list, except while picking claims to mark paid (that needs the table's checkboxes). */}
-      {selectable ? null : <MobileClaims rows={rows} loading={list.isPending} />}
+      {selectable ? null : <MobileClaims rows={rows} loading={list.isPending} showStatus={!ONE_STATUS.has(status)} />}
       <DataTable
         className={!selectable && rows.length ? "hidden sm:block" : undefined}
         label="Claims"
@@ -470,16 +509,19 @@ function ClaimsAdminPage() {
         loading={list.isPending}
         onRowActivate={(row) => void navigate({ to: "/claims/$claimId", params: { claimId: row.original.id } })}
         empty={
-          <EmptyState
-            variant="plain"
-            icon={<ReceiptText />}
-            title={EMPTY_TITLE[status] ?? "No claims yet"}
-            description={
-              search.q || search.type
-                ? "Nothing matches these filters."
-                : "Claims appear here once employees submit them."
-            }
-          />
+          search.q || search.type ? (
+            <EmptyState
+              variant="plain"
+              title="No claims match these filters."
+              description="Try another claim number or name, or any claim type."
+            />
+          ) : (
+            <EmptyState
+              variant="plain"
+              title={(EMPTY[status] ?? EMPTY_ALL)[0]}
+              description={(EMPTY[status] ?? EMPTY_ALL)[1]}
+            />
+          )
         }
       />
 
@@ -500,6 +542,13 @@ function ClaimsAdminPage() {
           void qc.invalidateQueries({ queryKey: claimKeys.all });
         }}
       />
+      {onBehalf ? (
+        <ClaimSheet
+          open={sheet}
+          onOpenChange={setSheet}
+          onDone={(claim) => void navigate({ to: "/claims/$claimId", params: { claimId: claim.id } })}
+        />
+      ) : null}
     </>
   );
 }
@@ -556,13 +605,11 @@ function MarkPaidDialog({
           }}
         >
           <FormField label="Paid on" error={errors.paidOn} required>
-            <Input
-              type="date"
-              className="num"
+            <DatePicker
               value={paidOn}
               min={earliest || undefined}
               max={latest}
-              onChange={(e) => setPaidOn(e.target.value)}
+              onChange={(v) => setPaidOn(v ?? toIsoDate(singaporeToday()))}
             />
           </FormField>
           <FormField
@@ -589,6 +636,17 @@ function MarkPaidDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** How long a submitted claim has waited; amber after a week. */
+function WaitingDays({ row }: { row: ClaimRowDto }) {
+  if (row.status !== "submitted" || row.daysWaiting === null) return null;
+  const d = row.daysWaiting;
+  return (
+    <span className={cn("num whitespace-nowrap text-2xs", d > 7 ? "font-medium text-warning-400" : "text-primary-300")}>
+      {d === 0 ? "Today" : d === 1 ? "1 day" : `${d} days`}
+    </span>
   );
 }
 
@@ -631,26 +689,34 @@ function SummarySection({
     <section className="mt-8" aria-labelledby="claims-summary-title" data-testid="claims-summary">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 id="claims-summary-title" className="font-azeret text-xs font-semibold uppercase tracking-wider">
+          <h2 id="claims-summary-title" className={textStyle.section}>
             Totals by expense date
           </h2>
           <p className="mt-1 text-ui text-primary-300">Waiting, approved and paid, with GST, for the period.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Input
-            type="date"
-            className="num w-36"
-            aria-label="From"
+          <label htmlFor="claims-summary-from" className="sr-only">
+            From
+          </label>
+          <DatePicker
+            id="claims-summary-from"
+            className="w-36"
             value={from}
-            onChange={(e) => onRange(e.target.value, to)}
+            max={to}
+            onChange={(v) => v && onRange(v, to)}
           />
-          <span className="text-primary-200">–</span>
-          <Input
-            type="date"
-            className="num w-36"
-            aria-label="To"
+          <span className="text-primary-200" aria-hidden>
+            –
+          </span>
+          <label htmlFor="claims-summary-to" className="sr-only">
+            To
+          </label>
+          <DatePicker
+            id="claims-summary-to"
+            className="w-36"
             value={to}
-            onChange={(e) => onRange(from, e.target.value)}
+            min={from}
+            onChange={(v) => v && onRange(from, v)}
           />
           <Select value={by} onValueChange={(v) => setBy(v as typeof by)}>
             <SelectTrigger className="w-36" aria-label="Group by">
@@ -673,38 +739,36 @@ function SummarySection({
         className="focus-ring overflow-x-auto rounded-md border border-border bg-surface-50"
       >
         <table className="w-full text-ui">
-          <thead className="bg-surface-100/70 font-azeret text-2xs uppercase tracking-wider text-primary-300">
+          <thead className={cn("bg-surface-100/70", textStyle.column)}>
             <tr className="h-9">
-              <th className="px-3 text-left font-semibold">{BY.find((b) => b.value === by)?.label}</th>
-              <th className="px-3 text-right font-semibold">Claims</th>
-              <th className="px-3 text-right font-semibold">Waiting</th>
-              <th className="px-3 text-right font-semibold">Approved</th>
-              <th className="px-3 text-right font-semibold">Paid</th>
-              <th className="px-3 text-right font-semibold">GST</th>
+              <th className="px-3 text-left font-medium">{BY.find((b) => b.value === by)?.label}</th>
+              <th className="px-3 text-right font-medium">Claims</th>
+              <th className="px-3 text-right font-medium">Waiting</th>
+              <th className="px-3 text-right font-medium">Approved</th>
+              <th className="px-3 text-right font-medium">Paid</th>
+              <th className="px-3 text-right font-medium">GST</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {q.isPending ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-primary-200">
+                <td colSpan={6} className="px-3 py-5 text-primary-300">
                   Loading…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-primary-200">
-                  No claims with expenses in this period.
-                </td>
-              </tr>
+              <TableEmptyRow colSpan={6}>
+                No claims with expenses between {formatDate(from)} and {formatDate(to)}. Pick another period above.
+              </TableEmptyRow>
             ) : (
               rows.map((r) => (
                 <tr key={r.label} className="h-9">
                   <td className="px-3">{r.label}</td>
                   <td className="num px-3 text-right">{r.count}</td>
-                  <td className="num px-3 text-right">{formatMoney(r.waiting)}</td>
-                  <td className="num px-3 text-right">{formatMoney(r.approved)}</td>
-                  <td className="num px-3 text-right">{formatMoney(r.paid)}</td>
-                  <td className="num px-3 text-right">{formatMoney(r.gst)}</td>
+                  <td className="num px-3 text-right">{moneyOrDash(r.waiting)}</td>
+                  <td className="num px-3 text-right">{moneyOrDash(r.approved)}</td>
+                  <td className="num px-3 text-right">{moneyOrDash(r.paid)}</td>
+                  <td className="num px-3 text-right">{moneyOrDash(r.gst)}</td>
                 </tr>
               ))
             )}
@@ -714,10 +778,10 @@ function SummarySection({
               <tr className="h-9">
                 <td className="px-3">Total</td>
                 <td className="num px-3 text-right">{rows.reduce((s, r) => s + r.count, 0)}</td>
-                <td className="num px-3 text-right">{formatMoney(sum("waiting"))}</td>
-                <td className="num px-3 text-right">{formatMoney(sum("approved"))}</td>
-                <td className="num px-3 text-right">{formatMoney(sum("paid"))}</td>
-                <td className="num px-3 text-right">{formatMoney(sum("gst"))}</td>
+                <td className="num px-3 text-right">{moneyOrDash(sum("waiting"))}</td>
+                <td className="num px-3 text-right">{moneyOrDash(sum("approved"))}</td>
+                <td className="num px-3 text-right">{moneyOrDash(sum("paid"))}</td>
+                <td className="num px-3 text-right">{moneyOrDash(sum("gst"))}</td>
               </tr>
             </tfoot>
           ) : null}

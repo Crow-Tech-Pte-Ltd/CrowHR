@@ -181,6 +181,37 @@ struct BackgroundRefreshTests {
         #expect(try await r.refresh() == nil)
     }
 
+    @Test func openingAnEmptyInboxOnACursorServerNeedsNoExtraRequest() async throws {
+        // The list answered `"cursor": null`: the server has cursors and nothing to point at yet.
+        let page = try JSONDecoder().decode(NotificationPage.self, from: Data(#"{"items":[],"total":0,"unread":0,"cursor":null}"#.utf8))
+        #expect(page.hasCursor && page.cursor == nil)
+        let older = try JSONDecoder().decode(NotificationPage.self, from: Data(#"{"items":[],"total":0,"unread":0}"#.utf8))
+        #expect(!older.hasCursor)
+        let inbox = FakeServerInbox()
+        let r = refresher(inbox, FakePoster())
+        await r.markAllSeen(listCursor: page.cursor, listHadCursor: page.hasCursor)
+        #expect(inbox.recordedCalls().isEmpty)
+        // As before: "srv:" with nothing after it, so the next refresh counts everything new.
+        #expect(await r.cursor == "srv:")
+        inbox.add("n1", category: "updates")
+        #expect(try await r.refresh()?.route == .notifications)
+    }
+
+    @Test func markingOneNotificationReadUpdatesThePageInPlace() throws {
+        let json = #"""
+        {"items":[{"id":"n1","kind":"k","category":"updates","title":"A","body":null,"createdAt":"2026-11-07T01:00:00.000Z","readAt":null},
+                  {"id":"n2","kind":"k","category":"updates","title":"B","body":null,"createdAt":"2026-11-07T00:00:00.000Z","readAt":"2026-11-07T02:00:00.000Z"}],
+         "total":2,"unread":1,"cursor":"c:2"}
+        """#
+        let page = try JSONDecoder().decode(NotificationPage.self, from: Data(json.utf8))
+        let read = page.markingRead("n1", at: "2026-11-07T03:00:00.000Z")
+        #expect(read.items.map(\.readAt) == ["2026-11-07T03:00:00.000Z", "2026-11-07T02:00:00.000Z"])
+        #expect(read.unread == 0)
+        // Already read, or not on the page: nothing changes.
+        #expect(read.markingRead("n2", at: "x").unread == 0)
+        #expect(read.markingRead("n9", at: "x").items == read.items)
+    }
+
     @Test func upgradedServerSwitchesFromCreatedAtToItsCursor() async throws {
         let store = MemoryStore()
         store.set(Data("2026-11-07T00:00:00.000Z".utf8), forKey: "inbox.cursor.conn-1")
@@ -211,7 +242,7 @@ struct BackgroundRefreshTests {
 
     @Test func apiFetcherPagesForwardWithSinceAndPostsNoPersonalData() async throws {
         let stub = StubTransport()
-        let item = #"{"id":"0190a0b0-0000-7000-8000-0000000000f2","kind":"task_assigned","category":"approvals","title":"Leave from Ahmad Ismail","body":"3 days annual leave","link":"/approvals","createdAt":"2026-11-07T02:00:00.000Z","readAt":null}"#
+        let item = #"{"id":"0190a0b0-0000-7000-8000-0000000000f2","kind":"task_assigned","category":"approvals","title":"Leave from Ahmad Ismail","body":"3 days annual leave","link":"/inbox?task=0190a0b0-0000-7000-8000-0000000000a1","createdAt":"2026-11-07T02:00:00.000Z","readAt":null}"#
         stub.on("GET /api/v1/notifications") { r in
             let since = URLComponents(url: r.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "since" }?.value
             let body = since == "cur-1"
@@ -228,7 +259,7 @@ struct BackgroundRefreshTests {
         let notice = try #require(try await r.refresh())
         // One new item: its link and id ride along (not in the text) so a tap opens it.
         #expect(notice == LocalNotice(title: "Crow HR", body: "You have 1 new item in Crow HR", route: .approvals,
-                                      link: "/approvals", notificationID: "0190a0b0-0000-7000-8000-0000000000f2"))
+                                      link: "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1", notificationID: "0190a0b0-0000-7000-8000-0000000000f2"))
         for word in ["Ahmad", "Leave", "annual", "3 days"] {
             #expect(!notice.body.contains(word) && !notice.title.contains(word))
         }

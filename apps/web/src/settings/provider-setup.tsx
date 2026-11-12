@@ -3,6 +3,7 @@ import {
   AlertDescription,
   AlertTitle,
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -15,6 +16,7 @@ import {
   RadioGroup,
   RadioGroupItem,
   Switch,
+  textStyle,
 } from "@crowhr/ui";
 import { Info } from "lucide-react";
 import * as React from "react";
@@ -320,7 +322,7 @@ export function ProviderDialog({
               ) : null}
             </form>
             <aside className="rounded-md bg-surface-100 p-3 text-2xs leading-5 text-primary-300">
-              <p className="mb-2 font-azeret font-semibold uppercase tracking-wider text-ink">Where to find these</p>
+              <p className={cn("mb-2", textStyle.group)}>Where to find these</p>
               <ol className="list-decimal space-y-1.5 pl-4">
                 {guide.steps.map((s) => (
                   <li key={s}>{s}</li>

@@ -310,6 +310,15 @@ struct ClaimDetail: Decodable, Sendable, Equatable, Identifiable {
         let receiptCount: Int
         let receiptRequired: Bool
         let redactedFields: [String]?
+        /// Set on a submitted claim when the rate is more than 20% from the organisation's last
+        /// rate for the currency: a warning to check it, never a block.
+        var fxWarning: FxWarning? = nil
+    }
+    struct FxWarning: Decodable, Sendable, Equatable {
+        let lastRate: String
+        let lastRateOn: String
+        /// (rate − last rate) / last rate: positive above, negative below.
+        let deviationBasisPoints: Int
     }
     struct Actions: Decodable, Sendable, Equatable { let submit: Bool; let delete: Bool; let withdraw: Bool }
     let id: String
@@ -331,6 +340,20 @@ struct ClaimDetail: Decodable, Sendable, Equatable, Identifiable {
     /// The title, the type of a one-line claim, or "3 expenses", as on the web.
     var heading: String {
         title ?? (lines.count == 1 ? lines[0].typeName : "\(lines.count) expenses")
+    }
+
+    /// The web's "Check the exchange rate." warning, one sentence per line that has one, or nil:
+    /// "MYR 0.380000 is 26.15% above the last MYR rate used in your organisation, 0.301234 on
+    /// 1 Nov 2026."
+    var fxWarningText: String? {
+        let each = lines.enumerated().compactMap { i, l -> String? in
+            guard let w = l.fxWarning else { return nil }
+            let side = w.deviationBasisPoints >= 0 ? "above" : "below"
+            return (lines.count > 1 ? "Expense \(i + 1): " : "")
+                + "\(l.currency) \(l.rate ?? "") is \(ClaimMoney.formatBasisPoints(w.deviationBasisPoints)) \(side) the last \(l.currency) rate used in your organisation, \(w.lastRate) on \(Fmt.dayString(w.lastRateOn))."
+        }
+        guard !each.isEmpty else { return nil }
+        return (["Check the exchange rate."] + each + ["Compare it with the receipt or card statement."]).joined(separator: "\n")
     }
 
     /// When it is paid ("With the next payroll", "Paid 30 Nov 2026 by transfer (TT-123)").
@@ -485,7 +508,34 @@ struct ApprovalRequestDetail: Decodable, Sendable, Equatable {
 struct Decision: Encodable, Sendable { let decision: String; let comment: String? }
 struct DecisionResult: Decodable, Sendable { let outcome: String; let replayed: Bool }
 
-struct NotificationPage: Decodable, Sendable { let items: [InboxNotification]; let total: Int; let unread: Int; let cursor: String? }
+struct NotificationPage: Decodable, Sendable {
+    var items: [InboxNotification]
+    let total: Int
+    var unread: Int
+    let cursor: String?
+    /// Servers from Nov 2026 always send `cursor` (null in an empty inbox); older ones leave it out.
+    let hasCursor: Bool
+
+    enum CodingKeys: String, CodingKey { case items, total, unread, cursor }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        items = try c.decode([InboxNotification].self, forKey: .items)
+        total = try c.decode(Int.self, forKey: .total)
+        unread = try c.decode(Int.self, forKey: .unread)
+        hasCursor = c.contains(.cursor)
+        cursor = try c.decodeIfPresent(String.self, forKey: .cursor)
+    }
+
+    /// The page once `id` has been marked read on the server, without fetching it again.
+    func markingRead(_ id: String, at instant: String) -> NotificationPage {
+        guard let i = items.firstIndex(where: { $0.id == id }), items[i].readAt == nil else { return self }
+        var next = self
+        next.items[i].readAt = instant
+        next.unread = max(0, unread - 1)
+        return next
+    }
+}
 
 struct InboxNotification: Decodable, Sendable, Identifiable, Equatable {
     let id: String
@@ -496,7 +546,7 @@ struct InboxNotification: Decodable, Sendable, Identifiable, Equatable {
     /// The web path of what it is about (`/inbox?task=…`, `/leave?request=…`; `AppTarget`).
     var link: String? = nil
     let createdAt: String
-    let readAt: String?
+    var readAt: String?
 }
 
 struct UnreadCount: Decodable, Sendable { let unread: Int }

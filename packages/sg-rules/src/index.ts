@@ -70,9 +70,11 @@ export {
   type NoticeRule,
 } from "./tables/employment-terms.ts";
 export { cpfTableFor, publicHolidaysFor, resolveRules, type SgRuleSet, shgTableFor } from "./tables/index.ts";
+export * from "./tables/iras-appendices.ts";
 export type { PublicHoliday, PublicHolidayYear } from "./tables/public-holidays.ts";
 export * from "./tables/registrations.ts";
 export * from "./tables/salary-payment.ts";
 export { SDL_EXEMPTIONS, type SdlExemption, type SdlRate } from "./tables/sdl.ts";
 export type { ShgFund, ShgTable } from "./tables/shg.ts";
+export * from "./tax/index.ts";
 export type { Cents, IsoDate, IssueSeverity, RuleIssue, WorkingStep, YearMonth } from "./types.ts";

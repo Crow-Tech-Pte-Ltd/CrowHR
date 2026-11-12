@@ -25,7 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.location.LocationManagerCompat
 import crowtech.crowhr.api.AttendanceMe
 import crowtech.crowhr.api.PunchView
+import crowtech.crowhr.core.CrowJson
 import crowtech.crowhr.core.Formats
 import crowtech.crowhr.punch.ApiPunchSender
 import crowtech.crowhr.punch.EnqueueResult
@@ -45,9 +46,11 @@ import crowtech.crowhr.punch.PunchLabels
 import crowtech.crowhr.punch.PunchLocation
 import crowtech.crowhr.punch.PunchQueue
 import crowtech.crowhr.punch.PunchSync
+import crowtech.crowhr.punch.PunchTap
 import crowtech.crowhr.punch.QueuedPunch
 import crowtech.crowhr.punch.StopReason
 import crowtech.crowhr.ui.ScreenContext
+import crowtech.crowhr.ui.ScreenMemory
 import crowtech.crowhr.ui.components.CrowCard
 import crowtech.crowhr.ui.components.Hairline
 import crowtech.crowhr.ui.components.Label
@@ -70,23 +73,31 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
-import java.time.ZoneId
 import kotlin.coroutines.resume
 
 @Composable
 fun ClockScreen(ctx: ScreenContext) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val context = LocalContext.current.applicationContext
+    // A tap's location wait, save and send run in the app's scope: leaving the Clock tab
+    // cancelled them, which dropped a tap still waiting for its location fix, or left a punch
+    // "Waiting" until the next periodic refresh.
+    val scope = ctx.graph.appScope
     val queue = remember(ctx.connection.key) { ctx.graph.punchQueue(ctx.connection) }
-    val monotonic = remember { crowtech.crowhr.punch.AndroidMonotonicClock(context.applicationContext) }
+    val monotonic = remember { crowtech.crowhr.punch.AndroidMonotonicClock(context) }
     var version by remember { mutableIntStateOf(0) }
-    val status = rememberLoader(ctx.connection.key) { ctx.api.get("/api/v1/attendance/me", AttendanceMe.serializer()) }
+    val status = rememberLoader(ctx.connection.key, memoryKey = ScreenMemory.key(ctx.connection.key, "attendance")) {
+        ctx.api.get("/api/v1/attendance/me", AttendanceMe.serializer())
+    }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Pair<String, Tone>?>(null) }
     var discard by remember { mutableStateOf<QueuedPunch?>(null) }
     // Punches sent by PunchSync in the background update this screen too.
     val changes by queue.changes.collectAsState()
-    var hadPending by remember { mutableStateOf(queue.pending().isNotEmpty()) }
+    // One read of the queue per change, shared by everything below: composition no longer reads
+    // the store itself on every recomposition.
+    val punches = remember(version, changes) { queue.all() }
+    val pending = remember(punches) { punches.filter { it.isPending } }
+    var hadPending by remember { mutableStateOf(pending.isNotEmpty()) }
     LaunchedEffect(changes) {
         version++
         val pendingNow = queue.pending().isNotEmpty()
@@ -98,11 +109,15 @@ fun ClockScreen(ctx: ScreenContext) {
         }
         hadPending = pendingNow
     }
-    val punches = remember(version, changes) { queue.all() }
     val me = (status.value as? LoadState.Ready)?.value
     val serverClockedIn = me?.clockedIn ?: false
-    val nextKind = remember(version, serverClockedIn) { queue.nextKind(serverClockedIn) }
+    val nextKind = remember(pending, serverClockedIn) { PunchQueue.nextKind(pending, serverClockedIn) }
     val wantsLocation = me?.location?.mode?.let { it != "off" } ?: false
+    // The tap waiting for the location permission dialog, so its time survives the dialog (and
+    // the activity being recreated behind it).
+    var tapAwaitingPermission by rememberSaveable { mutableStateOf<String?>(null) }
+
+    fun takeTap() = PunchTap.take(nextKind, ctx.graph.clock(), monotonic)
 
     suspend fun drain() {
         val result = queue.drain(ctx.graph.clock(), ApiPunchSender(ctx.api), monotonic)
@@ -117,16 +132,9 @@ fun ClockScreen(ctx: ScreenContext) {
         }
     }
 
-    fun punch(location: PunchLocation?, locationAllowed: Boolean = true) {
-        val now = ctx.graph.clock()
-        val r = queue.enqueue(
-            kind = nextKind,
-            deviceTime = now,
-            monotonicMillis = monotonic.elapsedMillis(),
-            bootCount = monotonic.bootCount,
-            utcOffsetMinutes = ZoneId.systemDefault().rules.getOffset(now).totalSeconds / 60,
-            location = location,
-        )
+    /** Saves [tap] (its time is the tap's, whatever the location wait took) and sends it. */
+    fun punch(tap: PunchTap, location: PunchLocation?, locationAllowed: Boolean = true) {
+        val r = queue.enqueue(tap, location)
         version++
         if (r is EnqueueResult.QueueFull) {
             message = PunchQueue.QUEUE_FULL_MESSAGE to Tone.Danger
@@ -135,6 +143,8 @@ fun ClockScreen(ctx: ScreenContext) {
         }
         message = null
         val tapped = (r as EnqueueResult.Queued).punch
+        // Saved: if this process ends before the send below finishes, WorkManager sends it.
+        PunchSync.request(context)
         scope.launch {
             drain()
             // Say what happened to this tap, as iOS does (a network stop already said so).
@@ -158,15 +168,21 @@ fun ClockScreen(ctx: ScreenContext) {
     // someone who shares only their approximate location still sends one.
     val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
         val allowed = LocationAccess.grantedIn(results)
-        scope.launch { punch(if (allowed) currentLocation(context) else null, allowed) }
+        // The time of the tap that opened the dialog, not of the answer.
+        val tap = tapAwaitingPermission?.let { runCatching { CrowJson.decodeFromString(PunchTap.serializer(), it) }.getOrNull() } ?: takeTap()
+        tapAwaitingPermission = null
+        scope.launch { punch(tap, if (allowed) currentLocation(context) else null, allowed) }
     }
 
     fun onTap() {
         busy = true
-        if (!wantsLocation) return punch(null)
+        // The punch's time is now, before any location wait or permission dialog.
+        val tap = takeTap()
+        if (!wantsLocation) return punch(tap, null)
         if (hasLocationPermission(context)) {
-            scope.launch { punch(currentLocation(context)) }
+            scope.launch { punch(tap, currentLocation(context)) }
         } else {
+            tapAwaitingPermission = CrowJson.encodeToString(PunchTap.serializer(), tap)
             locationPermission.launch(LocationAccess.PERMISSIONS)
         }
     }
@@ -179,7 +195,7 @@ fun ClockScreen(ctx: ScreenContext) {
                 if (s.offline) "You're offline. You can still clock in: it's saved on this phone and sent when you're back online." else s.message,
                 if (s.offline) Tone.Warning else Tone.Danger,
             )
-            is LoadState.Ready -> StatusCard(s.value, queue.pending())
+            is LoadState.Ready -> StatusCard(s.value, pending)
         }
         if (me?.employeeId == null && status.value is LoadState.Ready) {
             Notice("Your account isn't linked to an employee record yet, so clock-ins can't be recorded. Ask HR.", Tone.Warning)
@@ -219,7 +235,7 @@ fun ClockScreen(ctx: ScreenContext) {
                 }
                 Hairline()
             }
-            if (queue.pending().isNotEmpty()) {
+            if (pending.isNotEmpty()) {
                 SecondaryButton("Send now", { scope.launch { drain() } }, Modifier.fillMaxWidth().padding(top = 8.dp))
             }
         }

@@ -1,13 +1,15 @@
-import { asc, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNotNull, isNull, lte, or } from "drizzle-orm";
 import { z } from "zod";
 import { authorize, type Grant } from "../access/authorize.ts";
 import { orgScope } from "../access/org-scope.ts";
 import { auditContext } from "../audit/audit.ts";
 import type { AppContext, AuthContext } from "../context.ts";
-import { departments, locations } from "../db/schema/organisation.ts";
+import { employmentRecords } from "../db/schema/employees.ts";
+import { departments, locations, workSchedules } from "../db/schema/organisation.ts";
 import {
   OPEN_SWAP_STATUSES,
   publishedShifts,
+  rosterShifts,
   rosters,
   SHIFT_COLOURS,
   shiftSwaps,
@@ -438,6 +440,13 @@ export const schedulingModule = defineModule({
           locations: z.array(scopeOption),
           departments: z.array(scopeOption),
           mine: z.object({ locationId: z.uuid().nullable(), departmentId: z.uuid().nullable() }),
+          /**
+           * Locations where people work rostered shifts: first those with shifts on a roster, then
+           * those where someone working there today is on a shift work schedule, each in `locations`
+           * order. An editor whose own location is neither (an owner at a head office of fixed-week
+           * staff) can open on the first, which has a roster to look at.
+           */
+          rosteredLocationIds: z.array(z.uuid()),
           canEdit: z.boolean(),
         }),
       },
@@ -447,6 +456,33 @@ export const schedulingModule = defineModule({
           .select()
           .from(locations)
           .where(org.where(locations, isNull(locations.archivedAt)));
+        const today = todaySg(deps);
+        const withShifts = await deps.db
+          .selectDistinct({ locationId: rosters.locationId })
+          .from(rosters)
+          .innerJoin(rosterShifts, and(eq(rosterShifts.orgId, rosters.orgId), eq(rosterShifts.rosterId, rosters.id)))
+          .where(org.where(rosters, isNotNull(rosters.locationId)));
+        const withShiftStaff = await deps.db
+          .selectDistinct({ locationId: employmentRecords.locationId })
+          .from(employmentRecords)
+          .innerJoin(
+            workSchedules,
+            and(
+              eq(workSchedules.orgId, employmentRecords.orgId),
+              eq(workSchedules.id, employmentRecords.workScheduleId),
+            ),
+          )
+          .where(
+            org.where(
+              employmentRecords,
+              isNotNull(employmentRecords.locationId),
+              eq(workSchedules.kind, "shift"),
+              lte(employmentRecords.effectiveFrom, today),
+              or(isNull(employmentRecords.effectiveTo), gt(employmentRecords.effectiveTo, today)),
+            ),
+          );
+        const hasShifts = new Set(withShifts.map((r) => r.locationId));
+        const hasShiftStaff = new Set(withShiftStaff.map((r) => r.locationId));
         const depts = await deps.db
           .select()
           .from(departments)
@@ -458,10 +494,15 @@ export const schedulingModule = defineModule({
           if (e) mine = { locationId: e.locationId, departmentId: e.locationId ? null : e.departmentId };
         }
         const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name);
+        const sortedLocs = locs.sort(byName);
         return {
-          locations: locs.sort(byName).map((l) => ({ id: l.id, name: l.name })),
+          locations: sortedLocs.map((l) => ({ id: l.id, name: l.name })),
           departments: depts.sort(byName).map((d) => ({ id: d.id, name: d.name })),
           mine,
+          rosteredLocationIds: [
+            ...sortedLocs.filter((l) => hasShifts.has(l.id)),
+            ...sortedLocs.filter((l) => !hasShifts.has(l.id) && hasShiftStaff.has(l.id)),
+          ].map((l) => l.id),
           canEdit: !!(await editGrant(c)),
         };
       },

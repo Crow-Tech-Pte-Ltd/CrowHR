@@ -1,6 +1,7 @@
 import {
   Button,
   Checkbox,
+  cn,
   DatePicker,
   Dialog,
   DialogContent,
@@ -30,10 +31,11 @@ import {
   TableHeader,
   TableRow,
   Textarea,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Download, Eye, FileText, Upload } from "lucide-react";
+import { CheckCircle2, Download, Eye, Upload } from "lucide-react";
 import * as React from "react";
 import { ApiError, apiDelete, apiPost } from "../lib/api.ts";
 import {
@@ -66,16 +68,13 @@ const dateTime = (iso: string) =>
     hour12: false,
   });
 
+/** "Expired 20 Oct 2026" or "Expires 19 Nov 2026" as a chip when it needs someone; a later date is plain text. */
 export function ExpiryPill({ doc }: { doc: Pick<Doc, "expiry" | "expiresOn"> }) {
   if (!doc.expiry || !doc.expiresOn) return <span className="text-primary-200">—</span>;
-  const tone = doc.expiry === "expired" ? "danger" : doc.expiry === "expiring" ? "warning" : "neutral";
-  const label = doc.expiry === "expired" ? "Expired" : doc.expiry === "expiring" ? "Expiring" : "Valid";
-  return (
-    <span className="flex flex-wrap items-center gap-2">
-      <StatusPill tone={tone}>{label}</StatusPill>
-      <span className="num text-2xs text-primary-300">{formatDate(doc.expiresOn)}</span>
-    </span>
-  );
+  const date = <span className="num">{formatDate(doc.expiresOn)}</span>;
+  if (doc.expiry === "expired") return <StatusPill tone="danger">Expired {date}</StatusPill>;
+  if (doc.expiry === "expiring") return <StatusPill tone="warning">Expires {date}</StatusPill>;
+  return <span className="whitespace-nowrap text-ui text-primary-300">Expires {date}</span>;
 }
 
 export function AckPill({ doc }: { doc: Doc }) {
@@ -146,13 +145,8 @@ export function DocumentTable({
             >
               <TableCell className="h-10 py-1.5">
                 <span className="flex flex-wrap items-center gap-2">
-                  <FileText className="size-4 shrink-0 text-primary-200" aria-hidden />
                   <span className="font-medium">{d.title}</span>
-                  {d.source === "generated" ? (
-                    <StatusPill tone="neutral" dot={false}>
-                      Generated
-                    </StatusPill>
-                  ) : null}
+                  {d.source === "generated" ? <StatusPill tone="neutral">Generated</StatusPill> : null}
                   <AckPill doc={d} />
                 </span>
               </TableCell>
@@ -569,9 +563,7 @@ export function GenerateDialog({
                 className="flex flex-col gap-3 rounded-md border border-warning-300/50 bg-warning-50 p-3"
                 data-testid="missing-fields"
               >
-                <legend className="px-1 font-azeret text-2xs font-semibold uppercase tracking-wider">
-                  Fill in before generating ({missing.length})
-                </legend>
+                <legend className={cn("px-1", textStyle.group)}>Fill in before generating ({missing.length})</legend>
                 {missing.map((m) => (
                   <FormField
                     key={m.id}
@@ -674,7 +666,7 @@ export function RequestLetterDialog({ open, onOpenChange }: { open: boolean; onO
 }
 
 export function DocumentsEmpty({ title, description }: { title: string; description: string }) {
-  return <EmptyState variant="plain" icon={<FileText />} title={title} description={description} />;
+  return <EmptyState variant="plain" title={title} description={description} />;
 }
 
 export type { DocCategory };

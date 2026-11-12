@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
+import { pickDate } from "../leave-helpers.ts";
 
 /**
  * Task 5.3: create a run → review → approve → payslip visible to the employee → download the PDF.
@@ -14,7 +15,8 @@ test("monthly payroll from creation to the employee's payslip PDF", async ({ pag
   // Payroll admin creates November's run.
   await as(page, "payroll", "/payroll");
   await expect(page.getByRole("heading", { level: 1, name: "Payroll" })).toBeVisible();
-  await expect(page.getByText("Open run")).toBeVisible();
+  // October's draft is the open-run card, not a row of the table.
+  await expect(page.getByRole("heading", { name: /October 2026 payroll/ })).toBeVisible();
 
   // Year end: IR8A rows from the approved September payslips, for IRAS's import template.
   const ir8a = page.getByTestId("payroll-ir8a");
@@ -32,9 +34,10 @@ test("monthly payroll from creation to the employee's payslip PDF", async ({ pag
 
   // Compute: the part-timer has no hours yet, which blocks the run.
   await page.getByRole("button", { name: "Compute" }).click();
-  await expect(page.getByText(/1 blocking issue/)).toBeVisible();
+  await expect(page.getByText(/Blocking issues \(1\)/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Submit for approval" })).toBeDisabled();
-  const blocking = page.locator("li", { hasText: "HOURS_MISSING" });
+  // Rule codes are not shown as text; each issue carries its code for support (and these tests).
+  const blocking = page.locator('li[data-code="HOURS_MISSING"]');
   await blocking.getByRole("button").first().click();
 
   // The drawer shows the working; add the hours there.
@@ -48,7 +51,7 @@ test("monthly payroll from creation to the employee's payslip PDF", async ({ pag
   await expect(drawer.getByText("80 h", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Recompute" }).click();
-  await expect(page.getByText(/blocking issue/)).toHaveCount(0);
+  await expect(page.getByText(/Blocking issues/)).toHaveCount(0);
 
   // Keyboard review: focus the first row, open it, step to the next employee.
   const firstRow = page.getByRole("table", { name: "Pay per employee" }).locator("tbody tr").first();
@@ -120,10 +123,10 @@ test("blocking issues link to their fix: allowance treatment, holiday pay, hours
   await expect(page.getByRole("heading", { level: 1 })).toContainText("February 2027 payroll");
   await page.getByRole("button", { name: "Compute" }).click();
   // Chloe's holiday pay and hours, and the part-timer's hours.
-  await expect(page.getByText(/3 blocking issues/)).toBeVisible();
+  await expect(page.getByText(/Blocking issues \(3\)/)).toBeVisible();
 
   // The run asks how the shift allowance counts, and links to the place that sets it.
-  const ask = page.locator("li", { hasText: "ALLOWANCE_GROSS_RATE_UNSET" });
+  const ask = page.locator('li[data-code="ALLOWANCE_GROSS_RATE_UNSET"]');
   await expect(ask).toContainText("Shift allowance");
   await ask.getByRole("link", { name: "Classify allowances" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Allowance treatment" })).toBeVisible();
@@ -136,7 +139,7 @@ test("blocking issues link to their fix: allowance treatment, holiday pay, hours
   await page.goBack();
 
   // Holiday pay for an hourly employee: the fix opens her drawer with the holiday filled in.
-  const holiday = page.locator("li", { hasText: "PH_GROSS_RATE_REQUIRED" });
+  const holiday = page.locator('li[data-code="PH_GROSS_RATE_REQUIRED"]');
   await expect(holiday).toContainText("6 Feb 2027");
   await holiday.getByRole("button", { name: "Enter holiday pay" }).click();
   const drawer = page.getByRole("dialog");
@@ -153,7 +156,7 @@ test("blocking issues link to their fix: allowance treatment, holiday pay, hours
   await page.keyboard.press("Escape");
   // The part-timer's hours, straight from the run's issue list.
   await page
-    .locator("li", { hasText: "HOURS_MISSING" })
+    .locator('li[data-code="HOURS_MISSING"]')
     .filter({ hasText: "Ong Hui Min" })
     .getByRole("button", { name: "Add hours worked" })
     .click();
@@ -162,8 +165,8 @@ test("blocking issues link to their fix: allowance treatment, holiday pay, hours
   await expect(drawer.getByText("90 h", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Recompute" }).click();
-  await expect(page.getByText(/blocking issue/)).toHaveCount(0);
-  await expect(page.locator("li", { hasText: "ALLOWANCE_GROSS_RATE_UNSET" })).toHaveCount(0);
+  await expect(page.getByText(/Blocking issues/)).toHaveCount(0);
+  await expect(page.locator('li[data-code="ALLOWANCE_GROSS_RATE_UNSET"]')).toHaveCount(0);
 
   // Submit, approve as the owner, then return the approved run to draft with a reason.
   await page.getByRole("button", { name: "Submit for approval" }).click();
@@ -181,4 +184,58 @@ test("blocking issues link to their fix: allowance treatment, holiday pay, hours
   await dialog.getByRole("button", { name: "Return to draft" }).click();
   await expect(page.getByText("Returned to draft: Chloe's new bank account")).toBeVisible();
   await expect(page.getByRole("button", { name: "Recompute" })).toBeVisible();
+});
+
+test("year end: a benefit-in-kind and a share gain flow into the IR8A totals and the appendix sheets", async ({
+  page,
+}) => {
+  await as(page, "payroll", "/payroll");
+  const ir8a = page.getByTestId("payroll-ir8a");
+  await ir8a.getByRole("link", { name: /Benefits and share gains/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Year end 2026" })).toBeVisible();
+  await expect(page.getByText("No benefits-in-kind recorded for 2026")).toBeVisible();
+
+  // Appendix 8A item 4a: home leave passages, an amount HR enters.
+  await page.getByRole("button", { name: "Add benefit" }).first().click();
+  let dialog = page.getByRole("dialog");
+  await dialog.getByRole("combobox", { name: "Employee" }).click();
+  await page.getByRole("option", { name: /Goh Jun Jie/ }).click();
+  await dialog.getByRole("combobox", { name: "Benefit" }).click();
+  await page.getByRole("option", { name: "Other benefit" }).click();
+  await dialog.getByLabel("Cost to the employer").fill("3000");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog.getByTestId("appendix-computed")).toContainText("Appendix 8A · item 4a");
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("table", { name: "Appendix 8A benefits-in-kind" })).toContainText("3,000.00");
+
+  // Appendix 8B: an ESOP exercised in June, (2.75 − 1.50) × 1,000 = 1,250.00 under S10(1)(b).
+  await page.getByRole("button", { name: "Add share gain" }).first().click();
+  dialog = page.getByRole("dialog");
+  await dialog.getByRole("combobox", { name: "Employee" }).click();
+  await page.getByRole("option", { name: /Goh Jun Jie/ }).click();
+  await pickDate(page, "Granted on", "2024-03-01", dialog);
+  await pickDate(page, "Gain accrued on", "2026-06-01", dialog);
+  await dialog.getByLabel("Number of shares").fill("1000");
+  await dialog.getByLabel("Price paid per share (S$)").fill("1.50");
+  await dialog.getByLabel("Open market value per share (S$)").fill("2.75");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  const computed = dialog.getByTestId("appendix-computed");
+  await expect(computed).toContainText("S10(1)(b), IR8A d7(a)");
+  await expect(computed).toContainText("1,250.00");
+  await dialog.getByRole("button", { name: "Done" }).click();
+
+  const totals = page.getByRole("table", { name: "IR8A totals per employee" });
+  await expect(totals.getByRole("row", { name: /Goh Jun Jie/ })).toContainText("3,000");
+  await expect(totals.getByRole("row", { name: /Goh Jun Jie/ })).toContainText("1,250");
+
+  // The IR8A panel offers this part's appendix sheets.
+  await page.getByRole("link", { name: "Payroll" }).first().click();
+  const [sheet] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByTestId("payroll-ir8a").getByRole("button", { name: "8B", exact: true }).click(),
+  ]);
+  expect(sheet.suggestedFilename()).toBe("ir8a-2026-part1-of-1-appendix-8b.csv");
+  const csv = readFileSync(await sheet.path(), "utf8");
+  expect(csv).toContain("*ID Type [Choose option],*ID No.,*Record ID");
+  expect(csv).toContain(",ESOP,2024-03-01,2026-06-01,1.5,2.75,1000,");
 });

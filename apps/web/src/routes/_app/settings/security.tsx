@@ -19,7 +19,7 @@ import {
 } from "@crowhr/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { AlertTriangle, CheckCircle2, KeyRound, Lock, Plus, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, KeyRound, Plus, ShieldCheck } from "lucide-react";
 import * as React from "react";
 import { formatDateTime } from "../../../auth/format.ts";
 import { useReauth } from "../../../auth/reauth.tsx";
@@ -62,8 +62,7 @@ function SecurityPage() {
       <>
         <PageHeader crumbs={[{ label: "Settings", to: "/settings" }]} title="Security" />
         <EmptyState
-          icon={<Lock />}
-          title="Only owners can change security settings"
+          title="Only owners can change security settings."
           description="Sign-in methods, two-step verification policy and session timeouts are managed by your organisation's owners."
         />
       </>

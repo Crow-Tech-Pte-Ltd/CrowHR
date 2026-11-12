@@ -15,6 +15,7 @@ import { Route as TryRouteImport } from './routes/try'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
+import { Route as EmailTokenRouteImport } from './routes/email.$token'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ResetTokenRouteImport } from './routes/reset.$token'
 import { Route as SignInIndexRouteImport } from './routes/sign-in.index'
@@ -58,6 +59,7 @@ import { Route as AppSettingsSystemRouteImport } from './routes/_app/settings/sy
 import { Route as AppMePayslipsIndexRouteImport } from './routes/_app/me/payslips.index'
 import { Route as AppMePayslipsPayslipIdRouteImport } from './routes/_app/me/payslips.$payslipId'
 import { Route as AppPayrollRunsRunIdRouteImport } from './routes/_app/payroll/runs.$runId'
+import { Route as AppPayrollYearEndYearRouteImport } from './routes/_app/payroll/year-end.$year'
 import { Route as AppPayrollRunsRunIdPayslipsPayslipIdRouteImport } from './routes/_app/payroll/runs.$runId.payslips.$payslipId'
 
 const AppRoute = AppRouteImport.update({
@@ -88,6 +90,11 @@ const AppInboxRoute = AppInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
   getParentRoute: () => AppRoute,
+} as any)
+const EmailTokenRoute = EmailTokenRouteImport.update({
+  id: '/email/$token',
+  path: '/email/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
@@ -306,6 +313,11 @@ const AppPayrollRunsRunIdRoute = AppPayrollRunsRunIdRouteImport.update({
   path: '/payroll/runs/$runId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPayrollYearEndYearRoute = AppPayrollYearEndYearRouteImport.update({
+  id: '/payroll/year-end/$year',
+  path: '/payroll/year-end/$year',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPayrollRunsRunIdPayslipsPayslipIdRoute =
   AppPayrollRunsRunIdPayslipsPayslipIdRouteImport.update({
     id: '/payslips/$payslipId',
@@ -319,6 +331,7 @@ export interface FileRoutesByFullPath {
   '/try': typeof TryRoute
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
+  '/email/$token': typeof EmailTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/reset/$token': typeof ResetTokenRoute
   '/sign-in/$org': typeof SignInOrgRoute
@@ -361,6 +374,7 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AppSettingsIndexRoute
   '/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
   '/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
+  '/payroll/year-end/$year': typeof AppPayrollYearEndYearRoute
   '/me/payslips/': typeof AppMePayslipsIndexRoute
   '/payroll/runs/$runId/payslips/$payslipId': typeof AppPayrollRunsRunIdPayslipsPayslipIdRoute
 }
@@ -369,6 +383,7 @@ export interface FileRoutesByTo {
   '/try': typeof TryRoute
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
+  '/email/$token': typeof EmailTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/reset/$token': typeof ResetTokenRoute
   '/sign-in/$org': typeof SignInOrgRoute
@@ -412,6 +427,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsIndexRoute
   '/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
   '/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
+  '/payroll/year-end/$year': typeof AppPayrollYearEndYearRoute
   '/me/payslips': typeof AppMePayslipsIndexRoute
   '/payroll/runs/$runId/payslips/$payslipId': typeof AppPayrollRunsRunIdPayslipsPayslipIdRoute
 }
@@ -422,6 +438,7 @@ export interface FileRoutesById {
   '/try': typeof TryRoute
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/inbox': typeof AppInboxRoute
+  '/email/$token': typeof EmailTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/reset/$token': typeof ResetTokenRoute
   '/sign-in/$org': typeof SignInOrgRoute
@@ -465,6 +482,7 @@ export interface FileRoutesById {
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
   '/_app/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
+  '/_app/payroll/year-end/$year': typeof AppPayrollYearEndYearRoute
   '/_app/me/payslips/': typeof AppMePayslipsIndexRoute
   '/_app/payroll/runs/$runId/payslips/$payslipId': typeof AppPayrollRunsRunIdPayslipsPayslipIdRoute
 }
@@ -476,6 +494,7 @@ export interface FileRouteTypes {
     | '/try'
     | '/documents'
     | '/inbox'
+    | '/email/$token'
     | '/invite/$token'
     | '/reset/$token'
     | '/sign-in/$org'
@@ -518,6 +537,7 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/me/payslips/$payslipId'
     | '/payroll/runs/$runId'
+    | '/payroll/year-end/$year'
     | '/me/payslips/'
     | '/payroll/runs/$runId/payslips/$payslipId'
   fileRoutesByTo: FileRoutesByTo
@@ -526,6 +546,7 @@ export interface FileRouteTypes {
     | '/try'
     | '/documents'
     | '/inbox'
+    | '/email/$token'
     | '/invite/$token'
     | '/reset/$token'
     | '/sign-in/$org'
@@ -569,6 +590,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/me/payslips/$payslipId'
     | '/payroll/runs/$runId'
+    | '/payroll/year-end/$year'
     | '/me/payslips'
     | '/payroll/runs/$runId/payslips/$payslipId'
   id:
@@ -578,6 +600,7 @@ export interface FileRouteTypes {
     | '/try'
     | '/_app/documents'
     | '/_app/inbox'
+    | '/email/$token'
     | '/invite/$token'
     | '/reset/$token'
     | '/sign-in/$org'
@@ -621,6 +644,7 @@ export interface FileRouteTypes {
     | '/_app/settings/'
     | '/_app/me/payslips/$payslipId'
     | '/_app/payroll/runs/$runId'
+    | '/_app/payroll/year-end/$year'
     | '/_app/me/payslips/'
     | '/_app/payroll/runs/$runId/payslips/$payslipId'
   fileRoutesById: FileRoutesById
@@ -629,6 +653,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   SetupRoute: typeof SetupRoute
   TryRoute: typeof TryRoute
+  EmailTokenRoute: typeof EmailTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ResetTokenRoute: typeof ResetTokenRoute
   SignInOrgRoute: typeof SignInOrgRoute
@@ -678,6 +703,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/inbox'
       preLoaderRoute: typeof AppInboxRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/email/$token': {
+      id: '/email/$token'
+      path: '/email/$token'
+      fullPath: '/email/$token'
+      preLoaderRoute: typeof EmailTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
       id: '/invite/$token'
@@ -980,6 +1012,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPayrollRunsRunIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/payroll/year-end/$year': {
+      id: '/_app/payroll/year-end/$year'
+      path: '/payroll/year-end/$year'
+      fullPath: '/payroll/year-end/$year'
+      preLoaderRoute: typeof AppPayrollYearEndYearRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/payroll/runs/$runId/payslips/$payslipId': {
       id: '/_app/payroll/runs/$runId/payslips/$payslipId'
       path: '/payslips/$payslipId'
@@ -1044,6 +1083,7 @@ interface AppRouteChildren {
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
   AppMePayslipsPayslipIdRoute: typeof AppMePayslipsPayslipIdRoute
   AppPayrollRunsRunIdRoute: typeof AppPayrollRunsRunIdRouteWithChildren
+  AppPayrollYearEndYearRoute: typeof AppPayrollYearEndYearRoute
   AppMePayslipsIndexRoute: typeof AppMePayslipsIndexRoute
 }
 
@@ -1089,6 +1129,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsIndexRoute: AppSettingsIndexRoute,
   AppMePayslipsPayslipIdRoute: AppMePayslipsPayslipIdRoute,
   AppPayrollRunsRunIdRoute: AppPayrollRunsRunIdRouteWithChildren,
+  AppPayrollYearEndYearRoute: AppPayrollYearEndYearRoute,
   AppMePayslipsIndexRoute: AppMePayslipsIndexRoute,
 }
 
@@ -1098,6 +1139,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   SetupRoute: SetupRoute,
   TryRoute: TryRoute,
+  EmailTokenRoute: EmailTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   ResetTokenRoute: ResetTokenRoute,
   SignInOrgRoute: SignInOrgRoute,

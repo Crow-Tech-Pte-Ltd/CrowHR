@@ -13,6 +13,7 @@ import {
 import { type Effective, pickInForce } from "./effective.ts";
 import { OVERTIME_RULES, type OvertimeRule, PART4_COVERAGE, type Part4Coverage } from "./employment-act.ts";
 import { MINIMUM_AGE_RULES, NOTICE_RULES } from "./employment-terms.ts";
+import { APPENDIX_8A_RULES, APPENDIX_8B_RULES } from "./iras-appendices.ts";
 import { ANNUAL_LEAVE_RULES, type AnnualLeaveRule, SICK_LEAVE_RULES, type SickLeaveRule } from "./leave.ts";
 import { PUBLIC_HOLIDAY_YEARS, type PublicHolidayYear } from "./public-holidays.ts";
 import { DEDUCTION_LIMIT_RULES, PAYMENT_DEADLINE_RULES } from "./salary-payment.ts";
@@ -123,5 +124,7 @@ export function ruleFamilies(): { family: string; rows: readonly Effective[]; ma
     { family: "EA minimum age", rows: MINIMUM_AGE_RULES, mandatory: true },
     { family: "EA salary payment deadlines", rows: PAYMENT_DEADLINE_RULES, mandatory: true },
     { family: "EA deduction limits", rows: DEDUCTION_LIMIT_RULES, mandatory: true },
+    { family: "IRAS Appendix 8A", rows: APPENDIX_8A_RULES, mandatory: true },
+    { family: "IRAS Appendix 8B", rows: APPENDIX_8B_RULES, mandatory: true },
   ];
 }

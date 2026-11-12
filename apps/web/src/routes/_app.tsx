@@ -58,7 +58,8 @@ function MfaBanner() {
             Your role requires an authenticator app. After that date you won't be able to use Crow HR until it's set up.
           </AlertDescription>
         </div>
-        <Button asChild size="sm" variant="primary" className="self-start sm:self-auto">
+        {/* Secondary: the page's own primary action keeps the one hard-shadow button. */}
+        <Button asChild size="sm" variant="secondary" className="self-start sm:self-auto">
           <Link to="/me/sessions" search={{ enrol: "1" }}>
             Set up now
           </Link>

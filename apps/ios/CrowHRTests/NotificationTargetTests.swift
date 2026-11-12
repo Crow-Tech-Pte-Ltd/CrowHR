@@ -9,14 +9,28 @@ import UserNotifications
 struct NotificationTargetTests {
     static var root: [String: Any] { Fixtures.json("notification-link-cases.json") as? [String: Any] ?? [:] }
 
-    @Test func linksOpenTheirItem() throws {
+    /// The screen both apps open (and, for claims and payslips, the item on it).
+    @Test func linksOpenTheirScreen() throws {
         let cases = try #require(Self.root["cases"] as? [[String: Any]])
         #expect(cases.count >= 20)
         for c in cases {
             let t = AppTarget.from(link: c["link"] as? String)
-            #expect(t.kind == c["kind"] as? String, "\(c)")
+            #expect(t.opens == c["opens"] as? String, "\(c)")
+            #expect(t.opensID == c["id"] as? String, "\(c)")
+        }
+    }
+
+    /// What iOS also opens inside the screen: the approval task, the request's task, the leave request.
+    @Test func linksOpenTheirItemInsideTheScreen() throws {
+        let items = try #require(Self.root["items"] as? [[String: Any]])
+        for c in items {
+            let t = AppTarget.from(link: c["link"] as? String)
+            #expect(t.kind == c["item"] as? String, "\(c)")
             #expect(t.id == c["id"] as? String, "\(c)")
         }
+        #expect(AppTarget.from(link: "/claims/admin") == .notifications)
+        #expect(AppTarget.from(link: " /claims ") == .claims)
+        #expect(AppTarget.from(link: "/claims/\(String(repeating: "a", count: 65))") == .notifications)
     }
 
     @Test func everyTargetHasItsTab() {
@@ -27,6 +41,7 @@ struct NotificationTargetTests {
         #expect(AppTarget.payslip("x").tab == .pay)
         #expect(AppTarget.schedule.tab == .schedule)
         #expect(AppTarget.profile.tab == .profile)
+        #expect(AppTarget.clock.tab == .today)
     }
 
     /// The local notification for one new item carries that item's link and id (not in its text),
@@ -44,7 +59,7 @@ struct NotificationTargetTests {
             #expect(notice.route.rawValue == expected["route"] as? String, "\(id) route")
             #expect(notice.link == expected["link"] as? String, "\(id) link")
             #expect(notice.notificationID == expected["notificationId"] as? String, "\(id) notification id")
-            #expect(notice.target.kind == expected["kind"] as? String, "\(id) opens")
+            #expect((notice.target.opens ?? "notifications") == expected["opens"] as? String, "\(id) opens")
             // The text holds only the count, whatever it links to.
             #expect(notice.body == BackgroundRefresh.notificationBody(newItems: fresh.filter { $0.readAt == nil }.count), "\(id) text")
             // Round trip through the posted notification's userInfo, as a tap delivers it.
@@ -60,7 +75,9 @@ struct NotificationTargetTests {
         #expect(LocalNotice.tapped(userInfo: ["route": "approvals"]).target == .approvals)
         #expect(LocalNotice.tapped(userInfo: ["route": "notifications"]).target == .notifications)
         #expect(LocalNotice.tapped(userInfo: [:]).target == .notifications)
-        #expect(LocalNotice.tapped(userInfo: ["route": "approvals", "link": "https://evil.example/x"]).target == .notifications)
+        // A link the app has no screen for (or one to elsewhere) opens the inbox it was posted for.
+        #expect(LocalNotice.tapped(userInfo: ["route": "approvals", "link": "https://evil.example/x"]).target == .approvals)
+        #expect(LocalNotice.tapped(userInfo: ["route": "notifications", "link": "/payroll/runs/r1"]).target == .notifications)
     }
 
     @Test func approvalsOpenTheTaskANotificationIsAbout() {

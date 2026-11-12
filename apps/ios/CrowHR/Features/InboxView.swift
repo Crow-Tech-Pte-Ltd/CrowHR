@@ -58,7 +58,8 @@ struct InboxView: View {
         .navigationTitle("Inbox")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { applyTarget() }
-        .task { await session.refreshApprovalTasks() }
+        // The approvals list loads the same tasks itself when it is the one showing.
+        .task { if !(showsApprovals && segment == .approvals) { await session.refreshApprovalTasks() } }
         .onChange(of: model.pendingTarget) { _, target in if target?.tab == .inbox { applyTarget() } }
         .onChange(of: session.me) { _, me in if me?.mayApprove == true && !segmentFromTarget { segment = .approvals } }
         // Tasks found for someone without an approver role: open them, once.
@@ -475,7 +476,8 @@ struct NotificationsView: View {
     private func load() async throws -> NotificationPage {
         let page: NotificationPage = try await session.api.get("/api/v1/notifications", query: [URLQueryItem(name: "pageSize", value: "50"), URLQueryItem(name: "sort", value: "-createdAt")])
         // What the user has seen here is not announced later by the background refresh.
-        await model.refresher(for: session).markAllSeen(listCursor: page.cursor, listHadCursor: page.cursor != nil)
+        // An empty inbox on a current server answers `"cursor": null`, which is enough.
+        await model.refresher(for: session).markAllSeen(listCursor: page.cursor, listHadCursor: page.hasCursor)
         model.setUnread(page.unread)
         return page
     }
@@ -484,11 +486,20 @@ struct NotificationsView: View {
         do { state = .loaded(try await load()) } catch { state.fail(error) }
     }
 
-    /// Marks it read, then opens its item (`AppTarget`), as the web's bell does.
+    /// Marks it read, then opens its item (`AppTarget`), as the web's bell does. Read on the
+    /// server: the row and the unread count change here, without fetching all 50 again.
     private func openItem(_ n: InboxNotification) async {
         if n.readAt == nil {
-            try? await session.api.postNoContent("/api/v1/notifications/\(n.id)/read")
-            await reload()
+            do {
+                try await session.api.postNoContent("/api/v1/notifications/\(n.id)/read")
+                if let page = state.value {
+                    let next = page.markingRead(n.id, at: Fmt.instant(Date()))
+                    state = .loaded(next)
+                    model.setUnread(next.unread)
+                }
+            } catch {
+                await reload()
+            }
         }
         let target = AppTarget.from(link: n.link)
         if target != .notifications { model.open(target) }

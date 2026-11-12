@@ -1,16 +1,57 @@
+import ImageIO
 import PhotosUI
 import SwiftUI
 
-/// A photo taken for a receipt or leave document, kept in memory until it's uploaded.
+/// A photo taken for a receipt or leave document, kept in memory until it's uploaded. Only the
+/// upload-sized copy is kept, made once off the main thread when the photo arrives: a full 24- or
+/// 48-megapixel photo takes 100 to 200 MB decoded, and scaling and encoding it on the main thread
+/// at Submit held up the screen.
 struct CapturedImage: Equatable {
     let id = UUID()
+    /// The upload as an image, for the preview.
     let image: UIImage
+    /// The upload: JPEG at 0.7, at most `maxUploadPixels` on the long side, upright.
+    let jpeg: Data?
     /// Sent at most 2,400 px on the long side: a receipt or MC stays legible, while a full 24- or
     /// 48-megapixel photo is several megabytes on mobile data and can pass the server's 10 MB
     /// receipt limit.
     static let maxUploadPixels: CGFloat = 2400
+    static let jpegQuality: CGFloat = 0.7
 
-    var jpeg: Data? { Self.forUpload(image).jpegData(compressionQuality: 0.7) }
+    private init(image: UIImage, jpeg: Data?) {
+        self.image = image
+        self.jpeg = jpeg
+    }
+
+    /// UIImage is immutable and safe to use on any thread.
+    private struct SendableImage: @unchecked Sendable { let image: UIImage }
+
+    /// From the camera (or the UI-test stub): scaled and encoded off the main thread.
+    static func make(camera original: UIImage) async -> CapturedImage {
+        let box = SendableImage(image: original)
+        let jpeg = await Task.detached(priority: .userInitiated) {
+            forUpload(box.image).jpegData(compressionQuality: jpegQuality)
+        }.value
+        return CapturedImage(image: jpeg.flatMap { UIImage(data: $0) } ?? original, jpeg: jpeg)
+    }
+
+    /// From the photo library's data: decoded straight at the upload size (never at full size),
+    /// upright, off the main thread. Nil when it isn't an image.
+    static func make(data: Data) async -> CapturedImage? {
+        let jpeg = await Task.detached(priority: .userInitiated) { () -> Data? in
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceThumbnailMaxPixelSize: Int(maxUploadPixels),
+            ]
+            guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+                  let scaled = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+            return UIImage(cgImage: scaled).jpegData(compressionQuality: jpegQuality)
+        }.value
+        guard let jpeg, let image = UIImage(data: jpeg) else { return nil }
+        return CapturedImage(image: image, jpeg: jpeg)
+    }
 
     /// The photo scaled down to `maxUploadPixels` (upright: drawing applies its orientation).
     static func forUpload(_ image: UIImage) -> UIImage {
@@ -36,14 +77,14 @@ struct CameraCapture: View {
         if stub {
             VStack(spacing: 16) {
                 Text("Test camera").font(CrowFont.mono(.headline, weight: .semibold))
-                Button("Take photo") { onImage(CapturedImage(image: Self.stubReceipt())) }
+                Button("Take photo") { Task { onImage(await CapturedImage.make(camera: Self.stubReceipt())) } }
                     .buttonStyle(.crowPrimary)
                     .accessibilityIdentifier("camera.shutter")
             }
             .padding(24)
         } else if UIImagePickerController.isSourceTypeAvailable(.camera) {
             ImagePicker { image in
-                if let image { onImage(CapturedImage(image: image)) } else { dismiss() }
+                if let image { Task { onImage(await CapturedImage.make(camera: image)) } } else { dismiss() }
             }
             .ignoresSafeArea()
         } else {
@@ -373,8 +414,8 @@ struct NewClaimView: View {
                 // The expense the picker was opened for (set before it opened, kept after).
                 let target = photoFor
                 Task {
-                    if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
-                        setReceipt(CapturedImage(image: image), for: target)
+                    if let data = try? await item.loadTransferable(type: Data.self), let image = await CapturedImage.make(data: data) {
+                        setReceipt(image, for: target)
                     }
                     picked = nil
                 }

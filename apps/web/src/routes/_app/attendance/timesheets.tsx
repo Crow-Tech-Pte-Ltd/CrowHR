@@ -16,7 +16,7 @@ import {
 } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ClipboardCheck, Users } from "lucide-react";
+
 import * as React from "react";
 import {
   duration,
@@ -110,8 +110,7 @@ function PeriodList({ date, employee }: { date?: string; employee?: string }) {
         <Card>
           <EmptyState
             variant="plain"
-            icon={<ClipboardCheck />}
-            title="Timesheet approval is off"
+            title="Timesheet approval is off, so there are no timesheets to submit or approve."
             description="Managers and HR correct attendance directly. Turn approval on to have timesheets submitted, approved and locked."
             actions={
               can(me, "policies:update") ? (
@@ -136,9 +135,8 @@ function PeriodList({ date, employee }: { date?: string; employee?: string }) {
             {data.items.length === 0 ? (
               <EmptyState
                 variant="plain"
-                icon={<Users />}
-                title="Nobody to show"
-                description="People you manage, and their timesheets, appear here."
+                title={`No timesheets for ${data.period.label}.`}
+                description="The people you manage show here with their timesheet for the period."
               />
             ) : (
               <Table aria-label={`Timesheets ${data.period.label}`}>
@@ -166,7 +164,9 @@ function PeriodList({ date, employee }: { date?: string; employee?: string }) {
                     return (
                       <TableRow key={r.employee.id} data-testid="timesheet-row">
                         <TableCell className="max-w-[12rem] truncate font-medium">{r.employee.name}</TableCell>
-                        <TableCell className="num hidden text-right sm:table-cell">{r.totals.daysWorked}</TableCell>
+                        <TableCell className="num hidden text-right sm:table-cell">
+                          {r.totals.daysWorked || "—"}
+                        </TableCell>
                         <TableCell className="num text-right">
                           {r.totals.workedMinutes ? duration(r.totals.workedMinutes) : "—"}
                         </TableCell>

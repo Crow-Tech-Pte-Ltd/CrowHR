@@ -461,8 +461,8 @@ struct ApplyLeaveView: View {
             .onChange(of: pickedPhoto) { _, item in
                 guard let item else { return }
                 Task {
-                    if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
-                        attachment = CapturedImage(image: image)
+                    if let data = try? await item.loadTransferable(type: Data.self), let image = await CapturedImage.make(data: data) {
+                        attachment = image
                     }
                 }
             }

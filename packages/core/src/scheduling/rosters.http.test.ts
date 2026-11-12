@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { seedOrg } from "../../testing/fixtures.ts";
 import type { TestClient } from "../../testing/http.ts";
 import { createSchedulingWorld, ok, type SchedulingWorld } from "../../testing/scheduling.ts";
 import { employees } from "../db/schema/employees.ts";
-import { rosterShifts } from "../db/schema/scheduling.ts";
+import { locations } from "../db/schema/organisation.ts";
+import { rosterShifts, rosters } from "../db/schema/scheduling.ts";
 import { MAX_ROSTER_EMPLOYEES } from "./rosters.ts";
 
 /** Rosters and shifts (spec "Rosters and assignments", "Schedule views and export"). */
@@ -274,5 +276,50 @@ describe("rosters and shifts", () => {
     expect(a).toMatch(/,Lee Wei Ming,2026-11-02,07:00,15:00,30,450,AM,/);
     expect(lines.some((l) => l.startsWith(",Open shift,2026-11-06,07:00,15:00"))).toBe(true);
     expect((await (await w.asCrew("crewA")).get(`${api}/rosters/${id}/export.csv`)).status).toBe(403);
+  });
+});
+
+describe("roster scopes", () => {
+  interface ScopesView {
+    locations: { id: string; name: string }[];
+    rosteredLocationIds: string[];
+  }
+
+  it("lists the locations where people work rostered shifts, so an editor can open on one in use", async () => {
+    // Both outlets have crew on the shift work schedule, rostered or not yet.
+    const before = await ok<ScopesView>(hr.get(`${api}/scopes`));
+    expect(before.rosteredLocationIds).toEqual(expect.arrayContaining([w.locationId, w.bugisId]));
+    // A kiosk with nobody on shifts doesn't count, even with a roster opened; it does once it has a shift.
+    const kiosk = w.deps.ids.newId();
+    await w.deps.db.insert(locations).values({ id: kiosk, orgId: w.orgId, name: "Airport kiosk" });
+    const id = await open(hr, "2026-12-07", kiosk);
+    expect((await ok<ScopesView>(hr.get(`${api}/scopes`))).rosteredLocationIds).not.toContain(kiosk);
+    await ok(hr.post(`${api}/rosters/${id}/shifts`, { employeeId: null, date: "2026-12-07", templateId: am }), 201);
+    // Locations with roster shifts come first (by name: the kiosk, then HQ, rostered by the tests
+    // above), then Bugis, whose crew is on the shift schedule but has no shifts yet.
+    const after = await ok<ScopesView>(hr.get(`${api}/scopes`));
+    expect(after.rosteredLocationIds).toEqual([kiosk, w.locationId, w.bugisId]);
+  });
+
+  it("never lists another organisation's rostered locations", async () => {
+    const other = await seedOrg(w.deps, { name: "Other Café Pte. Ltd." });
+    const locationId = w.deps.ids.newId();
+    await w.deps.db.insert(locations).values({ id: locationId, orgId: other.id, name: "Other outlet" });
+    const rosterId = w.deps.ids.newId();
+    await w.deps.db
+      .insert(rosters)
+      .values({ id: rosterId, orgId: other.id, locationId, scopeKey: `${locationId}:*`, weekStart: "2026-12-07" });
+    await w.deps.db.insert(rosterShifts).values({
+      id: w.deps.ids.newId(),
+      orgId: other.id,
+      rosterId,
+      employeeId: null,
+      date: "2026-12-07",
+      startsAt: new Date("2026-12-07T00:00:00Z"),
+      endsAt: new Date("2026-12-07T08:00:00Z"),
+    });
+    const scopes = await ok<ScopesView>(hr.get(`${api}/scopes`));
+    expect(scopes.rosteredLocationIds).not.toContain(locationId);
+    expect(scopes.locations.map((l) => l.id)).not.toContain(locationId);
   });
 });

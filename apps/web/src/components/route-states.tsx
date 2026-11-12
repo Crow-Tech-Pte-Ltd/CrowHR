@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, AlertTitle, Button, EmptyState, Skeleton } from "@crowhr/ui";
 import { type ErrorComponentProps, Link, useRouter } from "@tanstack/react-router";
-import { AlertTriangle, Compass } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useEffect } from "react";
 import { reportError } from "../monitoring.ts";
 
@@ -45,8 +45,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
 export function RouteNotFound() {
   return (
     <EmptyState
-      icon={<Compass />}
-      title="Page not found"
+      title="Page not found."
       description="The address may be mistyped, or the page has moved."
       actions={
         <Button asChild size="sm">

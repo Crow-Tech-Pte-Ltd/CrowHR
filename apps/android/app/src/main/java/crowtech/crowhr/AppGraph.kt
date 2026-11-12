@@ -23,6 +23,10 @@ import crowtech.crowhr.security.KeyValueStore
 import crowtech.crowhr.security.KeystoreCrypter
 import crowtech.crowhr.ui.ReceiptCamera
 import crowtech.crowhr.ui.SystemReceiptCamera
+import crowtech.crowhr.ui.ScreenMemory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -59,6 +63,7 @@ class AppGraph private constructor(val context: Context) {
         httpFor = { http(it) },
         deviceName = NativeAuth.deviceName(Build.MANUFACTURER, Build.MODEL),
         appVersion = BuildConfig.VERSION_NAME,
+        now = { clock() },
     )
 
     /** Test hooks: the UI tests replace the browser (sign-in) and the camera (receipts). */
@@ -70,11 +75,20 @@ class AppGraph private constructor(val context: Context) {
     /** Emits a connection key when its session ended (revoked on the web, expired, suspended). */
     val sessionEnded: SharedFlow<String> = _sessionEnded
 
+    /**
+     * Work that must finish even when its screen goes away: a clock tap (its location wait, the
+     * save and the send). A screen's own scope ends when the user switches tab.
+     */
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /** The last content of each tab, in memory only, so a tab shows it again at once. */
+    val screenMemory = ScreenMemory()
+
     private val queues = ConcurrentHashMap<String, PunchQueue>()
 
     fun http(connection: SavedConnection) = HttpClients.forHost(connection.server.toHttpUrl().host)
 
-    fun api(connection: SavedConnection) = ApiClient(connection, http(connection), tokens, nativeAuth) { ended ->
+    fun api(connection: SavedConnection) = ApiClient(connection, http(connection), tokens, nativeAuth, now = { clock() }) { ended ->
         clearSession(ended, keepPunches = true)
         _sessionEnded.tryEmit(ended.key)
     }
@@ -92,7 +106,11 @@ class AppGraph private constructor(val context: Context) {
     fun clearSession(connection: SavedConnection, keepPunches: Boolean) {
         tokens.delete(connection.key)
         cache.clear(connection.key)
+        screenMemory.clear(connection.key)
         settings.setRefreshCursor(connection.key, null)
+        // A payslip PDF handed to a viewer is deleted when its screen closes; this also covers a
+        // process that ended while the viewer was open.
+        File(context.cacheDir, "share").deleteRecursively()
         if (!keepPunches) {
             store.remove("punches.${connection.key}")
             queues.remove(connection.key)
@@ -117,6 +135,7 @@ class AppGraph private constructor(val context: Context) {
     /** UI tests only: forget every connection, token, cache and queued punch. */
     fun resetForTests() {
         store.clear()
+        screenMemory.clearAll()
         queues.clear()
         nativeAuth.cancel()
     }

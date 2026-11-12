@@ -13,7 +13,7 @@ test("starter set on the empty state, edit a cap, archive and restore a type", a
 
   // Empty state: the starter set, all ticked, nothing created until confirmed.
   const empty = page.getByTestId("claim-types-empty");
-  await expect(empty).toContainText("No claim types yet");
+  await expect(empty).toContainText("No claim types yet.");
   for (const name of ["Transport", "Meals", "Medical (outpatient)", "Dental", "Mobile phone"]) {
     await expect(empty.getByText(name, { exact: true })).toBeVisible();
   }

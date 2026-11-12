@@ -7,6 +7,7 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 ### Added
 
 - **Timesheet approval** (optional, off by default; Settings → Attendance): employees, or their managers, submit each month, half month or week for approval through the usual approval chains; managers approve or return it with a comment. An approved period is locked: punches, manager corrections and new overtime claims are refused, and an HR correction reopens it (audited, employee notified). Payroll can be set to take overtime and days worked only from approved timesheets. New API: `/api/v1/attendance/timesheets` (additive).
+- **Payroll → Year end**: record benefits-in-kind (IR8A Appendix 8A: housing, hotel stays, cars, home leave passages and other benefits) and share-plan gains (Appendix 8B) per employee. Crow HR values housing, cars, drivers and share gains with IRAS's formulas, shows the working, and adds IR8A d7 and d8. The IR8A download gains the template's Appendix 8A and 8B sheets for each part.
 
 ### Fixed
 
@@ -16,10 +17,13 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 - **Everywhere**: another organisation's IDs answer 404 instead of 500; claims, documents, attendance and scheduling fixes.
 - **Web app**: the demo opens on its own date; employees get the employee layout with the bottom tab bar; buttons only appear when you're allowed to use them; the command palette's Sign out signs out; payroll levy sector and tier are dropdowns; the leave balances report shows hours for part-timers; many accessibility fixes (page titles, headings, focus, contrast, screen-reader names).
 - **Mobile apps** (next version): iOS session, punch-queue and leave fixes, approval details, approvals beside the list on iPad; Android keeps forms across rotation, accepts approximate location, asks for notification permission and fixes receipt orientation.
+- **Mobile clock-in** (next version): a punch's time is the moment you tap, not when the location fix arrived (up to 10 seconds later) or the location permission was answered. On iPhone, unsent punches are no longer lost when iOS had started the app in the background while the phone was locked. On Android, leaving the Clock tab straight after a tap no longer drops it or leaves it unsent.
+- **Mobile apps, more fixes** (next version): the iOS app no longer follows redirects to other hosts (as on Android); an iOS session you switched away from can't sign out the one in use, and renewed tokens are kept if the Keychain refuses them for a moment; Android no longer flashes an error when the leave dates change while the days are being counted, and no longer loads My requests twice on the first visit.
 
 ### Changed
 
 - **Faster**: Home's inbox, leave balances, audit lookups and timesheets at 200 employees; payroll compute and submit; the sign-in page loads 143 kB of JavaScript instead of 251 kB; the server sends the web app's files pre-compressed.
+- **Faster mobile apps** (next version): Android decrypts each stored value once instead of on every read, renews the session a minute before it expires, and shows a tab's last content at once while it reloads instead of a spinner; iOS prepares receipt photos off the main thread and makes fewer inbox requests.
 - **API**: the 1.0 contract is frozen, and CI allows only additive changes.
 - My profile → Mobile app links the Android app on Google Play.
 

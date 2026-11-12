@@ -28,6 +28,11 @@ struct ClaimDetailView: View {
                     Notice(text: "Not approved: \(comment)", tone: .danger, systemImage: "exclamationmark.triangle")
                         .padding(.horizontal, 16)
                 }
+                if let fx = c.fxWarningText {
+                    Notice(text: fx, tone: .warning, systemImage: "exclamationmark.triangle")
+                        .padding(.horizontal, 16)
+                        .accessibilityIdentifier("claimDetail.fxWarning")
+                }
                 RowGroup(header: c.lines.count == 1 ? "Expense" : "Expenses") {
                     ForEach(c.lines) { ClaimLineRow(line: $0).crowRowPadding() }
                     AdaptiveRow {

@@ -29,6 +29,9 @@ export default defineConfig({
   base: BASE,
   trailingSlash: "always",
   image: { service: passthroughImageService() },
+  // The mobile apps page moved out of coming-soon/ when the Android app shipped. Keys are relative to
+  // the base; the build writes a small redirect page at the old address.
+  redirects: { "/coming-soon/mobile-apps/": "/docs/mobile-apps/" },
   // Note: avoid Starlight's <Steps> component. It renders with satteri, whose native binding cannot
   // be resolved from the prerender chunks under bun's isolated node_modules. Plain ordered lists work.
   integrations: [
@@ -60,9 +63,21 @@ export default defineConfig({
           content:
             "document.addEventListener('DOMContentLoaded',()=>{for(const t of document.querySelectorAll('.sl-markdown-content table'))if(!t.hasAttribute('tabindex'))t.tabIndex=0})",
         },
+        // Starlight's search button is named by aria-label="Search" while it also shows "Ctrl K", so the
+        // visible text isn't in its name (WCAG 2.5.3). Name it by its own "Search" text instead (kept for
+        // screen readers on phones by crow.css) and leave the shortcut to aria-keyshortcuts.
+        {
+          tag: "script",
+          content:
+            "document.addEventListener('DOMContentLoaded',()=>{const b=document.querySelector('button[data-open-modal]');const s=b&&b.querySelector(':scope>span');if(!s)return;b.removeAttribute('aria-label');s.removeAttribute('aria-hidden');s.classList.add('crow-search-label');for(const k of b.querySelectorAll(':scope>kbd'))k.setAttribute('aria-hidden','true')})",
+        },
       ],
       lastUpdated: false,
       credits: false,
+      // Shell snippets get the same plain frame as other code (no terminal title bar with window dots).
+      // Long lines wrap with a hanging indent instead of scrolling sideways, so nothing is cut off on a
+      // phone and no code block needs its own scroll region.
+      expressiveCode: { defaultProps: { frame: "code", wrap: true, hangingIndent: 2 } },
       sidebar: [
         {
           label: "Start here",
@@ -140,7 +155,7 @@ export default defineConfig({
         { label: "Reports", items: [{ slug: "reports/running-reports" }] },
         { label: "Roles and permissions", items: [{ slug: "roles-and-permissions" }] },
         { label: "Integrations", items: [{ slug: "integrations" }] },
-        { label: "Mobile apps", items: [{ slug: "coming-soon/mobile-apps" }] },
+        { label: "Mobile apps", items: [{ slug: "mobile-apps" }] },
         {
           label: "Developers",
           collapsed: true,

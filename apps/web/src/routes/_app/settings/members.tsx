@@ -26,7 +26,7 @@ import {
 } from "@crowhr/ui";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { MoreHorizontal, UserPlus, Users } from "lucide-react";
+import { MoreHorizontal, UserPlus } from "lucide-react";
 import * as React from "react";
 import { relativeTime } from "../../../auth/format.ts";
 import { useReauth } from "../../../auth/reauth.tsx";
@@ -84,8 +84,7 @@ function MembersPage() {
       <>
         <PageHeader crumbs={[{ label: "Settings", to: "/settings" }]} title="Members and roles" />
         <EmptyState
-          icon={<Users />}
-          title="You can't see members"
+          title="You can't see members."
           description="Owners, HR admins and payroll admins manage who has access. Ask one of them if you need a change."
         />
       </>
@@ -149,12 +148,11 @@ function MembersPage() {
         ) : list.data.items.length === 0 ? (
           <EmptyState
             variant="plain"
-            icon={<Users />}
-            title={q || status !== "all" ? "No members match" : "Only you so far"}
+            title={q || status !== "all" ? "No members match." : "You're the only member so far."}
             description={
               q || status !== "all"
                 ? "Try a different search or status."
-                : "Invite your HR, payroll and team members so they can sign in."
+                : "Invite your HR, payroll and team members with Invite someone, so they can sign in."
             }
           />
         ) : (
@@ -204,7 +202,14 @@ function MembersPage() {
                     </TableCell>
                     <TableCell>
                       <span className="flex flex-col gap-0.5">
-                        <StatusPill tone={STATUS_TONE[m.status]}>{STATUS_LABEL[m.status]}</StatusPill>
+                        {/* Active is the normal state: plain text. A list filtered to one status doesn't repeat it. */}
+                        {status === m.status ? null : m.status === "active" ? (
+                          <span className="text-ui text-primary-300">Active</span>
+                        ) : (
+                          <StatusPill tone={STATUS_TONE[m.status]} className="self-start">
+                            {STATUS_LABEL[m.status]}
+                          </StatusPill>
+                        )}
                         {m.invitation?.expired ? (
                           <span className="text-2xs text-warning-400">Invitation expired</span>
                         ) : null}
@@ -215,9 +220,9 @@ function MembersPage() {
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {m.mfaEnrolled ? (
-                        <StatusPill tone="success">On</StatusPill>
+                        <span className="text-ui text-primary-300">On</span>
                       ) : (
-                        <span className="text-2xs text-primary-200">Not set up</span>
+                        <span className="text-ui text-primary-200">Not set up</span>
                       )}
                     </TableCell>
                     <TableCell className="num hidden md:table-cell">{relativeTime(m.lastActiveAt)}</TableCell>

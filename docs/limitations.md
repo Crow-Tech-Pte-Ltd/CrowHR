@@ -23,7 +23,9 @@ the change that fixes it.
   attempts) go through the outbox. A member's first sign-in is never reported, and clearing cookies
   makes the next sign-in look like a new browser.
 - **Common passwords** are a curated list of a few hundred entries plus patterns, not a breach corpus.
-- **No email change**: a member's email address can't be changed.
+- **Sign-in email changes need SMTP**: a member changes their own address from a link sent to the new
+  one (24 hours). Without SMTP the new address can't be verified, so the change isn't offered rather
+  than made unverified. Owners can't change another member's sign-in email.
 - **No row-level security**: tenant isolation is enforced by the application (org-scoped queries)
   and composite foreign keys, with a test that every route refuses another organisation's IDs.
 - **Audit integrity**: verification compares the hash chain with `audit_heads` and detects a
@@ -77,7 +79,12 @@ the change that fixes it.
   residential address, director's fees, d3 gratuity and notice pay, d6 excess employer CPF, tax
   borne by the employer, remission and exempt income. Employees with another ID type or without a
   recorded sex are left out and listed; IR21-cleared leavers are only flagged.
-- **Appendix 8A and 8B are not implemented**: Crow HR records no benefits-in-kind or share plans.
+- **Appendix 8A and 8B** rows come from the benefits-in-kind and share gains HR records under Year end
+  (research/sg-ir8a-appendices.md). Premises the employer owns are valued at annual value, which
+  IRAS's import template can't take yet, so their 2a and 2b are keyed in myTax after import; in a
+  leap year HR enters 2a (IRAS hasn't published the day basis). Not supported: ERIS, QEEBR, the
+  deemed exercise rule for leaving foreigners (IR21), loan interest calculations, exchange rates,
+  and printed appendix forms. Computed values are rounded down to the cent (no IRAS rule).
 - **Back pay** from a retroactive pay change is flagged on the next run (`BACKPAY_OWED`) but not
   computed: enter it as a "Back pay" item.
 - **Hours for hourly staff** and other one-off items are entered per run. Hours are paid at the rate
@@ -114,12 +121,9 @@ the change that fixes it.
 
 ## Claims
 
-- **Exchange rates are manual** (no rate feed, at most 6 decimal places), and approvers get no warning
-  when a rate is far from the last one used.
-- **On-behalf claims**: owners and HR admins can file a claim for an employee through the API only;
-  the web form files claims for yourself.
-- **Receipts uploaded but never attached** are kept until the uploader deletes them.
-- **Claim numbers sort as text**: after C-9999, C-10000 sorts before C-9999.
+- **Exchange rates are manual** (no rate feed, at most 6 decimal places). The warning for a rate more
+  than 20% from the last one used compares with other submitted claims only, never with other lines
+  of the same claim, and never blocks.
 - **HEIC receipts** are stored but not previewed.
 - **Approval policies see one claim type**: a claim with several types is routed by its largest type
   by SGD amount.
@@ -269,7 +273,7 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
 - **Email** goes to the demo outbox; nothing is sent.
 - **Passwords** use a demo-only hash a real server refuses, and the encryption key is stored with the
   data. Fine for fictional data, never a pattern for real data.
-- **The clock** shows 31 Oct 2026 at the visitor's Singapore time of day.
+- **The clock** always opens on Saturday 31 Oct 2026 at 11:30 Singapore time, then runs normally.
 - **One tab at a time** can open the demo company.
 - **A tab closed mid-request** can lose that request.
 - **Downloads and receipt previews** need a service worker; where there is none (some private modes),
@@ -284,9 +288,10 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
 
 - **No remote push**: the apps refresh in the background and show local notifications, so Crow Tech
   needs no push service that would see your data.
-- **Done on the web, not in the apps**: the leave team calendar, shift swaps and open shifts. On
-  iOS also leave types that need a child, foreign-currency and multi-line claims. On Android also
-  leave types that need a child, and editing, submitting, withdrawing or copying a saved claim draft.
+- **Done on the web, not in the apps**: on iOS, the leave team calendar, shift swaps, open shifts,
+  leave types that need a child, and foreign-currency and multi-line claims. On Android, half days
+  on requests longer than a day, leave or claims filed for someone else, adding a child's record,
+  GST on a claim line, viewing a receipt photo, and opening a request from the calendar.
 - **The "Data Not Collected" store answers** haven't had a legal review.
 - **Not covered by automated tests**: the camera (QR scanning and receipts), Face ID and Touch ID,
   the system browser's sign-in page, the Android permission prompts (their decision logic is
@@ -309,8 +314,8 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
   time per process; several replicas each keep their own pool.
 - **The 1.0.0 apps** need a sign-in method in `GET /api/v1/meta`, and `kind` is a closed enum, so a
   demo company is listed with `kind: "password"` and the name "Pick a person (demo company, no
-  password)". The Android app's manual address entry has no organisation field: on Android, open a
-  demo company with the link or QR code.
+  password)". Both apps ask for the organisation when the server hosts several, so a demo company
+  opens by link, QR code or by typing the server address and its company code.
 - **On a server with demo companies**, `/sign-in` and `GET /api/v1/meta` never fall back to the only
   organisation, so a real organisation's people there use `/sign-in/<slug>`.
 - **In a demo company** people hired there get no sign-in (invitations are refused) and so aren't on

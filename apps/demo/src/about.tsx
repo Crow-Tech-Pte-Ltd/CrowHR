@@ -46,7 +46,7 @@ const DIFFERENCES: [string, string, string][] = [
   ],
   [
     "Date",
-    "The company lives on 31 Oct 2026; the clock starts there at your time of day and then runs normally.",
+    "The company lives on Saturday 31 Oct 2026. Every visit starts there at 11:30 Singapore time, after the outlets' morning crews have clocked in, and the clock then runs normally.",
     "The real date.",
   ],
   ["Uploaded files", "Receipts are stored in the browser database.", "Stored on the server's disk volume."],
@@ -69,14 +69,10 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
           <ArrowLeft className="size-3.5" aria-hidden />
           Back to the demo
         </a>
-        <p className="mb-2 font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300">
-          Crow HR · public demo
-        </p>
         <h1 className="mb-3 font-azeret text-2xl font-semibold leading-tight tracking-tight">About this demo</h1>
         <p className="max-w-2xl text-sm leading-6 text-primary-300">
-          This is the real Crow HR: the same web app and the same API code that a self-hosted install runs, started
-          inside your browser instead of on a server. Payroll is calculated by the real engine with the cited Singapore
-          rules, approvals go through the real workflow engine, and permissions are enforced by the same code.
+          The same web app and API code as a self-hosted install, running in your browser instead of on a server.
+          Payroll, approvals and permissions use the same engine and the same cited Singapore rules.
         </p>
 
         {tryUrl() ? (
@@ -124,11 +120,12 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
             The company: Kopi Kaki Pte. Ltd.
           </h2>
           <p className="mb-3 max-w-2xl text-ui leading-6 text-primary-300">
-            A fictional café group with an office, a central kitchen and three outlets: 27 people across citizens,
-            permanent residents in their first, second and later years, Employment Pass, S Pass and Work Permit holders,
-            every self-help group fund, part-timers and employees on each CPF age boundary. July to September 2026
-            payroll is approved and paid; October is a computed draft with warnings. Claims, leave, change requests and
-            approvals are waiting for each persona. Every name, NRIC/FIN, bank account and email address is invented.
+            A fictional café group with an office, a central kitchen and three outlets. 25 people work there (one starts
+            in November) and two left this year. They include citizens, permanent residents in their first, second and
+            later years, Employment Pass, S Pass and Work Permit holders, every self-help group fund, part-timers and
+            employees on each CPF age boundary. July to September 2026 payroll is approved and paid; October is a
+            computed draft with warnings. Claims, leave, change requests and approvals are waiting for each persona.
+            Every name, NRIC/FIN, bank account and email address is invented.
           </p>
           <section
             aria-label="Demo personas"
@@ -147,9 +144,7 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
               <tbody className="divide-y divide-border">
                 {PERSONAS.map((p) => (
                   <tr key={p.key}>
-                    <td className="whitespace-nowrap px-3 py-2 font-azeret text-2xs font-semibold uppercase tracking-wider">
-                      {p.label}
-                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 font-medium">{p.label}</td>
                     <td className="whitespace-nowrap px-3 py-2">{p.name}</td>
                     <td className="px-3 py-2 text-primary-300">{p.blurb}</td>
                   </tr>
@@ -201,7 +196,10 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
             Demo limits
           </h2>
           <ul className="list-disc space-y-1 pl-5 text-ui leading-6 text-primary-300">
-            <li>January–June opening balances are not imported, so payroll shows the missing YTD warning.</li>
+            <li>
+              January–June 2026 opening balances are imported as for a company that moved to Crow HR mid-year, so runs
+              warn only about real issues.
+            </li>
             <li>
               July–September overtime was entered on the historical payroll runs. October uses approved clocked
               overtime. Part-month joiner and leaver payroll uses a full-month denominator counted from the outlet

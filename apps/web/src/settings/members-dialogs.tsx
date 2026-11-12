@@ -3,6 +3,7 @@ import {
   AlertDescription,
   Button,
   Checkbox,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -12,6 +13,7 @@ import {
   FormField,
   Input,
   Label,
+  textStyle,
 } from "@crowhr/ui";
 import { CheckCircle2 } from "lucide-react";
 import * as React from "react";
@@ -37,9 +39,7 @@ export function RolePicker({
 }) {
   return (
     <fieldset className="flex flex-col gap-2" disabled={disabled}>
-      <legend className="mb-1 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-300">
-        Roles (optional, combinable)
-      </legend>
+      <legend className={cn("mb-1", textStyle.group)}>Roles (optional, combinable)</legend>
       {(["owner", "hr_admin", "payroll_admin"] as const).map((r) => (
         <div key={r} className="flex items-start gap-2">
           <Checkbox

@@ -21,6 +21,19 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
+import crowtech.crowhr.api.ApprovalTask
+import crowtech.crowhr.api.Items
+import crowtech.crowhr.api.UnreadCount
+import crowtech.crowhr.connect.UrlCodec
+import crowtech.crowhr.ui.screens.ClaimDetailScreen
+import crowtech.crowhr.ui.screens.ClaimEditorScreen
+import crowtech.crowhr.ui.screens.LeaveCalendarScreen
+import crowtech.crowhr.ui.screens.OfferShiftScreen
+import crowtech.crowhr.ui.theme.Numeric
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -110,7 +123,16 @@ class ScreenContext(
     val push: (Route) -> Unit,
     val pop: () -> Unit,
     val vm: AppViewModel,
+    /** The screen on top is replaced by another (a saved draft opens as itself). */
+    val replace: (Route) -> Unit = { pop(); push(it) },
+    /** Goes to a tab and the screens on it (a notification's item). */
+    val open: (Destination) -> Unit = {},
+    /** Something changed that the tab badges count (a decision, a notification read). */
+    val refreshBadges: () -> Unit = {},
 )
+
+/** The counts on the Tasks and More tabs; null = not shown (not offered, or not loaded). */
+data class BadgeCounts(val tasks: Int? = null, val unread: Int? = null)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,16 +161,50 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
         savedTab = t
     }
     val api = remember(connection) { graph.api(connection) }
-    val ctx = ScreenContext(graph, connection, api, screen.me, push = ::push, pop = ::pop, vm = vm)
-
-    val open by vm.openRequest.collectAsState()
-    LaunchedEffect(open) {
-        when (open) {
-            "approvals" -> select(Tab.Tasks.name)
-            "notifications" -> { select(Tab.More.name); push(Route.Notifications) }
-        }
-        if (open != null) vm.openRequest.value = null
+    /** [onTop]: from a screen on the same tab, the screens go on top, so Back returns there. */
+    fun open(destination: Destination, onTop: Boolean) {
+        if (tabs.none { it == destination.tab }) return
+        if (!onTop || destination.tab.name != tab) select(destination.tab.name)
+        destination.routes.forEach(::push)
     }
+    var badgeTick by remember { mutableIntStateOf(0) }
+    val ctx = ScreenContext(
+        graph, connection, api, screen.me, push = ::push, pop = ::pop, vm = vm,
+        replace = { route -> pop(); push(route) }, open = { open(it, onTop = true) }, refreshBadges = { badgeTick++ },
+    )
+
+    val request by vm.openRequest.collectAsState()
+    LaunchedEffect(request, connection.key) {
+        val r = request ?: return@LaunchedEffect
+        // A notification for another connection waits until the switch to it has happened.
+        if (r.connectionKey != null && r.connectionKey != connection.key && graph.connections.all().any { it.key == r.connectionKey }) return@LaunchedEffect
+        vm.openRequest.value = null
+        open(Destinations.forRequest(r) { connection.isAvailable(it) }, onTop = false)
+        // Opened: it's read now (best effort; the inbox shows it as read once the server agrees).
+        r.notificationId?.let { id ->
+            runCatching { api.postEmpty("/api/v1/notifications/${UrlCodec.encode(id)}/read") }
+            badgeTick++
+        }
+    }
+
+    // Badges: open approval tasks on Tasks, unread notifications on More. Fetched again on a
+    // pull, a tab change, a screen opened or closed, the app coming back, and after actions.
+    val refresh = remember(connection.key) { RefreshSignal() }
+    val foregrounds by vm.foregrounds.collectAsState()
+    val badges by produceState(BadgeCounts(), connection.key, refresh.generation, tab, stackCodes.size, badgeTick, foregrounds) {
+        val tasks = if (connection.isAvailable(AppScreen.Approvals)) {
+            runCatching { api.get("/api/v1/approvals/tasks", Items.serializer(ApprovalTask.serializer())).items.size }.getOrElse { value.tasks }
+        } else null
+        val unread = if (connection.isAvailable(AppScreen.Notifications)) {
+            runCatching { api.get("/api/v1/notifications/unread-count", UnreadCount.serializer()).unread }.getOrElse { value.unread }
+        } else null
+        value = BadgeCounts(tasks, unread)
+    }
+    fun badge(t: Tab): Int? = when (t) {
+        Tab.Tasks -> badges.tasks
+        Tab.More -> badges.unread
+        else -> null
+    }?.takeIf { it > 0 }
 
     BackHandler(enabled = stack.isNotEmpty() || tab != tabs.first().name) {
         if (stack.isNotEmpty()) pop() else select(tabs.first().name)
@@ -190,8 +246,8 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
                     NavigationRailItem(
                         selected = tab == t.name,
                         onClick = { select(t.name) },
-                        icon = { Icon(t.icon, contentDescription = null, modifier = Modifier.size(22.dp)) },
-                        label = { Text(t.label, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                        icon = { TabIcon(t, badge(t)) },
+                        label = { Text(t.label, Modifier.tabLabelSemantics(t, badge(t)), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
                         modifier = Modifier.testTag("tab-${t.name.lowercase()}"),
                         colors = NavigationRailItemDefaults.colors(
                             selectedIconColor = Crow.colors.onAccent,
@@ -205,7 +261,6 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
             }
             Box(Modifier.fillMaxHeight().width(1.dp).background(Crow.colors.hairline))
         }
-        val refresh = remember(connection.key) { RefreshSignal() }
         var refreshing by remember { mutableStateOf(false) }
         // The indicator stays until every load the pull started has finished.
         LaunchedEffect(refresh.generation) {
@@ -243,7 +298,7 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
         ) {
             val route = stack.lastOrNull()
             screens.SaveableStateProvider(route?.code ?: "tab:$tab") {
-                CompositionLocalProvider(LocalRefresh provides refresh) {
+                CompositionLocalProvider(LocalRefresh provides refresh, LocalScreenMemory provides graph.screenMemory) {
                 Column(
                     Modifier.widthIn(max = 640.dp).fillMaxWidth().verticalScroll(rememberScrollState())
                         // TalkBack and switch users can't pull: the same refresh as an action.
@@ -261,9 +316,13 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
                         }
                         is Route.PayslipDetail -> PayslipDetailScreen(ctx, route.id)
                         Route.LeaveApply -> LeaveApplyScreen(ctx)
+                        Route.LeaveCalendar -> LeaveCalendarScreen(ctx)
                         Route.Claims -> ClaimsScreen(ctx)
                         Route.NewClaim -> NewClaimScreen(ctx)
+                        is Route.ClaimDetail -> ClaimDetailScreen(ctx, route.id)
+                        is Route.EditClaim -> ClaimEditorScreen(ctx, route.id)
                         Route.Schedule -> ScheduleScreen(ctx)
+                        is Route.OfferShift -> OfferShiftScreen(ctx, route.rosterId, route.shiftId)
                         Route.Notifications -> NotificationsScreen(ctx)
                         Route.Profile -> ProfileScreen(ctx)
                         Route.Settings -> SettingsScreen(ctx)
@@ -280,10 +339,13 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
                 NavigationBarItem(
                     selected = tab == t.name,
                     onClick = { select(t.name) },
-                    icon = { Icon(t.icon, contentDescription = null, modifier = Modifier.size(22.dp)) },
+                    icon = { TabIcon(t, badge(t)) },
                     label = {
                         val style = MaterialTheme.typography.labelSmall
-                        Text(t.label, style = style.copy(fontSize = cappedTextSize(style.fontSize)), maxLines = 1, overflow = TextOverflow.Visible, softWrap = false)
+                        Text(
+                            t.label, Modifier.tabLabelSemantics(t, badge(t)), style = style.copy(fontSize = cappedTextSize(style.fontSize)),
+                            maxLines = 1, overflow = TextOverflow.Visible, softWrap = false,
+                        )
                     },
                     modifier = Modifier.testTag("tab-${t.name.lowercase()}"),
                     colors = NavigationBarItemDefaults.colors(
@@ -298,3 +360,29 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
         }
     }
 }
+
+/**
+ * A tab's icon, with a count when something waits there. Material clears the icon's semantics
+ * when the tab has a label, so TalkBack hears the count from [tabLabelSemantics] instead.
+ */
+@Composable
+private fun TabIcon(t: Tab, count: Int?) {
+    if (count == null) {
+        Icon(t.icon, contentDescription = null, modifier = Modifier.size(22.dp))
+        return
+    }
+    BadgedBox(
+        badge = {
+            Badge(containerColor = Crow.colors.ink, contentColor = MaterialTheme.colorScheme.background) {
+                Text(Destinations.badgeText(count), style = Numeric.copy(fontSize = cappedTextSize(MaterialTheme.typography.labelSmall.fontSize, 1.3f)))
+            }
+        },
+    ) {
+        Icon(t.icon, contentDescription = null, modifier = Modifier.size(22.dp))
+    }
+}
+
+/** "Tasks, 3 to approve" for TalkBack when the tab shows a count (tagged "badge-tasks" for tests). */
+private fun Modifier.tabLabelSemantics(t: Tab, count: Int?): Modifier =
+    if (count == null) this
+    else semantics { contentDescription = "${t.label}, ${Destinations.badgeSpoken(t, count)}" }.testTag("badge-${t.name.lowercase()}")

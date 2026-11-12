@@ -55,8 +55,14 @@ Settings → Security also sets how long people stay signed in:
 | --- | --- | --- |
 | Sign out after inactivity | 30 minutes | 15 to 240 minutes |
 | Always sign out after | 12 hours | 1 to 24 hours |
-| Mobile app: sign out after unused | 30 days | 1 to 90 days ([mobile apps](/docs/coming-soon/mobile-apps/)) |
+| Mobile app: sign out after unused | 30 days | 1 to 90 days ([mobile apps](/docs/mobile-apps/)) |
 
 People see and revoke their own sessions in **My sessions**. **Sign out everywhere** removes all linked SSO identities in that organisation, including the current method; the current session stays signed in. A password reset removes identities across all organisations. Verified-email providers can link again at the next SSO sign-in; other identities need a new invitation or a fresh profile link. Changing or resetting a password and suspending a member revoke sessions too. Sensitive actions (changing the password, two-step verification or security settings, SSO configuration, role grants, revealing an NRIC/FIN or bank number, exports with sensitive fields) need a sign-in within the last 10 minutes.
+
+## Changing your sign-in email
+
+Everyone changes their own sign-in email in the user menu under **Sign-in and devices → Sign-in email** (it needs a sign-in within the last 10 minutes). Crow HR emails a link to the new address, valid for 24 hours; the change happens when it is opened and confirmed, and both the old and the new address are told. Until then the old address keeps working, and a newer request or **Cancel the change** ends the old link. One person has one sign-in email for every organisation they belong to; the work email on the employee record doesn't change.
+
+A server without email (no SMTP) can't verify the new address, so it doesn't offer the change: an unverified address could claim someone else's, and invitations, SSO linking and password resets all trust it. Set up SMTP ([email configuration](/docs/self-hosting/configuration/#email)) to allow it.
 
 When `PUBLIC_URL` is plain `http`, Settings → Security warns "Not using HTTPS": session cookies are not protected in transit. Put Crow HR behind HTTPS ([reverse proxy](/docs/self-hosting/reverse-proxy/)) before using it over the internet.

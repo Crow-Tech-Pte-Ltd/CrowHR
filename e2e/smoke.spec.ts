@@ -27,8 +27,19 @@ test.describe("application shell", () => {
     ]) {
       await expect(nav.getByRole("link", { name: item, exact: true })).toBeVisible();
     }
-    await expect(page.getByText("API connected")).toBeVisible();
+    // A healthy server goes unmentioned: the sidebar speaks up only when it can't be reached.
+    await expect(page.getByTestId("api-status")).toHaveCount(0);
     expect(errors).toEqual([]);
+  });
+
+  test("says so when the server can't be reached", async ({ page }) => {
+    await page.route("**/api/health", (route) => route.abort());
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1, name: HOME_HEADING })).toBeVisible();
+    // Query retries take a few seconds before the health check counts as failed.
+    await expect(page.getByTestId("api-status")).toHaveText("Can't reach the server. Changes are not saved.", {
+      timeout: 20_000,
+    });
   });
 
   test("command palette jumps to Payroll", async ({ page }) => {

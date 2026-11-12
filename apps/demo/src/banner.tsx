@@ -205,7 +205,7 @@ function OutboxSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[min(30rem,100vw)] p-0" data-testid="demo-outbox-sheet">
         <div className="border-b border-border px-4 py-3 pr-10">
-          <SheetTitle className="font-azeret text-xs font-semibold uppercase tracking-wider">Demo outbox</SheetTitle>
+          <SheetTitle className="font-azeret text-sm font-semibold">Demo outbox</SheetTitle>
           <SheetDescription className="mt-1 text-ui text-primary-300">
             The demo sends no email. Everything Crow HR would have emailed lands here instead, so invitation and
             password-reset links still work.

@@ -1,12 +1,13 @@
 import { Button, type ColumnDef, cn, DataTable, EmptyState, formatDate, formatMoney, Skeleton } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ChevronRight, Plus, ReceiptText, Users } from "lucide-react";
+import { ChevronRight, Plus, Users } from "lucide-react";
 import * as React from "react";
-import { can, useMe } from "../../../auth/session.ts";
+import { can, canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
-import { type ClaimRowDto, claimListQuery, myTotalsQuery } from "./-lib/api.ts";
+import { type ClaimDto, type ClaimRowDto, claimListQuery, myTotalsQuery } from "./-lib/api.ts";
+import { compareClaimNumbers } from "./-lib/claim-number.ts";
 import { ClaimSheet } from "./-lib/claim-sheet.tsx";
 import { ClaimStatusPill } from "./-lib/ui.tsx";
 
@@ -41,11 +42,17 @@ function dates(r: ClaimRowDto) {
 
 const what = (r: ClaimRowDto) => r.title ?? (r.typeNames.join(", ") || "Claim");
 
+/** Filters that list one status: there a status chip would say the same thing on every row. */
+const ONE_STATUS = new Set(["submitted", "approved", "paid", "draft"]);
+
 const columns: ColumnDef<ClaimRowDto, unknown>[] = [
   {
     id: "claim",
     header: "Claim",
-    accessorFn: (r) => r.claimNumber ?? "",
+    accessorFn: (r) => r.claimNumber ?? undefined,
+    // Numeric (C-9999 before C-10000); drafts have no number and stay last either way.
+    sortUndefined: "last",
+    sortingFn: (a, b) => compareClaimNumbers(a.original.claimNumber, b.original.claimNumber),
     cell: ({ row }) => (
       <span className="num whitespace-nowrap">
         {row.original.claimNumber ?? <span className="text-primary-200">Draft</span>}
@@ -114,6 +121,20 @@ function MyClaimsPage() {
   const totals = useQuery({ ...myTotalsQuery, enabled: !!me.employeeId });
   const scopes = me.permissions["claims:read"] ?? [];
   const reviewer = scopes.includes("all") || scopes.includes("team");
+  // Owners and HR admins file claims for employees too (the sheet shows an employee picker).
+  const onBehalf = canForAll(me, "claims:create");
+  const openClaim = (claim: ClaimDto) => {
+    if (claim.employee.id !== me.employeeId) void navigate({ to: "/claims/$claimId", params: { claimId: claim.id } });
+  };
+  const sheetProps = {
+    open: sheet,
+    onOpenChange: (open: boolean) => {
+      setSheet(open);
+      if (!open && search.new)
+        void navigate({ search: (s: ClaimsSearch) => ({ ...s, new: undefined }), replace: true });
+    },
+    onDone: openClaim,
+  };
 
   const reviewLink = reviewer ? (
     <Button asChild variant="ghost" size="sm">
@@ -128,35 +149,51 @@ function MyClaimsPage() {
       <>
         <PageHeader title="Claims" description="Expense claims, approvals and reimbursements." actions={reviewLink} />
         <EmptyState
-          icon={<ReceiptText />}
-          title="Your account isn't linked to an employee record"
+          title="Your account isn't linked to an employee record, so you have no claims of your own."
           description={
-            can(me, "claims:read")
-              ? "You can review everyone's claims, mark them paid and export reports in All claims."
-              : "Ask HR to link your account to your employee record to submit claims."
+            onBehalf
+              ? "You can file a claim for an employee, and review everyone's claims in All claims."
+              : can(me, "claims:read")
+                ? "You can review everyone's claims, mark them paid and export reports in All claims."
+                : "Ask HR to link your account to your employee record to submit claims."
           }
           actions={
-            reviewer ? (
-              <Button asChild variant="primary">
-                <Link to="/claims/admin">Open all claims</Link>
+            onBehalf ? (
+              <Button variant="primary" onClick={() => setSheet(true)} data-testid="new-claim">
+                <Plus aria-hidden /> New claim for an employee
               </Button>
             ) : undefined
           }
         />
+        {onBehalf ? <ClaimSheet {...sheetProps} /> : null}
       </>
     );
   }
 
   const rows = list.data?.items ?? [];
+  const oneStatus = ONE_STATUS.has(search.status ?? "");
+  const filter = FILTERS.find((f) => f.value === (search.status ?? ""));
+  const emptyCopy = search.status
+    ? {
+        title: `No claims under ${filter?.label ?? "this filter"}.`,
+        description: "The other tabs above have the rest of your claims.",
+      }
+    : {
+        title: "No claims yet.",
+        description:
+          "Snap a receipt with New claim and send it for approval. Approved claims are paid with your next payslip or by transfer.",
+      };
   return (
     <>
       <PageHeader
         title="My claims"
         description={
-          totals.data ? (
-            <span className="num" data-testid="claims-totals">
-              {formatMoney(totals.data.submittedCents)} waiting for approval · {formatMoney(totals.data.approvedCents)}{" "}
-              to be paid · {formatMoney(totals.data.paidThisYearCents)} paid this year
+          totals.data && (totals.data.submittedCents || totals.data.approvedCents || totals.data.paidThisYearCents) ? (
+            // A sentence in body type; only the amounts are mono. Hidden while all three are zero.
+            <span data-testid="claims-totals">
+              <span className="num">{formatMoney(totals.data.submittedCents)}</span> waiting for approval ·{" "}
+              <span className="num">{formatMoney(totals.data.approvedCents)}</span> to be paid ·{" "}
+              <span className="num">{formatMoney(totals.data.paidThisYearCents)}</span> paid this year
             </span>
           ) : (
             "Expense claims and reimbursements."
@@ -214,7 +251,7 @@ function MyClaimsPage() {
                       <span className="num shrink-0 font-semibold">{formatMoney(r.totalCents)}</span>
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      <ClaimStatusPill status={r.status} />
+                      {oneStatus ? <span /> : <ClaimStatusPill status={r.status} />}
                       <span className="num truncate text-2xs text-primary-200">
                         {r.claimNumber ? `${r.claimNumber} · ` : ""}
                         {dates(r)}
@@ -230,39 +267,16 @@ function MyClaimsPage() {
       <div className="hidden md:block">
         <DataTable
           label="My claims"
-          columns={columns}
+          columns={oneStatus ? columns.filter((c) => c.id !== "status") : columns}
           data={rows}
           getRowId={(r) => r.id}
           loading={list.isPending}
           onRowActivate={(row) => void navigate({ to: "/claims/$claimId", params: { claimId: row.original.id } })}
-          empty={<span className="sr-only">No claims to show</span>}
+          empty={<EmptyState variant="plain" {...emptyCopy} />}
         />
       </div>
-      {!list.isPending && rows.length === 0 ? (
-        <EmptyState
-          className="mt-4"
-          icon={<ReceiptText />}
-          title={search.status ? "No claims here" : "No claims yet"}
-          description={
-            search.status
-              ? "Nothing matches this filter."
-              : "Snap a photo of the receipt, enter the amount and send it for approval. Approved claims are paid with your next payslip or by transfer."
-          }
-          actions={
-            <Button variant="primary" onClick={() => setSheet(true)}>
-              <Plus aria-hidden /> New claim
-            </Button>
-          }
-        />
-      ) : null}
-      <ClaimSheet
-        open={sheet}
-        onOpenChange={(open) => {
-          setSheet(open);
-          if (!open && search.new)
-            void navigate({ search: (s: ClaimsSearch) => ({ ...s, new: undefined }), replace: true });
-        }}
-      />
+      {!list.isPending && rows.length === 0 ? <EmptyState className="md:hidden" {...emptyCopy} /> : null}
+      <ClaimSheet {...sheetProps} />
     </>
   );
 }

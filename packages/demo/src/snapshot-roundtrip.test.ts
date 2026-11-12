@@ -29,7 +29,8 @@ describe("build snapshot round trip", () => {
         realNow: () => realNow,
       });
       expect(demo.info.today).toBe("2026-10-31");
-      expect(demo.deps.clock.now().toISOString()).toBe("2026-10-31T02:00:00.000Z");
+      // Every visit opens at 11:30 on the demo Saturday in Singapore, whatever the real time.
+      expect(demo.deps.clock.now().toISOString()).toBe("2026-10-31T03:30:00.000Z");
       expect(demo.timings.stages.map((s) => s.stage)).toEqual(["app"]);
       expect(demo.timings.seeded).toBe(true);
       expect(await demo.deps.db.select().from(schema.employees)).toHaveLength(27);

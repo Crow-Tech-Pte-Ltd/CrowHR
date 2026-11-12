@@ -21,7 +21,7 @@ const base = import.meta.env.BASE_URL;
 >
   <h2 id="about-this-reference">About this reference</h2>
   <p>
-    The web app, integrations and (later) the native apps all use one versioned REST API under <code>/api/v1</code>.
+    The web app, the Android and iOS apps and your own integrations use one versioned REST API under <code>/api/v1</code>.
     These pages are generated at build time from the committed OpenAPI {doc.openapi} snapshot
     (<code>packages/core/openapi/v1.snapshot.json</code>), which is itself generated from the route declarations in{" "}
     <code>packages/core</code>. A running server also serves the live document at <code>GET /api/v1/openapi.json</code>.
@@ -36,6 +36,7 @@ const base = import.meta.env.BASE_URL;
       server checks. Records outside your organisation or scope answer <code>404</code>.
     </li>
     <li>Money is in integer cents (fields end in <code>Cents</code>). Fields marked <em>sensitive</em> are omitted for readers without access.</li>
+    <li>Fields are required (in a request) or always present (in a response) unless marked <em>optional</em>.</li>
     <li>
       Browser clients use the session cookie; native apps use <code>Authorization: Bearer</code>. There are no API keys
       for third-party integrations yet.

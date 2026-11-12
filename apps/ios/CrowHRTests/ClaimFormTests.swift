@@ -16,20 +16,21 @@ struct ClaimFormTests {
         let cases = try #require(Self.root["currencies"] as? [[String: Any]])
         #expect(ClaimMoney.currencies.map(\.code) == cases.map { $0["code"] as! String })
         for c in cases { #expect(ClaimMoney.exponent(of: c["code"] as! String) == int(c["exponent"])) }
+        for (code, e) in try #require(Self.root["exponents"] as? [String: Any]) { #expect(ClaimMoney.exponent(of: code) == int(e), "\(code)") }
         #expect(ClaimMoney.exponent(of: "XYZ") == 2)
     }
 
     @Test func amountsParseInMinorUnits() throws {
-        let cases = try #require(Self.root["parseMinor"] as? [[String: Any]])
-        #expect(cases.count >= 10)
+        let cases = try #require(Self.root["amounts"] as? [[String: Any]]) + (try #require(Self.root["moreAmounts"] as? [[String: Any]]))
+        #expect(cases.count >= 15)
         for c in cases {
-            #expect(ClaimMoney.parseMinor(c["text"] as! String, exponent: int(c["exponent"])!) == int(c["minor"]), "\(c)")
+            #expect(ClaimMoney.parseMinor(c["text"] as! String, exponent: int(c["exponent"])!) == int(c["amountMinor"]), "\(c)")
         }
     }
 
     @Test func amountsFormat() throws {
-        for c in try #require(Self.root["formatMinor"] as? [[String: Any]]) {
-            #expect(ClaimMoney.formatMinor(int(c["minor"])!, exponent: int(c["exponent"])!) == c["text"] as? String)
+        for c in try #require(Self.root["formats"] as? [[String: Any]]) {
+            #expect(ClaimMoney.formatMinor(int(c["amountMinor"])!, exponent: int(c["exponent"])!) == c["text"] as? String)
         }
         for c in try #require(Self.root["foreignAmount"] as? [[String: Any]]) {
             #expect(ClaimMoney.foreignAmount(currency: c["currency"] as! String, amountMinor: int(c["amountMinor"])!) == c["text"] as? String)
@@ -37,19 +38,26 @@ struct ClaimFormTests {
     }
 
     @Test func ratesParseInMillionths() throws {
-        for c in try #require(Self.root["parseRateMicros"] as? [[String: Any]]) {
-            #expect(ClaimMoney.parseRateMicros(c["text"] as! String) == int(c["micros"]), "\(c)")
+        for c in try #require(Self.root["rates"] as? [[String: Any]]) {
+            #expect(ClaimMoney.parseRateMicros(c["text"] as! String) == int(c["rateMicros"]), "\(c)")
         }
     }
 
     @Test func sgdAmountsRoundHalfUpOncePerLine() throws {
-        for c in try #require(Self.root["toSgdCents"] as? [[String: Any]]) {
+        let convert = try #require(Self.root["convert"] as? [[String: Any]]) + (try #require(Self.root["overflow"] as? [[String: Any]]))
+        for c in convert {
             let cents = ClaimMoney.toSgdCents(amountMinor: int(c["amountMinor"])!, exponent: int(c["exponent"])!, rateMicros: int(c["rateMicros"])!)
-            #expect(cents == int(c["cents"]), "\(c)")
+            #expect(cents == int(c["sgdCents"]), "\(c)")
         }
-        for c in try #require(Self.root["previewSgd"] as? [[String: Any]]) {
+        for c in try #require(Self.root["previews"] as? [[String: Any]]) {
             let cents = ClaimMoney.previewSgd(currency: c["currency"] as! String, amountMinor: int(c["amountMinor"]), rate: c["rate"] as? String)
-            #expect(cents == int(c["cents"]), "\(c)")
+            #expect(cents == int(c["sgdCents"]), "\(c)")
+        }
+    }
+
+    @Test func rateWarningsShowTheDeviationWithoutItsSign() throws {
+        for c in try #require(Self.root["basisPoints"] as? [[String: Any]]) {
+            #expect(ClaimMoney.formatBasisPoints(int(c["deviationBasisPoints"])!) == c["text"] as? String, "\(c)")
         }
     }
 
@@ -83,7 +91,7 @@ struct ClaimFormTests {
     private let taxi = ClaimType(id: "taxi", name: "Transport", category: "transport", receiptRule: "never", receiptAboveCents: nil, receiptHint: "")
 
     @MainActor
-    @Test func aForeignLineNeedsTheRateAndItsReceiptFollowsTheSgdAmount() {
+    @Test func aForeignLineNeedsTheRateAndItsReceiptFollowsTheSgdAmount() async {
         var l = ClaimLineDraft(typeID: "meals", date: Date())
         l.merchant = "Restoran Rebung"
         l.detail = "Client lunch in KL"
@@ -98,7 +106,7 @@ struct ClaimFormTests {
         l.amount = "40.00"
         #expect(l.sgdCents == 1200)
         #expect(l.missing(meals) == ["a photo of the receipt"])
-        l.receipt = CapturedImage(image: CameraCapture.stubReceipt())
+        l.receipt = await CapturedImage.make(camera: CameraCapture.stubReceipt())
         #expect(l.missing(meals).isEmpty)
         let line = l.line(receiptIDs: ["r1"])
         #expect(line == NewClaim.Line(claimTypeId: "meals", expenseDate: Fmt.day(l.date), merchant: "Restoran Rebung", description: "Client lunch in KL",
@@ -118,14 +126,14 @@ struct ClaimFormTests {
     }
 
     @MainActor
-    @Test func theMissingHintNamesEachExpense() {
+    @Test func theMissingHintNamesEachExpense() async {
         var one = ClaimLineDraft(typeID: "meals", date: Date())
         #expect(ClaimForm.missingHint([one], types: [meals]) == "To submit, add the merchant, what it was for and the amount.")
         one.merchant = "Kopi Kaki"
         one.detail = "Team breakfast"
         one.amount = "12.50"
         #expect(ClaimForm.missingHint([one], types: [meals]) == "To submit, add a photo of the receipt.")
-        one.receipt = CapturedImage(image: CameraCapture.stubReceipt())
+        one.receipt = await CapturedImage.make(camera: CameraCapture.stubReceipt())
         #expect(ClaimForm.missingHint([one], types: [meals]) == nil)
 
         var two = ClaimLineDraft(typeID: "taxi", date: Date())
@@ -160,7 +168,8 @@ struct ClaimFormTests {
          "totalCents":5620,"gstCents":0,"payoutMethod":"payroll","reservedByPayrollRun":false,"paidVia":null,"paidOn":null,"paidReference":null,
          "submittedAt":"2026-11-12T02:00:00.000Z","approvedOn":"2026-11-13","decisionComment":null,"lines":[
            {"id":"l1","position":0,"claimTypeId":"t","typeCode":"MEALS","typeName":"Meals","category":"meals","expenseDate":"2026-11-10","merchant":"Restoran Rebung","description":"Client lunch","receipts":[],"receiptCount":1,
-            "currency":"MYR","amountMinor":12550,"rate":"0.301234","sgdCents":3780,"gstCents":null,"receiptRequired":true,"duplicates":[]},
+            "currency":"MYR","amountMinor":12550,"rate":"0.301234","sgdCents":3780,"gstCents":null,"receiptRequired":true,"duplicates":[],
+            "fxWarning":{"lastRate":"0.238800","lastRateOn":"2026-11-01","deviationBasisPoints":2615}},
            {"id":"l2","position":1,"claimTypeId":"t2","typeCode":"TAXI","typeName":"Transport","category":"transport","expenseDate":"2026-11-10","merchant":"Grab","description":"Taxi","receiptCount":0,
             "currency":"SGD","amountMinor":1840,"rate":null,"sgdCents":1840,"gstCents":null,"receiptRequired":false,"duplicates":[]}],
          "capUsage":[],"actions":{"edit":false,"submit":false,"delete":false,"withdraw":false,"copy":true}}
@@ -170,6 +179,8 @@ struct ClaimFormTests {
         #expect(c.payout == "With the next payroll")
         #expect(ClaimLineRow(line: c.lines[0]).foreign == "MYR 125.50 @ 0.301234")
         #expect(ClaimLineRow(line: c.lines[1]).foreign == nil)
+        #expect(c.lines[1].fxWarning == nil)
+        #expect(c.fxWarningText == "Check the exchange rate.\nExpense 1: MYR 0.301234 is 26.15% above the last MYR rate used in your organisation, 0.238800 on 1 Nov 2026.\nCompare it with the receipt or card statement.")
         #expect(ClaimSummary.statusLabel("submitted") == ("Waiting", .warning))
     }
 }

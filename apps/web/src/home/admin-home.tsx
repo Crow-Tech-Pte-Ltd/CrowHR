@@ -8,10 +8,10 @@ import {
   Card,
   CardHeader,
   CardTitle,
+  cn,
   EmptyState,
   formatDate,
   Skeleton,
-  StatusPill,
   Table,
   TableBody,
   TableCell,
@@ -21,7 +21,7 @@ import {
 } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarClock, CheckCircle2, DatabaseBackup, IdCard, Wallet } from "lucide-react";
+import { ArrowRight, DatabaseBackup } from "lucide-react";
 import * as React from "react";
 import { useMe } from "../auth/session.ts";
 import { PageHeader } from "../components/page-header.tsx";
@@ -67,24 +67,27 @@ export function AdminHome() {
   return (
     <>
       <PageHeader
-        kicker={
-          data ? (
-            <span className="num">
-              {weekday(data.today)} · {formatDate(data.today)}
-            </span>
-          ) : (
-            <span className="inline-block h-3" />
-          )
-        }
         title="Work to do"
         description={
           inbox.isPending ? (
             <Skeleton className="h-4 w-64" />
-          ) : total === 0 ? (
-            "Nothing waiting for you."
           ) : (
             <>
-              {parts.join(", ")} {total === 1 ? "needs" : "need"} your attention.
+              {data ? (
+                <>
+                  <span className="num">
+                    {weekday(data.today)} {formatDate(data.today)}
+                  </span>
+                  {" · "}
+                </>
+              ) : null}
+              {total === 0 ? (
+                "Nothing waiting for you."
+              ) : (
+                <>
+                  {parts.join(", ")} {total === 1 ? "needs" : "need"} your attention.
+                </>
+              )}
             </>
           )
         }
@@ -115,7 +118,7 @@ export function AdminHome() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-6">
           {setup.length ? <SetupCard items={setup} /> : null}
           <ApprovalsCard items={approvals} today={data?.today ?? ""} loading={inbox.isPending} />
@@ -128,14 +131,14 @@ export function AdminHome() {
           {isHr ? (
             <ReminderCard
               id="passes"
-              title="Work passes expiring"
-              subtitle="Next 90 days"
-              icon={<IdCard />}
+              title="Work passes expired or expiring"
+              subtitle="Expired, or expiring in the next 90 days"
+              verbs={["Expires", "Expired"]}
               items={passes}
               today={data?.today ?? ""}
               loading={inbox.isPending}
               status={sourceStatus("work_passes")}
-              empty="No work passes expire in the next 90 days."
+              empty="No work pass has expired or expires in the next 90 days."
               notSetUp="Work pass expiry dates come from employee records. They appear here once you add employees in People."
             />
           ) : null}
@@ -144,7 +147,7 @@ export function AdminHome() {
               id="probation"
               title="Probation ending"
               subtitle="Next 14 days"
-              icon={<CalendarClock />}
+              verbs={["Ends", "Ended"]}
               items={probation}
               today={data?.today ?? ""}
               loading={inbox.isPending}
@@ -191,9 +194,8 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
         <div className="border-t border-border">
           <EmptyState
             variant="plain"
-            icon={<CheckCircle2 />}
-            title="Nothing waiting for you"
-            description="Leave, claims and other requests that need your decision appear here."
+            title="Nothing is waiting for your decision."
+            description="Leave, claims and other requests that need you appear here."
           />
         </div>
       ) : (
@@ -202,10 +204,11 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
             <Table aria-label="Approvals waiting" className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[12rem]">Requester</TableHead>
+                  <TableHead className="w-[10rem]">Requester</TableHead>
                   <TableHead>Request</TableHead>
                   <TableHead className="w-[8.5rem] text-right">Due</TableHead>
-                  <TableHead className="w-[9.5rem]">
+                  {/* Wide enough for "Reject" and "Approve" side by side (they don't wrap). */}
+                  <TableHead className="w-[13.5rem]">
                     <span className="sr-only">Actions</span>
                   </TableHead>
                 </TableRow>
@@ -255,14 +258,19 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
                   <span className="text-primary-300">{item.detail} · </span>
                   {item.title}
                 </p>
-                <div className="flex items-center justify-between gap-2 pl-[34px]">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <DueOrOrigin item={item} today={today} />
-                    <span className="num truncate text-2xs text-primary-200">
-                      sent {ageLabel(item.createdAt, today)}
-                    </span>
-                  </span>
-                  <RowAction item={item} onApprove={approve} onReject={setRejecting} pending={decide.isPending} />
+                {/* The due pill and the buttons get a line each: side by side they squeeze "Reject" to a bare ✕. */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-[34px]">
+                  <DueOrOrigin item={item} today={today} />
+                  <span className="num text-2xs text-primary-200">sent {ageLabel(item.createdAt, today)}</span>
+                </div>
+                <div className="flex justify-end pl-[34px]">
+                  <RowAction
+                    item={item}
+                    onApprove={approve}
+                    onReject={setRejecting}
+                    pending={decide.isPending}
+                    labelled
+                  />
                 </div>
               </li>
             ))}
@@ -288,11 +296,14 @@ function RowAction({
   onApprove,
   onReject,
   pending,
+  labelled = false,
 }: {
   item: InboxItem;
   onApprove: (i: InboxItem) => void;
   onReject: (i: InboxItem) => void;
   pending: boolean;
+  /** Keep "Reject" spelled out even on a phone (the buttons have their own line there). */
+  labelled?: boolean;
 }) {
   if (item.task?.inline) {
     return (
@@ -301,6 +312,7 @@ function RowAction({
         onApprove={() => onApprove(item)}
         onReject={() => onReject(item)}
         disabled={pending}
+        labelled={labelled}
       />
     );
   }
@@ -423,16 +435,13 @@ function PayrollCard({ items, status, today }: { items: InboxItem[]; status: str
           {status === "not_set_up" ? (
             <EmptyState
               variant="plain"
-              icon={<Wallet />}
-              title="Payroll isn't set up yet"
+              title="Payroll isn't set up yet."
               description="Set the pay day and CPF details in Payroll settings. Monthly runs and their due dates then show here."
-              note="Not set up yet"
             />
           ) : (
             <EmptyState
               variant="plain"
-              icon={<Wallet />}
-              title="No payroll due"
+              title="No payroll is due."
               description="This month's run is done. The next one shows here when it is due."
             />
           )}
@@ -442,15 +451,22 @@ function PayrollCard({ items, status, today }: { items: InboxItem[]; status: str
   );
 }
 
-function DaysLeft({ dueOn, today }: { dueOn: string; today: string }) {
+/**
+ * "Expires 19 Dec 2026 (49 days)" or "Expired 20 Oct 2026": the same words the People pages use.
+ * Every row here is due, so there is no chip on each one; past dates are red, the next 30 days amber.
+ */
+function DueDate({ dueOn, today, verbs }: { dueOn: string; today: string; verbs: [string, string] }) {
   const days = daysBetween(today, dueOn);
   return (
-    <div className="flex shrink-0 flex-col items-end gap-1">
-      <StatusPill tone={days <= 30 ? "danger" : days <= 60 ? "warning" : "neutral"}>
-        <span className="num normal-case">{daysLeftLabel(days)}</span>
-      </StatusPill>
-      <span className="num text-2xs text-primary-200">{formatDate(dueOn)}</span>
-    </div>
+    <p
+      className={cn(
+        "shrink-0 text-right text-2xs leading-4",
+        days < 0 ? "font-medium text-danger-300" : days <= 30 ? "text-warning-400" : "text-primary-300",
+      )}
+    >
+      {days < 0 ? verbs[1] : verbs[0]} <span className="num">{formatDate(dueOn)}</span>
+      {days >= 0 ? <span className="num block">({days === 0 ? "today" : daysLeftLabel(days)})</span> : null}
+    </p>
   );
 }
 
@@ -458,7 +474,7 @@ function ReminderCard({
   id,
   title,
   subtitle,
-  icon,
+  verbs,
   items,
   today,
   loading,
@@ -469,7 +485,8 @@ function ReminderCard({
   id: string;
   title: string;
   subtitle: string;
-  icon: React.ReactNode;
+  /** How the date reads before and after it passes: ["Expires", "Expired"]. */
+  verbs: [string, string];
   items: InboxItem[];
   today: string;
   loading: boolean;
@@ -490,17 +507,7 @@ function ReminderCard({
           <Skeleton className="h-8 w-full" />
         </div>
       ) : status === "not_set_up" ? (
-        <div className="flex gap-3 border-t border-border px-4 py-4">
-          <span className="mt-0.5 text-primary-200 [&_svg]:size-4" aria-hidden>
-            {icon}
-          </span>
-          <div className="flex flex-col gap-1">
-            <p className="font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300">
-              Not set up yet
-            </p>
-            <p className="text-ui text-primary-300">{notSetUp}</p>
-          </div>
-        </div>
+        <p className="border-t border-border px-4 py-4 text-ui text-primary-300">{notSetUp}</p>
       ) : items.length === 0 ? (
         <p className="border-t border-border px-4 py-4 text-ui text-primary-300">{empty}</p>
       ) : (
@@ -516,7 +523,7 @@ function ReminderCard({
                 </a>
                 <p className="truncate text-2xs text-primary-300">{item.detail ?? item.title}</p>
               </div>
-              {item.dueOn ? <DaysLeft dueOn={item.dueOn} today={today} /> : null}
+              {item.dueOn ? <DueDate dueOn={item.dueOn} today={today} verbs={verbs} /> : null}
             </li>
           ))}
         </ul>
