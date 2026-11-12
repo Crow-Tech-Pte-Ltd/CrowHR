@@ -18,7 +18,7 @@ Choose **Add employee**. The form follows the record's sections:
 | Race and religion | Optional | Default self-help group (SHG) fund. An SHG opt-out can be recorded with its date. |
 | Contact | Work email, personal email, mobile, address | The work email receives the sign-in invitation. 8-digit mobile numbers are taken as +65. |
 | Job | Start date, job title, department, team, location, cost centre, manager, employment type, work schedule, probation end | Reporting lines (manager scope), pro-ration, checklists. |
-| Pay (payroll roles only) | Pay basis (monthly or hourly) and amount | Payroll. Recurring allowances are added from the profile. |
+| Pay (payroll roles only) | Pay basis (monthly or hourly) and amount | Payroll. Recurring allowances are added through the API for now (`allowances` on the hire or a pay change); the **Pay** tab shows them. |
 | Work pass (foreigners) | Pass type, number, issue and expiry dates | A foreigner cannot be hired without a pass valid on the start date. See [work passes](/docs/people/work-passes/). |
 
 Saving creates the employee, their first employment period, the onboarding checklist from the default template and a sign-in invitation: emailed when SMTP is configured, otherwise shown once as a link to copy.
@@ -28,6 +28,8 @@ Checks that stop a hire:
 - An ID number already used by another employee of the organisation, including a former one (`409 duplicate_id_number`). The message offers to **rehire** that person instead, which keeps their history.
 - An age below the minimum employment age on the start date (13, Employment Act s 68(3)). The family-only industrial undertaking exception is not supported.
 - A manager that would create a reporting cycle, or the employee as their own manager.
+
+Someone under 16 on the start date can be hired, and the form says what applies as soon as both dates are filled in: aged 13 or 14, light duties only and no industrial work unless with family members; aged 15, for industrial work notify MOM and send a medical report within the time MOM sets; under 16, no night work (11pm to 6am) and limits on daily hours ([MOM: young persons and children](https://www.mom.gov.sg/employment-practices/young-persons-and-children)). Crow HR does not check the hours or the notification for you.
 
 An existing sign-in with no employee link is linked automatically only if it holds no assigned roles. An owner or admin sign-in is never linked automatically; the hire succeeds with a message explaining why the invitation was skipped.
 

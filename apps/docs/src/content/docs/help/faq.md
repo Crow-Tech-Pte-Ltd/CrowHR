@@ -33,7 +33,7 @@ Import employees and their compensation, then the [year-to-date opening balances
 
 ## Can several companies share one install?
 
-Yes. Each legal entity is its own organisation with its own UEN and CSN, and one person can belong to several. The web app's organisation switcher does not switch yet: it shows only the organisation you are signed in to. To work in another one, sign out and sign in on that organisation's sign-in page (`/sign-in/<org>`).
+Yes. Each legal entity is its own organisation with its own UEN and CSN, and one person can belong to several. Switch between them with the organisation switcher at the top left: it lists every organisation where you are a member (or a former employee) and moves this browser to the one you choose. An organisation that allows only single sign-on asks you to sign in on its own sign-in page (`/sign-in/<org>`) instead.
 
 ## Does it work on phones?
 

@@ -25,7 +25,7 @@ Creates employees with their first employment record and, for payroll roles, the
 
 <ImportColumns kind="employees" />
 
-`manager_employee_number` can refer to an employee earlier in the same file. `pay_basis` and `basic_pay` need payroll access: an HR admin without the payroll admin role cannot import pay.
+`manager_employee_number` can refer to an employee earlier in the same file. `workman` and `manager_or_executive` set the Part 4 classification ([who Part 4 covers](/docs/people/adding-employees/)): `yes` or `no`, empty means no. Files made from the version 1 template, without these columns, still import. `pay_basis` and `basic_pay` need payroll access: an HR admin without the payroll admin role cannot import pay.
 
 ## Compensation
 
