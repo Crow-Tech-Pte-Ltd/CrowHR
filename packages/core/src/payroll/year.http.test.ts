@@ -198,7 +198,7 @@ describe("IR8A for income year 2026 (task 6.3)", () => {
       ceasedOn: string | null;
     }[];
     excluded: { employeeName: string; reason: string }[];
-    notes: { code: string }[];
+    notes: { code: string; message: string }[];
   };
   /** Muthu's SHG (CDAC) deducted over the year, from his payslips. */
   const muthuShg = () =>
@@ -209,7 +209,11 @@ describe("IR8A for income year 2026 (task 6.3)", () => {
 
   it("previews each employee once in whole dollars: salary 78,000, bonus 70,000, employee CPF 21,600", async () => {
     const p = await ok<Preview>(await admin.get(`${api}/years/2026/ir8a`));
-    expect([p.yearOfAssessment, p.dueOn, p.parts]).toEqual([2027, "2027-03-01", [{ part: 1, records: 2 }]]);
+    expect([p.yearOfAssessment, p.dueOn, p.parts]).toEqual([
+      2027,
+      "2027-03-01",
+      [{ part: 1, records: 2, appendix8aAccommodation: 0, appendix8aHotelOthers: 0, appendix8b: 0 }],
+    ]);
     const m = p.records.find((r) => r.employeeName === "Muthu Kumar");
     // a) 6 × 6,000 + 6 × 7,000; b) 30,000 + 40,000. Employee CPF: 20% × 6,000 × 6 + 20% × 30,000
     // (March AW) + 20% × 7,000 × 6 (December's AW is above the ceiling) = 21,600.
@@ -230,7 +234,9 @@ describe("IR8A for income year 2026 (task 6.3)", () => {
     expect(p.excluded).toEqual([
       expect.objectContaining({ employeeName: "Ong Wei Ling", reason: expect.stringContaining("sex") }),
     ]);
-    expect(p.notes.map((x) => x.code)).toContain("IR8A_APPENDIX_8A");
+    // No benefits-in-kind or share gains recorded: the note says so and the parts have no appendix rows.
+    expect(p.notes.map((x) => x.code)).toContain("IR8A_APPENDICES");
+    expect(p.notes.find((x) => x.code === "IR8A_APPENDICES")?.message).toMatch(/No benefits-in-kind/);
   });
 
   it("downloads the rows for IRAS's import template (full NRIC)", async () => {

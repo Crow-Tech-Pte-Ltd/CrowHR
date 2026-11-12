@@ -179,7 +179,7 @@ export function aggregateIr8a(
   };
   for (const s of slips) {
     // IRAS requires taxable flexible benefits to be declared; genuine business expenses remain
-    // exempt. Cash reimbursement is d1; non-cash benefits require Appendix 8A outside this export.
+    // exempt. Cash reimbursement is d1; non-cash benefits are Appendix 8A entries (ir8a-appendix.ts).
     // https://www.iras.gov.sg/taxes/individual-income-tax/employers/understanding-the-tax-treatment/tax-principles-and-flexible-benefits
     a.allowancesCents += (s.input.reimbursements ?? []).filter((r) => r.taxable).reduce((n, r) => n + r.amountCents, 0);
     const kinds = new Map(s.input.items.map((i) => [i.id, i.kind]));
@@ -283,7 +283,8 @@ export function columnIndex(col: string): number {
   return n - 1;
 }
 
-function csvCell(v: string): string {
+/** One cell of a template row (IR8A and appendix sheets). */
+export function ir8aCsvCell(v: string): string {
   // The shared writer (formula neutralising, quoting); IRAS's template also keeps edge spaces quoted.
   const out = formatCsvCell(v, "text");
   return out.startsWith('"') || !/^\s|\s$/.test(out) ? out : `"${out}"`;
@@ -303,11 +304,11 @@ export function buildIr8aCsv(records: readonly Ir8aRecord[]): Ir8aPart[] {
   const parts: Ir8aPart[] = [];
   for (let i = 0; i < Math.max(1, records.length); i += IR8A_MAX_RECORDS) {
     const chunk = records.slice(i, i + IR8A_MAX_RECORDS);
-    const lines = [IR8A_HEADERS.map(csvCell).join(",")];
+    const lines = [IR8A_HEADERS.map(ir8aCsvCell).join(",")];
     chunk.forEach((r, k) => {
       lines.push(
         ir8aRow(r, k + 1)
-          .map(csvCell)
+          .map(ir8aCsvCell)
           .join(","),
       );
     });

@@ -182,3 +182,57 @@ test("blocking issues link to their fix: allowance treatment, holiday pay, hours
   await expect(page.getByText("Returned to draft: Chloe's new bank account")).toBeVisible();
   await expect(page.getByRole("button", { name: "Recompute" })).toBeVisible();
 });
+
+test("year end: a benefit-in-kind and a share gain flow into the IR8A totals and the appendix sheets", async ({
+  page,
+}) => {
+  await as(page, "payroll", "/payroll");
+  const ir8a = page.getByTestId("payroll-ir8a");
+  await ir8a.getByRole("link", { name: /Benefits and share gains/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Year end 2026" })).toBeVisible();
+  await expect(page.getByText("No benefits-in-kind recorded for 2026")).toBeVisible();
+
+  // Appendix 8A item 4a: home leave passages, an amount HR enters.
+  await page.getByRole("button", { name: "Add benefit" }).first().click();
+  let dialog = page.getByRole("dialog");
+  await dialog.getByRole("combobox", { name: "Employee" }).click();
+  await page.getByRole("option", { name: /Goh Jun Jie/ }).click();
+  await dialog.getByRole("combobox", { name: "Benefit" }).click();
+  await page.getByRole("option", { name: "Other benefit" }).click();
+  await dialog.getByLabel("Cost to the employer").fill("3000");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog.getByTestId("appendix-computed")).toContainText("Appendix 8A · item 4a");
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("table", { name: "Appendix 8A benefits-in-kind" })).toContainText("3,000.00");
+
+  // Appendix 8B: an ESOP exercised in June, (2.75 − 1.50) × 1,000 = 1,250.00 under S10(1)(b).
+  await page.getByRole("button", { name: "Add share gain" }).first().click();
+  dialog = page.getByRole("dialog");
+  await dialog.getByRole("combobox", { name: "Employee" }).click();
+  await page.getByRole("option", { name: /Goh Jun Jie/ }).click();
+  await dialog.getByLabel("Granted on").fill("2024-03-01");
+  await dialog.getByLabel("Gain accrued on").fill("2026-06-01");
+  await dialog.getByLabel("Number of shares").fill("1000");
+  await dialog.getByLabel("Price paid per share (S$)").fill("1.50");
+  await dialog.getByLabel("Open market value per share (S$)").fill("2.75");
+  await dialog.getByRole("button", { name: "Save", exact: true }).click();
+  const computed = dialog.getByTestId("appendix-computed");
+  await expect(computed).toContainText("S10(1)(b), IR8A d7(a)");
+  await expect(computed).toContainText("1,250.00");
+  await dialog.getByRole("button", { name: "Done" }).click();
+
+  const totals = page.getByRole("table", { name: "IR8A totals per employee" });
+  await expect(totals.getByRole("row", { name: /Goh Jun Jie/ })).toContainText("3,000");
+  await expect(totals.getByRole("row", { name: /Goh Jun Jie/ })).toContainText("1,250");
+
+  // The IR8A panel offers this part's appendix sheets.
+  await page.getByRole("link", { name: "Payroll" }).first().click();
+  const [sheet] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByTestId("payroll-ir8a").getByRole("button", { name: "8B", exact: true }).click(),
+  ]);
+  expect(sheet.suggestedFilename()).toBe("ir8a-2026-part1-of-1-appendix-8b.csv");
+  const csv = readFileSync(await sheet.path(), "utf8");
+  expect(csv).toContain("*ID Type [Choose option],*ID No.,*Record ID");
+  expect(csv).toContain(",ESOP,2024-03-01,2026-06-01,1.5,2.75,1000,");
+});

@@ -124,4 +124,4 @@ Owners and HR admins can also file a claim on an employee's behalf through the A
 - Automatic exchange rates, and a warning for unusual rates.
 - Mileage or per-diem claim types, and corporate cards.
 - Cleanup of receipts uploaded but never attached to a claim.
-- Non-cash benefits, which need Appendix 8A outside Crow HR. The **Taxable benefit** flag covers cash reimbursements in IR8A d1.
+- Non-cash benefits as claims: record them under Payroll → Year end ([Appendix 8A](/docs/payroll/ir8a-export/#appendix-8a-and-8b-benefits-and-share-gains)). The **Taxable benefit** flag covers cash reimbursements in IR8A d1.

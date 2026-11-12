@@ -7,6 +7,7 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 ### Added
 
 - **Timesheet approval** (optional, off by default; Settings → Attendance): employees, or their managers, submit each month, half month or week for approval through the usual approval chains; managers approve or return it with a comment. An approved period is locked: punches, manager corrections and new overtime claims are refused, and an HR correction reopens it (audited, employee notified). Payroll can be set to take overtime and days worked only from approved timesheets. New API: `/api/v1/attendance/timesheets` (additive).
+- **Payroll → Year end**: record benefits-in-kind (IR8A Appendix 8A: housing, hotel stays, cars, home leave passages and other benefits) and share-plan gains (Appendix 8B) per employee. Crow HR values housing, cars, drivers and share gains with IRAS's formulas, shows the working, and adds IR8A d7 and d8. The IR8A download gains the template's Appendix 8A and 8B sheets for each part.
 
 ### Fixed
 

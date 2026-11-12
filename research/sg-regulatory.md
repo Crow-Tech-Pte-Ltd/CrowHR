@@ -1130,6 +1130,7 @@ The primary sources are iras.gov.sg and file.go.gov.sg, all fetched in October 2
 - **IR8A** reports remuneration.
 - **Appendix 8A** reports benefits-in-kind.
 - **Appendix 8B** reports gains from employee stock options (ESOP) and other share plans (ESOW).
+- How each Appendix 8A and 8B value is worked out, and the template's appendix sheets: [`sg-ir8a-appendices.md`](./sg-ir8a-appendices.md).
 - **Form IR8S has been discontinued with effect from YA2026** (Explanatory Notes item d6). Excess or voluntary employer CPF is now reported in IR8A item d6, net of refunds. This covers contributions:
   - above statutory rates;
   - on OW above $8,000 a month;
@@ -1941,6 +1942,8 @@ No bank-neutral public Singapore payroll file standard was found.
 22. **AIS API onboarding.** Must an in-house AIS API user pass the validation test? Does API consent need the Approver role?
 23. **IR8A Import Template.** Its redistribution licence is unknown.
 24. **IR21.** The Corppass e-service name and the API spec are not public.
+
+Appendix 8A and 8B open points (the annual value day basis in a leap year, the rounding of computed appendix values, and pasting into the protected template) are listed in [`sg-ir8a-appendices.md`](./sg-ir8a-appendices.md) §6.
 
 ### Work passes / PDPA / Singpass
 

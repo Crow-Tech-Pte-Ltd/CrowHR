@@ -58,6 +58,7 @@ import { Route as AppSettingsSystemRouteImport } from './routes/_app/settings/sy
 import { Route as AppMePayslipsIndexRouteImport } from './routes/_app/me/payslips.index'
 import { Route as AppMePayslipsPayslipIdRouteImport } from './routes/_app/me/payslips.$payslipId'
 import { Route as AppPayrollRunsRunIdRouteImport } from './routes/_app/payroll/runs.$runId'
+import { Route as AppPayrollYearEndYearRouteImport } from './routes/_app/payroll/year-end.$year'
 import { Route as AppPayrollRunsRunIdPayslipsPayslipIdRouteImport } from './routes/_app/payroll/runs.$runId.payslips.$payslipId'
 
 const AppRoute = AppRouteImport.update({
@@ -306,6 +307,11 @@ const AppPayrollRunsRunIdRoute = AppPayrollRunsRunIdRouteImport.update({
   path: '/payroll/runs/$runId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPayrollYearEndYearRoute = AppPayrollYearEndYearRouteImport.update({
+  id: '/payroll/year-end/$year',
+  path: '/payroll/year-end/$year',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPayrollRunsRunIdPayslipsPayslipIdRoute =
   AppPayrollRunsRunIdPayslipsPayslipIdRouteImport.update({
     id: '/payslips/$payslipId',
@@ -361,6 +367,7 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AppSettingsIndexRoute
   '/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
   '/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
+  '/payroll/year-end/$year': typeof AppPayrollYearEndYearRoute
   '/me/payslips/': typeof AppMePayslipsIndexRoute
   '/payroll/runs/$runId/payslips/$payslipId': typeof AppPayrollRunsRunIdPayslipsPayslipIdRoute
 }
@@ -412,6 +419,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsIndexRoute
   '/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
   '/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
+  '/payroll/year-end/$year': typeof AppPayrollYearEndYearRoute
   '/me/payslips': typeof AppMePayslipsIndexRoute
   '/payroll/runs/$runId/payslips/$payslipId': typeof AppPayrollRunsRunIdPayslipsPayslipIdRoute
 }
@@ -465,6 +473,7 @@ export interface FileRoutesById {
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/me/payslips/$payslipId': typeof AppMePayslipsPayslipIdRoute
   '/_app/payroll/runs/$runId': typeof AppPayrollRunsRunIdRouteWithChildren
+  '/_app/payroll/year-end/$year': typeof AppPayrollYearEndYearRoute
   '/_app/me/payslips/': typeof AppMePayslipsIndexRoute
   '/_app/payroll/runs/$runId/payslips/$payslipId': typeof AppPayrollRunsRunIdPayslipsPayslipIdRoute
 }
@@ -518,6 +527,7 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/me/payslips/$payslipId'
     | '/payroll/runs/$runId'
+    | '/payroll/year-end/$year'
     | '/me/payslips/'
     | '/payroll/runs/$runId/payslips/$payslipId'
   fileRoutesByTo: FileRoutesByTo
@@ -569,6 +579,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/me/payslips/$payslipId'
     | '/payroll/runs/$runId'
+    | '/payroll/year-end/$year'
     | '/me/payslips'
     | '/payroll/runs/$runId/payslips/$payslipId'
   id:
@@ -621,6 +632,7 @@ export interface FileRouteTypes {
     | '/_app/settings/'
     | '/_app/me/payslips/$payslipId'
     | '/_app/payroll/runs/$runId'
+    | '/_app/payroll/year-end/$year'
     | '/_app/me/payslips/'
     | '/_app/payroll/runs/$runId/payslips/$payslipId'
   fileRoutesById: FileRoutesById
@@ -980,6 +992,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPayrollRunsRunIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/payroll/year-end/$year': {
+      id: '/_app/payroll/year-end/$year'
+      path: '/payroll/year-end/$year'
+      fullPath: '/payroll/year-end/$year'
+      preLoaderRoute: typeof AppPayrollYearEndYearRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/payroll/runs/$runId/payslips/$payslipId': {
       id: '/_app/payroll/runs/$runId/payslips/$payslipId'
       path: '/payslips/$payslipId'
@@ -1044,6 +1063,7 @@ interface AppRouteChildren {
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
   AppMePayslipsPayslipIdRoute: typeof AppMePayslipsPayslipIdRoute
   AppPayrollRunsRunIdRoute: typeof AppPayrollRunsRunIdRouteWithChildren
+  AppPayrollYearEndYearRoute: typeof AppPayrollYearEndYearRoute
   AppMePayslipsIndexRoute: typeof AppMePayslipsIndexRoute
 }
 
@@ -1089,6 +1109,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsIndexRoute: AppSettingsIndexRoute,
   AppMePayslipsPayslipIdRoute: AppMePayslipsPayslipIdRoute,
   AppPayrollRunsRunIdRoute: AppPayrollRunsRunIdRouteWithChildren,
+  AppPayrollYearEndYearRoute: AppPayrollYearEndYearRoute,
   AppMePayslipsIndexRoute: AppMePayslipsIndexRoute,
 }
 

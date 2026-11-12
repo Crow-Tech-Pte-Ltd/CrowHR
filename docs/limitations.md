@@ -77,7 +77,12 @@ the change that fixes it.
   residential address, director's fees, d3 gratuity and notice pay, d6 excess employer CPF, tax
   borne by the employer, remission and exempt income. Employees with another ID type or without a
   recorded sex are left out and listed; IR21-cleared leavers are only flagged.
-- **Appendix 8A and 8B are not implemented**: Crow HR records no benefits-in-kind or share plans.
+- **Appendix 8A and 8B** rows come from the benefits-in-kind and share gains HR records under Year end
+  (research/sg-ir8a-appendices.md). Premises the employer owns are valued at annual value, which
+  IRAS's import template can't take yet, so their 2a and 2b are keyed in myTax after import; in a
+  leap year HR enters 2a (IRAS hasn't published the day basis). Not supported: ERIS, QEEBR, the
+  deemed exercise rule for leaving foreigners (IR21), loan interest calculations, exchange rates,
+  and printed appendix forms. Computed values are rounded down to the cent (no IRAS rule).
 - **Back pay** from a retroactive pay change is flagged on the next run (`BACKPAY_OWED`) but not
   computed: enter it as a "Back pay" item.
 - **Hours for hourly staff** and other one-off items are entered per run. Hours are paid at the rate
