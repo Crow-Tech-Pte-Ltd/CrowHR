@@ -21,6 +21,7 @@ import type { SessionItem, SignInMethods } from "../../../auth/types.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote, Section } from "../../../components/section.tsx";
 import { ApiError, apiDelete, apiGet, apiPost } from "../../../lib/api.ts";
+import { EmailCard } from "../../../me/email-card.tsx";
 import { MfaCard } from "../../../me/mfa-card.tsx";
 import { PasswordCard } from "../../../me/password-card.tsx";
 
@@ -61,6 +62,13 @@ function MySecurity() {
             description="Single sign-on accounts that can sign you in."
           >
             <Identities linkResult={search.link} />
+          </Section>
+          <Section
+            id="email"
+            title="Sign-in email"
+            description="The address you sign in with, in every organisation you belong to."
+          >
+            <EmailCard />
           </Section>
           <Section id="password" title="Password">
             <PasswordCard />
