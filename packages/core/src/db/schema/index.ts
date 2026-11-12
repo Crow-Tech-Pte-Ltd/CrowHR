@@ -7,6 +7,7 @@ export * from "./claims.ts";
 export * from "./documents.ts";
 export * from "./employees.ts";
 export * from "./files.ts";
+export * from "./ir8a.ts";
 export * from "./leave.ts";
 export * from "./notifications.ts";
 export * from "./organisation.ts";

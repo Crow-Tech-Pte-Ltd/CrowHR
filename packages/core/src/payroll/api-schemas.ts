@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { appendixEntryInput } from "./files/ir8a-appendix-input.ts";
 import { DEDUCTION_CATEGORY_KEYS } from "./rules.ts";
 
 /**
@@ -472,7 +473,15 @@ export const ir8aPreviewSchema = z.object({
   dueOn: isoDate,
   templateUrl: z.url(),
   explanatoryNotesUrl: z.url(),
-  parts: z.array(z.object({ part: z.number().int(), records: z.number().int() })),
+  parts: z.array(
+    z.object({
+      part: z.number().int(),
+      records: z.number().int(),
+      appendix8aAccommodation: z.number().int().describe("Rows of the Appendix 8A(Accommodation) sheet in this part"),
+      appendix8aHotelOthers: z.number().int().describe("Rows of the Appendix 8A(Hotel & Others) sheet in this part"),
+      appendix8b: z.number().int().describe("Rows of the Appendix 8B sheet in this part"),
+    }),
+  ),
   records: z.array(
     z.object({
       employeeId: z.uuid(),
@@ -487,6 +496,15 @@ export const ir8aPreviewSchema = z.object({
       employeeCpf: z.number().int().describe("Whole dollars, rounded up (IRAS deduction rounding)"),
       donations: z.number().int(),
       mbmf: z.number().int(),
+      shareGainsS101b: z
+        .number()
+        .int()
+        .describe("d7(a): Appendix 8B gains under S10(1)(b), whole dollars; myTax computes it from the 8B sheet"),
+      shareGainsS101g: z.number().int().describe("d7(b): Appendix 8B gains under S10(1)(g), whole dollars"),
+      benefitsInKind: z
+        .number()
+        .int()
+        .describe("d8: Appendix 8A total, whole dollars; myTax computes it from the 8A sheets"),
       commencedOn: isoDate.nullable(),
       ceasedOn: isoDate.nullable(),
       notes: z.array(ir8aNote),
@@ -494,4 +512,63 @@ export const ir8aPreviewSchema = z.object({
   ),
   excluded: z.array(z.object({ employeeName: z.string(), reason: z.string() })),
   notes: z.array(ir8aNote),
+});
+
+const appendixLine = z.object({
+  code: z.string().describe("Appendix 8A item (2a…4j) or 8B column (h)"),
+  label: z.string(),
+  amountCents: cents.nullable(),
+  entered: z.boolean().describe("true when HR entered the amount; false when Crow HR computed it"),
+});
+
+export const appendixEntrySchema = z.object({
+  id: z.uuid(),
+  year: z.number().int(),
+  employeeId: z.uuid(),
+  employeeName: z.string(),
+  kind: z.enum(["residence", "hotel", "car", "other", "share_gain"]),
+  details: appendixEntryInput,
+  computed: z
+    .object({
+      appendix: z.enum(["8A", "8B"]),
+      item: z.string(),
+      valueCents: cents.describe("Contribution to the Appendix 8A total, or the Appendix 8B gross gain"),
+      days: z.number().int().nullable(),
+      section: z.enum(["S10_1_B", "S10_1_G"]).nullable(),
+      lines: z.array(appendixLine),
+      working: z.array(z.object({ code: z.string(), text: z.string() })),
+      issues: z.array(
+        z.object({ code: z.string(), severity: z.enum(["info", "warning", "blocking"]), message: z.string() }),
+      ),
+    })
+    .nullable(),
+  error: z.string().nullable().describe("Why a stored record no longer computes (left out of the export)"),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const appendixListSchema = z.object({
+  year: z.number().int(),
+  yearOfAssessment: z.number().int(),
+  entries: z.array(appendixEntrySchema),
+  employees: z.array(
+    z.object({
+      employeeId: z.uuid(),
+      employeeName: z.string(),
+      appendix8aTotalCents: cents,
+      benefitsInKind: z.number().int().describe("IR8A d8, whole dollars"),
+      shareGainsS101bCents: cents,
+      shareGainsS101gCents: cents,
+      shareGainsS101b: z.number().int().describe("IR8A d7(a), whole dollars"),
+      shareGainsS101g: z.number().int().describe("IR8A d7(b), whole dollars"),
+      issues: z.array(ir8aNote),
+    }),
+  ),
+  limits: z.object({ residencesPerEmployee: z.number().int(), shareRecordsPerEmployee: z.number().int() }),
+  sources: z.object({
+    explanatoryNotes8a: z.url(),
+    explanatoryNotes8b: z.url(),
+    exemptBenefits: z.url(),
+    importTemplate: z.url(),
+  }),
 });

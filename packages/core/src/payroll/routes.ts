@@ -27,7 +27,8 @@ import {
   settingsSchema,
 } from "./api-schemas.ts";
 import { monthLabel } from "./engine/dates.ts";
-import { ir8aFile, ir8aPreview } from "./files/ir8a-service.ts";
+import { ir8aAppendixRoutes } from "./files/ir8a-appendix-routes.ts";
+import { IR8A_SHEETS, ir8aFile, ir8aPreview } from "./files/ir8a-service.ts";
 import { bankPaymentFile, cpfEzpayFile, type GeneratedFile } from "./files/service.ts";
 import { buildPayslipView } from "./payslip.ts";
 import { renderPayslipPdf } from "./payslip-pdf.ts";
@@ -519,7 +520,7 @@ export const payrollModule = defineModule({
       path: "/years/:year/ir8a",
       summary: "IR8A figures for an income year (whole dollars, masked IDs)",
       description:
-        "Preview of the IR8A records Crow HR can fill from approved payslips, in the parts (≤ 200 records) the file download produces. Appendix 8A is not produced (no benefits-in-kind are recorded). Direct submission through IRAS's AIS-API is not available.",
+        "Preview of the IR8A records Crow HR can fill from approved payslips and the recorded Appendix 8A/8B entries, in the parts (≤ 200 records) the file download produces, with each part's appendix row counts and each employee's d7(a), d7(b) and d8. Direct submission through IRAS's AIS-API is not available.",
       access: { permission: "payroll:read" },
       request: { params: yearParams },
       responses: { 200: ir8aPreviewSchema },
@@ -531,15 +532,22 @@ export const payrollModule = defineModule({
       path: "/years/:year/ir8a/file",
       summary: "IR8A rows for IRAS's IR8A import template (CSV, one part of ≤ 200 records)",
       description:
-        "Columns A–AR of the IR8A sheet of IRAS's IR8A Import Template (https://go.gov.sg/ir8a-import-template, version 1.0) with its header row: paste the data rows at row 6 of the template and import it in myTax Portal → Employment Income Records. Income is in whole dollars with cents dropped, deductions rounded up. Contains full NRIC/FIN numbers. Excluded employees are listed in the x-crowhr-excluded header (URL-encoded JSON).",
+        "`sheet=ir8a` (default): columns A–AR of the IR8A sheet of IRAS's IR8A Import Template (https://go.gov.sg/ir8a-import-template, version 1.0) with its header row: paste the data rows at row 6 of the template and import it in myTax Portal → Employment Income Records. Income is in whole dollars with cents dropped, deductions rounded up. `sheet=appendix-8a-accommodation`, `appendix-8a-hotel-others` or `appendix-8b`: the rows of that appendix sheet (header row 1, paste at row 2) for the same part's employees; cells the template locks and computes are empty. Contains full NRIC/FIN numbers. Excluded employees are listed in the x-crowhr-excluded header (URL-encoded JSON).",
       access: { permission: "payroll:read" },
       recentAuth: true,
-      request: { params: yearParams, query: z.object({ part: z.coerce.number().int().min(1).default(1) }) },
-      responses: { 200: { description: "IR8A rows (CSV, UTF-8)", contentType: "text/csv" } },
+      request: {
+        params: yearParams,
+        query: z.object({
+          part: z.coerce.number().int().min(1).default(1),
+          sheet: z.enum(IR8A_SHEETS).default("ir8a"),
+        }),
+      },
+      responses: { 200: { description: "IR8A or appendix rows (CSV, UTF-8)", contentType: "text/csv" } },
       errors: ["not_found", "conflict", "validation_failed", "reauth_required"],
       handler: async ({ c, deps, auth, params, query }) =>
-        fileResponse(await ir8aFile(deps, payrollActor(c, auth), params.year, query.part)),
+        fileResponse(await ir8aFile(deps, payrollActor(c, auth), params.year, query.part, query.sheet)),
     }),
+    ...ir8aAppendixRoutes,
     defineRoute({
       method: "get",
       path: "/runs/:runId/payslips/:payslipId/pdf",

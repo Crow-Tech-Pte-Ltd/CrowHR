@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { allowanceTypes } from "../db/schema/employees.ts";
+import { payrollIr8aAppendixEntries } from "../db/schema/ir8a.ts";
 import {
   payrollAllowanceSettings,
   payrollPayslips,
@@ -64,5 +65,14 @@ export async function seedPayrollOnePerTable(deps: AppDeps, orgId: string, emplo
     blockingCount: 0,
     warningCount: 0,
     releasedAt: deps.clock.now(),
+  });
+  // IR8A Appendix 8A/8B (add-ir8a-appendix-8a-8b): one entry, so PUT/DELETE /payroll/ir8a/appendices/:id are swept.
+  await db.insert(payrollIr8aAppendixEntries).values({
+    id: deps.ids.newId(),
+    orgId,
+    employeeId,
+    year: 2026,
+    kind: "hotel",
+    details: { kind: "hotel", costCents: 10_000, paidByEmployeeCents: 0, note: null },
   });
 }
