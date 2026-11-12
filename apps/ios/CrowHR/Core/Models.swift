@@ -273,7 +273,34 @@ struct ApprovalRequestDetail: Decodable, Sendable, Equatable {
 struct Decision: Encodable, Sendable { let decision: String; let comment: String? }
 struct DecisionResult: Decodable, Sendable { let outcome: String; let replayed: Bool }
 
-struct NotificationPage: Decodable, Sendable { let items: [InboxNotification]; let total: Int; let unread: Int; let cursor: String? }
+struct NotificationPage: Decodable, Sendable {
+    var items: [InboxNotification]
+    let total: Int
+    var unread: Int
+    let cursor: String?
+    /// Servers from Nov 2026 always send `cursor` (null in an empty inbox); older ones leave it out.
+    let hasCursor: Bool
+
+    enum CodingKeys: String, CodingKey { case items, total, unread, cursor }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        items = try c.decode([InboxNotification].self, forKey: .items)
+        total = try c.decode(Int.self, forKey: .total)
+        unread = try c.decode(Int.self, forKey: .unread)
+        hasCursor = c.contains(.cursor)
+        cursor = try c.decodeIfPresent(String.self, forKey: .cursor)
+    }
+
+    /// The page once `id` has been marked read on the server, without fetching it again.
+    func markingRead(_ id: String, at instant: String) -> NotificationPage {
+        guard let i = items.firstIndex(where: { $0.id == id }), items[i].readAt == nil else { return self }
+        var next = self
+        next.items[i].readAt = instant
+        next.unread = max(0, unread - 1)
+        return next
+    }
+}
 
 struct InboxNotification: Decodable, Sendable, Identifiable, Equatable {
     let id: String
@@ -282,7 +309,7 @@ struct InboxNotification: Decodable, Sendable, Identifiable, Equatable {
     let title: String
     let body: String?
     let createdAt: String
-    let readAt: String?
+    var readAt: String?
 }
 
 struct MyProfile: Decodable, Sendable, Equatable {

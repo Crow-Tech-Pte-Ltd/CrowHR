@@ -6,13 +6,24 @@ protocol HTTPTransport: Sendable {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse)
 }
 
+/// Hands every redirect back to the caller instead of following it, as Android does
+/// (`followRedirects(false)`): a 3xx from the server, a proxy, a captive portal or a sign-in
+/// gateway would otherwise take the request (and its bearer token) to whatever host it names.
+final class RefuseRedirects: NSObject, URLSessionTaskDelegate, Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest) async -> URLRequest? {
+        nil
+    }
+}
+
 struct URLSessionTransport: HTTPTransport {
     let session: URLSession
 
     /// Ephemeral: no cookies, no shared credential store and no URL cache, so nothing the server
-    /// returns (payslips included) is written to disk by the URL loading system.
-    static func makeSession() -> URLSession {
-        let config = URLSessionConfiguration.ephemeral
+    /// returns (payslips included) is written to disk by the URL loading system. Redirects are
+    /// not followed: the 3xx itself is the answer (`http_3xx`, not a session end; a punch waits).
+    static func makeSession(configuration: URLSessionConfiguration = .ephemeral) -> URLSession {
+        let config = configuration
         config.urlCache = nil
         config.httpCookieStorage = nil
         config.httpShouldSetCookies = false
@@ -20,7 +31,7 @@ struct URLSessionTransport: HTTPTransport {
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         config.timeoutIntervalForRequest = 20
         config.waitsForConnectivity = false
-        return URLSession(configuration: config)
+        return URLSession(configuration: config, delegate: RefuseRedirects(), delegateQueue: nil)
     }
 
     init(session: URLSession = URLSessionTransport.makeSession()) { self.session = session }
@@ -49,7 +60,10 @@ struct RecordingTransport: HTTPTransport {
     let recorder: NetworkRecorder
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         if let url = request.url { await recorder.record(url) }
-        return try await inner.send(request)
+        let (data, response) = try await inner.send(request)
+        // Where the answer came from too: a followed redirect would show up here as another host.
+        if let url = response.url, url != request.url { await recorder.record(url) }
+        return (data, response)
     }
 }
 
@@ -135,6 +149,11 @@ actor AuthSession {
     private let now: @Sendable () -> Date
     private var tokens: TokenSet?
     private var refreshing: Task<TokenSet, any Error>?
+    /// The device session these tokens belong to (kept after `clear`), so this instance only ever
+    /// deletes its own tokens, never those of a later sign-in on the same connection.
+    private var ownDeviceSession: String?
+    /// The Keychain refused the last save: the pair in memory is newer than the stored one.
+    private var unsaved = false
 
     init(server: ServerAddress, account: String, store: any TokenStoring, transport: any HTTPTransport, now: @escaping @Sendable () -> Date = { Date() }) {
         self.server = server
@@ -143,6 +162,7 @@ actor AuthSession {
         self.transport = transport
         self.now = now
         self.tokens = store.load(account: account)
+        self.ownDeviceSession = tokens?.deviceSessionId
     }
 
     var isSignedIn: Bool { tokens != nil }
@@ -154,14 +174,32 @@ actor AuthSession {
             "deviceName": deviceName, "appVersion": appVersion,
         ]
         let set = try await tokenRequest(body)
-        try store.save(set, account: account)
-        tokens = set
+        keep(set)
         return set
+    }
+
+    /// The server has issued `set` (and, on a refresh, retired the previous pair): it is used from
+    /// now on even if the Keychain refuses it, and the save is tried again on the next request.
+    /// Dropping it would leave only the retired pair, whose next use the server treats as theft.
+    private func keep(_ set: TokenSet) {
+        tokens = set
+        ownDeviceSession = set.deviceSessionId
+        save(set)
+    }
+
+    private func save(_ set: TokenSet) {
+        do {
+            try store.save(set, account: account)
+            unsaved = false
+        } catch {
+            unsaved = true
+        }
     }
 
     /// A valid access token, refreshing first when it is about to expire.
     func accessToken() async throws -> String {
         guard let t = tokens else { throw APIError.signedOut(message: "Sign in to continue.") }
+        if unsaved { save(t) }
         if t.needsRefresh(now: now()) { return try await refresh().accessToken }
         return t.accessToken
     }
@@ -181,17 +219,22 @@ actor AuthSession {
         defer { refreshing = nil }
         do {
             let set = try await task.value
-            try store.save(set, account: account)
-            tokens = set
+            // Signed out while the refresh was under way: the new pair must not bring it back.
+            guard tokens == current else { throw APIError.signedOut(message: "Sign in to continue.") }
+            keep(set)
             return set
         } catch let e as APIError where e.endsSession {
-            clear()
+            if tokens == current { clear() }
             throw APIError.signedOut(message: "Your session has ended. Sign in again.")
         }
     }
 
+    /// Forgets the tokens and deletes them from the Keychain, unless the Keychain by now holds
+    /// another sign-in's (a session's late answer after the person signed in again).
     func clear() {
         tokens = nil
+        unsaved = false
+        if let stored = store.load(account: account), stored.deviceSessionId != ownDeviceSession { return }
         store.delete(account: account)
     }
 

@@ -58,6 +58,7 @@ import crowtech.crowhr.api.LeaveType
 import crowtech.crowhr.core.Formats
 import crowtech.crowhr.ui.Route
 import crowtech.crowhr.ui.ScreenContext
+import crowtech.crowhr.ui.ScreenMemory
 import crowtech.crowhr.ui.components.CrowCard
 import crowtech.crowhr.ui.components.EmptyState
 import crowtech.crowhr.ui.components.FieldError
@@ -112,14 +113,18 @@ private fun quantity(q: Double, unit: String): String {
 fun LeaveScreen(ctx: ScreenContext) {
     val key = ctx.connection.key
     val scope = rememberCoroutineScope()
-    val balances = rememberLoader(key, cached = { ctx.graph.cache.get(key, "leave-balances", BALANCES) }) {
+    val balances = rememberLoader(
+        key, memoryKey = ScreenMemory.key(key, "leave-balances"), cached = { ctx.graph.cache.get(key, "leave-balances", BALANCES) },
+    ) {
         ctx.api.get("/api/v1/leave/balances", BALANCES).also { ctx.graph.cache.put(key, "leave-balances", BALANCES, it) }
     }
-    val history = rememberLoader(key, ctx.me?.employeeId) {
+    val history = rememberLoader(key, memoryKey = ScreenMemory.key(key, "leave-history")) {
         // Without an employee ID the server lists every request the user may see (a manager's
         // team, everyone's for HR), so "My requests" waits for the user's own ID, and an account
-        // without an employee record has no requests of its own.
-        val employeeId = ctx.me?.employeeId ?: ctx.api.get("/api/v1/me", Me.serializer()).employeeId
+        // without an employee record has no requests of its own. Before `/me` has answered, it
+        // waits for the request the app already made (keyed on the connection only, so `/me`
+        // arriving doesn't load the list a second time).
+        val employeeId = (ctx.me ?: ctx.vm.me(ctx.connection) ?: ctx.api.get("/api/v1/me", Me.serializer())).employeeId
         if (employeeId == null) Items(emptyList())
         else ctx.api.get("/api/v1/leave/requests", REQUESTS, mapOf("employeeId" to employeeId, "limit" to "50"))
     }
@@ -302,6 +307,10 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
                 LeaveQuoteRequest(t.id, start.toString(), end.toString(), sendStart, sendEnd),
                 LeaveQuoteRequest.serializer(), LeaveQuote.serializer(),
             )
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // The dates or type changed again: not an error ("Something went wrong" flashed
+            // until the next quote's delay had passed). As on iOS.
+            throw e
         } catch (e: Exception) {
             quoteError = e.userMessage()
         }

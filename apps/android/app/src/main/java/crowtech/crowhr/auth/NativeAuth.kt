@@ -18,6 +18,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.time.Instant
 
 @Serializable
 data class PendingSignIn(
@@ -32,7 +33,10 @@ private data class TokenResponse(
     val refreshToken: String,
     val deviceSessionId: String,
     val expiresIn: Int = 900,
-)
+) {
+    /** [asked]: when the request was sent, so the expiry errs early. */
+    fun stored(asked: Instant) = StoredTokens(accessToken, refreshToken, deviceSessionId, asked.toEpochMilli() + expiresIn * 1_000L)
+}
 
 @Serializable
 private data class CodeGrant(
@@ -64,6 +68,7 @@ class NativeAuth(
     private val httpFor: (SavedConnection) -> OkHttpClient,
     private val deviceName: String,
     private val appVersion: String,
+    private val now: () -> Instant = Instant::now,
 ) {
     companion object {
         const val REDIRECT_URI = DeepLinks.REDIRECT_URI
@@ -130,8 +135,9 @@ class NativeAuth(
                     ?: return SignInResult.Failed("This connection was removed. Add it again.")
                 try {
                     val body = CrowJson.encodeToString(CodeGrant.serializer(), CodeGrant(code = parsed.code, codeVerifier = pending.verifier, deviceName = deviceName, appVersion = appVersion))
+                    val asked = now()
                     val response = postToken(connection, body)
-                    tokens.put(connection.key, StoredTokens(response.accessToken, response.refreshToken, response.deviceSessionId))
+                    tokens.put(connection.key, response.stored(asked))
                     SignInResult.Success(connection.key)
                 } catch (e: ApiException) {
                     SignInResult.Failed(e.message)
@@ -150,8 +156,9 @@ class NativeAuth(
         val current = tokens.get(connection.key) ?: return RefreshResult.SessionEnded
         if (staleAccessToken != null && current.accessToken != staleAccessToken) return RefreshResult.Refreshed
         try {
+            val asked = now()
             val r = postToken(connection, CrowJson.encodeToString(RefreshGrant.serializer(), RefreshGrant(refreshToken = current.refreshToken)))
-            tokens.put(connection.key, StoredTokens(r.accessToken, r.refreshToken, r.deviceSessionId))
+            tokens.put(connection.key, r.stored(asked))
             RefreshResult.Refreshed
         } catch (e: ApiException) {
             if (endsSession(e)) {

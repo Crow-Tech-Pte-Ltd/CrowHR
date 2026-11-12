@@ -15,6 +15,14 @@ object Formats {
     val SINGAPORE: ZoneId = ZoneId.of("Asia/Singapore")
     private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
+    // Compiled once: the amount field parses on every keystroke and list rows format dates on
+    // every recomposition.
+    private val CURRENCY_PREFIX = Regex("^(-?)\\s*(S\\$|\\$)\\s*", RegexOption.IGNORE_CASE)
+    private val GROUPING = Regex("[,\\s]")
+    private val AMOUNT = Regex("^(-?)(\\d+)?(?:\\.(\\d*))?$")
+    private val DATE_PREFIX = Regex("^(\\d{4})-(\\d{2})-(\\d{2})")
+    private val NRIC = Regex("^[STFGM]\\d{7}[A-Z]$")
+
     /** 123456 → "S$1,234.56"; -500 → "-S$5.00". */
     fun money(cents: Long, symbol: Boolean = true): String {
         val negative = cents < 0
@@ -65,10 +73,10 @@ object Formats {
     /** Accepts "1234", "1,234.5", "S$1,234.56", "$12"; refuses more than 2 decimals. */
     fun parseMoney(input: String): MoneyParse {
         val cleaned = input.trim()
-            .replace(Regex("^(-?)\\s*(S\\$|\\$)\\s*", RegexOption.IGNORE_CASE), "$1")
-            .replace(Regex("[,\\s]"), "")
+            .replace(CURRENCY_PREFIX, "$1")
+            .replace(GROUPING, "")
         if (cleaned.isEmpty() || cleaned == "-") return MoneyParse.Error("empty")
-        val m = Regex("^(-?)(\\d+)?(?:\\.(\\d*))?$").matchEntire(cleaned)
+        val m = AMOUNT.matchEntire(cleaned)
             ?: return MoneyParse.Error("invalid")
         val sign = m.groupValues[1]
         val whole = m.groups[2]?.value
@@ -91,7 +99,7 @@ object Formats {
 
     /** "2026-10-31" (or a longer ISO string starting with a date) → "31 Oct 2026". */
     fun date(iso: String): String {
-        val m = Regex("^(\\d{4})-(\\d{2})-(\\d{2})").find(iso)
+        val m = DATE_PREFIX.find(iso)
             ?: throw IllegalArgumentException("Expected YYYY-MM-DD, got \"$iso\".")
         val (y, mo, d) = m.destructured
         return "${d.toInt()} ${MONTHS[mo.toInt() - 1]} $y"
@@ -120,7 +128,7 @@ object Formats {
     /** NRIC/FIN: "S1234567D" → "S****567D"; anything else is fully masked. */
     fun maskNric(value: String): String {
         val v = value.trim().uppercase()
-        if (!Regex("^[STFGM]\\d{7}[A-Z]$").matches(v)) return "*********"
+        if (!NRIC.matches(v)) return "*********"
         return "${v[0]}****${v.substring(5)}"
     }
 
