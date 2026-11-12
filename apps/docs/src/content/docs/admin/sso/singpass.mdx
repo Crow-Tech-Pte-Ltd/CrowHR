@@ -1,10 +1,10 @@
 ---
 title: Singpass login
-description: What Crow HR's Singpass login does, what your company must do to become a Singpass relying party, and how to configure it. Tested against Singpass staging; not yet against production.
+description: What Crow HR's Singpass login does, what your company must do to become a Singpass relying party, and how to configure and test it. Tested against Singpass staging; not yet against production.
 ---
 
 :::caution[Tested against Singpass staging only]
-Crow HR's Singpass login follows Singpass's FAPI 2.0 login profile. A test sign-in against **Singpass staging** passed on 9 Nov 2026 (see Status below). It has **not** been run against Singpass production, and the Singpass button meets Singpass's design specification only once you add the official logo (see below). Run your own staging test before you go live.
+Crow HR's Singpass login follows Singpass's FAPI 2.0 login profile. It has been tested end to end against **Singpass staging** (PAR with DPoP, `private_key_jwt`, token exchange and the encrypted ID token, with a staging test account). It has **not** been run against Singpass production, and the button meets Singpass's design specification only once you add the official logo ([below](#the-singpass-button)). Run your own staging test before you go live.
 :::
 
 ## What your company has to do first
@@ -19,10 +19,9 @@ Singpass login is only available to organisations that Singpass has onboarded as
 
 - Pushed authorisation requests (PAR), PKCE, `private_key_jwt` client authentication and DPoP-bound tokens.
 - `authentication_context_type=APP_AUTHENTICATION_DEFAULT` on every request (Singpass requires it for Login apps; it matches the portal's "General Authentication" scenario) and a client assertion with header `typ: JWT`.
-- If Singpass refuses the request, the test sign-in returns to **Settings → Security** with reason `request_rejected`, and Singpass's error code (for example `invalid_client` or `invalid_request`) is in the audit log and the server log.
 - Decryption of the encrypted ID token with your relying-party key.
 - Keys: Crow HR generates an ES256 signing key and an ECDH-ES encryption key (P-256) and publishes the public halves at the provider's JWKS URL. The API also accepts your own private JWKS instead. Private keys are encrypted at rest.
-- Default issuers are Singpass's FAPI 2.0 endpoints: `https://stg-id.singpass.gov.sg/fapi` (staging) and `https://id.singpass.gov.sg/fapi` (production), checked against their live discovery documents on 9 Nov 2026. There is an optional override. The bare hosts without `/fapi` are Singpass's older Login API, which has no PAR or DPoP, so don't use them.
+- Default issuers are Singpass's FAPI 2.0 endpoints: `https://stg-id.singpass.gov.sg/fapi` (staging) and `https://id.singpass.gov.sg/fapi` (production), checked against their published discovery documents. There is an optional override. The bare hosts without `/fapi` are Singpass's older Login API, which has no PAR or DPoP, so don't use them.
 - Scope `openid` only. Crow HR stores the Singpass UUID from the subject, never the NRIC. There is no Myinfo data retrieval.
 
 ## Configure it
@@ -33,10 +32,9 @@ Singpass login is only available to organisations that Singpass has onboarded as
 
    Singpass fetches the JWKS URL from its own servers (on AWS). If your server is behind **Cloudflare with Bot Fight Mode** on (or another bot filter), that fetch gets a challenge page and Singpass answers Crow HR's sign-in request with HTTP 502. On Cloudflare's Free plan Bot Fight Mode can't be skipped for one path. Either turn it off for that zone, or choose **JWKS object** in the portal and paste the contents of the JWKS URL (public keys only). With a JWKS object, paste the keys again whenever you replace them in Crow HR.
 
-3. Create a staging test account in the portal (your app → **Test account** → **Create**; up to 5 per app; the password is behind the eye icon). Then run **Test sign-in** in Crow HR and choose **Use password** on the Singpass staging page. Settings → Security asks for this test until it passes, then shows when it passed. If Singpass refuses the request, the test returns with reason `request_rejected` and the details are in the audit log.
+3. Create a staging test account in the portal (your app → **Test account** → **Create**; up to 5 per app; the password is behind the eye icon). Then run **Test sign-in** in Crow HR and choose **Use password** on the Singpass staging page. Settings → Security asks for this test until it passes, then shows when it passed. If Singpass refuses the request, the test returns to **Settings → Security** with reason `request_rejected`, and Singpass's error code (for example `invalid_client` or `invalid_request`) is in the audit log and the server log.
 
 4. Only after a successful staging test and Singpass's approval, edit the provider, switch the environment to **Production** with the production client ID, test again, and switch it on.
-
 
 Until the provider has a client ID and keys, the sign-in page shows no Singpass button and Settings → Security shows Singpass as not configured.
 
@@ -67,19 +65,11 @@ Without the file, the button shows the plain text "Log in with Singpass". **Do n
 
 ## Public demo
 
-Crow Tech's public demo runs entirely in the visitor's browser, so it cannot hold Singpass keys. To let demo visitors log in with Singpass for real, a Crow HR server acts as the relying party for it:
+The [in-browser demo](/docs/demo/) runs entirely in the visitor's browser, so it cannot hold Singpass keys. To let visitors of a demo you host log in with Singpass for real, a Crow HR server acts as the relying party for it. You only need this to host a public demo; a normal install never does.
 
 1. On that server, add a Singpass method as above (in its own organisation) and register it with Singpass. It does not need to be switched on.
 2. Set `DEMO_SINGPASS_PROVIDER_ID` (the method's id, as in its redirect URI) and `DEMO_SINGPASS_RETURN_URL` (the demo's sign-in page, for example `https://hr.crow.sg/sign-in/kopi-kaki`) and restart.
 3. Build the demo with `VITE_DEMO_SINGPASS_START_URL=<server>/api/v1/auth/oidc/<id>/start?purpose=demo` and, for the logo, `VITE_SINGPASS_LOGO_SRC`.
 
-The visitor logs in with Singpass, the server checks Singpass's answer and then forgets the person: no account, session, link or Singpass ID is stored (the audit log records only that a demo login happened). Back in the demo, they choose **HR admin** or **Employee** and look around their own fictional copy. Each network can start 20 demo logins an hour and the server 1,000 a day; Singpass Login is free for the first 50,000 logins a month per UEN. Real visitors need a **production** Singpass app; Singpass staging accepts only its test accounts.
+The visitor logs in with Singpass, the server checks Singpass's answer and then forgets the person: no account, session, link or Singpass ID is stored (the audit log records only that a demo login happened). Back in the demo, they choose **HR admin** or **Employee** and look around their own fictional copy. Each network can start 20 demo logins an hour and the server 1,000 a day. Real visitors need a **production** Singpass app; Singpass staging accepts only its test accounts.
 
-## Status
-
-| Item | State |
-| --- | --- |
-| FAPI 2.0 flow against the mock identity provider | Tested (`packages/core/src/auth/singpass.test.ts`, `oidc-flow.http.test.ts`) |
-| Sign-in against Singpass staging | **Passed 9 Nov 2026**: owner test sign-in on a staging server (Cloudflare Tunnel and Traefik in front) with a Singpass staging test account and password login. PAR with DPoP, `private_key_jwt`, `authentication_context_type`, token exchange and the encrypted ID token all worked against `https://stg-id.singpass.gov.sg/fapi`. The JWKS was given as a JWKS object (see step 2). |
-| Production | Not verified |
-| Official logo in the button | Not bundled |
