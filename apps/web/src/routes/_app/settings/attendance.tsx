@@ -3,11 +3,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 import * as React from "react";
-import { type AttendanceSettings, attKeys, settingsQuery } from "../../../attendance/api.ts";
+import {
+  type AttendanceSettings,
+  attKeys,
+  PERIOD_LABEL,
+  settingsQuery,
+  type TimesheetSettings,
+} from "../../../attendance/api.ts";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
-import { RadioRow } from "../../../leave/choice.tsx";
+import { RadioRow, SwitchRow } from "../../../leave/choice.tsx";
 import { ApiError, apiPut } from "../../../lib/api.ts";
 
 export const Route = createFileRoute("/_app/settings/attendance")({
@@ -33,7 +39,7 @@ function AttendanceSettingsPage() {
       <PageHeader
         crumbs={[{ label: "Settings", to: "/settings" }]}
         title="Attendance"
-        description="How clocking in works: location and network checks, the working day, lateness and overtime rounding."
+        description="How clocking in works: location and network checks, the working day, lateness and overtime rounding, and timesheet approval."
       />
       {q.isError ? (
         <ErrorNote error={q.error} retry={() => void q.refetch()} />
@@ -43,6 +49,83 @@ function AttendanceSettingsPage() {
         <SettingsForm initial={q.data} editable={can(me, "policies:update")} />
       )}
     </>
+  );
+}
+
+/** Settings → Attendance → Timesheet approval (add-timesheet-approval). Off by default. */
+function TimesheetApprovalCard({
+  value,
+  editable,
+  error,
+  onChange,
+}: {
+  value: TimesheetSettings;
+  editable: boolean;
+  error?: string;
+  onChange: (v: TimesheetSettings) => void;
+}) {
+  return (
+    <Card className="flex flex-col gap-4 p-4" data-testid="timesheet-approval-settings">
+      <div>
+        <h2 className="font-azeret text-xs font-semibold">Timesheet approval</h2>
+        <p className="mt-1 text-ui text-primary-300">
+          Off by default: managers and HR correct attendance directly. When on, each period's timesheet is submitted and
+          approved under Settings → Approvals (default: the employee's manager). An approved period is locked; only HR
+          can change it, and that reopens it.
+        </p>
+      </div>
+      <SwitchRow
+        checked={value.approval}
+        disabled={!editable}
+        onChange={(approval) =>
+          onChange({ ...value, approval, payrollApprovedOnly: approval ? value.payrollApprovedOnly : false })
+        }
+      >
+        Submit timesheets for approval
+      </SwitchRow>
+      {value.approval ? (
+        <>
+          <FormField label="Period">
+            <RadioGroup
+              disabled={!editable}
+              value={value.period}
+              onValueChange={(v) => onChange({ ...value, period: v as TimesheetSettings["period"] })}
+              className="flex flex-col gap-2"
+            >
+              {(Object.keys(PERIOD_LABEL) as TimesheetSettings["period"][]).map((p) => (
+                <RadioRow key={p} value={p}>
+                  {PERIOD_LABEL[p]}
+                </RadioRow>
+              ))}
+            </RadioGroup>
+          </FormField>
+          <FormField label="Who submits">
+            <RadioGroup
+              disabled={!editable}
+              value={value.submittedBy}
+              onValueChange={(v) => onChange({ ...value, submittedBy: v as TimesheetSettings["submittedBy"] })}
+              className="flex flex-col gap-2"
+            >
+              <RadioRow value="employee">The employee (HR can submit on their behalf)</RadioRow>
+              <RadioRow value="manager">Their manager or HR; the manager can't approve what they submitted</RadioRow>
+            </RadioGroup>
+          </FormField>
+          <FormField
+            label="Payroll"
+            error={error}
+            hint="Overtime and days worked reach payroll only from approved timesheets. Overtime approved later is paid by the next run."
+          >
+            <SwitchRow
+              checked={value.payrollApprovedOnly}
+              disabled={!editable}
+              onChange={(payrollApprovedOnly) => onChange({ ...value, payrollApprovedOnly })}
+            >
+              Payroll uses approved timesheets only
+            </SwitchRow>
+          </FormField>
+        </>
+      ) : null}
+    </Card>
   );
 }
 
@@ -297,6 +380,12 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
           </FormField>
         </div>
       </Card>
+      <TimesheetApprovalCard
+        value={s.timesheets}
+        editable={editable}
+        error={errors["timesheets.payrollApprovedOnly"]}
+        onChange={(timesheets) => setS({ ...s, timesheets })}
+      />
       {editable ? (
         <Button type="submit" variant="primary" className="self-start" disabled={save.isPending}>
           Save attendance settings

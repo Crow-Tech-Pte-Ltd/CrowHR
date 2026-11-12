@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
   doublePrecision,
   foreignKey,
@@ -56,8 +57,18 @@ export const attendanceSettings = pgTable("attendance_settings", {
   skewThresholdSeconds: integer("skew_threshold_seconds").notNull().default(120),
   otBlockMinutes: integer("ot_block_minutes").notNull().default(15),
   otMinimumMinutes: integer("ot_minimum_minutes").notNull().default(30),
+  /** Timesheet approval (openspec/changes/add-timesheet-approval). Off: attendance works as without it. */
+  timesheetApproval: boolean("timesheet_approval").notNull().default(false),
+  timesheetPeriod: text("timesheet_period").$type<TimesheetPeriodKind>().notNull().default("monthly"),
+  timesheetSubmitter: text("timesheet_submitter").$type<TimesheetSubmitter>().notNull().default("employee"),
+  /** Payroll's attendance feeds pass only what approved timesheets cover. Needs approval on. */
+  payrollApprovedTimesheetsOnly: boolean("payroll_approved_timesheets_only").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** `monthly`: calendar month; `semi_monthly`: 1st–15th and 16th–end; `weekly`: Monday–Sunday. */
+export type TimesheetPeriodKind = "monthly" | "semi_monthly" | "weekly";
+export type TimesheetSubmitter = "employee" | "manager";
 
 export type PunchKind = "in" | "out";
 export type PunchSource = "web" | "mobile_web" | "ios" | "android" | "correction";
@@ -147,6 +158,69 @@ export const overtimeClaims = pgTable(
   ],
 );
 
+/**
+ * `submitted` waits for approval (not locked); `approved` locks the period; `returned` (the
+ * approver's rejection, with a comment), `withdrawn` and `reopened` (HR, after approval) can be
+ * submitted again as a new row.
+ */
+export type TimesheetStatus = "submitted" | "approved" | "returned" | "withdrawn" | "reopened";
+
+/** A period's totals as computed by `attendance/timesheet.ts` `totalsOf` (minutes and days). */
+export interface TimesheetTotalsSnapshot {
+  daysWorked: number;
+  workedMinutes: number;
+  lateCount: number;
+  lateMinutes: number;
+  earlyOutCount: number;
+  missingPunches: number;
+  otMinutes: number;
+  leaveDays: number;
+}
+
+/** One submission of an employee's timesheet for a period (add-timesheet-approval design 2). */
+export const attendanceTimesheets = pgTable(
+  "attendance_timesheets",
+  {
+    id: uuid("id").primaryKey(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organisations.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull(),
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    status: text("status").$type<TimesheetStatus>().notNull(),
+    approvalRequestId: uuid("approval_request_id"),
+    submittedByMembershipId: uuid("submitted_by_membership_id").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
+    submittedTotals: jsonb("submitted_totals").$type<TimesheetTotalsSnapshot>().notNull(),
+    /** Recomputed in the approval's transaction: what the approver saw. */
+    approvedTotals: jsonb("approved_totals").$type<TimesheetTotalsSnapshot>(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decidedByMembershipId: uuid("decided_by_membership_id"),
+    /** The approver's comment (required when returned). */
+    comment: text("comment"),
+    reopenedAt: timestamp("reopened_at", { withTimezone: true }),
+    reopenedByMembershipId: uuid("reopened_by_membership_id"),
+    reopenReason: text("reopen_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("attendance_timesheets_org_id_id_unique").on(t.orgId, t.id),
+    foreignKey({
+      name: "attendance_timesheets_employee_fk",
+      columns: [t.orgId, t.employeeId],
+      foreignColumns: [employees.orgId, employees.id],
+    }).onDelete("cascade"),
+    uniqueIndex("attendance_timesheets_one_open")
+      .on(t.orgId, t.employeeId, t.periodStart)
+      .where(sql`${t.status} in ('submitted', 'approved')`),
+    index("attendance_timesheets_period").on(t.orgId, t.employeeId, t.periodStart),
+    check("attendance_timesheets_period_order", sql`${t.periodEnd} >= ${t.periodStart}`),
+  ],
+);
+
 export type AttendanceSettingsRow = typeof attendanceSettings.$inferSelect;
 export type AttendancePunch = typeof attendancePunches.$inferSelect;
 export type OvertimeClaim = typeof overtimeClaims.$inferSelect;
+export type AttendanceTimesheet = typeof attendanceTimesheets.$inferSelect;

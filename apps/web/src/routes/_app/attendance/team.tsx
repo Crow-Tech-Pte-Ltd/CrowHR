@@ -1,4 +1,6 @@
 import {
+  Alert,
+  AlertDescription,
   Button,
   Card,
   cn,
@@ -41,7 +43,8 @@ import {
 } from "../../../attendance/api.ts";
 import { AttendanceNav } from "../../../attendance/attendance-nav.tsx";
 import { dayLabel, dm, exceptions } from "../../../attendance/day-table.tsx";
-import { useMe } from "../../../auth/session.ts";
+import { LockedMark } from "../../../attendance/timesheet-approval.tsx";
+import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { addDays, todaySg, weekdayOf } from "../../../leave/format.ts";
@@ -146,7 +149,8 @@ function TeamTimesheetPage() {
                     {r.day.workedMinutes ? duration(r.day.workedMinutes) : "—"}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
-                    <span className="flex flex-wrap gap-1">
+                    <span className="flex flex-wrap items-center gap-1">
+                      {r.day.locked ? <LockedMark /> : null}
                       {exceptions(r.day).map((n) => (
                         <StatusPill key={n.text} tone={n.tone} dot={false}>
                           {n.text}
@@ -174,8 +178,13 @@ function TeamTimesheetPage() {
 
 function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClose: () => void }) {
   const qc = useQueryClient();
+  const me = useMe();
   const live = useQuery(teamQuery(date, date));
   const day = live.data?.items.find((s) => s.employee.id === row.employee.id)?.days[0] ?? row.day;
+  // An approved timesheet locks the day: HR's correction reopens it; managers can't change it.
+  const canReopen = can(me, "attendance:reopen");
+  const locked = day.locked;
+  const readOnly = locked && !canReopen;
   const [kind, setKind] = React.useState<"in" | "out">(day.firstIn && !day.lastOut ? "out" : "in");
   const [time, setTime] = React.useState(kind === "out" ? "18:00" : (day.scheduledStart ?? "09:00"));
   const [reason, setReason] = React.useState("");
@@ -190,8 +199,11 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
     if (err instanceof ApiError) {
       setErrors(err.fieldErrors);
       toast.error(err.message);
+      // The day was locked (or unlocked) since the sheet opened: show its current state.
+      if (err.code === "timesheet_locked") void qc.invalidateQueries({ queryKey: attKeys.all });
     } else toast.error("That didn't save. Try again.");
   };
+  const reopenNote = locked ? " The timesheet was reopened: it must be submitted and approved again." : "";
   const add = useMutation({
     mutationFn: () =>
       apiPost<Punch>("/api/v1/attendance/corrections", {
@@ -199,20 +211,25 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
         kind,
         time: `${date}T${time}:00+08:00`,
         reason: reason.trim(),
+        ...(locked ? { reopen: true } : {}),
       }),
     onSuccess: () => {
       setReason("");
       setErrors({});
-      done("Punch added. The timesheet is updated and the change is in the audit log.");
+      done(`Punch added. The timesheet is updated and the change is in the audit log.${reopenNote}`);
     },
     onError: fail,
   });
   const voidIt = useMutation({
-    mutationFn: (p: Punch) => apiPost<Punch>(`/api/v1/attendance/punches/${p.id}/void`, { reason: voidReason.trim() }),
+    mutationFn: (p: Punch) =>
+      apiPost<Punch>(`/api/v1/attendance/punches/${p.id}/void`, {
+        reason: voidReason.trim(),
+        ...(locked ? { reopen: true } : {}),
+      }),
     onSuccess: () => {
       setVoiding(null);
       setVoidReason("");
-      done("Punch removed from the timesheet. The original is kept in the audit log.");
+      done(`Punch removed from the timesheet. The original is kept in the audit log.${reopenNote}`);
     },
     onError: fail,
   });
@@ -226,6 +243,15 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
             {day.workedMinutes ? ` · ${duration(day.workedMinutes)} worked` : ""}
           </SheetDescription>
         </div>
+        {locked ? (
+          <Alert variant={readOnly ? "info" : "warning"} className="mx-5 mt-4" data-testid="locked-notice">
+            <AlertDescription>
+              {readOnly
+                ? "This day is in an approved timesheet, so it can't be corrected. Ask an HR admin: their correction reopens the timesheet."
+                : "This day is in an approved timesheet. Saving a correction reopens the timesheet: it must then be submitted and approved again. The reopening is audit-logged and the employee is told."}
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <section className="border-b border-border px-5 py-4" aria-labelledby="punches-title">
           <h3 id="punches-title" className="mb-2 font-azeret text-2xs font-semibold uppercase tracking-wider">
             Punches
@@ -241,12 +267,12 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
                       <span className="num font-semibold">{sgTime(p.recordedAt)}</span> {p.kind === "in" ? "In" : "Out"}
                       {p.source === "correction" ? <span className="text-primary-300"> · correction</span> : null}
                     </span>
-                    {!p.voided ? (
+                    {p.voided ? (
+                      <span className="text-2xs">Removed: {p.voidReason}</span>
+                    ) : readOnly ? null : (
                       <Button size="sm" variant="ghost" onClick={() => setVoiding(p)}>
                         Remove
                       </Button>
-                    ) : (
-                      <span className="text-2xs">Removed: {p.voidReason}</span>
                     )}
                   </div>
                   {p.reason ? <p className="text-2xs text-primary-300">Reason: {p.reason}</p> : null}
@@ -280,7 +306,7 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
                           variant="ink"
                           disabled={voidReason.trim().length < 3 || voidIt.isPending}
                         >
-                          Remove punch
+                          {locked ? "Remove and reopen" : "Remove punch"}
                         </Button>
                       </div>
                     </form>
@@ -291,6 +317,7 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
           )}
         </section>
         <form
+          hidden={readOnly}
           className="flex flex-col gap-3 px-5 py-4"
           onSubmit={(e) => {
             e.preventDefault();
@@ -333,7 +360,7 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
             className="self-start"
             disabled={reason.trim().length < 3 || !time || add.isPending}
           >
-            Add punch
+            {locked ? "Add punch and reopen" : "Add punch"}
           </Button>
         </form>
       </SheetContent>

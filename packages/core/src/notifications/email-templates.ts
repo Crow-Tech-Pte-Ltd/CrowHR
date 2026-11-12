@@ -53,6 +53,7 @@ const SUBJECTS: Record<NotificationKind, string> = {
   request_approved: "Your request was approved",
   request_rejected: "Your request was not approved",
   request_comment: "New comment on your request",
+  timesheet_reopened: "Your timesheet was reopened",
   work_pass_expiry: "Work pass expiring",
   probation_end: "Probation ending",
   payroll_cutoff: "Payroll cutoff coming up",

@@ -36,6 +36,15 @@ export interface Status {
     offices: { name: string; radiusMetres: number }[];
   };
   networkRestricted: boolean;
+  timesheets: Pick<TimesheetSettings, "approval" | "period" | "submittedBy">;
+}
+
+/** Settings → Attendance → Timesheet approval (add-timesheet-approval). */
+export interface TimesheetSettings {
+  approval: boolean;
+  period: "monthly" | "semi_monthly" | "weekly";
+  submittedBy: "employee" | "manager";
+  payrollApprovedOnly: boolean;
 }
 
 export type DayType = "working" | "half" | "off" | "rest" | "public_holiday" | "leave" | "shift" | "not_employed";
@@ -64,6 +73,8 @@ export interface DayRecord {
     claimedMinutes: number;
     approvedMinutes: number | null;
   } | null;
+  /** Inside an approved timesheet: punches, manager corrections and new OT claims are refused. */
+  locked: boolean;
 }
 
 export interface Totals {
@@ -121,7 +132,57 @@ export interface AttendanceSettings {
   skewThresholdSeconds: number;
   otBlockMinutes: number;
   otMinimumMinutes: number;
+  timesheets: TimesheetSettings;
   effectivePdpaNotice?: string;
+}
+
+export type TimesheetStatus = "submitted" | "approved" | "returned" | "withdrawn" | "reopened";
+
+export interface Timesheet {
+  id: string;
+  employee: { id: string; name: string };
+  periodStart: string;
+  periodEnd: string;
+  periodLabel: string;
+  status: TimesheetStatus;
+  submittedAt: string;
+  submittedBy: string;
+  submittedTotals: Totals;
+  approvedTotals: Totals | null;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  comment: string | null;
+  reopenedAt: string | null;
+  reopenedBy: string | null;
+  reopenReason: string | null;
+  approvalRequestId: string | null;
+}
+
+export interface PeriodRef {
+  start: string;
+  end: string;
+  label: string;
+}
+
+export interface TimesheetRow {
+  employee: { id: string; name: string };
+  totals: Totals;
+  status: TimesheetStatus | "not_submitted";
+  timesheet: Timesheet | null;
+  taskId: string | null;
+  canSubmit: boolean;
+  canWithdraw: boolean;
+  canReopen: boolean;
+}
+
+export interface TimesheetOverview {
+  settings: TimesheetSettings;
+  period: PeriodRef;
+  previous: PeriodRef;
+  next: PeriodRef;
+  over: boolean;
+  submittableFrom: string;
+  items: TimesheetRow[];
 }
 
 export interface SummaryRow {
@@ -153,6 +214,40 @@ export const attKeys = {
   team: (from: string, to: string) => ["attendance", "team", from, to] as const,
   settings: ["attendance", "settings"] as const,
   summary: (from: string, to: string) => ["attendance", "summary", from, to] as const,
+  timesheets: (date: string, employeeId: string | undefined) =>
+    ["attendance", "timesheets", date, employeeId ?? "all"] as const,
+  timesheet: (id: string) => ["attendance", "timesheet-record", id] as const,
+};
+
+/** Each person's timesheet status for the period containing `date`. */
+export const timesheetsQuery = (date: string, employeeId?: string) =>
+  queryOptions({
+    queryKey: attKeys.timesheets(date, employeeId),
+    queryFn: () => apiGet<TimesheetOverview>(`/api/v1/attendance/timesheets${qs({ date, employeeId })}`),
+  });
+
+export const timesheetRecordQuery = (id: string) =>
+  queryOptions({
+    queryKey: attKeys.timesheet(id),
+    queryFn: () => apiGet<Timesheet>(`/api/v1/attendance/timesheets/${id}`),
+  });
+
+export const TIMESHEET_STATUS: Record<
+  TimesheetRow["status"],
+  { label: string; tone: "neutral" | "info" | "success" | "warning" | "danger" }
+> = {
+  not_submitted: { label: "Not submitted", tone: "neutral" },
+  submitted: { label: "Waiting for approval", tone: "info" },
+  approved: { label: "Approved", tone: "success" },
+  returned: { label: "Returned", tone: "danger" },
+  withdrawn: { label: "Withdrawn", tone: "neutral" },
+  reopened: { label: "Reopened", tone: "warning" },
+};
+
+export const PERIOD_LABEL: Record<TimesheetSettings["period"], string> = {
+  monthly: "Calendar month",
+  semi_monthly: "Half month (1st–15th, 16th–end)",
+  weekly: "Week (Monday–Sunday)",
 };
 
 export const statusQuery = queryOptions({
