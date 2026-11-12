@@ -22,7 +22,27 @@ import {
   type Ir8aRecord,
   incomeDollars,
 } from "./ir8a.ts";
+import {
+  APPENDIX_8A_ACCOMMODATION_HEADERS,
+  APPENDIX_8A_HOTEL_OTHERS_HEADERS,
+  APPENDIX_8B_HEADERS,
+  APPENDIX_SHEET_NAMES,
+  type AppendixPerson,
+  type AppendixSheet,
+  accommodationRows,
+  appendixCsv,
+  type EmployeeAppendices,
+  hasAppendix8a,
+  hasAppendix8b,
+  hotelOthersRow,
+  shareGainRows,
+} from "./ir8a-appendix.ts";
+import { appendicesForYear, assertYear } from "./ir8a-appendix-service.ts";
 import type { GeneratedFile } from "./service.ts";
+
+/** Sheets of IRAS's import template the download offers; `ir8a` is the default. */
+export const IR8A_SHEETS = ["ir8a", "appendix-8a-accommodation", "appendix-8a-hotel-others", "appendix-8b"] as const;
+export type Ir8aSheet = (typeof IR8A_SHEETS)[number];
 
 /** Preview row: whole dollars as they will be written, ID masked. */
 export interface Ir8aPreviewRecord {
@@ -38,9 +58,24 @@ export interface Ir8aPreviewRecord {
   employeeCpf: number;
   donations: number;
   mbmf: number;
+  /** d7(a): Appendix 8B gains under S10(1)(b), whole dollars (decimals dropped). */
+  shareGainsS101b: number;
+  /** d7(b): Appendix 8B gains under S10(1)(g), whole dollars. */
+  shareGainsS101g: number;
+  /** d8: Appendix 8A total, whole dollars. */
+  benefitsInKind: number;
   commencedOn: string | null;
   ceasedOn: string | null;
   notes: Ir8aNote[];
+}
+
+export interface Ir8aPreviewPart {
+  part: number;
+  records: number;
+  /** Rows of each appendix sheet for this part's employees. */
+  appendix8aAccommodation: number;
+  appendix8aHotelOthers: number;
+  appendix8b: number;
 }
 
 export interface Ir8aPreview {
@@ -50,17 +85,22 @@ export interface Ir8aPreview {
   dueOn: string;
   templateUrl: string;
   explanatoryNotesUrl: string;
-  parts: { part: number; records: number }[];
+  parts: Ir8aPreviewPart[];
   records: Ir8aPreviewRecord[];
   excluded: { employeeName: string; reason: string }[];
-  /** Year-level notes (unfinished runs, AIS threshold, Appendix 8A). */
+  /** Year-level notes (unfinished runs, AIS threshold, appendices). */
   notes: Ir8aNote[];
 }
 
 interface Built {
   preview: Ir8aPreview;
   records: Ir8aRecord[];
+  /** Parallel to `records`: the employee's appendices, if any. */
+  appendices: (EmployeeAppendices | null)[];
 }
+
+/** Owned-premises notes per employee (the template can take at most 10 residences anyway). */
+const RESIDENCE_NOTE_LIMIT = 10;
 
 async function build(deps: AppDeps, orgId: string, year: number): Promise<Built> {
   const db = deps.db;
@@ -116,8 +156,15 @@ async function build(deps: AppDeps, orgId: string, year: number): Promise<Built>
     ),
   ];
   const cashClaims = await taxableCashClaims(db, orgId, year, legacyClaimIds);
+  const appendixYear = await appendicesForYear(deps, orgId, year);
   const ids = [
-    ...new Set([...bySlip.keys(), ...openings.map((o) => o.employeeId), ...cashClaims.map((c) => c.employeeId)]),
+    ...new Set([
+      ...bySlip.keys(),
+      ...openings.map((o) => o.employeeId),
+      ...cashClaims.map((c) => c.employeeId),
+      ...appendixYear.byEmployee.keys(),
+      ...appendixYear.failed.map((f) => f.employeeId),
+    ]),
   ];
   const people = ids.length
     ? await db
@@ -143,7 +190,13 @@ async function build(deps: AppDeps, orgId: string, year: number): Promise<Built>
   const yearStart = `${year}-01-01`;
   const yearEnd = `${year}-12-31`;
   const excluded: Ir8aPreview["excluded"] = [];
-  const built: { record: Ir8aRecord; employeeId: string; idMasked: string; notes: Ir8aNote[] }[] = [];
+  const built: {
+    record: Ir8aRecord;
+    employeeId: string;
+    idMasked: string;
+    notes: Ir8aNote[];
+    appendices: EmployeeAppendices | null;
+  }[] = [];
   for (const p of [...people].sort((a, b) => a.legalName.localeCompare(b.legalName) || a.id.localeCompare(b.id))) {
     const slips = (bySlip.get(p.id) ?? []).sort((a, b) =>
       a.month === b.month ? a.payDate.localeCompare(b.payDate) : a.month.localeCompare(b.month),
@@ -171,31 +224,37 @@ async function build(deps: AppDeps, orgId: string, year: number): Promise<Built>
       notes.push({
         code: "IR8A_TAXABLE_REIMBURSEMENTS",
         message:
-          "Includes taxable cash reimbursements in d1 allowances. Review claim-type tax classifications. Non-cash benefits belong in Appendix 8A; tax borne by the employer has separate IRAS treatment.",
+          "Includes taxable cash reimbursements in d1 allowances. Review claim-type tax classifications. Record non-cash benefits under Year end (Appendix 8A); tax borne by the employer has separate IRAS treatment.",
       });
-    const nothing =
+    const appendices = appendixYear.byEmployee.get(p.id) ?? null;
+    for (const f of appendixYear.failed.filter((x) => x.employeeId === p.id))
+      notes.push({
+        code: "IR8A_APPENDIX_RECORD_INVALID",
+        message: `An Appendix 8A/8B record is left out because it no longer validates: ${f.message} Edit it under Year end.`,
+      });
+    const noPay =
       amounts.grossSalaryCents <= 0 &&
       amounts.bonusCents === 0 &&
       amounts.allowancesCents === 0 &&
       amounts.commissionCents === 0 &&
       amounts.employeeCpfCents === 0;
-    if (nothing) continue;
+    if (noPay && !appendices) continue;
+    const alsoAppendices = appendices ? " Their Appendix 8A/8B records are left out too." : "";
     if (p.idType !== "nric" && p.idType !== "fin") {
       excluded.push({
         employeeName: p.legalName,
-        reason:
-          "ID type is not NRIC or FIN: add this employee in myTax by hand with the right ID type (work permit, Malaysian IC or passport).",
+        reason: `ID type is not NRIC or FIN: add this employee in myTax by hand with the right ID type (work permit, Malaysian IC or passport).${alsoAppendices}`,
       });
       continue;
     }
     if (p.gender !== "male" && p.gender !== "female") {
       excluded.push({
         employeeName: p.legalName,
-        reason:
-          "IRAS requires sex (male or female) and none is recorded: add it in People, or enter the record in myTax.",
+        reason: `IRAS requires sex (male or female) and none is recorded: add it in People, or enter the record in myTax.${alsoAppendices}`,
       });
       continue;
     }
+    if (appendices) notes.push(...appendixNotes(appendices, noPay, year));
     const first = slips[0];
     const last = slips[slips.length - 1];
     const hireDates = slips.map((s) => s.input.employment.hireDate).sort();
@@ -232,6 +291,7 @@ async function build(deps: AppDeps, orgId: string, year: number): Promise<Built>
       employeeId: p.id,
       idMasked: p.idMasked,
       notes,
+      appendices,
       record: {
         idType: p.idType === "nric" ? "NRIC" : "FIN",
         idNumber: (await deps.secretBox.decrypt("nric", p.idNumberEnc)).toUpperCase(),
@@ -248,7 +308,14 @@ async function build(deps: AppDeps, orgId: string, year: number): Promise<Built>
   }
 
   const records = built.map((b) => b.record);
-  const parts = buildIr8aCsv(records).map((p) => ({ part: p.part, records: p.records }));
+  const parts = buildIr8aCsv(records).map((p) => {
+    const chunk = built.slice((p.part - 1) * IR8A_MAX_RECORDS, p.part * IR8A_MAX_RECORDS);
+    return {
+      part: p.part,
+      records: p.records,
+      ...appendixRowCounts(chunk.map((b) => ({ person: personOf(b.record), appendices: b.appendices }))),
+    };
+  });
   const yearNotes: Ir8aNote[] = [];
   if (unfinished.length > 0)
     yearNotes.push({
@@ -260,13 +327,33 @@ async function build(deps: AppDeps, orgId: string, year: number): Promise<Built>
       code: "IR8A_AIS_REQUIRED",
       message: `${ids.length} employees were paid in ${year}: employers with 5 or more employees must submit through the Auto-Inclusion Scheme (AIS) by 1 Mar ${year + 1}.`,
     });
+  const with8a = built.filter((b) => b.appendices && hasAppendix8a(b.appendices)).length;
+  const with8b = built.filter((b) => b.appendices && hasAppendix8b(b.appendices)).length;
+  const forWhom = [
+    with8a ? `Appendix 8A for ${with8a} employee${with8a === 1 ? "" : "s"}` : null,
+    with8b ? `Appendix 8B for ${with8b} employee${with8b === 1 ? "" : "s"}` : null,
+  ]
+    .filter(Boolean)
+    .join(" and ");
   yearNotes.push({
-    code: "IR8A_APPENDIX_8A",
+    code: "IR8A_APPENDICES",
     message:
-      "Appendix 8A (benefits-in-kind such as housing or a car) is not produced: Crow HR does not record benefits-in-kind. Fill the template's Appendix 8A sheets for employees who received any.",
+      with8a + with8b === 0
+        ? `No benefits-in-kind (Appendix 8A) or share-plan gains (Appendix 8B) are recorded for ${year}. If any employee received housing, a car, home leave passages or share gains, record them under Year end before you export.`
+        : `${forWhom}, from the benefits and share gains recorded under Year end. Download each part's appendix sheets with its IR8A rows; myTax computes d7 and d8 from them after import: check them against Crow HR's totals under Year end.`,
   });
+  const failed = appendixYear.failed.length;
+  if (failed)
+    yearNotes.push({
+      code: "IR8A_APPENDIX_RECORDS_INVALID",
+      message:
+        failed === 1
+          ? "1 appendix record is left out because it no longer validates: edit it under Year end."
+          : `${failed} appendix records are left out because they no longer validate: edit them under Year end.`,
+    });
   return {
     records,
+    appendices: built.map((b) => b.appendices),
     preview: {
       year,
       yearOfAssessment: year + 1,
@@ -289,6 +376,9 @@ async function build(deps: AppDeps, orgId: string, year: number): Promise<Built>
         employeeCpf: deductionDollars(b.record.employeeCpfCents),
         donations: deductionDollars(b.record.donationsCents),
         mbmf: deductionDollars(b.record.mbmfCents),
+        shareGainsS101b: b.appendices?.total8b.ir8aD7aDollars ?? 0,
+        shareGainsS101g: b.appendices?.total8b.ir8aD7bDollars ?? 0,
+        benefitsInKind: b.appendices?.total8a.ir8aD8Dollars ?? 0,
         commencedOn: b.record.commencedOn,
         ceasedOn: b.record.ceasedOn,
         notes: b.notes,
@@ -297,36 +387,108 @@ async function build(deps: AppDeps, orgId: string, year: number): Promise<Built>
   };
 }
 
-function assertYear(year: number) {
-  if (!Number.isInteger(year) || year < 2000 || year > 2100)
-    throw new AppError("validation_failed", "Choose a valid year.");
-}
-
 /** IR8A figures for an income year (whole dollars, masked IDs), with the parts to download. */
 export async function ir8aPreview(deps: AppDeps, actor: PayrollActor, year: number): Promise<Ir8aPreview> {
   assertYear(year);
   return (await build(deps, actor.orgId, year)).preview;
 }
 
-/** One part (≤ 200 records) of the IR8A rows as CSV, to paste into IRAS's IR8A import template at row 6. */
-export async function ir8aFile(deps: AppDeps, actor: PayrollActor, year: number, part: number): Promise<GeneratedFile> {
+/**
+ * One part (≤ 200 records) as CSV: the IR8A rows (paste at row 6 of the template's IR8A sheet), or one
+ * appendix sheet's rows for the same part's employees (paste at row 2 of that sheet).
+ */
+export async function ir8aFile(
+  deps: AppDeps,
+  actor: PayrollActor,
+  year: number,
+  part: number,
+  sheet: Ir8aSheet = "ir8a",
+): Promise<GeneratedFile> {
   assertYear(year);
-  const { records, preview } = await build(deps, actor.orgId, year);
-  if (records.length === 0) throw new AppError("conflict", `No approved payslips in ${year}.`);
+  const { records, appendices, preview } = await build(deps, actor.orgId, year);
+  if (records.length === 0) throw new AppError("conflict", `No approved payslips or appendix records in ${year}.`);
   const parts = buildIr8aCsv(records);
   const chosen = parts.find((p) => p.part === part);
   if (!chosen)
     throw new AppError("not_found", `There ${parts.length === 1 ? "is 1 part" : `are ${parts.length} parts`}.`);
+  let body = chosen.csv;
+  let rows = chosen.records;
+  if (sheet !== "ir8a") {
+    const from = (part - 1) * IR8A_MAX_RECORDS;
+    const chunk = records
+      .slice(from, from + IR8A_MAX_RECORDS)
+      .map((r, i) => ({ person: personOf(r), appendices: appendices[from + i] ?? null }));
+    const sheetRows = appendixRows(sheet, chunk);
+    if (sheetRows.length === 0)
+      throw new AppError(
+        "conflict",
+        `No ${APPENDIX_SHEET_NAMES[sheet]} records in part ${part} of ${year}: there is nothing to download for that sheet.`,
+      );
+    body = appendixCsv(APPENDIX_HEADERS[sheet], sheetRows);
+    rows = sheetRows.length;
+  }
   await recordAudit(deps.db, deps, actor.audit, {
     action: "payroll.ir8a_file_generated",
     targetType: "payroll_year",
     targetId: String(year),
-    meta: { part, records: chosen.records, parts: parts.length, excluded: preview.excluded.length },
+    meta: { part, sheet, records: chosen.records, rows, parts: parts.length, excluded: preview.excluded.length },
   });
   return {
-    fileName: `ir8a-${year}-part${part}-of-${parts.length}.csv`,
+    fileName: `ir8a-${year}-part${part}-of-${parts.length}${sheet === "ir8a" ? "" : `-${sheet}`}.csv`,
     contentType: "text/csv; charset=utf-8",
-    body: chosen.csv,
-    excluded: part === 1 ? preview.excluded : [],
+    body,
+    excluded: part === 1 && sheet === "ir8a" ? preview.excluded : [],
   };
+}
+
+const APPENDIX_HEADERS: Record<AppendixSheet, readonly string[]> = {
+  "appendix-8a-accommodation": APPENDIX_8A_ACCOMMODATION_HEADERS,
+  "appendix-8a-hotel-others": APPENDIX_8A_HOTEL_OTHERS_HEADERS,
+  "appendix-8b": APPENDIX_8B_HEADERS,
+};
+
+const personOf = (r: Ir8aRecord): AppendixPerson => ({ idType: r.idType, idNumber: r.idNumber });
+
+type PartPerson = { person: AppendixPerson; appendices: EmployeeAppendices | null };
+
+function appendixRows(sheet: AppendixSheet, chunk: readonly PartPerson[]): string[][] {
+  return chunk.flatMap(({ person, appendices: a }) => {
+    if (!a) return [];
+    if (sheet === "appendix-8a-accommodation") return accommodationRows(person, a);
+    if (sheet === "appendix-8b") return shareGainRows(person, a);
+    const row = hotelOthersRow(person, a);
+    return row ? [row] : [];
+  });
+}
+
+function appendixRowCounts(chunk: readonly PartPerson[]) {
+  return {
+    appendix8aAccommodation: appendixRows("appendix-8a-accommodation", chunk).length,
+    appendix8aHotelOthers: appendixRows("appendix-8a-hotel-others", chunk).length,
+    appendix8b: appendixRows("appendix-8b", chunk).length,
+  };
+}
+
+/** "S$4,931.50" for notes. */
+const sgd = (cents: number) =>
+  `S$${Math.floor(cents / 100).toLocaleString("en-SG")}.${String(cents % 100).padStart(2, "0")}`;
+
+/** Per-employee notes about the appendices: what the template can't import, appendix-only records. */
+function appendixNotes(a: EmployeeAppendices, appendixOnly: boolean, year: number): Ir8aNote[] {
+  const notes: Ir8aNote[] = [];
+  if (appendixOnly)
+    notes.push({
+      code: "IR8A_APPENDIX_ONLY",
+      message: `No pay from Crow HR in ${year}: the IR8A record carries only the Appendix 8A/8B income. Check the commencement and cessation dates in myTax.`,
+    });
+  a.residences.slice(0, RESIDENCE_NOTE_LIMIT).forEach((r, i) => {
+    const res = r.computed.residence;
+    if (r.details.kind !== "residence" || r.details.basis !== "owned" || !res) return;
+    notes.push({
+      code: "IR8A_APPENDIX_8A_ANNUAL_VALUE",
+      message: `Accommodation ${i + 1} is valued at its annual value, which IRAS's import template can't take yet: after import, enter 2a ${sgd(res.annualValueForPeriodCents ?? 0)} and 2b ${sgd(res.furnitureFittingsCents ?? 0)} (${r.details.furnishing === "partial" ? "partly" : "fully"} furnished) for it in myTax.`,
+    });
+  });
+  for (const i of a.total8a.issues) notes.push({ code: i.code, message: i.message });
+  return notes;
 }

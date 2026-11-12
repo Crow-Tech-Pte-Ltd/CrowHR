@@ -47,7 +47,7 @@ Version 1.0.0 ([changelog](CHANGELOG.md)). Crow HR has not yet been used for a r
 - Attendance: clock in/out with an offline queue, optional location/IP checks, timesheets with optional approval and locking, overtime claims (Part 4, 72-hour warning)
 - Claims: types and caps, receipts, foreign currency, reimbursement through payroll or outside it
 - Scheduling: shift templates, weekly rosters, conflicts and hour warnings, publishing, swaps and open shifts
-- Payroll: CPF/SHG/SDL and an FWL estimate, inputs fed from leave, attendance, rosters and claims, payslips, the CPF EZPay file, an ISO 20022 bank file, the IR8A export
+- Payroll: CPF/SHG/SDL and an FWL estimate, inputs fed from leave, attendance, rosters and claims, payslips, the CPF EZPay file, an ISO 20022 bank file, the IR8A export with Appendix 8A and 8B
 - Documents, HR letters and KETs, acknowledgements
 - Reports with CSV/XLSX export
 - Native apps for iPhone, iPad ([`apps/ios`](apps/ios)) and Android ([`apps/android`](apps/android)): payslips, leave, clock in/out (also offline), claims with receipt photos, schedule and approvals. They connect only to your own server and collect no data. Android: [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr). iPhone and iPad: in App Store review

@@ -7,6 +7,7 @@ const PAYROLL_TABLES = [
   "payroll_runs",
   "payroll_run_items",
   "payroll_payslips",
+  "payroll_ir8a_appendix_entries",
 ];
 
 let t: TestDb;
