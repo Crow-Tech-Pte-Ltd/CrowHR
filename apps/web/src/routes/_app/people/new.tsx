@@ -5,6 +5,7 @@ import { AlertTriangle, UserPlus } from "lucide-react";
 import * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { LinkDialog } from "../../../settings/members-dialogs.tsx";
+import { ageNotices } from "./-lib/age.ts";
 import {
   api,
   directoryQuery,
@@ -291,6 +292,7 @@ function NewEmployeePage() {
             onChange={set("hireDate")}
             error={e("job.hireDate")}
           />
+          <AgeConditions dob={f.dob} startDate={f.hireDate} />
           <TextInput
             label="Job title"
             required
@@ -451,6 +453,34 @@ interface HireInvite {
   status: "emailed" | "link" | "linked" | "skipped";
   inviteUrl: string | null;
   message: string;
+}
+
+/** Employment Act conditions for a hire under 16, shown as soon as both dates are known. */
+function AgeConditions({ dob, startDate }: { dob: string; startDate: string }) {
+  const notices = ageNotices(dob, startDate);
+  if (!notices.length) return null;
+  const refused = notices.some((n) => n.severity === "blocking");
+  return (
+    <Alert variant={refused ? "danger" : "warning"} className="sm:col-span-2" data-testid="age-conditions">
+      <AlertTriangle aria-hidden />
+      <div>
+        <AlertTitle>{refused ? "Too young to hire" : "Under 16 on the start date"}</AlertTitle>
+        {notices.map((n) => (
+          <AlertDescription key={n.code}>
+            {n.message}
+            {n.source ? (
+              <>
+                {" "}
+                <a href={n.source} target="_blank" rel="noreferrer" className="text-biru-400 underline">
+                  MOM guidance
+                </a>
+              </>
+            ) : null}
+          </AlertDescription>
+        ))}
+      </div>
+    </Alert>
+  );
 }
 
 function FormSection({

@@ -5,13 +5,14 @@ import * as React from "react";
 import { can, useMe } from "../auth/session.ts";
 import { ErrorNote } from "../components/section.tsx";
 import { type Doc, documentsQuery } from "./api.ts";
-import { DocumentSheet, DocumentsEmpty, DocumentTable, GenerateDialog, UploadDialog } from "./ui.tsx";
+import { DocumentSheet, DocumentsEmpty, DocumentsPager, DocumentTable, GenerateDialog, UploadDialog } from "./ui.tsx";
 
 /** The employee profile's Documents tab: their files by category, upload, generate a letter. */
 export function EmployeeDocuments({ employeeId, employeeName }: { employeeId: string; employeeName: string }) {
   const me = useMe();
   const hr = can(me, "documents:update");
-  const q = useQuery(documentsQuery({ employeeId }));
+  const [page, setPage] = React.useState(1);
+  const q = useQuery(documentsQuery({ employeeId }, page));
   const [open, setOpen] = React.useState<Doc | null>(null);
   const [upload, setUpload] = React.useState(false);
   const [generate, setGenerate] = React.useState(false);
@@ -48,6 +49,7 @@ export function EmployeeDocuments({ employeeId, employeeName }: { employeeId: st
         ) : (
           <DocumentTable docs={docs} onOpen={setOpen} label={`${employeeName}'s documents`} />
         )}
+        <DocumentsPager list={q.data} page={page} onPage={setPage} />
       </Card>
       <DocumentSheet doc={current} onClose={() => setOpen(null)} />
       {hr ? (

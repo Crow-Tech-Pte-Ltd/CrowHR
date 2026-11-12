@@ -43,6 +43,7 @@ import {
 import {
   DocumentSheet,
   DocumentsEmpty,
+  DocumentsPager,
   DocumentTable,
   invalidateDocuments,
   RequestLetterDialog,
@@ -246,7 +247,8 @@ function MyRequests() {
 }
 
 function Expiring({ onOpen }: { onOpen: (d: Doc) => void }) {
-  const q = useQuery(documentsQuery({ expiry: "attention" }));
+  const [page, setPage] = React.useState(1);
+  const q = useQuery(documentsQuery({ expiry: "attention" }, page));
   return (
     <Card>
       {q.isError ? (
@@ -263,6 +265,7 @@ function Expiring({ onOpen }: { onOpen: (d: Doc) => void }) {
       ) : (
         <DocumentTable docs={q.data.items} onOpen={onOpen} showEmployee label="Expiring and expired documents" />
       )}
+      <DocumentsPager list={q.data} page={page} onPage={setPage} />
     </Card>
   );
 }
@@ -423,7 +426,8 @@ function Retention() {
 
 /** Owners only: deleted documents (hidden, still stored) and the irreversible purge. */
 function Deleted() {
-  const q = useQuery(documentsQuery({ deleted: "true" }));
+  const [page, setPage] = React.useState(1);
+  const q = useQuery(documentsQuery({ deleted: "true" }, page));
   const [purging, setPurging] = React.useState<Doc | null>(null);
   return (
     <div className="flex flex-col gap-3">
@@ -472,6 +476,7 @@ function Deleted() {
             </Table>
           </div>
         )}
+        <DocumentsPager list={q.data} page={page} onPage={setPage} />
       </Card>
       <PurgeDialog doc={purging} onClose={() => setPurging(null)} />
     </div>

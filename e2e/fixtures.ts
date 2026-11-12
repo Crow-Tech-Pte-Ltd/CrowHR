@@ -52,6 +52,14 @@ export const E2E = {
     hr: { email: "hr@bbbakery.example", name: "Priya Nair" },
     staff: { email: "baker@bbbakery.example", name: "Hafiz Rahman" },
   },
+  /**
+   * Fifth organisation, a sister company where Kampong Kopi's staff member Ravi also works, for the
+   * organisation switcher (org-switcher spec).
+   */
+  sisterOrg: {
+    name: "Kampong Kopi Catering Pte. Ltd.",
+    slug: "kampong-catering",
+  },
 } as const;
 
 const IDP_PORT = Number(process.env.E2E_PORT ?? 3100) + 3;

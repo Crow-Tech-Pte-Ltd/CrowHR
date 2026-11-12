@@ -30,8 +30,9 @@ const col = (name: string, required: boolean, help: string, example: string): Te
 export const TEMPLATES: Record<ImportKind, ImportTemplate> = {
   employees: {
     kind: "employees",
-    version: 1,
-    fileName: "crowhr-employees-template-v1.csv",
+    // v2 adds workman and manager_or_executive (optional, so v1 files still import).
+    version: 2,
+    fileName: "crowhr-employees-template-v2.csv",
     columns: [
       col("employee_number", false, "Leave empty to auto-number (E0001…).", ""),
       col("legal_name", true, "As on the NRIC, FIN card or passport.", "Tan Mei Ling"),
@@ -68,6 +69,18 @@ export const TEMPLATES: Record<ImportKind, ImportTemplate> = {
       col("employment_type", true, "full_time, part_time, contract or intern.", "full_time"),
       col("work_schedule", false, "Schedule name; empty = the default schedule.", ""),
       col("probation_end", false, "YYYY-MM-DD or DD/MM/YYYY.", ""),
+      col(
+        "workman",
+        false,
+        "yes for a workman (mainly manual work). Employment Act Part 4 covers workmen up to S$4,500 basic pay a month, other employees up to S$2,600. Empty means no.",
+        "no",
+      ),
+      col(
+        "manager_or_executive",
+        false,
+        "yes for a manager or executive (Employment Act Part 4 does not cover them: no statutory overtime, no Part 4 leave carry-forward floor). Empty means no.",
+        "no",
+      ),
       col("pay_basis", false, "monthly or hourly. Needs payroll access.", "monthly"),
       col("basic_pay", false, "Dollars, up to 2 decimals. Needs payroll access.", "4000.00"),
       col("pass_type", false, "Foreigners: EP, S_PASS, WP, DP_LOC, LTVP_LOC, PEP, ONE, TEP or OTHER.", ""),

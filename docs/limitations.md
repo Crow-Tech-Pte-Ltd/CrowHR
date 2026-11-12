@@ -24,8 +24,6 @@ the change that fixes it.
   makes the next sign-in look like a new browser.
 - **Common passwords** are a curated list of a few hundred entries plus patterns, not a breach corpus.
 - **No email change**: a member's email address can't be changed.
-- **Organisation switcher**: the web app shows only the current organisation, although the API can
-  switch (`POST /api/v1/auth/switch-organisation`).
 - **No row-level security**: tenant isolation is enforced by the application (org-scoped queries)
   and composite foreign keys, with a test that every route refuses another organisation's IDs.
 - **Audit integrity**: verification compares the hash chain with `audit_heads` and detects a
@@ -53,15 +51,11 @@ the change that fixes it.
 - **Invitations from an import** go out once the import is confirmed; without SMTP their links are
   not shown, so HR resends them from Settings → Members.
 - **Hire age checks**: hires under 13 are refused and start dates before 2025 are not checked. The
-  Employment Act's family-only exception is not supported, and the under-16 conditions (light
-  duties, MOM notification for industrial work, hour limits) are computed but not shown in the hire
-  flow.
+  Employment Act's family-only exception is not supported. The under-16 conditions (light duties, MOM
+  notification for industrial work, hour limits) are shown in the hire form, not enforced or tracked.
 - **Personal-details changes apply from the approval date**; future-dated personal details aren't
   supported.
 - **A scheduled hire or rehire can't be cancelled**; record a termination instead.
-- **Company logo**: there's an API but no upload control on the Company screen.
-- **CSV import** has no column for the manager/executive flag (Part 4); set it on the profile after
-  importing.
 - **Duplicate inbox endpoint**: `GET /api/v1/people/inbox` repeats part of the Home inbox (kept for
   API compatibility).
 - **Error codes** `duplicate_id_number`, `in_use` and `reporting_cycle` are sent as `409 conflict`
@@ -223,7 +217,8 @@ the change that fixes it.
   default template reappears when the server restarts. Archive or edit them instead.
 - **Acknowledgement requests for replaced versions** stay listed as outstanding; ask again after
   replacing a file.
-- **The document list isn't paginated.**
+- **My documents is one list**: an employee's own documents aren't paginated (HR's lists and each
+  employee's Documents tab are, 25 a page).
 
 ## Reports
 

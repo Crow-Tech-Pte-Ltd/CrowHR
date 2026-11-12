@@ -25,7 +25,13 @@ test("add an employee, see NRIC masked, schedule a transfer and record a resigna
   await expect(page.getByRole("heading", { name: "Add employee" })).toBeVisible();
   await page.getByLabel("Legal name").fill("Chua Li Ting");
   await page.getByLabel("NRIC").fill("S1234567A");
+  // A 14-year-old on the start date: the form says what the Employment Act allows.
+  await page.getByLabel("Date of birth").fill(`${Number(isoPlusDays(0).slice(0, 4)) - 14}-01-01`);
+  const young = page.getByTestId("age-conditions");
+  await expect(young).toContainText("Under 16 on the start date");
+  await expect(young).toContainText("light duties");
   await page.getByLabel("Date of birth").fill("1997-05-14");
+  await expect(young).toHaveCount(0);
   await page.getByLabel("Job title").fill("Barista");
   await page.getByRole("combobox", { name: "Department" }).click();
   await page.getByRole("option", { name: "Operations" }).click();

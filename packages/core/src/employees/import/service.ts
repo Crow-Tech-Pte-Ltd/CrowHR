@@ -113,6 +113,8 @@ const PATH_TO_COLUMN: Record<string, string> = {
   "job.employmentType": "employment_type",
   "job.workScheduleId": "work_schedule",
   "job.probationEnd": "probation_end",
+  "job.isManagerOrExecutive": "manager_or_executive",
+  "job.isWorkman": "workman",
   "compensation.payBasis": "pay_basis",
   "compensation.amountCents": "basic_pay",
   "compensation.retroactive": "retroactive",
@@ -254,6 +256,15 @@ const money = (v: Record<string, string>, column: string, line: number, errors: 
 
 const blank = (s: string | undefined) => (s && s.trim() !== "" ? s.trim() : null);
 
+/** A yes/no cell: yes, no, y, n, true, false (any case); empty is no. */
+function yesNo(v: Record<string, string>, column: string, line: number, errors: ImportCellError[]): boolean {
+  const raw = blank(v[column]);
+  if (raw === null) return false;
+  const answer = { yes: true, y: true, true: true, no: false, n: false, false: false }[raw.toLowerCase()];
+  if (answer === undefined) errors.push({ row: line, column, value: raw, message: "Use yes or no." });
+  return answer ?? false;
+}
+
 // ---------------------------------------------------------------------------
 // Row processors (run inside the import transaction)
 
@@ -296,6 +307,8 @@ const employeeRow: RowProcessor = async (tx, deps, ports, actor, look, { line, v
   const passIssued = date(v, "pass_issued_on", line, errors);
   const passExpires = date(v, "pass_expires_on", line, errors);
   const basic = money(v, "basic_pay", line, errors);
+  const managerOrExecutive = yesNo(v, "manager_or_executive", line, errors);
+  const workman = yesNo(v, "workman", line, errors);
   for (const required of [
     "legal_name",
     "id_type",
@@ -355,6 +368,8 @@ const employeeRow: RowProcessor = async (tx, deps, ports, actor, look, { line, v
       employmentType: (v.employment_type ?? "").toLowerCase(),
       workScheduleId,
       probationEnd,
+      isManagerOrExecutive: managerOrExecutive,
+      isWorkman: workman,
     },
     compensation:
       basic === null || basic === undefined

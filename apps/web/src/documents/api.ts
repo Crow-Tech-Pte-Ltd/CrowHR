@@ -139,13 +139,33 @@ export const categoriesQuery = queryOptions({
   queryFn: () => apiGet<{ items: DocCategory[] }>("/api/v1/documents/categories"),
 });
 
-export function documentsQuery(filter: Record<string, string>) {
-  const qs = new URLSearchParams(filter).toString();
+/** Documents per page in the web app's lists. */
+export const DOCUMENTS_PAGE_SIZE = 25;
+
+export interface DocList {
+  items: Doc[];
+  total: number;
+  page?: number;
+  pageSize?: number;
+}
+
+/** A document list; pass `page` to get one page of `DOCUMENTS_PAGE_SIZE`. */
+export function documentsQuery(filter: Record<string, string>, page?: number) {
+  const qs = new URLSearchParams(
+    page ? { ...filter, page: String(page), pageSize: String(DOCUMENTS_PAGE_SIZE) } : filter,
+  ).toString();
   return queryOptions({
     queryKey: ["documents", "list", qs],
-    queryFn: () => apiGet<{ items: Doc[] }>(`/api/v1/documents?${qs}` as `/api/${string}`),
+    queryFn: () => apiGet<DocList>(`/api/v1/documents?${qs}` as `/api/${string}`),
+    placeholderData: (previous) => previous,
   });
 }
+
+export const documentQuery = (id: string) =>
+  queryOptions({
+    queryKey: ["documents", "one", id],
+    queryFn: () => apiGet<Doc>(`/api/v1/documents/${id}` as `/api/${string}`),
+  });
 
 export const templatesQuery = queryOptions({
   queryKey: ["documents", "templates"],

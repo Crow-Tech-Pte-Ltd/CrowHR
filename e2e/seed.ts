@@ -166,6 +166,17 @@ if (!oidcOrg) {
   console.error(`Seeded ${E2E.oidcOrg.name} for the OIDC round trip.`);
 }
 
+// A fifth organisation where the main organisation's staff member also works (org-switcher spec).
+const sisterOrg = (await db.select().from(schema.organisations)).find((o) => o.slug === E2E.sisterOrg.slug);
+if (!sisterOrg) {
+  const orgId = ids.newId();
+  await db.insert(schema.organisations).values({ id: orgId, name: E2E.sisterOrg.name, slug: E2E.sisterOrg.slug });
+  await db.insert(schema.orgSecuritySettings).values({ orgId });
+  // biome-ignore lint/suspicious/noExplicitAny: seedMember only needs db/ids/clock/passwordHasher.
+  await seedMember(deps as any, orgId, { email: E2E.members.staff.email, displayName: E2E.members.staff.name });
+  console.error(`Seeded ${E2E.sisterOrg.name} with ${E2E.members.staff.name} as a member.`);
+}
+
 // Backups (e2e/system-page.spec.ts): the last successful backup ran three days ago, so Home warns
 // owners that it is more than 48 hours old. No archive file exists; only the run is recorded.
 if (!(await db.select().from(schema.backupRuns)).length) {

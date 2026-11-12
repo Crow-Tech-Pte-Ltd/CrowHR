@@ -16,7 +16,7 @@ One Crow HR organisation is one legal entity, with one UEN and one CSN. A group 
 | UEN | Required. Must match one of ACRA's three formats: 8 digits and a letter (businesses), a 4-digit year, 5 digits and a letter (local companies), or `T`/`S`, 2 digits, a 2-character entity type, 4 digits and a letter (other entities). |
 | CPF submission number (CSN) | Your UEN, a 3-letter payment type and a 2-digit serial, for example `201912345KPTE01`. Payment types are `PTE` (staff), `AMS`, `VCT` and `MSE`. It must start with the UEN above. |
 | Registered address | Block or house number, street, unit, building and a 6-digit postal code. |
-| Logo | PNG only (type detected from content), at most 1 MB. Export SVG artwork as PNG first. There is an API for it, but no upload control on the screen yet. |
+| Logo | **Upload logo** under the address. PNG only (type detected from content), at most 1 MB; export SVG artwork as PNG first. Printed on letters generated from templates. |
 
 Payroll cannot be submitted until the profile has a UEN, a CSN and an address. Time zone (Asia/Singapore) and currency (SGD) are fixed.
 
