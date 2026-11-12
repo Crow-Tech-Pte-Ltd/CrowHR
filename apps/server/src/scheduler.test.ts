@@ -10,6 +10,7 @@ const report = (): TickReport => ({
   emails: { sent: 0, retried: 0, failed: 0, suppressed: 0 },
   notificationsDeleted: 0,
   transitions: {},
+  demoCompanies: { purged: 0, seeded: 0 },
   errors: [],
 });
 

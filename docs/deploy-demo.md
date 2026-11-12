@@ -36,6 +36,7 @@ The demo can offer a real Singpass login (then HR admin or Employee; nothing abo
 | --- | --- | --- |
 | `VITE_SINGPASS_LOGO_SRC` | `/branding/singpass-logo.svg` | The Singpass button shows the official logo. Copy Singpass's full-colour logo (from their button specification download) to `apps/demo/dist-site/branding/singpass-logo.svg` after building. It is never committed. |
 | `VITE_DEMO_SINGPASS_START_URL` | `https://hr-demo.crow.sg/api/v1/auth/oidc/<production method id>/start?purpose=demo` | Turns the demo's Singpass button on. Only set it once that method has a **production** client ID: Singpass staging accepts test accounts only. Unset, the button is shown disabled. |
+| `VITE_TRY_URL` | `https://hr-demo.crow.sg/try` | The demo banner ("Try it on your phone") and About this demo link to a server's try page, where visitors get their own demo company for the mobile apps (openspec add-demo-companies). Set it only once that server runs with `DEMO_COMPANIES=1`. Unset, no link is shown. |
 
 ## Before deploying (local, no approval needed)
 

@@ -97,6 +97,7 @@ export function routeErrorCodes(route: AnyRoute): ErrorCode[] {
   }
   if (typeof route.access === "object") codes.add("forbidden");
   if (route.recentAuth) codes.add("reauth_required");
+  if (route.refusedInDemoCompany) codes.add("disabled_in_demo");
   if (route.method !== "get" && route.access !== "public") codes.add("csrf_rejected");
   if (route.access !== "public" && !route.allowDuringMfaEnrolment) codes.add("mfa_enrolment_required");
   return [...codes].sort();

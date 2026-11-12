@@ -3,6 +3,7 @@ import "@crowhr/ui/styles.css";
 import { DEMO_PASSWORD, PERSONAS } from "@crowhr/demo/personas";
 import { ArrowLeft, BookOpen, Server } from "lucide-react";
 import { createRoot } from "react-dom/client";
+import { tryUrl } from "./try-url.ts";
 
 /**
  * /about-demo: what the demo is, and every way it differs from a self-hosted install. Renders
@@ -77,6 +78,25 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
           inside your browser instead of on a server. Payroll is calculated by the real engine with the cited Singapore
           rules, approvals go through the real workflow engine, and permissions are enforced by the same code.
         </p>
+
+        {tryUrl() ? (
+          <section className="mt-10" aria-labelledby="phone" data-testid="about-try-phone">
+            <h2 id="phone" className="mb-2 font-azeret text-sm font-semibold">
+              On your phone
+            </h2>
+            <p className="max-w-2xl text-ui leading-6 text-primary-300">
+              The Crow HR mobile apps need a real server, so they can't use this in-browser demo. Get your own demo
+              company on Crow Tech's demo server instead: the same Kopi Kaki, private to you, signed in by picking a
+              person in the app and in the browser, and deleted with everything in it after a few days.{" "}
+              <a
+                href={tryUrl() ?? undefined}
+                className="focus-ring rounded-sm font-medium text-biru-400 underline-offset-2 hover:underline"
+              >
+                Start a demo company
+              </a>
+            </p>
+          </section>
+        ) : null}
 
         <section className="mt-10" aria-labelledby="privacy">
           <h2 id="privacy" className="mb-2 font-azeret text-sm font-semibold">

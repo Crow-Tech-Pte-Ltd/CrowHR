@@ -3,6 +3,7 @@ import type { ReportingScopeResolver } from "./access/scope.ts";
 import type { ClientInfo } from "./context.ts";
 import type { SecretBox } from "./crypto/secret-box.ts";
 import type { Db } from "./db/types.ts";
+import type { DemoCompaniesDeps } from "./demo-companies/config.ts";
 import type { FileStore } from "./files/file-store.ts";
 import type { Logger } from "./logger.ts";
 import type { SystemHost } from "./system/host.ts";
@@ -77,6 +78,12 @@ export interface AppDeps {
   httpFetch?: typeof fetch;
   /** Browser demo: SSO disabled with an explanation, persona sign-in offered. */
   demoMode?: boolean;
+  /**
+   * Demo companies (server setting DEMO_COMPANIES=1, openspec add-demo-companies): visitors get a
+   * private copy of the sample company with persona sign-in. Not `demoMode`: the server stays a
+   * normal server for its other organisations. Off when absent (every demo-company route 404s).
+   */
+  demoCompanies?: DemoCompaniesDeps;
   /**
    * Demo Singpass round trip (server settings DEMO_SINGPASS_PROVIDER_ID / DEMO_SINGPASS_RETURN_URL):
    * this server is the Singpass relying party for the in-browser demo. `purpose=demo` on that one

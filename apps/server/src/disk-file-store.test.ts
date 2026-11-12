@@ -35,4 +35,18 @@ describe("disk file store", () => {
     );
     expect(await readdir(dir)).toEqual([]);
   });
+
+  it("deletes one organisation's directory and nothing else (demo-company expiry)", async () => {
+    const store = createDiskFileStore(dir);
+    const png = new Uint8Array([0x89, 0x50]);
+    await store.put("org/a/files/1.png", png, { contentType: "image/png" });
+    await store.put("org/a/company/logo.png", png, { contentType: "image/png" });
+    await store.put("org/ab/files/2.png", png, { contentType: "image/png" });
+    await store.deletePrefix?.("org/a/");
+    expect(await store.get("org/a/files/1.png")).toBeNull();
+    expect(await store.get("org/a/company/logo.png")).toBeNull();
+    expect(await store.get("org/ab/files/2.png")).not.toBeNull();
+    await expect(store.deletePrefix?.("../")).rejects.toBeInstanceOf(InvalidFileKeyError);
+    await expect(store.deletePrefix?.("org/../../x/")).rejects.toBeInstanceOf(InvalidFileKeyError);
+  });
 });

@@ -19,5 +19,9 @@ export function createMemoryFileStore(): FileStore {
       assertValidFileKey(key);
       files.delete(key);
     },
+    async deletePrefix(prefix) {
+      assertValidFileKey(prefix.replace(/\/$/, ""));
+      for (const key of [...files.keys()]) if (key.startsWith(prefix)) files.delete(key);
+    },
   };
 }

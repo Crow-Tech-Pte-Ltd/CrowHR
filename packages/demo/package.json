@@ -10,7 +10,9 @@
     "./worker": "./src/worker.ts",
     "./service-worker": "./src/service-worker.ts",
     "./protocol": "./src/protocol.ts",
-    "./personas": "./src/personas.ts"
+    "./personas": "./src/personas.ts",
+    "./demo-company": "./src/sample-company/demo-company.ts",
+    "./demo-company-personas": "./src/sample-company/demo-personas.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",

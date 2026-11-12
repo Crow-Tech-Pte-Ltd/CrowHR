@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as TryRouteImport } from './routes/try'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
@@ -64,6 +65,11 @@ const AppRoute = AppRouteImport.update({
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TryRoute = TryRouteImport.update({
+  id: '/try',
+  path: '/try',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -298,6 +304,7 @@ const AppPayrollRunsRunIdPayslipsPayslipIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/setup': typeof SetupRoute
+  '/try': typeof TryRoute
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -345,6 +352,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
+  '/try': typeof TryRoute
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -395,6 +403,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/setup': typeof SetupRoute
+  '/try': typeof TryRoute
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/inbox': typeof AppInboxRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -446,6 +455,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/setup'
+    | '/try'
     | '/documents'
     | '/inbox'
     | '/invite/$token'
@@ -493,6 +503,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/setup'
+    | '/try'
     | '/documents'
     | '/inbox'
     | '/invite/$token'
@@ -542,6 +553,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/setup'
+    | '/try'
     | '/_app/documents'
     | '/_app/inbox'
     | '/invite/$token'
@@ -592,6 +604,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   SetupRoute: typeof SetupRoute
+  TryRoute: typeof TryRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ResetTokenRoute: typeof ResetTokenRoute
   SignInOrgRoute: typeof SignInOrgRoute
@@ -612,6 +625,13 @@ declare module '@tanstack/react-router' {
       path: '/setup'
       fullPath: '/setup'
       preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/try': {
+      id: '/try'
+      path: '/try'
+      fullPath: '/try'
+      preLoaderRoute: typeof TryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -1035,6 +1055,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   SetupRoute: SetupRoute,
+  TryRoute: TryRoute,
   InviteTokenRoute: InviteTokenRoute,
   ResetTokenRoute: ResetTokenRoute,
   SignInOrgRoute: SignInOrgRoute,

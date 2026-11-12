@@ -20,11 +20,32 @@ export interface SeedResult {
   runs: Record<string, string>;
 }
 
-export async function seedDemo(deps: AppDeps, clock: SeedClock, origin: string): Promise<SeedResult> {
+export interface SeedOptions {
+  /** The organisation's name and slug (default: DEMO_ORG, Kopi Kaki Pte. Ltd. / kopi-kaki). */
+  org?: { name: string; slug: string };
+  /**
+   * The domain of the people's sign-in emails instead of `kopikaki.example` (users.email is unique
+   * on a server, so each demo company has its own, e.g. `demo-x7….kopikaki.example`).
+   */
+  emailDomain?: string;
+}
+
+/** `local@kopikaki.example` at another domain (unchanged without one). */
+export function atDomain(email: string, domain: string | undefined): string {
+  return domain ? email.replace(/@kopikaki\.example$/, `@${domain}`) : email;
+}
+
+export async function seedDemo(
+  deps: AppDeps,
+  clock: SeedClock,
+  origin: string,
+  options: SeedOptions = {},
+): Promise<SeedResult> {
   const { db, ids } = deps;
   clock.set("2026-06-22T09:00");
   const orgId = ids.newId();
-  await db.insert(schema.organisations).values({ id: orgId, name: DEMO_ORG.name, slug: DEMO_ORG.slug });
+  const org = options.org ?? DEMO_ORG;
+  await db.insert(schema.organisations).values({ id: orgId, name: org.name, slug: org.slug });
   // Demo personas sign in with one click, so no MFA requirement; sessions last a working day.
   await db
     .insert(schema.orgSecuritySettings)
@@ -51,7 +72,7 @@ export async function seedDemo(deps: AppDeps, clock: SeedClock, origin: string):
     const userId = key === "owner" ? ownerUserId : ids.newId();
     await db.insert(schema.users).values({
       id: userId,
-      email,
+      email: atDomain(email, options.emailDomain),
       displayName: PREFERRED_NAMES[employee] ?? (await nameOf(employeeId)),
       passwordHash,
       passwordChangedAt: clock.now(),

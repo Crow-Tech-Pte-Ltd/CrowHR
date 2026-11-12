@@ -11,6 +11,7 @@ import { securityModule } from "./auth/security-routes.ts";
 import { authenticate } from "./auth/sessions.ts";
 import { claimsModule } from "./claims/routes.ts";
 import type { AppEnv } from "./context.ts";
+import { demoCompaniesModule } from "./demo-companies/routes.ts";
 import type { AppDeps } from "./deps.ts";
 import { documentsModule } from "./documents/routes.ts";
 import { employeesModule, peopleModule } from "./employees/routes.ts";
@@ -42,6 +43,7 @@ export const V1_MODULES: readonly ApiModule[] = [
   auditModule,
   authModule,
   claimsModule,
+  demoCompaniesModule,
   documentsModule,
   employeesModule,
   inboxModule,

@@ -156,10 +156,20 @@ export async function saveCompanyProfile(
         .values({ orgId: actor.orgId, ...values })
         .onConflictDoUpdate({ target: companyProfiles.orgId, set: values })
         .returning();
-      // Keep the foundation's organisations.name/uen in step with the legal entity.
+      // Keep the foundation's organisations.name/uen in step with the legal entity. Not the UEN of
+      // a demo company: organisations.uen is unique on the server, and a visitor's copy must not
+      // hold a real company's UEN (demo-companies "Guard rails"). Its profile keeps the UEN.
+      const [org] = await tx
+        .select({ demo: organisations.demoExpiresAt })
+        .from(organisations)
+        .where(eq(organisations.id, actor.orgId));
       await tx
         .update(organisations)
-        .set({ name: input.tradingName || input.legalName, uen: input.uen, updatedAt: deps.clock.now() })
+        .set({
+          name: input.tradingName || input.legalName,
+          ...(org?.demo ? {} : { uen: input.uen }),
+          updatedAt: deps.clock.now(),
+        })
         .where(eq(organisations.id, actor.orgId));
       const { updatedAt: _u, ...after } = values;
       await recordAudit(tx, ports, actor, {

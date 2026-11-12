@@ -5,16 +5,19 @@ import {
   createReportingScopeResolver,
   createSecretBox,
   createUuidV7Generator,
+  type DemoCompaniesDeps,
   type Logger,
   peopleDates,
   peopleManagerResolver,
   systemClock,
 } from "@crowhr/core";
+import type { DemoCompanyProvisionerInput } from "@crowhr/demo/demo-company";
+import { demoCompanyPersonaInfo } from "@crowhr/demo/demo-company-personas";
 import { createArgon2Hasher } from "./argon2-hasher.ts";
 import { findSingpassLogo, SINGPASS_LOGO_PATH } from "./branding.ts";
 import { createClamAvScanner } from "./clamav.ts";
 import type { ServerConfig } from "./config.ts";
-import type { Database } from "./db.ts";
+import { type Database, openDatabase } from "./db.ts";
 import { createDiskFileStore } from "./disk-file-store.ts";
 import { createClientResolver } from "./proxy/client.ts";
 import { createSystemHost } from "./system/host.ts";
@@ -30,11 +33,12 @@ export function createServerDeps(
   const fileScanner = config.CLAMAV_HOST
     ? createClamAvScanner({ host: config.CLAMAV_HOST, port: config.CLAMAV_PORT })
     : undefined;
+  const fileStore = createDiskFileStore(config.FILE_STORAGE_DIR);
   return {
     ...{ fileScanner },
     db: database.db,
     passwordHasher: createArgon2Hasher(),
-    fileStore: createDiskFileStore(config.FILE_STORAGE_DIR),
+    fileStore,
     clock: systemClock,
     ids: createUuidV7Generator(systemClock),
     logger,
@@ -60,8 +64,50 @@ export function createServerDeps(
           },
         }
       : {}),
+    // Demo companies (DEMO_COMPANIES=1): each copy is seeded in its own in-memory PGlite, then
+    // copied into this database and file store. Off unless configured.
+    ...(config.demoCompanies
+      ? {
+          demoCompanies: {
+            ...config.demoCompanies,
+            provision: lazyDemoCompanyProvisioner({
+              target: database.db,
+              fileStore,
+              secretKey: new Uint8Array(secretKey),
+              publicUrl: config.PUBLIC_URL,
+              logger,
+              openScratch: openScratchDatabase,
+            }),
+            personaInfo: demoCompanyPersonaInfo,
+          },
+        }
+      : {}),
     // `mailer` (SMTP_URL / MAIL_FROM, see mailer.ts) arrives in `extra` when configured; without it,
     // notifications are in-app only and invitations and password resets offer a copyable link.
     ...extra,
   };
+}
+
+/**
+ * The demo-company seed (packages/demo) and PGlite load on the first seed, so a server that never
+ * makes a demo company never loads them.
+ */
+function lazyDemoCompanyProvisioner(input: DemoCompanyProvisionerInput): DemoCompaniesDeps["provision"] {
+  let provisioner: Promise<DemoCompaniesDeps["provision"]> | null = null;
+  return async (args) => {
+    provisioner ??= import("@crowhr/demo/demo-company").then((m) => m.createDemoCompanyProvisioner(input));
+    return (await provisioner)(args);
+  };
+}
+
+/** A fresh, migrated in-memory database for one demo-company seed (closed by the caller). */
+async function openScratchDatabase() {
+  const scratch = await openDatabase("pglite:memory");
+  try {
+    await scratch.migrate();
+  } catch (err) {
+    await scratch.close().catch(() => undefined);
+    throw err;
+  }
+  return { db: scratch.db, close: () => scratch.close() };
 }

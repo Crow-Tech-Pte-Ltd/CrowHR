@@ -8,6 +8,7 @@ import { employees } from "../db/schema/employees.ts";
 import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
 import type { Db } from "../db/types.ts";
+import { NOT_IN_DEMO_COMPANY } from "../demo-companies/config.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import type { AssignedRole } from "./matrix.ts";
@@ -111,6 +112,13 @@ export async function inviteMember(
 ): Promise<InviteMemberResult> {
   const email = normaliseEmail(input.email);
   const roles = [...new Set(input.roles ?? [])];
+  // Demo companies take no invitations (demo-companies "Guard rails"): an invitation would reuse
+  // an existing account by email and so tie a real person's account to a visitor's copy.
+  const [target] = await deps.db
+    .select({ demo: organisations.demoExpiresAt })
+    .from(organisations)
+    .where(eq(organisations.id, input.orgId));
+  if (target?.demo) throw new AppError("disabled_in_demo", NOT_IN_DEMO_COMPANY);
   const org = orgScope(deps.db, input.orgId);
   if (input.employeeId) {
     await org.getById(employees, input.employeeId, "employee record");

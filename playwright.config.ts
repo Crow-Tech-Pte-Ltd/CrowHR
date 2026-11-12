@@ -5,6 +5,8 @@ const PORT = Number(process.env.E2E_PORT ?? 3100);
 const SETUP_PORT = PORT + 1;
 /** The mock OpenID provider (e2e/mock-idp-server.ts); PORT + 2 is left free. */
 const IDP_PORT = PORT + 3;
+/** A server with DEMO_COMPANIES=1 for e2e/demo-companies.spec.ts (fresh database, no real organisation). */
+const DEMO_COMPANIES_PORT = PORT + 4;
 /** Fixed one-time code for the setup server only (SETUP_CODE is meant for automated installs). */
 export const E2E_SETUP_CODE = "ACDE-FGHJ-KMNP-QRTU";
 const E2E_SECRET_KEY = "ZTJlLW9ubHktdGhyb3dhd2F5LWtleS0zMi1ieXRlcyE";
@@ -27,11 +29,20 @@ export default defineConfig({
   },
   projects: [
     // Only e2e/setup.spec.ts needs the fresh setup server (not company-setup.spec.ts).
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /(^|[\\/])setup\.spec\.ts$/ },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: [/(^|[\\/])setup\.spec\.ts$/, /(^|[\\/])demo-companies\.spec\.ts$/],
+    },
     {
       name: "setup",
       testMatch: /(^|[\\/])setup\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${SETUP_PORT}` },
+    },
+    {
+      name: "demo-companies",
+      testMatch: /(^|[\\/])demo-companies\.spec\.ts$/,
+      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${DEMO_COMPANIES_PORT}` },
     },
   ],
   globalSetup: "./e2e/global-setup.ts",
@@ -87,6 +98,27 @@ export default defineConfig({
         PUBLIC_URL: `http://127.0.0.1:${SETUP_PORT}`,
         CROWHR_SECRET_KEY: E2E_SECRET_KEY,
         SETUP_CODE: E2E_SETUP_CODE,
+      },
+    },
+    {
+      // Demo companies (add-demo-companies 3.3): a fresh in-memory database with no real
+      // organisation (so no setup gate), one pooled copy seeded by the first scheduler tick.
+      command: "node apps/server/src/main.ts",
+      url: `http://127.0.0.1:${DEMO_COMPANIES_PORT}/api/health`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        DATABASE_URL: "pglite:memory",
+        HOST: "127.0.0.1",
+        PORT: String(DEMO_COMPANIES_PORT),
+        DATA_DIR: "./test-results/demo-companies-data",
+        LOG_LEVEL: "warn",
+        PUBLIC_URL: `http://127.0.0.1:${DEMO_COMPANIES_PORT}`,
+        CROWHR_SECRET_KEY: E2E_SECRET_KEY,
+        SETUP_GATE: "false",
+        BACKUP_TIME: "off",
+        DEMO_COMPANIES: "1",
+        DEMO_COMPANY_POOL_SIZE: "1",
       },
     },
   ],

@@ -182,6 +182,12 @@ export async function startServer(options: StartOptions = {}) {
       ...options.deps,
     });
     if (!mailer) logger.info("Email is not configured (SMTP_URL); notifications are in-app only.");
+    if (config.demoCompanies) {
+      logger.info("Demo companies are on (DEMO_COMPANIES): visitors can start a private copy at /try", {
+        tryUrl: `${config.PUBLIC_URL}/try`,
+        ...config.demoCompanies,
+      });
+    }
     const app = createServerApp(deps, {
       webDistDir: config.WEB_DIST_DIR,
       brandingDir: join(config.DATA_DIR, "branding"),

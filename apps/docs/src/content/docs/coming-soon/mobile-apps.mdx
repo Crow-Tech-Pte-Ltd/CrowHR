@@ -3,11 +3,33 @@ title: Mobile apps
 description: Native iOS and Android apps for Crow HR. Version 1.0.0 is on Google Play; the iPhone and iPad app is in App Store review. How connecting a phone to your company's server works.
 ---
 
+import { TRY_LIVE, TRY_URL } from "../../../lib/links.ts";
+
 <span class="crow-pill crow-pill--soon">iPhone and iPad: coming soon</span>
 
 Native iOS (SwiftUI, `apps/ios`) and Android (Kotlin and Jetpack Compose, `apps/android`) apps are built and tested against a real Crow HR server. Version 1.0.0 for Android is on [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr). The iPhone and iPad app is in App Store review, so it is **not in the App Store yet**; until it is, the web app works on phones, with a bottom tab bar for employees. The iOS app is for iPhone and iPad: on an iPad it shows a sidebar in landscape and can share the screen in Split View, Slide Over and Stage Manager.
 
 The apps cover what employees and managers do most: payslips, leave, clock in and out (also offline), claims with a photo of the receipt, your schedule, approvals and notifications. Everything else stays on the web.
+
+## Try it with a demo company
+
+{TRY_LIVE ? (
+  <p>You don't need a server of your own to try the app. Open the <a href={TRY_URL}>try page</a> on Crow Tech's demo server and tap <strong>Start my demo company</strong>.</p>
+) : (
+  <p><span class="crow-pill crow-pill--soon">Opening soon</span> You won't need a server of your own to try the app: the try page on Crow Tech's demo server (<code>{TRY_URL}</code>) opens after the App Store review of the 1.0.0 apps. There you tap <strong>Start my demo company</strong>.</p>
+)}
+
+You get a private copy of Kopi Kaki, the fictional café group from the [demo](/docs/demo/), with four months of payroll, leave, claims and rosters. Then open it:
+
+- **on your phone**: tap **Open in the Crow HR app** (on Android it opens Google Play if the app isn't installed yet);
+- **on a computer**: scan the QR code with the app or the phone's camera;
+- **in the browser**: **Open in this browser**, on the same company.
+
+Sign in by picking a person, with no password: Hafiz (Employee), Siti (his manager), the HR admin, the payroll admin or the owner. Everyone sees what their role allows, so you can apply for leave as Hafiz on the phone and approve it as Siti in the browser. The app labels the server as a demo server with fictional data.
+
+Your demo company is yours alone (its short name, `demo-` and 12 characters, is the key to it) and is deleted with everything in it 3 days after you start it. The try page keeps it for you in that browser until then. In a demo company, sign-in and security settings, invitations, passwords and email are switched off, and uploads are limited to 25 MB. Each network can start a few demo companies an hour. Nothing is retained: what you enter stays in your demo company until it ends and is then deleted with it, and the start limits keep only a count per network (not its address) for at most a day.
+
+Running your own demo server? See [demo companies](/docs/self-hosting/configuration/#demo-companies) in the configuration reference.
 
 ## How the apps connect
 

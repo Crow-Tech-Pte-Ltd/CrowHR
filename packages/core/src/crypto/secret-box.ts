@@ -36,6 +36,8 @@ export const SECRET_PURPOSES = {
   bankAccount: "bank-account",
   passport: "passport",
   workPass: "work-pass",
+  /** Blind index of a visitor's network for the demo-company start limits (never the address). */
+  demoNetwork: "demo-network",
 } as const;
 
 const subtle = () => globalThis.crypto.subtle;

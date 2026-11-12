@@ -54,9 +54,9 @@ export async function findOrgBySlug(db: Db, slug: string) {
   return org ?? null;
 }
 
-/** The single organisation of a one-org install, or null. */
+/** The single (real) organisation of a one-org install, or null. Demo companies don't count. */
 export async function onlyOrganisation(db: Db) {
-  const rows = await db.select().from(organisations).limit(2);
+  const rows = await db.select().from(organisations).where(isNull(organisations.demoExpiresAt)).limit(2);
   return rows.length === 1 ? (rows[0] ?? null) : null;
 }
 

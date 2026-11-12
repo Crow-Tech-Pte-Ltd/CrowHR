@@ -4,9 +4,11 @@ import { auditContext, clientIp, recordAudit } from "../../audit/audit.ts";
 import type { AppContext, AuthMethod } from "../../context.ts";
 import { newToken, sha256Base64Url, sha256Hex } from "../../crypto/tokens.ts";
 import { deviceSessions, nativeAuthRequests } from "../../db/schema/auth.ts";
+import { isLiveDemoCompany } from "../../demo-companies/config.ts";
+import { demoCompanyEnded, demoCompanyOf, findSignInOrg } from "../../demo-companies/service.ts";
 import { AppError } from "../../errors.ts";
 import { defineModule, defineRoute } from "../../http/route.ts";
-import { audit, findOrgBySlug } from "../credentials.ts";
+import { audit } from "../credentials.ts";
 import { mfaPolicyStatus } from "../mfa-policy.ts";
 import { sendSecurityNotice, sgDateTimePhrase } from "../security-notices.ts";
 import { loadMember } from "../sessions.ts";
@@ -136,12 +138,19 @@ export const nativeModule = defineModule({
             "The sign-in request came from an app this server doesn't recognise, so it was stopped. Use the official Crow HR app.",
           );
         }
-        const org = await findOrgBySlug(deps.db, query.org);
-        if (!org?.slug)
+        const org = await findSignInOrg(deps, query.org, deps.clock.now());
+        if (!org?.slug) {
+          if (demoCompanyEnded(deps, query.org)) {
+            return errorPage(
+              "This demo company has ended",
+              `Demo companies are deleted after a few days, with everything in them. Start a new one at ${deps.publicUrl.replace(/\/+$/, "")}/try, then open it in the app.`,
+            );
+          }
           return errorPage(
             "Organisation not found",
             "Check the server address and organisation in the app and try again.",
           );
+        }
         const now = deps.clock.now();
         const id = deps.ids.newId();
         await deps.db.insert(nativeAuthRequests).values({
@@ -201,6 +210,15 @@ export const nativeModule = defineModule({
             throw invalidGrant("The PKCE verifier does not match. Sign in again from the app.");
           const member = await loadMember(db, request.membershipId);
           if (member?.status !== "active") throw invalidGrant("This account can't sign in to the app.");
+          if (
+            member.demo &&
+            !isLiveDemoCompany(
+              deps,
+              { demoExpiresAt: member.demo.expiresAt, demoClaimedAt: member.demo.claimedAt },
+              now,
+            )
+          )
+            throw invalidGrant("This demo company has ended. Start a new one on the server's try page.");
           const authMethod = (request.authMethod ?? "password") as AuthMethod;
           // Security review finding 11: the MFA enrolment policy applies to the app as well.
           const policy = await mfaPolicyStatus(
@@ -222,13 +240,19 @@ export const nativeModule = defineModule({
               "Your role requires two-step verification. Set up an authenticator app in Crow HR on the web, then sign in to the app again.",
             );
           }
+          // A demo company keeps the platform, not the device's own name (often the owner's name).
+          const deviceName = (await demoCompanyOf(db, request.orgId))
+            ? request.client === "ios"
+              ? "iPhone"
+              : "Android phone"
+            : body.deviceName;
           const tokens = await issueTokens(c, null, {
             orgId: request.orgId,
             userId: request.userId,
             membershipId: request.membershipId,
             authMethod,
             platform: request.client,
-            deviceName: body.deviceName,
+            deviceName,
             appVersion: body.appVersion ?? null,
             authenticatedAt: now,
             mfaSatisfied: request.mfaSatisfied,
@@ -241,13 +265,13 @@ export const nativeModule = defineModule({
             action: "auth.device_session_created",
             targetType: "device_session",
             targetId: tokens.deviceSessionId,
-            meta: { platform: request.client, deviceName: body.deviceName },
+            meta: { platform: request.client, deviceName },
           });
           await sendSecurityNotice(db, deps, {
             orgId: request.orgId,
             to: { membershipIds: [request.membershipId] },
             title: "A new device signed in to your account",
-            body: `The Crow HR app on "${body.deviceName}" signed in to your account on ${sgDateTimePhrase(now)}. If this wasn't you, remove the device in My sessions, change your password and tell your administrator.`,
+            body: `The Crow HR app on "${deviceName}" signed in to your account on ${sgDateTimePhrase(now)}. If this wasn't you, remove the device in My sessions, change your password and tell your administrator.`,
           });
           return tokens;
         }
@@ -299,6 +323,12 @@ export const nativeModule = defineModule({
             .set({ revokedAt: now, revokedReason: "membership_inactive" })
             .where(eq(deviceSessions.id, device.id));
           throw invalidGrant("This account can no longer use the app.");
+        }
+        if (
+          member.demo &&
+          !isLiveDemoCompany(deps, { demoExpiresAt: member.demo.expiresAt, demoClaimedAt: member.demo.claimedAt }, now)
+        ) {
+          throw invalidGrant("This demo company has ended. Start a new one on the server's try page.");
         }
         const settings = await loadSecuritySettings(db, device.orgId);
         const access = newToken();

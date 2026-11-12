@@ -7265,12 +7265,22 @@
     "/api/v1/auth/demo/personas": {
       "get": {
         "operationId": "auth.getDemoPersonas",
-        "summary": "Demo personas (demo mode only)",
+        "summary": "Demo personas (browser demo, or a live demo company named by `org`)",
         "tags": [
           "Authentication"
         ],
         "security": [],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "org",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Success.",
@@ -7300,6 +7310,32 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "persona": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "blurb": {
+                                "type": "string"
+                              },
+                              "order": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "label",
+                              "blurb",
+                              "order"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "required": [
@@ -7316,6 +7352,19 @@
                     "items"
                   ],
                   "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -7339,13 +7388,33 @@
     "/api/v1/auth/demo/sign-in": {
       "post": {
         "operationId": "auth.postDemoSignIn",
-        "summary": "Sign in as a demo persona (demo mode only)",
+        "summary": "Sign in as a demo persona (browser demo, or a live demo company)",
+        "description": "Demo company: send `org` (its short name) and, during a mobile app's sign-in, `native` (the request id from /native/authorize); the answer is then 200 with the app redirect instead of a browser session.",
         "tags": [
           "Authentication"
         ],
         "security": [],
         "parameters": [],
         "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "redirectTo": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "redirectTo"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
           "204": {
             "description": "No content."
           },
@@ -7384,6 +7453,15 @@
                 "type": "object",
                 "properties": {
                   "membershipId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "org": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "native": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -7459,8 +7537,9 @@
             }
           },
           "403": {
-            "description": "Error: password_sign_in_disabled.",
+            "description": "Error: disabled_in_demo, password_sign_in_disabled.",
             "x-error-codes": [
+              "disabled_in_demo",
               "password_sign_in_disabled"
             ],
             "content": {
@@ -7677,7 +7756,7 @@
       "get": {
         "operationId": "auth.getMethods",
         "summary": "Sign-in methods an organisation has enabled",
-        "description": "Public. Without `org`, resolves the only organisation of a single-organisation install.",
+        "description": "Public. Without `org`, resolves the only organisation of a single-organisation install (never on a server that offers demo companies). An ended demo company answers 404 with `details.demoCompanyEnded`.",
         "tags": [
           "Authentication"
         ],
@@ -7783,6 +7862,27 @@
                     "demoMode": {
                       "type": "boolean"
                     },
+                    "demoCompany": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "expiresAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "singpassLogoUrl": {
                       "type": [
                         "string",
@@ -7796,6 +7896,7 @@
                     "password",
                     "providers",
                     "demoMode",
+                    "demoCompany",
                     "singpassLogoUrl"
                   ],
                   "additionalProperties": false
@@ -8251,6 +8352,19 @@
               }
             }
           },
+          "403": {
+            "description": "Error: disabled_in_demo.",
+            "x-error-codes": [
+              "disabled_in_demo"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Error: conflict.",
             "x-error-codes": [
@@ -8407,6 +8521,19 @@
             "description": "Error: validation_failed.",
             "x-error-codes": [
               "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: disabled_in_demo.",
+            "x-error-codes": [
+              "disabled_in_demo"
             ],
             "content": {
               "application/json": {
@@ -8765,9 +8892,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "mfa_enrolment_required"
             ],
             "content": {
@@ -16593,6 +16721,151 @@
             "description": "Error: conflict.",
             "x-error-codes": [
               "conflict"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/demo-companies": {
+      "post": {
+        "operationId": "demoCompanies.post",
+        "summary": "Start a private demo company: a copy of the fictional sample company, deleted at its expiry",
+        "description": "Public. Hands out a ready copy or seeds one while the caller waits. Limited per network per hour and per day, and by the number of live demo companies: past a limit it answers 429 with `details.retryAt` and `Retry-After`. Nobody else is told the short name, which is the key to the copy.",
+        "tags": [
+          "Demo companies"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "slug": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "server": {
+                      "type": "string"
+                    },
+                    "connectUrl": {
+                      "type": "string"
+                    },
+                    "signInUrl": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "slug",
+                    "name",
+                    "server",
+                    "connectUrl",
+                    "signInUrl",
+                    "expiresAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error: rate_limited.",
+            "x-error-codes": [
+              "rate_limited"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error: service_unavailable.",
+            "x-error-codes": [
+              "service_unavailable"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/demo-companies/config": {
+      "get": {
+        "operationId": "demoCompanies.getConfig",
+        "summary": "Whether this server offers demo companies, and for how long one lasts (try page)",
+        "tags": [
+          "Demo companies"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ttlHours": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "server": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ttlHours",
+                    "server"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
             ],
             "content": {
               "application/json": {
@@ -36272,6 +36545,27 @@
                     "demoMode": {
                       "type": "boolean"
                     },
+                    "demoCompany": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "expiresAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "expiresAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "mailerConfigured": {
                       "type": "boolean"
                     },
@@ -36293,6 +36587,7 @@
                     "hasPassword",
                     "insecureTransport",
                     "demoMode",
+                    "demoCompany",
                     "mailerConfigured",
                     "publicUrl"
                   ],
@@ -36575,9 +36870,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, mfa_enrolment_required, reauth_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "mfa_enrolment_required",
               "reauth_required"
             ],
@@ -36649,9 +36945,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, mfa_enrolment_required, reauth_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "mfa_enrolment_required",
               "reauth_required"
             ],
@@ -36749,9 +37046,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected.",
+            "description": "Error: csrf_rejected, disabled_in_demo.",
             "x-error-codes": [
-              "csrf_rejected"
+              "csrf_rejected",
+              "disabled_in_demo"
             ],
             "content": {
               "application/json": {
@@ -36853,9 +37151,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected.",
+            "description": "Error: csrf_rejected, disabled_in_demo.",
             "x-error-codes": [
-              "csrf_rejected"
+              "csrf_rejected",
+              "disabled_in_demo"
             ],
             "content": {
               "application/json": {
@@ -36932,9 +37231,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, reauth_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, reauth_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "reauth_required"
             ],
             "content": {
@@ -37779,9 +38079,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],
@@ -38426,9 +38727,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],
@@ -38532,9 +38834,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required, reauth_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required",
               "reauth_required"
@@ -38659,9 +38962,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required, reauth_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required",
               "reauth_required"
@@ -39465,9 +39769,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],
@@ -39581,9 +39886,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],
@@ -64068,9 +64374,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required, reauth_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required",
               "reauth_required"
@@ -64568,9 +64875,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required, reauth_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required",
               "reauth_required"
@@ -64754,9 +65062,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required, reauth_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required",
               "reauth_required"
@@ -65243,9 +65552,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required, reauth_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required, reauth_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required",
               "reauth_required"

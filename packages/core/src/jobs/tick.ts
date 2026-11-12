@@ -2,6 +2,7 @@ import { and, gte, isNull, lte } from "drizzle-orm";
 import { singaporeDate } from "../access/scope.ts";
 import { systemAuditContext } from "../audit/audit.ts";
 import { delegations } from "../db/schema/workflows.ts";
+import { type DemoCompaniesReport, sweepDemoCompanies } from "../demo-companies/sweep.ts";
 import type { AppDeps } from "../deps.ts";
 import { type OutboxReport, sweepNotificationRetention, sweepOutbox } from "../notifications/outbox.ts";
 import { applyDelegationsToOpenTasks, closeEndedDelegations } from "../workflows/engine.ts";
@@ -26,6 +27,8 @@ export interface TickReport {
   emails: OutboxReport;
   notificationsDeleted: number;
   transitions: Record<string, number>;
+  /** Expired demo companies deleted and pool copies seeded (demo-companies). */
+  demoCompanies: DemoCompaniesReport;
   errors: string[];
 }
 
@@ -38,6 +41,7 @@ export async function tick(deps: AppDeps, now: Date = deps.clock.now()): Promise
     emails: { sent: 0, retried: 0, failed: 0, suppressed: 0 },
     notificationsDeleted: 0,
     transitions: {},
+    demoCompanies: { purged: 0, seeded: 0 },
     errors: [],
   };
   const registry = workflowRegistry(deps);
@@ -87,6 +91,10 @@ export async function tick(deps: AppDeps, now: Date = deps.clock.now()): Promise
   });
   await run("retention", async () => {
     report.notificationsDeleted = await sweepNotificationRetention(pinned, now);
+  });
+  // Last: refilling the demo-company pool seeds a whole company (seconds of work).
+  await run("demo-companies", async () => {
+    report.demoCompanies = await sweepDemoCompanies(pinned, now);
   });
   return report;
 }

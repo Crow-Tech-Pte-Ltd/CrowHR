@@ -18,13 +18,14 @@ import { restoreBackup } from "../backup/restore.ts";
 import { ConfigError, loadConfig, type ServerConfig } from "../config.ts";
 import { waitForDatabase } from "../db/wait.ts";
 import { type Database, openDatabase } from "../db.ts";
+import { createDiskFileStore } from "../disk-file-store.ts";
 import { currentSchemaTag, readBundledMigrations } from "../migrate/runner.ts";
 import { migrateOnStart } from "../migrate/start.ts";
 import { DEFAULT_DB_PASSWORD_FILE, initDbPassword } from "../secrets/db-password.ts";
 import { readExistingKey } from "../secrets/existing.ts";
 import { prepareSetupCode } from "../setup/code.ts";
 import { EX_CONFIG, StartupError } from "../startup-error.ts";
-import { cliDeps, resetOwnerPasswordCommand, verifyAuditCommand } from "./admin.ts";
+import { cliDeps, demoCompaniesPurgeCommand, resetOwnerPasswordCommand, verifyAuditCommand } from "./admin.ts";
 import { runDoctor } from "./doctor.ts";
 
 export interface CliIo {
@@ -65,6 +66,9 @@ Commands
       Check that the audit log hash chain is intact.
   admin reset-owner-password --org <slug> --email <email> [--reset-mfa]
       Same as create-reset-link / reset-owner-mfa.
+  demo-companies purge [--expired]
+      Delete every demo company (DEMO_COMPANIES servers), live ones included; with --expired only
+      the expired ones. Real organisations are never touched.
 `;
 
 /** Runs one CLI command and returns the exit code. */
@@ -143,6 +147,26 @@ export async function runCli(
           "Usage: crowhr admin verify-audit [--org <slug>] | crowhr admin reset-owner-password --org <slug> --email <email> [--reset-mfa]",
         );
         return 64;
+      }
+      case "demo-companies": {
+        const [sub, ...args] = rest;
+        if (sub !== "purge" || args.some((a) => a !== "--expired")) {
+          io.err("Usage: crowhr demo-companies purge [--expired]");
+          return 64;
+        }
+        return await withDatabase(env, io, async (config, database) =>
+          printResult(
+            await demoCompaniesPurgeCommand(
+              {
+                db: database.db,
+                fileStore: createDiskFileStore(config.FILE_STORAGE_DIR),
+                logger: createJsonConsoleLogger({ level: "warn" }),
+              },
+              { expiredOnly: args.includes("--expired") },
+            ),
+            io,
+          ),
+        );
       }
       case undefined:
       case "help":

@@ -6,6 +6,7 @@ import type { AppContext, AuthMethod } from "../context.ts";
 import { sha256Hex } from "../crypto/tokens.ts";
 import { mfaChallenges, sessions } from "../db/schema/auth.ts";
 import { users } from "../db/schema/users.ts";
+import { findSignInOrg } from "../demo-companies/service.ts";
 import { AppError } from "../errors.ts";
 import { defineRoute } from "../http/route.ts";
 import {
@@ -187,7 +188,7 @@ export const signInRoutes = [
       }
       if (Math.random() < 0.02) await sweepThrottle(db, now);
 
-      const org = await findOrgBySlug(db, body.org);
+      const org = await findSignInOrg(deps, body.org, now);
       const found = org ? await findMemberByEmail(db, org.id, body.email) : null;
       const passwordOk = await verifyPasswordOrDummy(passwordHasher, found?.user.passwordHash ?? null, body.password);
       if (!org || !found) {
@@ -465,6 +466,7 @@ export const signInRoutes = [
     summary: "Switch the session to another organisation you belong to",
     description: "Issues a new session token (rotation) scoped to the target organisation.",
     access: "authenticated",
+    refusedInDemoCompany: true,
     request: { body: z.object({ org: z.string().trim().min(1).max(100) }) },
     responses: { 200: z.object({ orgSlug: z.string() }) },
     errors: ["not_found"],
@@ -473,7 +475,12 @@ export const signInRoutes = [
         throw new AppError("forbidden", "Switch organisations in the app's settings.");
       const org = await findOrgBySlug(deps.db, body.org);
       const target = org ? await findMemberByEmail(deps.db, org.id, auth.user.email) : null;
-      if (!org?.slug || !target || (target.membership.status !== "active" && target.membership.status !== "former")) {
+      if (
+        !org?.slug ||
+        org.demoExpiresAt ||
+        !target ||
+        (target.membership.status !== "active" && target.membership.status !== "former")
+      ) {
         throw new AppError("not_found", "You're not a member of that organisation.");
       }
       const settings = await loadSecuritySettings(deps.db, org.id);
