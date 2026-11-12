@@ -7,6 +7,17 @@ enum ApprovalsAccess {
     static func shows(featureAvailable: Bool, mayApprove: Bool, tasksWaiting: Int?) -> Bool {
         featureAvailable && (mayApprove || (tasksWaiting ?? 0) > 0)
     }
+
+    /// The waiting task a notification is about: by task id, or by its request's id.
+    static func task(for target: AppTarget?, in tasks: [ApprovalTask]) -> ApprovalTask? {
+        switch target {
+        case .approvalTask(let id): tasks.first { $0.taskId == id }
+        case .approvalRequest(let id): tasks.first { $0.requestId == id }
+        default: nil
+        }
+    }
+
+    static let notWaiting = "That request isn't waiting for you any more: it was decided, withdrawn or passed on."
 }
 
 struct InboxView: View {
@@ -16,6 +27,10 @@ struct InboxView: View {
     /// Approvals were shown in this visit: they stay after the last task is decided, so the
     /// list can say what was done instead of the segment vanishing.
     @State private var shownApprovals = false
+    /// The task or request a notification is about, for the approvals list to open.
+    @State private var openApproval: AppTarget?
+    /// A notification chose the segment in this visit: it isn't switched back automatically.
+    @State private var segmentFromTarget = false
 
     private var showsApprovals: Bool {
         shownApprovals || ApprovalsAccess.shows(featureAvailable: session.isAvailable(.approvals), mayApprove: session.me?.mayApprove ?? false,
@@ -34,7 +49,7 @@ struct InboxView: View {
             }
             // Each list sets its own column: approvals widen to sit beside the decision on an iPad.
             if showsApprovals && segment == .approvals {
-                ApprovalsView()
+                ApprovalsView(open: $openApproval)
             } else {
                 NotificationsView()
             }
@@ -42,25 +57,36 @@ struct InboxView: View {
         .background(Crow.background.ignoresSafeArea())
         .navigationTitle("Inbox")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { applyRoute() }
+        .onAppear { applyTarget() }
         // The approvals list loads the same tasks itself when it is the one showing.
         .task { if !(showsApprovals && segment == .approvals) { await session.refreshApprovalTasks() } }
-        .onChange(of: model.route) { _, _ in applyRoute() }
-        .onChange(of: session.me) { _, me in if me?.mayApprove == true && model.route == nil { segment = .approvals } }
+        .onChange(of: model.pendingTarget) { _, target in if target?.tab == .inbox { applyTarget() } }
+        .onChange(of: session.me) { _, me in if me?.mayApprove == true && !segmentFromTarget { segment = .approvals } }
         // Tasks found for someone without an approver role: open them, once.
         .onChange(of: showsApprovals) { _, shows in
             guard shows, !shownApprovals else { return }
             shownApprovals = true
-            if model.route == nil { segment = .approvals }
+            if !segmentFromTarget || openApproval != nil { segment = .approvals }
         }
     }
 
-    private func applyRoute() {
+    /// Takes a notification's target meant for the inbox: the approvals segment (with the task to
+    /// open) or the notifications list. Without one, approvers start on Approvals.
+    private func applyTarget() {
         if showsApprovals { shownApprovals = true }
-        if let r = model.route {
-            segment = r
-            model.route = nil
-        } else if showsApprovals {
+        if let t = model.pendingTarget, t.tab == .inbox {
+            model.pendingTarget = nil
+            segmentFromTarget = true
+            switch t {
+            case .notifications:
+                segment = .notifications
+            case .approvalTask, .approvalRequest:
+                openApproval = t
+                segment = .approvals
+            default:
+                segment = .approvals
+            }
+        } else if showsApprovals && !segmentFromTarget {
             segment = .approvals
         }
     }
@@ -80,6 +106,8 @@ struct ApprovalsView: View {
     @Environment(Session.self) private var session
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// A task a notification is about: opened once the list has it.
+    @Binding var open: AppTarget?
     @State private var state: LoadState<[ApprovalTask]> = .loading
     /// The task in the decision sheet (list only).
     @State private var selected: ApprovalTask?
@@ -112,7 +140,11 @@ struct ApprovalsView: View {
         .sheet(item: $selected) { t in
             DecisionSheet(task: t) { decided($0) }
         }
-        .onChange(of: state.value?.map(\.id), initial: true) { _, _ in chooseIfSideBySide() }
+        .onChange(of: state.value?.map(\.id), initial: true) { _, _ in
+            openTargetIfLoaded()
+            chooseIfSideBySide()
+        }
+        .onChange(of: open) { _, _ in openTargetIfLoaded() }
         .onChange(of: sideBySide) { _, wide in
             // A sheet open when the window widens moves beside the list.
             if wide, let open = selected {
@@ -164,6 +196,17 @@ struct ApprovalsView: View {
     private func choose(_ t: ApprovalTask) {
         notice = nil
         if sideBySide { chosenID = t.id } else { selected = t }
+    }
+
+    /// Opens the task a notification is about, or says it no longer waits.
+    private func openTargetIfLoaded() {
+        guard let target = open, let tasks = state.value else { return }
+        open = nil
+        if let t = ApprovalsAccess.task(for: target, in: tasks) {
+            choose(t)
+        } else {
+            notice = (ApprovalsAccess.notWaiting, .warning)
+        }
     }
 
     /// Side by side, keeps a request open: the first one at first, and the next one after a
@@ -406,10 +449,13 @@ struct NotificationsView: View {
                 } else {
                     RowGroup {
                         ForEach(page.items) { n in
-                            Button { Task { await markRead(n) } } label: { NotificationRow(item: n) }
-                                .buttonStyle(.crowRow)
+                            // Opens what it is about, as on the web; one the app has no screen
+                            // for is only marked read.
+                            let opens = AppTarget.from(link: n.link) != .notifications
+                            Button { Task { await openItem(n) } } label: { NotificationRow(item: n) }
+                                .buttonStyle(opens ? RowButtonStyle.crowNavigationRow : RowButtonStyle.crowRow)
                                 .accessibilityValue(n.readAt == nil ? "Unread" : "")
-                                .accessibilityHint(n.readAt == nil ? "Marks it read" : "")
+                                .accessibilityHint(opens ? "Opens it" : n.readAt == nil ? "Marks it read" : "")
                                 .accessibilityIdentifier("notification.row")
                         }
                     }
@@ -432,6 +478,7 @@ struct NotificationsView: View {
         // What the user has seen here is not announced later by the background refresh.
         // An empty inbox on a current server answers `"cursor": null`, which is enough.
         await model.refresher(for: session).markAllSeen(listCursor: page.cursor, listHadCursor: page.hasCursor)
+        model.setUnread(page.unread)
         return page
     }
 
@@ -439,15 +486,23 @@ struct NotificationsView: View {
         do { state = .loaded(try await load()) } catch { state.fail(error) }
     }
 
-    /// Read on the server: the row and the unread count change here, without fetching all 50 again.
-    private func markRead(_ n: InboxNotification) async {
-        guard n.readAt == nil else { return }
-        do {
-            try await session.api.postNoContent("/api/v1/notifications/\(n.id)/read")
-            if let page = state.value { state = .loaded(page.markingRead(n.id, at: Fmt.instant(Date()))) }
-        } catch {
-            await reload()
+    /// Marks it read, then opens its item (`AppTarget`), as the web's bell does. Read on the
+    /// server: the row and the unread count change here, without fetching all 50 again.
+    private func openItem(_ n: InboxNotification) async {
+        if n.readAt == nil {
+            do {
+                try await session.api.postNoContent("/api/v1/notifications/\(n.id)/read")
+                if let page = state.value {
+                    let next = page.markingRead(n.id, at: Fmt.instant(Date()))
+                    state = .loaded(next)
+                    model.setUnread(next.unread)
+                }
+            } catch {
+                await reload()
+            }
         }
+        let target = AppTarget.from(link: n.link)
+        if target != .notifications { model.open(target) }
     }
 
     private func markAllRead() async {

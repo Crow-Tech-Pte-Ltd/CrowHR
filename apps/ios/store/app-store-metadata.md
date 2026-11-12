@@ -1,16 +1,11 @@
 # Crow HR for iOS: App Store metadata
 
-Status: **approved.** Daniel approved submitting Crow HR 1.0.0 to the App Store for public release
-on 10 Nov 2026 ("Submit both"; approval record `approvals/2026-11-10-app-store-1.0.0.txt`). The
-copy below is what `scripts/ios-store-listing.py` sets through the App Store Connect API; change it
-here and in that script's `LISTING` together. Nothing has been submitted for App Review yet:
-that is done by hand in App Store Connect.
-
-The bundle id `crowtech.crowhr` is registered with Apple (resource `4T7KK78X45`, team Crow Tech
-Pte. Ltd., 7 Nov 2026; read-back in `apple-resources.json`). Daniel created the App Store Connect
-app record in the web UI on 7 Nov 2026 (Apple's API does not allow creating apps): "Crow HR",
-Apple ID `6831992308`, English (U.K.), SKU `CROW-HR`. Builds 2 and 3 (0.1.0) went to internal
-TestFlight; build 4 (1.0.0) is the App Store build (`uploaded-builds.txt`).
+The copy below is what `scripts/ios-store-listing.py` sets through the App Store Connect API;
+change it here and in that script's `LISTING` together. App Store Connect app record: "Crow HR",
+English (U.K.), SKU `CROW-HR`, bundle id `crowtech.crowhr` (registered with Apple; read-back in
+`apple-resources.json`). Apple's API cannot create an app record: that was done once in the web UI.
+The release record (uploaded builds, their IPA checks and the approvals) is in this directory:
+`uploaded-builds.txt`, `build<n>-verification.json` and `approvals/`.
 
 ## Listing
 
@@ -37,30 +32,22 @@ TestFlight; build 4 (1.0.0) is the App Store build (`uploaded-builds.txt`).
 - **Age rating:** every content question "None", every capability question "No" (no web
   browser, user-generated content, messaging, social media, advertising, gambling, loot boxes,
   health topics, parental controls or age assurance). Apple computes the rating from these answers.
-- **Devices:** iPhone and iPad. Build 5 (iPhone and iPad) went to App Review on 12 Nov 2026; build 4
-  (uploaded 10 Nov 2026, iPhone only) was never submitted. Once
-  1.0.0 ships with iPad support, no later version can drop it. The listing text above doesn't
-  name a device, so it fits both.
+- **Devices:** iPhone and iPad. Once a version has shipped with iPad support, no later version can
+  drop it. The listing text doesn't name a device, so it fits both.
 - **Export compliance:** `ITSAppUsesNonExemptEncryption` is false in Info.plist (HTTPS through
   the system only), so App Store Connect doesn't ask per build.
 
-## Set in App Store Connect (10 Nov 2026)
+## What the scripts set, and what is set by hand
 
-Through the API (`scripts/ios-store-listing.py apply`, `screenshots`, `attach-build`): version
-1.0.0 (the editable "1.0" version renamed), the listing text and URLs above, category, copyright,
-age rating answers, the free price and availability in all 175 territories, the 6.9-inch iPhone
-screenshots, and build 4. Still to do for iPad (after a new build is approved and uploaded): the
-13-inch iPad screenshots (`screenshots` uploads them with the iPhone set) and attaching the new
-build in place of build 4. Release option: App Store Connect's default, "Automatically release
-this version" after approval.
+Through the API, `scripts/ios-store-listing.py`: `apply` (the version named from
+`MARKETING_VERSION`, the listing text and URLs above, category, copyright, age rating answers, the
+free price and availability), `screenshots` (both sets) and `attach-build <n>`.
+`scripts/ios-store-review.py`: the App Review contact, demo account and notes, content rights,
+excluded territories (mainland China, which needs an ICP filing number) and the submission.
+Release option: App Store Connect's default, "Automatically release this version" after approval.
 
-Left for the web UI, by hand:
-
-- **App Review information:** contact name, phone and email, sign-in required (yes), and the demo
-  account on a reviewer server with fictional data, plus the review notes below.
-- **App Privacy:** "Data Not Collected" (below). The API has no endpoint for these answers.
-- **Content rights** ("Does your app contain, show, or access third-party content?").
-- **Submit for Review.**
+Only in the web UI, because the API has no endpoint for it: **App Privacy**, "Data Not Collected"
+(below).
 
 ## App Privacy ("nutrition label")
 
@@ -76,18 +63,18 @@ Why that's accurate:
   - UserDefaults, CA92.1;
   - system boot time, 35F9.1. Elapsed time is measured between a clock-in tap and its send.
 
-Open question, already flagged in the design's Risks: Apple's definition of data a "third party"
-collects, when data goes to the user's employer.
+The reading rests on Apple's definition of collection: data the app sends only to the user's
+employer, on the employer's own server, never to the developer or a third party.
 
-## Review notes (draft for App Review information)
+## Review notes (for App Review information)
 
-Crow HR is self-hosted, so the reviewer needs a server and an account: a reviewer server with
-fictional data (being set up separately), whose address and demo sign-in go in App Review
-information.
+Crow HR is self-hosted, so the reviewer needs a server and an account: the address and a demo
+sign-in on a server with fictional data go in App Review information
+(`ios-store-review.py review-details`).
 
 Sign-in uses ASWebAuthenticationSession. The camera is used for receipts and the connection QR
 code. Location is "while using" only, when the employer's attendance policy asks for it. There is
-no remote push.
+no remote push: local notifications carry only a count.
 
 ## Screenshots
 
@@ -99,6 +86,5 @@ balances, a leave application, a claim with its receipt, and a manager's approva
 they show the sidebar, the payslip beside the payslip list and Today's two columns. Apple scales
 each set for the smaller sizes of its device. App Store Connect slots: `APP_IPHONE_67` and
 `APP_IPAD_PRO_3GEN_129`; `ios-store-listing.py check-screenshots` checks both sets' sizes offline.
-The iPad set was captured on 11 Nov 2026 from the iPad branch, after the List/Form rebuild (task
-3.7); recapture both sets from main before uploading them. The icon is generated by
+Recapture both sets from `main` before uploading a new version's. The icon is generated by
 `design/app-icon/make-app-icon.py`.

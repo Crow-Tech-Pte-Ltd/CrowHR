@@ -128,9 +128,12 @@ struct ImagePicker: UIViewControllerRepresentable {
 }
 
 struct ClaimsView: View {
+    @Environment(AppModel.self) private var model
     @Environment(Session.self) private var session
     @State private var state: LoadState<[ClaimSummary]> = .loading
     @State private var creating = false
+    /// The claim open in its own screen (a row, or a notification about it).
+    @State private var opened: String?
 
     var body: some View {
         AsyncContent(state: $state, load: load) { claims in
@@ -140,7 +143,11 @@ struct ClaimsView: View {
                         .padding(.top, 24)
                 } else {
                     RowGroup {
-                        ForEach(claims) { ClaimRow(claim: $0).crowRowPadding() }
+                        ForEach(claims) { c in
+                            Button { opened = c.id } label: { ClaimRow(claim: c) }
+                                .buttonStyle(.crowNavigationRow)
+                                .accessibilityIdentifier("claim.row")
+                        }
                     }
                 }
             }
@@ -162,6 +169,14 @@ struct ClaimsView: View {
             NewClaimView { Task { await reload() } }
                 .presentationSizing(.page)
         }
+        .navigationDestination(item: $opened) { id in
+            ClaimDetailView(id: id) { Task { await reload() } }
+        }
+        .onChange(of: model.pendingTarget, initial: true) { _, target in
+            guard let target, target.tab == .claims else { return }
+            model.pendingTarget = nil
+            if case .claim(let id) = target { opened = id }
+        }
     }
 
     private func load() async throws -> [ClaimSummary] {
@@ -180,6 +195,7 @@ struct ClaimRow: View {
         AdaptiveRow {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(CrowFont.body(.body, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
                 Text(details)
                     .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted).fixedSize(horizontal: false, vertical: true)
             }
@@ -191,140 +207,158 @@ struct ClaimRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel([title, details, Fmt.moneySpoken(cents: claim.totalCents), label].filter { !$0.isEmpty }.joined(separator: ", "))
-        .accessibilityIdentifier("claim.row")
     }
 
     private var title: String { claim.title ?? claim.typeNames.joined(separator: ", ") }
     private var details: String { [claim.claimNumber, claim.expenseFrom.map(Fmt.dayString)].compactMap { $0 }.joined(separator: " · ") }
 }
 
-/// One-line claim in SGD with a camera receipt. Saved as a draft or submitted.
+// MARK: - New claim
+
+/// One expense of a new claim, as typed: text stays as typed, numbers are derived (the web form's
+/// `FormLine`). A foreign amount needs the rate, SGD per 1 unit, from the card statement.
+struct ClaimLineDraft: Identifiable, Equatable {
+    let id = UUID()
+    var typeID: String
+    var date: Date
+    var merchant = ""
+    var detail = ""
+    var currency = "SGD"
+    var amount = ""
+    var rate = ""
+    var receipt: CapturedImage?
+
+    var isForeign: Bool { currency != "SGD" }
+    var exponent: Int { ClaimMoney.exponent(of: currency) }
+    var amountMinor: Int? { ClaimMoney.parseMinor(amount, exponent: exponent) }
+    /// The amount in SGD cents (the foreign amount at the rate, rounded half-up), or nil while
+    /// the amount or rate is incomplete.
+    var sgdCents: Int? { ClaimMoney.previewSgd(currency: currency, amountMinor: amountMinor, rate: rate.isEmpty ? nil : rate) }
+
+    /// The web form's messages, shown once something is typed.
+    var amountError: String? {
+        guard !amount.trimmingCharacters(in: .whitespaces).isEmpty, amountMinor == nil else { return nil }
+        return exponent == 0 ? "Enter a whole amount, e.g. 5000." : "Enter the amount, e.g. 45.60."
+    }
+
+    var rateError: String? {
+        guard isForeign, !rate.trimmingCharacters(in: .whitespaces).isEmpty, ClaimMoney.parseRateMicros(rate) == nil else { return nil }
+        return "Enter SGD per 1 \(currency), up to 6 decimal places."
+    }
+
+    /// The claim type's receipt rule, on the amount in SGD (as the server applies it).
+    func receiptRequired(_ type: ClaimType?) -> Bool { type?.receiptRequired(sgdCents: sgdCents) ?? false }
+
+    /// What is still missing before the line can be sent, in words.
+    func missing(_ type: ClaimType?) -> [String] {
+        var out: [String] = []
+        if type == nil { out.append("the claim type") }
+        if merchant.trimmingCharacters(in: .whitespaces).isEmpty { out.append("the merchant") }
+        if detail.trimmingCharacters(in: .whitespaces).isEmpty { out.append("what it was for") }
+        if amountMinor == nil { out.append("the amount") }
+        if isForeign && ClaimMoney.parseRateMicros(rate) == nil { out.append("the rate") }
+        if receiptRequired(type) && receipt == nil { out.append("a photo of the receipt") }
+        return out
+    }
+
+    /// The line to send, once complete.
+    func line(receiptIDs: [String]) -> NewClaim.Line? {
+        guard let amountMinor else { return nil }
+        return NewClaim.Line(claimTypeId: typeID, expenseDate: Fmt.day(date), merchant: merchant.trimmingCharacters(in: .whitespaces),
+                             description: detail.trimmingCharacters(in: .whitespaces), currency: currency, amountMinor: amountMinor,
+                             rate: isForeign ? rate.trimmingCharacters(in: .whitespaces) : nil, receiptIds: receiptIDs)
+    }
+}
+
+enum ClaimForm {
+    /// The server takes 1 to 30 lines a claim.
+    static let maxLines = 30
+
+    /// "To submit, add the merchant and the amount." for one expense; with several, which
+    /// expense needs what. Nil when every expense is complete.
+    static func missingHint(_ lines: [ClaimLineDraft], types: [ClaimType]) -> String? {
+        let parts: [String] = lines.enumerated().compactMap { i, l in
+            let m = l.missing(types.first { $0.id == l.typeID })
+            guard !m.isEmpty else { return nil }
+            return lines.count == 1 ? list(m) : "\(list(m)) to expense \(i + 1)"
+        }
+        guard let last = parts.last else { return nil }
+        return "To submit, add " + (parts.count == 1 ? last : parts.dropLast().joined(separator: ", ") + ", and " + last) + "."
+    }
+
+    /// The claim's total in SGD cents: the sum of the lines' rounded SGD amounts.
+    static func total(_ lines: [ClaimLineDraft]) -> Int { lines.reduce(0) { $0 + ($1.sgdCents ?? 0) } }
+
+    static func list(_ items: [String]) -> String {
+        items.count == 1 ? items[0] : items.dropLast().joined(separator: ", ") + " and " + items.last!
+    }
+
+    /// Element identifiers: the first expense keeps the plain names (`claim.amount`), later ones
+    /// are numbered (`claim.amount.2`).
+    static func identifier(_ base: String, line index: Int) -> String { index == 0 ? base : "\(base).\(index + 1)" }
+}
+
+/// A new claim: one or more expenses (up to 30), each with its type, date, merchant, what it was
+/// for, amount in any currency (with the rate to SGD and the SGD amount, rounded half-up as the
+/// server does) and a camera receipt where the type needs one. Saved as a draft or submitted.
 struct NewClaimView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(Session.self) private var session
     @Environment(AppModel.self) private var model
     let onDone: () -> Void
 
+    enum Field: Hashable { case merchant(UUID), detail(UUID), amount(UUID), rate(UUID) }
+
     @State private var types: LoadState<[ClaimType]> = .loading
-    @State private var typeID = ""
-    @State private var date = Date()
-    @State private var merchant = ""
-    @State private var detail = ""
-    @State private var amount = ""
-    @State private var receipt: CapturedImage?
-    @State private var showCamera = false
-    @State private var picked: PhotosPickerItem?
+    @State private var lines: [ClaimLineDraft] = []
+    @State private var cameraFor: UUID?
+    @State private var photoFor: UUID?
     @State private var choosingPhoto = false
+    @State private var picked: PhotosPickerItem?
     @State private var busy = false
     @State private var error: String?
-    @State private var uploadedReceipt: UploadedReceipt?
+    /// Receipts already uploaded, by photo: a failed claim (a cap, a closed period, no signal)
+    /// sent again reuses them rather than uploading the photos a second time.
+    @State private var uploaded: [UUID: String] = [:]
     @FocusState private var focus: Field?
-
-    private enum Field: Hashable { case merchant, detail, amount }
-    private struct UploadedReceipt { let imageID: UUID; let id: String }
-
-    private var selectedType: ClaimType? { types.value?.first { $0.id == typeID } }
-    private var cents: Int? { Fmt.parseCents(amount) }
-    private var amountInvalid: Bool { !amount.isEmpty && cents == nil }
-
-    private var receiptRequired: Bool {
-        guard let t = selectedType else { return false }
-        switch t.receiptRule {
-        case "always": return true
-        case "above": return (cents ?? 0) > (t.receiptAboveCents ?? 0)
-        default: return false
-        }
-    }
 
     var body: some View {
         // Derived here, in this view's own body, so the form follows the loaded types and the
         // fields. Read only inside AsyncContent's closure, the state was a stale copy: right after
         // the types loaded the form asked for a claim type while one was shown, and the receipt
         // rule and Submit caught up only once something else changed.
-        let selected = selectedType
-        let needsReceipt = receiptRequired
-        let canSave = valid
-        let missing = missingHint
-        let invalidAmount = amountInvalid
+        let typeList = types.value ?? []
+        let missing = ClaimForm.missingHint(lines, types: typeList)
+        let canSave = missing == nil && !lines.isEmpty
+        let total = ClaimForm.total(lines)
         let sending = busy
         let shownError = error
         NavigationStack {
             AsyncContent(state: $types, load: loadTypes) { list in
                 RowsScreen {
-                    VStack(alignment: .leading, spacing: 18) {
-                        ChoiceRow(title: "Type", options: list.map { (id: $0.id, name: $0.name) }, selection: $typeID, identifier: "claim.type")
-                        FormField("Date") {
-                            DatePicker("Date", selection: $date, in: ...Date(), displayedComponents: .date)
-                                .labelsHidden()
-                                .singaporeDates()
-                                .accessibilityIdentifier("claim.date")
+                    VStack(alignment: .leading, spacing: 22) {
+                        if list.isEmpty {
+                            Notice(text: "No claim types are set up for you yet. Ask HR to add them in Settings → Claim types.", tone: .neutral)
                         }
-                        FormField("Merchant") {
-                            // A business name: no autocorrect (or spell-check marks) on names like "Kopi Kaki".
-                            // Placeholders stay on one line even in a wrapping field: keep them short.
-                            TextField("Merchant", text: $merchant, prompt: Text("Who you paid"), axis: .vertical)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.words)
-                                .submitLabel(.next)
-                                .returnEndsField($merchant) { focus = .detail }
-                                .focused($focus, equals: .merchant)
-                                .font(CrowFont.body())
-                                .accessibilityIdentifier("claim.merchant")
-                                .crowFieldBox(focused: focus == .merchant)
+                        ForEach($lines) { $line in
+                            let index = lines.firstIndex { $0.id == line.id } ?? 0
+                            ClaimLineEditor(line: $line, index: index, count: lines.count, types: list, focus: $focus,
+                                            onRemove: { remove(line.id) }, onCamera: { cameraFor = line.id },
+                                            onPhoto: { photoFor = line.id; choosingPhoto = true })
                         }
-                        FormField("What was it for?") {
-                            // Return closes the keyboard (the amount pad has no return key of its own).
-                            TextField("What was it for?", text: $detail, prompt: Text("Team lunch"), axis: .vertical)
-                                .submitLabel(.done)
-                                .returnEndsField($detail) { focus = nil }
-                                .focused($focus, equals: .detail)
-                                .font(CrowFont.body())
-                                .accessibilityIdentifier("claim.description")
-                                .crowFieldBox(focused: focus == .detail)
+                        if lines.count < ClaimForm.maxLines {
+                            Button { addLine(types: list) } label: { Label("Add another expense", systemImage: "plus") }
+                                .buttonStyle(.crowSecondary)
+                                .accessibilityIdentifier("claim.addLine")
                         }
-                        FormField("Amount") {
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text("S$").font(CrowFont.mono(.body)).foregroundStyle(Crow.muted)
-                                    .accessibilityHidden(true)
-                                TextField("Amount in Singapore dollars", text: $amount, prompt: Text("0.00"))
-                                    .keyboardType(.decimalPad)
-                                    .font(CrowFont.mono(.body))
-                                    .focused($focus, equals: .amount)
-                                    .accessibilityIdentifier("claim.amount")
-                            }
-                            .crowFieldBox(focused: focus == .amount, invalid: invalidAmount)
-                            if invalidAmount {
-                                Text("Enter an amount like 12.50 (dollars and cents).")
-                                    .font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
+                        AdaptiveRow {
+                            SectionLabel("Total")
+                        } trailing: {
+                            AmountText(cents: total, style: .title3, weight: .semibold)
                         }
-                        // NOT IMPLEMENTED (app): foreign-currency lines and multi-line claims are on the web.
-                        Text("Claims in other currencies, or with several lines, can be made in Crow HR on the web.")
-                            .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                        VStack(alignment: .leading, spacing: 8) {
-                            SectionLabel(needsReceipt ? "Receipt (required)" : "Receipt")
-                            if let receipt {
-                                HStack(spacing: 12) {
-                                    Image(uiImage: receipt.image).resizable().scaledToFit().frame(height: 80)
-                                        .accessibilityLabel("Receipt photo").accessibilityIdentifier("claim.receiptPreview")
-                                    Spacer()
-                                    Button("Remove", role: .destructive) { self.receipt = nil }
-                                        .buttonStyle(.crowCompactDanger)
-                                }
-                            } else {
-                                Button { showCamera = true } label: { Label("Photograph receipt", systemImage: "camera") }
-                                    .buttonStyle(.crowSecondary)
-                                    .accessibilityIdentifier("claim.camera")
-                                Button { choosingPhoto = true } label: { Label("Choose a photo", systemImage: "photo") }
-                                    .buttonStyle(.crowSecondary)
-                            }
-                            if let hint = selected?.receiptHint, !hint.isEmpty {
-                                Text(hint).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Total, \(Fmt.moneySpoken(cents: total))")
+                        .accessibilityIdentifier("claim.total")
                         if let error = shownError {
                             Notice(text: error, tone: .danger, systemImage: "exclamationmark.triangle")
                                 .accessibilityIdentifier("claim.error")
@@ -355,7 +389,10 @@ struct NewClaimView: View {
                     .padding(16)
                 }
             }
-            .crowScreen()
+            // The background only: `RowsScreen` sets the readable column itself. A second column
+            // around it here never settled on an iPad when the text size changed with the claim
+            // type's list open: its measured width kept growing, so Xcode's audit timed out.
+            .background(Crow.background.ignoresSafeArea())
             .navigationTitle("New claim")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -365,66 +402,77 @@ struct NewClaimView: View {
                     Button("Done") { focus = nil }
                 }
             }
-            .sheet(isPresented: $showCamera) {
-                CameraCapture(stub: model.env.cameraStub) { receipt = $0; showCamera = false }
+            .sheet(isPresented: Binding(get: { cameraFor != nil }, set: { if !$0 { cameraFor = nil } })) {
+                CameraCapture(stub: model.env.cameraStub) { image in
+                    setReceipt(image, for: cameraFor)
+                    cameraFor = nil
+                }
             }
             .photosPicker(isPresented: $choosingPhoto, selection: $picked, matching: .images)
             .onChange(of: picked) { _, item in
                 guard let item else { return }
+                // The expense the picker was opened for (set before it opened, kept after).
+                let target = photoFor
                 Task {
-                    if let data = try? await item.loadTransferable(type: Data.self), let image = await CapturedImage.make(data: data) { receipt = image }
+                    if let data = try? await item.loadTransferable(type: Data.self), let image = await CapturedImage.make(data: data) {
+                        setReceipt(image, for: target)
+                    }
+                    picked = nil
                 }
             }
         }
     }
 
-    private var valid: Bool {
-        selectedType != nil && cents != nil && !merchant.trimmingCharacters(in: .whitespaces).isEmpty
-            && !detail.trimmingCharacters(in: .whitespaces).isEmpty && (!receiptRequired || receipt != nil)
+    private func setReceipt(_ image: CapturedImage, for id: UUID?) {
+        guard let i = lines.firstIndex(where: { $0.id == id }) else { return }
+        lines[i].receipt = image
     }
 
-    /// "To submit, add the merchant and the amount.", or nil when nothing is missing.
-    private var missingHint: String? {
-        var missing: [String] = []
-        if selectedType == nil { missing.append("the claim type") }
-        if merchant.trimmingCharacters(in: .whitespaces).isEmpty { missing.append("the merchant") }
-        if detail.trimmingCharacters(in: .whitespaces).isEmpty { missing.append("what it was for") }
-        if cents == nil { missing.append("the amount") }
-        if receiptRequired && receipt == nil { missing.append("a photo of the receipt") }
-        guard !missing.isEmpty else { return nil }
-        let list = missing.count == 1 ? missing[0] : missing.dropLast().joined(separator: ", ") + " and " + missing.last!
-        return "To submit, add \(list)."
+    private func addLine(types: [ClaimType]) {
+        // A new expense starts on the previous one's date, as on the web.
+        lines.append(ClaimLineDraft(typeID: types.first?.id ?? "", date: lines.last?.date ?? Date()))
+    }
+
+    private func remove(_ id: UUID) {
+        guard lines.count > 1 else { return }
+        lines.removeAll { $0.id == id }
     }
 
     private func loadTypes() async throws -> [ClaimType] {
         let list: ClaimTypeList = try await session.api.get("/api/v1/claims/eligible-types", query: [URLQueryItem(name: "date", value: Fmt.day(Date()))])
-        if typeID.isEmpty { typeID = list.items.first?.id ?? "" }
+        if lines.isEmpty {
+            lines = [ClaimLineDraft(typeID: list.items.first?.id ?? "", date: Date())]
+        } else {
+            for i in lines.indices where lines[i].typeID.isEmpty { lines[i].typeID = list.items.first?.id ?? "" }
+        }
         return list.items
     }
 
     private func save(submit: Bool) async {
-        guard let cents else { return }
+        guard ClaimForm.missingHint(lines, types: types.value ?? []) == nil else { return }
         busy = true
         defer { busy = false }
         error = nil
         do {
-            var receiptIDs: [String] = []
-            if let receipt {
-                // Uploaded once: when the claim itself fails (a cap, a closed period, no signal),
-                // trying again reuses the receipt rather than uploading the photo a second time.
-                if let uploaded = uploadedReceipt, uploaded.imageID == receipt.id {
-                    receiptIDs.append(uploaded.id)
-                } else if let jpeg = receipt.jpeg {
-                    let (data, _) = try await session.api.raw("POST", "/api/v1/claims/receipts", query: [URLQueryItem(name: "fileName", value: "receipt.jpg")], body: jpeg, contentType: "image/jpeg")
-                    guard let id = try? JSONDecoder().decode(ReceiptUpload.self, from: data).id else { throw APIError.unreadable }
-                    uploadedReceipt = UploadedReceipt(imageID: receipt.id, id: id)
-                    receiptIDs.append(id)
+            var out: [NewClaim.Line] = []
+            for l in lines {
+                var receiptIDs: [String] = []
+                if let receipt = l.receipt {
+                    if let id = uploaded[receipt.id] {
+                        receiptIDs.append(id)
+                    } else if let jpeg = receipt.jpeg {
+                        let (data, _) = try await session.api.raw("POST", "/api/v1/claims/receipts", query: [URLQueryItem(name: "fileName", value: "receipt.jpg")], body: jpeg, contentType: "image/jpeg")
+                        guard let id = try? JSONDecoder().decode(ReceiptUpload.self, from: data).id else { throw APIError.unreadable }
+                        uploaded[receipt.id] = id
+                        receiptIDs.append(id)
+                    }
                 }
+                guard let line = l.line(receiptIDs: receiptIDs) else { return }
+                out.append(line)
             }
-            let claim = NewClaim(title: nil, lines: [.init(claimTypeId: typeID, expenseDate: Fmt.day(date), merchant: merchant.trimmingCharacters(in: .whitespaces), description: detail.trimmingCharacters(in: .whitespaces), currency: "SGD", amountMinor: cents, receiptIds: receiptIDs)], submit: submit)
             // Not decoded: once the server accepted it the claim exists, and an error here would
             // invite claiming twice.
-            try await session.api.postNoContent("/api/v1/claims", json: claim)
+            try await session.api.postNoContent("/api/v1/claims", json: NewClaim(title: nil, lines: out, submit: submit))
             onDone()
             dismiss()
         } catch {
@@ -433,64 +481,162 @@ struct NewClaimView: View {
     }
 }
 
-struct ScheduleView: View {
-    @Environment(Session.self) private var session
-    @State private var state: LoadState<ScheduleMe> = .loading
+/// One expense in New claim. A foreign currency adds the rate (SGD per 1 unit) and shows the
+/// amount in SGD, as the web form does.
+private struct ClaimLineEditor: View {
+    @Binding var line: ClaimLineDraft
+    let index: Int
+    let count: Int
+    let types: [ClaimType]
+    var focus: FocusState<NewClaimView.Field?>.Binding
+    let onRemove: () -> Void
+    let onCamera: () -> Void
+    let onPhoto: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
+    /// Room for "MYR" and the menu's chevron, growing with the text size.
+    @ScaledMetric(relativeTo: .body) private var currencyWidth: CGFloat = 112
+
+    private func id(_ base: String) -> String { ClaimForm.identifier(base, line: index) }
 
     var body: some View {
-        AsyncContent(state: $state, load: load) { s in
-            RowsScreen {
-                if s.shifts.isEmpty {
-                    EmptyStateView(title: "No shifts published", message: "Your published shifts for the next two weeks appear here.", systemImage: "calendar")
-                        .padding(.top, 24)
-                } else {
-                    // ShiftRow keeps its own 4 pt (it also sits unpadded on Today).
-                    RowGroup {
-                        ForEach(s.shifts) { ShiftRow(shift: $0).crowRowPadding(vertical: 8) }
-                    }
+        let type = types.first { $0.id == line.typeID }
+        let needsReceipt = line.receiptRequired(type)
+        VStack(alignment: .leading, spacing: 18) {
+            if count > 1 {
+                AdaptiveRow {
+                    SectionLabel("Expense \(index + 1)")
+                } trailing: {
+                    Button("Remove", role: .destructive, action: onRemove)
+                        .buttonStyle(.crowCompactDanger)
+                        .accessibilityLabel("Remove expense \(index + 1)")
+                        .accessibilityIdentifier(id("claim.removeLine"))
                 }
             }
-            .refreshable { await reload() }
-        }
-        .crowScreen()
-        .navigationTitle("My schedule")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func load() async throws -> ScheduleMe { try await session.api.get("/api/v1/scheduling/me") }
-
-    private func reload() async {
-        do { state = .loaded(try await load()) } catch { state.fail(error) }
-    }
-}
-
-struct ShiftRow: View {
-    let shift: ScheduleMe.Shift
-
-    /// "Friday 13 November, Kopi bar, 09:00 to 18:00": the day in full, "to" rather than a dash.
-    var spoken: String {
-        let day = Fmt.parseDay(shift.date).map(Fmt.daySpoken) ?? shift.date
-        let when = shift.kind == "rest" ? "Rest day" : "\(shift.start ?? "") to \(shift.end ?? "")"
-        return [day, shift.scopeLabel, shift.note, when].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
-    }
-
-    var body: some View {
-        AdaptiveRow {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(Fmt.parseDay(shift.date).map(Fmt.dayShort) ?? shift.date).font(CrowFont.mono(.body, weight: .semibold))
-                Text(shift.scopeLabel).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
-                if let note = shift.note { Text(note).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted) }
+            ChoiceRow(title: "Type", options: types.map { (id: $0.id, name: $0.name) }, selection: $line.typeID, identifier: id("claim.type"))
+            FormField("Date") {
+                DatePicker("Date", selection: $line.date, in: ...Date(), displayedComponents: .date)
+                    .labelsHidden()
+                    .singaporeDates()
+                    .accessibilityIdentifier(id("claim.date"))
             }
-        } trailing: {
-            if shift.kind == "rest" {
-                StatusChip(text: "Rest day", tone: .neutral)
+            FormField("Merchant") {
+                // A business name: no autocorrect (or spell-check marks) on names like "Kopi Kaki".
+                // Placeholders stay on one line even in a wrapping field: keep them short.
+                TextField("Merchant", text: $line.merchant, prompt: Text("Who you paid"), axis: .vertical)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.words)
+                    .submitLabel(.next)
+                    .returnEndsField($line.merchant) { focus.wrappedValue = .detail(line.id) }
+                    .focused(focus, equals: .merchant(line.id))
+                    .font(CrowFont.body())
+                    .accessibilityIdentifier(id("claim.merchant"))
+                    .crowFieldBox(focused: focus.wrappedValue == .merchant(line.id))
+            }
+            FormField("What was it for?") {
+                // Return closes the keyboard (the amount pad has no return key of its own).
+                TextField("What was it for?", text: $line.detail, prompt: Text("Team lunch"), axis: .vertical)
+                    .submitLabel(.done)
+                    .returnEndsField($line.detail) { focus.wrappedValue = nil }
+                    .focused(focus, equals: .detail(line.id))
+                    .font(CrowFont.body())
+                    .accessibilityIdentifier(id("claim.description"))
+                    .crowFieldBox(focused: focus.wrappedValue == .detail(line.id))
+            }
+            // The currency beside the amount, as on the web; stacked at accessibility sizes. One
+            // `AnyLayout` for both, so a text-size change (Xcode's audit makes one) keeps the
+            // fields' identity and the currency list's navigation destination.
+            let large = typeSize.isAccessibilitySize
+            let pair = large ? AnyLayout(VStackLayout(alignment: .leading, spacing: 18)) : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+            pair {
+                currencyField.frame(width: large ? nil : currencyWidth)
+                amountField
+            }
+            if line.isForeign { rateField }
+            receiptField(needsReceipt: needsReceipt, hint: type?.receiptHint)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(id("claim.line"))
+    }
+
+    /// The currency: its code in the field, the code and name in the list.
+    private var currencyField: some View {
+        ChoiceRow(title: "Currency", options: ClaimMoney.currencies.map { (id: $0.code, name: "\($0.code) · \($0.label)") },
+                  selection: Binding(get: { line.currency }, set: { code in
+                      line.currency = code
+                      if code == "SGD" { line.rate = "" }
+                  }), identifier: id("claim.currency"), shown: { $0 })
+    }
+
+    private var amountField: some View {
+        FormField("Amount") {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(line.isForeign ? line.currency : "S$").font(CrowFont.mono(.body)).foregroundStyle(Crow.muted)
+                        .accessibilityHidden(true)
+                    TextField(line.isForeign ? "Amount in \(line.currency)" : "Amount in Singapore dollars", text: $line.amount,
+                              prompt: Text(line.exponent == 0 ? "5000" : "0.00"))
+                        .keyboardType(line.exponent == 0 ? .numberPad : .decimalPad)
+                        .font(CrowFont.mono(.body))
+                        .focused(focus, equals: .amount(line.id))
+                        .accessibilityIdentifier(id("claim.amount"))
+                }
+                .crowFieldBox(focused: focus.wrappedValue == .amount(line.id), invalid: line.amountError != nil)
+                if let e = line.amountError {
+                    Text(e).font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier(id("claim.amountError"))
+                }
+        }
+    }
+
+    /// "Rate: SGD per 1 MYR", then "= S$37.80" as typed, as on the web.
+    private var rateField: some View {
+        FormField("Rate: SGD per 1 \(line.currency)") {
+            TextField("Rate, Singapore dollars per 1 \(line.currency)", text: $line.rate, prompt: Text("0.301234"))
+                .keyboardType(.decimalPad)
+                .font(CrowFont.mono(.body))
+                .focused(focus, equals: .rate(line.id))
+                .accessibilityIdentifier(id("claim.rate"))
+                .crowFieldBox(focused: focus.wrappedValue == .rate(line.id), invalid: line.rateError != nil)
+            if let e = line.rateError {
+                Text(e).font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(id("claim.rateError"))
+            }
+            let sgd = line.sgdCents
+            Text("= \(sgd.map { Fmt.money(cents: $0) } ?? "S$—")")
+                .font(CrowFont.mono(.body, weight: .semibold))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(sgd.map { "Equals \(Fmt.moneySpoken(cents: $0))" } ?? "Amount in Singapore dollars not worked out yet")
+                .accessibilityIdentifier(id("claim.sgdPreview"))
+            Text("Use the rate on your card statement. Rounded half-up to the cent.")
+                .font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func receiptField(needsReceipt: Bool, hint: String?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel(needsReceipt ? "Receipt (required)" : "Receipt")
+            if let receipt = line.receipt {
+                HStack(spacing: 12) {
+                    Image(uiImage: receipt.image).resizable().scaledToFit().frame(height: 80)
+                        .accessibilityLabel("Receipt photo").accessibilityIdentifier(id("claim.receiptPreview"))
+                    Spacer()
+                    Button("Remove", role: .destructive) { line.receipt = nil }
+                        .buttonStyle(.crowCompactDanger)
+                        .accessibilityLabel(count > 1 ? "Remove the receipt of expense \(index + 1)" : "Remove the receipt")
+                }
             } else {
-                Text("\(shift.start ?? "") – \(shift.end ?? "")").font(CrowFont.mono(.body))
+                Button(action: onCamera) { Label("Photograph receipt", systemImage: "camera") }
+                    .buttonStyle(.crowSecondary)
+                    .accessibilityIdentifier(id("claim.camera"))
+                Button(action: onPhoto) { Label("Choose a photo", systemImage: "photo") }
+                    .buttonStyle(.crowSecondary)
+            }
+            if let hint, !hint.isEmpty {
+                Text(hint).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(spoken)
-        .accessibilityIdentifier("shift.row")
     }
 }

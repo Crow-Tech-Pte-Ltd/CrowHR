@@ -7,6 +7,8 @@ struct LeaveData: Sendable {
     /// The sign-in has an employee record (an owner or admin may not): without one there is no
     /// leave of their own.
     var linked = true
+    /// For per-child balances ("Paternity leave · Tan Yu Xuan").
+    var children: [LeaveChild] = []
 
     /// "My leave": this person's own requests, newest 50. The list endpoint returns everything
     /// the caller may see (a manager's team, all staff for HR) unless it names the employee, so
@@ -17,48 +19,39 @@ struct LeaveData: Sendable {
     }
 }
 
-/// Balances, own history, apply, withdraw and cancel.
+/// A leave request to open in a sheet (from the team calendar or a notification).
+struct LeaveRequestRef: Identifiable, Hashable { let id: String }
+
+/// Leave: "My leave" (balances, own history, apply, withdraw and cancel) and "Calendar" (who is
+/// away, the team calendar for managers), as the web's Leave tabs.
 struct LeaveView: View {
+    enum Segment: Hashable { case mine, calendar }
+
     @Environment(AppModel.self) private var model
     @Environment(Session.self) private var session
+    @State private var segment: Segment = .mine
     @State private var state: LoadState<LeaveData> = .loading
     @State private var applying = false
     @State private var actionError: String?
     @State private var cancelling: LeaveRequest?
     @State private var withdrawing: LeaveRequest?
+    @State private var opened: LeaveRequestRef?
 
     var body: some View {
-        AsyncContent(state: $state, load: load) { data in
-            RowsScreen {
-                if let actionError {
-                    Notice(text: actionError, tone: .danger, systemImage: "exclamationmark.triangle")
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-                        .accessibilityIdentifier("leave.actionError")
-                }
-                if !data.linked {
-                    EmptyStateView(title: "No employee record", message: "Your sign-in isn't linked to an employee record, so there is no leave to show here. Ask HR to link it.", systemImage: "person.crop.circle.badge.questionmark")
-                        .padding(.top, 24)
-                } else {
-                    let shown = data.balances.filter { $0.eligible }
-                    // The server's year: Singapore's, on the Gregorian calendar.
-                    RowGroup(header: "Balances \(Fmt.year(Date()))") {
-                        if shown.isEmpty {
-                            EmptyStateView(title: "No leave balances", message: "Your company hasn't set up leave for you yet. Ask HR.", systemImage: "calendar")
-                        }
-                        ForEach(shown) { b in BalanceRow(balance: b).crowRowPadding() }
-                    }
-                    RowGroup(header: "My leave") {
-                        if data.requests.isEmpty {
-                            EmptyStateView(title: "No leave yet", message: "Leave you apply for appears here with its status.", systemImage: "calendar.badge.plus")
-                        }
-                        ForEach(data.requests) { r in requestCell(r) }
-                    }
-                }
+        VStack(spacing: 0) {
+            SegmentedChoice(title: "Leave", options: [(id: Segment.mine, name: "My leave"), (id: .calendar, name: "Calendar")], selection: $segment)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .crowReadable()
+                .accessibilityIdentifier("leave.segment")
+            Divider().overlay(Crow.hairline)
+            if segment == .mine {
+                myLeave
+            } else {
+                TeamCalendarView { opened = LeaveRequestRef(id: $0) }
             }
-            .refreshable { await refresh() }
         }
-        .crowScreen()
+        .background(Crow.background.ignoresSafeArea())
         .navigationTitle("Leave")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -74,6 +67,9 @@ struct LeaveView: View {
             ApplyLeaveView { Task { await refresh() } }
                 .presentationSizing(.page)
         }
+        .sheet(item: $opened) { ref in
+            LeaveRequestSheet(id: ref.id)
+        }
         .alert("Withdraw this request?", isPresented: Binding(get: { withdrawing != nil }, set: { if !$0 { withdrawing = nil } }), presenting: withdrawing) { r in
             Button("Withdraw", role: .destructive) { Task { await withdraw(r) } }
             Button("Keep it", role: .cancel) {}
@@ -85,6 +81,54 @@ struct LeaveView: View {
             Button("Keep it", role: .cancel) {}
         } message: { r in
             Text("\(r.type.name), \(Fmt.dayString(r.startDate)). Your approver is asked to confirm.")
+        }
+        .onChange(of: model.pendingTarget, initial: true) { _, _ in applyTarget() }
+    }
+
+    private var myLeave: some View {
+        AsyncContent(state: $state, load: load) { data in
+            RowsScreen {
+                if let actionError {
+                    Notice(text: actionError, tone: .danger, systemImage: "exclamationmark.triangle")
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        .accessibilityIdentifier("leave.actionError")
+                }
+                if !data.linked {
+                    EmptyStateView(title: "No employee record", message: "Your sign-in isn't linked to an employee record, so there is no leave to show here. Ask HR to link it.", systemImage: "person.crop.circle.badge.questionmark")
+                        .padding(.top, 24)
+                } else {
+                    let shown = LeaveBalances.shown(data.balances)
+                    // The server's year: Singapore's, on the Gregorian calendar.
+                    RowGroup(header: "Balances \(Fmt.year(Date()))") {
+                        if shown.isEmpty {
+                            EmptyStateView(title: "No leave balances", message: "Your company hasn't set up leave for you yet. Ask HR.", systemImage: "calendar")
+                        }
+                        ForEach(shown) { b in BalanceRow(balance: b, title: LeaveBalances.title(b, children: data.children)).crowRowPadding() }
+                    }
+                    RowGroup(header: "My leave") {
+                        if data.requests.isEmpty {
+                            EmptyStateView(title: "No leave yet", message: "Leave you apply for appears here with its status.", systemImage: "calendar.badge.plus")
+                        }
+                        ForEach(data.requests) { r in requestCell(r) }
+                    }
+                }
+            }
+            .refreshable { await refresh() }
+        }
+        .crowScreen()
+    }
+
+    /// A notification about leave: the request opens in a sheet; the calendar or "My leave" shows.
+    private func applyTarget() {
+        guard let t = model.pendingTarget, t.tab == .leave else { return }
+        model.pendingTarget = nil
+        switch t {
+        case .leaveRequest(let id):
+            segment = .mine
+            opened = LeaveRequestRef(id: id)
+        case .leaveCalendar: segment = .calendar
+        default: segment = .mine
         }
     }
 
@@ -120,7 +164,9 @@ struct LeaveView: View {
         let api = session.api
         async let balances: LeaveBalanceList = api.get("/api/v1/leave/balances")
         async let requests: LeaveRequestList = api.get("/api/v1/leave/requests", query: query)
-        return try await LeaveData(balances: balances.items, requests: requests.items)
+        // Names for per-child balances only: the list shows without them.
+        async let children: LeaveChildList? = try? api.get("/api/v1/leave/children")
+        return try await LeaveData(balances: balances.items, requests: requests.items, children: children?.items ?? [])
     }
 
     private func refresh() async {
@@ -149,12 +195,13 @@ struct LeaveView: View {
 
 struct BalanceRow: View {
     let balance: LeaveBalance
+    var title: String? = nil
 
     var body: some View {
         let unit = balance.unit == "hours" ? "h" : "d"
         AdaptiveRow {
             VStack(alignment: .leading, spacing: 2) {
-                Text(balance.name).font(CrowFont.body(.body, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+                Text(name).font(CrowFont.body(.body, weight: .medium)).fixedSize(horizontal: false, vertical: true)
                 Text("Taken \(Fmt.quantity(balance.taken))\(unit) · Pending \(Fmt.quantity(balance.pending))\(unit)")
                     .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted).fixedSize(horizontal: false, vertical: true)
             }
@@ -170,10 +217,12 @@ struct BalanceRow: View {
         .accessibilityIdentifier("leave.balance")
     }
 
+    private var name: String { title ?? balance.name }
+
     private var accessibility: String {
         let u = balance.unit == "hours" ? "hours" : "days"
         let avail = balance.available.map { "\(Fmt.quantity($0)) \(u) available" } ?? "no limit"
-        return "\(balance.name), \(avail), \(Fmt.quantity(balance.taken)) taken, \(Fmt.quantity(balance.pending)) pending"
+        return "\(name), \(avail), \(Fmt.quantity(balance.taken)) taken, \(Fmt.quantity(balance.pending)) pending"
     }
 }
 
@@ -190,7 +239,7 @@ struct LeaveRequestRow: View {
         } trailing: {
             VStack(alignment: .leading, spacing: 4) {
                 StatusChip(text: label, tone: tone)
-                Text("\(Fmt.quantity(request.quantity)) \(request.unit == "hours" ? "h" : request.quantity == 1 ? "day" : "days")")
+                Text(LeaveRequestRow.quantity(request.quantity, unit: request.unit))
                     .font(CrowFont.mono(.caption)).foregroundStyle(Crow.muted)
             }
         }
@@ -198,9 +247,70 @@ struct LeaveRequestRow: View {
         .accessibilityIdentifier("leave.request")
     }
 
+    static func quantity(_ q: Double, unit: String) -> String {
+        "\(Fmt.quantity(q)) \(unit == "hours" ? "h" : q == 1 ? "day" : "days")"
+    }
+
     private var dates: String {
         let s = Fmt.dayString(request.startDate), e = Fmt.dayString(request.endDate)
         return s == e ? s + (request.startSession == "am" ? " (morning)" : request.startSession == "pm" ? " (afternoon)" : "") : "\(s) – \(e)"
+    }
+}
+
+/// One leave request, read from the server: what, whose, when, how much, the reason, the child
+/// and the days counted (the web's request sheet, without its approval chain).
+struct LeaveRequestSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(Session.self) private var session
+    let id: String
+    @State private var state: LoadState<LeaveRequestDetail> = .loading
+
+    var body: some View {
+        NavigationStack {
+            AsyncContent(state: $state, load: { try await session.api.get("/api/v1/leave/requests/\(id)") }) { r in
+                RowsScreen {
+                    let row = r.row
+                    let (label, tone) = row.statusLabel
+                    VStack(alignment: .leading, spacing: 8) {
+                        StatusChip(text: label, tone: tone)
+                        Text(r.type.name).font(CrowFont.mono(.title3, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+                            .accessibilityAddTraits(.isHeader)
+                            .accessibilityIdentifier("leaveRequest.title")
+                        Text("\(LeaveRequestSheet.dates(r)) · \(LeaveRequestRow.quantity(r.quantity, unit: r.unit))")
+                            .font(CrowFont.mono(.subheadline)).foregroundStyle(Crow.muted).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .crowRowPadding(vertical: 16)
+                    RowGroup {
+                        InfoRow("Employee", r.employee.name)
+                        if let reason = r.reason, !reason.isEmpty { InfoRow("Reason", reason) }
+                        if let child = r.child { InfoRow("Child", child.name) }
+                        if let why = r.cancelReason, !why.isEmpty { InfoRow("Why cancel", why) }
+                        InfoRow("Attachments", r.attachments.isEmpty ? "None" : r.attachments.map(\.filename).joined(separator: ", "))
+                    }
+                    if let days = r.days, !days.isEmpty {
+                        RowGroup(header: "Days counted") {
+                            ForEach(days, id: \.self) { d in
+                                let day = Fmt.parseDay(d.date).map(Fmt.dayShort) ?? d.date
+                                let half = d.session == "am" ? " (morning)" : d.session == "pm" ? " (afternoon)" : ""
+                                InfoRow(day, Fmt.quantity(d.quantity) + half)
+                            }
+                        }
+                    }
+                }
+            }
+            .crowScreen()
+            .navigationTitle("Leave request")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() }.keyboardShortcut(.cancelAction) } }
+        }
+    }
+
+    /// "16 Nov 2026 (morning)", "16 – 18 Nov 2026".
+    static func dates(_ r: LeaveRequestDetail) -> String {
+        if r.startDate == r.endDate {
+            return Fmt.dayString(r.startDate) + (r.startSession == "am" ? " (morning)" : r.startSession == "pm" ? " (afternoon)" : "")
+        }
+        return Fmt.dateRange(r.startDate, r.endDate)
     }
 }
 
@@ -216,6 +326,8 @@ struct ApplyLeaveView: View {
     @State private var end = ApplyLeaveView.nextWorkingDay()
     @State private var halfDay = false
     @State private var halfDaySession = "am"
+    @State private var children: LoadState<[LeaveChild]> = .loading
+    @State private var childID = ""
     @State private var reason = ""
     @State private var attachment: CapturedImage?
     @State private var quote: LeaveQuote?
@@ -241,6 +353,8 @@ struct ApplyLeaveView: View {
         // Read in this view's own body (not only inside AsyncContent's closure, where it can be a
         // stale copy), so the form follows the loaded types; as in New claim.
         let selected = selectedType
+        let shownQuote = quote
+        let childIssue = LeaveForm.issue("childId", in: shownQuote)
         NavigationStack {
             AsyncContent(state: $types, load: loadTypes) { list in
                 RowsScreen {
@@ -266,6 +380,9 @@ struct ApplyLeaveView: View {
                             if halfDay {
                                 SegmentedChoice(title: "Which half", options: [(id: "am", name: "Morning"), (id: "pm", name: "Afternoon")], selection: $halfDaySession)
                             }
+                        }
+                        if selected?.needsChild == true {
+                            childField(issue: childIssue)
                         }
                         FormField("Reason (optional)") {
                             TextField("Reason (optional)", text: $reason, prompt: Text("A note for your approver"), axis: .vertical)
@@ -296,8 +413,8 @@ struct ApplyLeaveView: View {
                         }
                         VStack(alignment: .leading, spacing: 6) {
                             SectionLabel("Days counted")
-                            if let quote {
-                                QuoteSummary(quote: quote)
+                            if let shownQuote {
+                                QuoteSummary(quote: shownQuote, hiding: LeaveForm.fieldsWithIssues(type: selected))
                             } else if let quoteError {
                                 Text(quoteError).font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -313,7 +430,8 @@ struct ApplyLeaveView: View {
                     .padding(16)
                 }
             }
-            .crowScreen()
+            // The background only: `RowsScreen` sets the readable column (see New claim).
+            .background(Crow.background.ignoresSafeArea())
             // Short like "New claim": at the largest text sizes the inline title has room for
             // about 12 characters of Azeret Mono, and "Apply for leave" was cut off.
             .navigationTitle("New leave")
@@ -331,6 +449,8 @@ struct ApplyLeaveView: View {
                 }
             }
             .task(id: quoteKey) { await requote() }
+            // The employee's children, once a type that needs one is chosen.
+            .task(id: selected?.needsChild == true) { if selected?.needsChild == true { await loadChildren() } }
             // Moving From past To moves To along, so the form never shows an end before the start
             // (the request already used the later of the two).
             .onChange(of: start) { _, newStart in if end < newStart { end = newStart } }
@@ -349,6 +469,35 @@ struct ApplyLeaveView: View {
         }
     }
 
+    /// The child, as on the web: a choice of the employee's children, the server's message for it
+    /// (from the quote) under the field, or how to add one when none is recorded.
+    @ViewBuilder private func childField(issue: String?) -> some View {
+        switch children {
+        case .loading:
+            FormField("Child") { ProgressView() }
+        case .failed(let e):
+            FormField("Child") {
+                Text(e.message).font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger).fixedSize(horizontal: false, vertical: true)
+            }
+        case .loaded(let kids) where kids.isEmpty:
+            FormField("Child") {
+                Text(LeaveForm.noChildrenHint).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("leave.noChildren")
+            }
+        case .loaded(let kids):
+            VStack(alignment: .leading, spacing: 6) {
+                ChoiceRow(title: "Child", options: kids.map { (id: $0.id, name: $0.name) }, selection: $childID,
+                          identifier: "leave.child", placeholder: LeaveForm.childPlaceholder)
+                if let issue {
+                    Text(issue).font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("leave.childIssue")
+                }
+            }
+        }
+    }
+
     private var canSubmit: Bool {
         guard !submitting, selectedType != nil, quote?.ok == true else { return false }
         if selectedType?.attachment == "required" && attachment == nil { return false }
@@ -360,22 +509,33 @@ struct ApplyLeaveView: View {
         return ("full", "full")
     }
 
-    private var quoteKey: String { "\(typeID)|\(Fmt.day(start))|\(Fmt.day(end))|\(sessions.0)" }
+    private var quoteKey: String { "\(typeID)|\(Fmt.day(start))|\(Fmt.day(end))|\(sessions.0)|\(LeaveForm.childID(type: selectedType, chosen: childID) ?? "")" }
 
     private func loadTypes() async throws -> [LeaveType] {
         let list: LeaveTypeList = try await session.api.get("/api/v1/leave/types")
-        // NOT IMPLEMENTED (app): leave types that need a child are applied for on the web.
-        let usable = list.items.filter { !$0.archived && !$0.needsChild }
-        if typeID.isEmpty { typeID = usable.first?.id ?? "" }
+        let usable = list.items.filter { !$0.archived }
+        if typeID.isEmpty { typeID = (usable.first { $0.code == "annual" } ?? usable.first)?.id ?? "" }
         return usable
     }
 
-    private var application: LeaveApplication {
-        LeaveApplication(leaveTypeId: typeID, startDate: Fmt.day(start), endDate: Fmt.day(max(start, end)), startSession: sessions.0, endSession: sessions.1)
+    private func loadChildren() async {
+        do {
+            let list: LeaveChildList = try await session.api.get("/api/v1/leave/children")
+            children = .loaded(list.items)
+            // A chosen child that isn't on the record any more is cleared.
+            if !childID.isEmpty && !list.items.contains(where: { $0.id == childID }) { childID = "" }
+        } catch {
+            children.fail(error)
+        }
+    }
+
+    private var application: LeaveApplication? {
+        guard let t = selectedType else { return nil }
+        return LeaveForm.application(type: t, start: start, end: end, sessions: sessions, childChoice: childID)
     }
 
     private func requote() async {
-        guard !typeID.isEmpty else { return }
+        guard let application else { return }
         try? await Task.sleep(for: .milliseconds(250))
         guard !Task.isCancelled else { return }
         quote = nil
@@ -391,10 +551,10 @@ struct ApplyLeaveView: View {
     }
 
     private func submit() async {
+        guard var app = application else { return }
         submitting = true
         defer { submitting = false }
         error = nil
-        var app = application
         let trimmed = reason.trimmingCharacters(in: .whitespacesAndNewlines)
         app.reason = trimmed.isEmpty ? nil : trimmed
         if let attachment, let jpeg = attachment.jpeg {
@@ -414,6 +574,8 @@ struct ApplyLeaveView: View {
 
 struct QuoteSummary: View {
     let quote: LeaveQuote
+    /// Fields whose issues the form shows at the field itself (the child).
+    var hiding: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -426,8 +588,9 @@ struct QuoteSummary: View {
                     Text("\(String(y.year)) balance after: \(Fmt.quantity(after))").font(CrowFont.mono(.footnote)).foregroundStyle(Crow.muted)
                 }
             }
-            ForEach(quote.issues, id: \.message) { i in
+            ForEach(LeaveForm.otherIssues(quote, shownAt: hiding), id: \.message) { i in
                 Text(i.message).font(CrowFont.body(.footnote)).foregroundStyle(Crow.danger).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("leave.quoteIssue")
             }
             ForEach(quote.warnings, id: \.self) { w in
                 Text(w).font(CrowFont.body(.footnote)).foregroundStyle(Crow.warning).fixedSize(horizontal: false, vertical: true)

@@ -37,6 +37,8 @@ struct MainTabView: View {
             Tab("Inbox", systemImage: "tray", value: MainTab.inbox) {
                 NavigationStack { InboxView() }
             }
+            // Unread notifications, as the web's bell counts them.
+            .badge(session.unread ?? 0)
             .accessibilityIdentifier("tab.inbox")
             if sidebar {
                 // iPad, regular width: More's screens are tabs of their own.
