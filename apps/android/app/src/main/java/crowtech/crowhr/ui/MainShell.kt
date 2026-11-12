@@ -46,7 +46,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.snapshotFlow
@@ -140,14 +139,7 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
         savedTab = t
     }
     val api = remember(connection) { graph.api(connection) }
-    // One context while its contents stay the same, so the current screen can skip recomposing
-    // when the shell does (a pull to refresh, a tab change). Push and pop always run the latest
-    // version, which sees the current back stack.
-    val latestPush = rememberUpdatedState<(Route) -> Unit>(::push)
-    val latestPop = rememberUpdatedState<() -> Unit>(::pop)
-    val ctx = remember(connection, api, screen.me, vm) {
-        ScreenContext(graph, connection, api, screen.me, push = { latestPush.value(it) }, pop = { latestPop.value() }, vm = vm)
-    }
+    val ctx = ScreenContext(graph, connection, api, screen.me, push = ::push, pop = ::pop, vm = vm)
 
     val open by vm.openRequest.collectAsState()
     LaunchedEffect(open) {
