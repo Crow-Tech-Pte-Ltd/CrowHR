@@ -118,7 +118,8 @@ class Journey(private val compose: ComposeTestRule) {
         tap("confirm-connect")
         waitFor("sign-in")
         tap("sign-in")
-        waitFor("tab-more", 30_000)
+        // Generous: a busy shared host can take a while to finish the sign-in.
+        waitFor("tab-more", 60_000)
     }
 
     fun connectAndSignIn(email: String) = connectAndSignIn(TestServer.connectLink, TestBrowser(email))

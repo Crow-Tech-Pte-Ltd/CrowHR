@@ -246,22 +246,29 @@ object TestServer {
     fun nurulsShiftId(monday: String): String =
         get("/api/v1/scheduling/me?from=$monday&to=$monday", token(NURUL)).jsonObject["shifts"]!!.jsonArray.first().jsonObject["id"]!!.jsonPrimitive.content
 
-    /** An open (unassigned) published shift next Tuesday on the same roster as Nurul's: its id. */
-    fun ensureOpenShift(monday: String): String {
-        val tuesday = LocalDate.parse(monday).plusDays(1).toString()
+    /**
+     * An open (unassigned) published shift in the week of [monday], on the same roster as Nurul's
+     * and on a day she doesn't work (so asking for it is never refused as an overlap): (id, date).
+     */
+    fun ensureOpenShift(monday: String): Pair<String, String> {
+        val sunday = LocalDate.parse(monday).plusDays(6).toString()
         val nurul = token(NURUL)
-        get("/api/v1/scheduling/me?from=$tuesday&to=$tuesday", nurul).jsonObject["openShifts"]!!.jsonArray
-            .firstOrNull()?.let { return it.jsonObject["id"]!!.jsonPrimitive.content }
+        fun week() = get("/api/v1/scheduling/me?from=$monday&to=$sunday", nurul).jsonObject
+        val busy = week()["shifts"]!!.jsonArray.map { it.jsonObject["date"]!!.jsonPrimitive.content }.toSet()
+        fun freeOpen() = week()["openShifts"]!!.jsonArray.map { it.jsonObject }.firstOrNull { it["date"]!!.jsonPrimitive.content !in busy }
+            ?.let { it["id"]!!.jsonPrimitive.content to it["date"]!!.jsonPrimitive.content }
+        freeOpen()?.let { return it }
+        val day = (1L..6L).map { LocalDate.parse(monday).plusDays(it).toString() }.first { it !in busy }
         val kw = token(KAIWEN)
         val location = get("/api/v1/scheduling/scopes", kw).jsonObject["mine"]!!.jsonObject["locationId"]!!.jsonPrimitive.content
         val roster = post("/api/v1/scheduling/rosters", kw, buildJsonObject { put("weekStart", monday); put("locationId", location) })
         val rosterId = (roster.jsonObject["roster"]?.jsonObject ?: roster.jsonObject)["id"]!!.jsonPrimitive.content
         post("/api/v1/scheduling/rosters/$rosterId/shifts", kw, buildJsonObject {
-            put("employeeId", JsonNull); put("date", tuesday); put("kind", "shift")
+            put("employeeId", JsonNull); put("date", day); put("kind", "shift")
             put("startTime", "12:00"); put("endTime", "20:00"); put("breakMinutes", 30)
         })
         post("/api/v1/scheduling/rosters/$rosterId/publish", kw, buildJsonObject { })
-        return get("/api/v1/scheduling/me?from=$tuesday&to=$tuesday", nurul).jsonObject["openShifts"]!!.jsonArray.first().jsonObject["id"]!!.jsonPrimitive.content
+        return freeOpen() ?: error("no open shift on a free day after publishing one on $day")
     }
 
     /**

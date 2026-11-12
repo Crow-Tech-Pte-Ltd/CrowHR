@@ -163,7 +163,7 @@ class ParityJourneyTest {
     @Test fun giveAShiftAwayAndAskForAnOpenShift() {
         val monday = TestServer.ensurePublishedShift()
         val shiftId = TestServer.nurulsShiftId(monday)
-        val openId = TestServer.ensureOpenShift(monday)
+        val (openId, openDate) = TestServer.ensureOpenShift(monday)
         TestServer.cancelPendingSwaps(TestServer.NURUL)
         try {
             j.connectAndSignIn(TestServer.NURUL)
@@ -188,7 +188,7 @@ class ParityJourneyTest {
             j.tap("pickup-$openId")
             j.waitForText("Asked. Your manager will approve it.")
             // The server stops listing an open shift someone asked for; the request shows instead.
-            j.waitForText("Pick up ${dayHeading(LocalDate.parse(monday).plusDays(1).toString())}", substring = true)
+            j.waitForText("Pick up ${dayHeading(openDate)}", substring = true)
             val pickup = TestServer.get("/api/v1/scheduling/swaps", TestServer.token(TestServer.NURUL)).jsonObject["items"]!!.jsonArray
                 .map { it.jsonObject }.first { it["kind"]!!.jsonPrimitive.content == "pickup" && it["status"]!!.jsonPrimitive.content == "pending_approval" }
             val pickupId = pickup["id"]!!.jsonPrimitive.content

@@ -295,8 +295,9 @@ class EssJourneyTest {
         tap("tab-more")
         tap("more-schedule")
         waitFor("shift-$monday")
-        compose.onNodeWithText("09:00–17:00").assertExists()
-        compose.onNodeWithText("60 min break", substring = true).assertExists()
+        // The roster may hold more 09:00–17:00 shifts that week; the Monday one is there.
+        compose.onAllNodesWithText("09:00–17:00").fetchSemanticsNodes().isNotEmpty().let(::assertTrue)
+        compose.onAllNodesWithText("60 min break", substring = true).fetchSemanticsNodes().isNotEmpty().let(::assertTrue)
     }
 
     @Test fun managerRejectsWithCommentAndApproves() {
