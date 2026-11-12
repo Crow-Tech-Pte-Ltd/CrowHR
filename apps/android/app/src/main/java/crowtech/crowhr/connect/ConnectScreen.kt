@@ -108,7 +108,7 @@ fun ConnectScreen(
                             modifier = Modifier.fillMaxWidth().testTag("organisation-id"),
                         )
                         Text(
-                            "This server hosts several organisations. Enter your organisation's ID from HR, or scan the QR code.",
+                            "This server hosts several organisations. Enter your organisation's ID from HR (for a demo company, its company code), or scan the QR code.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Crow.colors.muted,
                         )
@@ -131,7 +131,7 @@ private fun ConfirmOrganisation(phase: ConnectPhase.Confirm, onConfirm: () -> Un
             OrganisationLogo(o.server, o.org.logoUrl, o.org.displayName, Modifier.padding(top = 8.dp))
             Text(o.org.displayName, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
             Text(o.server, style = MaterialTheme.typography.bodyMedium, color = Crow.colors.muted)
-            if (o.demo) Text("Demo server with fictional data", style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted)
+            if (o.demo) Text("Demo company with fictional data", style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted, modifier = Modifier.testTag("demo-label"))
             Label("Sign in with", Modifier.padding(top = 16.dp))
             Text(o.org.signInMethods.joinToString(", ") { it.displayName }, style = MaterialTheme.typography.bodyMedium)
         }

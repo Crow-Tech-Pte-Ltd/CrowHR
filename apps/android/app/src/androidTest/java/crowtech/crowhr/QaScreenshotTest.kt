@@ -3,7 +3,9 @@ package crowtech.crowhr
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -79,6 +81,8 @@ class QaScreenshotTest {
         TestServer.ensureReleasedPayslip()
         TestServer.ensurePublishedShift()
         val taskTitle = runCatching { TestServer.requestLeaveAsNadia(TestServer.freeWeekday(8, offsetDays = (0..20).random().toLong())) }.getOrNull()
+        // A child on Kai Wen's record, so the Child field of infant care leave has someone to show.
+        val childName = TestServer.ensureChild(TestServer.KAIWEN, "Wong Jia En").second
         graph.resetForTests()
         graph.receiptCamera = StubCamera()
         graph.browser = TestBrowser(TestServer.KAIWEN)
@@ -140,6 +144,89 @@ class QaScreenshotTest {
         tap("more-settings")
         waitFor("sign-out")
         shot("settings")
+
+        // Parity screens (leave calendar, leave for a child, foreign-currency claim, claim draft).
+        tap("tab-leave")
+        waitFor("leave-calendar")
+        tap("leave-calendar")
+        waitFor("calendar-range")
+        Thread.sleep(1_500)
+        shot("leave-calendar")
+        tap("back")
+        tap("apply-leave")
+        waitFor("leave-type")
+        pick("leave-type", "Unpaid infant care leave")
+        waitFor("leave-child")
+        tap("leave-child")
+        compose.onNode(hasText(childName, substring = true) and !hasTestTag("leave-child")).performClick()
+        Thread.sleep(1_500)
+        shot("leave-apply-child")
+        tap("back")
+        tap("tab-more")
+        tap("more-claims")
+        waitFor("new-claim")
+        tap("new-claim")
+        waitFor("claim-type-0")
+        pick("claim-type-0", "Transport")
+        compose.onNodeWithTag("claim-merchant-0").performScrollTo().performTextInput("Grab Penang")
+        pick("claim-currency-0", "MYR · Malaysian ringgit")
+        compose.onNodeWithTag("claim-amount-0").performScrollTo().performTextInput("50.00")
+        compose.onNodeWithTag("claim-rate-0").performScrollTo().performTextInput("0.301234")
+        compose.onNodeWithTag("claim-sgd-0").performScrollTo()
+        shot("claim-foreign-currency")
+        tap("save-claim-draft")
+        waitFor("claim-open-draft")
+        tap("claim-open-draft")
+        waitFor("claim-edit")
+        shot("claim-draft")
         scenario.close()
+
+        // Shift swaps: Nurul's schedule and the offer form, then Marcus with an offer to answer.
+        val monday = TestServer.ensurePublishedShift()
+        val shiftId = TestServer.nurulsShiftId(monday)
+        TestServer.ensureOpenShift(monday)
+        TestServer.cancelPendingSwaps(TestServer.NURUL)
+        graph.resetForTests()
+        graph.browser = TestBrowser(TestServer.NURUL)
+        ActivityScenario.launch<MainActivity>(Intent(Intent.ACTION_VIEW, Uri.parse(TestServer.connectLink)).setPackage(context.packageName)).use {
+            waitFor("confirm-connect")
+            tap("confirm-connect")
+            waitFor("sign-in")
+            tap("sign-in")
+            waitFor("tab-more", 30_000)
+            tap("tab-more")
+            tap("more-schedule")
+            waitFor("offer-$shiftId")
+            shot("schedule-swaps")
+            tap("offer-$shiftId")
+            waitFor("offer-send")
+            tap("offer-kind-giveaway")
+            pick("offer-colleague", "Marcus Lim")
+            shot("swap-offer")
+        }
+        TestServer.offerToMarcus(shiftId)
+        try {
+            graph.resetForTests()
+            graph.browser = TestBrowser(TestServer.MARCUS)
+            ActivityScenario.launch<MainActivity>(Intent(Intent.ACTION_VIEW, Uri.parse(TestServer.connectLink)).setPackage(context.packageName)).use {
+                waitFor("confirm-connect")
+                tap("confirm-connect")
+                waitFor("sign-in")
+                tap("sign-in")
+                waitFor("tab-more", 30_000)
+                tap("tab-more")
+                tap("more-schedule")
+                compose.waitUntil(20_000) { compose.onAllNodes(hasText("offers you their shift", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+                shot("swap-offer-to-answer")
+            }
+        } finally {
+            TestServer.cancelPendingSwaps(TestServer.NURUL)
+        }
+    }
+
+    private fun pick(tag: String, text: String) {
+        tap(tag)
+        compose.waitUntil(10_000) { compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasText(text) and !hasTestTag(tag)).performClick()
     }
 }

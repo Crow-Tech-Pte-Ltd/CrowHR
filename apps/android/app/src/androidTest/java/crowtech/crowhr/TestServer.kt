@@ -206,6 +206,123 @@ object TestServer {
             .forEach { post("/api/v1/leave/requests/${it["id"]!!.jsonPrimitive.content}/withdraw", nadia) }
     }
 
+    const val MARCUS = "marcus@kampongkopi.example"
+
+    /**
+     * Nadia's baby, under two, so unpaid infant care leave (which must name a child) applies.
+     * Added once, through the same API as the web's Leave → Children: (id, name).
+     */
+    fun ensureChildOfNadia(): Pair<String, String> = ensureChild(NADIA, "Iman Rahman")
+
+    fun ensureChild(email: String, name: String): Pair<String, String> {
+        val nadia = token(email)
+        get("/api/v1/leave/children", nadia).items().map { it.jsonObject }.firstOrNull { it["name"]!!.jsonPrimitive.content == name }
+            ?.let { return it["id"]!!.jsonPrimitive.content to name }
+        val born = LocalDate.now(ZoneId.of("Asia/Singapore")).minusMonths(10)
+        val child = post("/api/v1/leave/children", nadia, buildJsonObject {
+            put("name", name); put("birthDate", born.toString()); put("isCitizen", true); put("birthOrder", 1)
+        }).jsonObject
+        return child["id"]!!.jsonPrimitive.content to name
+    }
+
+    /** Nadia asks for a day of no-pay leave on [date] and Kai Wen approves it: Nadia gets an unread notification. */
+    fun approvedLeaveForNadia(date: LocalDate): String {
+        val title = requestLeaveAsNadia(date)
+        val kw = token(KAIWEN)
+        val task = get("/api/v1/approvals/tasks", kw).items().map { it.jsonObject }.first { it["title"]!!.jsonPrimitive.content == title }
+        post("/api/v1/approvals/tasks/${task["taskId"]!!.jsonPrimitive.content}/decision", kw, buildJsonObject { put("decision", "approve") })
+        return title
+    }
+
+    /** Cancels [email]'s pending swap and pickup requests (keeps reruns independent). */
+    fun cancelPendingSwaps(email: String) {
+        val t = token(email)
+        get("/api/v1/scheduling/swaps", t).items().map { it.jsonObject }
+            .filter { it["direction"]!!.jsonPrimitive.content == "outgoing" && it["status"]!!.jsonPrimitive.content in setOf("pending_peer", "pending_approval") }
+            .forEach { post("/api/v1/scheduling/swaps/${it["id"]!!.jsonPrimitive.content}/cancel", t) }
+    }
+
+    /** Nurul's published shift next Monday (see [ensurePublishedShift]): its id. */
+    fun nurulsShiftId(monday: String): String =
+        get("/api/v1/scheduling/me?from=$monday&to=$monday", token(NURUL)).jsonObject["shifts"]!!.jsonArray.first().jsonObject["id"]!!.jsonPrimitive.content
+
+    /** An open (unassigned) published shift next Tuesday on the same roster as Nurul's: its id. */
+    fun ensureOpenShift(monday: String): String {
+        val tuesday = LocalDate.parse(monday).plusDays(1).toString()
+        val nurul = token(NURUL)
+        get("/api/v1/scheduling/me?from=$tuesday&to=$tuesday", nurul).jsonObject["openShifts"]!!.jsonArray
+            .firstOrNull()?.let { return it.jsonObject["id"]!!.jsonPrimitive.content }
+        val kw = token(KAIWEN)
+        val location = get("/api/v1/scheduling/scopes", kw).jsonObject["mine"]!!.jsonObject["locationId"]!!.jsonPrimitive.content
+        val roster = post("/api/v1/scheduling/rosters", kw, buildJsonObject { put("weekStart", monday); put("locationId", location) })
+        val rosterId = (roster.jsonObject["roster"]?.jsonObject ?: roster.jsonObject)["id"]!!.jsonPrimitive.content
+        post("/api/v1/scheduling/rosters/$rosterId/shifts", kw, buildJsonObject {
+            put("employeeId", JsonNull); put("date", tuesday); put("kind", "shift")
+            put("startTime", "12:00"); put("endTime", "20:00"); put("breakMinutes", 30)
+        })
+        post("/api/v1/scheduling/rosters/$rosterId/publish", kw, buildJsonObject { })
+        return get("/api/v1/scheduling/me?from=$tuesday&to=$tuesday", nurul).jsonObject["openShifts"]!!.jsonArray.first().jsonObject["id"]!!.jsonPrimitive.content
+    }
+
+    /** Nurul offers [shiftId] to Marcus (give-away) through the API: the offer's id. */
+    fun offerToMarcus(shiftId: String): String {
+        val marcusId = get("/api/v1/me", token(MARCUS)).jsonObject["employeeId"]!!.jsonPrimitive.content
+        return post("/api/v1/scheduling/swaps", token(NURUL), buildJsonObject {
+            put("kind", "giveaway"); put("shiftId", shiftId); put("peerEmployeeId", marcusId); put("note", "Family dinner, sorry")
+        }).jsonObject["id"]!!.jsonPrimitive.content
+    }
+
+    /** Ahmad's claims still waiting (from earlier runs) are withdrawn, drafts deleted. */
+    fun clearClaimsOfAhmad() {
+        val t = token(AHMAD)
+        get("/api/v1/claims?mine=true&pageSize=100", t).items().map { it.jsonObject }.forEach {
+            val id = it["id"]!!.jsonPrimitive.content
+            when (it["status"]!!.jsonPrimitive.content) {
+                "draft" -> call("DELETE", "/api/v1/claims/$id", t)
+                "submitted" -> call("POST", "/api/v1/claims/$id/withdraw", t)
+            }
+        }
+    }
+
+    // --- Demo companies (servers started with DEMO_COMPANIES=1) ---
+
+    fun demoCompaniesOn(): Boolean = call("GET", "/api/v1/demo-companies/config", null).status == 200
+
+    /**
+     * A new private copy of Kopi Kaki, as the try page starts one. With no ready copies
+     * (DEMO_COMPANY_POOL_SIZE=0) the server seeds it there and then: about 20 s on a workstation.
+     */
+    fun startDemoCompany(): JsonObject {
+        val slow = http.newBuilder().readTimeout(java.time.Duration.ofMinutes(3)).build()
+        val request = Request.Builder().url("$base/api/v1/demo-companies").post("{}".toRequestBody(json)).build()
+        slow.newCall(request).execute().use { r ->
+            val text = r.body?.string().orEmpty()
+            check(r.code == 201) { "demo company → ${r.code} $text" }
+            return Json.parseToJsonElement(text).jsonObject
+        }
+    }
+
+    /**
+     * What the system browser does on a demo company's sign-in page: follow /native/authorize to
+     * the page, pick the person ([personaKey], such as "employee"), and come back to the app.
+     */
+    fun signInAsPersona(authorizeUrl: String, org: String, personaKey: String): String {
+        val location = http.newCall(Request.Builder().url(authorizeUrl).build()).execute().use { r ->
+            check(r.code == 302) { "authorize → ${r.code}" }
+            r.header("Location")!!
+        }
+        check(location.contains("/sign-in/$org")) { "the sign-in page is for $org: $location" }
+        val requestId = location.substringAfter("native=")
+        val personas = call("GET", "/api/v1/auth/demo/personas?org=$org", null)
+        check(personas.status == 200) { "personas → ${personas.status} ${personas.body}" }
+        val person = personas.body.items().map { it.jsonObject }.first { it["persona"]?.jsonObject?.get("key")?.jsonPrimitive?.content == personaKey }
+        val reply = call("POST", "/api/v1/auth/demo/sign-in", null, buildJsonObject {
+            put("membershipId", person["membershipId"]!!.jsonPrimitive.content); put("org", org); put("native", requestId)
+        })
+        check(reply.status == 200) { "persona sign-in → ${reply.status} ${reply.body}" }
+        return reply.body.jsonObject["redirectTo"]!!.jsonPrimitive.content
+    }
+
     /** A working day (no weekend, no public holiday) at least [weeksAhead] weeks out that Nadia has no leave on. */
     fun freeWeekday(weeksAhead: Long, offsetDays: Long = 0): LocalDate {
         val holidays = holidays()
@@ -228,6 +345,22 @@ class TestBrowser(private val email: String) : BrowserLauncher {
         val app = context.applicationContext
         thread(name = "test-browser") {
             val redirect = TestServer.signInInBrowser(url, email)
+            app.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(redirect)).setPackage(app.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+        return true
+    }
+}
+
+/** Plays the system browser on a demo company's sign-in page: picks [personaKey], no password. */
+class PersonaBrowser(private val org: String, private val personaKey: String) : BrowserLauncher {
+    val opened = CopyOnWriteArrayList<String>()
+    override fun open(context: Context, url: String): Boolean {
+        opened += url
+        val app = context.applicationContext
+        thread(name = "persona-browser") {
+            val redirect = TestServer.signInAsPersona(url, org, personaKey)
             app.startActivity(
                 Intent(Intent.ACTION_VIEW, Uri.parse(redirect)).setPackage(app.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
