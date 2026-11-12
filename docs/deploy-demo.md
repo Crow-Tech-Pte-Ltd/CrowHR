@@ -1,9 +1,9 @@
 # Deploying the public demo to hr.crow.sg
 
-**Status: deployed 9 Nov 2026** (Daniel approved): Pages project `crowhr-demo` in the main Cloudflare
-account, custom domain `hr.crow.sg` (proxied CNAME to `crowhr-demo.pages.dev`). Every further step
-that touches Cloudflare or DNS still needs Daniel's approval (AGENTS.md hard rule 1). Nothing in the
-repository deploys automatically.
+The live site is the Cloudflare Pages project `crowhr-demo`, custom domain `hr.crow.sg` (a proxied
+CNAME to `crowhr-demo.pages.dev`). Nothing in the repository deploys automatically: a maintainer
+builds and uploads it, and every step that touches Cloudflare or DNS needs the maintainer's approval
+(AGENTS.md hard rule 1).
 
 hr.crow.sg is one static Cloudflare Pages site: the in-browser demo at `/` and the documentation
 (apps/docs) at `/docs`. There is no backend, no Pages Function, no binding, no environment variable
@@ -50,14 +50,14 @@ The demo can offer a real Singpass login (then HR admin or Employee; nothing abo
    http://127.0.0.1:5181: first load, a persona, `/payroll`, `/about-demo`, `/docs/`, Reset.
    The preview server applies `_headers` and `_redirects` like Pages does.
 
-## Deploying (needs Daniel's approval)
+## Deploying (needs approval)
 
-These use Daniel's Cloudflare account. Do not run them with any other account, and do not run them
-without approval.
+These use Crow Tech's Cloudflare account. Do not run them with any other account, and do not run
+them without approval.
 
 1. **Create the Pages project** (once): in the Cloudflare dashboard, Workers & Pages → Create →
    Pages → "Upload assets" (Direct Upload), project name `crowhr-demo`, production branch `main`.
-   Or with Wrangler, logged in as Daniel: `bunx wrangler pages project create crowhr-demo --production-branch main`.
+   Or with Wrangler, logged in to that account: `bunx wrangler pages project create crowhr-demo --production-branch main`.
    **Wrangler 4.159+** sends `pages` commands to the new Workers-based Pages and fails on this
    folder ("Missing entry-point to Worker script or to assets directory"). Add `--force` to use
    classic Pages, which this site is built for (`_headers`, `_redirects`). The project was created
@@ -111,14 +111,6 @@ DEMO_PERFORMANCE=1 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium \
 
 Each sample uses a fresh browser context and IndexedDB. The metric is navigation start to the
 app/banner being mounted (`window.__crowhrDemo.readyMs`), without network or CPU throttling.
-The baseline uses the original seed and initdb startup with the cookie/body-limit fix needed
-to let it run; it was built separately and served through the same preview server using
-`DEMO_E2E_DIST=/tmp/crowhr-demo-baseline`. Measurements are local observations, not a hosted-network SLA.
-
-Baseline on 1 Nov 2026: **5,299 / 4,934 / 4,751 ms** (median **4,934 ms**). This machine's baseline
-is slower than the earlier 3.4 s measurement.
-
-Final snapshot build: **1,198 / 1,223 / 1,199 ms** (median **1,199 ms**, approximately **76% faster**).
-All three fresh visits met the <3 s target. Worker startup was **1,010 / 1,030 / 1,024 ms**;
-there were no migration or seed stages. This comparison includes published rosters, October
-attendance, approved OT and generated documents in the new snapshot.
+Measurements are local observations, not a hosted-network service level. With the build-time
+snapshot, three fresh visits took about 1.2 s each (median 1,199 ms, worker startup about 1 s),
+against about 4.9 s when the browser seeded the database itself.

@@ -31,7 +31,7 @@
 
 ## 6. Verification and checks
 
-- [x] 6.1 Resolve every disagreement in `research/verification/codex-verification.md` and record it, with the vectors needing a CPF-calculator spot-check, in `packages/sg-rules/VERIFICATION.md`; verified by the file's disagreement table
+- [x] 6.1 Resolve every disagreement in `research/verification/statutory-data-review.md` and record it, with the vectors needing a CPF-calculator spot-check, in `packages/sg-rules/VERIFICATION.md`; verified by the file's disagreement table
 - [x] 6.2 `bun run check` passes on a clean tree with this change, and sg-rules line coverage is ≥ 95% (measured 98.8%); verified by running both
 - [x] 6.3 Spot-check the vectors listed in VERIFICATION.md in CPF's online calculator — needs a human — DONE: 15/15 cases matched CPF Board\'s online calculator via Playwright (VERIFICATION.md, "CPF calculator check")
 - [x] 6.4 Add `@vitest/coverage-v8` and a 95% line threshold for sg-rules to the workspace — needs the `bun.lock` owner (out of this change's lane) — DONE: v8 coverage, ≥95% enforced in `bun run check`
