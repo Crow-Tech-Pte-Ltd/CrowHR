@@ -74,5 +74,5 @@ The independent review of the payroll choices marked these as **unclear**: the a
 - **No row-level security** in the database: isolation is enforced by the application and composite foreign keys, with a test that every route refuses another organisation's IDs.
 - **The common-password list** is a curated list of a few hundred entries plus patterns, not a breach corpus.
 - **Reverse proxies:** the Caddy, nginx and Traefik examples are tested automatically, with test certificates instead of Let's Encrypt; Cloudflare Tunnel was tested by hand ([reverse proxy](/docs/self-hosting/reverse-proxy/)).
-- **Not in the app stores yet**: the [mobile apps](/docs/coming-soon/mobile-apps/) (internal test builds only).
+- **Not in the App Store yet**: the iPhone and iPad [app](/docs/coming-soon/mobile-apps/) is in review. The Android app is on Google Play.
 - **Virus scanning is optional**: configure your own clamd via `CLAMAV_HOST` / `CLAMAV_PORT`; receipts, documents and medical certificates then use the shared scan sweep. Without it, uploads are explicitly unscanned.

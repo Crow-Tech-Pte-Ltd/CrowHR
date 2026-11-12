@@ -1,15 +1,15 @@
 ---
 title: Mobile apps
-description: Native iOS and Android apps for Crow HR, version 1.0.0, are in App Store and Google Play review. How connecting a phone to your company's server works.
+description: Native iOS and Android apps for Crow HR. Version 1.0.0 is on Google Play; the iPhone and iPad app is in App Store review. How connecting a phone to your company's server works.
 sidebar:
   badge:
     text: Soon
     variant: note
 ---
 
-<span class="crow-pill crow-pill--soon">Coming soon</span>
+<span class="crow-pill crow-pill--soon">iPhone and iPad: coming soon</span>
 
-Native iOS (SwiftUI, `apps/ios`) and Android (Kotlin and Jetpack Compose, `apps/android`) apps are built and tested against a real Crow HR server. Version 1.0.0 of both is in App Store and Google Play review, so they are **not in either store yet**. Until they are, the web app works on phones, with a bottom tab bar for employees. The iOS app is for iPhone and iPad: on an iPad it shows a sidebar in landscape and can share the screen in Split View, Slide Over and Stage Manager.
+Native iOS (SwiftUI, `apps/ios`) and Android (Kotlin and Jetpack Compose, `apps/android`) apps are built and tested against a real Crow HR server. Version 1.0.0 for Android is on [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr) since 12 Nov 2026. The iPhone and iPad app is in App Store review, so it is **not in the App Store yet**; until it is, the web app works on phones, with a bottom tab bar for employees. The iOS app is for iPhone and iPad: on an iPad it shows a sidebar in landscape and can share the screen in Split View, Slide Over and Stage Manager.
 
 The apps cover what employees and managers do most: payslips, leave, clock in and out (also offline), claims with a photo of the receipt, your schedule, approvals and notifications. Everything else stays on the web.
 
@@ -21,7 +21,7 @@ Each person finds their connection code in **My profile → Mobile app**:
 
 - a **QR code** to scan with the app. It holds `crowhr://connect?server=<your PUBLIC_URL>&org=<organisation>` and nothing else: no password, session or token, so it is safe to show on screen or print for a notice board;
 - the **server address** (your `PUBLIC_URL`) to type into the app instead, with a copy button, and the organisation's short name;
-- the store listings, marked "coming soon" until the apps are published.
+- the store listings: a link to Google Play, and the App Store marked "coming soon" until the iPhone app is published.
 
 If you type the address and the server hosts more than one organisation, the app also asks for the organisation's short name (its ID). The app then checks the server, shows your organisation's name for you to confirm, and signs you in through your phone's browser with the same methods you use on the web (password, Google, Microsoft, Singpass or your identity provider).
 

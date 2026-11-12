@@ -56,7 +56,7 @@ Crow HR is early software. Built and tested today:
 - [employee documents](/docs/documents/documents/), HR letters and KETs, and [reports](/docs/reports/running-reports/) with CSV and Excel export;
 - self-hosting with automatic migrations, scheduled backups (encrypted when you set `BACKUP_PASSPHRASE`, which you should) and a `crowhr` CLI.
 
-An [in-browser demo](/docs/demo/) runs at [hr.crow.sg](https://hr.crow.sg/), and native [iOS and Android apps](/docs/coming-soon/mobile-apps/) are built but not in the app stores yet. The [project status](/docs/status/) page lists what is built and what is not.
+An [in-browser demo](/docs/demo/) runs at [hr.crow.sg](https://hr.crow.sg/), and native [mobile apps](/docs/coming-soon/mobile-apps/) are on Google Play for Android, with the iPhone and iPad app in App Store review. The [project status](/docs/status/) page lists what is built and what is not.
 
 ## Not legal advice
 

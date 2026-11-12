@@ -28,9 +28,9 @@ Status as of 10 November 2026, version 1.0.0. Requirements and task lists live i
 | Item | State |
 | --- | --- |
 | Singpass login | Implemented to the published FAPI 2.0 profile. A test sign-in against **Singpass staging** passed on 9 Nov 2026; production Singpass has not been tried yet (the public demo's production Singpass app was submitted on 9 Nov 2026 and is under review), and the official Singpass logo for the button has to be added by whoever runs the server (it can't ship in the repository). See the [Singpass guide](/docs/admin/sso/singpass/). |
-| Virus scanning | A scanner hook exists for receipts and documents, but no scanner ships with Crow HR, so uploads are stored unscanned. |
+| Virus scanning | Receipts, documents and medical certificates are scanned by your own ClamAV when you set `CLAMAV_HOST` ([configuration](/docs/self-hosting/configuration/)). No scanner ships with Crow HR, so without one uploads are stored unscanned. |
 | Payroll inputs from other modules | Fed overtime can't be priced for staff outside Part 4 or paid by the hour; rest-day and public-holiday work premiums need separate inputs. Approved leave encashment feeds payroll at the gross rate; active allowances need classification through the payroll settings API. See [payroll limitations](/docs/payroll/limitations/#payroll-inputs). |
-| Mobile apps | Native [iOS and Android apps](/docs/coming-soon/mobile-apps/) are built and tested against a real server. Only internal test builds exist (TestFlight internal testing, a Google Play internal draft); they are not in the App Store or Google Play. |
+| Mobile apps | Native [iOS and Android apps](/docs/coming-soon/mobile-apps/) are built and tested against a real server. Version 1.0.0 is on [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr) since 12 Nov 2026; the iPhone and iPad app is in App Store review. |
 
 ## Not built yet
 
