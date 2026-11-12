@@ -36,4 +36,4 @@ The API authenticates browser sessions (cookie) and native-app tokens (bearer, f
 - **Myinfo**: Singpass login requests only `openid`; no personal data is retrieved from Myinfo.
 - **MOM systems** (work pass applications, levy billing).
 - **Accounting exports** (journal entries, GL codes), **calendar feeds**, **webhooks**, **Slack or Teams** notifications.
-- **Push notifications** to phones: the [mobile apps](/docs/coming-soon/mobile-apps/) check for new notifications in the background and show them as local notifications instead.
+- **Push notifications** to phones: the [mobile apps](/docs/mobile-apps/) check for new notifications in the background and show them as local notifications instead.

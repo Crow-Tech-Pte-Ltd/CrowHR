@@ -59,6 +59,37 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
   });
   const hr = await as("hr");
   await hr.post("/api/v1/claims/types/starter", {});
+
+  /**
+   * Ticks off open items of someone's onboarding or offboarding checklist, each by the person it is
+   * assigned to (`manager`: the member acting as their manager), for the roles in `roles`. Everyone
+   * the seed hires or lets go is a Singapore citizen, so a work-pass item is skipped with a reason.
+   */
+  const tickChecklist = async (
+    employeeId: string | undefined,
+    kind: "onboarding" | "offboarding",
+    manager: string,
+    roles: readonly string[],
+  ) => {
+    if (!employeeId) throw new Error("No such person in the seed");
+    const lists = await (await as("hr")).get<{
+      items: { kind: string; items: { id: string; title: string; assigneeRole: string; status: string }[] }[];
+    }>(`/api/v1/employees/${employeeId}/checklists`);
+    const by: Record<string, string> = { hr_admin: "hr", payroll_admin: "payroll", manager };
+    for (const item of lists.items.filter((l) => l.kind === kind).flatMap((l) => l.items)) {
+      if (item.status !== "open" || !roles.includes(item.assigneeRole)) continue;
+      await (await as(by[item.assigneeRole] ?? "owner")).post(
+        `/api/v1/people/checklist-items/${item.id}`,
+        /work pass/i.test(item.title)
+          ? { action: "skip", reason: "Singapore citizen: no work pass to cancel." }
+          : { action: "done" },
+      );
+    }
+  };
+  // Farhan's last day was 30 June, before the months this demo shows: his offboarding was done then,
+  // not left on everyone's Home as work four months overdue.
+  clock.set("2026-06-30T17:30");
+  await tickChecklist(e.former, "offboarding", "tp_lead", ["hr_admin", "payroll_admin", "manager"]);
   const types = await hr.get<{ items: { id: string; code: string }[] }>("/api/v1/claims/types");
   const typeId = (code: string) => {
     const t = types.items.find((x) => x.code === code);
@@ -281,6 +312,16 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
   await decideAll("hr", (t) => t.subjectType === "claim", "approve");
 
   const outletScheduledDays = await seedOperations(h);
+
+  // Darren's first day, 12 Oct: his bank details came with his hire record and his accounts were set
+  // up that morning. HR's and his own items follow during the month.
+  clock.set("2026-10-12T17:00");
+  await tickChecklist(e.joiner, "onboarding", "owner", ["payroll_admin", "manager"]);
+  // Priyanka's last day was 16 Oct: the owner collected her things and HR closed their items that
+  // evening. Her final pay stays open for payroll: it goes out with the October run, still a draft
+  // (see its warning).
+  clock.set("2026-10-16T18:00");
+  await tickChecklist(e.leaver_oct, "offboarding", "owner", ["hr_admin", "manager"]);
 
   // The October run: computed draft, not yet submitted (the payroll admin's next step).
   runs["2026-10"] = await runMonth(

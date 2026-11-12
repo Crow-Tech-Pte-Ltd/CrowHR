@@ -7,7 +7,7 @@ Crow HR is an HR and payroll platform for small and medium companies in Singapor
 
 ## Who it is for
 
-A Singapore company with a handful to a few hundred employees and one person who is comfortable running a Docker container. That person does not need to be a DevOps engineer: the install is three steps, backups and database upgrades run on their own, and every startup error says which setting to fix.
+A Singapore company with a handful to a few hundred employees and one person who is comfortable running a Docker container. That person does not need to be a DevOps engineer: the install is four short steps with one required setting, backups and database upgrades run on their own, and every startup error says which setting to fix.
 
 Typical users inside the company:
 
@@ -41,7 +41,7 @@ Sensitive identifiers (NRIC/FIN, passport and work pass numbers, bank account nu
 
 ## What it covers
 
-Employee records and self-service, leave, attendance and overtime, shift scheduling, expense claims, approvals, documents and HR letters, reports, and monthly payroll with CPF, SHG, SDL and the files you upload to CPF, your bank and IRAS. Staff use it in the browser or in the [mobile apps](/docs/coming-soon/mobile-apps/).
+Employee records and self-service, leave, attendance and overtime, shift scheduling, expense claims, approvals, documents and HR letters, reports, and monthly payroll with CPF, SHG, SDL and the files you upload to CPF, your bank and IRAS. Staff use it in the browser or in the [mobile apps](/docs/mobile-apps/) (Android now; iPhone and iPad after App Store review).
 
 The [project status](/docs/status/) page lists what is built, what is partly done and what is not. To look around first, open the [in-browser demo](/docs/demo/) at [hr.crow.sg](https://hr.crow.sg/).
 

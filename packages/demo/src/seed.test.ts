@@ -12,7 +12,7 @@ import { type DemoRuntime, openDemo } from "./runtime.ts";
  * there, the history was produced by the real engines, and every persona has work waiting.
  */
 const ORIGIN = "https://hr.crow.sg";
-// 31 Oct 2026, 10:00 Singapore: the demo clock starts on the seed's "today".
+// Any real time: the demo clock always opens on Saturday 31 Oct 2026 at 11:30 in Singapore.
 const REAL_NOW = Date.parse("2026-10-31T02:00:00Z");
 
 describe("demo seed", () => {
@@ -217,6 +217,39 @@ describe("demo seed", () => {
       "/api/v1/reports/payroll.cost?from=2026-07&to=2026-09",
     );
     expect(report.rows.length).toBeGreaterThan(0);
+  });
+
+  it("opens on a working Saturday: late morning, with the outlets' morning crews clocked in", async () => {
+    expect(new Date(demo.deps.clock.now().getTime() + 8 * 3600_000).toISOString().slice(0, 16)).toBe(
+      "2026-10-31T11:30",
+    );
+    const owner = await as(persona("owner"));
+    const team = await owner.get<{
+      items: { employee: { name: string }; days: { firstIn: string | null; lateMinutes: number }[] }[];
+    }>("/api/v1/attendance/team?from=2026-10-31&to=2026-10-31");
+    const inNow = team.items.filter((s) => s.days[0]?.firstIn);
+    expect(inNow).toHaveLength(4);
+    expect(inNow.filter((s) => (s.days[0]?.lateMinutes ?? 0) > 0).map((s) => s.employee.name)).toEqual([
+      "Maria Santos Reyes",
+    ]);
+  });
+
+  it("looked after its history: nothing on anyone's Home is weeks overdue", async () => {
+    for (const p of PERSONAS) {
+      const home = await (await as(p.email)).get<{ items: { kind: string; title: string; dueOn: string | null }[] }>(
+        "/api/v1/inbox",
+      );
+      const longOverdue = home.items.filter(
+        (i) =>
+          i.dueOn &&
+          i.dueOn < "2026-10-24" &&
+          // An expired work pass is a deliberate exception to show; so is the October leaver's final
+          // pay, which goes out with October's draft run (see the run's warning).
+          i.kind !== "work_pass_expiry" &&
+          !(i.title.startsWith("Prepare final pay") && i.title.includes("Priyanka")),
+      );
+      expect(longOverdue.map((i) => i.title)).toEqual([]);
+    }
   });
 
   it("lists Google, Microsoft and Singpass on the sign-in page (Singpass has generated keys, so it counts as set up)", async () => {

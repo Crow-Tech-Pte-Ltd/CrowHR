@@ -119,7 +119,25 @@ export interface Scopes {
   locations: { id: string; name: string }[];
   departments: { id: string; name: string }[];
   mine: { locationId: string | null; departmentId: string | null };
+  /**
+   * Locations where people work rostered shifts: those with shifts on a roster first, then those
+   * with staff on a shift work schedule.
+   */
+  rosteredLocationIds: string[];
   canEdit: boolean;
+}
+
+/**
+ * The location Schedules opens on: your own. An editor whose own location has nobody on shifts
+ * (an owner or HR at a head office of fixed-week staff) opens on the first location with a roster
+ * instead of on an empty week.
+ */
+export function defaultLocation(scopes: Scopes | undefined): string | null {
+  if (!scopes) return null;
+  const mine = scopes.mine.locationId;
+  const rostered = scopes.rosteredLocationIds;
+  if (scopes.canEdit && rostered.length && !(mine && rostered.includes(mine))) return rostered[0] ?? null;
+  return mine ?? scopes.locations[0]?.id ?? null;
 }
 
 export interface MyShift {

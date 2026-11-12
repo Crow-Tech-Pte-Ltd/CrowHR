@@ -47,7 +47,10 @@
       .boot-bar > div { height: 100%; width: 4%; background: var(--ink); transition: width 0.35s ease; }
       .boot-foot { margin: 14px 0 0; font: 400 11px/16px "Azeret Mono", ui-monospace, Menlo, monospace; color: var(--muted); }
       .boot-error { margin: 14px 0 0; padding: 10px 12px; border: 1px solid #c62828; border-radius: 6px; font-size: 13px; line-height: 20px; color: #8a1c1c; background: #fdecec; }
-      .boot-error button, .boot-error a { font: inherit; color: inherit; text-decoration: underline; background: none; border: 0; padding: 0; cursor: pointer; }
+      .boot-error button, .boot-error a, .boot-slow button { font: inherit; color: inherit; text-decoration: underline; background: none; border: 0; padding: 0; cursor: pointer; }
+      .boot-slow { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; line-height: 20px; color: var(--ink); background: var(--cream); }
+      .boot-slow[hidden], .boot-error[hidden] { display: none; }
+      .boot-slow button:focus-visible, .boot-error button:focus-visible { outline: 2px solid #1a56db; outline-offset: 2px; border-radius: 2px; }
       @keyframes boot-pulse { from { opacity: 1; } to { opacity: 0.45; } }
       @media (prefers-reduced-motion: reduce) { .boot-steps li[data-state="active"]::before { animation: none; } .boot-bar > div { transition: none; } }
     </style>
@@ -69,6 +72,7 @@
         </ol>
         <div class="boot-bar" aria-hidden="true"><div id="demo-boot-bar"></div></div>
         <p class="boot-foot" id="demo-boot-foot">First visit takes a few seconds. Later visits open instantly.</p>
+        <div id="demo-boot-slow" class="boot-slow" role="alert" hidden></div>
         <div id="demo-boot-error" class="boot-error" hidden></div>
       </div>
     </div>

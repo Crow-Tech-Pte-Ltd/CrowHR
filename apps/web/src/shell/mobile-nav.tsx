@@ -26,9 +26,8 @@ export function NavDrawer({ open, onOpenChange }: { open: boolean; onOpenChange:
         </nav>
         <div className="flex flex-col gap-3 border-t border-border p-3">
           <NavLink id="settings" onNavigate={close} />
-          <div className="pl-2.5">
-            <ApiStatus />
-          </div>
+          {/* Renders only when the server or its database can't be reached. */}
+          <ApiStatus className="pl-2.5" />
         </div>
       </SheetContent>
     </Sheet>

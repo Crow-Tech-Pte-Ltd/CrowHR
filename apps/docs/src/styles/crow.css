@@ -4,7 +4,8 @@
  * call to action, biru (blue) for links and focus rings. Azeret Mono for headings, labels, nav and
  * numbers; Ubuntu for body text. Hairline borders by default; the 2px ink border + hard offset
  * shadow is reserved for the primary call to action and the search dialog. No blurred shadows,
- * no gradients. Dark mode is the docs' own (the app has none) and keeps WCAG AA contrast.
+ * no gradients. Uppercase is kept for the sidebar group labels and "On this page" only; every other
+ * label is sentence case. Dark mode is the docs' own (the app has none) and keeps WCAG AA contrast.
  */
 
 :root {
@@ -30,9 +31,10 @@
   --sl-line-height-headings: 1.25;
   --sl-content-width: 48rem;
 
-  /* Hard, unblurred shadows only (neo-brutalist emphasis). */
+  /* Hard, unblurred shadows only, and only on emphasis surfaces (shadow-lg: the search dialog).
+     Previous/next links and the mobile menu button stay flat. */
   --sl-shadow-sm: none;
-  --sl-shadow-md: 3px 3px 0 0 hsl(0 0% 0% / 0.35);
+  --sl-shadow-md: none;
   --sl-shadow-lg: 4px 4px 0 0 hsl(0 0% 0% / 0.6);
 
   /* Dark mode (Starlight's default theme when the visitor prefers dark). */
@@ -61,7 +63,6 @@
   --crow-selected-fg: var(--crow-ink);
   --crow-emphasis-border: var(--crow-kuning-200);
   --crow-focus: var(--crow-biru-100);
-  --crow-card-bg: hsl(0 0% 10%);
 }
 
 :root[data-theme="light"] {
@@ -88,12 +89,10 @@
   --sl-color-hairline-shade: hsl(0 0% 80%);
   --sl-color-backdrop-overlay: hsl(0 0% 4% / 0.45);
 
-  --sl-shadow-md: 3px 3px 0 0 hsl(0 0% 4% / 0.08);
   --sl-shadow-lg: 4px 4px 0 0 var(--crow-ink);
 
   --crow-emphasis-border: var(--crow-ink);
   --crow-focus: var(--crow-biru-400);
-  --crow-card-bg: var(--crow-surface-50);
 }
 
 body {
@@ -115,7 +114,6 @@ starlight-toc h2,
 mobile-starlight-toc .toggle,
 .pagination-links,
 .hero .actions a,
-.sl-badge,
 .right-sidebar-panel h2 {
   font-family: var(--__sl-font-mono);
   letter-spacing: -0.01em;
@@ -145,7 +143,7 @@ h1#_top {
   font-size: var(--sl-text-lg);
 }
 
-/* Small uppercase mono labels, as in the app's section headings. */
+/* Sidebar group labels and "On this page": the only uppercase labels in the docs. */
 .sidebar-content .group-label .large,
 starlight-toc h2 {
   font-size: 0.75rem;
@@ -193,14 +191,6 @@ header.header {
   border-bottom: 1px solid var(--sl-color-hairline);
 }
 
-/* Badges: mono, squared. */
-.sl-badge {
-  border-radius: 0.25rem;
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
 /* Inline code: quiet surface, no border noise. */
 .sl-markdown-content :not(pre) > code {
   border-radius: 0.25rem;
@@ -208,7 +198,7 @@ header.header {
   overflow-wrap: anywhere;
 }
 
-/* Tables are first-class: dense rows, hairlines, sticky-feeling header, right-aligned numbers. */
+/* Tables are first-class: dense rows, hairlines, right-aligned numbers. */
 .sl-markdown-content table {
   font-size: var(--sl-text-sm);
   border-collapse: collapse;
@@ -220,11 +210,9 @@ header.header {
 }
 .sl-markdown-content th {
   font-family: var(--__sl-font-mono);
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--sl-color-gray-3);
+  color: var(--sl-color-white);
   background: transparent;
   border-bottom: 1px solid var(--sl-color-gray-5);
 }
@@ -243,9 +231,7 @@ header.header {
 }
 .starlight-aside__title {
   font-family: var(--__sl-font-mono);
-  font-size: 0.8125rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 0.875rem;
 }
 .starlight-aside--note {
   --sl-color-asides-border: var(--crow-biru-400);
@@ -260,29 +246,14 @@ header.header {
   --sl-color-asides-border: var(--crow-danger-200);
 }
 
-/* Cards: hairline, flat. */
-.card {
-  border: 1px solid var(--sl-color-hairline) !important;
-  border-radius: 0.5rem;
-  background: var(--crow-card-bg) !important;
-  box-shadow: none;
+/* Home page: one reading column under the hero, and the version caveat close to it. */
+[data-has-hero] .sl-markdown-content {
+  max-width: 48rem;
 }
-.card .title {
-  font-family: var(--__sl-font-mono);
-  font-size: var(--sl-text-base) !important;
-  font-weight: 600;
-}
-.card .icon {
-  border: 1px solid var(--sl-color-hairline) !important;
-  background: var(--crow-kuning-50) !important;
-  color: var(--crow-ink) !important;
-}
-.link-card {
-  border-radius: 0.5rem !important;
-  box-shadow: none !important;
-}
-.link-card:hover {
-  border-color: var(--crow-emphasis-border) !important;
+@media (min-width: 50rem) {
+  [data-has-hero] .hero {
+    padding-block-end: 1.5rem;
+  }
 }
 
 /* Hero (home page): the primary action is the one hard-shadow emphasis surface. */
@@ -306,13 +277,17 @@ header.header {
   border: 2px solid var(--crow-ink);
   box-shadow: 4px 4px 0 0 var(--crow-ink);
 }
-:root:not([data-theme="light"]) .hero .actions a.primary {
-  box-shadow: 4px 4px 0 0 var(--crow-kuning-300);
-  border-color: var(--crow-ink);
-}
 .hero .actions a.primary:hover {
   transform: translate(1px, 1px);
   box-shadow: 3px 3px 0 0 var(--crow-ink);
+}
+/* Dark: an ink shadow would vanish on the dark page and a yellow one smudges into the button, so
+   the offset is light grey, the same hard edge inverted. */
+:root:not([data-theme="light"]) .hero .actions a.primary {
+  box-shadow: 4px 4px 0 0 var(--sl-color-gray-3);
+}
+:root:not([data-theme="light"]) .hero .actions a.primary:hover {
+  box-shadow: 3px 3px 0 0 var(--sl-color-gray-3);
 }
 .hero .actions a.secondary,
 .hero .actions a.minimal {
@@ -329,6 +304,19 @@ site-search dialog {
 site-search button[data-open-modal] {
   border-radius: 0.375rem;
 }
+/* The search button's "Search" text names it (see the script in astro.config.mjs). Phones show only
+   the icon, so there the text is hidden visually but still read out. */
+@media (max-width: 49.99rem) {
+  site-search .crow-search-label {
+    display: block;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 
 /* Screenshots: hairline frame, never a drop shadow. */
 .sl-markdown-content img {
@@ -336,15 +324,13 @@ site-search button[data-open-modal] {
   border-radius: 0.375rem;
 }
 
-/* Status pill used by "Coming soon" pages and verification labels. */
+/* Pill for an exception in the permission matrix ("module not built"). */
 .crow-pill {
   display: inline-block;
   font-family: var(--__sl-font-mono);
   font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 0.1rem 0.4rem;
+  font-weight: 500;
+  padding: 0.05rem 0.4rem;
   border-radius: 0.25rem;
   border: 1px solid currentColor;
   vertical-align: middle;
@@ -352,25 +338,62 @@ site-search button[data-open-modal] {
 .crow-pill--soon {
   color: var(--sl-color-gray-2);
 }
-.crow-pill--tested {
-  color: var(--crow-success-300);
-}
-.crow-pill--untested {
-  color: var(--crow-warning-400);
-}
-:root:not([data-theme="light"]) .crow-pill--tested {
-  color: hsl(119 45% 62%);
-}
-:root:not([data-theme="light"]) .crow-pill--untested {
-  color: hsl(34 85% 64%);
-}
 
-/* Permission matrix */
+/* Permission matrix. Permission names never break mid-word, and the role header stays in view. Where
+   the matrix fits (container query on the wrapper), the header sticks under the page header as the
+   page scrolls. Where it doesn't (phones, narrow windows), the matrix scrolls in its own box with
+   the header and the permission column pinned. */
 .crow-matrix-wrap {
-  overflow-x: auto;
+  container-type: inline-size;
 }
-.crow-matrix {
+.crow-matrix-scroll {
+  max-height: 80vh;
+  overflow: auto;
+  border-block: 1px solid var(--sl-color-hairline);
+}
+.sl-markdown-content table.crow-matrix {
+  display: table;
+  overflow: visible;
   width: 100%;
+  margin: 0;
+}
+.sl-markdown-content .crow-matrix code {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.sl-markdown-content .crow-matrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--sl-color-bg);
+}
+.sl-markdown-content .crow-matrix th[scope="row"] {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background: var(--sl-color-bg);
+}
+.sl-markdown-content .crow-matrix thead th:first-child {
+  inset-inline-start: 0;
+  z-index: 3;
+}
+.crow-matrix-group {
+  position: sticky;
+  inset-inline-start: 0.75rem;
+}
+@container (min-width: 44rem) {
+  .crow-matrix-scroll {
+    max-height: none;
+    overflow: visible;
+    border-block: 0;
+  }
+  .sl-markdown-content .crow-matrix thead th {
+    top: var(--sl-nav-height);
+  }
+  .sl-markdown-content .crow-matrix th[scope="row"],
+  .crow-matrix-group {
+    position: static;
+  }
 }
 .crow-matrix td.cell {
   text-align: center;
@@ -469,21 +492,16 @@ site-search button[data-open-modal] {
 }
 .api-meta dt {
   font-family: var(--__sl-font-mono);
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--sl-color-gray-3);
+  font-size: 0.75rem;
+  font-weight: 600;
   min-width: 9rem;
-  padding-top: 0.15rem;
+  padding-top: 0.1rem;
 }
 .api-meta dd {
   margin: 0;
 }
 .api-sub {
-  font-size: 0.75rem !important;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-sm) !important;
   margin-top: 1.25rem !important;
 }
 .api-table-wrap {
@@ -547,19 +565,20 @@ site-search button[data-open-modal] {
   font-size: 0.75rem;
   color: var(--sl-color-gray-3);
 }
+.field-optional {
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-gray-3);
+}
+/* The one flag on a field: it is sensitive (left out for readers without access). */
 .field-flag {
   font-family: var(--__sl-font-mono);
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--sl-color-gray-3);
-  border: 1px solid var(--sl-color-gray-5);
+  font-size: 0.6875rem;
+  border: 1px solid currentColor;
   border-radius: 0.2rem;
   padding: 0 0.25rem;
 }
 .field-flag--sensitive {
   color: var(--crow-warning-400);
-  border-color: currentColor;
 }
 :root:not([data-theme="light"]) .field-flag--sensitive {
   color: hsl(34 85% 64%);

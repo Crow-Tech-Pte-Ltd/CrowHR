@@ -3,8 +3,6 @@ title: In-browser demo
 description: How Crow HR's in-browser demo works - the real app and API running in your browser against fictional data - what differs from a self-hosted install, and where to try it (hr.crow.sg).
 ---
 
-<span class="crow-pill crow-pill--tested">Live at hr.crow.sg</span>
-
 Crow HR has an in-browser demo: the same web app and the same API code that a self-hosted install runs, started inside the visitor's browser instead of on a server. Try it at **[hr.crow.sg](https://hr.crow.sg/)**, next to these docs. You can also build and open it on your own machine (see [running it locally](#running-it-locally)) or [install Crow HR](/docs/quick-start/).
 
 ![The demo's sign-in page: a banner saying it runs entirely in your browser, and five personas to sign in as with one click (fictional company)](../../assets/screens/demo-personas.webp)
@@ -18,9 +16,9 @@ Crow HR has an in-browser demo: the same web app and the same API code that a se
 
 ## The demo company
 
-Kopi Kaki Pte. Ltd. is a fictional café group with an office, a central kitchen and three outlets: 27 people across citizens, permanent residents in their first, second and later years, Employment Pass, S Pass and Work Permit holders, every self-help group fund, part-timers and employees on each CPF age boundary. Every name, NRIC/FIN, bank account and email address is invented.
+Kopi Kaki Pte. Ltd. is a fictional café group with an office, a central kitchen and three outlets. 25 people work there (one starts in November) and two left this year. They include citizens, permanent residents in their first, second and later years, Employment Pass, S Pass and Work Permit holders, every self-help group fund, part-timers and employees on each CPF age boundary. Every name, NRIC/FIN, bank account and email address is invented.
 
-July to September 2026 payroll is approved and paid; October is a computed draft with warnings. Published rosters cover October and the next week at all three outlets, with OPN, AM, MID and PM shifts. October clock-ins include late arrivals and overtime approved by managers; that OT feeds the October draft through attendance. Siti has a shift swap waiting in her Inbox. Recent hires have generated KET PDFs; Darren and Jun Jie have terms to acknowledge. HR can review a fictional work-pass document expiring on 20 Nov. The payroll cost report draws on the three paid months. Everyone has a preferred name, managers are classified as managers, and every persona has work on Home. The history was created through the real services and the public API, as the person who would have done each step.
+Payroll for July to September 2026 is approved and paid. October is a draft run with warnings, and it already includes the overtime that managers approved from October's clock-ins. Rosters are published for October and the following week at the three outlets.
 
 Sign in with one click as one of five personas, or type any seeded account's email with the shared password `kopi-kaki-demo`:
 
@@ -32,6 +30,12 @@ Sign in with one click as one of five personas, or type any seeded account's ema
 | Manager | Siti Nurhaliza binte Osman | Jurong Point outlet supervisor. Approves her team's claims, leave and a pending shift swap. |
 | Employee | Goh Jun Jie | Barista at Tanjong Pagar. Payslips, claims, schedule and a document to acknowledge. |
 
+Three things to try:
+
+- As **Payroll admin**, open the October run and pick an employee to see how their CPF was worked out, step by step, with links to CPF's rate tables.
+- As **Manager**, approve the shift swap waiting in the Inbox. The two shifts then move on the Jurong Point roster in **Schedules**.
+- As **Employee**, acknowledge the updated terms waiting on Home, then open a payslip.
+
 ## What differs from a self-hosted install
 
 | Area | In the demo | Self-hosted |
@@ -41,12 +45,12 @@ Sign in with one click as one of five personas, or type any seeded account's ema
 | Email | Nothing is sent. Messages appear in the **Demo outbox** (from the banner), so invitation and reset links still work. | Sent over SMTP if configured. |
 | Passwords | PBKDF2 in a demo-only format that a real server refuses. | argon2id. |
 | Encryption at rest | NRIC/FIN and bank numbers are encrypted with a throwaway key included with the fictional snapshot and stored next to the database. The fallback seed creates a fresh key. Fine for invented data, never a pattern for real data. | Encrypted with the server's `CROWHR_SECRET_KEY`. |
-| Date | The company lives on 31 Oct 2026: the clock starts there at your Singapore time of day, then runs normally. Reset re-anchors it. | The real date. |
+| Date | The company lives on Saturday 31 Oct 2026: every visit starts there at 11:30 Singapore time, after the outlets' morning crews have clocked in, and the clock then runs normally. Reset re-anchors it. | The real date. |
 | Uploaded files | Stored in the browser database. | Stored on the server's disk volume. |
 | Background jobs | Reminders, escalations and the outbox run every 30 seconds while a demo tab is open, and catch up on the next visit. | Every 60 seconds in the server process. |
 | Backups and system status | Not applicable. | Daily `pg_dump` to the backups volume. |
 
-## Good to know
+## Known differences
 
 - Every run shows the `YTD_BEFORE_CROWHR_MISSING` warning on purpose: the January–June opening balances are not imported, as for a company that moved to Crow HR mid-year.
 - Receipt previews and PDF or CSV downloads go through a service worker. Where service workers are unavailable (some private-browsing modes), those previews and downloads fail; everything else works.
@@ -61,8 +65,10 @@ From a checkout, with [Bun](https://bun.sh) installed:
 
 ```sh
 bun install
-bun run demo:site                                    # builds the demo and these docs into apps/demo/dist-site
-node apps/demo/scripts/serve.ts apps/demo/dist-site  # http://127.0.0.1:5181
+# build the demo and these docs into apps/demo/dist-site
+bun run demo:site
+# serve them at http://127.0.0.1:5181
+node apps/demo/scripts/serve.ts apps/demo/dist-site
 ```
 
 The preview server applies the same headers and redirects as the static host would. Keep it on your own machine: the demo has a shared password and no real security, by design.
