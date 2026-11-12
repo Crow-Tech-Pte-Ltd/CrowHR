@@ -10,6 +10,7 @@ import {
   formatDate,
   StatusPill,
   Textarea,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -258,9 +259,7 @@ export function TimesheetStatusCard({
     >
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-200">
-            Timesheet
-          </span>
+          <span className={textStyle.group}>Timesheet</span>
           <TimesheetStatusPill status={row.status} />
           {row.status === "approved" ? <Lock className="size-3.5 text-primary-300" aria-label="Locked" /> : null}
         </div>

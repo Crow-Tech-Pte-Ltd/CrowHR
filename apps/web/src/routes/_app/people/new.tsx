@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle, Button, FormField, MoneyInput, toast } from "@crowhr/ui";
+import { Alert, AlertDescription, AlertTitle, Button, cn, FormField, MoneyInput, textStyle, toast } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, UserPlus } from "lucide-react";
@@ -207,6 +207,8 @@ function NewEmployeePage() {
               required
               value={f.prStartDate}
               onChange={set("prStartDate")}
+              max={today()}
+              yearPicker
               error={e("person.prStartDate")}
               hint="The SPR status date on the ICA entry permit. CPF rates depend on it."
             />
@@ -230,7 +232,15 @@ function NewEmployeePage() {
             autoComplete="off"
             hint="Stored encrypted and shown masked."
           />
-          <DateInput label="Date of birth" required value={f.dob} onChange={set("dob")} error={e("person.dob")} />
+          <DateInput
+            label="Date of birth"
+            required
+            value={f.dob}
+            onChange={set("dob")}
+            error={e("person.dob")}
+            max={today()}
+            yearPicker
+          />
           <SelectInput
             label="Gender"
             value={f.gender}
@@ -291,6 +301,7 @@ function NewEmployeePage() {
             value={f.hireDate}
             onChange={set("hireDate")}
             error={e("job.hireDate")}
+            yearPicker
           />
           <AgeConditions dob={f.dob} startDate={f.hireDate} />
           <TextInput
@@ -362,6 +373,7 @@ function NewEmployeePage() {
             label="Probation ends"
             value={f.probationEnd}
             onChange={set("probationEnd")}
+            min={f.hireDate || undefined}
             error={e("job.probationEnd")}
           />
           <Part4Fields
@@ -414,6 +426,8 @@ function NewEmployeePage() {
               label="Issued on"
               value={f.passIssuedOn}
               onChange={set("passIssuedOn")}
+              max={today()}
+              yearPicker
               error={e("workPass.issuedOn")}
             />
             <DateInput
@@ -421,6 +435,7 @@ function NewEmployeePage() {
               required
               value={f.passExpiresOn}
               onChange={set("passExpiresOn")}
+              yearPicker
               error={e("workPass.expiresOn")}
             />
           </FormSection>
@@ -494,7 +509,7 @@ function FormSection({
 }) {
   return (
     <fieldset className="grid gap-4 rounded-lg border border-border bg-surface-50 p-4 sm:grid-cols-2 sm:p-5">
-      <legend className="-ml-1 px-1 font-azeret text-2xs font-semibold uppercase tracking-wider">{title}</legend>
+      <legend className={cn(textStyle.section, "-ml-1 px-1")}>{title}</legend>
       {description ? <p className="-mt-2 text-ui text-primary-300 sm:col-span-2">{description}</p> : null}
       {children}
     </fieldset>

@@ -16,7 +16,7 @@ import {
 } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CheckCircle2, Plane, Send } from "lucide-react";
+import { Plane } from "lucide-react";
 import * as React from "react";
 import { useMe } from "../../auth/session.ts";
 import { PageHeader } from "../../components/page-header.tsx";
@@ -206,8 +206,7 @@ function DecideView({ selectedTaskId }: { selectedTaskId?: string }) {
   if (!items.length) {
     return (
       <EmptyState
-        icon={<CheckCircle2 />}
-        title="Nothing waiting for you"
+        title="Nothing is waiting for your decision."
         description="When someone needs your approval, or you're covering for a colleague, their request shows here."
       />
     );
@@ -358,8 +357,7 @@ function MineView({ selectedId }: { selectedId?: string }) {
   if (!items.length && !selectedId) {
     return (
       <EmptyState
-        icon={<Send />}
-        title="You haven't sent any requests"
+        title="You haven't sent any requests."
         description="Leave, claims and other requests you submit show here with who they're waiting on."
       />
     );
@@ -387,7 +385,10 @@ function MineView({ selectedId }: { selectedId?: string }) {
                       : `Sent ${ageLabel(r.submittedAt, today)}`}
                   </span>
                 </span>
-                <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+                {/* "Waiting for …" already says a pending request is pending. */}
+                {r.status === "pending" && r.waitingOn ? null : (
+                  <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+                )}
               </button>
             </li>
           ))}

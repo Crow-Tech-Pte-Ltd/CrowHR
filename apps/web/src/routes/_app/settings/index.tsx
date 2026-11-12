@@ -1,4 +1,4 @@
-import { Card } from "@crowhr/ui";
+import { Card, cn, textStyle } from "@crowhr/ui";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import { can, canForAll, useMe } from "../../../auth/session.ts";
@@ -162,10 +162,7 @@ function SettingsPage() {
       <div className="flex flex-col gap-8">
         {visible.map((group) => (
           <section key={group.id} aria-labelledby={`settings-${group.id}`}>
-            <h2
-              id={`settings-${group.id}`}
-              className="mb-2 font-azeret text-xs font-semibold uppercase tracking-wider text-primary-300"
-            >
+            <h2 id={`settings-${group.id}`} className={cn("mb-2", textStyle.section)}>
               {group.title}
             </h2>
             <Card className="divide-y divide-ink/10">

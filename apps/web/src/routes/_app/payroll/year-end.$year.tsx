@@ -1,7 +1,7 @@
-import { Button, Card, type ColumnDef, DataTable, EmptyState, formatMoney } from "@crowhr/ui";
+import { Button, Card, type ColumnDef, DataTable, EmptyState, formatMoney, textStyle } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, ExternalLink, Gift, LineChart, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Plus } from "lucide-react";
 import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
@@ -201,7 +201,7 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
       ) : (
         <>
           <section aria-labelledby="totals-title" className="mb-8">
-            <h2 id="totals-title" className="mb-1 font-azeret text-xs font-semibold uppercase tracking-wider">
+            <h2 id="totals-title" className={`mb-1 ${textStyle.section}`}>
               IR8A totals
             </h2>
             <p className="mb-3 max-w-2xl text-ui text-primary-300">
@@ -218,13 +218,19 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
               data={q.data?.employees ?? []}
               loading={q.isPending}
               getRowId={(t) => t.employeeId}
-              empty={<p className="px-4 py-3 text-ui text-primary-300">No appendix records in {year} yet.</p>}
+              empty={
+                <EmptyState
+                  variant="plain"
+                  title={`No appendix records in ${year} yet.`}
+                  description="Each employee with a benefit or share gain below gets a row here."
+                />
+              }
             />
           </section>
           <section aria-labelledby="a8a-title" className="mb-8">
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
-                <h2 id="a8a-title" className="font-azeret text-xs font-semibold uppercase tracking-wider">
+                <h2 id="a8a-title" className={textStyle.section}>
                   Appendix 8A: benefits-in-kind
                 </h2>
                 <p className="mt-1 max-w-2xl text-ui text-primary-300">
@@ -244,10 +250,12 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
               empty={
                 <EmptyState
                   variant="plain"
-                  icon={<Gift />}
-                  title={`No benefits-in-kind recorded for ${year}`}
-                  description="Record each place of residence, hotel stay, car or other benefit the employer provided. Crow HR values housing and cars with IRAS's formulas."
-                  actions={addBenefit}
+                  title={`No benefits-in-kind recorded for ${year}.`}
+                  description={
+                    canEdit
+                      ? "Add each place of residence, hotel stay, car or other benefit the employer provided with Add benefit. Crow HR values housing and cars with IRAS's formulas."
+                      : "A payroll admin records each place of residence, hotel stay, car or other benefit here."
+                  }
                 />
               }
             />
@@ -255,7 +263,7 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
           <section aria-labelledby="a8b-title" className="mb-8">
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
-                <h2 id="a8b-title" className="font-azeret text-xs font-semibold uppercase tracking-wider">
+                <h2 id="a8b-title" className={textStyle.section}>
                   Appendix 8B: share-plan gains
                 </h2>
                 <p className="mt-1 max-w-2xl text-ui text-primary-300">
@@ -275,10 +283,12 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
               empty={
                 <EmptyState
                   variant="plain"
-                  icon={<LineChart />}
-                  title={`No share-plan gains recorded for ${year}`}
-                  description="Record each exercise of an option, or each vesting or grant of shares, with the prices in S$."
-                  actions={addGain}
+                  title={`No share-plan gains recorded for ${year}.`}
+                  description={
+                    canEdit
+                      ? "Add each exercise of an option, or each vesting or grant of shares, with Add share gain and the prices in S$."
+                      : "A payroll admin records each exercise of an option, or each vesting or grant of shares, here."
+                  }
                 />
               }
             />

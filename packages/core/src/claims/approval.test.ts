@@ -54,6 +54,14 @@ describe("claims × workflows (SubjectAdapter)", () => {
     expect((await submit([line(transport)])).claimNumber).toBe("C-0002");
   });
 
+  it("the request takes the claim's own title, except for a medical claim", async () => {
+    const titled = await json(
+      await staff.post("/api/v1/claims", { title: "Milk run for the outlet", lines: [line(transport)], submit: true }),
+    );
+    const [req] = await w.deps.db.select().from(approvalRequests).where(eq(approvalRequests.subjectId, titled.id));
+    expect(req?.title).toBe("Milk run for the outlet");
+  });
+
   it("an amount-threshold policy adds an owner step", async () => {
     await managerOnlyPolicy(w, [
       {

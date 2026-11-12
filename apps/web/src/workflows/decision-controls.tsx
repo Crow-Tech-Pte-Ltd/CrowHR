@@ -146,12 +146,15 @@ export function DecisionButtons({
   );
 }
 
+/** A chip only when the date needs attention (overdue, today, tomorrow); a later due date is plain text. */
 export function DuePill({ dueOn, today, short }: { dueOn: string | null; today: string; short?: boolean }) {
   const due = dueLabel(dueOn, today, { short });
   if (!due) return null;
+  if (due.tone === "neutral")
+    return <span className="num whitespace-nowrap text-2xs text-primary-300">{due.text}</span>;
   return (
-    <StatusPill tone={due.tone} dot={due.tone !== "neutral"}>
-      <span className="num normal-case">{due.text}</span>
+    <StatusPill tone={due.tone}>
+      <span className="num">{due.text}</span>
     </StatusPill>
   );
 }
@@ -160,8 +163,8 @@ export function OriginBadge({ origin, onBehalfOf }: { origin: TaskOrigin; onBeha
   const label = ORIGIN_LABEL[origin];
   if (!label) return null;
   return (
-    <StatusPill tone={origin === "escalated" ? "warning" : "info"} dot={false}>
-      <span className="normal-case">{origin === "delegated" && onBehalfOf ? `Covering for ${onBehalfOf}` : label}</span>
+    <StatusPill tone={origin === "escalated" ? "warning" : "info"}>
+      {origin === "delegated" && onBehalfOf ? `Covering for ${onBehalfOf}` : label}
     </StatusPill>
   );
 }

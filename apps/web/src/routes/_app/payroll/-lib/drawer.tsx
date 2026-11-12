@@ -2,6 +2,7 @@ import type { PayrollEmployeeDetailDto, PayrollItemDto, PayrollOverviewDto, Payr
 import {
   Button,
   cn,
+  DatePicker,
   FormField,
   formatDate,
   formatMoney,
@@ -17,6 +18,7 @@ import {
   SheetDescription,
   SheetTitle,
   Skeleton,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +32,7 @@ import {
   errorMessage,
   fieldErrors,
   invalidateRun,
+  runsQuery,
   updateItem,
 } from "./api.ts";
 import { type DrawerTask, fixesFor } from "./fixes.ts";
@@ -124,8 +127,8 @@ export function EmployeeDrawer({
             <SheetTitle className="truncate text-base font-semibold">
               {row?.name ?? detail.data?.employeeName ?? "Employee"}
             </SheetTitle>
-            <SheetDescription className="font-azeret text-[10px] uppercase tracking-wide text-primary-200">
-              {row?.employeeNumber} {row?.department ? `· ${row.department}` : ""}
+            <SheetDescription className="text-2xs text-primary-200">
+              <span className="num">{row?.employeeNumber}</span> {row?.department ? `· ${row.department}` : ""}
             </SheetDescription>
           </div>
           <div className="flex shrink-0 gap-1">
@@ -160,7 +163,14 @@ export function EmployeeDrawer({
               {errorMessage(detail.error)}
             </p>
           ) : (
-            <DrawerBody d={detail.data} runId={runId} editable={run.status === "draft"} task={task} onTask={onTask} />
+            <DrawerBody
+              d={detail.data}
+              runId={runId}
+              editable={run.status === "draft"}
+              task={task}
+              onTask={onTask}
+              period={{ start: run.periodStart, end: run.periodEnd }}
+            />
           )}
         </div>
       </SheetContent>
@@ -169,11 +179,44 @@ export function EmployeeDrawer({
 }
 
 function H({ children }: { children: React.ReactNode }) {
+  return <h3 className={cn("mb-1.5 mt-5 first:mt-0", textStyle.group)}>{children}</h3>;
+}
+
+/** "the September 2026 payroll (run 783e261c)" in a working line → a link to that run, without its ID. */
+const RUN_REF = /(the [A-Z][a-z]+ \d{4} (?:payroll|[a-z-]+ run)) \(run ([0-9a-f]{8})\)/;
+
+function WorkingText({ text }: { text: string }) {
+  const m = RUN_REF.exec(text);
+  const runs = useQuery({ ...runsQuery, enabled: !!m });
+  if (!m) return <>{text}</>;
+  const [whole, label = "", suffix = ""] = m;
+  const run = runs.data?.items.find((r) => r.id.endsWith(suffix));
   return (
-    <h3 className="mb-1.5 mt-5 font-azeret text-[10px] font-semibold uppercase tracking-wider text-primary-300 first:mt-0">
-      {children}
-    </h3>
+    <>
+      {text.slice(0, m.index)}
+      {run ? (
+        <Link
+          to="/payroll/runs/$runId"
+          params={{ runId: run.id }}
+          className="focus-ring rounded-sm text-biru-400 underline-offset-2 hover:underline"
+        >
+          {label}
+        </Link>
+      ) : (
+        label
+      )}
+      {text.slice(m.index + whole.length)}
+    </>
   );
+}
+
+/**
+ * A rule's ID when a person can read it ("1.5 × hourly basic", "CPF Act s 7(9)", "S$8,000.00").
+ * Internal codes ("CPF_2026_SPR2_FG") and IDs that only repeat the start date stay in the tooltip
+ * and the "Rule IDs" list.
+ */
+function readableRuleId(rule: { id: string; effectiveFrom: string }): string | null {
+  return rule.id.includes("_") || rule.id.endsWith(rule.effectiveFrom) ? null : rule.id;
 }
 
 function DrawerBody({
@@ -182,12 +225,14 @@ function DrawerBody({
   editable,
   task,
   onTask,
+  period,
 }: {
   d: PayrollEmployeeDetailDto;
   runId: string;
   editable: boolean;
   task: DrawerTask | null;
   onTask: (task: DrawerTask | null) => void;
+  period: { start: string; end: string };
 }) {
   const r = d.result;
   const input = d.input as Record<string, unknown> | null;
@@ -229,7 +274,7 @@ function DrawerBody({
                     {l.label}
                     {l.detail ? <span className="block text-2xs text-primary-300">{l.detail}</span> : null}
                   </td>
-                  <td className="py-1.5 pr-2 font-azeret text-[10px] uppercase text-primary-200">
+                  <td className="whitespace-nowrap py-1.5 pr-2 text-2xs text-primary-200">
                     {l.kind === "employer"
                       ? "Employer"
                       : l.wageClass
@@ -270,7 +315,7 @@ function DrawerBody({
 
           {r.cpf ? (
             <>
-              <H>CPF at a glance</H>
+              <H>CPF summary</H>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-ui sm:grid-cols-3">
                 <Fact k="Category" v={cpfCategoryLabel(r.cpf.residencyCategory)} />
                 <Fact k="Age band" v={r.cpf.ageBandLabel ?? "–"} />
@@ -297,16 +342,20 @@ function DrawerBody({
           <div className="flex flex-col gap-3">
             {SECTION_ORDER.filter((s) => r.working.some((w) => w.section === s)).map((s) => (
               <div key={s} className="rounded-md border border-border">
-                <p className="border-b border-border bg-surface-100 px-3 py-1 font-azeret text-[10px] font-semibold uppercase tracking-wider">
+                <p className={cn("border-b border-border bg-surface-100 px-3 py-1", textStyle.group)}>
                   {SECTION_TITLE[s]}
                 </p>
                 <ol className="flex flex-col divide-y divide-border">
                   {r.working
                     .filter((w) => w.section === s)
                     .map((w) => (
-                      <li key={`${w.code}-${w.text}`} className="px-3 py-1.5 text-ui leading-5">
-                        {w.text}
-                        <span className="ml-2 font-azeret text-[9px] uppercase text-primary-200">{w.code}</span>
+                      <li
+                        key={`${w.code}-${w.text}`}
+                        data-code={w.code}
+                        title={`Rule ID ${w.code}`}
+                        className="px-3 py-1.5 text-ui leading-5"
+                      >
+                        <WorkingText text={w.text} />
                       </li>
                     ))}
                 </ol>
@@ -317,7 +366,7 @@ function DrawerBody({
           <H>Rules used</H>
           <table className="w-full text-ui">
             <thead>
-              <tr className="border-b border-border text-left font-azeret text-[10px] uppercase tracking-wider text-primary-200">
+              <tr className={cn("border-b border-border text-left", textStyle.column)}>
                 <th className="py-1 pr-2 font-medium">Rule</th>
                 <th className="py-1 pr-2 font-medium">In force</th>
                 <th className="py-1 font-medium">Source</th>
@@ -326,9 +375,11 @@ function DrawerBody({
             <tbody>
               {r.rules.map((rule) => (
                 <tr key={`${rule.family}-${rule.id}`} className="border-b border-border last:border-b-0">
-                  <td className="py-1.5 pr-2">
+                  <td className="py-1.5 pr-2" title={`Rule ID ${rule.id}`}>
                     {rule.family}
-                    <span className="block font-azeret text-[10px] text-primary-300">{rule.id}</span>
+                    {readableRuleId(rule) ? (
+                      <span className="block text-2xs text-primary-300">{readableRuleId(rule)}</span>
+                    ) : null}
                   </td>
                   <td className="num whitespace-nowrap py-1.5 pr-2 text-2xs">
                     from {formatDate(rule.effectiveFrom)}
@@ -348,6 +399,17 @@ function DrawerBody({
               ))}
             </tbody>
           </table>
+          <details className="mt-2 text-2xs text-primary-300">
+            <summary className="focus-ring w-fit cursor-pointer rounded-sm">Rule IDs, for support</summary>
+            <p className="mt-1 break-words font-azeret">
+              {[
+                ...new Set([
+                  ...r.working.map((w) => w.code),
+                  ...r.rules.filter((rule) => !readableRuleId(rule)).map((rule) => rule.id),
+                ]),
+              ].join(" · ")}
+            </p>
+          </details>
         </>
       ) : (
         <p className="text-ui text-primary-300">Not computed yet. Compute the run to see the pay and its working.</p>
@@ -379,7 +441,7 @@ function DrawerBody({
         </dl>
       ) : null}
       {d.inputHash ? (
-        <p className="mt-2 break-all font-azeret text-[10px] text-primary-200">
+        <p className="mt-2 break-all font-azeret text-2xs text-primary-200">
           input sha256 {d.inputHash.slice(0, 16)}… · result sha256 {d.resultHash?.slice(0, 16)}…
         </p>
       ) : null}
@@ -399,6 +461,7 @@ function DrawerBody({
           employeeId={d.employeeId}
           initial={form}
           onClose={() => onTask(null)}
+          period={period}
         />
       ) : editable ? (
         <Button size="sm" className="mt-2" onClick={() => onTask({ kind: "add", itemKind: "bonus" })}>
@@ -412,7 +475,7 @@ function DrawerBody({
 function Fact({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
   return (
     <div className="min-w-0">
-      <dt className="font-azeret text-[10px] uppercase tracking-wide text-primary-200">{k}</dt>
+      <dt className={textStyle.field}>{k}</dt>
       <dd className={cn("truncate", mono && "num")}>{v}</dd>
     </div>
   );
@@ -468,7 +531,7 @@ function ItemList({
     <ul className="divide-y divide-border rounded-md border border-border">
       {items.map((i) => (
         <li key={i.id} className="flex items-center gap-2 px-3 py-1.5 text-ui">
-          <span className="w-24 shrink-0 font-azeret text-[10px] uppercase text-primary-200">{ITEM_KIND[i.kind]}</span>
+          <span className="w-24 shrink-0 text-2xs text-primary-200">{ITEM_KIND[i.kind]}</span>
           <span className="min-w-0 flex-1 truncate">
             {i.label}
             {i.wageClass ? (
@@ -536,7 +599,7 @@ function FedItems({
           const priced = claimId ? manual.find((m) => m.overtimeSourceId === claimId) : undefined;
           return (
             <li key={i.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 text-ui">
-              <span className="w-24 shrink-0 font-azeret text-[10px] uppercase text-primary-200">{source}</span>
+              <span className="w-24 shrink-0 text-2xs text-primary-200">{source}</span>
               <span className="min-w-0 flex-1">
                 {i.label}
                 {i.periodStart && i.periodEnd ? (
@@ -687,11 +750,14 @@ function ItemForm({
   employeeId,
   initial,
   onClose,
+  period,
 }: {
   runId: string;
   employeeId: string;
   initial: FormState;
   onClose: () => void;
+  /** The run's salary period: a date worked falls inside it. */
+  period?: { start: string; end: string };
 }) {
   const qc = useQueryClient();
   const [f, setF] = React.useState(initial);
@@ -749,7 +815,7 @@ function ItemForm({
         save.mutate();
       }}
     >
-      <p className="font-azeret text-[10px] font-semibold uppercase tracking-wider sm:col-span-2">{title}</p>
+      <p className={cn("sm:col-span-2", textStyle.group)}>{title}</p>
       {f.holidayDate ? (
         <p className="text-2xs text-primary-300 sm:col-span-2">
           The holiday falls on this employee's off day, so they get one extra day's pay at the gross rate of pay (basic
@@ -831,8 +897,9 @@ function ItemForm({
           label="AW payable on"
           error={errors.awPayableDate}
           hint="The date it became due and payable (CPF keys the AW ceiling to it)."
+          required
         >
-          <Input type="date" value={f.payable} onChange={(e) => set("payable", e.target.value)} required />
+          <DatePicker value={f.payable || null} onChange={(v) => set("payable", v ?? "")} />
         </FormField>
       ) : null}
       {(f.kind === "overtime" && !f.overtimeSourceId) || f.kind === "hours" ? (
@@ -851,7 +918,12 @@ function ItemForm({
           error={errors.date}
           hint="Needed when the hourly rate changes this month: add one item per rate, dated on or after the change."
         >
-          <Input type="date" value={f.workedOn} onChange={(e) => set("workedOn", e.target.value)} />
+          <DatePicker
+            value={f.workedOn || null}
+            onChange={(v) => set("workedOn", v ?? "")}
+            min={period?.start}
+            max={period?.end}
+          />
         </FormField>
       ) : null}
       {f.kind === "scheduled_days" || f.kind === "days_worked" ? (

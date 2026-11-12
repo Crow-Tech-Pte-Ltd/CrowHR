@@ -3,6 +3,7 @@ import {
   AlertDescription,
   Button,
   cn,
+  DatePicker,
   FormField,
   formatMoney,
   Input,
@@ -17,6 +18,7 @@ import {
   SheetDescription,
   SheetTitle,
   singaporeToday,
+  textStyle,
   toast,
   toIsoDate,
 } from "@crowhr/ui";
@@ -353,7 +355,7 @@ export function ClaimSheet({
               </FormField>
             ) : behalfName ? (
               <p className="mb-5 text-ui" data-testid="claim-for">
-                <span className="font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200">For </span>
+                <span className="text-primary-300">For </span>
                 {behalfName}
                 <span className="num text-primary-200">
                   {" "}
@@ -414,7 +416,7 @@ export function ClaimSheet({
           </div>
           <div className="flex items-center gap-2 border-t border-border bg-surface-50 px-4 py-3 sm:px-5">
             <div className="mr-auto min-w-0">
-              <p className="font-azeret text-[10px] uppercase tracking-wider text-primary-200">Total</p>
+              <p className={textStyle.field}>Total</p>
               <p className="num text-base font-semibold" data-testid="claim-total">
                 {formatMoney(total)}
               </p>
@@ -479,9 +481,7 @@ function LineEditor({
   return (
     <li className="flex flex-col gap-3" data-testid={`claim-line-${i}`}>
       <div className="flex items-center justify-between">
-        <p className="font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300">
-          {lineCount > 1 ? `Expense ${i + 1}` : "Expense"}
-        </p>
+        <h3 className={textStyle.group}>{lineCount > 1 ? `Expense ${i + 1}` : "Expense"}</h3>
         {lineCount > 1 ? (
           <Button type="button" variant="ghost" size="sm" onClick={onRemove} aria-label={`Remove expense ${i + 1}`}>
             <Trash2 aria-hidden /> Remove
@@ -672,13 +672,11 @@ function LineEditor({
           <Label htmlFor={id("date")} className="mb-1 block text-2xs">
             Date
           </Label>
-          <Input
+          <DatePicker
             id={id("date")}
-            type="date"
-            className="num"
             max={today()}
-            value={l.expenseDate}
-            onChange={(e) => onChange({ expenseDate: e.target.value })}
+            value={l.expenseDate || null}
+            onChange={(v) => onChange({ expenseDate: v ?? "" })}
             aria-invalid={!!err("expenseDate")}
           />
         </div>
