@@ -16,7 +16,6 @@
 Uses the Crow Tech team API key kept on the Mac (APPLE_KEY_ID, APPLE_ISSUER_ID, and APPLE_KEY_PATH
 or APPLE_SIGNING_SECRET_DIR containing AuthKey_<key id>.p8). JWTs and key material are never printed. Nothing is uploaded or submitted.
 Writes the read-back to apps/ios/store/apple-resources.json (public ids only).
-Owner approval to register: Daniel, 7 Nov 2026 ("yeah register the apps there").
 """
 import argparse
 import base64

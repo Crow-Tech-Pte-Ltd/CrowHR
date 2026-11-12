@@ -126,7 +126,7 @@ to production are done in Play Console, not by a script.
   location on). Data safety declares no data collected or shared (the app sends data only to the
   user's own company's server; Crow Tech receives nothing).
 - **Sent for review on 12 Nov 2026 (Play Console):** sign-in details for reviewers (the Hafiz and
-  Siti accounts, see `docs/store-review-server.md`), target audience 18 and over, Data safety,
+  Siti accounts, see `docs/sample-company.md`), target audience 18 and over, Data safety,
   app category Business, all 178 countries and regions, and the production release "2 (1.0.0)".
   Managed publishing is off, so it goes live once Google approves it.
 

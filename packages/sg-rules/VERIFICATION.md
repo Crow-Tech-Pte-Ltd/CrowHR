@@ -1,6 +1,6 @@
 # sg-rules verification record
 
-Last updated **31 Oct 2026**. This file records how the numbers in `src/tables/` and the test vectors were checked, every disagreement between the research (`research/sg-*.{md,json}`) and the independent verification (`research/verification/codex-verification.md`), and how each one was resolved. It is not legal advice.
+Last updated **31 Oct 2026**. This file records how the numbers in `src/tables/` and the test vectors were checked, every disagreement between the research (`research/sg-*.{md,json}`) and the independent verification (`research/verification/statutory-data-review.md`), and how each one was resolved. It is not legal advice.
 
 ## How the data was checked
 

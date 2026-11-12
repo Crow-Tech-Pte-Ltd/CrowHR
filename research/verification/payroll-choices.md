@@ -1,8 +1,10 @@
 # Payroll choices: independent verification
 
+> **Historical record.** An independent check of seven payroll design choices on 31 Oct 2026, against primary sources and the code as it was then. The corrections it called for were made (see the section references in `packages/core/src/payroll` and `packages/sg-rules`).
+
 As of **31 October 2026**. Scope: the seven requested legal/format choices, checked against primary sources and the actual implementation. **CORRECT** means the stated choice is supported; **WRONG** identifies a contradicted rule or demonstrable implementation defect; **UNCLEAR** means the available authority does not settle the narrower question. Separate rows distinguish supported rules from unsupported extensions.
 
-Read-only inputs: research/sg-regulatory.md, research/verification/codex-verification.md, packages/sg-rules/VERIFICATION.md, and working files in a development worktree. Worktree HEAD at inspection: **3a95ce330ae74f3a5518ce1df29d75074f40771c**; findings concern the working files, including any uncommitted work, rather than a claim that HEAD contains them.
+Read-only inputs: research/sg-regulatory.md, research/verification/statutory-data-review.md, packages/sg-rules/VERIFICATION.md, and working files in a development worktree. Worktree HEAD at inspection: **3a95ce330ae74f3a5518ce1df29d75074f40771c**; findings concern the working files, including any uncommitted work, rather than a claim that HEAD contains them.
 
 Code references below use **P** = packages/core/src/payroll/ inside that worktree; **W** = apps/web/src/routes/_app/payroll/-lib/ui.tsx. No implementation files were changed, no submissions were made, and no bank acceptance test was performed.
 

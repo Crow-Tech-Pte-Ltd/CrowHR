@@ -1,7 +1,7 @@
 /**
  * Adds the fictional sample company Kopi Kaki Pte. Ltd. (slug `kopi-kaki`, the public demo's
  * company) to a running Crow HR server as an additional organisation, for App Store / Google Play
- * review and sales demos. See docs/store-review-server.md.
+ * review and sales demos. See docs/sample-company.md.
  *
  *   node scripts/seed-sample-company.ts --credentials <new file> [--dry-run]
  *

@@ -1,5 +1,7 @@
 # Independent Singapore payroll verification
 
+> **Historical record.** An independent review of the statutory research data before the rules were coded, on 31 Oct 2026. Every finding below was resolved; how is recorded in [`packages/sg-rules/VERIFICATION.md`](../../packages/sg-rules/VERIFICATION.md). The current rules live in `packages/sg-rules`.
+
 Audit date: **31 October 2026**. Scope: the four supplied research files, read-only. All work products are in this directory.
 
 **The rule tables are not yet safe as an executable specification.** Most numeric transcriptions are correct, but payment-date semantics, SDL exceptions, historical AW adjustments, parental-leave conditions and several implementation recommendations need correction.

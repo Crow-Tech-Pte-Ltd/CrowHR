@@ -5,7 +5,7 @@ QuickHR is the functional benchmark; we do not copy its UI, code, assets or bran
 
 ## Hard rules
 
-1. **Nothing public without explicit approval from Daniel**: no deploys, no DNS, no `git push` to public remotes, no making repos public, no paid services. Local dev only.
+1. **Nothing goes live without explicit approval from Daniel**: no deploys (hr.crow.sg, servers), no DNS or Cloudflare changes, no store releases or submissions, no paid services. Pull requests are the exception: push a branch, open the PR, wait for green CI and squash-merge it yourself (standing approval, 10 Nov 2026). Merging doesn't deploy anything here.
 2. **Never mark placeholder or mocked functionality as done.** If something is stubbed, say so in code (`// NOT IMPLEMENTED:`), in the OpenSpec task list, and in `docs/limitations.md`.
 3. **Statutory numbers come from cited sources.** Every CPF/SDL/FWL/leave/overtime constant in `packages/sg-rules` carries an effective date and a source URL comment. No uncited magic numbers.
 4. **Money is integer cents** (`number`, must stay a safe integer). Never floats for money. Rounding is explicit and named (e.g. `roundHalfUpToDollar`).
@@ -58,16 +58,16 @@ The audience is an SME with one technical person, not a DevOps team.
 - SMTP is optional; everything works without email (invites show a copyable link).
 - Errors at startup tell the user exactly which variable is wrong and how to fix it.
 
-## Mobile apps (future milestone M4 — spec only for now)
+## Mobile apps
 
-Native, open source, in this repo: `apps/ios` (SwiftUI) and `apps/android` (Kotlin + Jetpack Compose), following the maintainers' mobile build/test/publish workflow (iOS builds on a Mac over SSH with `scripts/ios-*.sh`; Android on Linux with `scripts/android-*.sh`; privacy/support pages at `crow.sg/apps/crow-hr/{privacy,support}`; apps stay out of crow.sg global nav until launch).
+Native, open source, in this repo: `apps/ios` (SwiftUI) and `apps/android` (Kotlin + Jetpack Compose), built and tested with `scripts/ios-*.sh` (on a Mac over SSH) and `scripts/android-*.sh` (on Linux); see each app's README. Privacy and support pages: `crow.sg/apps/crow-hr/{privacy,support}`. Version 1.0.0 is on Google Play; the iPhone and iPad app is in App Store review.
 
 - The app connects **only to the company's own Crow HR server**: the user enters the server URL or scans a QR code from the web app. Crow Tech runs no backend for it.
 - **Zero data collection**: no analytics, no crash-reporting SDKs, no third-party SDKs that phone home. Store privacy labels: "Data Not Collected".
 - Sign-in uses whatever methods that server enables (password, Google, Microsoft, Singpass, OIDC) via the system browser (ASWebAuthenticationSession / Custom Tabs, PKCE). Biometric unlock for the stored session.
 - Scope: employee self-service + manager approvals — payslips, leave, clock-in (offline-tolerant queue, server-validated), claims with camera receipts, schedule, approvals inbox.
 - Consumes the same versioned REST API as the web app; the API must be documented (OpenAPI) and stable enough for mobile clients that lag server versions.
-- Open question: remote push notifications need a Crow-held APNs/FCM key → a relay would collect data. v1 uses in-app inbox + background refresh + local notifications; any relay is a separate, opt-in decision.
+- No remote push: it would need a Crow-held APNs/FCM key and a relay that sees data. The apps use the in-app inbox, background refresh and local notifications; any relay would be a separate, opt-in decision.
 
 ## Layout
 
@@ -75,7 +75,7 @@ Native, open source, in this repo: `apps/ios` (SwiftUI) and `apps/android` (Kotl
 apps/web  apps/server  apps/demo  apps/docs
 packages/core  packages/sg-rules  packages/ui  packages/demo
 openspec/      # specs + change proposals (source of truth for requirements)
-research/      # competitive + regulatory research with citations
+research/      # Singapore regulatory research and test vectors, with citations
 docs/          # repo-level docs (architecture, limitations) — user docs live in apps/docs
 ```
 
@@ -85,7 +85,7 @@ docs/          # repo-level docs (architecture, limitations) — user docs live 
 
 ## OpenSpec
 
-Requirements live in `openspec/specs/`. Substantial work starts as a change in `openspec/changes/<name>/` (proposal, design, specs delta, tasks) and is archived when done. Tick tasks in `tasks.md` as you complete them. Trivial fixes don't need a change.
+Requirements live in the changes under `openspec/changes/<name>/` (proposal, design, specs, tasks); none are archived yet. Substantial work starts as a new change there. Tick tasks in `tasks.md` as you complete them. Trivial fixes don't need a change.
 
 ## Design language (non-negotiable — avoid generic "AI dashboard" look)
 
