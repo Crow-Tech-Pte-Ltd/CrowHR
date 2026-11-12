@@ -178,6 +178,14 @@ export async function inviteHiredEmployee(
         }
       : { status: "emailed", inviteUrl: null, message: `We emailed a sign-in invitation to ${input.email}.` };
   } catch (err) {
+    if (err instanceof AppError && err.code === "disabled_in_demo") {
+      return {
+        status: "skipped",
+        inviteUrl: null,
+        message:
+          "The employee was added. Demo companies don't send invitations: sign in as the people already here from the sign-in page.",
+      };
+    }
     const existingId = (err as AppError).details as { membershipId?: string } | undefined;
     if (err instanceof AppError && err.code === "conflict" && existingId?.membershipId) {
       const membershipId = existingId.membershipId;

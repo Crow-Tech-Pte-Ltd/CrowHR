@@ -90,3 +90,58 @@ describe("demo Singpass round trip settings", () => {
     ).toThrow(/DEMO_SINGPASS_RETURN_URL must be a full http:\/\/ or https:\/\/ address/);
   });
 });
+
+describe("demo companies settings", () => {
+  const base = { PUBLIC_URL: "https://hr-demo.example.sg" };
+  it("is off by default", () => {
+    expect(loadConfig(base).demoCompanies).toBeNull();
+    expect(loadConfig({ ...base, DEMO_COMPANIES: "0" }).demoCompanies).toBeNull();
+  });
+
+  it("turns on with DEMO_COMPANIES=1 and the documented defaults", () => {
+    expect(loadConfig({ ...base, DEMO_COMPANIES: "1" }).demoCompanies).toEqual({
+      ttlHours: 72,
+      poolSize: 3,
+      maxLive: 300,
+      hourlyLimitPerNetwork: 5,
+      dailyLimitPerNetwork: 20,
+      uploadQuotaBytes: 25 * 1024 * 1024,
+    });
+    expect(
+      loadConfig({
+        ...base,
+        DEMO_COMPANIES: "true",
+        DEMO_COMPANY_TTL_HOURS: "24",
+        DEMO_COMPANY_POOL_SIZE: "0",
+        DEMO_COMPANY_MAX_LIVE: "50",
+        DEMO_COMPANY_HOURLY_LIMIT: "2",
+        DEMO_COMPANY_DAILY_LIMIT: "4",
+        DEMO_COMPANY_UPLOAD_QUOTA_MB: "10",
+      }).demoCompanies,
+    ).toEqual({
+      ttlHours: 24,
+      poolSize: 0,
+      maxLive: 50,
+      hourlyLimitPerNetwork: 2,
+      dailyLimitPerNetwork: 4,
+      uploadQuotaBytes: 10 * 1024 * 1024,
+    });
+  });
+
+  it("says exactly what is wrong", () => {
+    expect(() => loadConfig({ ...base, DEMO_COMPANIES: "maybe" })).toThrow(/DEMO_COMPANIES must be true or false/);
+    expect(() => loadConfig({ ...base, DEMO_COMPANIES: "1", DEMO_COMPANY_TTL_HOURS: "0" })).toThrow(
+      /DEMO_COMPANY_TTL_HOURS must be a whole number from 1 to 720/,
+    );
+    expect(() => loadConfig({ ...base, DEMO_COMPANIES: "1", DEMO_COMPANY_POOL_SIZE: "99" })).toThrow(
+      /DEMO_COMPANY_POOL_SIZE must be a whole number from 0 to 20/,
+    );
+    expect(() =>
+      loadConfig({ ...base, DEMO_COMPANIES: "1", DEMO_COMPANY_HOURLY_LIMIT: "30", DEMO_COMPANY_DAILY_LIMIT: "10" }),
+    ).toThrow(/DEMO_COMPANY_HOURLY_LIMIT \(30\) is more than DEMO_COMPANY_DAILY_LIMIT \(10\)/);
+    // A demo-company setting without the mode is a mistake worth stopping for.
+    expect(() => loadConfig({ ...base, DEMO_COMPANY_TTL_HOURS: "24" })).toThrow(
+      /DEMO_COMPANY_TTL_HOURS is set but DEMO_COMPANIES is off/,
+    );
+  });
+});

@@ -23,6 +23,8 @@ export interface Me {
   hasPassword: boolean;
   insecureTransport: boolean;
   demoMode: boolean;
+  /** Set in a demo company: fictional data, deleted with everything at `expiresAt`. */
+  demoCompany: { expiresAt: string } | null;
   mailerConfigured: boolean;
   /** PUBLIC_URL without a trailing slash (the mobile app connects to it). */
   publicUrl: string;
@@ -34,6 +36,8 @@ export interface SignInMethods {
   password: { enabled: boolean };
   providers: { id: string; kind: ProviderKind; displayName: string; allowedDomains: string[] }[];
   demoMode: boolean;
+  /** A live demo company (demo-companies): pick a person, no password or single sign-on. */
+  demoCompany: { expiresAt: string } | null;
   /** The official Singpass logo for the Singpass button, when the deployer supplied it. */
   singpassLogoUrl: string | null;
 }

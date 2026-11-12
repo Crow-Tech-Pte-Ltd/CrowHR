@@ -103,6 +103,16 @@ crowhr admin reset-owner-password --org <slug> --email <email> [--reset-mfa]
 
 `verify-audit` checks that the audit log's SHA-256 hash chain is intact and reports the first broken link: an altered event or a gap in the sequence. It does not detect events removed from the end of the log. `reset-owner-password` is the same as `create-reset-link` (with `--reset-mfa`, the same as `reset-owner-mfa`).
 
+## Demo companies
+
+### demo-companies purge
+
+```sh
+crowhr demo-companies purge [--expired]
+```
+
+Only on a public demo server ([`DEMO_COMPANIES`](/docs/self-hosting/configuration/#demo-companies)). Deletes every demo company with everything in it, including the ones visitors are still using; with `--expired`, only those past their expiry (the scheduler does this every minute anyway). Use it after turning `DEMO_COMPANIES` off. Real organisations are never touched: the database refuses to delete their audit events, and an organisation can't be made a demo company after it is created.
+
 ### help and version
 
 ```sh

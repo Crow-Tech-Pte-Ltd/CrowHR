@@ -12,6 +12,8 @@ interface Persona {
   displayName: string;
   email: string;
   roles: string[];
+  /** Demo companies: the server's label for the sample company's featured people. */
+  persona?: { key: string; label: string; blurb: string; order: number };
 }
 
 const ROLE_LABEL: Record<string, string> = { owner: "Owner", hr_admin: "HR admin", payroll_admin: "Payroll admin" };
@@ -20,17 +22,22 @@ const ROLE_LABEL: Record<string, string> = { owner: "Owner", hr_admin: "HR admin
 export const DEMO_SINGPASS_PERSONAS = ["hr", "employee"] as const;
 
 /**
- * Demo mode only (auth spec "Demo-mode sign-in"): one click signs in as a seeded, fictional
- * account. The server answers these routes with 404 outside demo mode, so this cannot be used
- * on a real install even if rendered. `only` limits the list to those persona keys (after a demo
+ * One click signs in as a fictional person, with no password:
+ * - the browser demo (auth spec "Demo-mode sign-in"): its seeded accounts;
+ * - a demo company (`demoCompany`): that company's people, in the browser or, with
+ *   `nativeRequestId`, for the Crow HR app's sign-in (the server answers with the app redirect).
+ * The server answers these routes with 404 anywhere else, so this cannot be used on a real
+ * organisation even if rendered. `only` limits the list to those persona keys (after a demo
  * Singpass login: HR admin or Employee).
  */
 export function DemoPersonaPicker({
   only,
+  demoCompany,
   title = "Pick someone to be",
   intro = "One click signs you in as a fictional Kopi Kaki employee. Each sees what their role allows.",
 }: {
   only?: readonly string[];
+  demoCompany?: { orgSlug: string; nativeRequestId?: string };
   title?: string;
   intro?: string;
 } = {}) {
@@ -38,11 +45,15 @@ export function DemoPersonaPicker({
   const navigate = useNavigate();
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const org = demoCompany?.orgSlug;
   const q = useQuery({
-    queryKey: ["demo-personas"],
-    queryFn: () => apiGet<{ items: Persona[] }>("/api/v1/auth/demo/personas"),
+    queryKey: ["demo-personas", org ?? null],
+    queryFn: () =>
+      apiGet<{ items: Persona[] }>(`/api/v1/auth/demo/personas${org ? `?org=${encodeURIComponent(org)}` : ""}`),
   });
-  const described = shellExtensions.demoPersonas ?? {};
+  const described: Record<string, { key?: string; label: string; blurb: string; order: number }> = org
+    ? Object.fromEntries((q.data?.items ?? []).flatMap((p) => (p.persona ? [[p.email, p.persona]] : [])))
+    : (shellExtensions.demoPersonas ?? {});
   const all = q.data?.items ?? [];
   const featured = all
     .filter((p) => described[p.email] && (!only || only.includes(described[p.email]?.key ?? "")))
@@ -53,12 +64,27 @@ export function DemoPersonaPicker({
     setBusy(p.membershipId);
     setError(null);
     try {
-      await apiPost("/api/v1/auth/demo/sign-in", { membershipId: p.membershipId });
+      const result = await apiPost<{ redirectTo?: string } | undefined>("/api/v1/auth/demo/sign-in", {
+        membershipId: p.membershipId,
+        ...(org ? { org } : {}),
+        ...(demoCompany?.nativeRequestId ? { native: demoCompany.nativeRequestId } : {}),
+      });
+      if (result?.redirectTo) {
+        // The Crow HR app's sign-in: hand the one-time code back to the app.
+        window.location.assign(result.redirectTo);
+        return;
+      }
       qc.clear();
       await qc.fetchQuery(meQuery);
       await navigate({ to: "/" });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't sign in. Reload the page and try again.");
+      setError(
+        err instanceof ApiError
+          ? err.status === 404 && org
+            ? "This demo company has ended or no longer has that person. Start a new one on the try page."
+            : err.message
+          : "Couldn't sign in. Reload the page and try again.",
+      );
     } finally {
       setBusy(null);
     }
@@ -80,7 +106,9 @@ export function DemoPersonaPicker({
           ))}
         </div>
       ) : q.isError ? (
-        <p className="text-ui text-danger-300">The personas didn't load. Reload the page to try again.</p>
+        <p className="text-ui text-danger-300" role="alert">
+          The people didn't load. Reload the page to try again.
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {(featured.length || only ? featured : all).map((p) => {
@@ -138,8 +166,12 @@ export function DemoPersonaPicker({
           </ul>
         </details>
       ) : null}
-      {error ? <p className="mt-2 text-ui text-danger-300">{error}</p> : null}
-      {shellExtensions.demoSignInNote && !only ? (
+      {error ? (
+        <p className="mt-2 text-ui text-danger-300" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {shellExtensions.demoSignInNote && !only && !org ? (
         <p className="mt-3 text-2xs text-primary-300">{shellExtensions.demoSignInNote}</p>
       ) : null}
     </section>

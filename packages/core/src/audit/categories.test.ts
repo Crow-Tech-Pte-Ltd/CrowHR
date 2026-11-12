@@ -26,6 +26,7 @@ const families = {
     "claim_type",
     "claims",
     "company_profile",
+    "demo_company",
     "document",
     "document_category",
     "employee",

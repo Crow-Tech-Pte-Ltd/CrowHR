@@ -291,6 +291,32 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
 - **Accessibility**: Xcode's accessibility audit is clean on iPhone and iPad, but the manual
   VoiceOver and Dynamic Type pass on a real iPhone is still to do.
 
+## Demo companies
+
+- **Not switched on anywhere yet.** `DEMO_COMPANIES` is off by default. Until a demo server runs with
+  it, the docs say the try page opens soon (`TRY_LIVE` in `apps/docs/src/lib/links.ts`) and the
+  in-browser demo shows no try link (`VITE_TRY_URL`). Seeding was measured on a workstation with the
+  same CPU as the intended demo server, not on that server.
+- **Seeding slows over time.** A copy is the sample company's June–October 2026 history plus a
+  catch-up to the seeding day (rosters, clocked shifts, fresh requests), which grows every day:
+  about 18 s per copy in November 2026. No payroll runs exist after October until a visitor makes
+  one.
+- **Memory**: each seed runs in its own in-memory PGlite. With PostgreSQL the app went from about
+  320 MB to a peak of about 1.1 GB during a seed and stayed near 950 MB after. One seed runs at a
+  time per process; several replicas each keep their own pool.
+- **The 1.0.0 apps** need a sign-in method in `GET /api/v1/meta`, and `kind` is a closed enum, so a
+  demo company is listed with `kind: "password"` and the name "Pick a person (demo company, no
+  password)". The Android app's manual address entry has no organisation field: on Android, open a
+  demo company with the link or QR code.
+- **On a server with demo companies**, `/sign-in` and `GET /api/v1/meta` never fall back to the only
+  organisation, so a real organisation's people there use `/sign-in/<slug>`.
+- **In a demo company** people hired there get no sign-in (invitations are refused) and so aren't on
+  the sign-in page, re-authentication is not asked for, and a browser signed in to one company is
+  sent to its home page from another company's sign-in page (sign out first).
+- **Backups on a demo server** contain the demo companies live at that moment; keep scheduled
+  backups off there.
+- The image keeps PGlite (27 MB) for the seed; it loads only when the first copy is made.
+
 ## Testing
 
 - **End-to-end gaps**: the SSO round trip, audit-log filtering and export, and device sessions are

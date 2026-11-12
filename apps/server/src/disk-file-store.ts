@@ -44,5 +44,11 @@ export function createDiskFileStore(rootDir: string): FileStore {
       await rm(inside("blobs", key), { force: true });
       await rm(inside("meta", key, ".json"), { force: true });
     },
+    /** Removes a whole directory of keys, e.g. a deleted demo company's `org/<orgId>/`. */
+    async deletePrefix(prefix) {
+      const dir = prefix.replace(/\/+$/, "");
+      await rm(inside("blobs", dir), { recursive: true, force: true });
+      await rm(inside("meta", dir), { recursive: true, force: true });
+    },
   };
 }

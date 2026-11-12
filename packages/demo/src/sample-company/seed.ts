@@ -10,16 +10,16 @@ import {
   schema,
   tick,
 } from "@crowhr/core";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { movableSeedClock, type SeedClock } from "../clock.ts";
 import { createDemoDeps } from "../deps.ts";
 import { DEMO_PASSWORD, OTHER_MEMBERS, PERSONAS } from "../personas.ts";
 import { singaporeDate } from "../seed/dates.ts";
-import { type SeedResult, seedDemo } from "../seed/index.ts";
+import { atDomain, type SeedResult, seedDemo } from "../seed/index.ts";
 import { DEMO_ORG } from "../seed/people.ts";
 import { receiptPng } from "../seed/receipt.ts";
 import { type MemberClient, memberClient } from "./client.ts";
-import { assertOrganisationIsNew, type CopyReport, copyOrganisation } from "./copy-organisation.ts";
+import { assertOrganisationIsNew, type CopyOptions, type CopyReport, copyOrganisation } from "./copy-organisation.ts";
 
 /**
  * The sample company for a real Crow HR server (App Store / Google Play review, sales demos):
@@ -73,10 +73,24 @@ export interface PrepareInput {
   progress?: (message: string) => void;
   /** Random password source (injected in tests). */
   newPassword?: () => string;
+  /**
+   * The copy's organisation: its slug, the domain of its people's emails and its name. Default:
+   * SAMPLE_ORG (`kopi-kaki`) at `kopikaki.example`, as the store-review script installs it.
+   */
+  org?: { slug: string; emailDomain: string; name?: string };
+  /**
+   * `random` (default): every account gets its own password (store review). `none`: no account
+   * has one; a demo company's people sign in by picking a person (demo-companies decision 3).
+   */
+  passwords?: "random" | "none";
 }
 
 export interface PreparedSampleCompany {
   orgId: string;
+  /** The organisation's slug in the copy. */
+  slug: string;
+  /** Every sign-in email of the copy (all must be new on the target). */
+  emails: string[];
   scratch: Db;
   accounts: SampleAccount[];
   /** Files written by the seed (receipts, documents), to copy into the server's file storage. */
@@ -113,13 +127,13 @@ export function randomPassword(): string {
 }
 
 /** Every email address the sample company uses (they must all be new on the target server). */
-export function sampleEmails(): string[] {
-  return [...PERSONAS.map((p) => p.email), ...OTHER_MEMBERS.map((m) => m.email)];
+export function sampleEmails(emailDomain?: string): string[] {
+  return [...PERSONAS.map((p) => p.email), ...OTHER_MEMBERS.map((m) => m.email)].map((e) => atDomain(e, emailDomain));
 }
 
-/** Refuses when the server already has the sample company or one of its email addresses. */
-export function assertCanInstall(target: Db) {
-  return assertOrganisationIsNew(target, { slug: SAMPLE_ORG.slug }, sampleEmails());
+/** Refuses when the server already has the sample company (that slug) or one of its email addresses. */
+export function assertCanInstall(target: Db, org: { slug: string; emailDomain?: string } = SAMPLE_ORG) {
+  return assertOrganisationIsNew(target, { slug: org.slug }, sampleEmails(org.emailDomain));
 }
 
 function recordingFileStore() {
@@ -168,8 +182,19 @@ export async function prepareSampleCompany(input: PrepareInput): Promise<Prepare
   const { mailer: _none, ...rest } = demoDeps;
   const deps: AppDeps = { ...rest, passwordHasher: input.passwordHasher };
 
+  const org = {
+    slug: input.org?.slug ?? SAMPLE_ORG.slug,
+    name: input.org?.name ?? SAMPLE_ORG.name,
+    emailDomain: input.org?.emailDomain,
+  };
   progress("Seeding Kopi Kaki's history (June to October 2026)");
-  const seed = await seedDemo(deps, clock, input.publicUrl);
+  const seed = await seedDemo(deps, clock, input.publicUrl, { org, emailDomain: org.emailDomain });
+  if (org.emailDomain) {
+    // Work emails on the employee records match the sign-in emails (not unique, so no clash).
+    await scratch.execute(
+      sql`update employees set work_email = regexp_replace(work_email, '@kopikaki\\.example$', ${`@${org.emailDomain}`}) where org_id = ${seed.orgId} and work_email is not null`,
+    );
+  }
   const app = createApp(deps);
   const clients = new Map<string, MemberClient>();
   /** One browser-like client per person, reused across calls (it signs in again when needed). */
@@ -200,9 +225,15 @@ export async function prepareSampleCompany(input: PrepareInput): Promise<Prepare
   clock.set(sgLocal(new Date(now.getTime() - 30 * 60_000)));
   await tidySettings(member);
 
-  progress("Giving every account its own password");
-  clock.set(sgLocal(new Date(now.getTime() - 20 * 60_000)));
-  const accounts = await setPasswords(deps, seed, member, input.newPassword ?? randomPassword);
+  let accounts: SampleAccount[] = [];
+  if (input.passwords === "none") {
+    progress("Removing every password (people are picked on the sign-in page)");
+    await clearPasswords(scratch, seed.orgId);
+  } else {
+    progress("Giving every account its own password");
+    clock.set(sgLocal(new Date(now.getTime() - 20 * 60_000)));
+    accounts = await setPasswords(deps, seed, member, input.newPassword ?? randomPassword);
+  }
 
   progress("Running the scheduled sweep at the real time");
   clock.set(sgLocal(new Date(now.getTime() - 60_000)));
@@ -212,7 +243,21 @@ export async function prepareSampleCompany(input: PrepareInput): Promise<Prepare
   }
 
   const checks = await checkPrepared(member, today);
-  return { orgId: seed.orgId, scratch, accounts, files, checks };
+  const emails = (
+    await scratch
+      .select({ email: schema.users.email })
+      .from(schema.users)
+      .innerJoin(schema.memberships, eq(schema.memberships.userId, schema.users.id))
+      .where(eq(schema.memberships.orgId, seed.orgId))
+  ).map((u) => u.email);
+  return { orgId: seed.orgId, slug: org.slug, emails, scratch, accounts, files, checks };
+}
+
+/** No account of the organisation can sign in with a password (demo companies). */
+async function clearPasswords(scratch: Db, orgId: string) {
+  await scratch.execute(
+    sql`update users set password_hash = null, password_changed_at = null where id in (select user_id from memberships where org_id = ${orgId})`,
+  );
 }
 
 export interface InstallResult {
@@ -223,13 +268,15 @@ export interface InstallResult {
 /**
  * Copies the prepared company into the server: files first (new keys only), then every row in
  * one transaction. On failure the copied files are removed again and the database is unchanged.
+ * `options.organisation` sets the organisation row as inserted (a demo company's flag).
  */
 export async function installSampleCompany(
   prepared: PreparedSampleCompany,
   target: Db,
   fileStore: FileStore,
+  options: CopyOptions = {},
 ): Promise<InstallResult> {
-  await assertCanInstall(target);
+  await assertOrganisationIsNew(target, { slug: prepared.slug }, prepared.emails);
   const written: string[] = [];
   try {
     for (const [key, file] of prepared.files) {
@@ -237,7 +284,7 @@ export async function installSampleCompany(
       await fileStore.put(key, file.data, { contentType: file.contentType });
       written.push(key);
     }
-    const copy = await copyOrganisation(prepared.scratch, target, prepared.orgId);
+    const copy = await copyOrganisation(prepared.scratch, target, prepared.orgId, options);
     return { copy, files: written.length };
   } catch (err) {
     for (const key of written) await fileStore.delete(key).catch(() => undefined);

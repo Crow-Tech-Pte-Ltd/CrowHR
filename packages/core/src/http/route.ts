@@ -107,6 +107,11 @@ export interface RouteDefinition<
   /** Reachable while the member must still enrol in MFA (enrolment and sign-out only). */
   allowDuringMfaEnrolment?: boolean;
   /**
+   * Refused with 403 `disabled_in_demo` for a session in a demo company (demo-companies "Guard
+   * rails"): sign-in and security settings, SSO, invitations, passwords, MFA, session admin.
+   */
+  refusedInDemoCompany?: boolean;
+  /**
    * A valid example request. Shown in the OpenAPI document and used by the cross-org isolation
    * test (`testing/cross-org.ts`), which needs a body that passes validation to prove a foreign
    * record answers 404 rather than 400.

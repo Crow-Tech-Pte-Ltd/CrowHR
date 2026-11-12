@@ -20,6 +20,7 @@ import * as React from "react";
 import { meQuery } from "../auth/session.ts";
 import type { SignInMethods, SignInResult } from "../auth/types.ts";
 import { Wordmark } from "../components/wordmark.tsx";
+import { DemoCompanyNotice } from "../demo-company/notices.tsx";
 import { ApiError, apiPost } from "../lib/api.ts";
 import { shellExtensions } from "../shell/extensions.ts";
 import { DEMO_SINGPASS_PERSONAS, DemoPersonaPicker } from "./demo-personas.tsx";
@@ -66,7 +67,9 @@ export function SignInPage({
 
   const providers = methods.providers;
   const demoSingpassStartUrl = methods.demoMode ? shellExtensions.demoSingpassStartUrl : undefined;
-  const passwordVisible = methods.password.enabled || showOwnerLogin;
+  // A demo company's people have no passwords: they are picked (demo-companies decision 5).
+  const demoCompany = methods.demoCompany;
+  const passwordVisible = !demoCompany && (methods.password.enabled || showOwnerLogin);
   const googleDomains = providers.find((p) => p.kind === "google")?.allowedDomains ?? [];
 
   const finish = async (result: SignInResult) => {
@@ -171,12 +174,17 @@ export function SignInPage({
           <p className="mb-7 text-ui text-primary-300">
             {step.kind === "mfa"
               ? "Enter the 6-digit code from your authenticator app. Lost your phone? Use one of your recovery codes."
-              : nativeRequestId
-                ? "Sign in to connect the Crow HR app. You'll return to the app afterwards."
-                : providers.length
-                  ? "Use the method your organisation has set up."
-                  : "Sign in with your work email and password."}
+              : demoCompany
+                ? nativeRequestId
+                  ? "Pick who the Crow HR app signs in as. You'll return to the app afterwards."
+                  : "Pick who to be. No password: everyone here is fictional."
+                : nativeRequestId
+                  ? "Sign in to connect the Crow HR app. You'll return to the app afterwards."
+                  : providers.length
+                    ? "Use the method your organisation has set up."
+                    : "Sign in with your work email and password."}
           </p>
+          {demoCompany && step.kind !== "mfa" ? <DemoCompanyNotice expiresAt={demoCompany.expiresAt} /> : null}
 
           {notice && !(noticeAtForm && step.kind === "credentials" && passwordVisible)
             ? noticeAlert(notice, "mb-6")
@@ -214,7 +222,17 @@ export function SignInPage({
             </form>
           ) : (
             <>
-              {methods.demoMode && !nativeRequestId && demoSingpassOk ? (
+              {demoCompany ? (
+                <DemoPersonaPicker
+                  demoCompany={{ orgSlug, nativeRequestId }}
+                  title="Sign in as"
+                  intro={
+                    nativeRequestId
+                      ? "One tap signs the app in as this person of your demo company."
+                      : "One tap signs you in as this person of your demo company. Each sees what their role allows."
+                  }
+                />
+              ) : methods.demoMode && !nativeRequestId && demoSingpassOk ? (
                 <DemoPersonaPicker
                   only={DEMO_SINGPASS_PERSONAS}
                   title="Logged in with Singpass"
@@ -308,7 +326,7 @@ export function SignInPage({
                 </form>
               ) : null}
 
-              {!methods.password.enabled && !showOwnerLogin ? (
+              {!demoCompany && !methods.password.enabled && !showOwnerLogin ? (
                 <button
                   type="button"
                   onClick={() => setShowOwnerLogin(true)}
@@ -318,7 +336,7 @@ export function SignInPage({
                 </button>
               ) : null}
 
-              {!providers.length && !methods.password.enabled && !showOwnerLogin ? (
+              {!demoCompany && !providers.length && !methods.password.enabled && !showOwnerLogin ? (
                 <p className="text-ui text-primary-300">No sign-in method is available. Ask your organisation owner.</p>
               ) : null}
             </>
