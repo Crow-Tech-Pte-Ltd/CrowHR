@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
 import java.util.UUID
 
 @Serializable
@@ -66,6 +67,19 @@ interface MonotonicClock {
     object None : MonotonicClock {
         override val bootCount: Int? = null
         override fun elapsedMillis(): Long = 0
+    }
+}
+
+/**
+ * The moment of a tap, taken when Clock in / Clock out is pressed: the punch's time is the tap's,
+ * not when a location fix (up to 10 s) or the location permission dialog finished. Serializable
+ * so it survives the activity being recreated behind that dialog.
+ */
+@Serializable
+data class PunchTap(val kind: String, val deviceTime: String, val monotonicMillis: Long, val bootCount: Int? = null) {
+    companion object {
+        fun take(kind: String, now: Instant, monotonic: MonotonicClock) =
+            PunchTap(kind, now.toString(), monotonic.elapsedMillis(), monotonic.bootCount)
     }
 }
 
@@ -138,6 +152,12 @@ class PunchQueue(private val store: PunchStore) {
             val sent = all.filter { it.state == SYNCED || it.state == FLAGGED }.takeLast(recent).map { it.key }.toSet()
             return all.filter { !it.isSettled || it.key in sent }.asReversed()
         }
+
+        /** Whether the next tap is a clock-in or a clock-out: the newest unsent punch wins. */
+        fun nextKind(pending: List<QueuedPunch>, serverClockedIn: Boolean): String {
+            val last = pending.lastOrNull() ?: return if (serverClockedIn) "out" else "in"
+            return if (last.kind == "in") "out" else "in"
+        }
     }
 
     private val mutex = Mutex()
@@ -189,10 +209,19 @@ class PunchQueue(private val store: PunchStore) {
     }
 
     /** Whether the next tap is a clock-in or a clock-out: the newest unsent punch wins. */
-    fun nextKind(serverClockedIn: Boolean): String {
-        val last = pending().lastOrNull() ?: return if (serverClockedIn) "out" else "in"
-        return if (last.kind == "in") "out" else "in"
+    fun nextKind(serverClockedIn: Boolean): String = nextKind(pending(), serverClockedIn)
+
+    /** Queues [tap] with the location that arrived after it (if any). [zone]: the phone's by default. */
+    fun enqueue(tap: PunchTap, location: PunchLocation?, zone: ZoneId? = null): EnqueueResult {
+        val at = Instant.parse(tap.deviceTime)
+        return enqueue(
+            kind = tap.kind, deviceTime = at, monotonicMillis = tap.monotonicMillis, bootCount = tap.bootCount,
+            utcOffsetMinutes = (zone ?: ZoneId.systemDefault()).rules.getOffset(at).totalSeconds / 60, location = location,
+        )
     }
+
+    /** Waits for [locate] (a location fix), then queues [tap] with the time it was taken. */
+    suspend fun punch(tap: PunchTap, locate: suspend () -> PunchLocation?): EnqueueResult = enqueue(tap, locate())
 
     suspend fun drain(now: Instant, sender: PunchSender, monotonic: MonotonicClock = MonotonicClock.None): DrainResult = mutex.withLock {
         var sent = 0

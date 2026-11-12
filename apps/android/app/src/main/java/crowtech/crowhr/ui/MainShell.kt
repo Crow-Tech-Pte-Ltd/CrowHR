@@ -243,7 +243,7 @@ fun MainShell(graph: AppGraph, vm: AppViewModel, screen: RootScreen.Main) {
         ) {
             val route = stack.lastOrNull()
             screens.SaveableStateProvider(route?.code ?: "tab:$tab") {
-                CompositionLocalProvider(LocalRefresh provides refresh) {
+                CompositionLocalProvider(LocalRefresh provides refresh, LocalScreenMemory provides graph.screenMemory) {
                 Column(
                     Modifier.widthIn(max = 640.dp).fillMaxWidth().verticalScroll(rememberScrollState())
                         // TalkBack and switch users can't pull: the same refresh as an action.

@@ -109,14 +109,9 @@ fun MoreScreen(ctx: ScreenContext) {
 fun NotificationsScreen(ctx: ScreenContext) {
     val scope = rememberCoroutineScope()
     val loader = rememberLoader(ctx.connection.key) {
-        ctx.api.get("/api/v1/notifications", NotificationPage.serializer(), mapOf("pageSize" to "50", "sort" to "-createdAt"))
-    }
-    var error by remember { mutableStateOf<String?>(null) }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ScreenTitle("Notifications")
-        error?.let { Notice(it, Tone.Danger) }
-        LoadContent(loader, "Loading notifications…") { page ->
-            // The inbox is open: what's here now doesn't need a local notification later.
+        ctx.api.get("/api/v1/notifications", NotificationPage.serializer(), mapOf("pageSize" to "50", "sort" to "-createdAt")).also { page ->
+            // The inbox is open: what's here now doesn't need a local notification later. Once
+            // per load (it was written on every recomposition of the list).
             if (page.supportsCursor) {
                 page.cursor?.let { ctx.graph.settings.setRefreshCursor(ctx.connection.key, crowtech.crowhr.notify.RefreshRunner.SERVER_PREFIX + it) }
             } else {
@@ -125,6 +120,13 @@ fun NotificationsScreen(ctx: ScreenContext) {
                     if (cursor == null || newest.createdAt > cursor) ctx.graph.settings.setRefreshCursor(ctx.connection.key, newest.createdAt)
                 }
             }
+        }
+    }
+    var error by remember { mutableStateOf<String?>(null) }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ScreenTitle("Notifications")
+        error?.let { Notice(it, Tone.Danger) }
+        LoadContent(loader, "Loading notifications…") { page ->
             if (page.unread > 0) {
                 LinkButton("Mark all as read", {
                     scope.launch {
@@ -135,8 +137,18 @@ fun NotificationsScreen(ctx: ScreenContext) {
             if (page.items.isEmpty()) EmptyState("No notifications", "Decisions on your requests and new tasks appear here.")
             page.items.forEach { n -> NotificationRow(n) {
                 if (n.readAt == null) scope.launch {
-                    runCatching { ctx.api.postEmpty("/api/v1/notifications/${n.id}/read") }
-                    loader.reload()
+                    try {
+                        ctx.api.postEmpty("/api/v1/notifications/${n.id}/read")
+                        // Read on the server: the row and the count change here, without
+                        // fetching all 50 again.
+                        (loader.value as? LoadState.Ready)?.let { shown ->
+                            loader.state.value = shown.copy(value = shown.value.markingRead(n.id, ctx.graph.clock().toString()))
+                        }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        loader.reload()
+                    }
                 }
             } }
         }

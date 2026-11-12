@@ -177,6 +177,59 @@ struct NativeAuthTests {
         #expect(store.load(account: "conn-1") != nil)
     }
 
+    @Test func aRefreshedPairIsKeptWhenTheKeychainRefusesItAndSavedLater() async throws {
+        // The server has rotated: dropping the new pair would leave only the retired one, whose
+        // next use looks like token theft and ends the device session.
+        let stub = StubTransport()
+        stub.onJSON("POST /api/v1/native/token", tokenJSON(access: "access-2", refresh: "refresh-2"))
+        let clock = TestClock()
+        let store = RefusingTokenStore()
+        try store.save(TokenSet(accessToken: "access-1", refreshToken: "refresh-1", accessExpiresAt: clock.now.addingTimeInterval(-1), deviceSessionId: "d"), account: "conn-1")
+        store.refuses = true
+        let auth = AuthSession(server: testServer, account: "conn-1", store: store, transport: stub, now: { clock.now })
+        #expect(try await auth.accessToken() == "access-2")
+        #expect(store.load(account: "conn-1")?.refreshToken == "refresh-1")
+        // Still in use, without another refresh; saved as soon as the Keychain takes it.
+        store.refuses = false
+        #expect(try await auth.accessToken() == "access-2")
+        #expect(stub.count("POST /api/v1/native/token") == 1)
+        #expect(store.load(account: "conn-1")?.refreshToken == "refresh-2")
+    }
+
+    @Test func aSessionSignedOutOfNeverDeletesALaterSignInsTokens() async throws {
+        let stub = StubTransport()
+        stub.onJSON("POST /api/v1/native/token", status: 400, #"{"error":{"code":"invalid_grant","message":"This session has ended. Sign in again.","requestId":"x"}}"#)
+        let clock = TestClock()
+        let store = MemoryTokenStore()
+        try store.save(TokenSet(accessToken: "old", refreshToken: "old-r", accessExpiresAt: clock.now.addingTimeInterval(-1), deviceSessionId: "old-device"), account: "conn-1")
+        let old = AuthSession(server: testServer, account: "conn-1", store: store, transport: stub, now: { clock.now })
+        // Someone signs in again on this connection: a new device session in the Keychain.
+        let fresh = TokenSet(accessToken: "new", refreshToken: "new-r", accessExpiresAt: clock.now.addingTimeInterval(900), deviceSessionId: "new-device")
+        try store.save(fresh, account: "conn-1")
+        // The old session's late request finds its refresh refused.
+        await #expect(throws: APIError.signedOut(message: "Your session has ended. Sign in again.")) { _ = try await old.accessToken() }
+        #expect(store.load(account: "conn-1") == fresh)
+        await old.clear()
+        #expect(store.load(account: "conn-1") == fresh)
+    }
+
+    @Test func aRefreshThatEndsAfterSignOutDoesNotBringTheTokensBack() async throws {
+        let gate = GatedTokenTransport(answer: tokenJSON(access: "access-2", refresh: "refresh-2"))
+        let clock = TestClock()
+        let store = MemoryTokenStore()
+        try store.save(TokenSet(accessToken: "access-1", refreshToken: "refresh-1", accessExpiresAt: clock.now.addingTimeInterval(-1), deviceSessionId: "d"), account: "conn-1")
+        let auth = AuthSession(server: testServer, account: "conn-1", store: store, transport: gate, now: { clock.now })
+        let refreshed = Task { try await auth.accessToken() }
+        // Signed out while the refresh is on the wire.
+        for _ in 0..<200 where !gate.started { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(gate.started)
+        await auth.clear()
+        gate.release()
+        await #expect(throws: APIError.signedOut(message: "Sign in to continue.")) { _ = try await refreshed.value }
+        #expect(store.load(account: "conn-1") == nil)
+        #expect(await auth.isSignedIn == false)
+    }
+
     // MARK: Whole sign-in through the app model (ASWebAuthenticationSession is faked)
 
     @MainActor
@@ -234,5 +287,54 @@ final class FakeBrowser: WebAuthenticating {
         scheme = callbackScheme
         let state = forgeState ? "attacker-state" : (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "state" }?.value ?? "")
         return URL(string: "crowtech.crowhr:/oauth2redirect?code=one-time-code&state=\(state)")!
+    }
+}
+
+/// A Keychain that can refuse saves (say, while the device is locked).
+final class RefusingTokenStore: TokenStoring, @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [String: TokenSet] = [:]
+    private var refusing = false
+    var refuses: Bool { get { lock.withLock { refusing } } set { lock.withLock { refusing = newValue } } }
+    func load(account: String) -> TokenSet? { lock.withLock { items[account] } }
+    func save(_ tokens: TokenSet, account: String) throws {
+        try lock.withLock { () throws -> Void in
+            if refusing { throw KeychainError.status(errSecInteractionNotAllowed) }
+            items[account] = tokens
+        }
+    }
+    func delete(account: String) { _ = lock.withLock { items.removeValue(forKey: account) } }
+}
+
+/// Holds every request until `release()`, then answers 200 with `answer`.
+final class GatedTokenTransport: HTTPTransport, @unchecked Sendable {
+    private let lock = NSLock()
+    private let answer: String
+    private var open = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    private var didStart = false
+    init(answer: String) { self.answer = answer }
+    var started: Bool { lock.withLock { didStart } }
+
+    func release() {
+        let resume = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
+            open = true
+            defer { waiting = [] }
+            return waiting
+        }
+        resume.forEach { $0.resume() }
+    }
+
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            let go = lock.withLock { () -> Bool in
+                didStart = true
+                if open { return true }
+                waiting.append(c)
+                return false
+            }
+            if go { c.resume() }
+        }
+        return (Data(answer.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!)
     }
 }

@@ -331,6 +331,109 @@ struct PunchQueueTests {
         #expect(await PunchQueue(store: store).all() == [a])
     }
 
+    // MARK: A locked phone (iOS can start the app in the background while it is locked)
+
+    @Test func aLockedPhoneNeverLosesOrReordersUnsentPunches() async throws {
+        let clock = TestClock()
+        let earlierQueue = PunchQueue(store: MemoryPunchQueueStore(), now: { clock.now }, uptime: { 1 })
+        try await earlierQueue.enqueue(kind: .in, membershipId: me, location: nil)
+        clock.advance(60)
+        try await earlierQueue.enqueue(kind: .out, membershipId: me, location: nil)
+        let earlier = await earlierQueue.all()
+        // Two unsent punches in a file the locked phone can't read yet.
+        let store = LockablePunchQueueStore(earlier, locked: true)
+        let q = PunchQueue(store: store, now: { clock.now }, uptime: { 1 })
+        #expect(await q.all().isEmpty)
+        #expect(await q.isLoaded == false)
+        let server = FakePunchServer()
+        let locked = await q.drain(membershipId: me, using: server, force: true)
+        #expect(locked.stop == .locked)
+        #expect(await server.sent.isEmpty)
+        // A tap before the file could be read stays in memory; the file is never written over.
+        clock.advance(60)
+        let tapped = try await q.enqueue(kind: .in, membershipId: me, location: nil)
+        await q.pruneSettled()
+        #expect(store.contents == earlier)
+        #expect(store.saves == 0)
+        // Unlocked: the saved punches come first (they are older), then the tap, all on disk.
+        store.isLocked = false
+        let all = await q.all()
+        #expect(all.map(\.id) == earlier.map(\.id) + [tapped.id])
+        #expect(store.contents.map(\.id) == all.map(\.id))
+        // Sent oldest first, each once.
+        let summary = await q.drain(membershipId: me, using: server, force: true)
+        #expect(summary.sent == 3)
+        #expect(await server.sent.map(\.key) == all.map(\.idempotencyKey))
+    }
+
+    @Test func anUnreadableQueueFileIsNotAnEmptyQueue() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("punchq-\(UUID().uuidString)")
+        let url = dir.appendingPathComponent("queue.json")
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            try? FileManager.default.removeItem(at: dir)
+        }
+        let store = FilePunchQueueStore(fileURL: url)
+        let first = try await PunchQueue(store: store).enqueue(kind: .in, membershipId: me, location: nil)
+        // Stands in for the locked phone: the file is there but can't be read.
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: url.path)
+        #expect(throws: PunchQueueUnreadable.self) { try store.load() }
+        let q = PunchQueue(store: store)
+        #expect(await q.all().isEmpty)
+        let second = try await q.enqueue(kind: .out, membershipId: me, location: nil)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        // Untouched and not set aside as unreadable.
+        #expect(try store.load() == [first])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path) == ["queue.json"])
+        #expect(await q.all().map(\.id) == [first.id, second.id])
+        #expect(try store.load().map(\.id) == [first.id, second.id])
+    }
+
+    @Test func noQueueFileIsAnEmptyQueue() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("punchq-\(UUID().uuidString)")
+        #expect(try FilePunchQueueStore(fileURL: dir.appendingPathComponent("queue.json")).load().isEmpty)
+    }
+
+    @Test func aQueueFileThatIsNotPunchesIsSetAsideNotOverwritten() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("punchq-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("queue.json")
+        try Data("not punches".utf8).write(to: url)
+        let q = PunchQueue(store: FilePunchQueueStore(fileURL: url))
+        #expect(await q.all().isEmpty)
+        try await q.enqueue(kind: .in, membershipId: me, location: nil)
+        let aside = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasPrefix("queue.unreadable-") }
+        #expect(aside.count == 1)
+        #expect(try Data(contentsOf: dir.appendingPathComponent(aside[0])) == Data("not punches".utf8))
+    }
+
+    // MARK: The punch time is the tap's
+
+    @Test func thePunchTimeIsTheTapNotTheLocationFix() async throws {
+        let clock = TestClock()
+        let up = UptimeBox(500)
+        let q = PunchQueue(store: MemoryPunchQueueStore(), now: { clock.now }, uptime: { up.value }, bootSession: { "boot-1" })
+        let tappedAt = clock.now
+        let p = try await q.punch(kind: .in, membershipId: me) {
+            // The fix arrives 8 s after the tap (the location timeout).
+            clock.advance(8)
+            up.value += 8
+            return PunchLocation(latitude: 1.2834, longitude: 103.8607, accuracyMetres: 20)
+        }
+        #expect(p.deviceTime == tappedAt)
+        #expect(p.uptimeAtTap == 500)
+        #expect(p.location?.accuracyMetres == 20)
+        // Sent at once: elapsedMs spans the wait, so the server records the tap time, and a send
+        // 8 s after the tap is still live, not queued.
+        let server = FakePunchServer()
+        _ = await q.drain(membershipId: me, using: server)
+        let sent = try #require(await server.sent.first)
+        #expect(sent.deviceTime == tappedAt)
+        #expect(sent.elapsedMs == 8_000)
+        #expect(sent.queued == false)
+    }
+
     @Test func queueFileIsProtectedAndExcludedFromBackup() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("punchq-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -343,6 +446,31 @@ struct PunchQueueTests {
         // The simulator has no data protection classes; a device reports the class on the file.
         #expect(values.fileProtection == .complete)
         #endif
+    }
+}
+
+/// A queue file that can't be read (or written) while "locked", like `NSFileProtectionComplete`.
+final class LockablePunchQueueStore: PunchQueueStoring, @unchecked Sendable {
+    private let lock = NSLock()
+    private var saved: [QueuedPunch]
+    private var locked: Bool
+    private var saveCount = 0
+    init(_ saved: [QueuedPunch], locked: Bool) { self.saved = saved; self.locked = locked }
+    var isLocked: Bool { get { lock.withLock { locked } } set { lock.withLock { locked = newValue } } }
+    var contents: [QueuedPunch] { lock.withLock { saved } }
+    var saves: Int { lock.withLock { saveCount } }
+    func load() throws -> [QueuedPunch] {
+        try lock.withLock { () throws -> [QueuedPunch] in
+            if locked { throw PunchQueueUnreadable() }
+            return saved
+        }
+    }
+    func save(_ punches: [QueuedPunch]) throws {
+        try lock.withLock { () throws -> Void in
+            if locked { throw PunchQueueUnreadable() }
+            saved = punches
+            saveCount += 1
+        }
     }
 }
 

@@ -33,6 +33,7 @@ import crowtech.crowhr.api.PayslipSummary
 import crowtech.crowhr.core.Formats
 import crowtech.crowhr.ui.Route
 import crowtech.crowhr.ui.ScreenContext
+import crowtech.crowhr.ui.ScreenMemory
 import crowtech.crowhr.ui.components.CrowCard
 import crowtech.crowhr.ui.components.EmptyState
 import crowtech.crowhr.ui.components.Hairline
@@ -71,7 +72,7 @@ fun SecureScreen() {
 fun PayslipsScreen(ctx: ScreenContext) {
     SecureScreen()
     val key = ctx.connection.key
-    val loader = rememberLoader(key, cached = { ctx.graph.cache.get(key, "payslips", PAYSLIP_LIST) }) {
+    val loader = rememberLoader(key, memoryKey = ScreenMemory.key(key, "payslips"), cached = { ctx.graph.cache.get(key, "payslips", PAYSLIP_LIST) }) {
         ctx.api.get("/api/v1/payslips", PAYSLIP_LIST).also { ctx.graph.cache.put(key, "payslips", PAYSLIP_LIST, it) }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

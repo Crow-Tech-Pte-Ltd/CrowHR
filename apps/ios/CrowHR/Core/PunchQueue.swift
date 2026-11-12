@@ -125,8 +125,22 @@ enum BootSession {
 }
 
 protocol PunchQueueStoring: Sendable {
-    func load() -> [QueuedPunch]
+    /// The saved punches, `[]` when nothing was ever saved. Throws when they exist but can't be
+    /// read yet (the phone is locked: the file is `NSFileProtectionComplete`), which is not an
+    /// empty queue.
+    func load() throws -> [QueuedPunch]
     func save(_ punches: [QueuedPunch]) throws
+}
+
+/// The queue file exists but can't be read now (the phone is locked).
+struct PunchQueueUnreadable: Error, Equatable, Sendable {}
+
+/// The moment of a tap: taken when the button is pressed, before waiting for a location fix, so
+/// the punch's time is the tap's (spec "Offline clock-in queue").
+struct PunchTap: Equatable, Sendable {
+    let deviceTime: Date
+    let uptime: TimeInterval
+    let bootSession: String?
 }
 
 enum DrainStop: String, Equatable, Sendable {
@@ -134,6 +148,8 @@ enum DrainStop: String, Equatable, Sendable {
     case authRequired = "auth_required"
     case waiting
     case busy
+    /// The saved punches can't be read until the phone is unlocked.
+    case locked
 }
 
 struct DrainSummary: Equatable, Sendable {
@@ -157,7 +173,12 @@ actor PunchQueue {
     private let now: @Sendable () -> Date
     private let uptime: @Sendable () -> TimeInterval
     private let bootSession: @Sendable () -> String?
-    private var items: [QueuedPunch]
+    private var items: [QueuedPunch] = []
+    /// Whether `items` includes what is on disk. iOS can start the app in the background while
+    /// the phone is locked, when the protected file can't be read; until it has been read, the
+    /// queue never writes (a write would replace unsent punches with only the new ones) and
+    /// never sends (older punches on disk go first). Every use tries the read again.
+    private var loaded = false
     private var draining = false
 
     init(store: any PunchQueueStoring,
@@ -168,11 +189,35 @@ actor PunchQueue {
         self.now = now
         self.uptime = uptime
         self.bootSession = bootSession
-        self.items = store.load()
     }
 
-    func all() -> [QueuedPunch] { items }
-    func pending() -> [QueuedPunch] { items.filter(\.isPending) }
+    /// Reads the file once it can be read. Taps made before that (kept in memory only) follow
+    /// the punches on disk, which are older, and are written at once.
+    private func ensureLoaded() {
+        guard !loaded, let disk = try? store.load() else { return }
+        let tappedMeanwhile = items
+        items = disk + tappedMeanwhile
+        loaded = true
+        if !tappedMeanwhile.isEmpty { persist() }
+    }
+
+    /// Whether the saved punches have been read (false while the phone is locked).
+    var isLoaded: Bool {
+        ensureLoaded()
+        return loaded
+    }
+
+    func all() -> [QueuedPunch] {
+        ensureLoaded()
+        return items
+    }
+
+    func pending() -> [QueuedPunch] { all().filter(\.isPending) }
+
+    /// The tap's time, monotonic reading and boot, from the queue's clocks.
+    nonisolated func tap() -> PunchTap {
+        PunchTap(deviceTime: now(), uptime: uptime(), bootSession: bootSession())
+    }
 
     static func backoff(afterAttempts attempts: Int) -> TimeInterval {
         min(5 * pow(2, Double(max(attempts, 1) - 1)), maxBackoff)
@@ -191,20 +236,30 @@ actor PunchQueue {
         }
     }
 
-    /// Queues a tap. Refuses (never drops an older punch) when 200 are waiting.
+    /// Queues a tap. Refuses (never drops an older punch) when 200 are waiting. `tap` is the
+    /// moment the button was pressed (default: now).
     @discardableResult
-    func enqueue(kind: PunchKind, membershipId: String, location: PunchLocation?, timeZone: TimeZone = .current, idempotencyKey: String? = nil) throws(PunchQueueError) -> QueuedPunch {
+    func enqueue(kind: PunchKind, membershipId: String, location: PunchLocation?, tap: PunchTap? = nil, timeZone: TimeZone = .current, idempotencyKey: String? = nil) throws(PunchQueueError) -> QueuedPunch {
         guard pending().count < Self.capacity else { throw .full }
-        let tap = now()
+        let tap = tap ?? self.tap()
         let punch = QueuedPunch(
             id: UUID(), idempotencyKey: idempotencyKey ?? Self.newIdempotencyKey(), kind: kind, membershipId: membershipId,
-            deviceTime: tap, uptimeAtTap: uptime(), timeZoneOffsetSeconds: timeZone.secondsFromGMT(for: tap),
+            deviceTime: tap.deviceTime, uptimeAtTap: tap.uptime, timeZoneOffsetSeconds: timeZone.secondsFromGMT(for: tap.deviceTime),
             location: location)
         var tapped = punch
-        tapped.bootSession = bootSession()
+        tapped.bootSession = tap.bootSession
         items.append(tapped)
         persist()
         return tapped
+    }
+
+    /// A tap whose location arrives later (up to 8 s for a fix): the time is taken first, so the
+    /// punch records when the button was pressed, not when the fix came.
+    @discardableResult
+    nonisolated func punch(kind: PunchKind, membershipId: String, location: @Sendable () async -> PunchLocation?) async throws(PunchQueueError) -> QueuedPunch {
+        let tap = tap()
+        let fix = await location()
+        return try await enqueue(kind: kind, membershipId: membershipId, location: fix, tap: tap)
     }
 
     /// Monotonic time since the tap, only within the same boot session.
@@ -218,6 +273,7 @@ actor PunchQueue {
 
     /// The user acknowledged a refused punch (it stops being shown). Pending punches can't be dismissed.
     func dismiss(_ id: UUID) {
+        ensureLoaded()
         guard let i = items.firstIndex(where: { $0.id == id }), items[i].outcome.isSettled else { return }
         items[i].dismissedAt = now()
         persist()
@@ -232,6 +288,14 @@ actor PunchQueue {
             summary.remaining = pending().count
             summary.stop = .busy
             summary.stoppedReason = "already sending"
+            return summary
+        }
+        // The saved punches can't be read yet (phone locked): they are older than anything in
+        // memory, so nothing is sent before them.
+        guard isLoaded else {
+            summary.remaining = items.filter(\.isPending).count
+            summary.stop = .locked
+            summary.stoppedReason = "waiting for the phone to be unlocked"
             return summary
         }
         draining = true
@@ -295,6 +359,7 @@ actor PunchQueue {
     /// Drops settled punches older than 30 days (at the start of every drain). Pending punches,
     /// and refused ones the user hasn't dismissed, are never pruned.
     func pruneSettled() {
+        guard isLoaded else { return }
         let cutoff = now().addingTimeInterval(-Self.settledRetention)
         let before = items.count
         items.removeAll { p in
@@ -307,11 +372,14 @@ actor PunchQueue {
     /// Explicit user action only (with confirmation in the UI): delete punches that belong to a
     /// different person, or everything on sign-out after the user confirmed losing unsent punches.
     func discard(where predicate: @Sendable (QueuedPunch) -> Bool) {
+        ensureLoaded()
         items.removeAll(where: predicate)
         persist()
     }
 
     private func persist() {
+        // Never write over a file that hasn't been read: it may hold unsent punches.
+        guard loaded else { return }
         do { try store.save(items) } catch {
             // Keep the in-memory queue; the next change tries to write again.
         }
@@ -329,8 +397,16 @@ struct FilePunchQueueStore: PunchQueueStoring {
             .appendingPathComponent("punches-\(connectionID.uuidString.lowercased()).json")
     }
 
-    func load() -> [QueuedPunch] {
-        guard let data = try? Data(contentsOf: fileURL) else { return [] }
+    func load() throws -> [QueuedPunch] {
+        let data: Data
+        do {
+            data = try Data(contentsOf: fileURL)
+        } catch {
+            // No file: nothing was ever queued. A file that exists but can't be read is locked
+            // (NSFileProtectionComplete) or otherwise unavailable now; it is not an empty queue.
+            if !FileManager.default.fileExists(atPath: fileURL.path) { return [] }
+            throw PunchQueueUnreadable()
+        }
         if let punches = try? JSONDecoder().decode([QueuedPunch].self, from: data) { return punches }
         // Never overwrite punches the app can't read (say, after a downgrade): keep the file aside.
         let aside = fileURL.deletingPathExtension().appendingPathExtension("unreadable-\(Int(Date().timeIntervalSince1970)).json")
@@ -362,7 +438,7 @@ final class MemoryPunchQueueStore: PunchQueueStoring, @unchecked Sendable {
     private var saved: [QueuedPunch]
     private(set) var saveCount = 0
     init(_ initial: [QueuedPunch] = []) { saved = initial }
-    func load() -> [QueuedPunch] { lock.withLock { saved } }
+    func load() throws -> [QueuedPunch] { lock.withLock { saved } }
     func save(_ punches: [QueuedPunch]) throws { lock.withLock { saved = punches; saveCount += 1 } }
 }
 
@@ -392,11 +468,7 @@ struct APIPunchSender: PunchSending {
         let replayed: Bool?
     }
 
-    static func iso(_ d: Date) -> String {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f.string(from: d)
-    }
+    static func iso(_ d: Date) -> String { Fmt.instant(d) }
 
     func send(_ punch: QueuedPunch, sentAt: Date, queued: Bool, elapsedMs: Int?) async -> PunchSendResult {
         let body = Body(

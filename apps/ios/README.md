@@ -131,6 +131,11 @@ support once a version has shipped with it, so the iPad layouts are designed, no
 - **Native sign-in:** `/api/v1/native/{authorize,token,revoke}` with PKCE S256.
 - **Punches:** `POST /api/v1/attendance/punches` with `source: "ios"`, the idempotency key and
   `queued`.
+  - The punch's time is the tap's, taken before the location fix (up to 8 s).
+  - The queue file is unreadable while the phone is locked (`NSFileProtectionComplete`), and iOS
+    can start the app in the background then. Until the file has been read, the app neither
+    writes it nor sends anything; it tries again on every use, so the punches appear and are sent
+    once the phone is unlocked.
   - `elapsedMs` (monotonic time since the tap) is sent only when the phone hasn't restarted
     since the tap. The app checks this with the kernel boot session id.
   - The time-zone offset stays on the phone.
@@ -144,6 +149,9 @@ support once a version has shipped with it, so the iPad layouts are designed, no
   404) refreshes the list. The Approvals segment shows for owners, HR and payroll admins and
   managers, and for anyone `GET /api/v1/approvals/tasks` has tasks for (a reporting-line manager
   without the role, a named approver, out-of-office cover).
+- **Redirects** are never followed (as on Android): a 3xx is handed back as the answer, so a
+  request and its token can't be taken to another host. The UI-test recorder also records where
+  each answer came from.
 - **Sessions:** a refresh ends the session only when the server answers a 4xx with its own error
   envelope (`invalid_grant`); a certificate error, an unreadable reply or a proxy's error page keeps
   the tokens. With the lock on, the app asks on every cold start and after more than 5 minutes in

@@ -262,5 +262,50 @@ class PunchQueueTest {
         assertEquals("out", queue.nextKind(serverClockedIn = true))
         queue.enqueue("in", Instant.parse("2026-11-02T00:58:00Z"), key = "state-key-01")
         assertEquals("out", queue.nextKind(serverClockedIn = false))
+        // The Clock screen works from the list it already read.
+        assertEquals("out", PunchQueue.nextKind(queue.pending(), serverClockedIn = false))
+        assertEquals("out", PunchQueue.nextKind(emptyList(), serverClockedIn = true))
+    }
+
+    /** A wall clock and a monotonic clock that move together, as a phone's do. */
+    private class MovingClocks(var now: Instant, var elapsed: Long, override val bootCount: Int? = 7) : MonotonicClock {
+        override fun elapsedMillis() = elapsed
+        fun advance(ms: Long) { now = now.plusMillis(ms); elapsed += ms }
+    }
+
+    @Test fun thePunchTimeIsTheTapNotTheLocationFix() = runTest {
+        val queue = PunchQueue(KvPunchStore(InMemoryKeyValueStore(), "c"))
+        val clocks = MovingClocks(Instant.parse("2026-11-02T00:59:55Z"), elapsed = 5_000_000)
+        val tap = PunchTap.take("in", clocks.now, clocks)
+        // The fix arrives 10 s later (the location timeout), after 09:00 in Singapore.
+        val result = queue.punch(tap) {
+            clocks.advance(10_000)
+            PunchLocation(1.2834, 103.8607, 20.0)
+        }
+        val punch = (result as EnqueueResult.Queued).punch
+        assertEquals("2026-11-02T00:59:55Z", punch.deviceTime)
+        assertEquals(5_000_000L, punch.monotonicMillis)
+        assertEquals(7, punch.bootCount)
+        assertEquals(20.0, punch.location!!.accuracyMetres!!, 0.0)
+        // Sent at once: elapsedMs covers the wait, so the server records the tap time, and a send
+        // 10 s after the tap is live, not queued.
+        val sender = FixtureSender(listOf(accepted))
+        queue.drain(clocks.now, sender, clocks)
+        val sent = sender.sent.single()
+        assertEquals("2026-11-02T00:59:55Z", sent.deviceTime)
+        assertEquals(10_000L, sent.elapsedMs)
+        assertFalse(sent.queued)
+    }
+
+    @Test fun aTapSurvivesBeingSavedAcrossThePermissionDialog() {
+        val tap = PunchTap("out", "2026-11-02T10:00:00Z", 42L, 3)
+        val saved = crowtech.crowhr.core.CrowJson.encodeToString(PunchTap.serializer(), tap)
+        assertEquals(tap, crowtech.crowhr.core.CrowJson.decodeFromString(PunchTap.serializer(), saved))
+        val queue = PunchQueue(KvPunchStore(InMemoryKeyValueStore(), "c"))
+        val queued = (queue.enqueue(tap, location = null, zone = java.time.ZoneId.of("Asia/Singapore")) as EnqueueResult.Queued).punch
+        assertEquals("out", queued.kind)
+        assertEquals("2026-11-02T10:00:00Z", queued.deviceTime)
+        assertEquals(42L, queued.monotonicMillis)
+        assertEquals(480, queued.utcOffsetMinutes)
     }
 }

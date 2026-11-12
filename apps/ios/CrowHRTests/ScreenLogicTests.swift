@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import Testing
 import UIKit
 @testable import CrowHR
@@ -51,18 +52,64 @@ struct ScreenLogicTests {
     }
 
     @MainActor
-    @Test func photosAreScaledDownForUpload() throws {
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let big = UIGraphicsImageRenderer(size: CGSize(width: 4000, height: 3000), format: format).image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 4000, height: 3000))
-        }
+    @Test func photosAreScaledDownForUpload() async throws {
+        let big = Self.photo(width: 4000, height: 3000)
         let sent = CapturedImage.forUpload(big)
         #expect(sent.size.width * sent.scale == 2400 && sent.size.height * sent.scale == 1800)
         let small = CameraCapture.stubReceipt()
         #expect(CapturedImage.forUpload(small) === small)
-        #expect(try #require(CapturedImage(image: big).jpeg).count < 10 * 1024 * 1024)
+        // Made once when the photo arrives, off the main thread; Submit only reads it.
+        let camera = await CapturedImage.make(camera: big)
+        let jpeg = try #require(camera.jpeg)
+        #expect(jpeg.count < 10 * 1024 * 1024)
+        #expect(Self.pixels(jpeg)?.size == CGSize(width: 2400, height: 1800))
+        #expect(camera.image.size.width * camera.image.scale == 2400)
+        let stub = await CapturedImage.make(camera: small)
+        let stubJPEG = try #require(stub.jpeg)
+        // Already within 2,400 px (600 x 800 points at the screen's scale): sent at its own size.
+        #expect(Self.pixels(stubJPEG)?.size == CGSize(width: small.size.width * small.scale, height: small.size.height * small.scale))
+    }
+
+    @Test func libraryPhotosAreDecodedAtUploadSizeAndUpright() async throws {
+        // A portrait photo as cameras store it: 4000 x 3000 pixels, EXIF "rotate 90° clockwise".
+        let portrait = Self.jpeg(Self.photo(width: 4000, height: 3000), orientation: 6)
+        let captured = try #require(await CapturedImage.make(data: portrait))
+        let capturedJPEG = try #require(captured.jpeg)
+        let sent = try #require(Self.pixels(capturedJPEG))
+        #expect(sent.size == CGSize(width: 1800, height: 2400))
+        #expect(sent.orientation == 1)
+        // A small photo keeps its size; something that isn't an image is refused.
+        let small = try #require(await CapturedImage.make(data: Self.jpeg(Self.photo(width: 600, height: 800), orientation: 1)))
+        let smallJPEG = try #require(small.jpeg)
+        #expect(Self.pixels(smallJPEG)?.size == CGSize(width: 600, height: 800))
+        #expect(await CapturedImage.make(data: Data("not a photo".utf8)) == nil)
+    }
+
+    private static func photo(width: Int, height: Int) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            UIColor.black.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: width / 4, height: height / 4))
+        }
+    }
+
+    private static func jpeg(_ image: UIImage, orientation: Int) -> Data {
+        let out = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(out, "public.jpeg" as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, image.cgImage!, [kCGImagePropertyOrientation: orientation] as CFDictionary)
+        CGImageDestinationFinalize(destination)
+        return out as Data
+    }
+
+    /// Pixel size and EXIF orientation (1 when absent) of an encoded image.
+    private static func pixels(_ data: Data) -> (size: CGSize, orientation: Int)? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let p = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let w = p[kCGImagePropertyPixelWidth] as? Int, let h = p[kCGImagePropertyPixelHeight] as? Int else { return nil }
+        return (CGSize(width: w, height: h), p[kCGImagePropertyOrientation] as? Int ?? 1)
     }
 
     @Test func approvalDetailsDecodeWithAndWithoutComments() throws {

@@ -236,6 +236,59 @@ class NativeAuthTest {
         }
     }
 
+    @Test fun theAccessTokenExpiryIsStoredFromTheReply() = runTest {
+        val asked = java.time.Instant.parse("2026-11-13T01:00:00Z")
+        val timed = NativeAuth(store, tokens, httpFor = { http }, deviceName = "Pixel 9 (Android)", appVersion = "0.1.0", now = { asked })
+        server.enqueue(tokenResponse("a1", "r1"))
+        timed.begin(connection)
+        timed.complete("crowtech.crowhr:/oauth2redirect?code=c&state=${timed.pending()!!.state}") { connection }
+        assertEquals(asked.toEpochMilli() + 900_000, tokens.get(connection.key)!!.accessExpiresAtEpochMs)
+        server.enqueue(tokenResponse("a2", "r2"))
+        assertEquals(RefreshResult.Refreshed, timed.refresh(connection, "a1"))
+        assertEquals(asked.toEpochMilli() + 900_000, tokens.get(connection.key)!!.accessExpiresAtEpochMs)
+    }
+
+    /** As iOS: renewed a minute before it expires, so requests don't each take a refused round trip. */
+    @Test fun anAccessTokenAboutToExpireIsRenewedBeforeTheRequest() = runTest {
+        val now = java.time.Instant.parse("2026-11-13T01:00:00Z")
+        tokens.put(connection.key, StoredTokens("old-access", "old-refresh", "device-1", now.toEpochMilli() + 30_000))
+        server.enqueue(tokenResponse("new-access", "new-refresh"))
+        server.enqueue(MockResponse().setBody("""{"unread":3}"""))
+        var ended = false
+        val api = ApiClient(connection, http, tokens, auth, now = { now }) { ended = true }
+        assertEquals(3, api.get("/api/v1/notifications/unread-count", UnreadCount.serializer()).unread)
+        assertEquals("/api/v1/native/token", server.takeRequest().path)
+        assertEquals("Bearer new-access", server.takeRequest().getHeader("Authorization"))
+        assertEquals(2, server.requestCount)
+        assertFalse(ended)
+        // Valid for longer than a minute: used as it is.
+        tokens.put(connection.key, StoredTokens("live-access", "live-refresh", "device-1", now.toEpochMilli() + 61_000))
+        server.enqueue(MockResponse().setBody("""{"unread":1}"""))
+        api.get("/api/v1/notifications/unread-count", UnreadCount.serializer())
+        assertEquals("Bearer live-access", server.takeRequest().getHeader("Authorization"))
+        assertEquals(3, server.requestCount)
+    }
+
+    @Test fun anEarlyRenewalThatCantReachTheServerStillTriesTheRequest() = runTest {
+        val now = java.time.Instant.parse("2026-11-13T01:00:00Z")
+        tokens.put(connection.key, StoredTokens("old-access", "old-refresh", "device-1", now.toEpochMilli() + 30_000))
+        // A proxy's page instead of the token reply: temporary, so the token is still tried.
+        server.enqueue(MockResponse().setResponseCode(503).setBody("<html>Busy</html>"))
+        server.enqueue(MockResponse().setBody("""{"unread":2}"""))
+        val api = ApiClient(connection, http, tokens, auth, now = { now }) {}
+        assertEquals(2, api.get("/api/v1/notifications/unread-count", UnreadCount.serializer()).unread)
+        assertEquals("/api/v1/native/token", server.takeRequest().path)
+        assertEquals("Bearer old-access", server.takeRequest().getHeader("Authorization"))
+        assertEquals("old-refresh", tokens.get(connection.key)!!.refreshToken)
+    }
+
+    @Test fun tokensStoredByEarlierVersionsStillRead() {
+        store.put("tokens.${connection.key}", """{"accessToken":"a","refreshToken":"r","deviceSessionId":"d"}""")
+        val t = tokens.get(connection.key)!!
+        assertNull(t.accessExpiresAtEpochMs)
+        assertFalse(t.needsRefresh(java.time.Instant.now()))
+    }
+
     @Test fun tokensTravelOnlyInTheAuthorizationHeader() = runTest {
         tokens.put(connection.key, StoredTokens("secret-access", "secret-refresh", "device-1"))
         server.enqueue(MockResponse().setBody("""{"unread":0}"""))

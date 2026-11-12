@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.Saver
 import crowtech.crowhr.api.ApiException
 import crowtech.crowhr.api.OfflineException
 import crowtech.crowhr.core.CrowJson
+import crowtech.crowhr.ui.LocalScreenMemory
 import crowtech.crowhr.ui.theme.Crow
 import kotlinx.serialization.KSerializer
 import java.time.LocalDate
@@ -69,14 +70,22 @@ val LocalRefresh = staticCompositionLocalOf<RefreshSignal?> { null }
  * Loads [block] when the screen opens, on [Loader.reload] and on pull to refresh. When [cached]
  * returns a saved copy and the network fails with [OfflineException], the saved copy is shown
  * with an offline note. A reload keeps showing the current content until the new one arrives.
+ * With a [memoryKey] (from [crowtech.crowhr.ui.ScreenMemory.key]) the last loaded value is kept in memory, so the
+ * screen opens on it the next time (a tab switched away from and back) and loads again behind it.
  */
 @Composable
 fun <T> rememberLoader(
     vararg keys: Any?,
+    memoryKey: String? = null,
     cached: (suspend () -> Pair<T, String>?)? = null,
     block: suspend () -> T,
 ): Loader<T> {
-    val state = remember(*keys) { mutableStateOf<LoadState<T>>(LoadState.Loading) }
+    val memory = LocalScreenMemory.current?.takeIf { memoryKey != null }
+    val state = remember(*keys) {
+        @Suppress("UNCHECKED_CAST")
+        val remembered = memoryKey?.let { memory?.get(it) } as T?
+        mutableStateOf<LoadState<T>>(if (remembered != null) LoadState.Ready(remembered) else LoadState.Loading)
+    }
     val reload = remember(*keys) { mutableIntStateOf(0) }
     val refresh = LocalRefresh.current
     LaunchedEffect(*keys, reload.intValue, refresh?.generation) {
@@ -84,7 +93,7 @@ fun <T> rememberLoader(
         try {
             if (state.value !is LoadState.Ready) state.value = LoadState.Loading
             state.value = try {
-                LoadState.Ready(block())
+                LoadState.Ready(block().also { value -> if (memoryKey != null && value != null) memory?.put(memoryKey, value) })
             } catch (e: OfflineException) {
                 val saved = cached?.invoke()
                 if (saved != null) LoadState.Ready(saved.first, offlineSince = saved.second) else LoadState.Failed(e.userMessage(), true)
