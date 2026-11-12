@@ -24,6 +24,11 @@ export interface BridgeOptions {
   onCookiesChanged?: () => Promise<void> | void;
   /** Called after a state-changing request, before its response is returned (make it durable). */
   afterWrite?: () => Promise<void>;
+  /**
+   * The browser's user agent (the worker's `navigator.userAgent`). A request built in the page
+   * carries none, so without it core lists the visitor's own session as "Unknown device".
+   */
+  userAgent?: string;
 }
 
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -36,6 +41,7 @@ const BROWSER_OWNED = [
   "host",
   "content-length",
   "transfer-encoding",
+  "user-agent",
 ];
 
 // biome-ignore lint/suspicious/noExplicitAny: any Hono app (core's env type is irrelevant here).
@@ -66,6 +72,7 @@ export function createApiBridge(app: AnyHono, options: BridgeOptions) {
     for (const h of BROWSER_OWNED) headers.delete(h);
     const cookie = options.jar.header(url.pathname, options.now());
     if (cookie) headers.set("cookie", cookie);
+    if (options.userAgent) headers.set("user-agent", options.userAgent);
     if (!SAFE.has(wire.method)) {
       // What a browser sends on a same-origin fetch; core's CSRF check reads these.
       headers.set("origin", options.origin);

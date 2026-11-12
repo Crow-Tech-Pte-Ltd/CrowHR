@@ -5,6 +5,13 @@ import { E2E, uiSignInOk } from "./fixtures.ts";
 /** The organisation switcher lists the person's organisations and moves the session; the company logo uploads. */
 
 async function axeClean(page: Page, include?: string) {
+  // A menu fades in: measure contrast once its opening animation has finished, not mid-fade.
+  if (include) {
+    await page
+      .locator(include)
+      .first()
+      .evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
+  }
   const axe = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]);
   // An open menu hides the rest of the page from assistive technology (Radix): check the menu itself.
   const results = await (include ? axe.include(include) : axe).analyze();

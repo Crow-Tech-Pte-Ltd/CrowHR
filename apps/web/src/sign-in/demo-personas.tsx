@@ -34,7 +34,7 @@ export function DemoPersonaPicker({
   only,
   demoCompany,
   title = "Pick someone to be",
-  intro = "One click signs you in as a fictional Kopi Kaki employee. Each sees what their role allows.",
+  intro = "One click signs you in. Each person sees what their role allows.",
 }: {
   only?: readonly string[];
   demoCompany?: { orgSlug: string; nativeRequestId?: string };
@@ -92,10 +92,7 @@ export function DemoPersonaPicker({
 
   return (
     <section aria-labelledby="demo-personas-title" className="mb-8" data-testid="demo-personas">
-      <h2
-        id="demo-personas-title"
-        className="mb-1 font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300"
-      >
+      <h2 id="demo-personas-title" className="mb-1 font-azeret text-ui font-semibold">
         {title}
       </h2>
       <p className="mb-3 text-ui text-primary-300">{intro}</p>
@@ -126,12 +123,14 @@ export function DemoPersonaPicker({
                   )}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-baseline gap-x-2">
-                      <span className="font-azeret text-2xs font-semibold uppercase tracking-wider">
+                    {/* "Owner · Kah Hui": the role first, in sentence case, then who it is. */}
+                    <span className="block text-ui">
+                      <span className="font-semibold">
                         {meta?.label ??
                           (p.roles.length ? p.roles.map((r) => ROLE_LABEL[r] ?? r).join(" + ") : "Employee")}
                       </span>
-                      <span className="text-ui font-medium">{p.displayName}</span>
+                      <span className="text-primary-300"> · </span>
+                      <span className="font-medium">{p.displayName}</span>
                     </span>
                     {meta ? <span className="block text-2xs text-primary-300">{meta.blurb}</span> : null}
                   </span>

@@ -5,6 +5,7 @@
  *    exists, and every `#fragment` points at an element id on the target page.
  * 2. Every operation in the OpenAPI snapshot has a section in the generated API reference.
  * 3. Every page has a <title>, a meta description and a canonical URL, and exactly one <h1>.
+ *    Redirect pages (astro.config.mjs `redirects`) instead have to point at a page that exists.
  *
  * Exits 1 with a list of problems.
  */
@@ -70,14 +71,20 @@ for (const page of pages) {
   const pageRel = relative(DIST, page);
   const pagePath = `${BASE}${pageRel.replace(/index\.html$/, "")}`;
 
-  // 3. Head and heading sanity (Pagefind's own UI fragments are not pages).
-  if (!pageRel.startsWith("pagefind/")) {
+  // 3. Head and heading sanity (Pagefind's own UI fragments are not pages, and the redirect pages
+  // from astro.config.mjs `redirects` are only a meta refresh plus a link, checked below).
+  const isRedirect = /<meta http-equiv="refresh"/.test(html);
+  if (!pageRel.startsWith("pagefind/") && !isRedirect) {
     if (!/<title>[^<]+<\/title>/.test(html)) problems.push(`${pageRel}: missing <title>`);
     if (!/<meta name="description" content="[^"]+"/.test(html)) problems.push(`${pageRel}: missing meta description`);
     if (!/<link rel="canonical" href="https:\/\/hr\.crow\.sg\/docs\//.test(html))
       problems.push(`${pageRel}: missing canonical URL under ${SITE}${BASE}`);
     const h1 = html.match(/<h1[\s>]/g)?.length ?? 0;
     if (h1 !== 1) problems.push(`${pageRel}: expected exactly one <h1>, found ${h1}`);
+  }
+  if (isRedirect) {
+    const to = html.match(/<meta http-equiv="refresh" content="\d+;url=([^"]+)"/)?.[1];
+    if (!to?.startsWith(BASE) || !fileFor(decode(to))) problems.push(`${pageRel}: redirect to a missing page: ${to}`);
   }
 
   // 1. Links and fragments.

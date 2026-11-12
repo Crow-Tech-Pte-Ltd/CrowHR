@@ -1,7 +1,7 @@
 // Fonts first, so the loading screen and the app paint in Azeret Mono / Ubuntu.
 import "@crowhr/ui/fonts.css";
 import { createDemoClient, type DemoClient, interceptFetch } from "@crowhr/demo/client";
-import type { BootStage, BootTimings, DemoInfo, WireRequest } from "@crowhr/demo/protocol";
+import { type BootStage, type BootTimings, DB_PREFIX, type DemoInfo, type WireRequest } from "@crowhr/demo/protocol";
 import DemoWorker from "@crowhr/demo/worker?worker";
 import { setAppClockOffset } from "@crowhr/ui/clock";
 import { configureWebForDemo } from "./web-extensions.tsx";
@@ -43,8 +43,54 @@ function showError(html: string) {
   bootEl.hidden = false;
 }
 
+/** The demo's own IndexedDB databases (the worker's PGlite copy). */
+async function deleteLocalCopy() {
+  const all = (await indexedDB.databases?.()) ?? [];
+  for (const db of all) {
+    if (!db.name?.includes(DB_PREFIX)) continue;
+    await new Promise<void>((resolve) => {
+      const req = indexedDB.deleteDatabase(db.name as string);
+      req.onsuccess = req.onerror = req.onblocked = () => resolve();
+    });
+  }
+}
+
+/**
+ * A boot normally takes a few seconds. Rarely (twice in ~250 loads of an audit crawl on a busy
+ * machine) it stalled on "Opening your copy of the demo" with no error, and the next load was
+ * fine. If the app isn't on screen after SLOW_BOOT_MS, say so and offer a way out: reload, or
+ * stop the worker, delete this browser's copy and start from the snapshot again.
+ */
+const SLOW_BOOT_MS = 30_000;
+let worker: Worker | null = null;
+
+function watchBoot() {
+  const timer = setTimeout(() => {
+    const el = document.getElementById("demo-boot-slow") as HTMLElement;
+    el.innerHTML =
+      "This is taking longer than usual. " +
+      '<button type="button" id="demo-slow-reload">Reload the page</button>, or ' +
+      '<button type="button" id="demo-slow-reset">start again with a fresh copy</button> ' +
+      "(changes you made in the demo are lost).";
+    el.hidden = false;
+    document.getElementById("demo-slow-reload")?.addEventListener("click", () => location.reload());
+    document.getElementById("demo-slow-reset")?.addEventListener(
+      "click",
+      () => {
+        worker?.terminate();
+        void deleteLocalCopy().then(() => location.reload());
+      },
+      { once: true },
+    );
+  }, SLOW_BOOT_MS);
+  return () => {
+    clearTimeout(timer);
+    (document.getElementById("demo-boot-slow") as HTMLElement).hidden = true;
+  };
+}
+
 async function bootDemo(): Promise<{ client: DemoClient; timings: BootTimings; info: DemoInfo }> {
-  const worker = new DemoWorker();
+  worker = new DemoWorker();
   const client = createDemoClient(worker, {
     onProgress: (stage) => showStage(stage),
     onOutbox: (count) => outboxEvents.dispatchEvent(new CustomEvent("count", { detail: count })),
@@ -94,6 +140,15 @@ function startTicking(client: DemoClient) {
 
 async function runApp() {
   const t0 = performance.now();
+  const stopWatching = watchBoot();
+  try {
+    await startApp(t0);
+  } finally {
+    stopWatching();
+  }
+}
+
+async function startApp(t0: number) {
   const { client, timings, info } = await bootDemo();
   interceptFetch(client);
   serveServiceWorker(client);

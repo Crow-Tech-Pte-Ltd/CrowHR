@@ -158,221 +158,190 @@ export function SignInPage({
   const ssoHref = (id: string) => `/api/v1/auth/oidc/${id}/start${nativeRequestId ? `?native=${nativeRequestId}` : ""}`;
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-      <main className="flex flex-col px-5 py-6 sm:px-10">
-        <Wordmark />
-        <div className="mx-auto flex w-full max-w-[380px] flex-1 flex-col justify-center py-10">
-          <p
-            className="mb-2 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200"
-            data-testid="org-name"
-          >
-            {orgName}
-          </p>
-          <h1 className="mb-1 text-2xl font-semibold leading-8">
-            {step.kind === "mfa" ? "Two-step verification" : "Sign in"}
-          </h1>
-          <p className="mb-7 text-ui text-primary-300">
-            {step.kind === "mfa"
-              ? "Enter the 6-digit code from your authenticator app. Lost your phone? Use one of your recovery codes."
-              : demoCompany
-                ? nativeRequestId
-                  ? "Pick who the Crow HR app signs in as. You'll return to the app afterwards."
-                  : "Pick who to be. No password: everyone here is fictional."
-                : nativeRequestId
-                  ? "Sign in to connect the Crow HR app. You'll return to the app afterwards."
+    // One calm column, like the other sign-in screens (auth-layout.tsx): the organisation's name, then
+    // only the methods it has enabled. Every member of staff sees this page, so it carries no product pitch.
+    <main className="flex min-h-dvh flex-col px-5 py-6 sm:px-10">
+      <Wordmark />
+      <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-10">
+        <h1 className="mb-1 text-2xl font-semibold leading-8" data-testid="org-name">
+          {orgName}
+        </h1>
+        {step.kind === "mfa" ? (
+          <h2 className="mt-3 mb-1 font-azeret text-base font-semibold">Two-step verification</h2>
+        ) : null}
+        <p className="mb-7 text-ui text-primary-300">
+          {step.kind === "mfa"
+            ? "Enter the 6-digit code from your authenticator app. Lost your phone? Use one of your recovery codes."
+            : demoCompany
+              ? nativeRequestId
+                ? "Pick who the Crow HR app signs in as. You'll return to the app afterwards."
+                : "Pick who to be. No password: everyone here is fictional."
+              : nativeRequestId
+                ? "Sign in to connect the Crow HR app. You'll return to the app afterwards."
+                : methods.demoMode
+                  ? "Sign in as one of the fictional staff below, or with email."
                   : providers.length
-                    ? "Use the method your organisation has set up."
+                    ? "Sign in with the method your organisation has set up."
                     : "Sign in with your work email and password."}
-          </p>
-          {demoCompany && step.kind !== "mfa" ? <DemoCompanyNotice expiresAt={demoCompany.expiresAt} /> : null}
+        </p>
+        {demoCompany && step.kind !== "mfa" ? <DemoCompanyNotice expiresAt={demoCompany.expiresAt} /> : null}
 
-          {notice && !(noticeAtForm && step.kind === "credentials" && passwordVisible)
-            ? noticeAlert(notice, "mb-6")
-            : null}
+        {notice && !(noticeAtForm && step.kind === "credentials" && passwordVisible)
+          ? noticeAlert(notice, "mb-6")
+          : null}
 
-          {step.kind === "mfa" ? (
-            <form noValidate onSubmit={onMfa} className="flex flex-col gap-4" aria-label="Two-step verification">
-              <FormField
-                label="Authenticator code"
-                error={fieldErrors.code}
-                hint="Codes change every 30 seconds. Recovery codes look like ABCDE-23456."
-              >
-                <Input
-                  autoFocus
-                  autoComplete="one-time-code"
-                  inputMode="text"
-                  className="num tracking-[0.2em]"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
-              </FormField>
-              <Button type="submit" variant="primary" size="lg" className="mt-1 w-full" disabled={busy}>
-                {busy ? "Checking…" : "Verify and sign in"}
-              </Button>
+        {step.kind === "mfa" ? (
+          <form noValidate onSubmit={onMfa} className="flex flex-col gap-4" aria-label="Two-step verification">
+            <FormField
+              label="Authenticator code"
+              error={fieldErrors.code}
+              hint="Codes change every 30 seconds. Recovery codes look like ABCDE-23456."
+            >
+              <Input
+                autoFocus
+                autoComplete="one-time-code"
+                inputMode="text"
+                className="num tracking-[0.2em]"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </FormField>
+            <Button type="submit" variant="primary" size="lg" className="mt-1 w-full" disabled={busy}>
+              {busy ? "Checking…" : "Verify and sign in"}
+            </Button>
+            <button
+              type="button"
+              className="focus-ring self-start rounded-sm text-2xs font-medium text-primary-300 hover:text-ink hover:underline"
+              onClick={() => {
+                setStep({ kind: "credentials" });
+                setCode("");
+              }}
+            >
+              Start again with a different account
+            </button>
+          </form>
+        ) : (
+          <>
+            {demoCompany ? (
+              <DemoPersonaPicker
+                demoCompany={{ orgSlug, nativeRequestId }}
+                title="Sign in as"
+                intro={
+                  nativeRequestId
+                    ? "One tap signs the app in as this person of your demo company."
+                    : "One tap signs you in as this person of your demo company. Each sees what their role allows."
+                }
+              />
+            ) : methods.demoMode && !nativeRequestId && demoSingpassOk ? (
+              <DemoPersonaPicker
+                only={DEMO_SINGPASS_PERSONAS}
+                title="Logged in with Singpass"
+                intro="The demo doesn't keep who you are. Choose how you want to look around:"
+              />
+            ) : methods.demoMode && !nativeRequestId ? (
+              <DemoPersonaPicker />
+            ) : null}
+            {providers.length ? (
+              <div className="flex flex-col gap-3" data-testid="sso-methods">
+                {providers.map((p) => {
+                  const common = {
+                    provider: p.kind === "entra" ? ("microsoft" as const) : p.kind,
+                    oidcName: p.kind === "oidc" ? p.displayName : undefined,
+                    singpassLogoSrc: p.kind === "singpass" ? (methods.singpassLogoUrl ?? undefined) : undefined,
+                  };
+                  if (!methods.demoMode)
+                    return (
+                      <ProviderButton key={p.id} {...common} onClick={() => window.location.assign(ssoHref(p.id))} />
+                    );
+                  // Demo: only Singpass can work, through a real Crow HR server (see demoSingpassStartUrl).
+                  const startUrl = p.kind === "singpass" ? demoSingpassStartUrl : undefined;
+                  return startUrl ? (
+                    <ProviderButton key={p.id} {...common} onClick={() => window.location.assign(startUrl)} />
+                  ) : (
+                    <ProviderButton key={p.id} {...common} disabled title="Not available in the demo." />
+                  );
+                })}
+                {methods.demoMode ? (
+                  <p className="text-2xs text-primary-300">
+                    {demoSingpassStartUrl && providers.some((p) => p.kind === "singpass")
+                      ? "Singpass works in the demo: log in for real, then choose HR admin or Employee. The demo doesn't keep who you are. The other methods are not available in the demo."
+                      : "Not available in the demo. Self-hosted installs can enable this in Settings → Security."}
+                  </p>
+                ) : null}
+                {googleDomains.length ? (
+                  <p className="text-2xs text-primary-200">
+                    Google sign-in accepts <span className="num">{googleDomains.map((d) => `@${d}`).join(", ")}</span>{" "}
+                    accounts only.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {providers.length && passwordVisible ? (
+              <div className="my-6 flex items-center gap-3" aria-hidden>
+                <span className="h-px flex-1 bg-border" />
+                <span className="text-2xs text-primary-300">or with email</span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+            ) : null}
+
+            {passwordVisible ? (
+              <form noValidate onSubmit={onSubmit} className="flex flex-col gap-4" aria-label="Sign in with email">
+                {notice && noticeAtForm ? noticeAlert(notice) : null}
+                <FormField label="Work email" error={fieldErrors.email}>
+                  <Input
+                    type="email"
+                    autoComplete="username"
+                    inputMode="email"
+                    placeholder="name@company.sg"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </FormField>
+                <FormField
+                  label="Password"
+                  error={fieldErrors.password}
+                  labelAside={
+                    <button
+                      type="button"
+                      className="focus-ring rounded-sm text-2xs font-medium text-biru-400 hover:underline"
+                      onClick={() => setResetOpen(true)}
+                    >
+                      Forgot password?
+                    </button>
+                  }
+                >
+                  <Input
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </FormField>
+                <Button type="submit" variant="primary" size="lg" className="mt-1 w-full" disabled={busy}>
+                  {busy ? "Signing in…" : "Sign in"}
+                </Button>
+              </form>
+            ) : null}
+
+            {!demoCompany && !methods.password.enabled && !showOwnerLogin ? (
               <button
                 type="button"
-                className="focus-ring self-start rounded-sm text-2xs font-medium text-primary-300 hover:text-ink hover:underline"
-                onClick={() => {
-                  setStep({ kind: "credentials" });
-                  setCode("");
-                }}
+                onClick={() => setShowOwnerLogin(true)}
+                className="focus-ring mt-6 self-start rounded-sm text-2xs font-medium text-primary-300 underline-offset-4 hover:text-ink hover:underline"
               >
-                Start again with a different account
+                Organisation owner? Sign in with password
               </button>
-            </form>
-          ) : (
-            <>
-              {demoCompany ? (
-                <DemoPersonaPicker
-                  demoCompany={{ orgSlug, nativeRequestId }}
-                  title="Sign in as"
-                  intro={
-                    nativeRequestId
-                      ? "One tap signs the app in as this person of your demo company."
-                      : "One tap signs you in as this person of your demo company. Each sees what their role allows."
-                  }
-                />
-              ) : methods.demoMode && !nativeRequestId && demoSingpassOk ? (
-                <DemoPersonaPicker
-                  only={DEMO_SINGPASS_PERSONAS}
-                  title="Logged in with Singpass"
-                  intro="The demo doesn't keep who you are. Choose how you want to look around:"
-                />
-              ) : methods.demoMode && !nativeRequestId ? (
-                <DemoPersonaPicker />
-              ) : null}
-              {providers.length ? (
-                <div className="flex flex-col gap-3" data-testid="sso-methods">
-                  {providers.map((p) => {
-                    const common = {
-                      provider: p.kind === "entra" ? ("microsoft" as const) : p.kind,
-                      oidcName: p.kind === "oidc" ? p.displayName : undefined,
-                      singpassLogoSrc: p.kind === "singpass" ? (methods.singpassLogoUrl ?? undefined) : undefined,
-                    };
-                    if (!methods.demoMode)
-                      return (
-                        <ProviderButton key={p.id} {...common} onClick={() => window.location.assign(ssoHref(p.id))} />
-                      );
-                    // Demo: only Singpass can work, through a real Crow HR server (see demoSingpassStartUrl).
-                    const startUrl = p.kind === "singpass" ? demoSingpassStartUrl : undefined;
-                    return startUrl ? (
-                      <ProviderButton key={p.id} {...common} onClick={() => window.location.assign(startUrl)} />
-                    ) : (
-                      <ProviderButton key={p.id} {...common} disabled title="Not available in the demo." />
-                    );
-                  })}
-                  {methods.demoMode ? (
-                    <p className="text-2xs text-primary-300">
-                      {demoSingpassStartUrl && providers.some((p) => p.kind === "singpass")
-                        ? "Singpass works in the demo: log in for real, then choose HR admin or Employee. The demo doesn't keep who you are. The other methods are not available in the demo."
-                        : "Not available in the demo. Self-hosted installs can enable this in Settings → Security."}
-                    </p>
-                  ) : null}
-                  {googleDomains.length ? (
-                    <p className="text-2xs text-primary-200">
-                      Google sign-in accepts <span className="num">{googleDomains.map((d) => `@${d}`).join(", ")}</span>{" "}
-                      accounts only.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
+            ) : null}
 
-              {providers.length && passwordVisible ? (
-                <div className="my-6 flex items-center gap-3" aria-hidden>
-                  <span className="h-px flex-1 bg-border" />
-                  <span className="font-azeret text-[10px] uppercase tracking-[0.14em] text-primary-200">
-                    or with email
-                  </span>
-                  <span className="h-px flex-1 bg-border" />
-                </div>
-              ) : null}
-
-              {passwordVisible ? (
-                <form noValidate onSubmit={onSubmit} className="flex flex-col gap-4" aria-label="Sign in with email">
-                  {notice && noticeAtForm ? noticeAlert(notice) : null}
-                  <FormField label="Work email" error={fieldErrors.email}>
-                    <Input
-                      type="email"
-                      autoComplete="username"
-                      inputMode="email"
-                      placeholder="name@company.sg"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Password"
-                    error={fieldErrors.password}
-                    labelAside={
-                      <button
-                        type="button"
-                        className="focus-ring rounded-sm text-2xs font-medium text-biru-400 hover:underline"
-                        onClick={() => setResetOpen(true)}
-                      >
-                        Forgot password?
-                      </button>
-                    }
-                  >
-                    <Input
-                      type="password"
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </FormField>
-                  <Button type="submit" variant="primary" size="lg" className="mt-1 w-full" disabled={busy}>
-                    {busy ? "Signing in…" : "Sign in"}
-                  </Button>
-                </form>
-              ) : null}
-
-              {!demoCompany && !methods.password.enabled && !showOwnerLogin ? (
-                <button
-                  type="button"
-                  onClick={() => setShowOwnerLogin(true)}
-                  className="focus-ring mt-6 self-start rounded-sm text-2xs font-medium text-primary-300 underline-offset-4 hover:text-ink hover:underline"
-                >
-                  Organisation owner? Sign in with password
-                </button>
-              ) : null}
-
-              {!demoCompany && !providers.length && !methods.password.enabled && !showOwnerLogin ? (
-                <p className="text-ui text-primary-300">No sign-in method is available. Ask your organisation owner.</p>
-              ) : null}
-            </>
-          )}
-        </div>
-        <footer className="flex flex-wrap gap-x-4 gap-y-1 font-azeret text-[10px] uppercase tracking-wider text-primary-200">
-          <span>Crow HR</span>
-          <span>Self-hosted</span>
-          <span>MIT licensed</span>
-        </footer>
-      </main>
-
-      <aside
-        aria-hidden
-        className="relative hidden flex-col overflow-hidden border-l border-border bg-surface-100 p-10 lg:flex xl:p-14"
-      >
-        <p className="font-azeret text-2xs font-medium uppercase tracking-wider text-primary-300">
-          HR and payroll for Singapore teams
-        </p>
-        {/* Copy and payslip read as one block, centred in the panel (no stretched gap between them). */}
-        <div className="my-auto flex flex-col gap-10 pt-10">
-          <div className="max-w-md">
-            <p className="font-azeret text-[28px] font-semibold leading-[1.2] tracking-tight text-ink xl:text-[32px]">
-              Payroll that shows its working.
-            </p>
-            <p className="mt-4 max-w-sm text-sm leading-6 text-primary-300">
-              Built so every CPF, SDL and levy figure can be traced to the rule and the date it came from. Your data
-              stays on your own server.
-            </p>
-          </div>
-          <SamplePayslipStrip />
-        </div>
-      </aside>
-
+            {!demoCompany && !providers.length && !methods.password.enabled && !showOwnerLogin ? (
+              <p className="text-ui text-primary-300">No sign-in method is available. Ask your organisation owner.</p>
+            ) : null}
+          </>
+        )}
+      </div>
       <ResetRequestDialog open={resetOpen} onOpenChange={setResetOpen} orgSlug={orgSlug} defaultEmail={email} />
-    </div>
+    </main>
   );
 }
 
@@ -455,35 +424,6 @@ function ResetRequestDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** Decorative: a fragment of a payslip breakdown in the brand style (no real numbers). */
-function SamplePayslipStrip() {
-  const rows = [
-    ["Basic salary", "4,200.00"],
-    ["Overtime, 6.5 h", "312.50"],
-    ["Transport claim", "86.40"],
-    ["Gross pay", "4,598.90"],
-  ];
-  return (
-    <div className="w-full max-w-sm rounded-lg border-2 border-ink bg-surface-50 shadow-brutal">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <span className="font-azeret text-2xs font-semibold uppercase tracking-wider">Payslip · Oct 2026</span>
-        <span className="rounded-sm bg-kuning-200 px-1.5 py-px font-azeret text-[10px] font-bold">SAMPLE</span>
-      </div>
-      <dl className="px-4 py-2">
-        {rows.map(([k, v], i) => (
-          <div
-            key={k}
-            className={`flex justify-between py-1.5 text-ui ${i === rows.length - 1 ? "mt-1 border-t border-ink/20 pt-2.5 font-semibold" : ""}`}
-          >
-            <dt>{k}</dt>
-            <dd className="num">S${v}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
   );
 }
 

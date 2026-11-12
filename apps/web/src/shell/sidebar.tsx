@@ -54,8 +54,9 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           className={cn("flex flex-col gap-3 border-t border-border py-3", collapsed ? "items-center px-3" : "px-3")}
         >
           <NavLink id="settings" collapsed={collapsed} />
-          <div className={cn("flex items-center gap-2", collapsed ? "flex-col" : "justify-between pl-2.5")}>
-            <ApiStatus collapsed={collapsed} />
+          <div className={cn("flex items-center gap-2", collapsed ? "flex-col" : "justify-end pl-2.5")}>
+            {/* Renders only when the server or its database can't be reached. */}
+            <ApiStatus collapsed={collapsed} className={collapsed ? undefined : "min-w-0 flex-1"} />
             <button
               type="button"
               onClick={onToggle}

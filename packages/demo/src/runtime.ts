@@ -10,6 +10,7 @@ import { applyMigrations, type MigrationBundle } from "./migrations.ts";
 import type { BootStage, BootTimings, DemoInfo } from "./protocol.ts";
 import { singaporeDate } from "./seed/dates.ts";
 import { seedDemo } from "./seed/index.ts";
+import { seedSaturdayMorning } from "./seed/morning.ts";
 import { DEMO_ORG } from "./seed/people.ts";
 
 /**
@@ -83,7 +84,9 @@ export async function openDemo(input: OpenDemoInput) {
       secretKey,
       publicUrl: input.origin,
     });
-    await seedDemo(seedDeps, seedClock, input.origin);
+    const company = await seedDemo(seedDeps, seedClock, input.origin);
+    // The visit opens on Saturday late morning: the morning crews are already at work.
+    await seedSaturdayMorning(seedDeps, seedClock, input.origin, company);
     await fileStore.flush();
     meta = {
       dataVersion: input.dataVersion,
@@ -135,6 +138,8 @@ export async function openDemo(input: OpenDemoInput) {
   const jar = createCookieJar((await kv.get<StoredCookie[]>("cookies")) ?? []);
   const handle = createApiBridge(app, {
     origin: input.origin,
+    // The worker's navigator: core describes the visitor's session as e.g. "Chrome on macOS".
+    userAgent: typeof navigator === "undefined" ? undefined : navigator.userAgent,
     jar,
     now: () => clock.now().getTime(),
     onCookiesChanged: () => kv.set("cookies", jar.toJSON()),

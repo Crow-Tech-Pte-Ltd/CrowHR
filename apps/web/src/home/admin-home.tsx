@@ -115,7 +115,7 @@ export function AdminHome() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-6">
           {setup.length ? <SetupCard items={setup} /> : null}
           <ApprovalsCard items={approvals} today={data?.today ?? ""} loading={inbox.isPending} />
@@ -202,10 +202,11 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
             <Table aria-label="Approvals waiting" className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[12rem]">Requester</TableHead>
+                  <TableHead className="w-[10rem]">Requester</TableHead>
                   <TableHead>Request</TableHead>
                   <TableHead className="w-[8.5rem] text-right">Due</TableHead>
-                  <TableHead className="w-[9.5rem]">
+                  {/* Wide enough for "Reject" and "Approve" side by side (they don't wrap). */}
+                  <TableHead className="w-[13.5rem]">
                     <span className="sr-only">Actions</span>
                   </TableHead>
                 </TableRow>
@@ -255,14 +256,19 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
                   <span className="text-primary-300">{item.detail} · </span>
                   {item.title}
                 </p>
-                <div className="flex items-center justify-between gap-2 pl-[34px]">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <DueOrOrigin item={item} today={today} />
-                    <span className="num truncate text-2xs text-primary-200">
-                      sent {ageLabel(item.createdAt, today)}
-                    </span>
-                  </span>
-                  <RowAction item={item} onApprove={approve} onReject={setRejecting} pending={decide.isPending} />
+                {/* The due pill and the buttons get a line each: side by side they squeeze "Reject" to a bare ✕. */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-[34px]">
+                  <DueOrOrigin item={item} today={today} />
+                  <span className="num text-2xs text-primary-200">sent {ageLabel(item.createdAt, today)}</span>
+                </div>
+                <div className="flex justify-end pl-[34px]">
+                  <RowAction
+                    item={item}
+                    onApprove={approve}
+                    onReject={setRejecting}
+                    pending={decide.isPending}
+                    labelled
+                  />
                 </div>
               </li>
             ))}
@@ -288,11 +294,14 @@ function RowAction({
   onApprove,
   onReject,
   pending,
+  labelled = false,
 }: {
   item: InboxItem;
   onApprove: (i: InboxItem) => void;
   onReject: (i: InboxItem) => void;
   pending: boolean;
+  /** Keep "Reject" spelled out even on a phone (the buttons have their own line there). */
+  labelled?: boolean;
 }) {
   if (item.task?.inline) {
     return (
@@ -301,6 +310,7 @@ function RowAction({
         onApprove={() => onApprove(item)}
         onReject={() => onReject(item)}
         disabled={pending}
+        labelled={labelled}
       />
     );
   }

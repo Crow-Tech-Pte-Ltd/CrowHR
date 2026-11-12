@@ -12,9 +12,9 @@ You need Docker with the Compose plugin.
 
 ```sh
 git clone https://github.com/Crow-Tech-Pte-Ltd/CrowHR.git && cd CrowHR
-cp .env.example .env            # 1. copy the settings
-$EDITOR .env                    # 2. set PUBLIC_URL, e.g. https://hr.example.sg
-docker compose up -d            # 3. start
+cp .env.example .env            # copy the settings
+$EDITOR .env                    # set PUBLIC_URL, e.g. https://hr.example.sg
+docker compose up -d            # start
 docker compose logs app | grep -A3 'SETUP CODE'   # then open PUBLIC_URL and finish setup
 ```
 

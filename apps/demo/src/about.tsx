@@ -46,7 +46,7 @@ const DIFFERENCES: [string, string, string][] = [
   ],
   [
     "Date",
-    "The company lives on 31 Oct 2026; the clock starts there at your time of day and then runs normally.",
+    "The company lives on Saturday 31 Oct 2026. Every visit starts there at 11:30 Singapore time, after the outlets' morning crews have clocked in, and the clock then runs normally.",
     "The real date.",
   ],
   ["Uploaded files", "Receipts are stored in the browser database.", "Stored on the server's disk volume."],
@@ -74,9 +74,8 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
         </p>
         <h1 className="mb-3 font-azeret text-2xl font-semibold leading-tight tracking-tight">About this demo</h1>
         <p className="max-w-2xl text-sm leading-6 text-primary-300">
-          This is the real Crow HR: the same web app and the same API code that a self-hosted install runs, started
-          inside your browser instead of on a server. Payroll is calculated by the real engine with the cited Singapore
-          rules, approvals go through the real workflow engine, and permissions are enforced by the same code.
+          The same web app and API code as a self-hosted install, running in your browser instead of on a server.
+          Payroll, approvals and permissions use the same engine and the same cited Singapore rules.
         </p>
 
         {tryUrl() ? (
@@ -124,11 +123,12 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
             The company: Kopi Kaki Pte. Ltd.
           </h2>
           <p className="mb-3 max-w-2xl text-ui leading-6 text-primary-300">
-            A fictional café group with an office, a central kitchen and three outlets: 27 people across citizens,
-            permanent residents in their first, second and later years, Employment Pass, S Pass and Work Permit holders,
-            every self-help group fund, part-timers and employees on each CPF age boundary. July to September 2026
-            payroll is approved and paid; October is a computed draft with warnings. Claims, leave, change requests and
-            approvals are waiting for each persona. Every name, NRIC/FIN, bank account and email address is invented.
+            A fictional café group with an office, a central kitchen and three outlets. 25 people work there (one starts
+            in November) and two left this year. They include citizens, permanent residents in their first, second and
+            later years, Employment Pass, S Pass and Work Permit holders, every self-help group fund, part-timers and
+            employees on each CPF age boundary. July to September 2026 payroll is approved and paid; October is a
+            computed draft with warnings. Claims, leave, change requests and approvals are waiting for each persona.
+            Every name, NRIC/FIN, bank account and email address is invented.
           </p>
           <section
             aria-label="Demo personas"

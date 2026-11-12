@@ -79,6 +79,15 @@ describe("api bridge", () => {
     expect(json(me.body)).toEqual({ session: "tok", origin: null });
   });
 
+  it("sends the browser's own user agent, so the visitor's session isn't an unknown device", async () => {
+    const app = new Hono();
+    app.get("/api/v1/ua", (c) => c.json({ ua: c.req.header("user-agent") ?? null }));
+    const chrome = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36";
+    const handle = createApiBridge(app, { origin: ORIGIN, jar: createCookieJar(), now: () => NOW, userAgent: chrome });
+    const forged = await handle(wire("GET", "/api/v1/ua", undefined, [["user-agent", "forged"]]));
+    expect(json(forged.body)).toEqual({ ua: chrome });
+  });
+
   it("answers only same-origin /api/ requests", async () => {
     const { handle } = setup();
     expect((await handle(wire("GET", "/assets/app.js"))).status).toBe(404);

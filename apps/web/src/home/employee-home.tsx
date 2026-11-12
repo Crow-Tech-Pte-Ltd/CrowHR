@@ -61,7 +61,9 @@ export function EmployeeHome() {
           </Link>
         </Button>
       </div>
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* grid-cols-1 (minmax(0, 1fr)), not an implicit auto column: a long to-do title must truncate,
+          not widen the page past a phone's screen. */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card aria-labelledby="todo-title" data-testid="employee-todo">
           <CardHeader>
             <CardTitle id="todo-title">To do</CardTitle>

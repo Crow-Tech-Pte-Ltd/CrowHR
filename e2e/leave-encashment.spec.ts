@@ -20,8 +20,12 @@ test("policy-gated employee request, HR employee tab, approval and payroll chang
     };
     await update(false);
     const page = await staff.newPage();
+    const loaded = page.waitForResponse((r) => r.url().includes("/api/v1/leave/encashments"));
     await page.goto("/leave");
-    await expect(page.getByText("No encashment requests yet.", { exact: false })).toBeVisible();
+    await loaded;
+    // Encashable, but not by the employee's own request: nothing to show them, so no card at all.
+    await expect(page.getByTestId("leave-balances")).toBeVisible();
+    await expect(page.getByText("Leave encashment", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Encash leave", exact: true })).toHaveCount(0);
     await update(true);
     await page.reload();

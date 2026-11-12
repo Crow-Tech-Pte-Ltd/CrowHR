@@ -2,6 +2,10 @@
  * Messages between the page and the demo worker. Requests and responses cross `postMessage` as
  * plain data (structured clone); bodies are ArrayBuffers and are transferred, not copied.
  */
+
+/** Every IndexedDB database of the demo has this in its name (PGlite stores `/pglite/<name>`). */
+export const DB_PREFIX = "crowhr-demo-";
+
 export interface WireRequest {
   method: string;
   /** Path and query, e.g. `/api/v1/me`. Always same-origin. */

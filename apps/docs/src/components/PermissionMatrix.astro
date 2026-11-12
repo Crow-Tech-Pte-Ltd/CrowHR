@@ -13,7 +13,10 @@ const count = groups.reduce((n, g) => n + g.rows.length, 0);
   records, <strong>Assigned</strong> = only items they are the assigned approver for, and a dash = denied.
 </p>
 <div class="crow-matrix-wrap">
-  <table class="crow-matrix">
+  {/* On narrow screens the matrix scrolls in this box, so the box takes keyboard focus (WCAG 2.1.1).
+      The table itself doesn't scroll, so it opts out of the site-wide tabindex on tables. */}
+  <div class="crow-matrix-scroll" role="region" aria-label="Permission matrix" tabindex="0">
+  <table class="crow-matrix" tabindex="-1">
     <caption class="sr-only">Permission matrix: scope granted to each role for each permission</caption>
     <thead>
       <tr>
@@ -26,8 +29,10 @@ const count = groups.reduce((n, g) => n + g.rows.length, 0);
         <tbody>
           <tr>
             <th scope="rowgroup" colspan={ROLES.length + 1}>
-              {group.label}
-              {group.notBuilt && <span class="crow-pill crow-pill--soon">module not built</span>}
+              <span class="crow-matrix-group">
+                {group.label}
+                {group.notBuilt && <span class="crow-pill crow-pill--soon">module not built</span>}
+              </span>
             </th>
           </tr>
           {group.rows.map((row) => (
@@ -47,4 +52,5 @@ const count = groups.reduce((n, g) => n + g.rows.length, 0);
       ))
     }
   </table>
+  </div>
 </div>

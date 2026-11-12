@@ -1,6 +1,6 @@
 import { PGlite } from "@electric-sql/pglite";
 import { initdbAsset, pgliteAssets } from "./pglite-assets.ts";
-import type { BootStage, FromWorker, ToWorker } from "./protocol.ts";
+import { type BootStage, DB_PREFIX, type FromWorker, type ToWorker } from "./protocol.ts";
 import type { DemoRuntime } from "./runtime.ts";
 import { openWithSnapshot, readSnapshot } from "./snapshot.ts";
 
@@ -12,7 +12,7 @@ import { openWithSnapshot, readSnapshot } from "./snapshot.ts";
  */
 declare const self: DedicatedWorkerGlobalScope;
 
-export const DB_PREFIX = "crowhr-demo-";
+export { DB_PREFIX };
 
 let runtime: DemoRuntime | null = null;
 let pglite: PGlite | null = null;

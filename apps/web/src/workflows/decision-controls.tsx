@@ -98,12 +98,15 @@ export function DecisionButtons({
   onReject,
   disabled,
   compact,
+  labelled,
 }: {
   who: string;
   onApprove: () => void;
   onReject: () => void;
   disabled?: boolean;
   compact?: boolean;
+  /** Spell out "Reject" at every width (the caller gave the buttons a line of their own). */
+  labelled?: boolean;
 }) {
   return (
     <div className="flex shrink-0 justify-end gap-1">
@@ -121,7 +124,7 @@ export function DecisionButtons({
             }}
           >
             <X />
-            {compact ? null : <span className="hidden sm:inline">Reject</span>}
+            {compact ? null : <span className={labelled ? undefined : "hidden sm:inline"}>Reject</span>}
           </Button>
         </TooltipTrigger>
         <TooltipContent>Reject (needs a reason)</TooltipContent>
