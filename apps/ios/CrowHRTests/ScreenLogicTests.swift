@@ -3,7 +3,7 @@ import Testing
 import UIKit
 @testable import CrowHR
 
-/// Screen logic from the 12 Nov 2026 QA pass: load states, the leave query, Singapore dates,
+/// Screen logic: load states, the leave query, Singapore dates,
 /// uploads, the payslip PDF and the approval details.
 @Suite("Screen logic")
 struct ScreenLogicTests {
