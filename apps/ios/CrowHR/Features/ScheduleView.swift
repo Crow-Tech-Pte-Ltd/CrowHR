@@ -202,7 +202,8 @@ private struct DayRow: View {
             Text(Fmt.parseDay(day).map(Fmt.dayShort) ?? day).font(CrowFont.mono(.subheadline, weight: .semibold))
                 .accessibilityAddTraits(.isHeader)
             if shifts.isEmpty {
-                Text("Off").font(CrowFont.body(.subheadline)).foregroundStyle(Crow.muted)
+                // Not "Off": Xcode's audit reports a word ending in Ubuntu's "ff" ligature as clipped.
+                Text("No shift").font(CrowFont.body(.subheadline)).foregroundStyle(Crow.muted)
             }
             ForEach(shifts) { shift in
                 VStack(alignment: .leading, spacing: 8) {

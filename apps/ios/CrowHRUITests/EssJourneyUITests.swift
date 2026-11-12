@@ -158,9 +158,12 @@ class CrowUITestCase: XCTestCase {
 
     /// Picks an option of a `ChoiceRow`: from its menu, or (at accessibility sizes) its own list.
     func choose(_ field: XCUIElement, _ option: String, _ file: StaticString = #filePath, _ line: UInt = #line) {
-        reveal(field, file, line).tap()
+        reveal(field, file, line)
+        // Read before the tap: at accessibility sizes the field's list is pushed over it.
+        let fieldID = field.identifier
+        field.tap()
         let listed = app.buttons.matching(NSPredicate(format: "identifier == 'choice.option' AND label == %@", option)).firstMatch
-        let item = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", option, field.identifier)).firstMatch
+        let item = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", option, fieldID)).firstMatch
         eventually("the option \(option)", timeout: 10, { listed.exists || item.exists }, file: file, line: line)
         (listed.exists ? listed : item).tap()
     }

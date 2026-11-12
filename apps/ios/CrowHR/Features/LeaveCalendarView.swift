@@ -26,7 +26,23 @@ struct TeamCalendarView: View {
                         .padding(.top, 12)
                 } else {
                     ForEach(days) { day in
-                        RowGroup(header: header(day)) {
+                        // The day as My schedule shows it, and the holiday under it. (As a mono
+                        // section label, "TUE 10 NOV 2026" was reported clipped by Xcode's audit.)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(Fmt.parseDay(day.date).map(Fmt.dayShort) ?? day.date)")
+                                .font(CrowFont.mono(.subheadline, weight: .semibold))
+                                .accessibilityAddTraits(.isHeader)
+                            if let holiday = day.holiday {
+                                Text(holiday).font(CrowFont.body(.footnote)).foregroundStyle(Crow.muted)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 20)
+                        .padding(.bottom, 4)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("calendar.day")
+                        RowGroup {
                             if day.away.isEmpty {
                                 Text("Public holiday").font(CrowFont.body(.subheadline)).foregroundStyle(Crow.muted).crowRowPadding()
                             }
@@ -84,12 +100,6 @@ struct TeamCalendarView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
-    }
-
-    /// "Mon 16 Nov 2026 · Deepavali".
-    private func header(_ day: TeamCalendar.Day) -> String {
-        let date = "\(Fmt.weekday(day.date)) \(Fmt.dayString(day.date))"
-        return day.holiday.map { "\(date) · \($0)" } ?? date
     }
 
     private func load() async throws -> LeaveCalendar {
