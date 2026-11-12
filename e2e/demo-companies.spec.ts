@@ -65,14 +65,14 @@ test("start a demo company, apply for leave as the employee, approve it as the m
   const roster = (await (
     await visitor.request.get(`/api/v1/scheduling/me?from=${addDays(today, 14)}&to=${addDays(today, 40)}`)
   ).json()) as { shifts: Shift[] };
-  const day = roster.shifts.find((s) => s.kind === "shift" && new Date(`${s.date}T00:00:00Z`).getUTCDay() !== 0);
-  expect(day, "Hafiz has a shift in the coming weeks").toBeDefined();
+  const date = roster.shifts.find((s) => s.kind === "shift" && new Date(`${s.date}T00:00:00Z`).getUTCDay() !== 0)?.date;
+  if (!date) throw new Error("Hafiz has no shift in the coming weeks");
   await visitor.goto("/leave");
   await visitor.getByTestId("apply-leave").click();
   const sheet = visitor.getByRole("dialog");
   await expect(sheet.getByText("Apply for leave")).toBeVisible();
   // One day: picking "From" fills "To" with the same date.
-  await pickDate(visitor, "From", day?.date as string);
+  await pickDate(visitor, "From", date);
   await sheet.getByLabel("Reason").fill("My sister's wedding");
   await expect(sheet.getByTestId("leave-quote")).toBeVisible();
   await sheet.getByRole("button", { name: "Send for approval" }).click();
@@ -88,7 +88,7 @@ test("start a demo company, apply for leave as the employee, approve it as the m
   await expect(siti.getByTestId("demo-company-banner")).toBeVisible();
   await siti.setViewportSize(DESKTOP);
   await siti.goto("/inbox");
-  const [y, mo, d] = (day?.date as string).split("-").map(Number) as [number, number, number];
+  const [y, mo, d] = date.split("-").map(Number) as [number, number, number];
   const shown = `${d} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][mo - 1]} ${y}`;
   const task = siti
     .getByTestId("inbox-task")

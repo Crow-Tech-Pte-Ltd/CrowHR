@@ -326,20 +326,20 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
         72,
         1,
         720,
-        " Demo companies are deleted this many hours after a visitor starts one." + hint,
+        ` Demo companies are deleted this many hours after a visitor starts one.${hint}`,
       ),
       poolSize: int(
         "DEMO_COMPANY_POOL_SIZE",
         3,
         0,
         20,
-        " This many ready copies are kept so a start is instant; 0 seeds on demand." + hint,
+        ` This many ready copies are kept so a start is instant; 0 seeds on demand.${hint}`,
       ),
       maxLive: int("DEMO_COMPANY_MAX_LIVE", 300, 1, 10_000, hint),
-      hourlyLimitPerNetwork: int("DEMO_COMPANY_HOURLY_LIMIT", 5, 1, 1000, " Starts per network per hour." + hint),
-      dailyLimitPerNetwork: int("DEMO_COMPANY_DAILY_LIMIT", 20, 1, 10_000, " Starts per network per day." + hint),
+      hourlyLimitPerNetwork: int("DEMO_COMPANY_HOURLY_LIMIT", 5, 1, 1000, ` Starts per network per hour.${hint}`),
+      dailyLimitPerNetwork: int("DEMO_COMPANY_DAILY_LIMIT", 20, 1, 10_000, ` Starts per network per day.${hint}`),
       uploadQuotaBytes:
-        int("DEMO_COMPANY_UPLOAD_QUOTA_MB", 25, 1, 1024, " Uploads one demo company may hold." + hint) * 1024 * 1024,
+        int("DEMO_COMPANY_UPLOAD_QUOTA_MB", 25, 1, 1024, ` Uploads one demo company may hold.${hint}`) * 1024 * 1024,
     };
     if (demoCompanies.hourlyLimitPerNetwork > demoCompanies.dailyLimitPerNetwork) {
       fail(
