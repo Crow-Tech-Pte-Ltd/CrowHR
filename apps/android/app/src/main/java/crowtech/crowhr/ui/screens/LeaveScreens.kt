@@ -51,6 +51,7 @@ import crowtech.crowhr.api.Items
 import crowtech.crowhr.api.LeaveApplication
 import crowtech.crowhr.api.LeaveAttachment
 import crowtech.crowhr.api.LeaveBalance
+import crowtech.crowhr.api.LeaveChild
 import crowtech.crowhr.api.LeaveQuote
 import crowtech.crowhr.api.LeaveQuoteRequest
 import crowtech.crowhr.api.LeaveRequest
@@ -69,6 +70,8 @@ import crowtech.crowhr.ui.components.LocalDateSaver
 import crowtech.crowhr.ui.components.jsonSaver
 import kotlinx.serialization.builtins.nullable
 import crowtech.crowhr.ui.components.LoadContent
+import crowtech.crowhr.ui.components.LoadState
+import crowtech.crowhr.ui.components.Loader
 import crowtech.crowhr.ui.components.Notice
 import crowtech.crowhr.ui.components.PrimaryButton
 import crowtech.crowhr.ui.components.ScreenTitle
@@ -92,6 +95,7 @@ import java.time.ZoneOffset
 private val BALANCES = Items.serializer(LeaveBalance.serializer())
 private val REQUESTS = Items.serializer(LeaveRequest.serializer())
 private val TYPES = Items.serializer(LeaveType.serializer())
+private val CHILDREN = Items.serializer(LeaveChild.serializer())
 
 /** One place for the leave status wording shared by history rows. */
 private fun leaveStatus(status: String): Pair<String, Tone> = when (status) {
@@ -135,6 +139,11 @@ fun LeaveScreen(ctx: ScreenContext) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenTitle("Leave", "Your balances for ${LocalDate.now(Formats.SINGAPORE).year}.")
         PrimaryButton("Apply for leave", { ctx.push(Route.LeaveApply) }, Modifier.fillMaxWidth().testTag("apply-leave"))
+        // Everyone can see who's away; managers, HR and owners also see their team's requests.
+        SecondaryButton(
+            if (LeaveCalendarLogic.wide(ctx.me)) "Team calendar" else "Who's away",
+            { ctx.push(Route.LeaveCalendar) }, Modifier.fillMaxWidth().testTag("leave-calendar"),
+        )
         SectionTitle("Balances")
         LoadContent(balances, "Loading balances…") { list ->
             val shown = list.items.filter { it.eligible || it.eligibleFrom != null }
@@ -170,7 +179,7 @@ fun LeaveScreen(ctx: ScreenContext) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("leave-request")) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(r.type.name, style = MaterialTheme.typography.titleSmall)
+                            Text(r.type.name + (r.child?.let { " · ${it.name}" } ?: ""), style = MaterialTheme.typography.titleSmall)
                             Text(
                                 if (r.startDate == r.endDate) Formats.date(r.startDate) else "${Formats.date(r.startDate)} to ${Formats.date(r.endDate)}",
                                 style = Numeric.copy(fontSize = MaterialTheme.typography.bodySmall.fontSize), color = Crow.colors.muted,
@@ -237,6 +246,22 @@ data class Holiday(val date: String, val name: String = "")
 fun leaveSessions(start: LocalDate, end: LocalDate, type: LeaveType?, chosen: String): Pair<String, String> =
     if (start == end && type?.halfDays == true && chosen in setOf("full", "am", "pm")) chosen to chosen else "full" to "full"
 
+/**
+ * The child sent with a request: only for a type that needs one (childcare, parental leave), and
+ * only one of the employee's children, so a child chosen for another type is never sent.
+ */
+fun leaveChildId(type: LeaveType?, chosen: String?, children: List<LeaveChild>?): String? =
+    chosen?.takeIf { type?.needsChild == true && children.orEmpty().any { c -> c.id == it } }
+
+/** What stops a request from being sent, as the message shown above Send; null when it can go. */
+fun leaveFormProblem(type: LeaveType?, childId: String?, hasAttachment: Boolean, quoteOk: Boolean?): String? = when {
+    type == null -> "Choose a leave type."
+    type.needsChild && childId == null -> "Choose the child this leave is for."
+    type.attachment == "required" && !hasAttachment -> "Attach ${type.attachmentLabel ?: "a document"} (take a photo or choose a file)."
+    quoteOk == false -> "Fix the problems above before sending."
+    else -> null
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LeaveApplyScreen(ctx: ScreenContext) {
@@ -260,6 +285,12 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
         if (start == first && end == first) { start = better; end = better }
     }
     var startSession by rememberSaveable { mutableStateOf("full") }
+    var chosenChild by rememberSaveable { mutableStateOf<String?>(null) }
+    val needsChild = type?.needsChild == true
+    val children = rememberLoader(ctx.connection.key, needsChild) {
+        if (needsChild) ctx.api.get("/api/v1/leave/children", CHILDREN) else Items(emptyList())
+    }
+    val childId = leaveChildId(type, chosenChild, (children.value as? LoadState.Ready)?.value?.items)
     var reason by rememberSaveable { mutableStateOf("") }
     // Not saved: a document can be megabytes, more than the saved state may hold.
     var attachment by remember { mutableStateOf<LeaveAttachment?>(null) }
@@ -296,15 +327,17 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
     // and hidden since (longer dates, another type) is never sent.
     val (sendStart, sendEnd) = leaveSessions(start, end, type, startSession)
 
-    LaunchedEffect(type, start, end, sendStart) {
+    LaunchedEffect(type, start, end, sendStart, childId) {
         val t = type ?: return@LaunchedEffect
-        delay(250)
         quote = null
         quoteError = null
+        // The quote of a type that needs a child waits for the child (it is counted per child).
+        if (t.needsChild && childId == null) return@LaunchedEffect
+        delay(250)
         try {
             quote = ctx.api.post(
                 "/api/v1/leave/quote",
-                LeaveQuoteRequest(t.id, start.toString(), end.toString(), sendStart, sendEnd),
+                LeaveQuoteRequest(t.id, start.toString(), end.toString(), sendStart, sendEnd, childId),
                 LeaveQuoteRequest.serializer(), LeaveQuote.serializer(),
             )
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -324,15 +357,7 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
             return@Column
         }
         LoadContent(types, "Loading leave types…") { list ->
-            // NOT IMPLEMENTED (app): leave for a child (childcare and the like) needs the child
-            // chosen, which only the web does. Same as iOS.
-            val options = list.items.filter { !it.archived && !it.needsChild }
-            if (list.items.any { !it.archived && it.needsChild }) {
-                Text(
-                    "Leave for a child, such as childcare leave, is applied for in Crow HR on the web.",
-                    style = MaterialTheme.typography.bodySmall, color = Crow.colors.muted,
-                )
-            }
+            val options = list.items.filter { !it.archived }
             var expanded by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                 OutlinedTextField(
@@ -351,6 +376,7 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
                 }
             }
         }
+        if (needsChild) ChildField(children, childId) { chosenChild = it; fieldError = null }
         DateField("First day", start, Modifier.testTag("leave-start")) { start = it; if (end < it) end = it }
         DateField("Last day", end, Modifier.testTag("leave-end")) { end = if (it < start) start else it }
         if (type?.halfDays == true && start == end) {
@@ -389,10 +415,9 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
         submitError?.let { Notice(it, Tone.Danger) }
         PrimaryButton("Send request", {
             val t = type
+            val problem = leaveFormProblem(t, childId, attachment != null, quote?.ok)
             when {
-                t == null -> fieldError = "Choose a leave type."
-                t.attachment == "required" && attachment == null -> fieldError = "Attach ${t.attachmentLabel ?: "a document"} (take a photo or choose a file)."
-                quote?.ok == false -> fieldError = "Fix the problems above before sending."
+                t == null || problem != null -> fieldError = problem
                 else -> {
                     fieldError = null
                     submitting = true
@@ -400,7 +425,7 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
                         try {
                             ctx.api.post(
                                 "/api/v1/leave/requests",
-                                LeaveApplication(t.id, start.toString(), end.toString(), sendStart, sendEnd, reason.trim().ifEmpty { null }, attachment?.let { listOf(it) }),
+                                LeaveApplication(t.id, start.toString(), end.toString(), sendStart, sendEnd, reason.trim().ifEmpty { null }, attachment?.let { listOf(it) }, childId),
                                 LeaveApplication.serializer(), LeaveRequest.serializer(),
                             )
                             sent = true
@@ -417,6 +442,46 @@ fun LeaveApplyScreen(ctx: ScreenContext) {
         SecondaryButton("Cancel", ctx.pop, Modifier.fillMaxWidth())
     }
 }
+
+/** The child a childcare or parental leave request is for (web: the apply sheet's Child field). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChildField(children: Loader<Items<LeaveChild>>, selected: String?, onChoose: (String) -> Unit) {
+    LoadContent(children, "Loading your children's records…") { list ->
+        if (list.items.isEmpty()) {
+            Notice(
+                "No children are recorded for you yet, and this leave is counted per child. Add them in Crow HR on the web (Leave, then Children), or ask HR.",
+                Tone.Warning, title = "No children recorded",
+            )
+            return@LoadContent
+        }
+        var expanded by remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            OutlinedTextField(
+                value = list.items.firstOrNull { it.id == selected }?.name ?: "",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Child") },
+                placeholder = { Text("Choose the child") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).testTag("leave-child"),
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                list.items.forEach { c ->
+                    DropdownMenuItem(
+                        text = { Text(childLabel(c)) },
+                        onClick = { onChoose(c.id); expanded = false },
+                        modifier = Modifier.testTag("leave-child-${c.id}"),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** "Tan Yu Xuan · born 3 Nov 2026" (two children can share a name), or "· due …" before the birth. */
+fun childLabel(c: LeaveChild): String =
+    c.name + (c.birthDate?.let { " · born ${Formats.date(it)}" } ?: c.expectedDeliveryDate?.let { " · due ${Formats.date(it)}" } ?: "")
 
 /** A read-only date field ("31 Oct 2026") that opens the Material date picker. */
 @OptIn(ExperimentalMaterial3Api::class)
