@@ -15,6 +15,7 @@ import { Route as TryRouteImport } from './routes/try'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
+import { Route as EmailTokenRouteImport } from './routes/email.$token'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ResetTokenRouteImport } from './routes/reset.$token'
 import { Route as SignInIndexRouteImport } from './routes/sign-in.index'
@@ -89,6 +90,11 @@ const AppInboxRoute = AppInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
   getParentRoute: () => AppRoute,
+} as any)
+const EmailTokenRoute = EmailTokenRouteImport.update({
+  id: '/email/$token',
+  path: '/email/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
@@ -325,6 +331,7 @@ export interface FileRoutesByFullPath {
   '/try': typeof TryRoute
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
+  '/email/$token': typeof EmailTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/reset/$token': typeof ResetTokenRoute
   '/sign-in/$org': typeof SignInOrgRoute
@@ -376,6 +383,7 @@ export interface FileRoutesByTo {
   '/try': typeof TryRoute
   '/documents': typeof AppDocumentsRoute
   '/inbox': typeof AppInboxRoute
+  '/email/$token': typeof EmailTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/reset/$token': typeof ResetTokenRoute
   '/sign-in/$org': typeof SignInOrgRoute
@@ -430,6 +438,7 @@ export interface FileRoutesById {
   '/try': typeof TryRoute
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/inbox': typeof AppInboxRoute
+  '/email/$token': typeof EmailTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/reset/$token': typeof ResetTokenRoute
   '/sign-in/$org': typeof SignInOrgRoute
@@ -485,6 +494,7 @@ export interface FileRouteTypes {
     | '/try'
     | '/documents'
     | '/inbox'
+    | '/email/$token'
     | '/invite/$token'
     | '/reset/$token'
     | '/sign-in/$org'
@@ -536,6 +546,7 @@ export interface FileRouteTypes {
     | '/try'
     | '/documents'
     | '/inbox'
+    | '/email/$token'
     | '/invite/$token'
     | '/reset/$token'
     | '/sign-in/$org'
@@ -589,6 +600,7 @@ export interface FileRouteTypes {
     | '/try'
     | '/_app/documents'
     | '/_app/inbox'
+    | '/email/$token'
     | '/invite/$token'
     | '/reset/$token'
     | '/sign-in/$org'
@@ -641,6 +653,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   SetupRoute: typeof SetupRoute
   TryRoute: typeof TryRoute
+  EmailTokenRoute: typeof EmailTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ResetTokenRoute: typeof ResetTokenRoute
   SignInOrgRoute: typeof SignInOrgRoute
@@ -690,6 +703,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/inbox'
       preLoaderRoute: typeof AppInboxRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/email/$token': {
+      id: '/email/$token'
+      path: '/email/$token'
+      fullPath: '/email/$token'
+      preLoaderRoute: typeof EmailTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
       id: '/invite/$token'
@@ -1119,6 +1139,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   SetupRoute: SetupRoute,
   TryRoute: TryRoute,
+  EmailTokenRoute: EmailTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   ResetTokenRoute: ResetTokenRoute,
   SignInOrgRoute: SignInOrgRoute,

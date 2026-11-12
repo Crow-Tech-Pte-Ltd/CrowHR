@@ -68,7 +68,7 @@ The independent review of the payroll choices marked these as **unclear**: the a
 
 - **Singpass** is tested against Singpass staging only (not production) and its button needs the official logo, which you add yourself. See [Singpass](/docs/admin/sso/singpass/).
 - **Invitation and password-reset emails are not retried**: they are sent once, because their one-time links are never stored. If one doesn't arrive, resend the invitation or have an owner create a reset link. Other emails are retried.
-- **No email change** for a member's sign-in email yet.
+- **Changing the sign-in email needs SMTP**: the new address is verified by a link, so a server without email can't change it ([changing your sign-in email](/docs/admin/sign-in-methods/#changing-your-sign-in-email)). An owner can't change someone else's sign-in email.
 - **No row-level security** in the database: isolation is enforced by the application and composite foreign keys, with a test that every route refuses another organisation's IDs.
 - **The common-password list** is a curated list of a few hundred entries plus patterns, not a breach corpus.
 - **Reverse proxies:** the Caddy, nginx and Traefik examples are tested automatically, with test certificates instead of Let's Encrypt; Cloudflare Tunnel was tested by hand ([reverse proxy](/docs/self-hosting/reverse-proxy/)).

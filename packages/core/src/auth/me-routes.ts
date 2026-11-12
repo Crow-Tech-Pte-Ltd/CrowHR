@@ -13,6 +13,7 @@ import { users } from "../db/schema/users.ts";
 import { AppError } from "../errors.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 import { audit, regenerateRecoveryCodes, remainingRecoveryCodes, verifyPasswordOrDummy } from "./credentials.ts";
+import { emailChangeMeRoutes } from "./email-change.ts";
 import { mfaPolicyStatus } from "./mfa-policy.ts";
 import { passwordProblem } from "./password-policy.ts";
 import { sendSecurityNotice, sgDateTimePhrase } from "./security-notices.ts";
@@ -627,6 +628,7 @@ export const meModule = defineModule({
         };
       },
     }),
+    ...emailChangeMeRoutes,
   ],
 });
 

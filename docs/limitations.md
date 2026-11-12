@@ -23,7 +23,9 @@ the change that fixes it.
   attempts) go through the outbox. A member's first sign-in is never reported, and clearing cookies
   makes the next sign-in look like a new browser.
 - **Common passwords** are a curated list of a few hundred entries plus patterns, not a breach corpus.
-- **No email change**: a member's email address can't be changed.
+- **Sign-in email changes need SMTP**: a member changes their own address from a link sent to the new
+  one (24 hours). Without SMTP the new address can't be verified, so the change isn't offered rather
+  than made unverified. Owners can't change another member's sign-in email.
 - **No row-level security**: tenant isolation is enforced by the application (org-scoped queries)
   and composite foreign keys, with a test that every route refuses another organisation's IDs.
 - **Audit integrity**: verification compares the hash chain with `audit_heads` and detects a
