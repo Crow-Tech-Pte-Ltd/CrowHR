@@ -61,7 +61,7 @@ A receipt file that is already attached to another submitted claim is flagged, n
 - **Who sees them**: the employee, approvers, HR and payroll admins, and managers for their team; for medical and dental-category lines, only owners, HR admins, the employee and the approver whose task is open.
 
 :::caution[Scanning is optional]
-Without a configured scanner, receipts are stored **unscanned** and usable after content and size checks; owners see that scanning is off. Configure your own private clamd with `CLAMAV_HOST` / `CLAMAV_PORT` to scan through the shared background sweep. New receipts then wait for a clean result before submission, infected files are removed with a notification, and three failed attempts leave a blocked scan-failed receipt. See [server configuration](/docs/self-hosting/configuration/#optional-virus-scanning).
+Without a configured scanner, receipts are stored **unscanned** and usable after the content and size checks; owners see that scanning is off. With your own clamd configured (`CLAMAV_HOST` / `CLAMAV_PORT`), receipts are scanned in the background and must come back clean before the claim can be submitted. Infected files are removed and the uploader is notified; a receipt that can't be scanned after three attempts stays blocked. See [server configuration](/docs/self-hosting/configuration/#optional-virus-scanning).
 :::
 
 ## Foreign currency
@@ -95,10 +95,7 @@ Approved claims to be paid **with payroll** are added to the employee's next reg
 - The payslip shows one line per claim type ("Claims reimbursement: Transport") under **Reimbursements (not wages)**. Reimbursements are not wages: they add to net pay but not gross pay, attract no CPF and exempt business reimbursements are not reported in IR8A. Cash reimbursements marked taxable are included in IR8A d1; review [tax classifications](/docs/payroll/ir8a-export/#taxable-cash-reimbursements).
 - When the run is marked **paid**, its claims become **Paid**, dated the run's pay date.
 
-Off-cycle bonus runs pay no claims; an off-cycle final-pay run pays the leaver's approved claims.
-
-Reopened adjustments carry the replaced chain's reimbursed or reserved claims. Marking the adjustment paid settles unpaid reservations from the replaced runs without paying already-paid claims twice.
-
+Off-cycle bonus runs pay no claims; an off-cycle final-pay run pays the leaver's approved claims. An adjustment run of a month carries that month's claims over without paying any claim twice.
 
 ### Outside payroll
 
@@ -127,6 +124,4 @@ Owners and HR admins can also file a claim on an employee's behalf through the A
 - Automatic exchange rates, and a warning for unusual rates.
 - Mileage or per-diem claim types, and corporate cards.
 - Cleanup of receipts uploaded but never attached to a claim.
-- Non-cash benefits require Appendix 8A outside Crow HR. The **Taxable benefit** flag covers cash reimbursement reporting in IR8A d1.
-
-Optional ClamAV scanning is configured on the server with `CLAMAV_HOST` and `CLAMAV_PORT`; see [configuration](/docs/self-hosting/configuration/#optional-virus-scanning).
+- Non-cash benefits, which need Appendix 8A outside Crow HR. The **Taxable benefit** flag covers cash reimbursements in IR8A d1.

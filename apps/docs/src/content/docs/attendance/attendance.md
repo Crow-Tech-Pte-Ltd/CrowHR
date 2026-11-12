@@ -92,16 +92,16 @@ The Employment Act limits overtime to 72 hours a month unless MOM grants an exem
 
 Approved overtime goes to payroll automatically; nobody retypes it.
 
-- When a payroll run is computed, each **approved** claim whose date worked falls in the run's period becomes an item "Overtime (approved in attendance)" with its minutes and date.
+- When a payroll run is computed, each **approved** claim whose date worked falls in the run's period becomes an item "Overtime (approved in attendance)" with its minutes and date. Approved claims from earlier periods that no run has paid yet are added too.
 - A claim approved after the run was computed makes **Submit for approval** fail with a request to recompute; the recompute picks it up.
-- Overtime is matched by the **date worked**, not the approval date, so it never rolls over to a later month. A claim for October approved after October's run is approved is not paid by November's run; reopen October as an [adjustment run](/docs/payroll/running-payroll/), which includes it. Approve overtime before the month's run is submitted.
+- A claim for October approved after October's run was approved is paid once, by whichever run is computed next: November's, or an [adjustment](/docs/payroll/running-payroll/#correcting-an-approved-or-paid-run) of October. Overtime must be paid within 14 days after the period in which it was worked and the run warns when it is late, so approve overtime before the month's run is submitted.
 - Bonus-only off-cycle runs ignore overtime.
 - For **monthly-rated employees covered by Part 4**, payroll computes the pay at 1.5 × the hourly basic rate, with the working shown in the CPF drawer, and checks it is paid within 14 days after the salary period.
 - Overtime typed in by hand on the run is still possible and is **added on top**; it does not replace the fed items, so don't enter the same hours twice.
 - **Days worked** for rostered staff who clock in also comes from attendance ("Days worked (from attendance)"): days with worked time, plus public holidays and paid leave; no-pay leave days don't count. A "Days worked" item entered by hand on the run takes precedence. See [scheduling](/docs/scheduling/scheduling/#payroll-scheduled-days).
 
 :::caution[Contractual and hourly-rated overtime]
-A fed overtime item carries minutes, not an amount. For an employee **not covered by Part 4** the run blocks with `OT_NOT_STATUTORY` ("Enter the contractual OT amount"), and for an **hourly-rated** employee with `OT_AMOUNT_REQUIRED`. The run screen has no way to put an amount on an item that came from attendance, so for these employees don't approve overtime claims in Crow HR for now: pay their overtime as a manual overtime item with the amount, or as another earning.
+A fed overtime item carries minutes, not an amount. For an employee **not covered by Part 4** the run blocks with `OT_NOT_STATUTORY` ("Enter the contractual OT amount"), and for an **hourly-rated** employee with `OT_AMOUNT_REQUIRED`. The web app can't put an amount on an item that came from attendance (the API can, see [run items without a screen](/docs/payroll/settings/#run-items-without-a-screen)). For these employees, either don't approve overtime claims in attendance and pay their overtime as a manual overtime item with the amount, or set the amount through the API.
 :::
 
 Work on a rest day or public holiday reaches payroll as plain overtime minutes. The separate rest-day and public-holiday pay rules (a day's or two days' basic pay, an extra day for a holiday) are shown as text on rosters but are not paid from attendance; enter them as items on the run.

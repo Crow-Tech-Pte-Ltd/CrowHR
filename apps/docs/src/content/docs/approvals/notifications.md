@@ -59,7 +59,6 @@ Reminders are created once per subject and threshold, and stop when the conditio
 
 Home lists your actionable items from every source: approval tasks (including delegated and escalated ones), checklist items for your role, reminders, organisation setup steps and payroll due. With nothing to do it says "Nothing waiting for you". It never shows placeholder statistics.
 
-## Not available yet
+## Not available
 
-- Notification email templates are fixed in code and do not carry the company logo.
-- Notifications for "sign-in attempts blocked", "new MFA method" and "recovery code used" are not sent yet.
+Notification emails use fixed wording and do not carry the company logo.
