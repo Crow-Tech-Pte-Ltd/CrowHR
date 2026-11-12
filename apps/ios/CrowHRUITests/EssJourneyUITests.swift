@@ -12,7 +12,11 @@ class CrowUITestCase: XCTestCase {
     /// Fictional e2e data (e2e/fixtures.ts).
     static let password = "kopi peng siew dai 2026"
     static let employee = "nurul@kampongkopi.example" // Nurul Huda, rostered crew, reports to Kai Wen
+    static let colleague = "marcus@kampongkopi.example" // Marcus Lim, rostered crew beside Nurul
     static let manager = "kaiwen@kampongkopi.example" // Wong Kai Wen, approver
+
+    /// Extra test data through the server's API (`TestServerSeed`).
+    var seed: TestServerSeed { TestServerSeed(base: server, password: Self.password) }
 
     var server: String { ProcessInfo.processInfo.environment["CROWHR_TEST_SERVER"] ?? "http://127.0.0.1:3190" }
     var app: XCUIApplication!
@@ -111,6 +115,69 @@ class CrowUITestCase: XCTestCase {
     /// Any element with this accessibility identifier (a row can be a button or a cell).
     func element(_ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    /// Any element with this identifier whose label contains `text`.
+    func element(_ identifier: String, containing text: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", identifier, text)).firstMatch
+    }
+
+    /// Any element whose label contains `text` (a row combined into one element).
+    func labelled(containing text: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+    }
+
+    /// Scrolls until the element can be tapped (forms and long screens).
+    @discardableResult
+    func reveal(_ e: XCUIElement, _ file: StaticString = #filePath, _ line: UInt = #line) -> XCUIElement {
+        wait(e, 15, file, line)
+        for _ in 0..<10 where !e.isHittable { app.swipeUp() }
+        return e
+    }
+
+    /// The back button of a pushed screen, by the previous screen's title (on an iPad the first
+    /// button of a navigation bar can be the sidebar's).
+    func goBack(from bar: String, to previous: String) {
+        let back = app.navigationBars[bar].buttons[previous]
+        (back.exists ? back : app.navigationBars[bar].buttons.firstMatch).tap()
+    }
+
+    /// Puts the keyboard away with the keyboard toolbar's Done, so the buttons under it can be tapped.
+    func dismissKeyboard() {
+        guard app.keyboards.count > 0 else { return }
+        let done = app.toolbars.buttons["Done"].firstMatch
+        if done.exists && done.isHittable { done.tap() } else if app.buttons["Done"].firstMatch.isHittable { app.buttons["Done"].firstMatch.tap() }
+    }
+
+    /// Types into a form field, then puts the keyboard away.
+    func fill(_ field: XCUIElement, _ text: String, _ file: StaticString = #filePath, _ line: UInt = #line) {
+        reveal(field, file, line).tap()
+        field.typeText(text)
+        dismissKeyboard()
+    }
+
+    /// Picks an option of a `ChoiceRow`: from its menu, or (at accessibility sizes) its own list.
+    func choose(_ field: XCUIElement, _ option: String, _ file: StaticString = #filePath, _ line: UInt = #line) {
+        reveal(field, file, line).tap()
+        let listed = app.buttons.matching(NSPredicate(format: "identifier == 'choice.option' AND label == %@", option)).firstMatch
+        let item = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", option, field.identifier)).firstMatch
+        eventually("the option \(option)", timeout: 10, { listed.exists || item.exists }, file: file, line: line)
+        (listed.exists ? listed : item).tap()
+    }
+
+    /// The Inbox tab counts unread notifications (the tab bar's badge, read through its value).
+    func assertInboxBadge(_ file: StaticString = #filePath, _ line: UInt = #line) {
+        let candidates = [app.tabBars.buttons["Inbox"], app.buttons.matching(identifier: "tab.inbox").firstMatch, app.cells.matching(identifier: "tab.inbox").firstMatch]
+        func badged() -> Bool { candidates.contains { $0.exists && (($0.value as? String) ?? "").contains(where: \.isNumber) } }
+        let deadline = Date().addingTimeInterval(15)
+        while !badged() && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.25)) }
+        let values = candidates.filter { $0.exists }.map { "\($0.label)=\(($0.value as? String) ?? "")" }
+        print("INBOX BADGE \(values)")
+        // The phone's tab bar shows it as the tab's value; iPadOS's sidebar and floating bar may not
+        // expose it, so there it is only logged.
+        if !isPad || app.tabBars.buttons["Inbox"].exists {
+            XCTAssertTrue(badged(), "The Inbox tab shows no unread count: \(values)", file: file, line: line)
+        }
     }
 
     /// The row for a screen in the iPad sidebar, if the sidebar is showing.
@@ -409,5 +476,141 @@ final class EssJourneyUITests: CrowUITestCase {
         wait(confirm).tap()
         wait(app.buttons["signin.start"])
         XCTAssertEqual(app.staticTexts["signin.orgName"].label, "Kampong Kopi Pte. Ltd.")
+    }
+
+    /// Nurul: a claim with two expenses, the second in ringgit at her card's rate with its SGD
+    /// amount, then the claim's own screen; then My schedule: a swap of next Tuesday's shift for
+    /// Marcus's Thursday, and an open shift picked up and the request cancelled.
+    func test4_EmployeeClaimsInTwoCurrenciesAndOffersASwap() throws {
+        let days = try seed.publishSwapRoster(nurul: Self.employee, marcus: Self.colleague, manager: Self.manager)
+        connectAndSignIn(as: Self.employee)
+
+        let claimsUnderMore = openFromMore("more.claims", sidebar: "Claims")
+        wait(app.buttons["claims.new"]).tap()
+        fill(app.textFields["claim.merchant"], "Kopi Kaki Cafe")
+        fill(app.textFields["claim.description"], "Team breakfast")
+        fill(app.textFields["claim.amount"], "18.40")
+        reveal(app.buttons["claim.camera"]).tap()
+        wait(app.buttons["camera.shutter"]).tap()
+        wait(app.images["claim.receiptPreview"])
+        reveal(app.buttons["claim.addLine"]).tap()
+        fill(app.textFields["claim.merchant.2"], "Restoran Rebung")
+        fill(app.textFields["claim.description.2"], "Client lunch in KL")
+        choose(app.buttons["claim.currency.2"], "MYR · Malaysian ringgit")
+        fill(app.textFields["claim.amount.2"], "125.50")
+        fill(app.textFields["claim.rate.2"], "0.301234")
+        // MYR 125.50 at 0.301234 is S$37.804867: S$37.80, rounded half-up once, as the server does.
+        XCTAssertEqual(reveal(element("claim.sgdPreview.2")).label, "Equals 37 Singapore dollars 80 cents")
+        reveal(app.buttons["claim.camera.2"]).tap()
+        wait(app.buttons["camera.shutter"]).tap()
+        wait(app.images["claim.receiptPreview.2"])
+        let total = reveal(element("claim.total"))
+        XCTAssertTrue(total.label.contains("56 Singapore dollars 20 cents"), "Total reads: \(total.label)")
+        shot("13-claim-two-currencies")
+        let submit = reveal(app.buttons["claim.submit"])
+        XCTAssertTrue(submit.isEnabled, "Submit is disabled: \(element("claim.missing").exists ? element("claim.missing").label : "")")
+        submit.tap()
+        let row = wait(element("claim.row", containing: "56 Singapore dollars 20 cents"), 20)
+        row.tap()
+        XCTAssertEqual(wait(app.staticTexts["claimDetail.title"], 20).label, "2 expenses")
+        XCTAssertTrue(reveal(element("claimDetail.line", containing: "from MYR 125.50 at a rate of 0.301234")).exists)
+        shot("14-claim-detail")
+        goBack(from: "Claim", to: "Claims")
+        wait(app.buttons["claims.new"])
+        if claimsUnderMore { goBack(from: "Claims", to: "More") }
+
+        openFromMore("more.schedule", sidebar: "Schedule")
+        let swap = app.buttons.matching(NSPredicate(format: "identifier == 'schedule.swap' AND label == %@", "Swap or give away \(TestServerSeed.spoken(days.nurulDay))")).firstMatch
+        reveal(swap).tap()
+        wait(element("swap.kind"), 20)
+        choose(app.buttons["swap.colleague"], TestServerSeed.marcusName)
+        choose(app.buttons["swap.theirShift"], "\(TestServerSeed.short(days.marcusDay)) 13:00–21:00")
+        fill(app.textFields["swap.note"], "Family dinner")
+        shot("15-swap-offer")
+        reveal(app.buttons["swap.send"]).tap()
+        XCTAssertEqual(wait(element("schedule.notice"), 20).label, "Sent. Your colleague accepts first, then your manager approves.")
+        XCTAssertTrue(reveal(labelled(containing: "Waiting for colleague")).exists, "The swap is listed, waiting for Marcus")
+
+        reveal(app.buttons["schedule.pickUp"].firstMatch).tap()
+        XCTAssertEqual(wait(element("schedule.notice"), 20).label, "Asked. Your manager will approve it.")
+        XCTAssertTrue(reveal(labelled(containing: "Waiting for approval")).exists, "The pickup goes straight to the manager")
+        shot("16-schedule-requests")
+        reveal(app.buttons["schedule.cancelRequest"].firstMatch).tap()
+        XCTAssertEqual(wait(element("schedule.notice"), 20).label, "Request cancelled.")
+
+        assertOnlyTalkedToTheTestServer()
+    }
+
+    /// Marcus: the Inbox tab counts his unread notifications; Nurul's offer, opened from its
+    /// notification, takes him to My schedule, where he accepts it. Then unpaid infant care leave,
+    /// which names the child: the server's message until he chooses one.
+    func test5_ColleagueAcceptsFromTheNotificationAndAppliesForLeaveForAChild() throws {
+        try seed.ensureSwapOffer(nurul: Self.employee, marcus: Self.colleague, manager: Self.manager)
+        let child = try seed.ensureChild(of: Self.colleague)
+        connectAndSignIn(as: Self.colleague)
+
+        assertInboxBadge()
+        tapTab("Inbox")
+        let offer = app.buttons.matching(NSPredicate(format: "identifier == 'notification.row' AND (label CONTAINS 'asked to swap shifts with you' OR label CONTAINS 'offered you their shift')")).firstMatch
+        wait(offer, 20).tap()
+        let accept = wait(app.buttons["schedule.accept"].firstMatch, 20)
+        XCTAssertTrue(labelled(containing: "Nurul Huda").exists, "The offer says who it is from")
+        shot("17-swap-offer-received")
+        accept.tap()
+        XCTAssertEqual(wait(element("schedule.notice"), 20).label, "Accepted. Your manager will approve it.")
+        // Under More on a phone: back to More's list, so later tabs start from it.
+        let back = app.navigationBars["My schedule"].buttons["More"]
+        if back.exists { back.tap() }
+
+        tapTab("Leave")
+        wait(app.buttons["leave.apply"]).tap()
+        choose(app.buttons["leave.type"], "Unpaid infant care leave")
+        let issue = wait(app.staticTexts["leave.childIssue"], 20)
+        XCTAssertEqual(issue.label, "Unpaid infant care leave is per child. Choose the child (add them under Children first).")
+        XCTAssertFalse(app.buttons["leave.submit"].isEnabled, "Apply waits for the child")
+        shot("18-leave-needs-child")
+        choose(app.buttons["leave.child"], child)
+        eventually("the child's message to go") { !app.staticTexts["leave.childIssue"].exists }
+        let apply = app.buttons["leave.submit"]
+        eventually("Apply to be enabled") { apply.isEnabled }
+        apply.tap()
+        XCTAssertTrue(element("leave.request", containing: "Unpaid infant care leave").waitForExistence(timeout: 20))
+
+        assertOnlyTalkedToTheTestServer()
+    }
+
+    /// Kai Wen: Leave → Calendar shows everyone's leave by day (Wei Ming's paternity leave is in
+    /// these weeks), opens a request, pages on and switches to "Who's away". Then a notification
+    /// about a task opens that task's decision.
+    func test6_ManagerReadsTheTeamCalendarAndOpensATaskFromItsNotification() throws {
+        connectAndSignIn(as: Self.manager)
+        assertInboxBadge()
+
+        tapTab("Leave")
+        wait(app.buttons["Calendar"]).tap()
+        let range = wait(app.staticTexts["calendar.range"], 20)
+        let firstRange = range.label
+        XCTAssertTrue(element("calendar.entry", containing: "Tan Wei Ming").waitForExistence(timeout: 20), "Wei Ming's paternity leave is on the calendar")
+        shot("19-team-calendar")
+        wait(app.buttons.matching(identifier: "calendar.entry").firstMatch).tap()
+        wait(app.staticTexts["leaveRequest.title"], 20)
+        shot("20-team-calendar-request")
+        app.navigationBars["Leave request"].buttons["Done"].tap()
+        wait(app.buttons["calendar.next"]).tap()
+        eventually("the next two weeks") { app.staticTexts["calendar.range"].label != firstRange }
+        wait(app.buttons["Who's away"]).tap()
+        wait(app.staticTexts["calendar.range"])
+
+        tapTab("Inbox")
+        wait(app.buttons["Notifications"].firstMatch).tap()
+        let task = app.buttons.matching(NSPredicate(format: "identifier == 'notification.row' AND label CONTAINS 'needs your approval'")).firstMatch
+        wait(task, 20).tap()
+        // The decision: a sheet on a phone, beside the list on an iPad; or, if someone decided it
+        // already, a note that it no longer waits.
+        eventually("the task to open") { app.staticTexts["decision.title"].exists || self.element("approvals.notice").exists }
+        shot("21-task-from-notification")
+        if app.navigationBars["Decision"].exists { app.navigationBars["Decision"].buttons["Cancel"].tap() }
+
+        assertOnlyTalkedToTheTestServer()
     }
 }

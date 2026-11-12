@@ -171,7 +171,7 @@ struct SettingsView: View {
                 }
             }
 
-            RowGroup(header: "Security and notifications", footer: "With the lock on, the app asks when it starts and after 5 minutes in the background. Notifications only say how many new items you have; open the app to see them.") {
+            RowGroup(header: "Security and notifications", footer: "With the lock on, the app asks when it starts and after 5 minutes in the background. Notifications only say how many new items you have; tap one to see it in the app.") {
                 Toggle(isOn: $model.biometricEnabled) {
                     // Face ID on iPhones and iPad Pro, Touch ID on other iPads.
                     Text(model.biometryName.map { "Unlock with \($0) or passcode" } ?? "Unlock with passcode")

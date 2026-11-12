@@ -448,6 +448,9 @@ private struct ClaimLineEditor: View {
     let onRemove: () -> Void
     let onCamera: () -> Void
     let onPhoto: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
+    /// Room for "MYR" and the menu's chevron, growing with the text size.
+    @ScaledMetric(relativeTo: .body) private var currencyWidth: CGFloat = 112
 
     private func id(_ base: String) -> String { ClaimForm.identifier(base, line: index) }
 
@@ -495,12 +498,34 @@ private struct ClaimLineEditor: View {
                     .accessibilityIdentifier(id("claim.description"))
                     .crowFieldBox(focused: focus.wrappedValue == .detail(line.id))
             }
-            ChoiceRow(title: "Currency", options: ClaimMoney.currencies.map { (id: $0.code, name: "\($0.code) · \($0.label)") },
-                      selection: Binding(get: { line.currency }, set: { code in
-                          line.currency = code
-                          if code == "SGD" { line.rate = "" }
-                      }), identifier: id("claim.currency"))
-            FormField("Amount") {
+            // The currency beside the amount, as on the web; stacked at accessibility sizes.
+            if typeSize.isAccessibilitySize {
+                currencyField
+                amountField
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    currencyField.frame(width: currencyWidth)
+                    amountField
+                }
+            }
+            if line.isForeign { rateField }
+            receiptField(needsReceipt: needsReceipt, hint: type?.receiptHint)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(id("claim.line"))
+    }
+
+    /// The currency: its code in the field, the code and name in the list.
+    private var currencyField: some View {
+        ChoiceRow(title: "Currency", options: ClaimMoney.currencies.map { (id: $0.code, name: "\($0.code) · \($0.label)") },
+                  selection: Binding(get: { line.currency }, set: { code in
+                      line.currency = code
+                      if code == "SGD" { line.rate = "" }
+                  }), identifier: id("claim.currency"), shown: { $0 })
+    }
+
+    private var amountField: some View {
+        FormField("Amount") {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(line.isForeign ? line.currency : "S$").font(CrowFont.mono(.body)).foregroundStyle(Crow.muted)
                         .accessibilityHidden(true)
@@ -517,12 +542,7 @@ private struct ClaimLineEditor: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier(id("claim.amountError"))
                 }
-            }
-            if line.isForeign { rateField }
-            receiptField(needsReceipt: needsReceipt, hint: type?.receiptHint)
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(id("claim.line"))
     }
 
     /// "Rate: SGD per 1 MYR", then "= S$37.80" as typed, as on the web.

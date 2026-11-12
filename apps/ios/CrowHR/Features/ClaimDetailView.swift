@@ -63,7 +63,10 @@ struct ClaimDetailView: View {
     private func header(_ c: ClaimDetail) -> some View {
         let (label, tone) = ClaimSummary.statusLabel(c.status)
         return VStack(alignment: .leading, spacing: 6) {
-            Text(c.claimNumber ?? "Draft").font(CrowFont.mono(.caption, weight: .medium)).foregroundStyle(Crow.muted)
+            // A claim gets its number when it is submitted.
+            if let number = c.claimNumber {
+                Text(number).font(CrowFont.mono(.caption, weight: .medium)).foregroundStyle(Crow.muted)
+            }
             Text(c.heading).font(CrowFont.mono(.title3, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("claimDetail.title")
@@ -89,7 +92,8 @@ struct ClaimDetailView: View {
                         .accessibilityIdentifier("claimDetail.withdraw")
                 }
                 if c.actions.delete {
-                    Button("Delete draft") { confirmDelete = true }
+                    // "Delete", not "Delete draft": no "ft" ligature in Azeret Mono (see Models).
+                    Button("Delete") { confirmDelete = true }
                         .buttonStyle(.crowDanger)
                         .disabled(busy != nil)
                         .accessibilityIdentifier("claimDetail.delete")

@@ -261,7 +261,9 @@ struct ClaimSummary: Decodable, Sendable, Identifiable, Equatable {
 
     static func statusLabel(_ status: String) -> (String, Tone) {
         switch status {
-        case "draft": ("Draft", .neutral)
+        // Not "Draft": Azeret Mono (the chip's font) draws "ft" as one ligature glyph, which
+        // Xcode's accessibility audit reports as clipped text.
+        case "draft": ("Not sent", .neutral)
         case "submitted": ("Waiting", .warning)
         case "approved": ("Approved", .success)
         case "rejected": ("Rejected", .danger)

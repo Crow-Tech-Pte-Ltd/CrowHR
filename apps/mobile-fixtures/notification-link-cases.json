@@ -10,18 +10,42 @@
     "A screen the server has switched off (meta features) opens the notifications inbox instead."
   ],
   "cases": [
-    { "link": "/inbox?task=0190A0B0-0000-7000-8000-0000000000A1", "kind": "approvalTask", "id": "0190a0b0-0000-7000-8000-0000000000a1" },
-    { "link": "/inbox?request=0190a0b0-0000-7000-8000-0000000000a2", "kind": "approvalRequest", "id": "0190a0b0-0000-7000-8000-0000000000a2" },
-    { "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1&request=0190a0b0-0000-7000-8000-0000000000a2", "kind": "approvalTask", "id": "0190a0b0-0000-7000-8000-0000000000a1" },
+    {
+      "link": "/inbox?task=0190A0B0-0000-7000-8000-0000000000A1",
+      "kind": "approvalTask",
+      "id": "0190a0b0-0000-7000-8000-0000000000a1"
+    },
+    {
+      "link": "/inbox?request=0190a0b0-0000-7000-8000-0000000000a2",
+      "kind": "approvalRequest",
+      "id": "0190a0b0-0000-7000-8000-0000000000a2"
+    },
+    {
+      "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1&request=0190a0b0-0000-7000-8000-0000000000a2",
+      "kind": "approvalTask",
+      "id": "0190a0b0-0000-7000-8000-0000000000a1"
+    },
     { "link": "/inbox", "kind": "approvals", "id": null },
     { "link": "/inbox?task=not-a-uuid", "kind": "approvals", "id": null },
-    { "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1", "kind": "leaveRequest", "id": "0190a0b0-0000-7000-8000-0000000000b1" },
+    {
+      "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1",
+      "kind": "leaveRequest",
+      "id": "0190a0b0-0000-7000-8000-0000000000b1"
+    },
     { "link": "/leave", "kind": "leave", "id": null },
     { "link": "/leave/team?from=2026-11-16", "kind": "leaveCalendar", "id": null },
-    { "link": "/claims/0190a0b0-0000-7000-8000-0000000000c1", "kind": "claim", "id": "0190a0b0-0000-7000-8000-0000000000c1" },
+    {
+      "link": "/claims/0190a0b0-0000-7000-8000-0000000000c1",
+      "kind": "claim",
+      "id": "0190a0b0-0000-7000-8000-0000000000c1"
+    },
     { "link": "/claims", "kind": "claims", "id": null },
     { "link": "/claims/admin", "kind": "notifications", "id": null },
-    { "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1", "kind": "payslip", "id": "0190a0b0-0000-7000-8000-0000000000d1" },
+    {
+      "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1",
+      "kind": "payslip",
+      "id": "0190a0b0-0000-7000-8000-0000000000d1"
+    },
     { "link": "/me/payslips", "kind": "payslips", "id": null },
     { "link": "/schedules/me", "kind": "schedule", "id": null },
     { "link": "/schedules/me?week=2026-11-16", "kind": "schedule", "id": null },
@@ -32,7 +56,11 @@
     { "link": "/payroll", "kind": "notifications", "id": null },
     { "link": "/settings/security", "kind": "notifications", "id": null },
     { "link": "/", "kind": "notifications", "id": null },
-    { "link": "https://evil.example/inbox?task=0190a0b0-0000-7000-8000-0000000000a1", "kind": "notifications", "id": null },
+    {
+      "link": "https://evil.example/inbox?task=0190a0b0-0000-7000-8000-0000000000a1",
+      "kind": "notifications",
+      "id": null
+    },
     { "link": "//evil.example/leave", "kind": "notifications", "id": null },
     { "link": "", "kind": "notifications", "id": null },
     { "link": null, "kind": "notifications", "id": null }
@@ -40,26 +68,65 @@
   "localNotification": [
     {
       "id": "one-new-item-opens-it",
-      "fresh": [{ "id": "n1", "category": "requests", "readAt": null, "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1" }],
-      "expected": { "route": "notifications", "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1", "notificationId": "n1", "kind": "leaveRequest" }
+      "fresh": [
+        {
+          "id": "n1",
+          "category": "requests",
+          "readAt": null,
+          "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1"
+        }
+      ],
+      "expected": {
+        "route": "notifications",
+        "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1",
+        "notificationId": "n1",
+        "kind": "leaveRequest"
+      }
     },
     {
       "id": "one-new-approval-opens-its-task",
-      "fresh": [{ "id": "n2", "category": "approvals", "readAt": null, "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1" }],
-      "expected": { "route": "approvals", "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1", "notificationId": "n2", "kind": "approvalTask" }
+      "fresh": [
+        {
+          "id": "n2",
+          "category": "approvals",
+          "readAt": null,
+          "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1"
+        }
+      ],
+      "expected": {
+        "route": "approvals",
+        "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1",
+        "notificationId": "n2",
+        "kind": "approvalTask"
+      }
     },
     {
       "id": "one-new-and-one-read-opens-the-new-one",
       "fresh": [
         { "id": "n3", "category": "updates", "readAt": "2026-11-13T01:00:00.000Z", "link": "/schedules/me" },
-        { "id": "n4", "category": "updates", "readAt": null, "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1" }
+        {
+          "id": "n4",
+          "category": "updates",
+          "readAt": null,
+          "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1"
+        }
       ],
-      "expected": { "route": "notifications", "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1", "notificationId": "n4", "kind": "payslip" }
+      "expected": {
+        "route": "notifications",
+        "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1",
+        "notificationId": "n4",
+        "kind": "payslip"
+      }
     },
     {
       "id": "several-open-the-inbox",
       "fresh": [
-        { "id": "n5", "category": "approvals", "readAt": null, "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1" },
+        {
+          "id": "n5",
+          "category": "approvals",
+          "readAt": null,
+          "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1"
+        },
         { "id": "n6", "category": "updates", "readAt": null, "link": "/schedules/me" }
       ],
       "expected": { "route": "approvals", "link": null, "notificationId": null, "kind": "approvals" }

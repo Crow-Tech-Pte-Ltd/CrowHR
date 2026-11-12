@@ -59,7 +59,7 @@ struct InboxView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { applyTarget() }
         .task { await session.refreshApprovalTasks() }
-        .onChange(of: model.pendingTarget) { _, _ in applyTarget() }
+        .onChange(of: model.pendingTarget) { _, target in if target?.tab == .inbox { applyTarget() } }
         .onChange(of: session.me) { _, me in if me?.mayApprove == true && !segmentFromTarget { segment = .approvals } }
         // Tasks found for someone without an approver role: open them, once.
         .onChange(of: showsApprovals) { _, shows in
