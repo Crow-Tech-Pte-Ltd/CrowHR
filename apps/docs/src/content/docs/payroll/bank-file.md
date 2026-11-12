@@ -34,7 +34,7 @@ Send your bank a sample file and ask for their validation before paying salaries
 A run records each employee's bank account when it is computed. If an account changes afterwards, submitting, approving or downloading the bank file tells you the run is out of date:
 
 - a run in review: withdraw it, recompute and submit again;
-- an approved run that is not paid yet: return it to draft with a reason, recompute and approve it again. This is only in the API for now (`POST /api/v1/payroll/runs/{id}/return-to-draft`). If a later run already used its CPF figures, use an adjustment instead;
+- an approved run that is not paid yet: choose **Return to draft** on the run, give the reason, then recompute and approve it again. If a later run already used its CPF figures, use an adjustment instead;
 - a paid run: use an adjustment.
 
 An administrator changing someone's bank details needs a recent sign-in, and the employee is notified.

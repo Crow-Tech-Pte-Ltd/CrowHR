@@ -18,6 +18,7 @@ import {
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import * as React from "react";
 import { useReauth } from "../../../../auth/reauth.tsx";
 import { api, errorMessage, fieldErrors, settingsQuery } from "./api.ts";
@@ -25,7 +26,7 @@ import { groupKey, sectorLabel, tierSkillLabel, WORK_PERMIT_LEVY_GROUPS } from "
 
 const NONE = "none";
 
-/** Payroll settings: pay day, release, CPF advice code, levy estimate and the bank file's debit account. */
+/** Payroll settings: pay and cutoff day, release, CPF advice code, levy estimate and the bank file's debit account. */
 export function PayrollSettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const q = useQuery({ ...settingsQuery, enabled: open });
   return (
@@ -49,6 +50,7 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
   const qc = useQueryClient();
   const reauth = useReauth();
   const [payDay, setPayDay] = React.useState(initial.payDay ? String(initial.payDay) : "");
+  const [cutoffDay, setCutoffDay] = React.useState(initial.cutoffDay ? String(initial.cutoffDay) : "");
   const [autoRelease, setAutoRelease] = React.useState(initial.autoRelease);
   const [advice, setAdvice] = React.useState(initial.cpfAdviceCode);
   const [bic, setBic] = React.useState(initial.debitBankBic ?? "");
@@ -67,6 +69,7 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
       reauth(() =>
         api<PayrollSettingsDto>("PUT", "/payroll/settings", {
           payDay: payDay ? Number(payDay) : null,
+          cutoffDay: cutoffDay ? Number(cutoffDay) : null,
           autoRelease,
           cpfAdviceCode: advice,
           debitBankBic: bic ? bic.toUpperCase() : null,
@@ -99,9 +102,28 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
       >
         <Input inputMode="numeric" value={payDay} onChange={(e) => setPayDay(e.target.value)} placeholder="Last day" />
       </FormField>
+      <FormField
+        label="Cutoff day"
+        hint="Day of the month inputs close. Payroll admins are reminded 3 days before; empty = before the pay day."
+        error={errors.cutoffDay}
+      >
+        <Input
+          inputMode="numeric"
+          value={cutoffDay}
+          onChange={(e) => setCutoffDay(e.target.value)}
+          placeholder="Pay day"
+        />
+      </FormField>
       <FormField label="CPF advice code" hint="Two digits for the EZPay file, usually 01." error={errors.cpfAdviceCode}>
         <Input value={advice} onChange={(e) => setAdvice(e.target.value)} maxLength={2} />
       </FormField>
+      <p className="text-2xs text-primary-300 sm:col-span-2">
+        How each allowance counts for CPF, pro-ration and the gross rate of pay is set in{" "}
+        <Link to="/payroll/allowances" className="focus-ring rounded-sm text-biru-400 hover:underline" onClick={onDone}>
+          Allowance treatment
+        </Link>
+        .
+      </p>
       <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 sm:col-span-2">
         <span className="text-ui">
           Release payslips as soon as a run is approved

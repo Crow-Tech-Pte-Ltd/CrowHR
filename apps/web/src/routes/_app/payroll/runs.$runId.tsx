@@ -23,7 +23,7 @@ import {
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { AlertOctagon, CheckCircle2, Download, FileText, RotateCcw, Search, Send } from "lucide-react";
+import { AlertOctagon, CheckCircle2, Download, FileText, RotateCcw, Search, Send, Undo2 } from "lucide-react";
 import * as React from "react";
 import { useReauth } from "../../../auth/reauth.tsx";
 import { isNotFound, NotFoundPage } from "../../../components/not-found.tsx";
@@ -38,11 +38,13 @@ import {
   monthName,
   myRunTaskQuery,
   reopen,
+  returnToDraft,
   runAction,
   runQuery,
   runTitle,
 } from "./-lib/api.ts";
 import { EmployeeDrawer } from "./-lib/drawer.tsx";
+import { type DrawerTask, fixesFor, type IssueFix } from "./-lib/fixes.ts";
 import { Flags, IssueList, Money, RunStatusPill } from "./-lib/ui.tsx";
 
 export const Route = createFileRoute("/_app/payroll/runs/$runId")({
@@ -56,8 +58,12 @@ function RunPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const q = useQuery(runQuery(runId));
-  const openEmployee = (employeeId: string | undefined) =>
+  // A fix opened from an issue: the drawer starts with that item form (cleared when it closes).
+  const [task, setTask] = React.useState<DrawerTask | null>(null);
+  const openEmployee = (employeeId: string | undefined, next: DrawerTask | null = null) => {
+    setTask(next);
     void navigate({ search: (s) => ({ ...s, employee: employeeId }), replace: true });
+  };
 
   if (q.isPending) {
     return (
@@ -85,7 +91,13 @@ function RunPage() {
   return (
     <>
       <RunHeader o={o} />
-      <IssuesPanel o={o} onEmployee={openEmployee} />
+      <IssuesPanel
+        o={o}
+        onEmployee={openEmployee}
+        onFix={(fix) => {
+          if (fix.kind === "drawer") openEmployee(fix.employeeId, o.run.status === "draft" ? (fix.task ?? null) : null);
+        }}
+      />
       <TotalsCard o={o} />
       <ChangesPanel o={o} onEmployee={openEmployee} />
       <ReviewTable o={o} onOpen={openEmployee} />
@@ -95,6 +107,8 @@ function RunPage() {
         rows={o.rows}
         employeeId={search.employee ?? null}
         onNavigate={openEmployee}
+        task={task}
+        onTask={setTask}
       />
     </>
   );
@@ -104,7 +118,8 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
   const { run } = o;
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [dialog, setDialog] = React.useState<null | "reject" | "reopen">(null);
+  const reauth = useReauth();
+  const [dialog, setDialog] = React.useState<null | "reject" | "reopen" | "draft">(null);
   const act = useMutation({
     mutationFn: (fn: () => Promise<unknown>) => fn(),
     onSuccess: () => invalidateRun(qc, run.id),
@@ -189,6 +204,13 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
           Reopen
         </Button>,
       );
+      if (run.status === "approved") {
+        actions.push(
+          <Button key="draft" variant="ghost" size="sm" disabled={busy} onClick={() => setDialog("draft")}>
+            <Undo2 aria-hidden /> Return to draft
+          </Button>,
+        );
+      }
     }
     if (run.status === "approved") {
       actions.push(
@@ -247,7 +269,11 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
             </span>
             {kindNote ? <span className="block">{kindNote}</span> : null}
             {run.decisionComment && run.status === "draft" ? (
-              <span className="block text-danger-300">Returned by the approver: “{run.decisionComment}”</span>
+              <span className="block text-danger-300">
+                {run.decisionComment.startsWith("Returned to draft: ")
+                  ? `${run.decisionComment}. Recompute, then submit it for approval again.`
+                  : `Returned by the approver: “${run.decisionComment}”`}
+              </span>
             ) : null}
             {run.supersededByRunId ? (
               <span className="block">
@@ -279,6 +305,25 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
             .then(async () => {
               await qc.invalidateQueries({ queryKey: ["approvals"] });
               setDialog(null);
+            })
+        }
+      />
+      <ReasonDialog
+        open={dialog === "draft"}
+        title="Return to draft"
+        description={`For a change that must not be paid as an adjustment, such as an employee's new bank account. The run becomes a draft to recompute and approve again${run.releasedAt ? "; employees can't see its payslips until they are released again" : ""}. If a later month already used this run's CPF figures, reopen it as an adjustment instead.`}
+        label="Reason (kept in the audit log)"
+        confirm="Return to draft"
+        onClose={() => setDialog(null)}
+        onConfirm={(reason) =>
+          reauth(() => returnToDraft(run.id, reason))
+            .then(async () => {
+              await invalidateRun(qc, run.id);
+              setDialog(null);
+              toast.success("Returned to draft. Recompute it, then submit it for approval again.");
+            })
+            .catch((e) => {
+              toast.error(errorMessage(e));
             })
         }
       />
@@ -353,7 +398,15 @@ function ReasonDialog(props: {
   );
 }
 
-function IssuesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (id: string) => void }) {
+function IssuesPanel({
+  o,
+  onEmployee,
+  onFix,
+}: {
+  o: PayrollOverviewDto;
+  onEmployee: (id: string) => void;
+  onFix: (fix: IssueFix) => void;
+}) {
   if (!o.run.computedAt) {
     return (
       <Alert className="mb-5">
@@ -409,6 +462,8 @@ function IssuesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (id
           issues={[...blocking, ...warnings]}
           onEmployee={onEmployee}
           limit={blocking.length ? Math.max(blocking.length, 4) : 4}
+          fixes={(i) => fixesFor(i, i.employeeId ?? null)}
+          onFix={onFix}
         />
       </Card>
     </section>

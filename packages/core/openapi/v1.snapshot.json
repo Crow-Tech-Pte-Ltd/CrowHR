@@ -46085,6 +46085,33 @@
                               "null"
                             ]
                           },
+                          "ref": {
+                            "description": "What the issue is about, so a client can open the place that fixes it. Absent on older results.",
+                            "type": "object",
+                            "properties": {
+                              "itemId": {
+                                "description": "The run item the issue is about: a manual item's ID, or a fed item's ID (`attendance:<overtime claim ID>` for approved overtime; price it with an overtime item whose `overtimeSourceId` is that claim ID).",
+                                "type": "string"
+                              },
+                              "holidayDate": {
+                                "description": "The public holiday the issue is about (holiday pay for an off day).",
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              "holidayName": {
+                                "type": "string"
+                              },
+                              "allowanceCodes": {
+                                "description": "Allowance type codes to classify (`PUT /payroll/allowance-settings/{allowanceTypeId}`).",
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          },
                           "employeeId": {
                             "anyOf": [
                               {
@@ -48265,6 +48292,33 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "ref": {
+                                    "description": "What the issue is about, so a client can open the place that fixes it. Absent on older results.",
+                                    "type": "object",
+                                    "properties": {
+                                      "itemId": {
+                                        "description": "The run item the issue is about: a manual item's ID, or a fed item's ID (`attendance:<overtime claim ID>` for approved overtime; price it with an overtime item whose `overtimeSourceId` is that claim ID).",
+                                        "type": "string"
+                                      },
+                                      "holidayDate": {
+                                        "description": "The public holiday the issue is about (holiday pay for an off day).",
+                                        "type": "string",
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                      },
+                                      "holidayName": {
+                                        "type": "string"
+                                      },
+                                      "allowanceCodes": {
+                                        "description": "Allowance type codes to classify (`PUT /payroll/allowance-settings/{allowanceTypeId}`).",
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    },
+                                    "additionalProperties": false
                                   }
                                 },
                                 "required": [

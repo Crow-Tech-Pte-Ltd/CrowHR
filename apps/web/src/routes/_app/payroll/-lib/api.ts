@@ -43,6 +43,25 @@ export const settingsQuery = queryOptions({
   queryFn: () => api<PayrollSettingsDto>("GET", "/payroll/settings"),
 });
 
+export interface AllowanceSettingDto {
+  allowanceTypeId: string;
+  code: string;
+  name: string;
+  cpfLiable: boolean;
+  prorate: boolean;
+  grossRateIncluded: boolean | null;
+}
+
+export const allowanceSettingsQuery = queryOptions({
+  queryKey: ["payroll", "allowance-settings"] as const,
+  queryFn: () => api<{ items: AllowanceSettingDto[] }>("GET", "/payroll/allowance-settings"),
+});
+
+export const saveAllowanceSetting = (
+  allowanceTypeId: string,
+  body: Pick<AllowanceSettingDto, "cpfLiable" | "prorate" | "grossRateIncluded">,
+) => api<AllowanceSettingDto>("PUT", `/payroll/allowance-settings/${allowanceTypeId}`, body);
+
 export const myPayslipsQuery = queryOptions({
   queryKey: ["payslips", "mine"] as const,
   queryFn: () => api<{ items: PayslipSummaryDto[] }>("GET", "/payslips"),
@@ -76,6 +95,10 @@ export const decide = (taskId: string, outcome: "approved" | "rejected", comment
 export const reopen = (runId: string, reason: string) =>
   api<PayrollRunDto>("POST", `/payroll/runs/${runId}/reopen`, { reason });
 
+/** Approved, unpaid run → draft (payslips hidden again until it is approved and released again). */
+export const returnToDraft = (runId: string, reason: string) =>
+  api<PayrollRunDto>("POST", `/payroll/runs/${runId}/return-to-draft`, { reason });
+
 export const createRun = (body: {
   kind: "regular" | "off_cycle";
   month: string;
@@ -86,6 +109,9 @@ export const createRun = (body: {
 
 export const addItem = (runId: string, body: PayrollItemInput) =>
   api<{ id: string }>("POST", `/payroll/runs/${runId}/items`, body);
+
+export const updateItem = (runId: string, itemId: string, body: PayrollItemInput) =>
+  api<void>("PUT", `/payroll/runs/${runId}/items/${itemId}`, body);
 
 export const deleteItem = (runId: string, itemId: string) =>
   api<void>("DELETE", `/payroll/runs/${runId}/items/${itemId}`);

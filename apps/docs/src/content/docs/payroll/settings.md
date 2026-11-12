@@ -15,33 +15,36 @@ Payroll reads everything from People: date of birth (CPF age band), residency an
 
 ## 3. Payroll settings
 
-Open **Payroll → Payroll settings**:
+Open **Payroll → Settings**:
 
 | Setting | What it does |
 | --- | --- |
 | Pay day | Day of the month for the default pay date; empty means the last day of the month. MOM requires salary to be paid within 7 days after the end of the salary period, and the run warns when the pay date is later. |
+| Cutoff day | Day of the month payroll inputs close. Payroll admins get a reminder 3 days before it, or before the pay day when it is empty, until the month's regular run is approved. |
 | Release payslips on approval | Off by default: payslips become visible to employees only when a payroll admin releases them. On: they are released automatically when the run is approved. |
 | CPF advice code | Two digits for the EZPay file, usually `01`. Later runs in the same month get the next free code. |
 | Foreign worker levy: sector, tier and skill | Your company's profile for the [FWL estimate](/docs/payroll/shg-sdl-fwl/#foreign-worker-levy-estimate). Sectors: services, manufacturing, construction, process, marine shipyard. |
 | Debit account: bank SWIFT/BIC, account number, account name | The account salaries are paid from, written into the [bank file](/docs/payroll/bank-file/). |
 
-The API also has a **cutoff day** (`cutoffDay` in `PUT /api/v1/payroll/settings`; not on the screen yet). Payroll admins get a reminder 3 days before it, or before the pay day when it is not set, until the month's regular run is approved.
-
 ## Allowance treatment
 
-Each recurring allowance type has three settings. There is no screen for them yet: set them with `PUT /api/v1/payroll/allowance-settings/{allowanceTypeId}` ([API reference](/docs/api/payroll/)).
+**Payroll → Allowance treatment** (also under **Settings**) lists each recurring allowance type with three settings. Owners and payroll admins change them; a change applies the next time a draft run is computed.
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `cpfLiable` | `true` (ordinary wages) | Whether the allowance is subject to CPF. Decide with CPF's guidance on [what counts as wages](https://www.cpf.gov.sg/employer/employer-obligations/what-constitutes-wages-for-cpf-contributions). |
-| `prorate` | `true` | Whether it is pro-rated in an incomplete month. |
-| `grossRateIncluded` | not set | Whether it counts in the Employment Act gross rate of pay, used for public holiday pay and leave encashment. Set `true` for fixed contractual salary allowances and `false` for variable or irregular payments, productivity incentives, reimbursements, and travelling, food and housing allowances. Overtime, bonuses and AWS never count ([MOM: gross rate of pay](https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary)). |
+| CPF | CPF-liable (ordinary wages) | Whether the allowance is subject to CPF. Decide with CPF's guidance on [what counts as wages](https://www.cpf.gov.sg/employer/employer-obligations/what-constitutes-wages-for-cpf-contributions). |
+| Incomplete month | Pro-rated | Whether it is pro-rated, like basic pay, in a month someone joins or leaves. |
+| Gross rate of pay | Not set | Whether it counts in the Employment Act gross rate of pay, used for public holiday pay and leave encashment. **Included** for fixed contractual salary allowances; **Excluded** for variable or irregular payments, productivity incentives, reimbursements, and travelling, food and housing allowances. Overtime, bonuses and AWS never count ([MOM: gross rate of pay](https://www.mom.gov.sg/employment-practices/salary/monthly-and-daily-salary)). |
 
-Classify every active allowance for the gross rate. While one is not set, payroll can't work out that employee's public holiday pay (the run blocks with `PH_GROSS_RATE_REQUIRED`) and leave encashment can't be requested for them; both messages name the allowance to classify. Changing a setting later does not reprice encashment requests already made.
+The gross rate has no default because no answer is right for every allowance. Answer it for each allowance before your first run: while one is not set, every run lists it as a warning (`ALLOWANCE_GROSS_RATE_UNSET`, with a link to this screen), a public holiday on an off day blocks payroll for the staff who get it (`PH_GROSS_RATE_REQUIRED`), and their leave encashment can't be requested. Changing a setting later does not reprice encashment requests already made.
 
-## Run items without a screen
+Allowance types, and the recurring allowances on each employee, are added through the API for now ([API reference](/docs/api/)): allowance types under organisation settings, and allowances on a hire or pay-change event. They show on the employee's **Pay** tab.
 
-Two kinds of run item can only be added through the API ([API reference](/docs/api/payroll/)):
+## Holiday pay and contractual overtime on a run
 
-- **Public holiday pay for hourly or rostered staff.** Under the leave rule **Pay an extra day (payroll)**, an employee covered by the Employment Act earns one day's gross pay for a public holiday on an off day. Payroll adds it automatically for employees on a monthly rate and a fixed week. For anyone else the run blocks with `PH_GROSS_RATE_REQUIRED` until you add an `other_earning` item with `holidayDate` and the agreed daily gross `amountCents`.
-- **An amount for overtime fed from attendance.** For contractual or hourly-paid overtime, add an `overtime` item with `overtimeSourceId` (the approved attendance claim's ID), the minutes and the contractual `amountCents`. It replaces the fed item, so the overtime is not paid twice.
+Two kinds of item need an amount that only you know. The run's issue says so and links to the employee's drawer with the item ready to fill in:
+
+- **Holiday pay for hourly or rostered staff.** Under the leave rule **Pay an extra day (payroll)**, an employee covered by the Employment Act earns one day's gross pay for a public holiday on an off day. Payroll adds it automatically for employees on a monthly rate and a fixed week. For anyone else the run blocks with `PH_GROSS_RATE_REQUIRED` until you choose **Enter holiday pay** and enter the day's gross pay; the item is tied to that holiday, so it is paid once.
+- **Overtime from attendance without a statutory rate.** For employees not covered by Part 4, or paid by the hour, approved overtime blocks the run (`OT_NOT_STATUTORY`, `OT_AMOUNT_REQUIRED`). Choose **Enter the overtime amount**, or **Enter amount** next to the overtime under **From other modules** in the drawer, and enter the contractual pay for those hours. It replaces the fed amount for that overtime claim, so the overtime is not paid twice.
+
+Manual items can be edited or removed from the drawer while the run is a draft. Through the API these are an `other_earning` item with `holidayDate`, and an `overtime` item with `overtimeSourceId` (the approved overtime claim's ID); see the [API reference](/docs/api/payroll/).

@@ -28,6 +28,7 @@ import {
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import * as React from "react";
 import { can, useMe } from "../auth/session.ts";
 import { ErrorNote } from "../components/section.tsx";
@@ -329,6 +330,14 @@ export function Encashments({ employeeId, showBalances = false }: { employeeId?:
             {submit.isError ? (
               <p role="alert" className="text-ui text-danger">
                 {submit.error.message}
+                {/Allowance treatment/.test(submit.error.message) && can(me, "payroll:read") ? (
+                  <>
+                    {" "}
+                    <Link to="/payroll/allowances" className="focus-ring rounded-sm text-biru-400 underline">
+                      Open Allowance treatment
+                    </Link>
+                  </>
+                ) : null}
               </p>
             ) : null}
             <DialogFooter>

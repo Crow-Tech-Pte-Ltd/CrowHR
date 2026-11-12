@@ -96,12 +96,14 @@ the change that fixes it.
   published and the person was employed throughout. A mid-month rate change and an SPR
   graduated-to-full change are blocked for these staff. Daily-rated and piece-rated pay are not
   handled.
-- **Screens missing for API-only settings**: allowance CPF and pro-ration treatment
-  (`/payroll/allowance-settings`), the gross-rate classification of allowances used for daily gross
-  pay and leave encashment (`grossRateIncluded`), contractual fed overtime amounts (an overtime
-  item's `overtimeSourceId`), off-day holiday amounts for hourly and rostered staff (an
-  `other_earning` item's `holidayDate`), and returning an approved, unpaid run to draft
-  (`POST /payroll/runs/:id/return-to-draft`).
+- **Allowance types and recurring allowances** are added through the API only (allowance types, then
+  `allowances` on hire and pay-change events); the web app shows them on the Pay tab and sets their
+  treatment in Payroll → Allowance treatment.
+- **The gross rate of pay has no default** for an allowance: every run warns
+  (`ALLOWANCE_GROSS_RATE_UNSET`) until each allowance paid in it is classified, and an off-day public
+  holiday blocks payroll for the staff who get an unclassified one.
+- **Off-day holiday pay for hourly or rostered staff** is entered on the run (one day's gross pay per
+  holiday); it is computed only for monthly-rated staff on a fixed week.
 - **CPF AW top-up recovery** (CPF Act s 7(9)) can be deducted up to 30 June of the following year;
   otherwise the employer bears it. Recovering other employer-caused arrears, the s 7(6A) route and
   waivers for leavers are not supported. An adjustment of a run with an absorbed share can offer that

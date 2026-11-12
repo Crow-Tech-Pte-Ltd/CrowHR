@@ -51,7 +51,9 @@ For problems with the server itself (startup errors, setup code, backups, proxie
 | --- | --- |
 | Run cannot be submitted: company profile | Add UEN, CSN and address in Settings → Company. |
 | `409` "recompute the run" on submit | Records or items changed after computing. Recompute, review, submit again. |
-| `OT_NOT_STATUTORY` | The employee is not covered by Part 4 of the Employment Act (basic pay above the limit, or flagged as a manager or executive on the Job tab). Enter the contractual overtime amount. |
+| `OT_NOT_STATUTORY` | The employee is not covered by Part 4 of the Employment Act (basic pay above the limit, or flagged as a manager or executive on the Job tab). Choose **Enter the overtime amount** on the issue and enter the contractual amount. |
+| `PH_GROSS_RATE_REQUIRED` | A public holiday falls on the employee's off day and is paid as an extra day's gross pay. Classify the allowances it names in **Payroll → Allowance treatment**, or, for hourly or rostered staff, choose **Enter holiday pay** and enter the day's gross pay. |
+| `ALLOWANCE_GROSS_RATE_UNSET` | A warning: an allowance paid in the run has no answer for the gross rate of pay. Set it in **Payroll → Allowance treatment** before a holiday on an off day or an encashment request needs it. |
 | `YTD_BEFORE_CROWHR_MISSING` | Import [YTD opening balances](/docs/people/importing/#year-to-date-opening-balances) for months paid before Crow HR. |
 | `CPF_LOW_WAGE_CAPPED_AW_UNSUPPORTED` | A case CPF has no rule for. Compute that employee's CPF with CPF Board's guidance and pay outside Crow HR, or adjust the AW timing. |
 | Scheduled days / days worked missing | The employee has no fixed working week. Add both items for the month. |
