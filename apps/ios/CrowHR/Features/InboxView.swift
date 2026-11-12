@@ -43,7 +43,8 @@ struct InboxView: View {
         .navigationTitle("Inbox")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { applyRoute() }
-        .task { await session.refreshApprovalTasks() }
+        // The approvals list loads the same tasks itself when it is the one showing.
+        .task { if !(showsApprovals && segment == .approvals) { await session.refreshApprovalTasks() } }
         .onChange(of: model.route) { _, _ in applyRoute() }
         .onChange(of: session.me) { _, me in if me?.mayApprove == true && model.route == nil { segment = .approvals } }
         // Tasks found for someone without an approver role: open them, once.
@@ -429,7 +430,8 @@ struct NotificationsView: View {
     private func load() async throws -> NotificationPage {
         let page: NotificationPage = try await session.api.get("/api/v1/notifications", query: [URLQueryItem(name: "pageSize", value: "50"), URLQueryItem(name: "sort", value: "-createdAt")])
         // What the user has seen here is not announced later by the background refresh.
-        await model.refresher(for: session).markAllSeen(listCursor: page.cursor, listHadCursor: page.cursor != nil)
+        // An empty inbox on a current server answers `"cursor": null`, which is enough.
+        await model.refresher(for: session).markAllSeen(listCursor: page.cursor, listHadCursor: page.hasCursor)
         return page
     }
 
@@ -437,10 +439,15 @@ struct NotificationsView: View {
         do { state = .loaded(try await load()) } catch { state.fail(error) }
     }
 
+    /// Read on the server: the row and the unread count change here, without fetching all 50 again.
     private func markRead(_ n: InboxNotification) async {
         guard n.readAt == nil else { return }
-        try? await session.api.postNoContent("/api/v1/notifications/\(n.id)/read")
-        await reload()
+        do {
+            try await session.api.postNoContent("/api/v1/notifications/\(n.id)/read")
+            if let page = state.value { state = .loaded(page.markingRead(n.id, at: Fmt.instant(Date()))) }
+        } catch {
+            await reload()
+        }
     }
 
     private func markAllRead() async {

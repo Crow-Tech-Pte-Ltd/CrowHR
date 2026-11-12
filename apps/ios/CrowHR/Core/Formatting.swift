@@ -118,14 +118,32 @@ enum Fmt {
     static func parseDay(_ s: String) -> Date? { formatter("yyyy-MM-dd").date(from: String(s.prefix(10))) }
     static func day(_ d: Date) -> String { formatter("yyyy-MM-dd").string(from: d) }
 
-    /// Parses ISO 8601 timestamps with or without fractional seconds.
-    static func parseInstant(_ s: String) -> Date? {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = f.date(from: s) { return d }
-        f.formatOptions = [.withInternetDateTime]
-        return f.date(from: s)
+    /// The two ISO 8601 formatters, made once (rows parse a timestamp on every render) and used
+    /// under a lock.
+    private final class ISOFormatters: @unchecked Sendable {
+        private let lock = NSLock()
+        private let fractional: ISO8601DateFormatter = {
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            return f
+        }()
+        private let whole: ISO8601DateFormatter = {
+            let f = ISO8601DateFormatter()
+            f.formatOptions = [.withInternetDateTime]
+            return f
+        }()
+
+        func parse(_ s: String) -> Date? { lock.withLock { fractional.date(from: s) ?? whole.date(from: s) } }
+        func string(_ d: Date) -> String { lock.withLock { fractional.string(from: d) } }
     }
+
+    private static let iso = ISOFormatters()
+
+    /// Parses ISO 8601 timestamps with or without fractional seconds.
+    static func parseInstant(_ s: String) -> Date? { iso.parse(s) }
+
+    /// `2026-11-02T00:58:00.000Z`: UTC with milliseconds, as the API expects.
+    static func instant(_ d: Date) -> String { iso.string(d) }
 
     /// `2026-10` → `October 2026`
     static func monthKey(_ s: String) -> String {
