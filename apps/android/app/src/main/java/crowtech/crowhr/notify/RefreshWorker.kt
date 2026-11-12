@@ -85,20 +85,16 @@ class RefreshRunner(
 
     suspend fun run(): Boolean {
         var ok = true
-        var total = 0
-        var opens: String? = null
+        val decisions = mutableListOf<Pair<String, RefreshLogic.Decision>>()
         for (connection in graph.connections.all()) {
             if (!graph.isSignedIn(connection)) continue
             val decision = runCatching {
                 decide(connection, graph.settings.refreshCursor(connection.key), graph.settings.notificationsEnabled)
             }.getOrElse { ok = false; continue }
             if (decision.cursor != null) graph.settings.setRefreshCursor(connection.key, decision.cursor)
-            if (decision.text != null) {
-                total += decision.count
-                opens = if (opens == "approvals" || decision.opens == "approvals") "approvals" else decision.opens
-            }
+            decisions += connection.key to decision
         }
-        if (total > 0) Notifications.post(graph.context, RefreshLogic.text(total), opens ?: "notifications")
+        RefreshLogic.target(decisions)?.let { Notifications.post(graph.context, RefreshLogic.text(it.count), it) }
         runCatching { PunchSync.drainAll(graph) }
         return ok
     }
@@ -120,6 +116,10 @@ object Notifications {
     const val CHANNEL = "updates"
     const val ID = 1
     const val EXTRA_OPEN = "crowtech.crowhr.open"
+    /** Only inside the tap's PendingIntent, never shown: the one new item's web path, its id and connection. */
+    const val EXTRA_LINK = "crowtech.crowhr.link"
+    const val EXTRA_NOTIFICATION = "crowtech.crowhr.notification"
+    const val EXTRA_CONNECTION = "crowtech.crowhr.connection"
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -135,13 +135,25 @@ object Notifications {
             context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
         }
 
-    /** Title "Crow HR", text a count only: no names, no amounts, no dates. */
-    fun post(context: Context, text: String, opens: String) {
-        if (!canPost(context)) return
-        ensureChannel(context)
+    /** The intent a tap on the notification starts (the device tests send the same one). */
+    fun openIntent(context: Context, target: RefreshLogic.Target): Intent {
         val intent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            .putExtra(EXTRA_OPEN, opens)
+            .putExtra(EXTRA_OPEN, target.opens)
+        target.link?.let { intent.putExtra(EXTRA_LINK, it) }
+        target.notificationId?.let { intent.putExtra(EXTRA_NOTIFICATION, it) }
+        target.connectionKey?.let { intent.putExtra(EXTRA_CONNECTION, it) }
+        return intent
+    }
+
+    /**
+     * Title "Crow HR", text a count only: no names, no amounts, no dates. Tapping it opens
+     * [target] (the one new item, or an inbox); what to open travels only in the PendingIntent.
+     */
+    fun post(context: Context, text: String, target: RefreshLogic.Target) {
+        if (!canPost(context)) return
+        ensureChannel(context)
+        val intent = openIntent(context, target)
         val pending = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val notification = Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_crowhr)

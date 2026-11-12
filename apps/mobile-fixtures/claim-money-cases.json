@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "description": "Claim form money preview (add-claims design decision 1), the same rules as packages/core/src/claims/money.ts and the web form's apps/web/src/routes/_app/claims/-lib/money.ts. Amounts are integers in the currency's minor units (ISO 4217 exponent), rates are S$ per 1 unit as millionths, and each line is converted once, rounded half-up to the cent. The server recomputes every line; the apps only show the same S$ amount while the person types.",
+  "rules": [
+    "sgdCents = roundHalfUp(amountMinor × rateMicros × 100 / (10^exponent × 10^6)), computed exactly (no floating point).",
+    "A rate is a positive decimal with at most 6 decimal places (no exponent, no comma). Anything else is not a rate.",
+    "An amount is a positive number with at most `exponent` decimal places; commas are thousands separators and are ignored.",
+    "An SGD line's S$ amount is its amount. A foreign line has no S$ amount until both the amount and the rate are valid.",
+    "The claim total is the sum of the rounded line amounts.",
+    "A submitted claim's line may carry fxWarning (its rate is more than 20% from the organisation's last rate for that currency); deviationBasisPoints is shown as a percentage with two decimals, without the sign (basisPoints)."
+  ],
+  "convert": [
+    { "currency": "MYR", "exponent": 2, "amountMinor": 12550, "rateMicros": 301234, "sgdCents": 3780 },
+    { "currency": "JPY", "exponent": 0, "amountMinor": 5000, "rateMicros": 8912, "sgdCents": 4456 },
+    { "currency": "KWD", "exponent": 3, "amountMinor": 1250, "rateMicros": 4412345, "sgdCents": 552 },
+    { "currency": "USD", "exponent": 2, "amountMinor": 1, "rateMicros": 500000, "sgdCents": 1 },
+    { "currency": "USD", "exponent": 2, "amountMinor": 1, "rateMicros": 499999, "sgdCents": 0 },
+    { "currency": "USD", "exponent": 2, "amountMinor": 100, "rateMicros": 1345000, "sgdCents": 135 },
+    { "currency": "USD", "exponent": 2, "amountMinor": 300, "rateMicros": 1115000, "sgdCents": 335 }
+  ],
+  "rates": [
+    { "text": "0.301234", "rateMicros": 301234 },
+    { "text": "1.35", "rateMicros": 1350000 },
+    { "text": "105", "rateMicros": 105000000 },
+    { "text": " 0.0089 ", "rateMicros": 8900 },
+    { "text": "0.3012345", "rateMicros": null },
+    { "text": "0.0000001", "rateMicros": null },
+    { "text": "0", "rateMicros": null },
+    { "text": "-1", "rateMicros": null },
+    { "text": "1e3", "rateMicros": null },
+    { "text": "1,35", "rateMicros": null },
+    { "text": "", "rateMicros": null }
+  ],
+  "amounts": [
+    { "text": "125.50", "exponent": 2, "amountMinor": 12550 },
+    { "text": "1,234.5", "exponent": 2, "amountMinor": 123450 },
+    { "text": "5,000", "exponent": 0, "amountMinor": 5000 },
+    { "text": "5.5", "exponent": 0, "amountMinor": null },
+    { "text": "1.234", "exponent": 2, "amountMinor": null },
+    { "text": "1.250", "exponent": 3, "amountMinor": 1250 },
+    { "text": "0", "exponent": 2, "amountMinor": null },
+    { "text": "abc", "exponent": 2, "amountMinor": null }
+  ],
+  "previews": [
+    { "currency": "MYR", "amountMinor": 12550, "rate": "0.301234", "sgdCents": 3780 },
+    { "currency": "SGD", "amountMinor": 4560, "rate": null, "sgdCents": 4560 },
+    { "currency": "USD", "amountMinor": 1000, "rate": "", "sgdCents": null },
+    { "currency": "USD", "amountMinor": null, "rate": "1.35", "sgdCents": null }
+  ],
+  "formats": [
+    { "amountMinor": 5000, "exponent": 0, "text": "5,000" },
+    { "amountMinor": 12550, "exponent": 2, "text": "125.50" },
+    { "amountMinor": 123456789, "exponent": 2, "text": "1,234,567.89" },
+    { "amountMinor": 1250, "exponent": 3, "text": "1.250" }
+  ],
+  "exponents": { "SGD": 2, "MYR": 2, "JPY": 0, "KRW": 0, "VND": 0, "KWD": 3 },
+  "basisPoints": [
+    { "deviationBasisPoints": 3334, "text": "33.34%" },
+    { "deviationBasisPoints": -2001, "text": "20.01%" },
+    { "deviationBasisPoints": 5, "text": "0.05%" }
+  ]
+}

@@ -34,8 +34,21 @@ class AppViewModel(private val graph: AppGraph) : ViewModel() {
     private val _locked = MutableStateFlow(graph.lock.shouldLock(graph.clock()))
     val locked: StateFlow<Boolean> = _locked.asStateFlow()
 
-    /** "approvals" or "notifications" when opened from the local notification. */
-    val openRequest = MutableStateFlow<String?>(null)
+    /** What a tapped local notification opens (the one new item, or an inbox). */
+    val openRequest = MutableStateFlow<OpenRequest?>(null)
+
+    /** Bumped when the app comes to the front, so the tab badges are fetched again. */
+    val foregrounds = MutableStateFlow(0)
+
+    /** News for another saved connection that is signed in: switch to it first. */
+    fun onOpenRequest(request: OpenRequest) {
+        val current = root.value
+        val target = request.connectionKey?.let { key -> graph.connections.all().firstOrNull { it.key == key } }
+        if (target != null && graph.isSignedIn(target) && (current as? RootScreen.Main)?.connection?.key != target.key) {
+            switchTo(target)
+        }
+        openRequest.value = request
+    }
 
     /** A `crowhr://connect` link (QR code opened with the camera app, or a tapped link). */
     val connectLink = MutableStateFlow<String?>(null)
@@ -208,6 +221,7 @@ class AppViewModel(private val graph: AppGraph) : ViewModel() {
     fun onBackground() = graph.lock.onBackground(graph.clock())
     fun onForeground() {
         _locked.value = graph.lock.shouldLock(graph.clock())
+        foregrounds.value++
         // Signed in while offline: /me failed then, so the profile's account details, the
         // employee link and "My requests" waited for it. Try again now.
         (root.value as? RootScreen.Main)?.takeIf { it.me == null }?.let { main -> loadMe(main.connection) }
