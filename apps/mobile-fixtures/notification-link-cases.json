@@ -6,42 +6,287 @@
     "The query string matters only where a case below uses it; unknown query parameters are ignored.",
     "Ids are path segments of letters, digits and hyphens; anything else opens nothing.",
     "Tapping a row in the notifications inbox marks it read, then opens its destination when there is one.",
-    "A local notification for exactly one new item opens that item's destination (and marks it read). When several items are new, or the app has no screen for the one item, it opens the inbox given by `opens` in background-refresh-cases.json."
+    "A local notification for exactly one new item opens that item's destination (and marks it read). When several items are new, or the app has no screen for the one item, it opens the inbox given by `opens` in background-refresh-cases.json.",
+    "Within a screen an app may also open the item: iOS opens the approval task (`/inbox?task=`), the task waiting for a request (`/inbox?request=`) and the leave request (`/leave?request=`); see `items`."
   ],
   "cases": [
-    { "link": "/inbox", "opens": "approvals", "id": null },
-    { "link": "/inbox?task=0f9c2d8e-1b7a-4c3e-9a51-2d6f8e4b7c10", "opens": "approvals", "id": null },
-    { "link": "/inbox?request=0f9c2d8e-1b7a-4c3e-9a51-2d6f8e4b7c10", "opens": "approvals", "id": null },
-    { "link": "/leave", "opens": "leave", "id": null },
-    { "link": "/leave?request=5a1d0c2e-7f3b-4b8e-a1c4-9e2f6d3b8a70", "opens": "leave", "id": null },
-    { "link": "/leave/team", "opens": "leave-calendar", "id": null },
-    { "link": "/claims", "opens": "claims", "id": null },
+    {
+      "link": "/inbox",
+      "opens": "approvals",
+      "id": null
+    },
+    {
+      "link": "/inbox?task=0f9c2d8e-1b7a-4c3e-9a51-2d6f8e4b7c10",
+      "opens": "approvals",
+      "id": null
+    },
+    {
+      "link": "/inbox?request=0f9c2d8e-1b7a-4c3e-9a51-2d6f8e4b7c10",
+      "opens": "approvals",
+      "id": null
+    },
+    {
+      "link": "/leave",
+      "opens": "leave",
+      "id": null
+    },
+    {
+      "link": "/leave?request=5a1d0c2e-7f3b-4b8e-a1c4-9e2f6d3b8a70",
+      "opens": "leave",
+      "id": null
+    },
+    {
+      "link": "/leave/team",
+      "opens": "leave-calendar",
+      "id": null
+    },
+    {
+      "link": "/claims",
+      "opens": "claims",
+      "id": null
+    },
     {
       "link": "/claims/7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31",
       "opens": "claim",
       "id": "7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31"
     },
-    { "link": "/me/payslips", "opens": "payslips", "id": null },
+    {
+      "link": "/me/payslips",
+      "opens": "payslips",
+      "id": null
+    },
     {
       "link": "/me/payslips/2b8d4f1a-6c3e-4a9b-b7d2-1e5f8c3a9d40",
       "opens": "payslip",
       "id": "2b8d4f1a-6c3e-4a9b-b7d2-1e5f8c3a9d40"
     },
-    { "link": "/schedules/me", "opens": "schedule", "id": null },
-    { "link": "/schedules/me?week=2026-11-16", "opens": "schedule", "id": null },
-    { "link": "/me/profile", "opens": "profile", "id": null },
-    { "link": "/attendance", "opens": "clock", "id": null },
-    { "link": "/", "opens": null, "id": null },
-    { "link": "", "opens": null, "id": null },
-    { "link": "/schedules?week=2026-11-16", "opens": null, "id": null },
-    { "link": "/me/sessions", "opens": null, "id": null },
-    { "link": "/settings/security", "opens": null, "id": null },
-    { "link": "/payroll/runs/3d9a1c7e-5b2f-4e8a-9c6d-7f1b3e5a2c80", "opens": null, "id": null },
-    { "link": "/documents?open=3d9a1c7e-5b2f-4e8a-9c6d-7f1b3e5a2c80", "opens": null, "id": null },
-    { "link": "/people/3d9a1c7e-5b2f-4e8a-9c6d-7f1b3e5a2c80", "opens": null, "id": null },
-    { "link": "https://elsewhere.example/claims/7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31", "opens": null, "id": null },
-    { "link": "//elsewhere.example/claims", "opens": null, "id": null },
-    { "link": "/claims/../settings", "opens": null, "id": null },
-    { "link": "/claims/7c3e1a9b/receipts", "opens": null, "id": null }
+    {
+      "link": "/schedules/me",
+      "opens": "schedule",
+      "id": null
+    },
+    {
+      "link": "/schedules/me?week=2026-11-16",
+      "opens": "schedule",
+      "id": null
+    },
+    {
+      "link": "/me/profile",
+      "opens": "profile",
+      "id": null
+    },
+    {
+      "link": "/attendance",
+      "opens": "clock",
+      "id": null
+    },
+    {
+      "link": "/",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "/schedules?week=2026-11-16",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "/me/sessions",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "/settings/security",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "/payroll/runs/3d9a1c7e-5b2f-4e8a-9c6d-7f1b3e5a2c80",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "/documents?open=3d9a1c7e-5b2f-4e8a-9c6d-7f1b3e5a2c80",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "/people/3d9a1c7e-5b2f-4e8a-9c6d-7f1b3e5a2c80",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "https://elsewhere.example/claims/7c3e1a9b-2d4f-4e6a-8b1c-0f5d9e2a6b31",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "//elsewhere.example/claims",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "/claims/../settings",
+      "opens": null,
+      "id": null
+    },
+    {
+      "link": "/claims/7c3e1a9b/receipts",
+      "opens": null,
+      "id": null
+    }
+  ],
+  "items": [
+    {
+      "link": "/inbox?task=0f9c2d8e-1b7a-4c3e-9a51-2d6f8e4b7c10",
+      "item": "approvalTask",
+      "id": "0f9c2d8e-1b7a-4c3e-9a51-2d6f8e4b7c10"
+    },
+    {
+      "link": "/inbox?request=0f9c2d8e-1b7a-4c3e-9a51-2d6f8e4b7c10",
+      "item": "approvalRequest",
+      "id": "0f9c2d8e-1b7a-4c3e-9a51-2d6f8e4b7c10"
+    },
+    {
+      "link": "/inbox?task=t1&request=r1",
+      "item": "approvalTask",
+      "id": "t1"
+    },
+    {
+      "link": "/leave?request=5a1d0c2e-7f3b-4b8e-a1c4-9e2f6d3b8a70",
+      "item": "leaveRequest",
+      "id": "5a1d0c2e-7f3b-4b8e-a1c4-9e2f6d3b8a70"
+    },
+    {
+      "link": "/inbox",
+      "item": "approvals",
+      "id": null
+    },
+    {
+      "link": "/leave",
+      "item": "leave",
+      "id": null
+    }
+  ],
+  "localNotification": [
+    {
+      "id": "one-new-item-opens-it",
+      "fresh": [
+        {
+          "id": "n1",
+          "category": "requests",
+          "readAt": null,
+          "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1"
+        }
+      ],
+      "expected": {
+        "route": "notifications",
+        "link": "/leave?request=0190a0b0-0000-7000-8000-0000000000b1",
+        "notificationId": "n1",
+        "opens": "leave"
+      }
+    },
+    {
+      "id": "one-new-approval-opens-its-task",
+      "fresh": [
+        {
+          "id": "n2",
+          "category": "approvals",
+          "readAt": null,
+          "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1"
+        }
+      ],
+      "expected": {
+        "route": "approvals",
+        "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1",
+        "notificationId": "n2",
+        "opens": "approvals"
+      }
+    },
+    {
+      "id": "one-new-and-one-read-opens-the-new-one",
+      "fresh": [
+        {
+          "id": "n3",
+          "category": "updates",
+          "readAt": "2026-11-13T01:00:00.000Z",
+          "link": "/schedules/me"
+        },
+        {
+          "id": "n4",
+          "category": "updates",
+          "readAt": null,
+          "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1"
+        }
+      ],
+      "expected": {
+        "route": "notifications",
+        "link": "/me/payslips/0190a0b0-0000-7000-8000-0000000000d1",
+        "notificationId": "n4",
+        "opens": "payslip"
+      }
+    },
+    {
+      "id": "several-open-the-inbox",
+      "fresh": [
+        {
+          "id": "n5",
+          "category": "approvals",
+          "readAt": null,
+          "link": "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1"
+        },
+        {
+          "id": "n6",
+          "category": "updates",
+          "readAt": null,
+          "link": "/schedules/me"
+        }
+      ],
+      "expected": {
+        "route": "approvals",
+        "link": null,
+        "notificationId": null,
+        "opens": "approvals"
+      }
+    },
+    {
+      "id": "one-without-a-link-opens-the-inbox",
+      "fresh": [
+        {
+          "id": "n7",
+          "category": "updates",
+          "readAt": null,
+          "link": null
+        }
+      ],
+      "expected": {
+        "route": "notifications",
+        "link": null,
+        "notificationId": null,
+        "opens": "notifications"
+      }
+    },
+    {
+      "id": "one-item-the-app-has-no-screen-for-opens-its-inbox",
+      "fresh": [
+        {
+          "id": "n8",
+          "category": "approvals",
+          "readAt": null,
+          "link": "/payroll/runs/3d9a1c7e-5b2f-4e8a-9c6d-7f1b3e5a2c80"
+        }
+      ],
+      "expected": {
+        "route": "approvals",
+        "link": null,
+        "notificationId": null,
+        "opens": "approvals"
+      }
+    }
   ]
 }

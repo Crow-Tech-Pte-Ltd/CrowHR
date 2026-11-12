@@ -24,6 +24,10 @@ final class QAScreenshotsUITests: CrowUITestCase {
 
     private func employeeTour(prefix: String, dark: Bool, xxxl: Bool, applyForLeave: Bool = false) throws {
         begin(prefix, dark: dark, xxxl: xxxl)
+        // Next week's roster with an open shift (My schedule's swaps and pickups) and a draft claim
+        // with a foreign expense (the claim's screen).
+        try seed.publishSwapRoster(nurul: Self.employee, marcus: Self.colleague, manager: Self.manager)
+        try seed.ensureDraftClaim(of: Self.employee)
         connectAndSignIn(as: Self.employee)
         try check("Today", "\(prefix)-today")
 
@@ -45,13 +49,32 @@ final class QAScreenshotsUITests: CrowUITestCase {
             app.navigationBars["New leave"].buttons["Cancel"].tap()
             wait(app.buttons["leave.apply"])
         }
+        // A type that names a child: Nurul has none on record, so the form says how to add one.
+        app.buttons["leave.apply"].tap()
+        wait(app.staticTexts["leave.quote"], 20)
+        choose(app.buttons["leave.type"], "Unpaid infant care leave")
+        wait(app.staticTexts["leave.noChildren"], 20)
+        waitUntilLoaded()
+        try check("New leave, child", "\(prefix)-leave-child")
+        app.navigationBars["New leave"].buttons["Cancel"].tap()
+        wait(app.buttons["leave.apply"])
+        // The calendar: who is away, day by day.
+        app.buttons["Calendar"].tap()
+        wait(app.staticTexts["calendar.range"], 20)
+        waitUntilLoaded()
+        try check("Leave calendar", "\(prefix)-leave-calendar")
+        app.buttons["My leave"].tap()
+        wait(app.buttons["leave.apply"])
 
         tapTab("Pay")
         let payslip = wait(app.buttons["payslip.row"].firstMatch, 20)
         // On an iPad the latest payslip opens beside the list: let it load before the audit.
         waitUntilLoaded()
         try check("Payslips", "\(prefix)-payslips")
-        payslip.tap()
+        // On an iPad at XXXL the audit's Dynamic Type check can make room for the payslip beside
+        // the list for a moment, which opens the latest one (`openLatestIfSideBySide`); back at
+        // XXXL the view collapses onto that payslip. Then it is open already.
+        if !app.staticTexts["payslip.net"].exists { (payslip.exists ? payslip : wait(app.buttons["payslip.row"].firstMatch)).tap() }
         wait(app.staticTexts["payslip.net"])
         try check("Payslip", "\(prefix)-payslip")
 
@@ -85,7 +108,19 @@ final class QAScreenshotsUITests: CrowUITestCase {
             (chosen.exists ? chosen : app.buttons["choice.option"].firstMatch).tap()
             wait(app.textFields["claim.merchant"])
         }
+        // A second expense, in ringgit: the rate and the amount in SGD appear.
+        reveal(app.buttons["claim.addLine"]).tap()
+        choose(app.buttons["claim.currency.2"], "MYR · Malaysian ringgit")
+        reveal(app.textFields["claim.rate.2"])
+        try check("New claim, two expenses", "\(prefix)-new-claim-lines")
         app.navigationBars["New claim"].buttons["Cancel"].tap()
+        wait(app.buttons["claims.new"])
+        // The newest claim (the seeded draft in ringgit and dollars) on its own screen.
+        wait(app.buttons["claim.row"].firstMatch, 20).tap()
+        wait(app.staticTexts["claimDetail.title"], 20)
+        waitUntilLoaded()
+        try check("Claim", "\(prefix)-claim")
+        goBack(from: "Claim", to: "Claims")
         wait(app.buttons["claims.new"])
         if underMore {
             app.navigationBars.buttons.firstMatch.tap()
@@ -94,6 +129,7 @@ final class QAScreenshotsUITests: CrowUITestCase {
                 app.buttons["more.schedule"].tap()
                 waitUntilLoaded()
                 try check("My schedule", "\(prefix)-schedule")
+                try checkSwapSheet(prefix)
                 app.navigationBars.buttons.firstMatch.tap()
             }
             wait(app.buttons["more.profile"]).tap()
@@ -106,6 +142,7 @@ final class QAScreenshotsUITests: CrowUITestCase {
             tapTab("Schedule")
             waitUntilLoaded()
             try check("My schedule", "\(prefix)-schedule")
+            try checkSwapSheet(prefix)
             tapTab("Profile")
             waitUntilLoaded()
             try check("My profile", "\(prefix)-profile")
@@ -138,7 +175,30 @@ final class QAScreenshotsUITests: CrowUITestCase {
         app.buttons["Notifications"].firstMatch.tap()
         waitUntilLoaded()
         try check("Notifications", "\(prefix)-notifications")
+        // The team calendar, and a request opened from it.
+        tapTab("Leave")
+        wait(app.buttons["Calendar"]).tap()
+        wait(app.staticTexts["calendar.range"], 20)
+        waitUntilLoaded()
+        try check("Team calendar", "\(prefix)-team-calendar")
+        wait(app.buttons.matching(identifier: "calendar.entry").firstMatch, 20).tap()
+        wait(app.staticTexts["leaveRequest.title"], 20)
+        waitUntilLoaded()
+        try check("Leave request", "\(prefix)-leave-request-sheet")
+        app.navigationBars["Leave request"].buttons["Done"].tap()
         finish()
+    }
+
+    /// The sheet that offers a shift to a colleague, from the first shift that can be swapped.
+    private func checkSwapSheet(_ prefix: String) throws {
+        let swap = app.buttons["schedule.swap"].firstMatch
+        guard swap.waitForExistence(timeout: 5) else { return }
+        reveal(swap).tap()
+        wait(element("swap.kind"), 20)
+        waitUntilLoaded()
+        try check("Swap", "\(prefix)-swap")
+        app.navigationBars["Swap"].buttons["Cancel"].tap()
+        wait(app.buttons["schedule.swap"].firstMatch)
     }
 
     // MARK: Audit

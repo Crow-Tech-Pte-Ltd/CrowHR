@@ -267,9 +267,17 @@ struct ChoiceRow: View {
     let options: [(id: String, name: String)]
     @Binding var selection: String
     var identifier: String? = nil
+    /// Shown until something is chosen ("Choose the child").
+    var placeholder = "Choose"
+    /// What the field shows for the chosen option, when shorter than its name in the list (a
+    /// currency's code: "MYR" for "MYR · Malaysian ringgit").
+    var shown: ((String) -> String)? = nil
     @State private var choosing = false
 
-    private var chosen: String { options.first { $0.id == selection }?.name ?? "Choose" }
+    private var chosen: String {
+        guard let option = options.first(where: { $0.id == selection }) else { return placeholder }
+        return shown?(option.id) ?? option.name
+    }
 
     var body: some View {
         Group {

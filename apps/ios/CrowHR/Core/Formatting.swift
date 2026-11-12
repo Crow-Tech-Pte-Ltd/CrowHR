@@ -157,6 +157,42 @@ enum Fmt {
         return parseDay(s).map(date) ?? s
     }
 
+    /// Today in Singapore, `2026-11-13`.
+    static func today(_ now: Date = Date()) -> String { day(now) }
+
+    /// `2026-11-13` plus `n` days (negative goes back), on the Singapore calendar.
+    static func addDays(_ s: String, _ n: Int) -> String {
+        guard let d = parseDay(s), let next = calendar.date(byAdding: .day, value: n, to: d) else { return s }
+        return day(next)
+    }
+
+    /// The Monday of the week holding `s` (weeks run Monday to Sunday, as rosters do).
+    static func mondayOf(_ s: String) -> String {
+        guard let d = parseDay(s) else { return s }
+        let weekday = calendar.component(.weekday, from: d) // 1 = Sunday
+        return addDays(s, -((weekday + 5) % 7))
+    }
+
+    /// `Mon` for `2026-11-16`.
+    static func weekday(_ s: String) -> String { parseDay(s).map { formatter("EEE").string(from: $0) } ?? "" }
+
+    /// `9–22 Nov 2026`, `30 Nov – 13 Dec 2026`, `28 Dec 2026 – 10 Jan 2027` (the web's range).
+    static func dateRange(_ start: String, _ end: String) -> String {
+        guard let s = parseDay(start), let e = parseDay(end) else { return "\(start) – \(end)" }
+        if start == end { return date(s) }
+        let (ys, ms) = (calendar.component(.year, from: s), calendar.component(.month, from: s))
+        let (ye, me) = (calendar.component(.year, from: e), calendar.component(.month, from: e))
+        if ys == ye && ms == me { return "\(calendar.component(.day, from: s))–\(date(e))" }
+        if ys == ye { return "\(formatter("d MMM").string(from: s)) – \(date(e))" }
+        return "\(date(s)) – \(date(e))"
+    }
+
+    /// Minutes as `7h 30m`, `8h`, `45m`.
+    static func hoursMinutes(_ minutes: Int) -> String {
+        let h = minutes / 60, m = minutes % 60
+        return h > 0 ? (m > 0 ? "\(h)h \(m)m" : "\(h)h") : "\(m)m"
+    }
+
     /// NRIC/FIN masked as `S****567D`. Anything that isn't 9 characters is fully masked.
     static func maskNRIC(_ id: String) -> String {
         let s = id.trimmingCharacters(in: .whitespaces).uppercased()

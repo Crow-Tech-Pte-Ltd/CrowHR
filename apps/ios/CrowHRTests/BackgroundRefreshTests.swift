@@ -242,7 +242,7 @@ struct BackgroundRefreshTests {
 
     @Test func apiFetcherPagesForwardWithSinceAndPostsNoPersonalData() async throws {
         let stub = StubTransport()
-        let item = #"{"id":"0190a0b0-0000-7000-8000-0000000000f2","kind":"task_assigned","category":"approvals","title":"Leave from Ahmad Ismail","body":"3 days annual leave","link":"/approvals","createdAt":"2026-11-07T02:00:00.000Z","readAt":null}"#
+        let item = #"{"id":"0190a0b0-0000-7000-8000-0000000000f2","kind":"task_assigned","category":"approvals","title":"Leave from Ahmad Ismail","body":"3 days annual leave","link":"/inbox?task=0190a0b0-0000-7000-8000-0000000000a1","createdAt":"2026-11-07T02:00:00.000Z","readAt":null}"#
         stub.on("GET /api/v1/notifications") { r in
             let since = URLComponents(url: r.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "since" }?.value
             let body = since == "cur-1"
@@ -257,7 +257,9 @@ struct BackgroundRefreshTests {
         store.set(Data("srv:cur-1".utf8), forKey: "inbox.cursor.c")
         let r = InboxRefresher(fetcher: APIInboxFetcher(api: api), poster: FakePoster(), store: store, account: "c", enabled: { true })
         let notice = try #require(try await r.refresh())
-        #expect(notice == LocalNotice(title: "Crow HR", body: "You have 1 new item in Crow HR", route: .approvals))
+        // One new item: its link and id ride along (not in the text) so a tap opens it.
+        #expect(notice == LocalNotice(title: "Crow HR", body: "You have 1 new item in Crow HR", route: .approvals,
+                                      link: "/inbox?task=0190a0b0-0000-7000-8000-0000000000a1", notificationID: "0190a0b0-0000-7000-8000-0000000000f2"))
         for word in ["Ahmad", "Leave", "annual", "3 days"] {
             #expect(!notice.body.contains(word) && !notice.title.contains(word))
         }

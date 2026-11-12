@@ -42,7 +42,7 @@ targets:
         PRODUCT_NAME: CrowHR
         INFOPLIST_FILE: CrowHR/Info.plist
         GENERATE_INFOPLIST_FILE: NO
-        # iPhone and iPad (1.0.0). An app can never drop iPad once it has shipped with it, so the
+        # iPhone and iPad. An app can never drop iPad once it has shipped with it, so the
         # iPad layouts are designed, not stretched: a sidebar, readable content widths, payslips
         # list beside detail, and phone layouts at compact widths (Split View, Slide Over, a narrow
         # Stage Manager window). See apps/ios/README.md "iPad".

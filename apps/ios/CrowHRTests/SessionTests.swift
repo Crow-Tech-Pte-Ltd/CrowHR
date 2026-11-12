@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import CrowHR
 
-/// Session lifecycle bugs found in the 12 Nov 2026 QA pass: when the app may sign someone out,
+/// Session lifecycle rules (each once a bug): when the app may sign someone out,
 /// lock, send punches, mark the inbox seen and revoke a device session.
 @Suite("Session", .serialized)
 @MainActor
