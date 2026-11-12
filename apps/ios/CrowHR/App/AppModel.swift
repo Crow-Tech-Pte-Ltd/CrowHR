@@ -33,7 +33,11 @@ final class Session {
         FeatureGate.isAvailable(feature, serverFeatures: connection.features)
     }
 
-    func reloadPunches() async { punches = await queue.all() }
+    /// Assigns only when the list changed: every assignment re-renders the screens showing it.
+    func reloadPunches() async {
+        let next = await queue.all()
+        if next != punches { punches = next }
+    }
 
     /// Approval tasks waiting for this person, nil until asked. Not only managers and admins
     /// decide: a step can go to the requester's manager by reporting line or to a named person,
@@ -83,6 +87,10 @@ final class AppModel {
     private var unlockedThisLaunch = false
     private var pathMonitor: NWPathMonitor?
     private var drainTimer: Task<Void, Never>?
+    /// One `AuthSession` per signed-in connection, reused when switching back to it: two for one
+    /// account could both refresh with the same token, which the server treats as theft. A new
+    /// sign-in starts a new one.
+    private var authSessions: [UUID: AuthSession] = [:]
 
     var biometricEnabled: Bool {
         didSet {
@@ -178,9 +186,10 @@ final class AppModel {
         if session?.connection.id == connection.id {
             await signOut()
         } else if env.tokens.load(account: connection.id.uuidString) != nil {
-            let api = APIClient(server: connection.server, transport: env.transport, auth: makeAuth(connection))
+            let api = APIClient(server: connection.server, transport: env.transport, auth: auth(for: connection))
             try? await api.postNoContent("/api/v1/native/revoke")
         }
+        authSessions[connection.id] = nil
         env.tokens.delete(account: connection.id.uuidString)
         FilePunchQueueStore(fileURL: FilePunchQueueStore.defaultURL(connectionID: connection.id)).delete()
         connectionsStore.remove(connection.id)
@@ -225,10 +234,22 @@ final class AppModel {
         AuthSession(server: connection.server, account: connection.id.uuidString, store: env.tokens, transport: env.transport)
     }
 
+    /// The connection's `AuthSession`, kept across switches (see `authSessions`).
+    private func auth(for connection: SavedConnection) -> AuthSession {
+        if let existing = authSessions[connection.id] { return existing }
+        let made = makeAuth(connection)
+        authSessions[connection.id] = made
+        return made
+    }
+
+    /// `auth` is given after a sign-in: it replaces the connection's previous one.
     private func startSession(_ connection: SavedConnection, auth: AuthSession? = nil, afterSignIn: Bool = false) {
-        let auth = auth ?? makeAuth(connection)
+        if let auth { authSessions[connection.id] = auth }
+        let auth = auth ?? self.auth(for: connection)
+        // Only this session's own end signs out: a late 401 from a session switched away from
+        // (or signed out of) must not end the one now in use.
         let api = APIClient(server: connection.server, transport: env.transport, auth: auth) { [weak self] message in
-            await self?.handleSignedOut(message)
+            await self?.handleSignedOut(message, from: auth)
         }
         let s = Session(connection: connection, api: api, auth: auth, queueStore: FilePunchQueueStore(fileURL: FilePunchQueueStore.defaultURL(connectionID: connection.id)))
         session = s
@@ -271,6 +292,8 @@ final class AppModel {
     /// Only right after signing in does it mark the inbox seen: a cold start can be iOS launching
     /// the app in the background for a refresh, which must still announce what is new.
     private func afterMe(_ s: Session, afterSignIn: Bool) async {
+        // Waiting punches go out at once, alongside the meta check rather than after it.
+        async let drained: Void = s.drainPunches()
         // The server may have been upgraded since connecting: refresh its feature list.
         if case .compatible(let meta, let org) = await check(server: s.connection.server, org: s.connection.orgSlug) {
             var c = s.connection
@@ -280,15 +303,20 @@ final class AppModel {
             connectionsStore.update(c)
             reloadConnections()
         }
+        // After the meta check: whether approvals are offered comes from its features.
         await s.refreshApprovalTasks()
-        await s.drainPunches()
+        await drained
         if afterSignIn { await refresher(for: s).markAllSeen() }
     }
 
     /// The server ended the session (revoked on the web, suspended, expired): clear and go back to
     /// sign-in. Unsent punches stay, bound to their owner, and are sent after they sign in again.
-    func handleSignedOut(_ message: String) async {
-        guard session != nil else { return }
+    /// `auth` is the ended session's: a session no longer in use (switched away from, or signed
+    /// out of and signed in again) never signs out the current one.
+    func handleSignedOut(_ message: String, from auth: AuthSession? = nil) async {
+        guard let s = session else { return }
+        if let auth, s.auth !== auth { return }
+        authSessions[s.connection.id] = nil
         session = nil
         signedOutMessage = message
         screen = active == nil ? .connect : .signIn
@@ -300,6 +328,7 @@ final class AppModel {
         guard let s = session else { return }
         try? await s.api.postNoContent("/api/v1/native/revoke")
         await s.auth.clear()
+        authSessions[s.connection.id] = nil
         if discardUnsentPunches { s.queueStore.delete() }
         env.kv.set(nil, forKey: "inbox.cursor.\(s.connection.id.uuidString)")
         session = nil
@@ -327,6 +356,7 @@ final class AppModel {
             locked = true
         }
         backgroundedAt = nil
+        rereadBiometry()
         if let s = session {
             Task {
                 await self.refreshMeIfNeeded()
@@ -360,22 +390,54 @@ final class AppModel {
         unlockedThisLaunch = true
     }
 
-    var biometryAvailable: Bool {
-        LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
+    /// What the device can unlock with. Each read is a synchronous call to another process, too
+    /// slow for every render of Settings (which re-renders while a punch waits), so it is read
+    /// once and again whenever the app becomes active (Face ID may have been set up meanwhile).
+    struct Biometry: Equatable {
+        var available: Bool
+        var name: String?
+
+        static func read() -> Biometry {
+            let available = LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: nil)
+            let context = LAContext()
+            _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+            let name: String? = switch context.biometryType {
+            case .faceID: "Face ID"
+            case .touchID: "Touch ID"
+            case .opticID: "Optic ID"
+            default: nil
+            }
+            return Biometry(available: available, name: name)
+        }
     }
+
+    /// Read on first use (Settings), not at launch.
+    @ObservationIgnored private var biometryRead: Biometry?
+    /// Bumped when a re-read finds a change, so Settings shows it.
+    private var biometryRevision = 0
+
+    private var biometry: Biometry {
+        _ = biometryRevision
+        if let biometryRead { return biometryRead }
+        let read = Biometry.read()
+        biometryRead = read
+        return read
+    }
+
+    private func rereadBiometry() {
+        guard biometryRead != nil else { return }
+        let read = Biometry.read()
+        if read != biometryRead {
+            biometryRead = read
+            biometryRevision += 1
+        }
+    }
+
+    var biometryAvailable: Bool { biometry.available }
 
     /// "Face ID", "Touch ID" (most iPads but the Pro) or "Optic ID"; nil with no biometrics, when
     /// only the passcode unlocks.
-    var biometryName: String? {
-        let context = LAContext()
-        _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
-        return switch context.biometryType {
-        case .faceID: "Face ID"
-        case .touchID: "Touch ID"
-        case .opticID: "Optic ID"
-        default: nil
-        }
-    }
+    var biometryName: String? { biometry.name }
 
     /// Retries queued punches when connectivity comes back, and every 30 s while some wait.
     private func startConnectivityMonitor() {
