@@ -69,9 +69,6 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
           <ArrowLeft className="size-3.5" aria-hidden />
           Back to the demo
         </a>
-        <p className="mb-2 font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300">
-          Crow HR · public demo
-        </p>
         <h1 className="mb-3 font-azeret text-2xl font-semibold leading-tight tracking-tight">About this demo</h1>
         <p className="max-w-2xl text-sm leading-6 text-primary-300">
           The same web app and API code as a self-hosted install, running in your browser instead of on a server.
@@ -147,9 +144,7 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
               <tbody className="divide-y divide-border">
                 {PERSONAS.map((p) => (
                   <tr key={p.key}>
-                    <td className="whitespace-nowrap px-3 py-2 font-azeret text-2xs font-semibold uppercase tracking-wider">
-                      {p.label}
-                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 font-medium">{p.label}</td>
                     <td className="whitespace-nowrap px-3 py-2">{p.name}</td>
                     <td className="px-3 py-2 text-primary-300">{p.blurb}</td>
                   </tr>
@@ -201,7 +196,10 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
             Demo limits
           </h2>
           <ul className="list-disc space-y-1 pl-5 text-ui leading-6 text-primary-300">
-            <li>January–June opening balances are not imported, so payroll shows the missing YTD warning.</li>
+            <li>
+              January–June 2026 opening balances are imported as for a company that moved to Crow HR mid-year, so runs
+              warn only about real issues.
+            </li>
             <li>
               July–September overtime was entered on the historical payroll runs. October uses approved clocked
               overtime. Part-month joiner and leaver payroll uses a full-month denominator counted from the outlet

@@ -4,6 +4,7 @@ import {
   AlertDescription,
   AlertTitle,
   Button,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -13,16 +14,18 @@ import {
   EmptyState,
   formatDate,
   StatusPill,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Clock, Pencil, Plus, Trash2, UserRound } from "lucide-react";
+import { Clock, Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ApiError } from "../../../lib/api.ts";
 import { MobileAppSection } from "../../../me/mobile-app-section.tsx";
 import { api, errorMessage, fieldErrors, invalidatePeople, meQuery, referenceQuery } from "../people/-lib/api.ts";
+import { formatPhone } from "../people/-lib/format.ts";
 import { ErrorPanel, Field, label, PanelSkeleton, Section, SelectInput, TextInput } from "../people/-lib/ui.tsx";
 
 export const Route = createFileRoute("/_app/me/profile")({ component: MyProfilePage });
@@ -38,7 +41,7 @@ function MyProfilePage() {
     return q.error instanceof ApiError && q.error.status === 404 ? (
       <>
         <PageHeader title="My profile" />
-        <EmptyState icon={<UserRound />} title="No employee record linked" description={errorMessage(q.error)} />
+        <EmptyState title="Your sign-in isn't linked to an employee record." description={errorMessage(q.error)} />
         <div className="mt-6">
           <MobileAppSection />
         </div>
@@ -93,7 +96,7 @@ function MyProfilePage() {
             <dl>
               {e.emergencyContacts.map((c) => (
                 <Field key={c.id} term={c.relationship}>
-                  {c.name} · <span className="num">{c.phone}</span>
+                  {c.name} · <span className="num">{formatPhone(c.phone)}</span>
                 </Field>
               ))}
             </dl>
@@ -248,9 +251,7 @@ function EditContactDialog({ e, onClose }: { e: NonNullable<ReturnType<typeof us
             error={errs["address.postalCode"]}
           />
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 font-azeret text-2xs font-semibold uppercase tracking-wider">
-              Emergency contacts
-            </legend>
+            <legend className={cn("mb-1", textStyle.group)}>Emergency contacts</legend>
             {contacts.map((c, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: editable list without ids.
               <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2 sm:grid-cols-[1fr_8rem_9rem_auto]">

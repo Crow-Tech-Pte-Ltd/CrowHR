@@ -20,11 +20,12 @@ import {
   Skeleton,
   StatusPill,
   Textarea,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeftRight, CalendarClock, UserRound } from "lucide-react";
+import { ArrowLeftRight, CalendarClock } from "lucide-react";
 import * as React from "react";
 import { useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
@@ -66,8 +67,7 @@ function MySchedulePage() {
       <>
         <PageHeader title="My schedule" />
         <EmptyState
-          icon={<UserRound />}
-          title="Your sign-in isn't linked to an employee record"
+          title="Your sign-in isn't linked to an employee record."
           description="There's no schedule to show. Ask HR to link your sign-in to your employee record."
         />
       </>
@@ -108,10 +108,7 @@ function MySchedulePage() {
 }
 
 function ShiftLine({ s }: { s: MyShift }) {
-  if (s.kind === "rest")
-    return (
-      <span className="font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-200">Rest day</span>
-    );
+  if (s.kind === "rest") return <span className="text-ui text-primary-200">Rest day</span>;
   return (
     <span className="flex min-w-0 items-center gap-2">
       <span aria-hidden className={cn("h-8 w-[3px] shrink-0 rounded-full", COLOUR_BAR[s.colour])} />
@@ -193,9 +190,7 @@ function Days({
                     className={cn("flex items-start gap-3 px-4 py-2.5", d === today && "bg-kuning-50/60")}
                   >
                     <span className="w-16 shrink-0 pt-0.5">
-                      <span className="block font-azeret text-2xs font-semibold uppercase">
-                        {shortDay(d).slice(0, 3)}
-                      </span>
+                      <span className={cn("block", textStyle.group)}>{shortDay(d).slice(0, 3)}</span>
                       <span className="num block text-2xs text-primary-300">{shortDay(d).slice(4)}</span>
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col gap-2">
@@ -333,7 +328,7 @@ function OpenShifts({ shifts }: { shifts: MyShift[] }) {
           {shifts.map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
               <span className="min-w-0">
-                <span className="block font-azeret text-2xs font-semibold uppercase">{shortDay(s.date)}</span>
+                <span className={cn("num block", textStyle.group)}>{shortDay(s.date)}</span>
                 <ShiftLine s={s} />
               </span>
               <Button size="sm" variant="secondary" onClick={() => ask.mutate(s.id)} disabled={ask.isPending}>

@@ -1,4 +1,4 @@
-import { Card } from "@crowhr/ui";
+import { Card, textStyle } from "@crowhr/ui";
 import type * as React from "react";
 import { ApiError } from "../lib/api.ts";
 
@@ -20,10 +20,7 @@ export function Section({
     <section aria-labelledby={id ? `${id}-title` : undefined} className="mb-8">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2
-            id={id ? `${id}-title` : undefined}
-            className="font-azeret text-xs font-semibold uppercase tracking-wider"
-          >
+          <h2 id={id ? `${id}-title` : undefined} className={textStyle.section}>
             {title}
           </h2>
           {description ? <p className="mt-1 max-w-2xl text-ui text-primary-300">{description}</p> : null}

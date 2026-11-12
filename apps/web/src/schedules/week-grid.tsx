@@ -1,4 +1,4 @@
-import { cn } from "@crowhr/ui";
+import { cn, textStyle } from "@crowhr/ui";
 import { AlertTriangle, Ban, Info, Plus } from "lucide-react";
 import * as React from "react";
 import {
@@ -71,7 +71,7 @@ function ShiftChip({ shift, draggable, onOpen }: { shift: Shift; draggable: bool
           e.stopPropagation();
           onOpen();
         }}
-        className="w-full rounded-sm px-1.5 py-0.5 text-left font-azeret text-[10px] font-semibold uppercase tracking-wider text-primary-200 hover:bg-ink/[0.04]"
+        className="w-full rounded-sm px-1.5 py-0.5 text-left text-2xs text-primary-200 hover:bg-ink/[0.04]"
         data-testid="rest-chip"
       >
         Rest day
@@ -237,7 +237,10 @@ export function WeekGrid({
           <tr>
             <th
               scope="col"
-              className="sticky left-0 top-0 z-30 w-[148px] xl:w-[200px] border-b border-r border-border bg-surface-100 px-3 py-2 text-left font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300"
+              className={cn(
+                "sticky left-0 top-0 z-30 w-[148px] xl:w-[200px] border-b border-r border-border bg-surface-100 px-3 py-2 text-left",
+                textStyle.column,
+              )}
             >
               Employee
             </th>
@@ -358,7 +361,7 @@ export function WeekGrid({
           <tr>
             <th
               scope="row"
-              className="sticky bottom-0 left-0 z-20 border-r border-t border-border bg-surface-100 px-3 py-1.5 text-left font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300"
+              className="sticky bottom-0 left-0 z-20 border-r border-t border-border bg-surface-100 px-3 py-1.5 text-left font-azeret text-2xs font-semibold text-primary-300"
             >
               Hours <span className="num ml-1 text-ink">{hours(total)}</span>
             </th>
@@ -411,7 +414,7 @@ export function DayList({
                   className="focus-ring flex flex-col items-end rounded-sm px-1 text-right"
                 >
                   {s.kind === "rest" ? (
-                    <span className="font-azeret text-2xs uppercase text-primary-200">Rest day</span>
+                    <span className="text-2xs text-primary-200">Rest day</span>
                   ) : (
                     <span className="flex items-center gap-1.5">
                       <span aria-hidden className={cn("h-3.5 w-[3px] rounded-full", COLOUR_BAR[s.colour])} />

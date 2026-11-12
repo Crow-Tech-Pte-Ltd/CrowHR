@@ -10,6 +10,7 @@ import {
   checklistTemplates,
   employees,
   employmentRecords,
+  workPasses,
 } from "../db/schema/employees.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps, IdGenerator } from "../deps.ts";
@@ -38,6 +39,13 @@ export const templateInput = z.object({
     .max(60),
 });
 
+/**
+ * The offboarding item that only applies to someone holding a work pass. It is left off the
+ * checklist of a leaver without one (the old title is still recognised in stored templates).
+ */
+export const WORK_PASS_ITEM = "Cancel work pass";
+const WORK_PASS_ITEMS = new Set([WORK_PASS_ITEM, "Cancel work pass (foreign employees)"]);
+
 /** Defaults offered on first use; HR edits them in Settings. Product defaults, not statutory. */
 export const DEFAULT_TEMPLATES: z.input<typeof templateInput>[] = [
   {
@@ -58,7 +66,7 @@ export const DEFAULT_TEMPLATES: z.input<typeof templateInput>[] = [
     items: [
       { title: "Collect company property", assigneeRole: "manager", dueOffsetDays: 0 },
       { title: "Prepare final pay and leave encashment", assigneeRole: "payroll_admin", dueOffsetDays: -3 },
-      { title: "Cancel work pass (foreign employees)", assigneeRole: "hr_admin", dueOffsetDays: 7 },
+      { title: WORK_PASS_ITEM, assigneeRole: "hr_admin", dueOffsetDays: 7 },
       { title: "Revoke system access", assigneeRole: "hr_admin", dueOffsetDays: 1 },
     ],
   },
@@ -180,11 +188,22 @@ export async function instantiateChecklist(
       org.where(checklistTemplates, eq(checklistTemplates.kind, input.kind), eq(checklistTemplates.isDefault, true)),
     );
   if (!template) return null;
-  const items = await tx
+  const all = await tx
     .select()
     .from(checklistTemplateItems)
     .where(org.where(checklistTemplateItems, eq(checklistTemplateItems.templateId, template.id)))
     .orderBy(asc(checklistTemplateItems.position));
+  // A leaver without a work pass (a citizen or PR) has no pass to cancel.
+  const holdsPass =
+    input.kind !== "offboarding" ||
+    (
+      await tx
+        .select({ id: workPasses.id })
+        .from(workPasses)
+        .where(org.where(workPasses, eq(workPasses.employeeId, input.employeeId), isNull(workPasses.cancelledOn)))
+        .limit(1)
+    ).length > 0;
+  const items = holdsPass ? all : all.filter((i) => !WORK_PASS_ITEMS.has(i.title));
   const id = ids.newId();
   await tx.insert(checklists).values({
     id,

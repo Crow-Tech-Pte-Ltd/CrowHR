@@ -16,6 +16,7 @@ import {
   SheetTitle,
   Skeleton,
   Textarea,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -487,7 +488,7 @@ function QuotePanel({
       className={cn("mx-5 mb-4 rounded-md border border-border bg-surface-50", stale && "opacity-60")}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-3 py-2.5">
-        <span className="font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200">This request</span>
+        <span className={textStyle.group}>This request</span>
         <span className="num text-lg font-semibold" data-testid="quote-quantity">
           {qty(q.quantity, q.unit)}
         </span>

@@ -1,6 +1,5 @@
 import type { DirectoryRowDto } from "@crowhr/core";
 import {
-  Avatar,
   Button,
   type ColumnDef,
   DataTable,
@@ -15,7 +14,7 @@ import {
 } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Download, Search, Upload, UserPlus, Users } from "lucide-react";
+import { Download, Search, Upload, UserPlus } from "lucide-react";
 import * as React from "react";
 import { canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
@@ -277,27 +276,17 @@ function PeoplePage() {
               filtered ? (
                 <EmptyState
                   variant="plain"
-                  icon={<Search />}
-                  title="No one matches"
-                  description="Try a different name or clear the filters."
+                  title="No one matches these filters."
+                  description="Try another name or number, or clear the filters."
                 />
               ) : (
                 <EmptyState
                   variant="plain"
-                  icon={<Users />}
-                  title="No employees yet"
-                  description="Add your first employee, or import everyone from a spreadsheet."
-                  actions={
-                    canAdd ? (
-                      <>
-                        <Button asChild variant="primary" size="sm">
-                          <Link to="/people/new">Add employee</Link>
-                        </Button>
-                        <Button asChild size="sm">
-                          <Link to="/people/import">Import CSV</Link>
-                        </Button>
-                      </>
-                    ) : undefined
+                  title="No employees yet."
+                  description={
+                    canAdd
+                      ? "Add employee takes one person at a time; Import loads everyone from a spreadsheet."
+                      : "An owner or HR admin adds employees; they show here once added."
                   }
                 />
               )
@@ -349,7 +338,6 @@ function MobileList({ rows, loading }: { rows: DirectoryRowDto[] | undefined; lo
             params={{ employeeId: r.id }}
             className="focus-ring flex items-center gap-3 px-3 py-2.5 hover:bg-ink/[0.03]"
           >
-            <Avatar name={r.name} size="sm" />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium">{r.name}</span>
               <span className="block truncate text-2xs text-primary-200">

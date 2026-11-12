@@ -21,7 +21,7 @@ test.describe("payroll screenshots", () => {
       await page.screenshot({ path: `${DIR}/ws4-runs-${suffix}.png`, fullPage: true });
 
       await page.goto(`/payroll/runs/${runs.october}`);
-      await expect(page.getByText(/changes since September/)).toBeVisible();
+      await expect(page.getByText(/Changes since September/)).toBeVisible();
       await page.screenshot({ path: `${DIR}/ws4-run-overview-${suffix}.png`, fullPage: false });
       const table = page.getByRole("table", { name: "Pay per employee" });
       await page.getByRole("heading", { name: /^Employees/ }).evaluate((el) => {

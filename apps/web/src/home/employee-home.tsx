@@ -1,9 +1,7 @@
 import { Button, Card, CardHeader, CardTitle, EmptyState, formatDate, Skeleton, StatusPill } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarPlus, CheckCircle2, Clock, ReceiptText } from "lucide-react";
-import { greetingName } from "../auth/format.ts";
-import { useMe } from "../auth/session.ts";
+import { ArrowRight, CalendarPlus, Clock, ReceiptText } from "lucide-react";
 import { PageHeader } from "../components/page-header.tsx";
 import { ErrorNote } from "../components/section.tsx";
 import { inboxQuery, myRequestsQuery, STATUS_LABEL, STATUS_TONE } from "../workflows/api.ts";
@@ -13,30 +11,31 @@ import { weekday } from "./dates.ts";
 
 /** Employee self-service Home: my to-dos and my requests, from the inbox and approvals APIs. */
 export function EmployeeHome() {
-  const me = useMe();
   const inbox = useQuery(inboxQuery);
   const mine = useQuery(myRequestsQuery);
-  const name = greetingName(me.user);
   const todo = inbox.data?.items ?? [];
   const today = inbox.data?.today ?? "";
   return (
     <>
       <PageHeader
-        kicker={
-          inbox.data ? (
-            <span className="num">
-              {weekday(today)} · {formatDate(today)}
-            </span>
-          ) : null
-        }
-        title={`Hi, ${name}`}
+        title="Today"
         description={
           inbox.isPending ? (
             <Skeleton className="h-4 w-48" />
-          ) : todo.length ? (
-            `You have ${todo.length} ${todo.length === 1 ? "thing" : "things"} to do.`
           ) : (
-            "Nothing waiting for you."
+            <>
+              {today ? (
+                <>
+                  <span className="num">
+                    {weekday(today)} {formatDate(today)}
+                  </span>
+                  {" · "}
+                </>
+              ) : null}
+              {todo.length
+                ? `${todo.length} ${todo.length === 1 ? "thing" : "things"} to do.`
+                : "Nothing waiting for you."}
+            </>
           )
         }
       />
@@ -78,25 +77,8 @@ export function EmployeeHome() {
             <div className="border-t border-border">
               <EmptyState
                 variant="plain"
-                icon={<CheckCircle2 />}
-                title="Nothing waiting for you"
-                description="When something needs you, such as a form to sign or a request to approve, it shows here."
-                actions={
-                  <div className="flex flex-wrap gap-3">
-                    <Link
-                      to="/leave"
-                      className="focus-ring rounded-sm text-ui font-medium text-biru-400 hover:underline"
-                    >
-                      Apply for leave
-                    </Link>
-                    <Link
-                      to="/claims"
-                      className="focus-ring rounded-sm text-ui font-medium text-biru-400 hover:underline"
-                    >
-                      Submit a claim
-                    </Link>
-                  </div>
-                }
+                title="Nothing to do."
+                description="A form to sign or a request to approve shows here when it needs you."
               />
             </div>
           ) : (
@@ -163,7 +145,10 @@ export function EmployeeHome() {
                           : `Sent ${today ? ageLabel(r.submittedAt, today) : ""}`}
                       </p>
                     </div>
-                    <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+                    {/* "Waiting for …" already says a pending request is pending. */}
+                    {r.status === "pending" && r.waitingOn ? null : (
+                      <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+                    )}
                   </li>
                 ))}
             </ul>

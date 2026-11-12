@@ -1,5 +1,5 @@
 import type { PayrollIssueDto, PayslipViewDto } from "@crowhr/core";
-import { Button, cn, formatDate, formatMoney, StatusPill } from "@crowhr/ui";
+import { Button, cn, formatDate, formatMoney, StatusPill, textStyle } from "@crowhr/ui";
 import { Link } from "@tanstack/react-router";
 import { AlertOctagon, AlertTriangle, ArrowRight, Download, ExternalLink } from "lucide-react";
 import * as React from "react";
@@ -42,7 +42,7 @@ export function Flags({ flags }: { flags: string[] }) {
       {flags.map((f) => (
         <span
           key={f}
-          className="whitespace-nowrap rounded-sm border border-ink/15 px-1 font-azeret text-[10px] uppercase leading-4 tracking-wide text-primary-300"
+          className="whitespace-nowrap rounded-sm border border-ink/15 px-1 font-azeret text-2xs leading-4 text-primary-300"
         >
           {FLAG_LABEL[f] ?? f}
         </span>
@@ -114,7 +114,10 @@ export function FixAction({ fix, onFix }: { fix: IssueFix; onFix?: (fix: IssueFi
   }
 }
 
-/** Issues, blocking first. Each says what is wrong and how to fix it, with its source and a way to the fix. */
+/**
+ * Issues, blocking first. Each says what is wrong and how to fix it, with its source and a way to the fix.
+ * The rule code is for support only: it is the icon's tooltip and the item's `data-code`, not text.
+ */
 export function IssueList({
   issues,
   onEmployee,
@@ -134,12 +137,18 @@ export function IssueList({
   return (
     <ul className="divide-y divide-border">
       {shown.map((i) => (
-        <li key={`${i.code}-${i.employeeId ?? ""}-${i.message}`} className="flex gap-2.5 px-4 py-2.5 text-ui">
-          {i.severity === "blocking" ? (
-            <AlertOctagon className="mt-0.5 size-4 shrink-0 text-danger-300" aria-label="Blocking" />
-          ) : (
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-400" aria-label="Warning" />
-          )}
+        <li
+          key={`${i.code}-${i.employeeId ?? ""}-${i.message}`}
+          data-code={i.code}
+          className="flex gap-2.5 px-4 py-2.5 text-ui"
+        >
+          <span title={`Rule ID ${i.code}`} className="mt-0.5 shrink-0">
+            {i.severity === "blocking" ? (
+              <AlertOctagon className="size-4 text-danger-300" aria-label="Blocking" />
+            ) : (
+              <AlertTriangle className="size-4 text-warning-400" aria-label="Warning" />
+            )}
+          </span>
           <div className="min-w-0 flex-1">
             <p className="leading-5">
               {i.employeeName ? (
@@ -158,9 +167,8 @@ export function IssueList({
               {i.message}
             </p>
             {fixes ? <FixRow fixes={fixes(i)} onFix={onFix} /> : null}
-            <p className="mt-0.5 flex flex-wrap gap-x-3 font-azeret text-[10px] uppercase tracking-wide text-primary-200">
-              <span>{i.code}</span>
-              {i.source ? (
+            {i.source ? (
+              <p className="mt-0.5 text-2xs">
                 <a
                   href={i.source}
                   target="_blank"
@@ -169,8 +177,8 @@ export function IssueList({
                 >
                   {sourceHost(i.source)} <ExternalLink className="size-3" aria-hidden />
                 </a>
-              ) : null}
-            </p>
+              </p>
+            ) : null}
           </div>
         </li>
       ))}
@@ -235,7 +243,7 @@ function SlipSection({
   return (
     <section className="mt-5">
       <div className="flex items-baseline justify-between rounded-sm bg-surface-100 px-2 py-1.5">
-        <h3 className="font-azeret text-2xs font-semibold uppercase tracking-wider">{title}</h3>
+        <h3 className={textStyle.group}>{title}</h3>
         <span className="font-azeret text-[10px] text-primary-200">S$</span>
       </div>
       <table className="w-full">
@@ -284,7 +292,7 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
           <p className="text-lg font-medium">{slip.employer.legalName}</p>
         </div>
         <div className="flex items-center gap-2 sm:flex-col sm:items-end">
-          <h2 className="font-azeret text-xs font-semibold uppercase tracking-wider">{slip.title}</h2>
+          <h2 className={textStyle.section}>{slip.title}</h2>
           <Button asChild size="sm" variant="secondary">
             <a href={pdfHref} download>
               <Download aria-hidden /> PDF
@@ -301,7 +309,7 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
       <dl className="mt-4 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
         {particulars.map(([k, v]) => (
           <div key={k} className="flex items-baseline gap-3">
-            <dt className="w-28 shrink-0 font-azeret text-[10px] uppercase tracking-wide text-primary-200">{k}</dt>
+            <dt className={cn("w-28 shrink-0", textStyle.field)}>{k}</dt>
             <dd className="min-w-0 text-ui">{v}</dd>
           </div>
         ))}
@@ -358,8 +366,9 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
           ))}
         </SlipSection>
       ) : null}
-      <div className="mt-6 flex items-baseline justify-between rounded-md border-2 border-ink px-4 py-3 shadow-brutal-sm">
-        <span className="font-azeret text-xs font-semibold uppercase tracking-wider">Net pay</span>
+      {/* A 2px ink rule, not a hard-shadow box: the shadow is kept for the few emphasised surfaces. */}
+      <div className="mt-6 flex items-baseline justify-between border-t-2 border-ink px-2 pt-3">
+        <span className={textStyle.section}>Net pay</span>
         <span className="num text-xl font-semibold">{formatMoney(slip.netCents)}</span>
       </div>
       {slip.revision ? (

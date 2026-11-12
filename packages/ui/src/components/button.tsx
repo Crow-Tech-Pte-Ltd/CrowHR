@@ -13,8 +13,10 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
+        // Disabled, the primary button loses its yellow and hard shadow: the emphasis is for an
+        // action that can be taken now.
         primary:
-          "border-2 border-ink bg-kuning-200 text-ink shadow-brutal-sm hover:-translate-x-px hover:-translate-y-px hover:bg-kuning-300 hover:shadow-[3px_3px_0_0_hsl(var(--ink))] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none",
+          "border-2 border-ink bg-kuning-200 text-ink shadow-brutal-sm hover:-translate-x-px hover:-translate-y-px hover:bg-kuning-300 hover:shadow-[3px_3px_0_0_hsl(var(--ink))] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:border disabled:border-ink/30 disabled:bg-surface-200 disabled:shadow-none",
         ink: "bg-ink text-surface-50 hover:bg-primary-300",
         secondary: "border border-ink/20 bg-surface-50 text-ink hover:border-ink/40 hover:bg-surface-200/50",
         ghost: "text-ink hover:bg-ink/[0.05]",

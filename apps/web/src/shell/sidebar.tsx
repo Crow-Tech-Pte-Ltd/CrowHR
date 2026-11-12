@@ -1,4 +1,4 @@
-import { cn } from "@crowhr/ui";
+import { cn, textStyle } from "@crowhr/ui";
 import { Link } from "@tanstack/react-router";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Wordmark } from "../components/wordmark.tsx";
@@ -10,14 +10,12 @@ export function NavSections({ collapsed = false, onNavigate }: { collapsed?: boo
   return (
     <div className="flex flex-col gap-5">
       {NAV_GROUPS.map((group) => (
-        <div key={group.label ?? "top"} className="flex flex-col gap-0.5">
+        <div key={group.label ?? group.items.join()} className="flex flex-col gap-0.5">
           {group.label ? (
             collapsed ? (
               <div className="mx-auto mb-1 h-px w-5 bg-border" aria-hidden />
             ) : (
-              <p className="mb-1 px-2.5 font-azeret text-[10px] font-medium uppercase tracking-[0.12em] text-primary-200">
-                {group.label}
-              </p>
+              <p className={cn("mb-1 px-2.5", textStyle.column)}>{group.label}</p>
             )
           ) : null}
           {group.items.map((id) => (

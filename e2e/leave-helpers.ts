@@ -34,6 +34,12 @@ export async function pickDate(page: Page, label: string, iso: string, scope = p
   await scope.getByRole("button", { name: label, exact: true }).click();
   const pop = page.locator("[data-radix-popper-content-wrapper]").last();
   const name = new RegExp(`${MONTHS[m - 1]} ${ordinal(d)}, ${y}`);
+  // A picker with month and year dropdowns (`yearPicker`, e.g. a date of birth) jumps straight there.
+  const year = pop.getByRole("combobox", { name: /year/i });
+  if (await year.count()) {
+    await year.selectOption(String(y));
+    await pop.getByRole("combobox", { name: /month/i }).selectOption(String(m - 1));
+  }
   for (let i = 0; i < 3; i++) {
     const day = pop.getByRole("button", { name });
     if (await day.count()) {

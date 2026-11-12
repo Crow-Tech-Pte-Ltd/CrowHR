@@ -1,6 +1,7 @@
 import {
   Button,
   Card,
+  cn,
   FormField,
   Input,
   Select,
@@ -18,6 +19,7 @@ import {
   TableHeader,
   TableRow,
   Textarea,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -316,7 +318,7 @@ function TemplateEditor({ template, onClose }: { template: LetterTemplate | null
             <div className="mt-2 flex flex-col gap-2">
               {[...groups].map(([g, list]) => (
                 <div key={g}>
-                  <p className="font-azeret text-2xs uppercase tracking-wider text-primary-200">{g}</p>
+                  <p className={cn("mb-1", textStyle.field)}>{g}</p>
                   <div className="flex flex-wrap gap-1">
                     {list.map((f) => (
                       <button
@@ -337,7 +339,7 @@ function TemplateEditor({ template, onClose }: { template: LetterTemplate | null
           </details>
         </div>
         <div className="rounded-md border border-ink/10 bg-surface-50 p-4">
-          <p className="mb-3 font-azeret text-2xs uppercase tracking-wider text-primary-200">Preview</p>
+          <p className={cn("mb-3", textStyle.group)}>Preview</p>
           {check ? <LetterPreview blocks={check.blocks} /> : <Skeleton className="h-40 w-full" />}
         </div>
       </div>

@@ -28,11 +28,12 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Download, Landmark, Plus, Trash2 } from "lucide-react";
+import { Download, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
@@ -119,7 +120,7 @@ function Policies({ editable }: { editable: boolean }) {
     <section aria-labelledby="policies-title">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 id="policies-title" className="font-azeret text-xs font-semibold uppercase tracking-wider">
+          <h2 id="policies-title" className={textStyle.section}>
             Leave types
           </h2>
           <p className="mt-1 max-w-2xl text-ui text-primary-300">
@@ -166,21 +167,22 @@ function Policies({ editable }: { editable: boolean }) {
                   <TableCell>
                     <span className="flex flex-wrap items-center gap-1.5">
                       <span className="font-medium">{p.name}</span>
-                      {p.kind === "statutory" ? <Badge variant="muted">Statutory</Badge> : <Badge>Company</Badge>}
+                      {/* Statutory is the normal case; only the company's own types are marked. */}
+                      {p.kind === "statutory" ? null : <Badge>Company</Badge>}
                       {p.archived ? <Badge variant="muted">Archived</Badge> : null}
                     </span>
                   </TableCell>
                   <TableCell className="text-primary-300">{entitlementText(p)}</TableCell>
                   <TableCell className="hidden text-primary-300 lg:table-cell">{carryText(p.policy)}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <span className="flex flex-wrap gap-1">
-                      {!p.paid ? <Badge variant="muted">Unpaid</Badge> : null}
-                      {p.halfDays ? <Badge variant="muted">Half days</Badge> : null}
-                      {p.attachment === "required" ? (
-                        <Badge variant="muted">Needs {p.attachmentLabel ?? "file"}</Badge>
-                      ) : null}
-                      {p.sensitive ? <Badge variant="muted">Private</Badge> : null}
-                    </span>
+                  <TableCell className="hidden text-primary-300 md:table-cell">
+                    {[
+                      p.paid ? null : "Unpaid",
+                      p.halfDays ? "Half days" : null,
+                      p.attachment === "required" ? `Needs ${p.attachmentLabel ?? "a file"}` : null,
+                      p.sensitive ? "Private" : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
                   </TableCell>
                 </TableRow>
               ))}
@@ -342,9 +344,7 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
             ) : null}
             {e.basis === "by_service" ? (
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-1 font-azeret text-2xs font-semibold uppercase tracking-wider">
-                  Days by service year
-                </legend>
+                <legend className={cn("mb-1", textStyle.group)}>Days by service year</legend>
                 {e.steps.map((s, i) => (
                   <div
                     key={`step-${s.fromServiceYear}-${s.days}-${e.steps.length}`}
@@ -581,7 +581,7 @@ function Holidays({ editable }: { editable: boolean }) {
       <div>
         <div className="mb-3 flex items-end justify-between gap-2">
           <div>
-            <h2 id="holidays-title" className="font-azeret text-xs font-semibold uppercase tracking-wider">
+            <h2 id="holidays-title" className={textStyle.section}>
               Public holidays
             </h2>
             <p className="mt-1 text-ui text-primary-300">
@@ -612,7 +612,7 @@ function Holidays({ editable }: { editable: boolean }) {
           ) : items.length === 0 ? (
             <EmptyState
               variant="plain"
-              title={`No holidays for ${year} yet`}
+              title={`There are no public holidays for ${year} yet.`}
               description="MOM usually publishes next year's public holidays in June."
             />
           ) : (
@@ -804,7 +804,7 @@ function GovernmentPaid() {
     <section aria-labelledby="gov-title">
       <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 id="gov-title" className="font-azeret text-xs font-semibold uppercase tracking-wider">
+          <h2 id="gov-title" className={textStyle.section}>
             Government-paid leave to claim
           </h2>
           <p className="mt-1 max-w-2xl text-ui text-primary-300">
@@ -838,8 +838,7 @@ function GovernmentPaid() {
         ) : items.length === 0 ? (
           <EmptyState
             variant="plain"
-            icon={<Landmark />}
-            title="Nothing to claim in this period"
+            title="Nothing to claim back in this period."
             description="Approved maternity, paternity, shared parental, adoption, childcare and NS leave appears here."
           />
         ) : (
@@ -877,7 +876,7 @@ function GovernmentPaid() {
                   </TableRow>
                 ))}
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={2} className="font-azeret text-2xs font-semibold uppercase tracking-wider">
+                  <TableCell colSpan={2} className="font-azeret text-xs font-semibold">
                     Total days
                   </TableCell>
                   <TableCell className="hidden lg:table-cell" />

@@ -96,7 +96,7 @@ describe("demo seed", () => {
     expect(new Set(employees.map((e) => e.residencyStatus))).toEqual(new Set(["citizen", "pr", "foreigner"]));
   });
 
-  it("has three paid months computed by the payroll engine and an October draft with warnings only", async () => {
+  it("has three paid months without warnings and an October draft whose one warning is real", async () => {
     const chloe = await as(persona("payroll"));
     const runs = await chloe.get<{ items: { id: string; month: string; status: string }[] }>("/api/v1/payroll/runs");
     const byMonth = Object.fromEntries(runs.items.map((r) => [r.month, r]));
@@ -108,7 +108,16 @@ describe("demo seed", () => {
       `/api/v1/payroll/runs/${byMonth["2026-10"]?.id}`,
     );
     expect(oct.issues.filter((i) => i.severity === "blocking")).toEqual([]);
-    expect(oct.issues.filter((i) => i.severity === "warning").length).toBeGreaterThanOrEqual(2);
+    // October's one warning is real: Priyanka's final pay was due on her last day and waits
+    // on this draft. January to June came in through the year-to-date import and the allowances
+    // are classified, so no run carries a warning just because of how the demo was set up.
+    expect(oct.issues.filter((i) => i.severity === "warning").map((i) => i.code)).toEqual(["EA_FINAL_PAY_LATE"]);
+    for (const month of ["2026-07", "2026-08", "2026-09"]) {
+      const run = await chloe.get<{ issues: { code: string; severity: string }[] }>(
+        `/api/v1/payroll/runs/${byMonth[month]?.id}`,
+      );
+      expect(run.issues.filter((i) => i.severity !== "info")).toEqual([]);
+    }
   });
 
   it("leaves approvals waiting for each approving persona and requests for the employee", async () => {

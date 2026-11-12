@@ -23,11 +23,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Baby, CalendarPlus, CalendarX2, ChevronDown, UserRound } from "lucide-react";
+import { Baby, CalendarPlus, ChevronDown } from "lucide-react";
 import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
@@ -95,8 +96,7 @@ function MyLeavePage() {
         </div>
       ) : (
         <EmptyState
-          icon={<UserRound />}
-          title="Your sign-in isn't linked to an employee record"
+          title="Your sign-in isn't linked to an employee record."
           description={
             onBehalf
               ? "You can still apply for leave on behalf of employees, and see everyone's leave on the calendar."
@@ -243,9 +243,7 @@ function BalanceTable({ rows, childName }: { rows: Balance[]; childName: (id: st
               {expanded ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={6} className="bg-surface-100 py-3">
-                    <p className="mb-1 font-azeret text-2xs uppercase tracking-wider text-primary-200">
-                      How this is worked out
-                    </p>
+                    <p className={cn("mb-1", textStyle.group)}>How this is worked out</p>
                     <ul className="flex list-disc flex-col gap-0.5 pl-4 text-ui text-primary-300">
                       {b.explanation.map((e) => (
                         <li key={e}>{e}</li>
@@ -290,8 +288,7 @@ function MyRequests({ onOpen }: { onOpen: (id: string) => void }) {
         <div className="border-t border-border">
           <EmptyState
             variant="plain"
-            icon={<CalendarX2 />}
-            title="No leave requests yet"
+            title="You haven't applied for leave yet."
             description="Requests you send appear here with their status. Approved ones are on the team calendar."
           />
         </div>
@@ -445,9 +442,7 @@ function ChildDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
             <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
           </FormField>
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-300">
-              This child
-            </legend>
+            <legend className={cn("mb-1", textStyle.group)}>This child</legend>
             <RadioGroup
               value={how}
               onValueChange={(v) => {

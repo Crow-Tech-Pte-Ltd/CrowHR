@@ -66,7 +66,10 @@ function AcceptInvitation() {
   if (info.status !== "valid") {
     const dead = DEAD[info.status];
     return (
-      <AuthLayout kicker={info.organisation?.name} title={dead.title}>
+      <AuthLayout
+        title={dead.title}
+        description={info.organisation?.name ? `Your invitation to ${info.organisation.name}.` : undefined}
+      >
         <Alert variant="warning" data-testid="invite-state">
           <AlertTriangle aria-hidden />
           <AlertDescription>{dead.body}</AlertDescription>
@@ -115,7 +118,6 @@ function AcceptInvitation() {
 
   return (
     <AuthLayout
-      kicker={info.organisation?.name}
       title={`Join ${info.organisation?.name ?? "your organisation"}`}
       description={
         <>

@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   cn,
+  DatePicker,
   FormField,
   Input,
   Label,
@@ -17,6 +18,7 @@ import {
   Skeleton,
   StatusPill,
   singaporeTodayIso,
+  textStyle,
 } from "@crowhr/ui";
 import { AlertTriangle } from "lucide-react";
 import type * as React from "react";
@@ -75,18 +77,18 @@ export function EmployeeStatus({ status }: { status: DirectoryRowDto["status"] }
   return <StatusPill tone={statusTone(status.code)}>{status.label}</StatusPill>;
 }
 
+/** Directory rows: a chip only when the work pass needs someone (expired or expiring). */
 export function PassPill({ state }: { state: DirectoryRowDto["workPassState"] }) {
-  if (!state || state === "valid") return null;
   if (state === "expired") return <StatusPill tone="danger">Work pass expired</StatusPill>;
-  if (state === "expiring") return <StatusPill tone="warning">Pass expiring</StatusPill>;
-  return <StatusPill tone="neutral">Pass cancelled</StatusPill>;
+  if (state === "expiring") return <StatusPill tone="warning">Work pass expiring</StatusPill>;
+  return null;
 }
 
 /** Definition list row for read-only profile sections. */
 export function Field({ term, children, mono }: { term: string; children: React.ReactNode; mono?: boolean }) {
   return (
     <div className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-3 border-b border-border py-2 last:border-b-0 sm:grid-cols-[12rem_minmax(0,1fr)]">
-      <dt className="font-azeret text-2xs uppercase tracking-wider text-primary-200">{term}</dt>
+      <dt className={cn(textStyle.field, "pt-0.5")}>{term}</dt>
       <dd className={cn("min-w-0 break-words text-ui", mono && "num")}>{children ?? "—"}</dd>
     </div>
   );
@@ -106,7 +108,7 @@ export function Section({
   return (
     <section className={cn("rounded-lg border border-border bg-surface-50", className)}>
       <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
-        <h2 className="font-azeret text-2xs font-semibold uppercase tracking-wider">{title}</h2>
+        <h2 className={textStyle.section}>{title}</h2>
         {actions}
       </header>
       <div className="px-4 py-2">{children}</div>
@@ -226,7 +228,7 @@ export function SelectInput({
   );
 }
 
-/** Native date input: keyboard-friendly, YYYY-MM-DD out. */
+/** A date field showing "31 Oct 2026" (the UI kit's DatePicker); YYYY-MM-DD out, "" when empty. */
 export function DateInput({
   label: text,
   value,
@@ -235,6 +237,9 @@ export function DateInput({
   hint,
   required,
   className,
+  min,
+  max,
+  yearPicker,
 }: {
   label: string;
   value: string;
@@ -243,10 +248,20 @@ export function DateInput({
   hint?: React.ReactNode;
   required?: boolean;
   className?: string;
+  min?: string;
+  max?: string;
+  /** Month and year dropdowns, for dates years away (date of birth, an old start date). */
+  yearPicker?: boolean;
 }) {
   return (
     <FormField label={text} error={error} hint={hint} required={required} className={className}>
-      <Input type="date" className="num" value={value} onChange={(e) => onChange(e.target.value)} />
+      <DatePicker
+        value={value || null}
+        onChange={(v) => onChange(v ?? "")}
+        min={min}
+        max={max}
+        yearPicker={yearPicker}
+      />
     </FormField>
   );
 }
@@ -290,9 +305,7 @@ export function Part4Fields({
 }) {
   return (
     <fieldset className="flex flex-col gap-2 sm:col-span-2">
-      <legend className="mb-1 font-azeret text-2xs font-medium uppercase tracking-wider text-primary-300">
-        Employment Act Part 4
-      </legend>
+      <legend className={cn(textStyle.group, "mb-1")}>Employment Act Part 4</legend>
       <div className="flex items-start gap-2">
         <Checkbox
           id="part4-workman"

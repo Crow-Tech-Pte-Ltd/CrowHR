@@ -1,4 +1,4 @@
-import { Skeleton } from "@crowhr/ui";
+import { Skeleton, textStyle } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Info } from "lucide-react";
 import { useMe } from "../auth/session.ts";
@@ -61,9 +61,7 @@ export function MobileAppSection() {
               <li>Confirm the organisation name, then sign in the way you sign in here.</li>
             </ol>
             <div className="flex flex-col gap-1">
-              <span className="font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300">
-                Server address
-              </span>
+              <span className={textStyle.group}>Server address</span>
               <CopyField value={me.publicUrl} label="Server address" />
               <p className="text-2xs text-primary-300">
                 Organisation:{" "}

@@ -11,10 +11,12 @@ import {
   AlertDialogTitle,
   Button,
   Card,
+  cn,
   formatDate,
   formatMoney,
   Skeleton,
   singaporeTodayIso,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -36,7 +38,7 @@ export const Route = createFileRoute("/_app/claims/$claimId")({
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="font-azeret text-[10px] font-medium uppercase tracking-wider text-primary-200">{label}</dt>
+      <dt className={textStyle.field}>{label}</dt>
       <dd className="text-ui">{children}</dd>
     </div>
   );
@@ -106,8 +108,8 @@ function ClaimPage() {
     <>
       <PageHeader
         crumbs={[{ label: "Claims", to: "/claims" }]}
-        kicker={c.claimNumber ?? "Draft"}
         title={c.title ?? (c.lines.length === 1 ? (c.lines[0]?.typeName ?? "Claim") : `${c.lines.length} expenses`)}
+        trailing={c.claimNumber ? <span className="num text-ui text-primary-200">{c.claimNumber}</span> : null}
         description={
           <span className="flex flex-wrap items-center gap-2">
             <ClaimStatusPill status={c.status} />
@@ -259,7 +261,7 @@ function ClaimPage() {
             ))}
           </ol>
           <div className="flex items-center justify-between border-t border-border bg-surface-100/60 px-4 py-3">
-            <span className="font-azeret text-2xs font-semibold uppercase tracking-wider">Total</span>
+            <span className={textStyle.group}>Total</span>
             <span className="num text-base font-semibold" data-testid="claim-detail-total">
               {formatMoney(c.totalCents)}
             </span>
@@ -286,15 +288,17 @@ function ClaimPage() {
           </Card>
           {c.capUsage.length ? (
             <Card className="p-4" data-testid="cap-usage">
-              <p className="mb-2 font-azeret text-[10px] font-medium uppercase tracking-wider text-primary-200">Caps</p>
+              <h2 className={cn(textStyle.group, "mb-2")}>Caps</h2>
               <ul className="flex flex-col gap-2">
                 {c.capUsage.map((u) => (
                   <li key={`${u.typeId}-${u.periodLabel}`} className="text-ui">
                     <span className="font-medium">{u.typeName}</span>{" "}
                     <span className="text-primary-200">({u.period === "per_claim" ? "per claim" : u.periodLabel})</span>
-                    <span className="num block text-2xs text-primary-300">
-                      {formatMoney(u.usedCents)} approved · {formatMoney(u.pendingCents)} pending · this claim{" "}
-                      {formatMoney(u.claimCents)} of {formatMoney(u.capCents)}
+                    <span className="block text-2xs text-primary-300">
+                      <span className="num">{formatMoney(u.usedCents)}</span> approved ·{" "}
+                      <span className="num">{formatMoney(u.pendingCents)}</span> pending · this claim{" "}
+                      <span className="num">{formatMoney(u.claimCents)}</span> of{" "}
+                      <span className="num">{formatMoney(u.capCents)}</span>
                     </span>
                   </li>
                 ))}

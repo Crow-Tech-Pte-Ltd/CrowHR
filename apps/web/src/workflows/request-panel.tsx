@@ -1,8 +1,9 @@
-import { Button, cn, formatDate, Skeleton, StatusPill, Textarea, toast } from "@crowhr/ui";
+import { Button, cn, formatDate, Skeleton, StatusPill, Textarea, textStyle, toast } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, Check, CircleDashed, CircleSlash, Clock, MessageSquare, Undo2, X } from "lucide-react";
 import * as React from "react";
+import { NumText } from "../components/num-text.tsx";
 import { ErrorNote } from "../components/section.tsx";
 import { ApiError, apiPost } from "../lib/api.ts";
 import { type RequestDetail, requestQuery, STATUS_LABEL, STATUS_TONE } from "./api.ts";
@@ -59,18 +60,22 @@ export function RequestPanel({
   return (
     <article className={cn("flex flex-col", className)} aria-labelledby={`req-${d.id}`} data-testid="request-panel">
       <header className="flex flex-col gap-2 border-b border-border p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200">
-            {d.subjectLabel} · {d.requester.name}
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h2 id={`req-${d.id}`} className="text-lg font-semibold leading-6">
+            {d.summary?.title ?? d.title}
+          </h2>
           <StatusPill tone={STATUS_TONE[d.status]}>{STATUS_LABEL[d.status]}</StatusPill>
         </div>
-        <h2 id={`req-${d.id}`} className="text-lg font-semibold leading-6">
-          {d.summary?.title ?? d.title}
-        </h2>
-        <p className="num text-2xs text-primary-200">
-          Sent {when(d.submittedAt)}
-          {d.decidedAt ? ` · closed ${when(d.decidedAt)}` : ""} · {d.policyName} policy
+        <p className="text-2xs text-primary-200">
+          {d.subjectLabel} from <span className="text-primary-300">{d.requester.name}</span> · sent{" "}
+          <span className="num">{when(d.submittedAt)}</span>
+          {d.decidedAt ? (
+            <>
+              {" "}
+              · closed <span className="num">{when(d.decidedAt)}</span>
+            </>
+          ) : null}{" "}
+          · {d.policyName} policy
         </p>
         {d.link && !d.link.startsWith("/inbox") ? (
           <Link
@@ -89,9 +94,7 @@ export function RequestPanel({
           {d.summary.lines.length ? <Facts items={d.summary.lines} /> : null}
           {d.summary.context.length ? (
             <div className="rounded-md border border-border bg-surface-100/60 p-3">
-              <p className="mb-2 font-azeret text-[10px] font-medium uppercase tracking-wider text-primary-200">
-                Context for your decision
-              </p>
+              <p className={cn("mb-2", textStyle.group)}>Context for your decision</p>
               <Facts items={d.summary.context} />
             </div>
           ) : null}
@@ -99,10 +102,7 @@ export function RequestPanel({
       ) : null}
 
       <section className="border-b border-border p-5" aria-labelledby={`chain-${d.id}`}>
-        <h3
-          id={`chain-${d.id}`}
-          className="mb-3 font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300"
-        >
+        <h3 id={`chain-${d.id}`} className={cn("mb-3", textStyle.group)}>
           Approval chain
         </h3>
         <ol className="flex flex-col gap-3">
@@ -175,7 +175,9 @@ function Facts({ items }: { items: { label: string; value: string }[] }) {
       {items.map((i) => (
         <React.Fragment key={i.label}>
           <dt className="text-primary-300">{i.label}</dt>
-          <dd className="num font-medium">{i.value}</dd>
+          <dd className="font-medium">
+            <NumText>{i.value}</NumText>
+          </dd>
         </React.Fragment>
       ))}
     </dl>
@@ -206,10 +208,7 @@ function Comments({ detail }: { detail: RequestDetail }) {
   return (
     <section className="flex flex-col gap-3 p-5" aria-labelledby={`comments-${detail.id}`}>
       <div className="flex items-center justify-between">
-        <h3
-          id={`comments-${detail.id}`}
-          className="flex items-center gap-1.5 font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300"
-        >
+        <h3 id={`comments-${detail.id}`} className={cn("flex items-center gap-1.5", textStyle.group)}>
           <MessageSquare className="size-3.5" aria-hidden /> Comments
         </h3>
         {detail.viewer.canWithdraw ? (

@@ -98,12 +98,15 @@ export async function seedDemo(
     await hr.patch(`/api/v1/employees/${employeeId}`, { preferredName: PREFERRED_NAMES[key] });
   }
   const owner = await http.as(members.owner as string);
+  // They run their outlets' rosters too, so they work outlet shifts (as Tiong Bahru's supervisor does):
+  // on the office schedule, Attendance counted every opening shift as leaving early and every
+  // Saturday close as overtime.
   for (const key of ["tp_lead", "jp_lead"]) {
     await owner.post(`/api/v1/employees/${people.employees[key]}/events`, {
       type: "transfer",
       effectiveDate: "2026-06-22",
-      changes: { isManagerOrExecutive: true },
-      note: "Outlet supervisor with management responsibilities.",
+      changes: { isManagerOrExecutive: true, workScheduleId: people.schedules.shift },
+      note: "Outlet supervisor with management responsibilities, on outlet shifts.",
     });
   }
   const runs = await seedHistory({

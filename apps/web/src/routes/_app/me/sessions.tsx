@@ -40,7 +40,6 @@ function MySecurity() {
   return (
     <>
       <PageHeader
-        kicker="Me"
         title="Sign-in and devices"
         description="How you sign in, two-step verification, and where you're signed in."
       />

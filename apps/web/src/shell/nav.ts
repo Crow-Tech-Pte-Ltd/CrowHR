@@ -164,13 +164,13 @@ export interface NavGroup {
   items: ModuleId[];
 }
 
-/** Admin sidebar, grouped by the job being done. Settings sits at the bottom. */
+/** Admin sidebar, grouped by the job being done. Reports closes the list on its own; Settings sits at the bottom. */
 export const NAV_GROUPS: NavGroup[] = [
   { label: null, items: ["home", "inbox"] },
   { label: "People", items: ["people", "documents"] },
   { label: "Time", items: ["leave", "attendance", "schedules"] },
   { label: "Pay", items: ["payroll", "claims"] },
-  { label: "Insights", items: ["reports"] },
+  { label: null, items: ["reports"] },
 ];
 
 /** Employee bottom tab bar on mobile (< 768px). */

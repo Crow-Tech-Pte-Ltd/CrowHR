@@ -1,4 +1,4 @@
-import { Button, Card, FormField, Input, RadioGroup, Skeleton, Textarea, toast } from "@crowhr/ui";
+import { Button, Card, cn, FormField, Input, RadioGroup, Skeleton, Textarea, textStyle, toast } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
@@ -221,7 +221,7 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
               />
             </FormField>
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 font-azeret text-2xs font-semibold uppercase tracking-wider">Offices</legend>
+              <legend className={cn("mb-1", textStyle.group)}>Offices</legend>
               {offices.length === 0 ? (
                 <p className="text-ui text-primary-300">No offices: location is stored but not checked.</p>
               ) : null}

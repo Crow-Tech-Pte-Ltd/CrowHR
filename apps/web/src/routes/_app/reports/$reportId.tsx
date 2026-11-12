@@ -21,10 +21,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  textStyle,
 } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowDown, ArrowUp, Download, FileBarChart, Info } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Info } from "lucide-react";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { ApiError } from "../../../lib/api.ts";
@@ -93,16 +94,11 @@ function ReportPage() {
       {data ? <Parameters data={data} onChange={set} search={search} /> : null}
       {err && err.status === 403 ? (
         <EmptyState
-          icon={<FileBarChart />}
-          title="You can't run this report"
+          title="You can't run this report."
           description="Your role doesn't include this report. Ask an owner if you need access."
         />
       ) : err && err.status === 404 ? (
-        <EmptyState
-          icon={<FileBarChart />}
-          title="Report not found"
-          description="This report isn't available on this server."
-        />
+        <EmptyState title="Report not found." description="This report isn't available on this server." />
       ) : q.isError && !data ? (
         <Card>
           <ErrorNote error={q.error} retry={() => void q.refetch()} />
@@ -232,8 +228,7 @@ function ReportBody({
         {data.totalRows === 0 ? (
           <EmptyState
             variant="plain"
-            icon={<FileBarChart />}
-            title="Nothing to show"
+            title="Nothing to show."
             description={data.emptyMessage ?? "No rows for these parameters. Widen them and try again."}
             data-testid="report-empty"
           />
@@ -345,9 +340,11 @@ function BarChart({ data }: { data: ReportResult }) {
       className="rounded-lg border border-ink/10 bg-surface-50 p-4"
       aria-label={`${value.title} by ${label.title}`}
     >
-      <figcaption className="mb-3 font-azeret text-2xs font-semibold uppercase tracking-wider text-primary-300">
+      <figcaption className={cn("mb-3", textStyle.group)}>
         {value.title} by {label.title.toLowerCase()}
-        {data.totalRows > rows.length ? <span className="font-normal normal-case"> · rows on this page</span> : null}
+        {data.totalRows > rows.length ? (
+          <span className="font-normal text-primary-300"> · rows on this page</span>
+        ) : null}
       </figcaption>
       <ul className="flex flex-col gap-0.5">
         {rows.map((r, i) => (

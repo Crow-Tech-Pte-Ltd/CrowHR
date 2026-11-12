@@ -52,7 +52,7 @@ Three things to try:
 
 ## Known differences
 
-- Every run shows the `YTD_BEFORE_CROWHR_MISSING` warning on purpose: the January–June opening balances are not imported, as for a company that moved to Crow HR mid-year.
+- Kopi Kaki moved to Crow HR in July 2026: its January–June opening balances were imported with **Year-to-date balances**, so July to September show no issues and October only its real one (a leaver's final pay).
 - Receipt previews and PDF or CSV downloads go through a service worker. Where service workers are unavailable (some private-browsing modes), those previews and downloads fail; everything else works.
 - A tab closed in the middle of a request can lose that one request.
 - Nothing is filed with CPF Board, IRAS or a bank, here or in the product: Crow HR produces the files for you to upload.

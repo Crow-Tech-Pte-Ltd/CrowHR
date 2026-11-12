@@ -19,11 +19,12 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, CalendarClock, Network, Plus } from "lucide-react";
+import { Archive, ArchiveRestore, Plus } from "lucide-react";
 import * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
 import {
@@ -198,7 +199,6 @@ function StructureList({ kind }: { kind: StructureKind }) {
         <ErrorPanel error={q.error} onRetry={() => void q.refetch()} />
       ) : items.length === 0 ? (
         <EmptyState
-          icon={<Network />}
           title={`No ${TITLES[kind as Tab].toLowerCase()} yet`}
           description={`Add your first ${one} above.`}
         />
@@ -379,8 +379,7 @@ function Schedules() {
         </Table>
       ) : (
         <EmptyState
-          icon={<CalendarClock />}
-          title="No work schedule yet"
+          title="No work schedule yet."
           description="Leave and overtime need each employee's working days and rest day. Create the default below."
         />
       )}
@@ -391,7 +390,7 @@ function Schedules() {
           create.mutate();
         }}
       >
-        <h2 className="font-azeret text-2xs font-semibold uppercase tracking-wider">New work schedule</h2>
+        <h2 className={textStyle.section}>New work schedule</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextInput
             label="Name"
@@ -416,7 +415,7 @@ function Schedules() {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-7">
               {week.map((d, i) => (
                 <div key={DAYS[i]} className="flex flex-col gap-1.5 rounded-md border border-border p-2">
-                  <span className="font-azeret text-2xs font-semibold uppercase">{DAYS[i]}</span>
+                  <span className={textStyle.group}>{DAYS[i]}</span>
                   <Select value={d.type} onValueChange={(v) => setDay(i, { type: v as Day["type"] })}>
                     <SelectTrigger aria-label={`${DAYS[i]} day type`} className="h-8 text-2xs">
                       <SelectValue />

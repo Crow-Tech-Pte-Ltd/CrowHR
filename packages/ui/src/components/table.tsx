@@ -1,9 +1,10 @@
 import * as React from "react";
 import { cn } from "../lib/cn.ts";
+import { textStyle } from "../lib/text-styles.ts";
 
 /**
  * Dense table primitives: 40px rows, sticky header, mono uppercase column
- * labels, `numeric` cells right-aligned in tabular Azeret Mono.
+ * labels (`textStyle.column`), `numeric` cells right-aligned in tabular Azeret Mono.
  */
 /** True while the element's content is wider than the element (it scrolls sideways). */
 export function useScrollsSideways(ref: React.RefObject<HTMLElement | null>): boolean {
@@ -93,7 +94,8 @@ export const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-9 whitespace-nowrap px-3 text-left align-middle font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200",
+      "h-9 whitespace-nowrap px-3 text-left align-middle",
+      textStyle.column,
       numeric && "text-right",
       className,
     )}
@@ -113,6 +115,25 @@ export const TableCell = React.forwardRef<
   />
 ));
 TableCell.displayName = "TableCell";
+
+/**
+ * The one row an empty table shows: left-aligned, inside the table, saying what is empty and what
+ * fills it ("No claims in October. Snap a receipt with New claim."). Keeps the header in place.
+ */
+export function TableEmptyRow({
+  colSpan,
+  className,
+  children,
+  ...props
+}: React.TdHTMLAttributes<HTMLTableCellElement> & { colSpan: number }) {
+  return (
+    <tr className="border-0">
+      <td colSpan={colSpan} className={cn("px-3 py-5 text-ui text-primary-300", className)} {...props}>
+        {children}
+      </td>
+    </tr>
+  );
+}
 
 export const TableCaption = React.forwardRef<HTMLTableCaptionElement, React.HTMLAttributes<HTMLTableCaptionElement>>(
   ({ className, ...props }, ref) => (

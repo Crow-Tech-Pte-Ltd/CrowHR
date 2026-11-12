@@ -2,7 +2,7 @@ import type { PayslipSummaryDto } from "@crowhr/core";
 import { Button, Card, type ColumnDef, DataTable, EmptyState, formatDate, StatusPill } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Download, FileText } from "lucide-react";
+import { Download } from "lucide-react";
 import { useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
@@ -70,7 +70,6 @@ function MyPayslips() {
   return (
     <>
       <PageHeader
-        kicker="Me"
         title="Payslips"
         description={
           me.membershipStatus === "former"
@@ -95,9 +94,12 @@ function MyPayslips() {
           empty={
             <EmptyState
               variant="plain"
-              icon={<FileText />}
-              title="No payslips yet"
-              description="Payslips appear here after your employer approves and releases a payroll run."
+              title={me.membershipStatus === "former" ? "No payslips were released to you." : "No payslips yet."}
+              description={
+                me.membershipStatus === "former"
+                  ? undefined
+                  : "Your first one shows here on payday, once payroll approves and releases the run."
+              }
             />
           }
         />

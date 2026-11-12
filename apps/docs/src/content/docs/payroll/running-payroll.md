@@ -49,12 +49,12 @@ Fed overtime, holiday pay, encashment and claims are each paid by one run only: 
 
 **Recompute** calculates every employee from the current records and the items. The overview shows, in this order:
 
-1. **Blocking issues** and **warnings**, each with a code, a link to its source and a link to where it is fixed: the employee's drawer with the item ready to fill in (holiday pay, an overtime amount, hours, scheduled days, an item to correct), **Allowance treatment**, the company profile or the employee's record.
-2. **Totals**: people, gross pay, employee CPF, SHG, employer CPF, SDL, FWL estimate, claims and net pay.
+1. **Blocking issues** and **warnings**, each with a link to its source and a link to where it is fixed: the employee's drawer with the item ready to fill in (holiday pay, an overtime amount, hours, scheduled days, an item to correct), **Allowance treatment**, the company profile or the employee's record. Each issue's rule ID (for support and the [troubleshooting](/docs/help/troubleshooting/) page) is on its icon's tooltip.
+2. **Who gets what**: net pay to employees, the total to CPF Board (CPF, SHG and SDL, as in the CPF EZPay file) and the foreign worker levy estimate. Gross pay, CPF and the other columns are totalled in the table's **Total** row.
 3. **Changes since last month**: joiners, leavers, pay changes, new items.
 4. **The employee table**: dense, numbers right-aligned. Move with the arrow keys or `j`/`k`, open an employee with Enter, close with Escape, and step through employees in the drawer with `[` and `]`.
 
-![October 2026 payroll overview: one blocking issue, one warning, totals and changes since September (fictional company)](../../../assets/screens/payroll-run-overview.webp)
+![October 2026 payroll overview: one blocking issue, the warnings, and what goes to employees, CPF Board and the levy (fictional company)](../../../assets/screens/payroll-run-overview.webp)
 
 The drawer shows every line of that employee's pay, the **CPF working** and the issues. See [reading the CPF working](/docs/payroll/cpf-working/).
 

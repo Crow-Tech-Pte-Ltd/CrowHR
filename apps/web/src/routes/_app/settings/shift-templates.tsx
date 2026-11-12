@@ -24,7 +24,7 @@ import {
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Archive, CalendarClock, Pencil, Plus, RotateCcw } from "lucide-react";
+import { Archive, Pencil, Plus, RotateCcw } from "lucide-react";
 import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
@@ -90,11 +90,7 @@ function ShiftTemplatesPage() {
           <span aria-hidden className={cn("h-4 w-1 rounded-full", COLOUR_BAR[row.original.colour])} />
           <span className="font-medium">{row.original.name}</span>
           <span className="num text-2xs text-primary-200">{row.original.code}</span>
-          {row.original.archived ? (
-            <StatusPill tone="neutral" dot={false}>
-              Archived
-            </StatusPill>
-          ) : null}
+          {row.original.archived ? <StatusPill tone="neutral">Archived</StatusPill> : null}
         </span>
       ),
     },
@@ -189,17 +185,12 @@ function ShiftTemplatesPage() {
         <Skeleton className="h-40 w-full" />
       ) : (list.data?.items ?? []).length === 0 ? (
         <EmptyState
-          icon={<CalendarClock />}
-          title="No shift templates yet"
-          description="Add the shifts you run, like Morning 07:00–15:00 or Close 15:00–23:00. Managers can still type custom times on the roster."
-          actions={
-            editable ? (
-              <Button variant="primary" onClick={() => setEditing("new")}>
-                <Plus aria-hidden /> Add your first shift
-              </Button>
-            ) : undefined
+          title="No shift templates yet."
+          description={
+            editable
+              ? "Add the shifts you run with Add shift, like Morning 07:00–15:00 or Close 15:00–23:00. Managers can still type custom times on the roster."
+              : "Managers type each shift's times on the roster. Ask an owner or HR admin to add shift templates."
           }
-          note={editable ? undefined : "Ask an owner or HR admin to add shift templates."}
         />
       ) : (
         <>

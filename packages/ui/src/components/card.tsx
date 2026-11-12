@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "../lib/cn.ts";
+import { textStyle } from "../lib/text-styles.ts";
 
 /**
  * Ported from crow-tech-landing card.tsx. Default is a hairline panel; the
@@ -34,9 +35,7 @@ CardHeader.displayName = "CardHeader";
 
 /** A card's heading. It is an `h2`: cards sit directly under a page's `h1` (WCAG 1.3.1, heading order). */
 export const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h2 ref={ref} className={cn("font-azeret text-ui font-semibold leading-5 tracking-tight", className)} {...props} />
-  ),
+  ({ className, ...props }, ref) => <h2 ref={ref} className={cn(textStyle.section, className)} {...props} />,
 );
 CardTitle.displayName = "CardTitle";
 

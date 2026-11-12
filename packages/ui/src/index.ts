@@ -36,3 +36,4 @@ export * from "./components/tooltip.tsx";
 export { appNow, appNowMs, setAppClockOffset, singaporeTodayIso } from "./lib/clock.ts";
 export { cn } from "./lib/cn.ts";
 export * from "./lib/format.ts";
+export { type TextStyle, textStyle } from "./lib/text-styles.ts";

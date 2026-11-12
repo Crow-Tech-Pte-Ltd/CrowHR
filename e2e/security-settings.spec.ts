@@ -92,7 +92,8 @@ test("owner adds a generic OIDC provider, tests it, turns passwords off; staff m
   // …and signs in through the provider (linked by verified email to the pre-provisioned member).
   await mockIdpNextUser(staff.request, { sub: "kc-hafiz", email: org.staff.email, email_verified: true });
   await staff.getByRole("button", { name: `Sign in with ${BUTTON}` }).click();
-  await expect(staff.getByRole("heading", { level: 1 })).toHaveText(/^Hi, Hafiz/);
+  await expect(staff.getByRole("heading", { level: 1 })).toHaveText("Today");
+  await expect(staff.getByRole("button", { name: /^Account menu/ })).toContainText("Hafiz");
   await staff.goto("/me/sessions");
   await expect(staff.getByText(BUTTON).first()).toBeVisible();
   await staffCtx.close();

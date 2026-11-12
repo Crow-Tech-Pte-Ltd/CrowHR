@@ -25,11 +25,15 @@ import {
   Skeleton,
   StatusPill,
   Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Archive, Pencil, Plus, ReceiptText, RotateCcw, ShieldOff } from "lucide-react";
+import { Archive, Pencil, Plus, RotateCcw, ShieldOff } from "lucide-react";
 import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
@@ -105,11 +109,7 @@ function ClaimTypesPage() {
         <span className="flex items-baseline gap-2 whitespace-nowrap">
           <span className="font-medium">{row.original.name}</span>
           <span className="num text-2xs text-primary-200">{row.original.code}</span>
-          {row.original.archived ? (
-            <StatusPill tone="neutral" dot={false}>
-              Archived
-            </StatusPill>
-          ) : null}
+          {row.original.archived ? <StatusPill tone="neutral">Archived</StatusPill> : null}
         </span>
       ),
     },
@@ -151,24 +151,33 @@ function ClaimTypesPage() {
             id: "actions",
             header: () => <span className="sr-only">Actions</span>,
             cell: ({ row }: { row: { original: ClaimTypeDto } }) => (
-              <span className="flex justify-end gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setEditing(row.original)}
-                  aria-label={`Edit ${row.original.name}`}
-                >
-                  <Pencil aria-hidden /> Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => archive.mutate(row.original)}
-                  aria-label={`${row.original.archived ? "Restore" : "Archive"} ${row.original.name}`}
-                >
-                  {row.original.archived ? <RotateCcw aria-hidden /> : <Archive aria-hidden />}
-                  {row.original.archived ? "Restore" : "Archive"}
-                </Button>
+              <span className="flex justify-end gap-0.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => setEditing(row.original)}
+                      aria-label={`Edit ${row.original.name}`}
+                    >
+                      <Pencil aria-hidden />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => archive.mutate(row.original)}
+                      aria-label={`${row.original.archived ? "Restore" : "Archive"} ${row.original.name}`}
+                    >
+                      {row.original.archived ? <RotateCcw aria-hidden /> : <Archive aria-hidden />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{row.original.archived ? "Restore" : "Archive"}</TooltipContent>
+                </Tooltip>
               </span>
             ),
           } as ColumnDef<ClaimTypeDto, unknown>,
@@ -229,14 +238,17 @@ function StarterSet({ editable, onCustom }: { editable: boolean; onCustom: () =>
   });
   return (
     <EmptyState
-      icon={<ReceiptText />}
-      title="No claim types yet"
-      description="Start with the types most Singapore SMEs use, then adjust caps and receipt rules. Nothing is created until you confirm."
+      title="No claim types yet."
+      description={
+        editable
+          ? "Start with the types most Singapore SMEs use, then adjust caps and receipt rules. Nothing is created until you confirm."
+          : "Ask an owner or HR admin to set up claim types."
+      }
       data-testid="claim-types-empty"
       actions={
         editable ? (
           <div className="flex w-full max-w-xl flex-col gap-3">
-            <ul className="divide-y divide-border rounded-md border border-border bg-surface-50 text-left">
+            <ul className="divide-y divide-border rounded-md border border-border bg-card text-left">
               {(starter.data?.items ?? []).map((t) => (
                 <li key={t.code} className="flex items-center gap-3 px-3 py-2">
                   <Checkbox
@@ -263,7 +275,7 @@ function StarterSet({ editable, onCustom }: { editable: boolean; onCustom: () =>
                 </li>
               ))}
             </ul>
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="primary"
                 onClick={() => create.mutate()}
@@ -279,7 +291,6 @@ function StarterSet({ editable, onCustom }: { editable: boolean; onCustom: () =>
           </div>
         ) : undefined
       }
-      note={editable ? undefined : "Ask an owner or HR admin to set up claim types."}
     />
   );
 }
@@ -297,7 +308,7 @@ function WindowSetting({ days, editable }: { days: number; editable: boolean }) 
   });
   return (
     <section className="mt-8 max-w-xl" aria-labelledby="window-title">
-      <h2 id="window-title" className="font-azeret text-xs font-semibold uppercase tracking-wider">
+      <h2 id="window-title" className={textStyle.section}>
         Submission window
       </h2>
       <p className="mt-1 text-ui text-primary-300">Expenses older than this can't be claimed.</p>

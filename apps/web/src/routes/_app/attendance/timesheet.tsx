@@ -12,6 +12,7 @@ import {
   Skeleton,
   StatusPill,
   Textarea,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -158,14 +159,15 @@ function DayAction({ day, today, onClaim }: { day: DayRecord; today: string; onC
 function TotalsRow({ totals: t }: { totals: Totals }) {
   return (
     <dl className="grid grid-cols-2 gap-x-6 gap-y-2 border-t border-border px-4 py-3 text-ui sm:grid-cols-4">
+      {/* Zero is a dash, as in the table above. */}
       {[
-        ["Worked", duration(t.workedMinutes)],
-        ["Overtime", duration(t.otMinutes)],
-        ["Late", t.lateCount ? `${t.lateCount}× · ${duration(t.lateMinutes)}` : "None"],
-        ["Missing punches", String(t.missingPunches)],
+        ["Worked", t.workedMinutes ? duration(t.workedMinutes) : "—"],
+        ["Overtime", t.otMinutes ? duration(t.otMinutes) : "—"],
+        ["Late", t.lateCount ? `${t.lateCount}× · ${duration(t.lateMinutes)}` : "—"],
+        ["Missing punches", t.missingPunches ? String(t.missingPunches) : "—"],
       ].map(([k, v]) => (
-        <div key={k} className="flex flex-col">
-          <dt className="font-azeret text-2xs uppercase tracking-wider text-primary-200">{k}</dt>
+        <div key={k} className="flex flex-col gap-0.5">
+          <dt className={textStyle.field}>{k}</dt>
           <dd className="num font-semibold">{v}</dd>
         </div>
       ))}

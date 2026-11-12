@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { pickDate } from "../leave-helpers.ts";
 
 /**
  * People e2e (tasks 7.1–7.4). Runs against the DEV-ONLY people server with
@@ -26,11 +27,12 @@ test("add an employee, see NRIC masked, schedule a transfer and record a resigna
   await page.getByLabel("Legal name").fill("Chua Li Ting");
   await page.getByLabel("NRIC").fill("S1234567A");
   // A 14-year-old on the start date: the form says what the Employment Act allows.
-  await page.getByLabel("Date of birth").fill(`${Number(isoPlusDays(0).slice(0, 4)) - 14}-01-01`);
+  // Date fields are the UI kit's DatePicker ("1 Jan 2012"); date of birth has month and year dropdowns.
+  await pickDate(page, "Date of birth", `${Number(isoPlusDays(0).slice(0, 4)) - 14}-01-01`, page.locator("main"));
   const young = page.getByTestId("age-conditions");
   await expect(young).toContainText("Under 16 on the start date");
   await expect(young).toContainText("light duties");
-  await page.getByLabel("Date of birth").fill("1997-05-14");
+  await pickDate(page, "Date of birth", "1997-05-14", page.locator("main"));
   await expect(young).toHaveCount(0);
   await page.getByLabel("Job title").fill("Barista");
   await page.getByRole("combobox", { name: "Department" }).click();
@@ -55,8 +57,9 @@ test("add an employee, see NRIC masked, schedule a transfer and record a resigna
 
   // Future-dated transfer → Scheduled.
   await page.getByRole("button", { name: "Record change" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Effective from").fill(isoPlusDays(30));
+  // Named: the date picker's calendar is a dialog too, for a moment after a date is picked.
+  const dialog = page.getByRole("dialog", { name: "Record a change" });
+  await pickDate(page, "Effective from", isoPlusDays(30), dialog);
   await dialog.getByLabel("Job title").fill("Senior Barista");
   await dialog.getByRole("button", { name: "Save change" }).click();
   await expect(dialog).toBeHidden();
@@ -82,9 +85,9 @@ test("edit compensation with an effective date", async ({ page }) => {
   await page.getByRole("tab", { name: "Pay" }).click();
   await expect(page.getByText("S$3,400.00").first()).toBeVisible();
   await page.getByRole("button", { name: "Change pay" }).first().click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("dialog", { name: "Change pay" });
   await dialog.getByLabel("New amount").fill("3,650.00");
-  await dialog.getByLabel("Effective from").fill(isoPlusDays(45));
+  await pickDate(page, "Effective from", isoPlusDays(45), dialog);
   await dialog.getByLabel("Reason").fill("Promotion to Accounts Executive");
   await dialog.getByRole("button", { name: "Save pay" }).click();
   await expect(dialog).toBeHidden();

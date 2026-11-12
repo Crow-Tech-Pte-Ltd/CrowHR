@@ -25,11 +25,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import {
   attKeys,
@@ -117,9 +118,8 @@ function TeamTimesheetPage() {
         ) : rows.length === 0 ? (
           <EmptyState
             variant="plain"
-            icon={<Users />}
-            title="Nobody to show"
-            description="People you manage appear here."
+            title={`No one to show for ${weekdayOf(date)} ${dm(date)}.`}
+            description="The people you manage show here with their punches for the day."
           />
         ) : (
           <Table aria-label={`Team attendance ${dm(date)}`}>
@@ -131,7 +131,8 @@ function TeamTimesheetPage() {
                 <TableHead className="text-right">Out</TableHead>
                 <TableHead className="hidden text-right sm:table-cell">Worked</TableHead>
                 <TableHead className="hidden lg:table-cell">Notes</TableHead>
-                <TableHead className="text-right">
+                {/* Phones: the name opens the correction sheet, so the button column is left out. */}
+                <TableHead className="hidden text-right sm:table-cell">
                   <span className="sr-only">Actions</span>
                 </TableHead>
               </TableRow>
@@ -139,7 +140,20 @@ function TeamTimesheetPage() {
             <TableBody>
               {rows.map((r) => (
                 <TableRow key={r.employee.id} data-testid="team-row">
-                  <TableCell className="max-w-[12rem] truncate font-medium">{r.employee.name}</TableCell>
+                  <TableCell className="max-w-[12rem] truncate font-medium">
+                    {r.employee.id !== me.employeeId ? (
+                      <button
+                        type="button"
+                        className="focus-ring inline-flex max-w-full items-center gap-1 rounded-sm text-left font-medium sm:hidden"
+                        onClick={() => setEditing(r)}
+                      >
+                        <span className="truncate">{r.employee.name}</span>
+                        <span className="sr-only">: correct punches</span>
+                        <ChevronRight className="size-3.5 text-primary-200" aria-hidden />
+                      </button>
+                    ) : null}
+                    <span className={cn(r.employee.id !== me.employeeId && "hidden sm:inline")}>{r.employee.name}</span>
+                  </TableCell>
                   <TableCell className="hidden text-primary-300 md:table-cell">{dayLabel(r.day)}</TableCell>
                   <TableCell className="num text-right">{r.day.firstIn ? sgTime(r.day.firstIn) : "—"}</TableCell>
                   <TableCell className="num text-right">
@@ -152,13 +166,13 @@ function TeamTimesheetPage() {
                     <span className="flex flex-wrap items-center gap-1">
                       {r.day.locked ? <LockedMark /> : null}
                       {exceptions(r.day).map((n) => (
-                        <StatusPill key={n.text} tone={n.tone} dot={false}>
+                        <StatusPill key={n.text} tone={n.tone}>
                           {n.text}
                         </StatusPill>
                       ))}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="hidden text-right sm:table-cell">
                     {r.employee.id !== me.employeeId ? (
                       <Button size="sm" onClick={() => setEditing(r)}>
                         Correct
@@ -253,7 +267,7 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
           </Alert>
         ) : null}
         <section className="border-b border-border px-5 py-4" aria-labelledby="punches-title">
-          <h3 id="punches-title" className="mb-2 font-azeret text-2xs font-semibold uppercase tracking-wider">
+          <h3 id="punches-title" className={cn(textStyle.group, "mb-2")}>
             Punches
           </h3>
           {day.punches.length === 0 ? (
@@ -324,7 +338,7 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
             add.mutate();
           }}
         >
-          <h3 className="font-azeret text-2xs font-semibold uppercase tracking-wider">Add a punch</h3>
+          <h3 className={textStyle.group}>Add a punch</h3>
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Kind">
               <Select value={kind} onValueChange={(v) => setKind(v as "in" | "out")}>

@@ -17,7 +17,7 @@ import {
 } from "@crowhr/ui";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, ScrollText } from "lucide-react";
+import { Download } from "lucide-react";
 import * as React from "react";
 import { formatDateTime } from "../../../auth/format.ts";
 import { can, useMe } from "../../../auth/session.ts";
@@ -55,8 +55,7 @@ function AuditLogPage() {
       <>
         <PageHeader crumbs={[{ label: "Settings", to: "/settings" }]} title="Audit log" />
         <EmptyState
-          icon={<ScrollText />}
-          title="You can't see the audit log"
+          title="You can't see the audit log."
           description="Owners, HR admins and payroll admins can read the parts of the log that concern them."
         />
       </>
@@ -159,12 +158,7 @@ function AuditLogPage() {
         ) : list.isError ? (
           <ErrorNote error={list.error} retry={() => void list.refetch()} />
         ) : list.data.items.length === 0 ? (
-          <EmptyState
-            variant="plain"
-            icon={<ScrollText />}
-            title="No events match"
-            description="Widen the dates or clear the filters."
-          />
+          <EmptyState variant="plain" title="No events match." description="Widen the dates or clear the filters." />
         ) : (
           <Table data-testid="audit-table">
             <TableHeader>

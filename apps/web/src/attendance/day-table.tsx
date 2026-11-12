@@ -83,7 +83,7 @@ export function DayTable({
               <TableCell className="hidden lg:table-cell">
                 <span className="flex flex-wrap gap-1">
                   {notes.map((n) => (
-                    <StatusPill key={n.text} tone={n.tone} dot={false}>
+                    <StatusPill key={n.text} tone={n.tone}>
                       {n.text}
                     </StatusPill>
                   ))}

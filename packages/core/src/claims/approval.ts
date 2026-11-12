@@ -104,8 +104,11 @@ export function claimSubjectAdapter(deps: AppDeps): SubjectAdapter<Attrs> {
           ? [{ label: "Exchange rate", value: fxWarningText(l.currency, formatRateMicros(l.rateMicros), warning) }]
           : [];
       });
+      // The claim's own title when it has one, so the request reads as it does in My claims. Not for
+      // medical claims: like the merchant and description, a medical title stays out of the request.
+      const medical = lines.some((l) => types.get(l.claimTypeId)?.category === "medical");
       return {
-        title: `${typeList(names)} claim`,
+        title: claim.title && !medical ? claim.title : `${typeList(names)} claim`,
         lines: [
           ...(claim.claimNumber ? [{ label: "Claim", value: claim.claimNumber }] : []),
           { label: "Total", value: sgd(claim.totalCents) },

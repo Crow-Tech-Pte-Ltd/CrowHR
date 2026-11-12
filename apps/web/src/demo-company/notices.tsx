@@ -18,7 +18,7 @@ export function DemoCompanyNotice({ expiresAt }: { expiresAt: string }) {
     >
       <FlaskConical className="mt-0.5 size-4 shrink-0 text-primary-300" aria-hidden />
       <p className="text-2xs text-primary-300">
-        <span className="font-azeret font-semibold uppercase tracking-wider text-ink">Demo company</span>
+        <span className="font-azeret font-semibold text-ink">Demo company</span>
         <span className="mx-1.5" aria-hidden>
           ·
         </span>
@@ -36,7 +36,7 @@ export function DemoCompanyBanner({ expiresAt }: { expiresAt: string }) {
       className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-2xs text-primary-300"
       data-testid="demo-company-banner"
     >
-      <span className="inline-flex items-center gap-1.5 font-azeret font-semibold uppercase tracking-wider text-ink">
+      <span className="inline-flex items-center gap-1.5 font-azeret font-semibold text-ink">
         <FlaskConical className="size-3.5" aria-hidden />
         Demo company
       </span>
@@ -54,7 +54,7 @@ export function DemoCompanyBanner({ expiresAt }: { expiresAt: string }) {
 /** The sign-in page of a demo company that has ended (or never existed): start a new one. */
 export function DemoCompanyEndedPage({ message }: { message: string }) {
   return (
-    <AuthLayout kicker="Demo company" title="This demo company has ended" description={message}>
+    <AuthLayout title="This demo company has ended" description={message}>
       <Button asChild variant="primary" className="self-start">
         <a href="/try" onClick={() => forgetTryCompany()}>
           Start a new demo company

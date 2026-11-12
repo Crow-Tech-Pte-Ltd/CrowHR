@@ -11,6 +11,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  textStyle,
 } from "@crowhr/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -20,6 +21,8 @@ import { PageHeader } from "../../../components/page-header.tsx";
 import { api, errorMessage, type ImportPreviewDto, invalidatePeople } from "./-lib/api.ts";
 
 type Kind = "employees" | "compensation" | "ytd";
+
+const STEPS = ["Choose and upload", "Check the preview", "Done"];
 
 const KINDS: { kind: Kind; title: string; body: string; who: string }[] = [
   {
@@ -91,31 +94,14 @@ function ImportPage() {
         title="Import from CSV"
         description="Nothing is saved until you confirm. Every row is checked with the same rules as the forms, then all rows go in together or none do."
       />
-      <ol className="mb-6 flex flex-wrap gap-2 font-azeret text-2xs uppercase tracking-wider" aria-label="Steps">
-        {["Choose and upload", "Check the preview", "Done"].map((s, i) => (
-          <li
-            key={s}
-            aria-current={step === i + 1 ? "step" : undefined}
-            className={cn(
-              "rounded-md border px-2.5 py-1",
-              step === i + 1
-                ? "border-ink bg-kuning-200 text-ink"
-                : step > i + 1
-                  ? "border-border text-primary-300"
-                  : "border-border text-primary-200",
-            )}
-          >
-            <span className="num">{i + 1}</span> · {s}
-          </li>
-        ))}
-      </ol>
+      <p className="mb-5 text-ui text-primary-300" aria-live="polite" data-testid="import-step">
+        <span className="num">Step {step} of 3</span> · {STEPS[step - 1]}
+      </p>
 
       {step === 1 ? (
         <div className="flex max-w-4xl flex-col gap-5">
           <fieldset className="grid gap-3 sm:grid-cols-3">
-            <legend className="mb-2 font-azeret text-2xs font-semibold uppercase tracking-wider">
-              What are you importing?
-            </legend>
+            <legend className={cn(textStyle.section, "mb-2")}>What are you importing?</legend>
             {KINDS.map((k) => (
               <label
                 key={k.kind}
@@ -141,7 +127,7 @@ function ImportPage() {
           </fieldset>
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-50 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-medium">1. Start from the template</p>
+              <h2 className={textStyle.group}>Start from the template</h2>
               <p className="text-ui text-primary-300">
                 One column per field, with an example row. Dates as YYYY-MM-DD or DD/MM/YYYY; money in dollars.
               </p>
@@ -153,7 +139,7 @@ function ImportPage() {
             </Button>
           </div>
           <div className="flex flex-col gap-3 rounded-lg border border-dashed border-ink/30 bg-surface-50 p-6">
-            <p className="font-medium">2. Upload the filled-in CSV</p>
+            <h2 className={textStyle.group}>Upload the filled-in CSV</h2>
             <p className="text-ui text-primary-300">
               UTF-8 CSV, at most 5 MB and 2,000 rows. In Excel: File → Save As → CSV UTF-8.
             </p>
@@ -298,7 +284,12 @@ function ImportPage() {
                   <TableCell numeric>{r.row}</TableCell>
                   <TableCell>{r.summary}</TableCell>
                   <TableCell>
-                    <StatusPill tone={r.valid ? "success" : "danger"}>{r.valid ? "Ready" : "Needs a fix"}</StatusPill>
+                    {/* Ready is the normal state; only a row that needs a fix is marked. */}
+                    {r.valid ? (
+                      <span className="text-primary-300">Ready</span>
+                    ) : (
+                      <StatusPill tone="danger">Needs a fix</StatusPill>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

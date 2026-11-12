@@ -1,6 +1,7 @@
 import {
   Button,
   Card,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -21,6 +22,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -171,8 +173,8 @@ function MyDocuments({
     <div className="flex flex-col gap-4">
       {toAck.length ? (
         <Card className="border-ink/25 p-4" data-testid="to-acknowledge">
-          <h2 className="mb-2 font-azeret text-xs font-semibold uppercase tracking-wider">
-            To read and acknowledge ({toAck.length})
+          <h2 className={cn("mb-2", textStyle.section)}>
+            To read and acknowledge <span className="num">({toAck.length})</span>
           </h2>
           <ul className="flex flex-col gap-1">
             {toAck.map((d) => (
@@ -198,8 +200,8 @@ function MyDocuments({
           </div>
         ) : !docs?.length ? (
           <DocumentsEmpty
-            title="No documents yet"
-            description="Contracts, letters and anything HR shares with you appear here."
+            title="HR hasn't shared any documents with you yet."
+            description="Your contract, letters and anything else HR shares with you appear here. Need a letter? Use Request a letter."
           />
         ) : (
           <DocumentTable docs={docs} onOpen={onOpen} label="My documents" />
@@ -215,9 +217,15 @@ function MyRequests() {
   if (!items.length) return null;
   const tone = (s: string) =>
     s === "approved" ? "success" : s === "rejected" ? "danger" : s === "pending" ? "info" : "neutral";
+  const label: Record<string, string> = {
+    pending: "With HR",
+    approved: "Approved",
+    rejected: "Not approved",
+    withdrawn: "Withdrawn",
+  };
   return (
     <section className="mt-6" aria-labelledby="letter-requests">
-      <h2 id="letter-requests" className="mb-2 font-azeret text-xs font-semibold uppercase tracking-wider">
+      <h2 id="letter-requests" className={cn("mb-2", textStyle.section)}>
         Letter requests
       </h2>
       <Card>
@@ -234,7 +242,7 @@ function MyRequests() {
               <TableRow key={r.id}>
                 <TableCell>{r.purpose}</TableCell>
                 <TableCell>
-                  <StatusPill tone={tone(r.status)}>{r.status === "pending" ? "With HR" : r.status}</StatusPill>
+                  <StatusPill tone={tone(r.status)}>{label[r.status] ?? r.status}</StatusPill>
                 </TableCell>
                 <TableCell numeric>{sgDay(r.createdAt)}</TableCell>
               </TableRow>
@@ -259,7 +267,7 @@ function Expiring({ onOpen }: { onOpen: (d: Doc) => void }) {
         </div>
       ) : !q.data.items.length ? (
         <DocumentsEmpty
-          title="Nothing expiring"
+          title="No document expires in the next 30 days."
           description="Documents that expire within 30 days, or have expired, appear here. Reminders go out 30 and 7 days before and on the day."
         />
       ) : (
@@ -302,7 +310,11 @@ function Acknowledgements() {
           </div>
         ) : !q.data.items.length ? (
           <DocumentsEmpty
-            title={status === "outstanding" ? "Nothing outstanding" : "No acknowledgements yet"}
+            title={
+              status === "outstanding"
+                ? "Everyone has acknowledged what they were sent."
+                : "No acknowledgements asked for yet."
+            }
             description="Ask for an acknowledgement from a document on the employee's Documents tab."
           />
         ) : (
@@ -379,7 +391,10 @@ function Retention() {
             <Skeleton className="h-24 w-full" />
           </div>
         ) : !q.data.items.length ? (
-          <DocumentsEmpty title="Nothing to review" description="Documents past their keeping period appear here." />
+          <DocumentsEmpty
+            title="No document is past its keeping period."
+            description="Documents kept longer than their category's retention period appear here for review."
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table aria-label="Retention review">
@@ -443,7 +458,10 @@ function Deleted() {
             <Skeleton className="h-24 w-full" />
           </div>
         ) : !q.data.items.length ? (
-          <DocumentsEmpty title="No deleted documents" description="Documents you delete are kept here until purged." />
+          <DocumentsEmpty
+            title="No deleted documents."
+            description="Documents you delete are kept here until they are purged."
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table aria-label="Deleted documents">

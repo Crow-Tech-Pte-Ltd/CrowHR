@@ -10,7 +10,6 @@ export interface Crumb {
 export function PageHeader({
   title,
   description,
-  kicker,
   crumbs,
   actions,
   leading,
@@ -22,7 +21,6 @@ export function PageHeader({
   /** Shown after the title, outside the heading (status pills), so the page title stays just the name. */
   trailing?: React.ReactNode;
   description?: React.ReactNode;
-  kicker?: React.ReactNode;
   crumbs?: Crumb[];
   actions?: React.ReactNode;
 }) {
@@ -46,9 +44,6 @@ export function PageHeader({
               ))}
             </ol>
           </nav>
-        ) : null}
-        {kicker ? (
-          <p className="font-azeret text-2xs font-medium uppercase tracking-wider text-primary-200">{kicker}</p>
         ) : null}
         {leading || trailing ? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">

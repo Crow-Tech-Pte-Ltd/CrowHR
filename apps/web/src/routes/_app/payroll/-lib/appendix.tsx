@@ -6,6 +6,8 @@ import type {
 import {
   Button,
   Checkbox,
+  cn,
+  DatePicker,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -26,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -318,9 +321,7 @@ function bodyOf(d: Draft): PayrollIr8aAppendixEntryInput {
 // ---------------------------------------------------------------------------------------------
 
 const Sub = ({ children }: { children: React.ReactNode }) => (
-  <p className="mt-1 font-azeret text-[10px] font-semibold uppercase tracking-wider text-primary-300 sm:col-span-2">
-    {children}
-  </p>
+  <p className={cn("mt-1 sm:col-span-2", textStyle.group)}>{children}</p>
 );
 
 /**
@@ -587,10 +588,20 @@ function ResidenceFields({ d, set, err }: FieldsProps) {
             <Input value={d.address} maxLength={115} onChange={(e) => set("address", e.target.value)} />
           </FormField>
           <FormField label="Occupied from" error={err("occupiedFrom")}>
-            <Input type="date" value={d.occupiedFrom} onChange={(e) => set("occupiedFrom", e.target.value)} />
+            <DatePicker
+              value={d.occupiedFrom || null}
+              onChange={(v) => set("occupiedFrom", v ?? "")}
+              max={d.occupiedTo || null}
+              yearPicker
+            />
           </FormField>
           <FormField label="Occupied to" hint="One record per unbroken period." error={err("occupiedTo")}>
-            <Input type="date" value={d.occupiedTo} onChange={(e) => set("occupiedTo", e.target.value)} />
+            <DatePicker
+              value={d.occupiedTo || null}
+              onChange={(v) => set("occupiedTo", v ?? "")}
+              min={d.occupiedFrom || null}
+              yearPicker
+            />
           </FormField>
           <FormField
             label="Employees sharing"
@@ -709,10 +720,20 @@ function CarFields({ d, set, err }: FieldsProps) {
         </Select>
       </FormField>
       <FormField label="Provided from" error={err("usedFrom")}>
-        <Input type="date" value={d.usedFrom} onChange={(e) => set("usedFrom", e.target.value)} />
+        <DatePicker
+          value={d.usedFrom || null}
+          onChange={(v) => set("usedFrom", v ?? "")}
+          max={d.usedTo || null}
+          yearPicker
+        />
       </FormField>
       <FormField label="Provided to" error={err("usedTo")}>
-        <Input type="date" value={d.usedTo} onChange={(e) => set("usedTo", e.target.value)} />
+        <DatePicker
+          value={d.usedTo || null}
+          onChange={(v) => set("usedTo", v ?? "")}
+          min={d.usedFrom || null}
+          yearPicker
+        />
       </FormField>
       {leased ? (
         <FormField label="Rental for the period" error={err("rentalCents")}>
@@ -771,14 +792,24 @@ function ShareFields({ d, set, err }: FieldsProps) {
         </Select>
       </FormField>
       <FormField label="Granted on" error={err("grantedOn")}>
-        <Input type="date" value={d.grantedOn} onChange={(e) => set("grantedOn", e.target.value)} />
+        <DatePicker
+          value={d.grantedOn || null}
+          onChange={(v) => set("grantedOn", v ?? "")}
+          max={d.eventDate || null}
+          yearPicker
+        />
       </FormField>
       <FormField
         label="Gain accrued on"
         hint="Exercise (ESOP), vesting, or grant without vesting; the day a moratorium lifted, if any."
         error={err("eventDate")}
       >
-        <Input type="date" value={d.eventDate} onChange={(e) => set("eventDate", e.target.value)} />
+        <DatePicker
+          value={d.eventDate || null}
+          onChange={(v) => set("eventDate", v ?? "")}
+          min={d.grantedOn || null}
+          yearPicker
+        />
       </FormField>
       <FormField label="Number of shares" error={err("shares")}>
         <Input
@@ -851,7 +882,7 @@ function Computed({ entry }: { entry: AppendixEntry }) {
   if (!c) return null;
   return (
     <div className="rounded-md border border-border sm:col-span-2" data-testid="appendix-computed">
-      <p className="border-b border-border px-3 py-2 font-azeret text-[10px] font-semibold uppercase tracking-wider text-primary-300">
+      <p className={cn("border-b border-border px-3 py-2", textStyle.group)}>
         {c.appendix === "8B"
           ? `Appendix 8B · ${c.section === "S10_1_G" ? "S10(1)(g), IR8A d7(b)" : "S10(1)(b), IR8A d7(a)"}`
           : `Appendix 8A · item ${c.item}${c.days ? ` · ${c.days} days` : ""}`}
@@ -866,9 +897,7 @@ function Computed({ entry }: { entry: AppendixEntry }) {
                 <td className="w-10 px-3 py-1.5 font-azeret text-2xs text-primary-200">{l.code}</td>
                 <td className="px-1 py-1.5">
                   {l.label}
-                  <span className="ml-1.5 font-azeret text-[10px] uppercase text-primary-200">
-                    {l.entered ? "entered" : "computed"}
-                  </span>
+                  <span className="ml-1.5 text-2xs text-primary-200">{l.entered ? "Entered" : "Computed"}</span>
                 </td>
                 <td className="num px-3 py-1.5 text-right">
                   {l.amountCents === null ? "–" : formatMoney(l.amountCents)}

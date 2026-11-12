@@ -47,6 +47,8 @@ For problems with the server itself (startup errors, setup code, backups, proxie
 
 ## Payroll
 
+A run's issues are written out in words. The rule ID below (such as `EA_FINAL_PAY_LATE`) is on the issue icon's tooltip, and in the employee drawer under **Rule IDs, for support**.
+
 | Issue code or symptom | What to do |
 | --- | --- |
 | Run cannot be submitted: company profile | Add UEN, CSN and address in Settings → Company. |

@@ -3,11 +3,11 @@ title: Reading the CPF working
 description: How Crow HR computes CPF contributions - OW and AW, the OW and AW ceilings, age bands, SPR graduated rates and rounding - and how to read the working shown for each employee.
 ---
 
-Open an employee in a payroll run to see the drawer: every pay line, **CPF at a glance**, the full **working** and the issues. Every step names the rate table it used, its effective date and a link to CPF's source.
+Open an employee in a payroll run to see the drawer: every pay line, the **CPF summary**, the full **working** and the issues. Every step names the rate table it used, its effective date and a link to CPF's source. Each working line's rule ID shows when you point at it, and the drawer lists them all under **Rule IDs, for support**, for when you ask for help.
 
-![The employee drawer: pay lines, CPF at a glance (category, age band, wage band, OW and AW subject, AW ceiling, headroom) and the working (fictional data)](../../../assets/screens/payroll-cpf-drawer.webp)
+![The employee drawer: pay lines, the CPF summary (category, age band, wage band, OW and AW subject, AW ceiling, headroom) and the working (fictional data)](../../../assets/screens/payroll-cpf-drawer.webp)
 
-## CPF at a glance
+## CPF summary
 
 | Field | Meaning |
 | --- | --- |
@@ -45,7 +45,7 @@ Because the year's OW is not known until December, CPF's procedure has two steps
 
 The AW ceiling uses the date each AW became **due and payable**, so enter that date on every AW item.
 
-If you started using Crow HR during the year, [import year-to-date opening balances](/docs/people/importing/#year-to-date-opening-balances). Otherwise the estimate counts only the months Crow HR knows and every employee shows `YTD_BEFORE_CROWHR_MISSING`.
+If you started using Crow HR during the year, [import year-to-date opening balances](/docs/people/importing/#year-to-date-opening-balances). Otherwise the estimate counts only the months Crow HR knows, and every run warns that the months before Crow HR are missing (rule ID `YTD_BEFORE_CROWHR_MISSING`).
 
 The engine replays all 16 worked examples in CPF's AW ceiling guide month by month and matches every figure to the dollar (see [how we verify](/docs/payroll/verification/)).
 

@@ -12,6 +12,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  textStyle,
   toast,
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -169,7 +170,7 @@ function DeliverySection({ delivery }: { delivery: ReturnType<typeof useQuery<De
           ] as const
         ).map(([label, n]) => (
           <div key={label}>
-            <dt className="font-azeret text-[10px] uppercase tracking-wider text-primary-200">{label}</dt>
+            <dt className={textStyle.field}>{label}</dt>
             <dd className="num text-sm font-medium">{n}</dd>
           </div>
         ))}

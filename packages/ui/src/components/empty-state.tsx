@@ -2,47 +2,33 @@ import type * as React from "react";
 import { cn } from "../lib/cn.ts";
 
 export interface EmptyStateProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
-  icon?: React.ReactNode;
+  /** What is empty, said plainly for this screen ("No claims in October."). */
   title: React.ReactNode;
+  /** What fills it, or what to do next. Name the page's own button rather than repeating it. */
   description?: React.ReactNode;
-  /** Buttons or links. */
+  /** An action only this state offers (not a copy of the page header's button). */
   actions?: React.ReactNode;
-  /** Small mono footnote, e.g. "Not available yet". */
-  note?: React.ReactNode;
-  /** `boxed` draws a dashed hairline frame; `plain` sits inside an existing panel. */
+  /** `boxed` draws a hairline frame, for a page with nothing else on it; `plain` sits inside a panel. */
   variant?: "boxed" | "plain";
 }
 
-export function EmptyState({
-  icon,
-  title,
-  description,
-  actions,
-  note,
-  variant = "boxed",
-  className,
-  ...props
-}: EmptyStateProps) {
+/**
+ * A plain, left-aligned empty state: a sentence saying what is empty and one saying what fills it.
+ * No icon, no centred card. Empty tables use `TableEmptyRow` instead, so the table keeps its shape.
+ */
+export function EmptyState({ title, description, actions, variant = "boxed", className, ...props }: EmptyStateProps) {
   return (
     <div
       className={cn(
-        "flex flex-col items-start gap-3 px-6 py-10 sm:items-center sm:px-10 sm:py-14 sm:text-center",
-        variant === "boxed" && "rounded-lg border border-dashed border-ink/25 bg-surface-50",
+        "flex flex-col items-start gap-1",
+        variant === "boxed" ? "rounded-lg border border-border bg-card px-4 py-4" : "px-4 py-5",
         className,
       )}
       {...props}
     >
-      {icon ? (
-        <div className="flex size-10 items-center justify-center rounded-md border border-ink/15 bg-surface-100 text-ink [&_svg]:size-5">
-          {icon}
-        </div>
-      ) : null}
-      <div className="flex max-w-md flex-col gap-1.5">
-        <h2 className="font-azeret text-sm font-semibold tracking-tight">{title}</h2>
-        {description ? <div className="text-ui leading-relaxed text-primary-300">{description}</div> : null}
-      </div>
-      {actions ? <div className="mt-1 flex flex-wrap gap-2">{actions}</div> : null}
-      {note ? <p className="font-azeret text-2xs uppercase tracking-wider text-primary-200">{note}</p> : null}
+      <p className="text-ui font-medium text-ink">{title}</p>
+      {description ? <div className="max-w-2xl text-ui leading-relaxed text-primary-300">{description}</div> : null}
+      {actions ? <div className="mt-2 flex flex-wrap gap-2">{actions}</div> : null}
     </div>
   );
 }
