@@ -10,6 +10,8 @@ import { addDays, pickDate, todaySg } from "./leave-helpers.ts";
  * The try page and the persona picker must have no axe violations, on a computer and at 360 px.
  */
 const DESKTOP = { width: 1440, height: 900 };
+const PLAY_URL = "https://play.google.com/store/apps/details?id=crowtech.crowhr";
+const APP_STORE_URL = "https://apps.apple.com/app/id6831992308";
 
 async function axeClean(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
@@ -35,6 +37,10 @@ test("start a demo company, apply for leave as the employee, approve it as the m
   const visitor = await newPage(browser);
   await visitor.goto("/try");
   await expect(visitor.getByRole("heading", { level: 1 })).toContainText("Your own demo company");
+  // Step 1 links both stores.
+  const stores = visitor.getByRole("list", { name: "App stores" });
+  await expect(stores.getByRole("link", { name: /Google Play/ })).toHaveAttribute("href", PLAY_URL);
+  await expect(stores.getByRole("link", { name: /App Store/ })).toHaveAttribute("href", APP_STORE_URL);
   await axeClean(visitor);
 
   await visitor.getByTestId("try-start-button").click();
@@ -125,8 +131,10 @@ test("the try page works at 360 px on a phone, with an app link", async ({ brows
   expect(link).toContain("intent://connect?server=");
   expect(link).toContain(`org=${slug}`);
   expect(link).toContain("package=crowtech.crowhr");
-  expect(link).toContain(
-    `S.browser_fallback_url=${encodeURIComponent("https://play.google.com/store/apps/details?id=crowtech.crowhr")}`,
+  expect(link).toContain(`S.browser_fallback_url=${encodeURIComponent(PLAY_URL)}`);
+  await expect(phone.getByTestId("try-app-hint").getByRole("link", { name: /Google Play/ })).toHaveAttribute(
+    "href",
+    PLAY_URL,
   );
   await expect(phone.getByTestId("try-qr")).toHaveCount(0);
   // Nothing wider than the screen.
@@ -135,6 +143,27 @@ test("the try page works at 360 px on a phone, with an app link", async ({ brows
   // The keyboard reaches the main actions.
   await phone.getByTestId("try-open-browser").focus();
   await expect(phone.getByTestId("try-open-browser")).toBeFocused();
+
+  // The same company on an iPhone: the plain crowhr:// link, and the App Store to install the app first.
+  const remembered = await phone.evaluate(() => localStorage.getItem("crowhr.tryCompany"));
+  expect(remembered).toContain(slug);
+  const iphone = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+    isMobile: true,
+    hasTouch: true,
+  });
+  await iphone.addInitScript((value) => localStorage.setItem("crowhr.tryCompany", value), remembered as string);
+  const ios = await iphone.newPage();
+  await ios.goto("/try");
+  await expect(ios.getByTestId("try-slug")).toHaveValue(slug);
+  expect(await ios.getByTestId("try-open-app").getAttribute("href")).toMatch(/^crowhr:\/\/connect\?server=/);
+  await expect(ios.getByTestId("try-app-hint").getByRole("link", { name: /App Store/ })).toHaveAttribute(
+    "href",
+    APP_STORE_URL,
+  );
+  await axeClean(ios);
 });
 
 test("an ended or unknown demo company's sign-in page says so and offers a new one", async ({ page }) => {

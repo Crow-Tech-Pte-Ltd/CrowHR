@@ -9,7 +9,7 @@ import { E2E, uiSignInOk } from "./fixtures.ts";
  * test proves what the code holds, not just what the page says.
  */
 test.describe("My profile → Mobile app", () => {
-  test("QR code holds only the server address and organisation; Google Play is linked, the App Store is coming soon", async ({
+  test("QR code holds only the server address and organisation; Google Play and the App Store are linked", async ({
     page,
     baseURL,
   }) => {
@@ -41,13 +41,14 @@ test.describe("My profile → Mobile app", () => {
     // The e2e server runs on plain http: the page says what the app will do.
     await expect(section.getByTestId("http-note")).toContainText("not encrypted");
 
-    // Android is on Google Play; the iPhone app is still in App Store review.
-    await expect(section.getByRole("link", { name: /Get it on Google Play/ })).toHaveAttribute(
-      "href",
-      "https://play.google.com/store/apps/details?id=crowtech.crowhr",
-    );
-    await expect(section.getByText("App Store: coming soon")).toBeVisible();
-    await expect(section.getByRole("link", { name: /App Store/ })).toHaveCount(0);
+    // Both store listings, opening in a new tab.
+    const play = section.getByRole("link", { name: /Get it on Google Play/ });
+    await expect(play).toHaveAttribute("href", "https://play.google.com/store/apps/details?id=crowtech.crowhr");
+    await expect(play).toHaveAttribute("target", "_blank");
+    const appStore = section.getByRole("link", { name: /Download on the App Store/ });
+    await expect(appStore).toHaveAttribute("href", "https://apps.apple.com/app/id6831992308");
+    await expect(appStore).toHaveAttribute("target", "_blank");
+    await expect(section).not.toContainText("coming soon");
   });
 
   test("members without an employee record get the section too, at 360px", async ({ page }) => {

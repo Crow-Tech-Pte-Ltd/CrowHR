@@ -1,11 +1,11 @@
 ---
 title: Mobile apps
-description: Native iOS and Android apps for Crow HR. Version 1.0.0 is on Google Play; the iPhone and iPad app is in App Store review. How connecting a phone to your company's server works.
+description: Native iOS and Android apps for Crow HR, version 1.0.0 on the App Store and Google Play. How connecting a phone to your company's server works.
 ---
 
 import { TRY_LIVE, TRY_URL } from "../../lib/links.ts";
 
-Android: on [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr) (1.0.0). iPhone and iPad: in App Store review (1.0.0), so **not in the App Store yet**; until it is, the web app works on phones, with a bottom tab bar for employees.
+Android: on [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr) (1.0.0). iPhone and iPad: on the [App Store](https://apps.apple.com/app/id6831992308) (1.0.0). Without the app, the web app works on phones too, with a bottom tab bar for employees.
 
 The native apps are open source, in the same repository: iOS in SwiftUI (`apps/ios`) and Android in Kotlin and Jetpack Compose (`apps/android`). Both are built and tested against a real Crow HR server. On an iPad the iOS app shows a sidebar in landscape and can share the screen in Split View, Slide Over and Stage Manager.
 
@@ -16,12 +16,12 @@ The apps cover what employees and managers do most: payslips, leave, clock in an
 {TRY_LIVE ? (
   <p>You don't need a server of your own to try the app. Open the <a href={TRY_URL}>try page</a> on Crow Tech's demo server and tap <strong>Start my demo company</strong>.</p>
 ) : (
-  <p>Not open yet. You won't need a server of your own to try the app: the try page on Crow Tech's demo server (<code>{TRY_URL}</code>) opens after the App Store review of the 1.0.0 apps. There you tap <strong>Start my demo company</strong>.</p>
+  <p>Not open yet. Once it is, you won't need a server of your own to try the app: on the try page of Crow Tech's demo server (<code>{TRY_URL}</code>) you tap <strong>Start my demo company</strong>.</p>
 )}
 
 You get a private copy of Kopi Kaki, the fictional café group from the [demo](/docs/demo/), with four months of payroll, leave, claims and rosters. Then open it:
 
-- **on your phone**: tap **Open in the Crow HR app** (on Android it opens Google Play if the app isn't installed yet);
+- **on your phone**: tap **Open in the Crow HR app** (on Android it opens Google Play if the app isn't installed yet; on an iPhone or iPad, install it from the App Store first);
 - **on a computer**: scan the QR code with the app or the phone's camera;
 - **in the browser**: **Open in this browser**, on the same company.
 
@@ -39,7 +39,7 @@ Each person finds their connection code in **My profile → Mobile app**:
 
 - a **QR code** to scan with the app. It holds `crowhr://connect?server=<your PUBLIC_URL>&org=<organisation>` and nothing else: no password, session or token, so it is safe to show on screen or print for a notice board;
 - the **server address** (your `PUBLIC_URL`) to type into the app instead, with a copy button, and the organisation's short name;
-- the store listings: a link to Google Play, and the App Store marked "coming soon" until the iPhone app is published.
+- links to the app on Google Play and the App Store.
 
 If you type the address and the server hosts more than one organisation, the app also asks for the organisation's short name (its ID). The app then checks the server, shows your organisation's name for you to confirm, and signs you in through your phone's browser with the same methods you use on the web (password, Google, Microsoft, Singpass or your identity provider).
 

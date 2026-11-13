@@ -10,8 +10,7 @@ import { connectQrDataUrl, isHttps, mobileConnectPayload } from "./mobile-connec
 /**
  * My profile → Mobile app (add-mobile-apps task 1.1). The QR code tells the Crow HR app which
  * server and organisation to connect to; it holds no credentials, so it is safe to show on screen
- * or print. The Android app is on Google Play; the iPhone and iPad app is still in App Store review, so its
- * entry says "coming soon" (app-stores.ts).
+ * or print. Below it, links to the app on Google Play and the App Store (app-stores.ts).
  */
 
 export function MobileAppSection() {
