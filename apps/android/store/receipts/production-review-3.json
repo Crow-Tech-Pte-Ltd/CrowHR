@@ -1,0 +1,23 @@
+{
+  "packageName": "crowtech.crowhr",
+  "consoleAppId": "4976368088435434771",
+  "developerAccountId": "7071629237355404162",
+  "track": "production",
+  "release": "3 (1.1.0)",
+  "versionCode": 3,
+  "versionName": "1.1.0",
+  "aabSha256": "9917972c8789ad57057b30ee84d491850a5f8c3ec12d5b0b7b1458b0e87b7803",
+  "playSha256": "9917972c8789ad57057b30ee84d491850a5f8c3ec12d5b0b7b1458b0e87b7803",
+  "approval": "apps/android/store/approvals/2026-11-13-production-1.1.0.txt",
+  "before": "production: 2 (1.0.0) completed (available on Google Play); internal: old draft of versionCode 1; no versionCode 3 anywhere",
+  "upload": "scripts/android-play.py upload-production-draft (production-draft-3.json): draft 3 (1.1.0) with the en-GB 1.1.0 release notes, committed through the API",
+  "sentForReview": {
+    "how": "Play Console (owner browser): Production > Edit release > Next > Save (roll-out 100.0%, available in all targeted countries) > Publishing overview > Submit 1 change for review > Send changes for review",
+    "consoleWarning": "1 warning: the bundle has native code and no debug symbols were uploaded (recommendation only)",
+    "managedPublishing": "off: Google's approval publishes the release",
+    "consoleState": "Changes in review: Production 3 (1.1.0), Start full rollout. Quick checks passed ('Your changes are now in review')",
+    "apiReadBack": "production track: release 3 (1.1.0), status completed, versionCodes [3] (full rollout; it replaces 2 once Google approves it)"
+  },
+  "state": "in review (not approved, not live yet); 1.0.0 (2) stays live until then",
+  "at": "2026-11-13T16:07Z"
+}
