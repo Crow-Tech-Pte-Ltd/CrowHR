@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import starlight from "@astrojs/starlight";
 import { defineConfig, passthroughImageService } from "astro/config";
 import { apiTagSlug } from "./src/lib/api-tags.ts";
+import { DOC_GROUPS, HELP_GROUP } from "./src/lib/sidebar.ts";
 
 /**
  * Crow HR docs: static files served from https://hr.crow.sg/docs, next to the in-browser demo.
@@ -52,6 +53,9 @@ export default defineConfig({
       ],
       components: {
         SiteTitle: "./src/components/SiteTitle.astro",
+        // Structured data and the share image (SEO), and the Copy page / Copy for my AI buttons.
+        Head: "./src/components/Head.astro",
+        PageTitle: "./src/components/PageTitle.astro",
       },
       head: [
         { tag: "meta", attrs: { name: "theme-color", content: "#FEFEFE", media: "(prefers-color-scheme: light)" } },
@@ -78,96 +82,9 @@ export default defineConfig({
       // Long lines wrap with a hanging indent instead of scrolling sideways, so nothing is cut off on a
       // phone and no code block needs its own scroll region.
       expressiveCode: { defaultProps: { frame: "code", wrap: true, hangingIndent: 2 } },
+      // Groups live in src/lib/sidebar.ts (shared with llms.txt); the API reference is generated here.
       sidebar: [
-        {
-          label: "Get started",
-          items: [{ slug: "introduction" }, { slug: "quick-start" }, { slug: "status" }, { slug: "demo" }],
-        },
-        {
-          label: "Self-hosting",
-          items: [
-            { slug: "self-hosting/install" },
-            { slug: "self-hosting/configuration" },
-            { slug: "self-hosting/reverse-proxy" },
-            { slug: "self-hosting/backups" },
-            { slug: "self-hosting/upgrades" },
-            { slug: "self-hosting/cli" },
-            { slug: "self-hosting/troubleshooting" },
-          ],
-        },
-        {
-          label: "Administration",
-          items: [
-            { slug: "admin/setup-wizard" },
-            { slug: "admin/company-and-structure" },
-            { slug: "admin/members-and-roles" },
-            { slug: "admin/sign-in-methods" },
-            { slug: "admin/mfa" },
-            {
-              label: "Single sign-on guides",
-              items: [
-                { slug: "admin/sso/google-workspace" },
-                { slug: "admin/sso/microsoft-entra-id" },
-                { slug: "admin/sso/generic-oidc" },
-                { slug: "admin/sso/singpass" },
-              ],
-            },
-          ],
-        },
-        {
-          label: "People",
-          items: [
-            { slug: "people/adding-employees" },
-            { slug: "people/importing" },
-            { slug: "people/lifecycle" },
-            { slug: "people/work-passes" },
-            { slug: "people/self-service-and-change-requests" },
-          ],
-        },
-        {
-          label: "Payroll and compliance",
-          items: [
-            { slug: "payroll/settings" },
-            { slug: "payroll/running-payroll" },
-            { slug: "payroll/cpf-working" },
-            { slug: "payroll/shg-sdl-fwl" },
-            { slug: "payroll/payslips" },
-            { slug: "payroll/cpf-ezpay-file" },
-            { slug: "payroll/bank-file" },
-            { slug: "payroll/ir8a-export" },
-            { slug: "payroll/verification" },
-            { slug: "payroll/limitations" },
-          ],
-        },
-        {
-          label: "Time and leave",
-          items: [{ slug: "leave/leave" }, { slug: "attendance/attendance" }, { slug: "scheduling/scheduling" }],
-        },
-        { label: "Claims", items: [{ slug: "claims/claims" }] },
-        {
-          label: "Approvals and notifications",
-          items: [{ slug: "approvals/approvals" }, { slug: "approvals/notifications" }],
-        },
-        {
-          label: "Documents",
-          items: [{ slug: "documents/documents" }, { slug: "documents/letters-and-kets" }],
-        },
-        { label: "Reports", items: [{ slug: "reports/running-reports" }] },
-        { label: "Roles and permissions", items: [{ slug: "roles-and-permissions" }] },
-        { label: "Integrations", items: [{ slug: "integrations" }] },
-        { label: "Mobile apps", items: [{ slug: "mobile-apps" }] },
-        {
-          label: "Developers",
-          collapsed: true,
-          items: [
-            { slug: "developers/architecture" },
-            { slug: "developers/modules" },
-            { slug: "developers/api-conventions" },
-            { slug: "developers/testing" },
-            { slug: "developers/openspec" },
-            { slug: "developers/contributing" },
-          ],
-        },
+        ...DOC_GROUPS,
         {
           label: "API reference",
           collapsed: true,
@@ -176,18 +93,7 @@ export default defineConfig({
             ...apiTags.map((tag) => ({ label: tag, link: `/api/${apiTagSlug(tag)}/` })),
           ],
         },
-        {
-          label: "Help",
-          items: [
-            { slug: "help/troubleshooting" },
-            { slug: "help/faq" },
-            { slug: "help/security" },
-            { slug: "help/privacy-pdpa" },
-            // The mobile apps' support and privacy pages live on crow.sg, where the store listings point.
-            { label: "Mobile app support", link: "https://crow.sg/apps/crow-hr/support/" },
-            { label: "Mobile app privacy policy", link: "https://crow.sg/apps/crow-hr/privacy/" },
-          ],
-        },
+        HELP_GROUP,
       ],
     }),
   ],
