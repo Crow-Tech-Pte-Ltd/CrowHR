@@ -1,0 +1,20 @@
+{
+  "packageName": "crowtech.crowhr",
+  "track": "production",
+  "status": "built and verified, not uploaded yet",
+  "versionCode": 3,
+  "versionName": "1.1.0",
+  "builtFrom": "1297783d4c60a02871f96d3a715528c528df04dc",
+  "aab": "crow-hr-1.1.0-3.aab",
+  "aabSha256": "9917972c8789ad57057b30ee84d491850a5f8c3ec12d5b0b7b1458b0e87b7803",
+  "uploadCertificateSha256": "00:36:3F:6F:B1:A9:F5:3A:81:CB:2F:B3:C7:D4:96:D9:FF:0B:C7:03:FE:89:DB:3E:6D:47:E6:3A:F0:38:57:10",
+  "approval": "apps/android/store/approvals/2026-11-13-production-1.1.0.txt",
+  "checks": {
+    "androidBuildCheck": "passed: licence notices, debug APK, 137 unit tests, lint (0 errors)",
+    "deviceTests": "31 of 31 passed on CrowHR_QA (API 37, 16 KB pages) against a test server with demo companies on; an earlier run against a server without them had 2 failures (EssJourneyTest.managerRejectsWithCommentAndApproves, ParityJourneyTest.foreignCurrencyDraftChangedSubmittedWithdrawnAndCopied) that passed on the rerun",
+    "audit": "passed: no telemetry, ads or Play Services code; permissions unchanged since 1.0.0 (no manifest or dependency change since e5da22b)",
+    "manualQa": "universal APK from the signed AAB on CrowHR_QA: connected to the test server, signed in through Chrome, clocked in and out (synced), Leave and Who's away, Pay and a payslip, Tasks, More (notifications, claims, schedule, profile, settings)"
+  },
+  "notUploadedBecause": "the Google Play publisher login had expired (RefreshError) and its renewal could not reach the shared browser (connectOverCDP timed out)",
+  "at": "2026-11-13T14:12:34Z"
+}
