@@ -3,7 +3,7 @@ title: Project status
 description: Which Crow HR modules are built and tested, which are partly done or only reachable through the API, and what is not built.
 ---
 
-This page describes Crow HR 1.0.0. A module is listed as built when it works end to end and is tested. Crow HR has not yet been used for a real company's payroll, so check every result before you pay or file it.
+This page describes Crow HR 1.0.0. A module is listed as built when it works end to end and is tested. Check every result before you pay or file it.
 
 ## Built
 

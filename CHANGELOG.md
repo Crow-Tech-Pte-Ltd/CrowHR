@@ -31,7 +31,7 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 The first public release: free, MIT-licensed HR and payroll for Singapore SMEs that you host yourself.
 
-Crow HR has **not yet been used for a real company's payroll**. Check its results before you pay or file, and read the [project status](https://hr.crow.sg/docs/status/) and the [known limitations](https://hr.crow.sg/docs/payroll/limitations/) (full list: [docs/limitations.md](docs/limitations.md)) before you rely on it.
+Check its results before you pay or file, and read the [project status](https://hr.crow.sg/docs/status/) and the [known limitations](https://hr.crow.sg/docs/payroll/limitations/) (full list: [docs/limitations.md](docs/limitations.md)) before you rely on it.
 
 ### Included
 

@@ -34,7 +34,7 @@ Start with the [install guide](https://hr.crow.sg/docs/self-hosting/install/) an
 
 ## Status
 
-Version 1.0.0 ([changelog](CHANGELOG.md)). Crow HR has not yet been used for a real company's payroll: check its results before you pay or file.
+Version 1.0.0 ([changelog](CHANGELOG.md)). Check payroll results before you pay or file.
 
 **Built:**
 
