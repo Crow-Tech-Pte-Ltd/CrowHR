@@ -1,0 +1,6 @@
+approved-by: Daniel
+scope: production
+version: 1.1.0
+build: 6
+date: 2026-11-13
+note: Daniel, 13 Nov 2026, to the coordinating agent session (hanzi-desk-web-ef) about the 13 Nov mobile audit fixes across all his apps: "can we just release all, check if any changes have come in since your work to see if we are done" / "or if there's any updates to make". The App Store had 1.0.0 (5), built before the audit fixes (PR #42, 22b82b6), so this record covers building build 6 of Crow HR iOS 1.1.0 from main (the audit fixes and the iOS work merged since), uploading it, preparing the 1.1.0 App Store version and submitting it for App Review. It approves nothing else: no listing, privacy, pricing or entitlement changes, and not the open owner decisions from the audit (the refresh-token grace window, the 4xx/3xx punch rule).
