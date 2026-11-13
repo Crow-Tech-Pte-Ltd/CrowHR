@@ -16,7 +16,7 @@
     },
     "apps/demo": {
       "name": "@crowhr/demo-app",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@crowhr/demo": "workspace:*",
         "@crowhr/ui": "workspace:*",
@@ -40,7 +40,7 @@
     },
     "apps/docs": {
       "name": "@crowhr/docs",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@astrojs/starlight": "0.42.6",
         "@fontsource/azeret-mono": "^5.3.0",
@@ -50,7 +50,7 @@
     },
     "apps/server": {
       "name": "@crowhr/server",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@crowhr/core": "workspace:*",
         "@crowhr/demo": "workspace:*",
@@ -74,7 +74,7 @@
     },
     "apps/web": {
       "name": "@crowhr/web",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@crowhr/sg-rules": "workspace:*",
         "@crowhr/ui": "workspace:*",
@@ -101,7 +101,7 @@
     },
     "packages/core": {
       "name": "@crowhr/core",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@crowhr/sg-rules": "workspace:*",
         "@pdf-lib/fontkit": "1.1.1",
@@ -120,7 +120,7 @@
     },
     "packages/demo": {
       "name": "@crowhr/demo",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@crowhr/core": "workspace:*",
         "@electric-sql/pglite": "^0.5.13",
@@ -133,11 +133,11 @@
     },
     "packages/sg-rules": {
       "name": "@crowhr/sg-rules",
-      "version": "1.0.0",
+      "version": "1.1.0",
     },
     "packages/ui": {
       "name": "@crowhr/ui",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@fontsource/azeret-mono": "^5.3.0",
         "@fontsource/ubuntu": "^5.3.0",

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Crow HR API",
-    "version": "1.0",
+    "version": "1.1",
     "description": "Versioned REST API used by the Crow HR web app and native apps. Within v1, changes are additive only; see docs/api.md.",
     "license": {
       "name": "MIT",

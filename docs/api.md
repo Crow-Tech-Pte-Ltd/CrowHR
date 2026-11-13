@@ -18,7 +18,7 @@ Mobile apps and self-hosted servers lag releases by months, so these rules are w
 `bun run check` runs `openapi:check`, which fails when:
 
 1. `openapi/v1.snapshot.json` differs from what the code generates. Fix: `bun run openapi:generate` and commit the snapshot (reviewers see the contract diff in the PR).
-2. The generated document has breaking changes against the newest released snapshot in `packages/core/openapi/releases/v1.<minor>.json`. The output names each operation and field. When a release is cut, copy the snapshot there and bump `API_CONTRACT_VERSION` in `src/openapi/generate.ts`. `v1.0.json` is the snapshot of tag `v1.0.0`, the contract the 1.0.0 iOS and Android apps were built against.
+2. The generated document has breaking changes against the newest released snapshot in `packages/core/openapi/releases/v1.<minor>.json`. The output names each operation and field. When a release is cut, copy the snapshot there and bump `API_CONTRACT_VERSION` in `src/openapi/generate.ts`. `v1.0.json` is the snapshot of tag `v1.0.0`, the contract the 1.0.0 iOS and Android apps were built against; `v1.1.json` is tag `v1.1.0`'s.
 
 The diff is plain TypeScript (`packages/core/scripts/openapi-diff.ts`), so it runs offline in CI with no extra toolchain.
 
