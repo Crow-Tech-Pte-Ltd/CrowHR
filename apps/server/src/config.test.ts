@@ -105,6 +105,7 @@ describe("demo companies settings", () => {
       maxLive: 300,
       hourlyLimitPerNetwork: 5,
       dailyLimitPerNetwork: 20,
+      serverHourlyLimit: 30,
       uploadQuotaBytes: 25 * 1024 * 1024,
     });
     expect(
@@ -116,6 +117,7 @@ describe("demo companies settings", () => {
         DEMO_COMPANY_MAX_LIVE: "50",
         DEMO_COMPANY_HOURLY_LIMIT: "2",
         DEMO_COMPANY_DAILY_LIMIT: "4",
+        DEMO_COMPANY_SERVER_HOURLY_LIMIT: "12",
         DEMO_COMPANY_UPLOAD_QUOTA_MB: "10",
       }).demoCompanies,
     ).toEqual({
@@ -124,6 +126,7 @@ describe("demo companies settings", () => {
       maxLive: 50,
       hourlyLimitPerNetwork: 2,
       dailyLimitPerNetwork: 4,
+      serverHourlyLimit: 12,
       uploadQuotaBytes: 10 * 1024 * 1024,
     });
   });
@@ -139,9 +142,23 @@ describe("demo companies settings", () => {
     expect(() =>
       loadConfig({ ...base, DEMO_COMPANIES: "1", DEMO_COMPANY_HOURLY_LIMIT: "30", DEMO_COMPANY_DAILY_LIMIT: "10" }),
     ).toThrow(/DEMO_COMPANY_HOURLY_LIMIT \(30\) is more than DEMO_COMPANY_DAILY_LIMIT \(10\)/);
+    expect(() => loadConfig({ ...base, DEMO_COMPANIES: "1", DEMO_COMPANY_SERVER_HOURLY_LIMIT: "0" })).toThrow(
+      /DEMO_COMPANY_SERVER_HOURLY_LIMIT must be a whole number from 1 to 10000/,
+    );
+    expect(() =>
+      loadConfig({
+        ...base,
+        DEMO_COMPANIES: "1",
+        DEMO_COMPANY_HOURLY_LIMIT: "8",
+        DEMO_COMPANY_SERVER_HOURLY_LIMIT: "6",
+      }),
+    ).toThrow(/DEMO_COMPANY_SERVER_HOURLY_LIMIT \(6\) is less than DEMO_COMPANY_HOURLY_LIMIT \(8\)/);
     // A demo-company setting without the mode is a mistake worth stopping for.
     expect(() => loadConfig({ ...base, DEMO_COMPANY_TTL_HOURS: "24" })).toThrow(
       /DEMO_COMPANY_TTL_HOURS is set but DEMO_COMPANIES is off/,
+    );
+    expect(() => loadConfig({ ...base, DEMO_COMPANY_SERVER_HOURLY_LIMIT: "24" })).toThrow(
+      /DEMO_COMPANY_SERVER_HOURLY_LIMIT is set but DEMO_COMPANIES is off/,
     );
   });
 });

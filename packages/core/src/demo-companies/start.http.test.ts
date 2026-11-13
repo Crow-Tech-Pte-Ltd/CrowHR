@@ -137,7 +137,7 @@ describe("demo companies: starting one", () => {
     expect(error.message).toContain("5 demo companies in the last hour");
     expect(error.details).toEqual({ retryAt: "2026-11-10T03:00:00.000Z" });
     expect(refused.headers.get("retry-after")).toBe(String(45 * 60));
-    // Another network is not affected; an IPv6 /64 counts as one network.
+    // Another network is not affected.
     expect((await start("203.0.113.99")).status).toBe(201);
     expect(demo.calls).toHaveLength(6);
   });
@@ -147,12 +147,14 @@ describe("demo companies: starting one", () => {
     const counters = async () =>
       (await t.db.select().from(authThrottle)).filter((r) => r.key.startsWith("demo-companies:"));
     const rows = await counters();
-    expect(rows).toHaveLength(4);
+    // Two networks (hour and day each) and the server's own hourly count.
+    expect(rows).toHaveLength(5);
     for (const r of rows) {
       expect(r.key).not.toContain("203.0.113");
       expect(r.key).not.toContain("2001:db8");
-      expect(r.key).toMatch(/^demo-companies:(hour|day):[A-Za-z0-9_-]{43}$/);
+      expect(r.key).toMatch(/^demo-companies:((hour|day):[A-Za-z0-9_-]{43}|server-hour)$/);
     }
+    expect(rows.find((r) => r.key === "demo-companies:server-hour")?.count).toBe(2);
     // 02:15 → the hourly windows end at 03:00, the daily ones at midnight UTC.
     clock.set("2026-11-10T03:01:00.000Z");
     await tick(deps, clock.now());
@@ -162,11 +164,52 @@ describe("demo companies: starting one", () => {
     expect(await counters()).toEqual([]);
   });
 
-  it("counts an IPv6 /64 as one network", async () => {
+  it("counts an IPv6 /48 as one network, so one site's address block can't take every demo company", async () => {
     build({ hourlyLimitPerNetwork: 1 });
     expect((await start("2001:db8:1:2::a")).status).toBe(201);
+    // Another address, another /64, the same /48: the same network.
     expect((await start("2001:db8:1:2:ffff::b")).status).toBe(429);
-    expect((await start("2001:db8:1:3::a")).status).toBe(201);
+    expect((await start("2001:db8:1:3::a")).status).toBe(429);
+    expect((await start("2001:db8:1:ffff:1:2:3:4")).status).toBe(429);
+    // The next /48 is another network.
+    expect((await start("2001:db8:2::a")).status).toBe(201);
+    expect((await start("2001:0db8:0002:0000::b")).status).toBe(429);
+    // IPv4-mapped addresses still count as their IPv4 address.
+    expect((await start("::ffff:203.0.113.50")).status).toBe(201);
+    expect((await start("203.0.113.50")).status).toBe(429);
+  });
+
+  it("limits the starts on the whole server per clock hour, across every network", async () => {
+    build({ serverHourlyLimit: 3 });
+    for (let i = 1; i <= 3; i++) expect((await start(`2001:db8:${i}::1`)).status).toBe(201);
+    const refused = await start("2001:db8:4::1");
+    expect(refused.status).toBe(429);
+    const error = await errorOf(refused);
+    expect(error.code).toBe("rate_limited");
+    expect(error.message).toContain("3 demo companies in the last hour");
+    expect(error.details).toEqual({ retryAt: "2026-11-10T03:00:00.000Z" });
+    expect(refused.headers.get("retry-after")).toBe(String(45 * 60));
+    expect(demo.calls).toHaveLength(3);
+    // The next clock hour opens again.
+    clock.set("2026-11-10T03:00:00.000Z");
+    expect((await start("2001:db8:5::1")).status).toBe(201);
+  });
+
+  it("doesn't let one network's refused starts use up the server's hourly starts", async () => {
+    build({ hourlyLimitPerNetwork: 1, serverHourlyLimit: 2 });
+    expect((await start("203.0.113.1")).status).toBe(201);
+    for (let i = 0; i < 10; i++) expect((await start("203.0.113.1")).status).toBe(429);
+    expect((await start("203.0.113.2")).status).toBe(201);
+    expect((await start("203.0.113.3")).status).toBe(429);
+  });
+
+  it("uses 30 starts an hour for the whole server by default", async () => {
+    expect(demo.serverHourlyLimit).toBe(30);
+    build({ hourlyLimitPerNetwork: 100, dailyLimitPerNetwork: 100 });
+    for (let i = 0; i < 30; i++) expect((await start()).status).toBe(201);
+    const refused = await start("203.0.113.200");
+    expect(refused.status).toBe(429);
+    expect((await errorOf(refused)).message).toContain("30 demo companies in the last hour");
   });
 
   it("limits a network to 20 starts a day", async () => {
