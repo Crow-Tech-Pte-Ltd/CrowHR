@@ -1,0 +1,23 @@
+{
+  "bundleId": "crowtech.crowhr",
+  "appStoreConnectApp": "6831992308",
+  "version": "1.1.0",
+  "build": 6,
+  "builtFrom": "2c21b681fe5093f804a1cdf4573d077fe3380fd5",
+  "containsAuditFixes": "22b82b6 (#42)",
+  "approval": "apps/ios/store/approvals/2026-11-13-app-store-1.1.0-build6.txt",
+  "ipaSha256": "d8dfd939139501fd79025adc263f67656c67583ee443fe9d7db57afbf6875f53",
+  "checks": {
+    "releaseGate": "scripts/ios-release.sh production: 156 unit tests passed; EssJourneyUITests 6 of 6 on CrowHR · iPhone and 6 of 6 on CrowHR · iPad 13, every connection to the test server only; IPA checks, altool validate and upload passed. A first run at 21:54 SGT failed 5 of 6 UI tests while the shared Mac was overloaded (load average about 900: timeouts, and the test server tunnel dropped); the rerun at 22:37 SGT passed",
+    "qaAudit": "QAScreenshotsUITests 4 of 4 on CrowHR · iPhone and 4 of 4 on CrowHR · iPad 13 (Xcode accessibility audit, light and dark, XXXL text)",
+    "reviewServer": "scripts/verify-sample-company.ts --exercise on hr-demo.crow.sg (kopi-kaki): 17 passed, 0 failed"
+  },
+  "uploadedAt": "2026-11-13T15:00:56Z",
+  "deliveryUuid": "12cf0b27-b990-43c9-8c23-25e4a68fa8d5",
+  "appStoreVersion": "4a754165-768b-4e4a-a57e-990a167dbf11",
+  "listing": "ios-store-listing.py apply (listing unchanged from 1.0.0, What's New from WHATS_NEW), attach-build 6; review details, screenshots, App Privacy and age rating carried over from 1.0.0",
+  "reviewSubmission": "bbde9faf-f439-4322-adc4-c462b0926d50",
+  "submittedAt": "2026-11-13T15:31:12Z",
+  "state": "WAITING_FOR_REVIEW",
+  "releaseType": "AFTER_APPROVAL"
+}

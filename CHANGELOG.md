@@ -43,9 +43,9 @@ Check its results before you pay or file, and read the [project status](https://
 - **The in-browser demo** at [hr.crow.sg](https://hr.crow.sg) opens on its own date, looks lived in (opening balances imported, allowances classified) and links to the demo-company try page for the phone apps.
 - My profile → Mobile app links the apps on Google Play and the App Store (iPhone and iPad, live since 13 Nov 2026).
 
-### Mobile apps (in the repository, not yet in the stores)
+### Mobile apps 1.1.0 (on their way to the stores)
 
-The App Store and Google Play apps stay 1.0.0 and work with this server. The next app version, built from this repository, adds:
+The 1.0.0 apps in the App Store and Google Play work with this server. App version 1.1.0 went to App Store review on 13 Nov 2026; its Google Play release follows. It adds:
 
 - **Both apps**: leave for a child, the team calendar, shift swaps and open shifts, the exchange-rate warning on claims, and notifications that open their item. The iOS app also takes claims in several currencies with several lines, as Android already did.
 - **Clock-in**: a punch's time is the moment you tap, not when the location fix arrived; on iPhone, unsent punches are no longer lost when iOS had started the app in the background; on Android, leaving the Clock tab straight after a tap no longer drops the punch.

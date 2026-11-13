@@ -60,7 +60,7 @@ The audience is an SME with one technical person, not a DevOps team.
 
 ## Mobile apps
 
-Native, open source, in this repo: `apps/ios` (SwiftUI) and `apps/android` (Kotlin + Jetpack Compose), built and tested with `scripts/ios-*.sh` (on a Mac over SSH) and `scripts/android-*.sh` (on Linux); see each app's README. Privacy and support pages: `crow.sg/apps/crow-hr/{privacy,support}`. Version 1.0.0 is on Google Play and on the App Store (iPhone and iPad).
+Native, open source, in this repo: `apps/ios` (SwiftUI) and `apps/android` (Kotlin + Jetpack Compose), built and tested with `scripts/ios-*.sh` (on a Mac over SSH) and `scripts/android-*.sh` (on Linux); see each app's README. Privacy and support pages: `crow.sg/apps/crow-hr/{privacy,support}`. Version 1.0.0 is on Google Play and on the App Store (iPhone and iPad). Version 1.1.0 (13 Nov 2026, with the mobile audit fixes): iOS build 6 is in App Review, and Android versionCode 3 is built and verified but waits for its Play upload (`apps/android/store/receipts/production-build-3.json`). Release records: `apps/*/store/`.
 
 - The app connects **only to the company's own Crow HR server**: the user enters the server URL or scans a QR code from the web app. Crow Tech runs no backend for it.
 - **Zero data collection**: no analytics, no crash-reporting SDKs, no third-party SDKs that phone home. Store privacy labels: "Data Not Collected".
