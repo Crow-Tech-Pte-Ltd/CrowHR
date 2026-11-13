@@ -6,7 +6,8 @@
   apply                  create or rename the editable iOS version to MARKETING_VERSION and fill
                          what the API allows from LISTING below: description, keywords, promotional
                          text, subtitle, support/marketing/privacy URLs, category, copyright, age
-                         rating (every question "none"/"no"), free in every territory
+                         rating (every question "none"/"no"), free in every territory, and for an
+                         update the version's "What's New" text from WHATS_NEW
   screenshots [DIR]      replace the en-GB screenshots: the 6.9-inch iPhone set with DIR/*.png and,
                          when DIR/ipad/ has PNGs, the 13-inch iPad set with DIR/ipad/*.png (name
                          order; DIR defaults to apps/ios/store/screenshots). Checks every size first
@@ -74,6 +75,22 @@ LISTING = {
     "privacyPolicyUrl": "https://crow.sg/apps/crow-hr/privacy/",
     "copyright": "2026 Crow Tech Pte. Ltd.",
     "primaryCategory": "BUSINESS",
+}
+
+# "What's New in This Version", per MARKETING_VERSION. Every update needs it (App Review refuses an
+# update without it); the first version can't have it. Keep it in step with app-store-metadata.md.
+WHATS_NEW = {
+    "1.1.0": (
+        "• Leave for a child: the leave types that need one ask which child it is for.\n"
+        "• Team calendar: who is away over the next two weeks.\n"
+        "• Shift swaps: swap a shift with a colleague or give it away, and pick up open shifts.\n"
+        "• Claims with several lines, each in its own currency.\n"
+        "• Notifications open the item they are about.\n"
+        "• Clock-in keeps the time you tapped, and punches waiting to be sent are no longer lost when iOS "
+        "starts the app in the background.\n"
+        "• On iPad, approvals open beside the list.\n"
+        "• Fixes for sign-in sessions, leave and approvals."
+    ),
 }
 
 
@@ -401,6 +418,8 @@ def main():
         body = {"data": {"type": "appStoreVersions", "id": v["id"], "attributes": {"copyright": LISTING["copyright"]}}}
         v = api.call(f"/v1/appStoreVersions/{v['id']}", "PATCH", body)["data"]
         fields = {k: LISTING[k] for k in ("description", "keywords", "promotionalText", "supportUrl", "marketingUrl")}
+        if version in WHATS_NEW:
+            fields["whatsNew"] = WHATS_NEW[version]
         body = {"data": {"type": "appStoreVersionLocalizations", "id": loc["id"], "attributes": fields}}
         try:
             api.call(f"/v1/appStoreVersionLocalizations/{loc['id']}", "PATCH", body)
@@ -421,7 +440,7 @@ def main():
         api.call(f"/v1/appInfos/{info['id']}", "PATCH", {"data": {
             "type": "appInfos", "id": info["id"],
             "relationships": {"primaryCategory": {"data": {"type": "appCategories", "id": LISTING["primaryCategory"]}}}}})
-        print("Set the listing text, URLs, copyright and category.")
+        print("Set the listing text, URLs, copyright and category" + (" and What's New." if version in WHATS_NEW else "."))
 
     if args.action == "screenshots":
         for display, files in sets:
@@ -457,7 +476,7 @@ def main():
         "build": ({"number": build["data"]["attributes"].get("version"), "processingState": build["data"]["attributes"].get("processingState"),
                    "usesNonExemptEncryption": build["data"]["attributes"].get("usesNonExemptEncryption")}
                   if build and build.get("data") else None),
-        "listing": {k: loc_now.get(k) for k in ("locale", "description", "keywords", "promotionalText", "supportUrl", "marketingUrl")},
+        "listing": {k: loc_now.get(k) for k in ("locale", "description", "keywords", "promotionalText", "supportUrl", "marketingUrl", "whatsNew")},
         "appInfo": {"name": info_loc_now.get("name"), "subtitle": info_loc_now.get("subtitle"),
                     "privacyPolicyUrl": info_loc_now.get("privacyPolicyUrl"),
                     "primaryCategory": ((info.get("relationships") or {}).get("primaryCategory") or {}).get("data")},

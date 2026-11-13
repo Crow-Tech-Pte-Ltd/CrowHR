@@ -134,7 +134,17 @@ def listing(s, edit):
     return True
 
 
-RELEASE_NOTES = {"production": "First release: payslips, leave, clock-in with an offline queue, claims with receipt photos, your schedule and manager approvals, from your company's own Crow HR server."}
+# Production release notes (en-GB, at most 500 characters), by versionName. A production upload
+# refuses a versionName that has none.
+RELEASE_NOTES = {
+    "1.0.0": "First release: payslips, leave, clock-in with an offline queue, claims with receipt photos, your schedule and manager approvals, from your company's own Crow HR server.",
+    "1.1.0": (
+        "Leave for a child, a team calendar of who is away, shift swaps and open shifts, and notifications that open "
+        "the item they are about. Claim drafts can be changed, submitted, withdrawn or copied. Clock-in keeps the time "
+        "you tapped, even if you leave the Clock tab straight away. Forms survive turning the phone, and each tab shows "
+        "its last content at once while it reloads."
+    ),
+}
 
 
 def upload_draft(s, edit, aab: Path, version_code: int, track: str, expected_sha256: str | None = None):
@@ -150,14 +160,20 @@ def upload_draft(s, edit, aab: Path, version_code: int, track: str, expected_sha
     actual = int(manifest.get("{http://schemas.android.com/apk/res/android}versionCode"))
     if actual != version_code:
         raise PlayError(f"The bundle's versionCode is {actual}, not {version_code}. Nothing uploaded.")
+    version_name = manifest.get("{http://schemas.android.com/apk/res/android}versionName")
+    notes = RELEASE_NOTES.get(version_name) if track == "production" else None
+    if track == "production" and not notes:
+        raise PlayError(f"No release notes for versionName {version_name}: add them to RELEASE_NOTES. Nothing uploaded.")
+    if notes and len(notes) > 500:
+        raise PlayError(f"The {version_name} release notes are {len(notes)} characters; Google Play allows 500. Nothing uploaded.")
     edit_id = edit.rsplit("/", 1)[1]
     bundle = call(s, "POST", f"{UPLOAD}/edits/{edit_id}/bundles", params={"uploadType": "media"}, data=aab.read_bytes(), headers={"Content-Type": "application/octet-stream"})
     if int(bundle["versionCode"]) != version_code:
         raise PlayError("Google Play reports a different versionCode; the edit is discarded.")
-    release = {"name": f"{version_code} ({manifest.get('{http://schemas.android.com/apk/res/android}versionName')})" if track == "production" else f"{version_code}",
+    release = {"name": f"{version_code} ({version_name})" if track == "production" else f"{version_code}",
                "versionCodes": [str(version_code)], "status": "draft"}
-    if track in RELEASE_NOTES:
-        release["releaseNotes"] = [{"language": LANG, "text": RELEASE_NOTES[track]}]
+    if notes:
+        release["releaseNotes"] = [{"language": LANG, "text": notes}]
     call(s, "PUT", f"{edit}/tracks/{track}", json={"track": track, "releases": [release]})
     receipt(
         f"{track}-draft-{version_code}.json",

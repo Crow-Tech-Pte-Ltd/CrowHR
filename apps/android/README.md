@@ -97,7 +97,8 @@ notification itself (the tests send the same intent the notification carries).
 - `scripts/android-play.py status` (read-only), `listing` (store listing, icon, feature
   graphic and phone screenshots from `store/listing.json`) and
   `upload-production-draft AAB --expected-version-code N [--expected-sha256 HEX]` (puts a verified
-  AAB on the **production** track as a **draft** release with release notes; it never sends
+  AAB on the **production** track as a **draft** release with that versionName's release notes
+  from `RELEASE_NOTES` in the script, refusing a versionName without any; it never sends
   anything for review) use the maintainers' Play publisher service account
   (`CROWHR_PLAY_CREDENTIALS`, a Google credentials file) and the `google-auth` Python package.
   Sending a release for review, the App content forms and the rollout stay in Play Console.

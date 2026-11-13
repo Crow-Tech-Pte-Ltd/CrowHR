@@ -22,8 +22,8 @@ android {
         applicationId = "crowtech.crowhr"
         minSdk = 29
         targetSdk = 37
-        versionCode = providers.environmentVariable("CROWHR_ANDROID_VERSION_CODE").orElse("2").get().toInt()
-        versionName = "1.0.0"
+        versionCode = providers.environmentVariable("CROWHR_ANDROID_VERSION_CODE").orElse("3").get().toInt()
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Release signing: scripts/android-release.sh sets CROWHR_SIGNING_PROPERTIES to the private
