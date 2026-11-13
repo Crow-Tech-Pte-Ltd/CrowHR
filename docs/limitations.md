@@ -305,7 +305,7 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
 - **Only on Crow Tech's demo server.** `DEMO_COMPANIES` is off by default; hr-demo.crow.sg runs it
   from 1.1.0, and the docs (`TRY_LIVE` in `apps/docs/src/lib/links.ts`) and the in-browser demo
   (`VITE_TRY_URL`) link its try page. Seeding was first measured on a workstation with the same CPU
-  as that server.
+  as that server; on the server a copy takes about 20 s.
 - **Seeding slows over time.** A copy is the sample company's June–October 2026 history plus a
   catch-up to the seeding day (rosters, clocked shifts, fresh requests), which grows every day:
   about 18 s per copy in November 2026. No payroll runs exist after October until a visitor makes
