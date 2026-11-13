@@ -7,7 +7,7 @@ A server SHALL offer demo companies only when started with `DEMO_COMPANIES=1`. W
 - **THEN** it answers 404 and creates nothing
 
 ### Requirement: Private copy per visitor
-`POST /api/v1/demo-companies` SHALL give the caller a new copy of the fictional sample company with a random short name (`demo-` + 12 base32 characters), unique fictional email addresses, no passwords, history dated relative to the day it was seeded, and an expiry (`DEMO_COMPANY_TTL_HOURS`, default 72, from the moment it is handed out). It SHALL answer with the server address, the short name, the `crowhr://connect` link and the expiry. Creation SHALL be limited per network per hour and per day and by a maximum number of live copies; past a limit it SHALL answer 429 with when to try again.
+`POST /api/v1/demo-companies` SHALL give the caller a new copy of the fictional sample company with a random short name (`demo-` + 12 base32 characters), unique fictional email addresses, no passwords, history dated relative to the day it was seeded, and an expiry (`DEMO_COMPANY_TTL_HOURS`, default 72, from the moment it is handed out). It SHALL answer with the server address, the short name, the `crowhr://connect` link and the expiry. Creation SHALL be limited per network (an IPv4 address, or an IPv6 /48) per hour and per day, on the whole server per hour, and by a maximum number of live copies; past a limit it SHALL answer 429 with when to try again. A start refused by a network's own limit SHALL NOT count against the whole server's.
 
 #### Scenario: Two visitors
 - **WHEN** two visitors each start a demo company
@@ -16,6 +16,14 @@ A server SHALL offer demo companies only when started with `DEMO_COMPANIES=1`. W
 #### Scenario: Limit reached
 - **WHEN** a network has started 5 demo companies in the last hour
 - **THEN** the next start answers 429 and the try page says when to try again
+
+#### Scenario: One address block
+- **WHEN** clients from different /64s of the same IPv6 /48 have started 5 demo companies in the last hour
+- **THEN** the next start from that /48 answers 429
+
+#### Scenario: Server-wide limit reached
+- **WHEN** the server has started 30 demo companies in the current clock hour, from any networks
+- **THEN** the next start answers 429 with the end of that hour as the time to try again
 
 ### Requirement: Persona sign-in for a demo company
 The sign-in page of a live demo company SHALL offer its people (owner, HR admin, payroll admin, manager, employees) as one-tap sign-in and SHALL NOT offer a password form or SSO. Persona sign-in SHALL work for the web and for the mobile apps' native sign-in (returning to the app with a one-time code), and SHALL be refused (404) for any organisation that is not a live demo company.

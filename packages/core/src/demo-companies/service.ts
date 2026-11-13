@@ -246,6 +246,16 @@ export async function startDemoCompany(c: AppContext): Promise<StartedDemoCompan
       now,
     );
   }
+  // The whole server's hourly count, after the network's: a network past its own caps can't use
+  // up everyone else's starts. Counts only, like the network counters.
+  const onServer = await hitWindow(deps.db, COUNTER_PREFIX.serverHour, HOUR, now);
+  if (onServer.count > config.serverHourlyLimit) {
+    throw tooMany(
+      `This server has started ${config.serverHourlyLimit} demo companies in the last hour, the most it starts in an hour. Try again after the time shown.`,
+      onServer.resetsAt,
+      now,
+    );
+  }
 
   let org = await claimPooled(deps, now);
   if (!org) {
@@ -295,8 +305,15 @@ export async function startDemoCompany(c: AppContext): Promise<StartedDemoCompan
   };
 }
 
-/** Keys of the per-network start counters in `auth_throttle` (fixed windows). */
-export const COUNTER_PREFIX = { hour: "demo-companies:hour:", day: "demo-companies:day:" } as const;
+/**
+ * Keys of the start counters in `auth_throttle` (fixed windows): per network (prefixes, followed
+ * by the network's HMAC) and the whole server's hourly count (one key).
+ */
+export const COUNTER_PREFIX = {
+  hour: "demo-companies:hour:",
+  day: "demo-companies:day:",
+  serverHour: "demo-companies:server-hour",
+} as const;
 
 /**
  * Deletes every start counter whose window has ended: an hourly count lives at most an hour (plus
@@ -314,6 +331,10 @@ export async function sweepDemoCounters(db: Db, now: Date): Promise<void> {
         and(
           like(authThrottle.key, `${COUNTER_PREFIX.day}%`),
           lte(authThrottle.windowStart, new Date(now.getTime() - DAY)),
+        ),
+        and(
+          eq(authThrottle.key, COUNTER_PREFIX.serverHour),
+          lte(authThrottle.windowStart, new Date(now.getTime() - HOUR)),
         ),
       ),
     );

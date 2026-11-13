@@ -13,10 +13,15 @@ export interface DemoCompaniesDeps {
   poolSize: number;
   /** Live demo companies at most, pool included (default 300). */
   maxLive: number;
-  /** Starts per network (client IP; IPv6 /64) per clock hour (default 5). */
+  /** Starts per network (client IP; IPv6 /48) per clock hour (default 5). */
   hourlyLimitPerNetwork: number;
   /** Starts per network per UTC day (default 20). */
   dailyLimitPerNetwork: number;
+  /**
+   * Starts on the whole server per clock hour, every network together (default 30), so many
+   * networks at once can't hand out every demo company (`maxLive`) in one go.
+   */
+  serverHourlyLimit: number;
   /** Bytes of uploads (receipts, documents, logo) one demo company may hold (default 25 MB). */
   uploadQuotaBytes: number;
   /**
@@ -54,6 +59,7 @@ export const DEMO_COMPANY_DEFAULTS = {
   maxLive: 300,
   hourlyLimitPerNetwork: 5,
   dailyLimitPerNetwork: 20,
+  serverHourlyLimit: 30,
   uploadQuotaBytes: 25 * 1024 * 1024,
 } as const;
 
@@ -91,8 +97,10 @@ export function newDemoSlug(): string {
 }
 
 /**
- * The network a start counts against: the IPv4 address, or the /64 of an IPv6 address (one
- * household or office). `unknown` when the host can't tell the client's address.
+ * The network a start counts against: the IPv4 address, or the /48 of an IPv6 address. A /64 is
+ * one household, but one site or customer is commonly given a whole /48 (65,536 /64s), so
+ * counting /64s would let one address block start every demo company. `unknown` when the host
+ * can't tell the client's address.
  */
 export function networkKey(ip: string | null): string {
   if (!ip) return "unknown";
@@ -106,9 +114,9 @@ export function networkKey(ip: string | null): string {
     return `v4:${a >> 8}.${a & 255}.${b >> 8}.${b & 255}`;
   }
   return `v6:${groups
-    .slice(0, 4)
+    .slice(0, 3)
     .map((g) => g.toString(16))
-    .join(":")}::/64`;
+    .join(":")}::/48`;
 }
 
 function expandIpv6(text: string): number[] | null {
