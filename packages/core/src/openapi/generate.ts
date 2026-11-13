@@ -217,4 +217,4 @@ export function buildOpenApiDocument(modules: readonly ApiModule[]): OpenApiDocu
 }
 
 /** Bump the minor when the contract gains something; v1 never loses anything. */
-export const API_CONTRACT_VERSION = "1.0";
+export const API_CONTRACT_VERSION = "1.1";
