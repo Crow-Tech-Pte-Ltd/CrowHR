@@ -37,11 +37,26 @@ The release record (uploaded builds, their IPA checks and the approvals) is in t
 - **Export compliance:** `ITSAppUsesNonExemptEncryption` is false in Info.plist (HTTPS through
   the system only), so App Store Connect doesn't ask per build.
 
+## What's New
+
+Every update needs it; `apply` sets it from `WHATS_NEW` in `scripts/ios-store-listing.py`.
+
+- **1.1.0:**
+  - Leave for a child: the leave types that need one ask which child it is for.
+  - Team calendar: who is away over the next two weeks.
+  - Shift swaps: swap a shift with a colleague or give it away, and pick up open shifts.
+  - Claims with several lines, each in its own currency.
+  - Notifications open the item they are about.
+  - Clock-in keeps the time you tapped, and punches waiting to be sent are no longer lost when iOS starts the app in the background.
+  - On iPad, approvals open beside the list.
+  - Fixes for sign-in sessions, leave and approvals.
+
 ## What the scripts set, and what is set by hand
 
 Through the API, `scripts/ios-store-listing.py`: `apply` (the version named from
 `MARKETING_VERSION`, the listing text and URLs above, category, copyright, age rating answers, the
-free price and availability), `screenshots` (both sets) and `attach-build <n>`.
+free price and availability, and an update's What's New), `screenshots` (both sets) and
+`attach-build <n>`.
 `scripts/ios-store-review.py`: the App Review contact, demo account and notes, content rights,
 excluded territories (mainland China, which needs an ICP filing number) and the submission.
 Release option: App Store Connect's default, "Automatically release this version" after approval.
