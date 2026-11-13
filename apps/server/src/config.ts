@@ -61,6 +61,7 @@ export interface ServerConfig {
     maxLive: number;
     hourlyLimitPerNetwork: number;
     dailyLimitPerNetwork: number;
+    serverHourlyLimit: number;
     uploadQuotaBytes: number;
   } | null;
   /** Optional error/performance monitoring (SENTRY_DSN, SENTRY_BROWSER_DSN); null = off. */
@@ -316,6 +317,7 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     "DEMO_COMPANY_MAX_LIVE",
     "DEMO_COMPANY_HOURLY_LIMIT",
     "DEMO_COMPANY_DAILY_LIMIT",
+    "DEMO_COMPANY_SERVER_HOURLY_LIMIT",
     "DEMO_COMPANY_UPLOAD_QUOTA_MB",
   ];
   if (bool("DEMO_COMPANIES", false)) {
@@ -338,12 +340,24 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
       maxLive: int("DEMO_COMPANY_MAX_LIVE", 300, 1, 10_000, hint),
       hourlyLimitPerNetwork: int("DEMO_COMPANY_HOURLY_LIMIT", 5, 1, 1000, ` Starts per network per hour.${hint}`),
       dailyLimitPerNetwork: int("DEMO_COMPANY_DAILY_LIMIT", 20, 1, 10_000, ` Starts per network per day.${hint}`),
+      serverHourlyLimit: int(
+        "DEMO_COMPANY_SERVER_HOURLY_LIMIT",
+        30,
+        1,
+        10_000,
+        ` Starts on the whole server per hour, every network together.${hint}`,
+      ),
       uploadQuotaBytes:
         int("DEMO_COMPANY_UPLOAD_QUOTA_MB", 25, 1, 1024, ` Uploads one demo company may hold.${hint}`) * 1024 * 1024,
     };
     if (demoCompanies.hourlyLimitPerNetwork > demoCompanies.dailyLimitPerNetwork) {
       fail(
         `DEMO_COMPANY_HOURLY_LIMIT (${demoCompanies.hourlyLimitPerNetwork}) is more than DEMO_COMPANY_DAILY_LIMIT (${demoCompanies.dailyLimitPerNetwork}), so the hourly limit would never apply. Lower it, or raise the daily limit. Set it in .env.`,
+      );
+    }
+    if (demoCompanies.serverHourlyLimit < demoCompanies.hourlyLimitPerNetwork) {
+      fail(
+        `DEMO_COMPANY_SERVER_HOURLY_LIMIT (${demoCompanies.serverHourlyLimit}) is less than DEMO_COMPANY_HOURLY_LIMIT (${demoCompanies.hourlyLimitPerNetwork}), so the limit per network would never apply. Raise the server's limit, or lower the one per network. Set it in .env.`,
       );
     }
   } else {
