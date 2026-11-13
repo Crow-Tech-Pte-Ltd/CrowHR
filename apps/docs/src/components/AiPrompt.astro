@@ -1,0 +1,27 @@
+---
+/** The AI setup prompt, shown in full with its own copy button. The text comes from src/lib/ai-setup-prompt.md. */
+import { AI_SETUP_PROMPT } from "../lib/markdown.ts";
+import CopyIcon from "./CopyIcon.astro";
+---
+
+<div class="crow-prompt">
+  <div class="crow-prompt-bar">
+    <span class="crow-prompt-title">Setup prompt for an AI agent</span>
+    <button
+      type="button"
+      class="crow-action"
+      data-copy
+      data-copy-text={AI_SETUP_PROMPT}
+      data-copy-done="Setup prompt copied: paste it into your AI coding agent"
+    >
+      <CopyIcon />
+      <span data-copy-label>Copy prompt</span>
+    </button>
+  </div>
+  <pre class="crow-prompt-text" tabindex="0" aria-label="Setup prompt">{AI_SETUP_PROMPT}</pre>
+</div>
+
+<script>
+  import { initCopyButtons } from "../lib/copy-buttons.ts";
+  initCopyButtons();
+</script>

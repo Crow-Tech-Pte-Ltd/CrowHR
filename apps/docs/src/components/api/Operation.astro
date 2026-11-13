@@ -7,6 +7,7 @@ import {
   type OperationEntry,
   typeLabel,
 } from "../../lib/openapi.ts";
+import CopyIcon from "../CopyIcon.astro";
 import SchemaTree from "./SchemaTree.astro";
 
 interface Props {
@@ -26,10 +27,22 @@ const recentAuth = op["x-recent-auth"] === true;
 ---
 
 <section class="api-op" aria-labelledby={anchor}>
-  <h2 id={anchor} class="api-op__title">
-    <span class={`api-method api-method--${method}`}>{method.toUpperCase()}</span>
-    <code class="api-path">{path}</code>
-  </h2>
+  <div class="api-op__head">
+    <h2 id={anchor} class="api-op__title">
+      <span class={`api-method api-method--${method}`}>{method.toUpperCase()}</span>
+      <code class="api-path">{path}</code>
+    </h2>
+    <button
+      type="button"
+      class="crow-action crow-action--small"
+      data-copy
+      data-copy-text={`${method.toUpperCase()} ${path}`}
+      aria-label={`Copy ${method.toUpperCase()} ${path}`}
+    >
+      <CopyIcon />
+      <span data-copy-label>Copy</span>
+    </button>
+  </div>
   {op.summary && <p class="api-op__summary">{op.summary}</p>}
   {op.description && op.description !== op.summary && <p>{op.description}</p>}
 
@@ -152,3 +165,8 @@ const recentAuth = op["x-recent-auth"] === true;
     )
   }
 </section>
+
+<script>
+  import { initCopyButtons } from "../../lib/copy-buttons.ts";
+  initCopyButtons();
+</script>

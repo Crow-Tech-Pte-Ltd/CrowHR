@@ -1,0 +1,71 @@
+---
+/**
+ * Starlight's head plus what search engines and link previews use beyond it: a share image, and
+ * structured data (schema.org TechArticle, the software it documents, and a breadcrumb).
+ */
+import Default from "@astrojs/starlight/components/Head.astro";
+import { DOCS, SITE } from "../lib/markdown.ts";
+
+const { entry } = Astro.locals.starlightRoute;
+const url = new URL(Astro.url.pathname, SITE).href;
+const isHome = entry.id === "index";
+const isNotFound = entry.id === "404";
+const image = `${DOCS}/og.png`;
+const imageAlt = "Crow HR: free, open-source HR and payroll for Singapore, with a payroll run for a fictional company";
+
+const software = {
+  "@type": "SoftwareApplication",
+  "@id": `${DOCS}/#software`,
+  name: "Crow HR",
+  applicationCategory: "BusinessApplication",
+  applicationSubCategory: "HR and payroll",
+  operatingSystem: "Linux with Docker; web browser; iOS; Android",
+  license: "https://opensource.org/licenses/MIT",
+  url: "https://crow.sg/apps/crow-hr/",
+  downloadUrl: "https://github.com/Crow-Tech-Pte-Ltd/CrowHR",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "SGD" },
+  publisher: { "@type": "Organization", name: "Crow Tech Pte. Ltd.", url: "https://crow.sg" },
+};
+const website = {
+  "@type": "WebSite",
+  "@id": `${DOCS}/#website`,
+  name: "Crow HR docs",
+  url: `${DOCS}/`,
+  inLanguage: "en",
+};
+const graph = isHome
+  ? [website, software]
+  : [
+      {
+        "@type": "TechArticle",
+        headline: entry.data.title,
+        description: entry.data.description,
+        url,
+        inLanguage: "en",
+        image,
+        isPartOf: { "@id": `${DOCS}/#website` },
+        about: { "@id": `${DOCS}/#software` },
+        publisher: { "@type": "Organization", name: "Crow Tech Pte. Ltd.", url: "https://crow.sg" },
+      },
+      website,
+      software,
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Crow HR docs", item: `${DOCS}/` },
+          { "@type": "ListItem", position: 2, name: entry.data.title, item: url },
+        ],
+      },
+    ];
+const jsonLd = JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replace(/</g, "\\u003c");
+---
+
+<Default />
+<meta property="og:image" content={image} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content={imageAlt} />
+<meta name="twitter:image" content={image} />
+<meta name="twitter:image:alt" content={imageAlt} />
+<link rel="alternate" type="text/plain" title="llms.txt" href="/docs/llms.txt" />
+{!isNotFound && <script type="application/ld+json" set:html={jsonLd} />}

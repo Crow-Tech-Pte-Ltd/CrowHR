@@ -1,0 +1,45 @@
+---
+/**
+ * Starlight's page title plus the page actions: Copy page (this page as Markdown), Copy for my AI (the
+ * setup prompt from src/lib/ai-setup-prompt.md) and a link to the Markdown copy. Generated pages without a
+ * Markdown copy (the API reference) only get Copy for my AI.
+ */
+import Default from "@astrojs/starlight/components/PageTitle.astro";
+import { exportableDocs } from "../astro/docs-collection.ts";
+import CopyIcon from "./CopyIcon.astro";
+
+const { entry } = Astro.locals.starlightRoute;
+const docs = await exportableDocs();
+const markdown = docs.has(entry.id) ? `/docs/${entry.id}.md` : null;
+---
+
+<Default />
+<div class="crow-page-actions" role="group" aria-label="Page actions">
+  {
+    markdown && (
+      <button type="button" class="crow-action" data-copy data-copy-src={markdown} data-copy-done="Page copied as Markdown">
+        <CopyIcon />
+        <span data-copy-label>Copy page</span>
+      </button>
+    )
+  }
+  <button
+    type="button"
+    class="crow-action"
+    data-copy
+    data-copy-src="/docs/ai-setup-prompt.md"
+    data-copy-done="Setup prompt copied: paste it into your AI coding agent"
+    aria-describedby="crow-ai-hint"
+  >
+    <CopyIcon />
+    <span data-copy-label>Copy for my AI</span>
+  </button>
+  <span id="crow-ai-hint" class="sr-only">Copies a prompt that lets an AI coding agent install Crow HR on your server with you.</span>
+  <a class="crow-action crow-action--link" href="/docs/self-hosting/ai-agent/">How it works</a>
+  {markdown && <a class="crow-action crow-action--link" href={markdown}>View as Markdown</a>}
+</div>
+
+<script>
+  import { initCopyButtons } from "../lib/copy-buttons.ts";
+  initCopyButtons();
+</script>

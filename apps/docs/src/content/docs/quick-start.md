@@ -5,6 +5,8 @@ description: Install Crow HR with Docker Compose, then finish setup in the brows
 
 You need a machine with Docker Engine 24+ and the Compose plugin, 2 GB of RAM and a few GB of disk.
 
+Using an AI coding agent such as Claude Code or Codex? **Copy for my AI** under the title copies a prompt that lets it do this install with you; see [set up with an AI agent](/docs/self-hosting/ai-agent/).
+
 ## 1. Get the files
 
 ```sh

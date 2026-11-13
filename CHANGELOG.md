@@ -4,6 +4,11 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ## [Unreleased]
 
+### Added
+
+- **Docs for AI agents**: [Set up with an AI agent](https://hr.crow.sg/docs/self-hosting/ai-agent/) gives a ready-made prompt that lets a coding agent (Claude Code, Codex and others) install Crow HR with you, leaving secrets and the owner account to you. Every docs page has **Copy page** (the page as Markdown) and **Copy for my AI** under its title, and is also served as Markdown at `<page>.md`, with [llms.txt](https://hr.crow.sg/docs/llms.txt) and [llms-full.txt](https://hr.crow.sg/docs/llms-full.txt). API reference endpoints get a copy button.
+- **Docs search engine details**: structured data (TechArticle, the software, a breadcrumb), a share image, and a `robots.txt` on hr.crow.sg that points at the docs sitemap.
+
 ## [1.1.0] - 2026-11-13
 
 Timesheet approval, IR8A Appendix 8A and 8B, demo companies for trying the mobile apps, dark mode, and many payroll, leave and approval fixes. Upgrading from 1.0.0 is `docker compose pull && docker compose up -d`: five migrations (`0017`–`0021`) run on the first start, after an automatic backup. The `/api/v1` API only gained things; the 1.0.0 iOS and Android apps keep working.
