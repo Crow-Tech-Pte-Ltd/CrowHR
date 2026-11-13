@@ -27,6 +27,7 @@ Measured on naan, 13 Nov 2026 (Intel Core Ultra 7 356H, 16 threads: the same CPU
 - **Time:** 17.6–18.3 s wall and 21–23 s CPU per copy (4 copies into PostgreSQL 15, 3 into PGlite; no trend). In vitest, two copies took 42 s together.
 - **Memory (PostgreSQL target, as on a server):** 323 MB resident before the first seed; peak 985 MB during the first and about 1.12 GB during the next ones; about 950 MB after each, stable over four copies (no growth).
 - **Size:** about 5 MB of database (PGlite: 21 MB after two copies, including the empty schema) and about 180 KB of files per fresh copy.
+- **On hr-demo (S4), 13 Nov 2026:** the 1.1.0 image (Node 24) with a 2 GB container limit (V8 heap limit 1,120 MB there): about 20 s per copy (two starts that seeded inline took 19.7 and 20.4 s), and `docker stats` sampled every 13 s showed at most 680 MB during seeds and 165–230 MB between them.
 - **Defaults kept:** TTL 72 h, pool 3, `maxLive` 300, 5 starts per network per hour, 20 per day, 30 per hour on the whole server (added 13 Nov 2026), 25 MB uploads. A pool of 3 refills in about 3 minutes (one per tick). At the cap, 300 copies are about 1.5 GB of database plus at most 7.5 GB of uploads in the worst case; seeding them all costs under 2 CPU-hours spread over 3 days. Give the app container at least 1.5 GB of memory with the mode on.
 
 ## Risks / Trade-offs
