@@ -3,7 +3,7 @@ title: Install with Docker Compose
 description: Install Crow HR on your own server with Docker Compose, finish setup in the browser and take your first backup.
 ---
 
-The short version is on the [quick start](/docs/quick-start/) page. An automated test runs these steps as written on every change to Crow HR.
+The short version is on the [quick start](/docs/quick-start/) page, and an AI coding agent can do these steps with you: see [set up with an AI agent](/docs/self-hosting/ai-agent/). An automated test runs these steps as written on every change to Crow HR.
 
 You need a machine with Docker Engine 24+ and the Compose plugin (`docker compose version`), 2 GB of RAM and a few GB of disk. Crow HR runs as two containers, the app and PostgreSQL 17. There is no Redis and no queue.
 

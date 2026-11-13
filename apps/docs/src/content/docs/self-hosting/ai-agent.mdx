@@ -1,0 +1,28 @@
+---
+title: Set up with an AI agent
+description: Copy a ready-made prompt that lets an AI coding agent such as Claude Code or Codex install Crow HR on your server with you, from Docker Compose and HTTPS to backups and your people's first sign-in.
+---
+
+import AiPrompt from "../../../components/AiPrompt.astro";
+
+If you use a coding agent that can run commands on your server (Claude Code, Codex, Gemini CLI or another), it can install Crow HR with you. **Copy for my AI**, under the title of every docs page, copies the prompt below. Paste it into the agent on the server, or on a computer that reaches the server over SSH.
+
+## What the agent does
+
+- Asks you first: where Crow HR will run, the address people will type, how HTTPS should work, whether to send email, and where backups go.
+- Installs Crow HR with Docker Compose the way the [install guide](/docs/self-hosting/install/) describes, sets up [HTTPS](/docs/self-hosting/reverse-proxy/), and checks the result with `crowhr doctor`.
+- Leaves the secrets to you: you type the backup passphrase, the SMTP password and the tunnel token into `.env`, read the one-time setup code yourself, and create the owner account in your own browser.
+- Takes the first [backup](/docs/self-hosting/backups/) and sets up a copy off the server.
+- Tells you how to add your people and connect the phone app.
+
+:::caution[You stay in charge]
+The agent runs commands on your server. Read what it proposes before it runs it, keep passwords and codes out of the chat, and make DNS and Cloudflare changes in your own browser.
+:::
+
+## The prompt
+
+<AiPrompt />
+
+## Reading the docs as Markdown
+
+The agent can read every page of these docs as Markdown: add `.md` to a page's address (for example [install.md](/docs/self-hosting/install.md)), or fetch [llms-full.txt](/docs/llms-full.txt) for all pages in one file. [llms.txt](/docs/llms.txt) lists the pages. **Copy page**, under each page's title, copies that page as Markdown, to ask an assistant about it.

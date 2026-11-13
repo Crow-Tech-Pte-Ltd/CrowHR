@@ -590,3 +590,96 @@ site-search button[data-open-modal] {
   color: var(--sl-color-gray-3);
   font-size: var(--sl-text-xs);
 }
+
+/* Page actions under the title (PageTitle.astro), the AI prompt box (AiPrompt.astro) and the copy
+   button on API paths: small hairline buttons in the mono label font, text links in blue. */
+.crow-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 1rem;
+}
+.crow-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--sl-color-hairline-shade);
+  border-radius: 0.375rem;
+  background: var(--sl-color-black);
+  color: var(--sl-color-white);
+  font-family: var(--__sl-font-mono);
+  font-size: var(--sl-text-xs);
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: none;
+}
+.crow-action:hover {
+  background: var(--sl-color-gray-6);
+}
+.crow-action svg {
+  flex: none;
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.crow-action--link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-color-text-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.crow-action--link:hover {
+  background: none;
+  color: var(--sl-color-white);
+}
+.crow-action--small {
+  min-height: 1.75rem;
+  padding: 0.125rem 0.5rem;
+}
+.api-op__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.api-op__head .api-op__title {
+  margin: 0;
+}
+.crow-prompt {
+  margin-top: 1rem;
+  border: 1px solid var(--sl-color-hairline-shade);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.crow-prompt-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--sl-color-hairline);
+  background: var(--sl-color-gray-6);
+}
+.crow-prompt-title {
+  font-family: var(--__sl-font-mono);
+  font-size: var(--sl-text-xs);
+  font-weight: 600;
+}
+.sl-markdown-content .crow-prompt-text {
+  margin: 0;
+  max-height: 28rem;
+  overflow: auto;
+  padding: 0.75rem;
+  border: 0;
+  background: var(--sl-color-black);
+  font-size: var(--sl-text-xs);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
