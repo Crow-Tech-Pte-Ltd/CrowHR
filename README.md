@@ -50,7 +50,7 @@ Version 1.0.0 ([changelog](CHANGELOG.md)). Check payroll results before you pay 
 - Payroll: CPF/SHG/SDL and an FWL estimate, inputs fed from leave, attendance, rosters and claims, payslips, the CPF EZPay file, an ISO 20022 bank file, the IR8A export with Appendix 8A and 8B
 - Documents, HR letters and KETs, acknowledgements
 - Reports with CSV/XLSX export
-- Native apps for iPhone, iPad ([`apps/ios`](apps/ios)) and Android ([`apps/android`](apps/android)): payslips, leave, clock in/out (also offline), claims with receipt photos, schedule and approvals. They connect only to your own server and collect no data. Android: [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr). iPhone and iPad: in App Store review
+- Native apps for iPhone, iPad ([`apps/ios`](apps/ios)) and Android ([`apps/android`](apps/android)): payslips, leave, clock in/out (also offline), claims with receipt photos, schedule and approvals. They connect only to your own server and collect no data. Android: [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr). iPhone and iPad: [App Store](https://apps.apple.com/app/id6831992308)
 - A versioned REST API with an OpenAPI description (contract 1.0 frozen in [`packages/core/openapi/releases`](packages/core/openapi/releases)), used by the web and mobile apps
 - An in-browser demo at https://hr.crow.sg
 

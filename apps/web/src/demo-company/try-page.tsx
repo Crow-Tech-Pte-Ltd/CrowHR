@@ -7,7 +7,7 @@ import { CopyField } from "../components/copy-field.tsx";
 import { Wordmark } from "../components/wordmark.tsx";
 import { ApiError, apiGet, apiPost } from "../lib/api.ts";
 import { AppStoreLinks } from "../me/app-store-links.tsx";
-import { ANDROID_PACKAGE, APP_PRIVACY_URL, GOOGLE_PLAY_URL } from "../me/app-stores.ts";
+import { ANDROID_PACKAGE, APP_PRIVACY_URL, APP_STORE_URL, GOOGLE_PLAY_URL } from "../me/app-stores.ts";
 import { connectQrDataUrl } from "../me/mobile-connect.ts";
 import { forgetTryCompany, rememberedTryCompany, rememberTryCompany, type TryCompany } from "./storage.ts";
 
@@ -237,16 +237,7 @@ function TryContent({ config }: { config: TryConfig }) {
       <p className="border-t border-border pt-6 text-2xs text-primary-300">
         The demo server is run by Crow Tech. Nothing is retained: what you type or upload stays in your demo company
         until it ends and is then deleted with it, and the start limits keep only a count per network, not its address,
-        for at most a day.{" "}
-        <a
-          href={APP_PRIVACY_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="focus-ring rounded-sm font-medium text-biru-400 underline-offset-2 hover:underline"
-        >
-          Privacy policy
-          <span className="sr-only"> (opens in a new tab)</span>
-        </a>
+        for at most a day. <NewTabLink href={APP_PRIVACY_URL}>Privacy policy</NewTabLink>
       </p>
     </>
   );
@@ -302,10 +293,18 @@ function OpenCompany({
               Open in the Crow HR app
             </a>
           </Button>
-          <p className="text-2xs text-primary-300">
-            {device === "android"
-              ? "Opens the app if it is installed, or its Google Play page if not."
-              : "Install the app first (App Store: coming soon). Until then, open it in this browser."}
+          <p className="text-2xs text-primary-300" data-testid="try-app-hint">
+            {device === "android" ? (
+              <>
+                Opens the app if it is installed, or its{" "}
+                <NewTabLink href={GOOGLE_PLAY_URL}>Google Play page</NewTabLink> if not.
+              </>
+            ) : (
+              <>
+                Install the app from the <NewTabLink href={APP_STORE_URL}>App Store</NewTabLink> first, then tap this
+                button.
+              </>
+            )}
           </p>
         </div>
       )}
@@ -337,5 +336,20 @@ function OpenCompany({
         </ul>
       </div>
     </div>
+  );
+}
+
+/** An inline link that opens in a new tab (the store listings, the privacy policy). */
+function NewTabLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="focus-ring rounded-sm font-medium text-biru-400 underline-offset-2 hover:underline"
+    >
+      {children}
+      <span className="sr-only"> (opens in a new tab)</span>
+    </a>
   );
 }

@@ -43,7 +43,7 @@ Yes. Each legal entity is its own organisation with its own UEN and CSN, and one
 
 ### Does it work on phones?
 
-The web app works on phone screens, with a bottom tab bar for employees. The native [Android app](/docs/mobile-apps/) is on Google Play, and the iPhone and iPad app is in App Store review. **My profile → Mobile app** shows the code that connects the app to your server.
+The web app works on phone screens, with a bottom tab bar for employees. The native [mobile apps](/docs/mobile-apps/) are on [Google Play](https://play.google.com/store/apps/details?id=crowtech.crowhr) for Android and the [App Store](https://apps.apple.com/app/id6831992308) for iPhone and iPad. **My profile → Mobile app** shows the code that connects the app to your server.
 
 ### Is there a demo?
 

@@ -25,7 +25,7 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 - **Faster**: Home's inbox, leave balances, audit lookups and timesheets at 200 employees; payroll compute and submit; the sign-in page loads 143 kB of JavaScript instead of 251 kB; the server sends the web app's files pre-compressed.
 - **Faster mobile apps** (next version): Android decrypts each stored value once instead of on every read, renews the session a minute before it expires, and shows a tab's last content at once while it reloads instead of a spinner; iOS prepares receipt photos off the main thread and makes fewer inbox requests.
 - **API**: the 1.0 contract is frozen, and CI allows only additive changes.
-- My profile → Mobile app links the Android app on Google Play.
+- My profile → Mobile app and the demo-company try page link the apps on Google Play and the App Store (iPhone and iPad, live since 13 Nov 2026).
 
 ## [1.0.0] - 2026-11-11
 

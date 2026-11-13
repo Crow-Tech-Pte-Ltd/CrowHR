@@ -303,7 +303,7 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
 ## Demo companies
 
 - **Not switched on anywhere yet.** `DEMO_COMPANIES` is off by default. Until a demo server runs with
-  it, the docs say the try page opens soon (`TRY_LIVE` in `apps/docs/src/lib/links.ts`) and the
+  it, the docs say the try page isn't open yet (`TRY_LIVE` in `apps/docs/src/lib/links.ts`) and the
   in-browser demo shows no try link (`VITE_TRY_URL`). Seeding was measured on a workstation with the
   same CPU as the intended demo server, not on that server.
 - **Seeding slows over time.** A copy is the sample company's June–October 2026 history plus a
