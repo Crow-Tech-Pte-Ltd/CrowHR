@@ -7,5 +7,5 @@
     "types": ["vite/client"]
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/worker.ts", "src/service-worker.ts"]
+  "exclude": ["src/**/*.test.ts", "src/worker-entry.ts", "src/worker.ts", "src/service-worker.ts"]
 }

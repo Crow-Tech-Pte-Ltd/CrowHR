@@ -32,6 +32,8 @@ interface BannerProps {
   info: DemoInfo;
   /** Fires "count" events (detail: number) when the Demo outbox receives mail. */
   outboxEvents: EventTarget;
+  /** Discards this browser's copy; the next load restores the snapshot (main.tsx). */
+  resetCopy: () => Promise<void>;
 }
 
 export function mountBanner(props: BannerProps) {
@@ -43,7 +45,7 @@ export function mountBanner(props: BannerProps) {
 const linkClass =
   "focus-ring inline-flex h-7 items-center gap-1.5 rounded-sm px-1.5 font-azeret text-[11px] font-medium text-ink hover:bg-ink/[0.06]";
 
-function DemoBanner({ client, info, outboxEvents }: BannerProps) {
+function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
   const [outboxOpen, setOutboxOpen] = React.useState(false);
   const [resetOpen, setResetOpen] = React.useState(false);
   const [count, setCount] = React.useState<number | null>(null);
@@ -74,7 +76,7 @@ function DemoBanner({ client, info, outboxEvents }: BannerProps) {
     if (boot) boot.hidden = false;
     document.getElementById("root")?.setAttribute("hidden", "");
     try {
-      await client.reset();
+      await resetCopy();
       for (const key of Object.keys(localStorage)) if (key.startsWith("crowhr.")) localStorage.removeItem(key);
     } finally {
       location.assign("/sign-in");

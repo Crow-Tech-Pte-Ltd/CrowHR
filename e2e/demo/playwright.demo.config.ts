@@ -10,6 +10,8 @@ const PORT = Number(process.env.DEMO_E2E_PORT ?? 5181);
  *
  *   bun run --cwd apps/demo build && bunx playwright test -c e2e/demo/playwright.demo.config.ts
  *
+ * Needs Playwright's Chromium and WebKit: `bunx playwright install chromium webkit`.
+ *
  * Specs are named *.demo.ts so the root config does not pick them up.
  */
 export default defineConfig({
@@ -25,7 +27,12 @@ export default defineConfig({
     trace: "retain-on-failure",
     acceptDownloads: true,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // WebKit too: Safari once failed where Chromium worked (a module worker's entry evaluated twice,
+  // packages/demo/src/worker-entry.ts). The timing and screenshot specs stay Chromium-only.
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "webkit", use: { ...devices["Desktop Safari"] }, testMatch: ["**/boot.demo.ts", "**/demo.demo.ts"] },
+  ],
   webServer: {
     command: "node apps/demo/scripts/serve.ts apps/demo/dist",
     cwd: "../..",
