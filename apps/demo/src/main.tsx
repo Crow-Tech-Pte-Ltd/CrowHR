@@ -43,16 +43,32 @@ function showError(html: string) {
   bootEl.hidden = false;
 }
 
-/** The demo's own IndexedDB databases (the worker's PGlite copy). */
+/**
+ * The demo's own IndexedDB databases (the worker's PGlite copy). Call it once the worker is
+ * stopped. A delete that is still blocked after a few seconds is left to finish on its own.
+ */
 async function deleteLocalCopy() {
   const all = (await indexedDB.databases?.()) ?? [];
   for (const db of all) {
     if (!db.name?.includes(DB_PREFIX)) continue;
     await new Promise<void>((resolve) => {
       const req = indexedDB.deleteDatabase(db.name as string);
-      req.onsuccess = req.onerror = req.onblocked = () => resolve();
+      req.onsuccess = req.onerror = () => resolve();
+      req.onblocked = () => setTimeout(resolve, 5_000);
     });
   }
+}
+
+/**
+ * Reset: the worker stops the app and closes its database, then this page stops the worker and
+ * deletes the copy itself. WebKit (Safari) doesn't delete a database from inside the worker that
+ * had it open, even once PGlite has closed it, so the reload used to find the old copy.
+ */
+async function resetCopy(client: DemoClient) {
+  await client.reset();
+  worker?.terminate();
+  worker = null;
+  await deleteLocalCopy();
 }
 
 /**
@@ -164,7 +180,7 @@ async function startApp(t0: number) {
   // apps/web's entry renders into #root as soon as it is imported.
   await import("../../web/src/main.tsx");
   const { mountBanner } = await import("./banner.tsx");
-  mountBanner({ client, info, outboxEvents });
+  mountBanner({ client, info, outboxEvents, resetCopy: () => resetCopy(client) });
   bootEl.hidden = true;
   // Navigation start → app on screen (performance.now() counts from navigation start).
   record.readyMs = Math.round(performance.now());

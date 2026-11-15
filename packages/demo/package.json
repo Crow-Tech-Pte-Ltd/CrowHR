@@ -7,7 +7,7 @@
   "description": "Browser runtime for the public demo: PGlite (IndexedDB) + the real core app in a Web Worker, seeded with fictional data.",
   "exports": {
     "./client": "./src/client.ts",
-    "./worker": "./src/worker.ts",
+    "./worker": "./src/worker-entry.ts",
     "./service-worker": "./src/service-worker.ts",
     "./protocol": "./src/protocol.ts",
     "./personas": "./src/personas.ts",

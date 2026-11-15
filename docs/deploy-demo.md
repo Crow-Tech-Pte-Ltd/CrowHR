@@ -46,7 +46,8 @@ The demo can offer a real Singpass login (then HR admin or Employee; nothing abo
    (plus `VITE_DEMO_SINGPASS_START_URL` once production Singpass is approved) — builds the demo (with the
    server-code bundle guard) and the docs, and assembles `apps/demo/dist-site/`. Then copy the logo
    to `apps/demo/dist-site/branding/singpass-logo.svg`.
-4. `bun run demo:e2e` twice (the second run proves a fresh visitor gets a fresh copy), then
+4. `bun run demo:e2e` twice (the second run proves a fresh visitor gets a fresh copy; it runs in
+   Chromium and WebKit, so install both once with `bunx playwright install chromium webkit`), then
    `node apps/demo/scripts/serve.ts apps/demo/dist-site` and check by hand at
    http://127.0.0.1:5181: first load, a persona, `/payroll`, `/about-demo`, `/docs/`, Reset.
    The preview server applies `_headers` and `_redirects` like Pages does.

@@ -61,6 +61,21 @@ const rows = walk(dist).map((file) => {
 const problems: string[] = [];
 for (const r of rows) for (const [m, what] of MARKERS) if (r.text.includes(m)) problems.push(`${r.file}: ${what}`);
 
+// WebKit evaluates a module worker's entry script again when another chunk imports it, and the
+// second copy takes over its messages (packages/demo/src/worker-entry.ts). No chunk may import it.
+const workerEntries = new Set(
+  rows.flatMap((r) => [...r.text.matchAll(/new Worker\(\s*[`"']\/assets\/([\w.-]+\.js)/g)].map((m) => m[1] as string)),
+);
+if (rows.some((r) => r.file.startsWith("assets/") && r.file.endsWith(".js")) && workerEntries.size === 0)
+  problems.push('no `new Worker("/assets/…")` found: update this check for the new bundle layout');
+for (const entry of workerEntries)
+  for (const r of rows)
+    if (
+      r.file.endsWith(".js") &&
+      new RegExp(`(?:from|import)\\s*\\(?\\s*["']\\./${entry.replace(/[.]/g, "\\.")}["']`).test(r.text)
+    )
+      problems.push(`${r.file} imports the worker entry ${entry}: Safari would run the worker twice`);
+
 const kb = (n: number) => `${(n / 1024).toFixed(0)} kB`;
 const byKind = new Map<string, { raw: number; gzip: number; brotli: number }>();
 for (const r of rows) {
@@ -89,6 +104,6 @@ const lines = [
 ];
 console.warn(lines.join("\n"));
 if (problems.length) {
-  console.error(`Server-only code found in the demo build:\n  ${problems.join("\n  ")}`);
+  console.error(`The demo build has problems:\n  ${problems.join("\n  ")}`);
   process.exit(1);
 }
