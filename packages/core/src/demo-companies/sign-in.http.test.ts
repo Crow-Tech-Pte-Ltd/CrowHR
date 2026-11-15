@@ -14,7 +14,9 @@ import { createApp } from "../app.ts";
 import { sha256Base64Url } from "../crypto/tokens.ts";
 import { auditEvents } from "../db/schema/audit.ts";
 import { deviceSessions, sessions } from "../db/schema/auth.ts";
+import { files } from "../db/schema/files.ts";
 import type { ErrorEnvelope } from "../errors.ts";
+import { NO_APP_UPLOADS_IN_DEMO_COMPANY } from "./config.ts";
 
 /**
  * Persona sign-in for demo companies (demo-companies "Persona sign-in for a demo company", "Demo
@@ -132,6 +134,21 @@ describe("demo companies: persona sign-in", () => {
     expect(device?.deviceName).toBe("Android phone");
     const notices = JSON.stringify(await t.db.select().from(auditEvents));
     expect(notices).not.toContain("Daniel's Pixel 9");
+
+    // The app's store labels say "Data Not Collected": a demo company takes no photos from it.
+    const filesBefore = (await t.db.select().from(files)).length;
+    const png = new Uint8Array(64);
+    png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+    const upload = await app.request("/api/v1/claims/receipts?fileName=receipt.png", {
+      method: "POST",
+      headers: { authorization: `Bearer ${accessToken}`, "content-type": "image/png" },
+      body: png,
+    });
+    expect(upload.status).toBe(403);
+    const error = ((await upload.json()) as ErrorEnvelope).error;
+    expect(error.code).toBe("disabled_in_demo");
+    expect(error.message).toBe(NO_APP_UPLOADS_IN_DEMO_COMPANY);
+    expect(await t.db.select().from(files)).toHaveLength(filesBefore);
   });
 
   it("answers 404 for a real organisation's member on the same server, issuing nothing", async () => {
