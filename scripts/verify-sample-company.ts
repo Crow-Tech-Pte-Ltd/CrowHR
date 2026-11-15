@@ -219,6 +219,7 @@ async function main() {
       // A rostered day about six weeks ahead without leave on it already.
       let request: { id: string } | null = null;
       let applied = "";
+      let refused = "";
       for (const s of ahead.shifts.filter((x) => x.kind === "shift" && x.date >= addDays(today, 40))) {
         const res = await emp.raw("/api/v1/leave/requests", {
           leaveTypeId: annualType.id,
@@ -227,11 +228,17 @@ async function main() {
           reason: "Store review server check",
         });
         if (res.status === 409) continue;
+        // A rostered public holiday (25 Dec, 1 Jan) has no leave to take: try the next shift.
+        if (res.status === 400) {
+          refused = `${s.date}: ${await res.text()}`;
+          continue;
+        }
         request = await json<{ id: string }>(res, "apply for leave");
         applied = s.date;
         break;
       }
-      if (!request) throw new Error("No free rostered day six weeks ahead to apply for leave");
+      if (!request)
+        throw new Error(`No free rostered day six weeks ahead to apply for leave. Last refusal: ${refused}`);
       check("employee applies for leave", true, applied);
       const at = new Date().toISOString();
       const key = `verify-${Date.now()}`;
