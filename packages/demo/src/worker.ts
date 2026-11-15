@@ -8,7 +8,8 @@ import { openWithSnapshot, readSnapshot } from "./snapshot.ts";
  * The demo Web Worker: owns the visitor's PGlite database (IndexedDB) and the real core app, so
  * Postgres, payroll computation and PDF rendering never block the page. The page talks to it over
  * a tiny RPC (protocol.ts). Exactly one tab runs it at a time (the page holds a Web Lock), because
- * two PGlite instances must never write the same IndexedDB database.
+ * two PGlite instances must never write the same IndexedDB database. The worker's entry script is
+ * worker-entry.ts, which loads this module (see there for why).
  */
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -197,6 +198,13 @@ async function dispatch(event: MessageEvent<ToWorker>) {
   }
 }
 
-self.onmessage = (event: MessageEvent<ToWorker>) => {
-  void enqueue(() => dispatch(event));
-};
+/**
+ * Called by worker-entry.ts once this module has loaded, with the messages that arrived meanwhile
+ * (the page sends "boot" as soon as it creates the worker). They run first, in order.
+ */
+export function listen(early: MessageEvent<ToWorker>[]) {
+  self.onmessage = (event: MessageEvent<ToWorker>) => {
+    void enqueue(() => dispatch(event));
+  };
+  for (const event of early.splice(0)) void enqueue(() => dispatch(event));
+}

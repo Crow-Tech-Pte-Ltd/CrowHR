@@ -4,6 +4,10 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ## [Unreleased]
 
+### Fixed
+
+- **The public demo works in Safari**: it never got past sign-in in Safari (and other WebKit browsers), showing "This page failed to load: The demo is still starting". WebKit ran the demo's background worker a second time and the second copy, without a database, answered every request. The worker now starts from a small entry script that nothing else imports, and the demo build fails if one does. **Reset** in Safari also kept the old copy; the page now stops the worker and deletes the copy itself. The demo's browser tests run in WebKit as well as Chromium.
+
 ## [1.1.1] - 2026-11-15
 
 A small update: demo companies no longer take uploads from the mobile apps, and the docs gained a setup prompt for AI agents. Upgrading from 1.1.0 is `docker compose pull && docker compose up -d`; there are no migrations, and the API is unchanged apart from one more documented error on upload routes.

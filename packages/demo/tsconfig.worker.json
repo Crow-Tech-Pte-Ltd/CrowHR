@@ -4,5 +4,5 @@
     "lib": ["WebWorker", "ES2023"],
     "types": ["vite/client"]
   },
-  "include": ["src/worker.ts", "src/service-worker.ts"]
+  "include": ["src/worker-entry.ts", "src/worker.ts", "src/service-worker.ts"]
 }
