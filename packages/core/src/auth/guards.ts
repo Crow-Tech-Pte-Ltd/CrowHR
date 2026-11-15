@@ -1,5 +1,5 @@
 import type { AppContext } from "../context.ts";
-import { NOT_IN_DEMO_COMPANY } from "../demo-companies/config.ts";
+import { NO_APP_UPLOADS_IN_DEMO_COMPANY, NOT_IN_DEMO_COMPANY } from "../demo-companies/config.ts";
 import { AppError } from "../errors.ts";
 import type { AnyRoute, RouteGuard } from "../http/route.ts";
 import { mfaPolicyStatus } from "./mfa-policy.ts";
@@ -45,7 +45,8 @@ const recentAuthGuard: RouteGuard = (c, route) => {
 };
 
 /**
- * Demo companies (design decision 7): the routes marked `refusedInDemoCompany` answer 403, and
+ * Demo companies (design decision 7): the routes marked `refusedInDemoCompany` answer 403, so do
+ * uploads from the native apps, and
  * nothing a demo company does sends email (its requests run without the mailer, so invitations
  * and notices stay in-app; the outbox also suppresses anything queued for a demo company).
  */
@@ -53,6 +54,10 @@ const demoCompanyGuard: RouteGuard = (c, route) => {
   const auth = c.get("auth");
   if (!auth?.demoCompany) return;
   if (route.refusedInDemoCompany) throw new AppError("disabled_in_demo", NOT_IN_DEMO_COMPANY);
+  // Uploads (the routes with a raised body limit) from the native apps: see the message's comment.
+  if (route.maxBodyBytes && auth.session.kind === "device") {
+    throw new AppError("disabled_in_demo", NO_APP_UPLOADS_IN_DEMO_COMPANY);
+  }
   if (c.var.deps.mailer) c.set("deps", { ...c.var.deps, mailer: undefined });
 };
 
