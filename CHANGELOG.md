@@ -4,6 +4,10 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-15
+
+A small update: demo companies no longer take uploads from the mobile apps, and the docs gained a setup prompt for AI agents. Upgrading from 1.1.0 is `docker compose pull && docker compose up -d`; there are no migrations, and the API is unchanged apart from one more documented error on upload routes.
+
 ### Added
 
 - **Docs for AI agents**: [Set up with an AI agent](https://hr.crow.sg/docs/self-hosting/ai-agent/) gives a ready-made prompt that lets a coding agent (Claude Code, Codex and others) install Crow HR with you, leaving secrets and the owner account to you. Every docs page has **Copy page** (the page as Markdown) and **Copy for my AI** under its title, and is also served as Markdown at `<page>.md`, with [llms.txt](https://hr.crow.sg/docs/llms.txt) and [llms-full.txt](https://hr.crow.sg/docs/llms-full.txt). API reference endpoints get a copy button.
