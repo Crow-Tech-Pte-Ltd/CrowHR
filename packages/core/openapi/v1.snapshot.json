@@ -12981,9 +12981,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],
@@ -22673,9 +22674,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],
@@ -25508,9 +25510,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],
@@ -36161,9 +36164,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],
@@ -37346,9 +37350,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],
@@ -45322,9 +45327,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],
@@ -62598,9 +62604,10 @@
             }
           },
           "403": {
-            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "description": "Error: csrf_rejected, disabled_in_demo, forbidden, mfa_enrolment_required.",
             "x-error-codes": [
               "csrf_rejected",
+              "disabled_in_demo",
               "forbidden",
               "mfa_enrolment_required"
             ],

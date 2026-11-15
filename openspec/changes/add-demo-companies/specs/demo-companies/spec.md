@@ -48,11 +48,15 @@ The API SHALL NOT list demo companies. `GET /api/v1/meta` without `org` SHALL om
 - **THEN** none of their names or short names appear
 
 ### Requirement: Guard rails
-In a demo company the server SHALL refuse changes to sign-in and security settings, SSO providers, member invitations, email addresses, passwords and MFA, and SHALL send no email. Uploads SHALL count against a per-company quota (default 25 MB) and be refused past it with a message naming the limit. Device sessions SHALL record the platform instead of the device's own name.
+In a demo company the server SHALL refuse changes to sign-in and security settings, SSO providers, member invitations, email addresses, passwords and MFA, and SHALL send no email. Uploads SHALL count against a per-company quota (default 25 MB) and be refused past it with a message naming the limit. Uploads from the native apps (device sessions) SHALL be refused, so the apps' "Data Not Collected" store labels hold on a demo server run by the apps' publisher. Device sessions SHALL record the platform instead of the device's own name.
 
 #### Scenario: Security settings
 - **WHEN** the demo company's owner tries to change the sign-in methods
 - **THEN** the server answers 403 "Not available in a demo company" and nothing changes
+
+#### Scenario: Receipt photo from the app
+- **WHEN** a person signed in to a demo company in the Crow HR app attaches a receipt photo to a claim
+- **THEN** the server answers 403 `disabled_in_demo` with a message saying the app doesn't upload to a demo company, stores nothing, and the same upload from the web app still works
 
 ### Requirement: Expiry
 The server SHALL delete each demo company after its expiry: every organisation-scoped row, its memberships, users who belong to no other organisation, its device sessions and its files. It SHALL never delete anything of an organisation without a demo expiry.

@@ -69,6 +69,14 @@ export const POOL_COPY_MAX_AGE_HOURS = 24;
 /** Expired demo companies deleted per scheduler tick. */
 export const PURGE_BATCH = 5;
 
+/**
+ * Message for an upload from the Crow HR app in a demo company. The apps' store privacy labels say
+ * "Data Not Collected": nothing a phone sends stays on a server run by the app's publisher, so a
+ * demo company (which may run on such a server) takes no photos or files from the app.
+ */
+export const NO_APP_UPLOADS_IN_DEMO_COMPANY =
+  "The app doesn't upload photos or files to a demo company. Remove the photo to send this, or add receipts in the web demo. In your company's own Crow HR, receipts work as usual.";
+
 /** Message for every route a demo company refuses (design decision 7). */
 export const NOT_IN_DEMO_COMPANY =
   "Not available in a demo company. Sign-in, security and email settings stay as they are, so the demo works for everyone the same way.";

@@ -319,6 +319,9 @@ The demo (https://hr.crow.sg) is the real web app and API running in the visitor
   opens by link, QR code or by typing the server address and its company code.
 - **On a server with demo companies**, `/sign-in` and `GET /api/v1/meta` never fall back to the only
   organisation, so a real organisation's people there use `/sign-in/<slug>`.
+- **In a demo company the apps upload nothing**: a receipt photo answers "The app doesn't upload photos
+  or files to a demo company", so a claim from the app goes without one (receipts work in the web app).
+  The apps' store labels say "Data Not Collected", and hr-demo is Crow Tech's own server.
 - **In a demo company** people hired there get no sign-in (invitations are refused) and so aren't on
   the sign-in page, re-authentication is not asked for, and a browser signed in to one company is
   sent to its home page from another company's sign-in page (sign out first).
