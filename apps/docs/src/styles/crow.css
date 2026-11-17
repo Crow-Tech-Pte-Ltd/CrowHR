@@ -295,6 +295,16 @@ header.header {
   border: 1px solid var(--sl-color-gray-5);
   color: var(--sl-color-white);
 }
+/* Starlight's minimal variant has no inline padding (it is meant to be a bare link); with the
+   border above it needs the same padding as the other buttons. */
+.hero .actions a.minimal {
+  padding-inline: 1.125rem;
+}
+@media (min-width: 50rem) {
+  .hero .actions a.minimal {
+    padding-inline: 1.25rem;
+  }
+}
 
 /* Search dialog: modal surface, so it gets the 2px ink border + hard offset. */
 site-search dialog {
