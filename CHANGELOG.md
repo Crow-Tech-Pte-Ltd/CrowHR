@@ -6,6 +6,7 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ### Fixed
 
+- **Docs home buttons**: "Set up with an AI agent" had no side padding, so its text touched its border.
 - **The public demo works in Safari**: it never got past sign-in in Safari (and other WebKit browsers), showing "This page failed to load: The demo is still starting". WebKit ran the demo's background worker a second time and the second copy, without a database, answered every request. The worker now starts from a small entry script that nothing else imports, and the demo build fails if one does. **Reset** in Safari also kept the old copy; the page now stops the worker and deletes the copy itself. The demo's browser tests run in WebKit as well as Chromium.
 
 ## [1.1.1] - 2026-11-15
