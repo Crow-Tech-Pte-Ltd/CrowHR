@@ -194,8 +194,8 @@ jobs:
 
   test:
     # The suite (2,000+ tests in 280 files on in-process PGlite) is too slow for one 4-core hosted
-    # runner, so it is split across six: about two minutes each, against three and a half on four.
-    # A self-hosted runner with more cores can use fewer shards.
+    # runner, so it is split across six: Vitest took 1.4 to 2.6 min per shard, against 2.7 to 3.6 on
+    # four (Nov 2026). A self-hosted runner with more cores can use fewer shards.
     name: Unit + integration tests (shard ${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
     timeout-minutes: 30
