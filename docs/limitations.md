@@ -248,8 +248,8 @@ How the rules were checked is in `packages/sg-rules/VERIFICATION.md`.
 
 ## Self-hosting
 
-- **Pull-request CI** builds and tests the amd64 image only; arm64 is built and smoke-tested when a
-  version is released.
+- **CI** builds and tests the amd64 image only (on `main`, nightly and pull requests that change the
+  packaging or the server); arm64 is built and smoke-tested when a version is released.
 - **Reverse proxies**: the Caddy, nginx and Traefik examples are tested automatically with test
   certificates, so getting and renewing Let's Encrypt certificates isn't. Cloudflare Tunnel in front of
   Traefik was tested by hand; the tunnel-straight-to-app example hasn't been run.

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { E2E, HOME_HEADING, uiSignIn, uiSignInOk } from "./fixtures.ts";
+import { E2E, HOME_HEADING, uiSignIn, uiSignInOk, uiSignOut } from "./fixtures.ts";
 
 test.describe("members", () => {
   test("invite → accept → sign in", async ({ page, browser }) => {
@@ -30,8 +30,7 @@ test.describe("members", () => {
     await p2.getByLabel("Type it again").fill("sambal stingray by the sea");
     await p2.getByRole("button", { name: "Accept and sign in" }).click();
     await expect(p2.getByRole("heading", { name: HOME_HEADING })).toBeVisible();
-    await p2.getByRole("button", { name: "Account menu" }).click();
-    await p2.getByRole("menuitem", { name: "Sign out" }).click();
+    await uiSignOut(p2);
     await uiSignIn(p2, email, "sambal stingray by the sea");
     await expect(p2.getByRole("heading", { name: HOME_HEADING })).toBeVisible();
     await invitee.close();

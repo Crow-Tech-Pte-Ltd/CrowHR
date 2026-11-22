@@ -33,6 +33,16 @@ Run from the repository root after `bun install`:
 - **Playwright** specs in `e2e/` run the built web app against the real server. People and payroll screens use dev-only seeded servers (`packages/core/testing/*-dev-server.ts`, bound to 127.0.0.1) with fictional staff. `e2e/seed.ts` creates four fictional organisations: the main one, one with every SSO preset (sign-in page), a fresh one with only its owner (setup checklist, claim types) and one for the single sign-on round trip, which runs against the in-process mock OpenID provider served on 127.0.0.1 by `e2e/mock-idp-server.ts` (test only; it signs in whoever the test names). The first-run wizard runs against a second, empty server.
 - **`e2e/self-host.sh`** builds the image and follows the install page in a throwaway compose project: clean `up`, setup wizard, backup, `down -v`, restore, lost-data-volume recovery, and the Caddy, nginx and Traefik examples from the reverse-proxy page over TLS with test certificates. It removes only what it created.
 
+## In CI
+
+`.github/workflows/ci.yml` runs on pull requests, on every push to `main`, nightly and by hand:
+
+- **Every pull request**: Biome, the licence check, TypeScript, sg-rules coverage, the OpenAPI snapshot, migrations in sync with the schema, the web and docs builds, and Vitest in six shards, all in parallel.
+- **Playwright** against PostgreSQL 17 and **`e2e/self-host.sh`** run on `main`, nightly and on manual runs. On a pull request they run when it changes what they test (the web app, server, core, UI kit or e2e specs for Playwright; the Dockerfile, compose file, server, migrations, database layer, setup, system status or the reverse-proxy page for the self-host script) and are otherwise reported as skipped. To run everything on a pull request, add the `full-ci` label and push or re-run the workflow.
+- **Android** unit tests and lint run when Android files change, and nightly.
+
+The dependency audit (`bun audit`, high and critical) runs daily in `.github/workflows/audit.yml` and keeps one issue open while there is something to fix.
+
 ## Docs checks
 
 The docs site has its own tests (`apps/docs/tests/`), run by `bun run test`:
