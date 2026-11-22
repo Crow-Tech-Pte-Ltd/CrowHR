@@ -7,4 +7,4 @@ export const APP_STORE_URL = "https://apps.apple.com/app/id6831992308";
 /** The Android app's package name (Play listing id; `intent://` links name it). */
 export const ANDROID_PACKAGE = "crowtech.crowhr";
 /** The apps' privacy policy: what the apps and a demo server keep. */
-export const APP_PRIVACY_URL = "https://crow.sg/apps/crow-hr/privacy";
+export const APP_PRIVACY_URL = "https://crow.sg/crow-hr/privacy";
