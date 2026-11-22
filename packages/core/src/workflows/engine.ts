@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import type { AssignedRole } from "../access/matrix.ts";
 import { orgScope } from "../access/org-scope.ts";
 import { singaporeDate } from "../access/scope.ts";
@@ -101,7 +101,14 @@ async function lockRequest(db: Db, orgId: string, requestId: string): Promise<Ap
 // Approver resolution
 // ---------------------------------------------------------------------------------------------
 
-export type SkipReason = "self" | "no_manager" | "inactive" | "no_members" | "excluded" | "not_allowed";
+export type SkipReason =
+  | "self"
+  | "no_manager"
+  | "inactive"
+  | "no_members"
+  | "excluded"
+  | "not_allowed"
+  | "earlier_approver";
 
 export interface Resolution {
   members: DirectoryMember[];
@@ -109,13 +116,15 @@ export interface Resolution {
   /** Role-based steps delegate only to members holding that role. */
   viaRole: AssignedRole | null;
   selfApproved?: boolean;
+  /** Everyone who may decide the step already approved an earlier one (see `resolveStep`). */
+  repeatApproval?: boolean;
 }
 
 /** Subject types only these roles ever decide, whatever a policy, delegation or reassignment says. */
 const DECIDER_ROLES: Readonly<Record<string, readonly AssignedRole[]>> = { payroll_run: ["owner"] };
 
 /** Why a member may not decide a request. */
-export type DecideBlocker = "inactive" | "self" | "excluded" | "role" | "not_allowed";
+export type DecideBlocker = "inactive" | "self" | "excluded" | "role" | "not_allowed" | "earlier_approver";
 
 type RequestForEligibility = Pick<
   ApprovalRequest,
@@ -156,6 +165,29 @@ async function filedOnBehalf(db: Db, request: RequestForEligibility, member: Dir
   return !!filed;
 }
 
+/** Whether the member approved a step of the request before `position` (as assignee or delegate). */
+async function approvedEarlierStep(
+  db: Db,
+  request: Pick<ApprovalRequest, "id" | "orgId">,
+  membershipId: string,
+  position: number,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: approvalTasks.id })
+    .from(approvalTasks)
+    .where(
+      and(
+        eq(approvalTasks.orgId, request.orgId),
+        eq(approvalTasks.requestId, request.id),
+        eq(approvalTasks.assigneeMembershipId, membershipId),
+        eq(approvalTasks.status, "approved"),
+        lt(approvalTasks.position, position),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
 /**
  * The one eligibility rule for deciding. Every path that hands a task to someone (resolution,
  * fallback, escalation, delegation, reassignment, re-resolution) and every decision (single, bulk,
@@ -167,14 +199,17 @@ async function filedOnBehalf(db: Db, request: RequestForEligibility, member: Dir
  *   the `self_approved` fallback, and explicit exclusions still apply;
  * - they hold the task's role (`viaRole`) when it has one;
  * - payroll runs are decided by owners only;
- * - the subject adapter's `canDecide` agrees (bank changes: payroll admins and owners only).
+ * - the subject adapter's `canDecide` agrees (bank changes: payroll admins and owners only);
+ * - segregation of duties, when `position` (the step) is given: they didn't approve an earlier step
+ *   of the request, unless the task is a `repeat_approval` (nobody else may decide that step).
+ *   Checked last, so `earlier_approver` means the member could decide the step otherwise.
  */
 export async function decideBlocker(
   db: Db,
   deps: AppDeps,
   request: RequestForEligibility,
   member: DirectoryMember | null,
-  opts: { viaRole?: string | null; selfApproved?: boolean } = {},
+  opts: { viaRole?: string | null; selfApproved?: boolean; position?: number; repeatApproval?: boolean } = {},
 ): Promise<DecideBlocker | null> {
   if (member?.status !== "active") return "inactive";
   if (isExcluded(request, member.membershipId) || (await filedOnBehalf(db, request, member))) return "excluded";
@@ -189,6 +224,13 @@ export async function decideBlocker(
   if (adapter?.canDecide && !(await adapter.canDecide(db, member, refOf(request as ApprovalRequest)))) {
     return "not_allowed";
   }
+  if (
+    opts.position !== undefined &&
+    !opts.repeatApproval &&
+    (await approvedEarlierStep(db, request, member.membershipId, opts.position))
+  ) {
+    return "earlier_approver";
+  }
   return null;
 }
 
@@ -198,22 +240,30 @@ const SKIP_FOR: Record<DecideBlocker, SkipReason> = {
   excluded: "excluded",
   role: "not_allowed",
   not_allowed: "not_allowed",
+  earlier_approver: "earlier_approver",
 };
 
-/** The candidates who may decide, and the most telling reason another one was refused. */
+/**
+ * The candidates who may decide (step `position`, when given), and the most telling reason another
+ * one was refused. `earlier_approver` comes first: it means someone could decide but for having
+ * approved an earlier step, which `resolveStep` routes around.
+ */
 async function eligibleOf(
   ctx: Pick<Ctx, "db" | "deps">,
   request: RequestForEligibility,
   candidates: readonly DirectoryMember[],
+  position?: number,
 ): Promise<{ members: DirectoryMember[]; reason: SkipReason | null }> {
   const members: DirectoryMember[] = [];
   const reasons = new Set<DecideBlocker>();
   for (const m of candidates) {
-    const why = await decideBlocker(ctx.db, ctx.deps, request, m);
+    const why = await decideBlocker(ctx.db, ctx.deps, request, m, { position });
     if (why) reasons.add(why);
     else members.push(m);
   }
-  const first = (["self", "excluded", "not_allowed", "role", "inactive"] as const).find((r) => reasons.has(r));
+  const first = (["earlier_approver", "self", "excluded", "not_allowed", "role", "inactive"] as const).find((r) =>
+    reasons.has(r),
+  );
   return { members, reason: first ? SKIP_FOR[first] : null };
 }
 
@@ -228,17 +278,22 @@ async function managerMember(
   return { member: await directory.memberForEmployee(ctx.db, orgId, managerEmployeeId), managerEmployeeId };
 }
 
-/** Resolves one approver rule for a request (spec "Approver resolution and fallback"). */
+/**
+ * Resolves one approver rule for a request (spec "Approver resolution and fallback"). With the
+ * step's `position`, members who approved an earlier step are refused (`earlier_approver`); steps
+ * resolve through `resolveStep`, which decides where the step goes then.
+ */
 export async function resolveRule(
   ctx: Pick<Ctx, "db" | "deps" | "now">,
   request: RequestForEligibility,
   rule: string,
+  position?: number,
 ): Promise<Resolution> {
   const directory = approverDirectory(ctx.deps);
   const none = (skipReason: SkipReason): Resolution => ({ members: [], skipReason, viaRole: null });
   const single = async (m: DirectoryMember | null, missing: SkipReason): Promise<Resolution> => {
     if (!m) return none(missing);
-    const why = await decideBlocker(ctx.db, ctx.deps, request, m);
+    const why = await decideBlocker(ctx.db, ctx.deps, request, m, { position });
     if (why) return none(SKIP_FOR[why]);
     return { members: [m], skipReason: null, viaRole: null };
   };
@@ -255,7 +310,7 @@ export async function resolveRule(
     const role = rule.slice(5) as AssignedRole;
     const holders = (await directory.membersWithRole(ctx.db, request.orgId, role)).filter((m) => m.status === "active");
     if (!holders.length) return none("no_members");
-    const { members, reason } = await eligibleOf(ctx, request, holders);
+    const { members, reason } = await eligibleOf(ctx, request, holders, position);
     if (members.length) return { members, skipReason: null, viaRole: role };
     return none(reason ?? "no_members");
   }
@@ -263,6 +318,34 @@ export async function resolveRule(
     return single(await directory.member(ctx.db, request.orgId, rule.slice(7)), "no_members");
   }
   return none("no_members");
+}
+
+/**
+ * Resolves a step as it becomes active, or again when its approvers change (segregation of duties:
+ * a member who approved an earlier step of the request doesn't decide this one). When the step's
+ * rule found nobody else, the step goes where a skipped chain would, to members who haven't
+ * approved it yet: eligible HR admins, then owners, for a manager or member step; owners for a role
+ * step, a payroll run or a bank change. When nobody is left there either (one person holds every
+ * role that could decide), the earlier approver decides this step too and the task is marked
+ * `repeat_approval`, shown in the chain and the audit log, rather than the request waiting for ever.
+ */
+export async function resolveStep(
+  ctx: Pick<Ctx, "db" | "deps" | "now">,
+  request: RequestForEligibility,
+  step: Pick<ApprovalStep, "position" | "approverRule">,
+): Promise<Resolution> {
+  const resolution = await resolveRule(ctx, request, step.approverRule, step.position);
+  if (resolution.members.length || resolution.skipReason !== "earlier_approver") return resolution;
+  const directory = approverDirectory(ctx.deps);
+  const ownersOnly =
+    step.approverRule.startsWith("role:") || request.subjectType === "payroll_run" || isBankChange(request);
+  for (const role of ownersOnly ? (["owner"] as const) : (["hr_admin", "owner"] as const)) {
+    const holders = (await directory.membersWithRole(ctx.db, request.orgId, role)).filter((m) => m.status === "active");
+    const { members } = await eligibleOf(ctx, request, holders, step.position);
+    if (members.length) return { members, skipReason: null, viaRole: role };
+  }
+  const again = await resolveRule(ctx, request, step.approverRule);
+  return again.members.length ? { ...again, repeatApproval: true } : resolution;
 }
 
 /**
@@ -345,6 +428,7 @@ interface NewTask {
   viaRole: AssignedRole | null;
   dueAt: Date | null;
   selfApproved?: boolean;
+  repeatApproval?: boolean;
 }
 
 /** Inserts tasks (an existing open task for the same person and step is kept: idempotent). */
@@ -368,6 +452,7 @@ async function insertTasks(ctx: Ctx, request: ApprovalRequest, items: NewTask[])
         viaRole: item.viaRole,
         dueAt: item.dueAt,
         selfApproved: item.selfApproved ?? false,
+        repeatApproval: item.repeatApproval ?? false,
         createdAt: ctx.now,
       })
       .onConflictDoNothing()
@@ -427,10 +512,11 @@ export async function applyDelegations(
     const source = await directory.member(ctx.db, request.orgId, task.assigneeMembershipId);
     if (source?.status !== "active") continue;
     for (const d of found.filter((x) => x.fromMembershipId === task.assigneeMembershipId)) {
-      // Never to the requester or someone involved, only to holders of the task's role, and only to
-      // members the subject allows (decideBlocker).
+      // Never to the requester or someone involved, only to holders of the task's role, only to
+      // members the subject allows, and never to whoever approved an earlier step (decideBlocker).
       const delegate = await directory.member(ctx.db, request.orgId, d.toMembershipId);
-      if (await decideBlocker(ctx.db, ctx.deps, request, delegate, { viaRole: task.viaRole })) continue;
+      if (await decideBlocker(ctx.db, ctx.deps, request, delegate, { viaRole: task.viaRole, position: task.position }))
+        continue;
       if (!delegate) continue;
       items.push({
         position: task.position,
@@ -466,6 +552,7 @@ async function createStepTasks(
       viaRole: resolution.viaRole,
       dueAt,
       selfApproved: resolution.selfApproved ?? false,
+      repeatApproval: resolution.repeatApproval ?? false,
     })),
   );
   const delegated = await applyDelegations(ctx, request, created);
@@ -482,7 +569,7 @@ async function advance(ctx: Ctx, request: ApprovalRequest): Promise<"pending" | 
   const steps = await loadSteps(ctx.db, request.id);
   const anyApproved = steps.some((s) => s.status === "approved");
   for (const step of steps.filter((s) => s.status === "waiting")) {
-    const resolution = await resolveRule(ctx, request, step.approverRule);
+    const resolution = await resolveStep(ctx, request, step);
     if (!resolution.members.length) {
       await ctx.db
         .update(approvalSteps)
@@ -764,6 +851,7 @@ const BLOCKED_MESSAGE: Record<DecideBlocker, string> = {
   excluded: "You filed this request or benefit from it, so someone else needs to decide it.",
   role: "This task needs a role you no longer hold. Ask an owner to reassign it.",
   not_allowed: "Your role can't decide this kind of request. Ask an owner to reassign it.",
+  earlier_approver: "You approved an earlier step of this request, so someone else needs to decide this one.",
 };
 
 export interface DecideInput {
@@ -840,6 +928,8 @@ export async function decideTask(deps: AppDeps, actor: Actor, input: DecideInput
     const blocked = await decideBlocker(tx, deps, request, me, {
       viaRole: task.viaRole,
       selfApproved: task.selfApproved,
+      position: task.position,
+      repeatApproval: task.repeatApproval,
     });
     if (blocked) throw new AppError("forbidden", BLOCKED_MESSAGE[blocked]);
     if (task.onBehalfOfMembershipId) {
@@ -892,6 +982,8 @@ export async function decideTask(deps: AppDeps, actor: Actor, input: DecideInput
         subjectType: request.subjectType,
         onBehalfOf: task.onBehalfOfMembershipId,
         selfApproved: task.selfApproved,
+        // Segregation of duties couldn't apply: they approved an earlier step and nobody else may decide this one.
+        ...(task.repeatApproval ? { repeatApproval: true } : {}),
         requestStatus,
       },
     });
@@ -1114,7 +1206,7 @@ export async function reassignTask(
     }
     const target = await approverDirectory(deps).member(tx, actor.orgId, input.toMembershipId);
     // The new assignee must be someone who could decide this task: same role, allowed by the subject.
-    const blocked = await decideBlocker(tx, deps, request, target, { viaRole: task.viaRole });
+    const blocked = await decideBlocker(tx, deps, request, target, { viaRole: task.viaRole, position: task.position });
     if (blocked) {
       const why: Record<DecideBlocker, string> = {
         inactive: "Choose an active member to reassign to.",
@@ -1122,6 +1214,7 @@ export async function reassignTask(
         excluded: "That member filed this request or benefits from it. Choose someone else.",
         role: `This step needs ${ROLE_NOUN[task.viaRole ?? ""] ?? "a specific role"}. Choose a member who holds it.`,
         not_allowed: "That member's role can't decide this kind of request. Choose someone who can.",
+        earlier_approver: "That member approved an earlier step of this request. Choose someone else.",
       };
       throw new AppError("validation_failed", why[blocked], {
         issues: [{ path: "toMembershipId", message: why[blocked] }],
@@ -1198,7 +1291,7 @@ export async function onReportingLineChanged(
       .where(and(eq(approvalSteps.requestId, id), eq(approvalSteps.position, request.currentPosition)));
     if (step?.status !== "active") continue;
     if (step.approverRule !== "manager" && step.approverRule !== "manager_of_manager") continue;
-    const resolution = await resolveRule(ctx, request, step.approverRule);
+    const resolution = await resolveStep(ctx, request, step);
     let requestStatus: "pending" | "approved" = "pending";
     const open = await db
       .select()
@@ -1473,7 +1566,7 @@ async function reresolveEmptyStep(
     .from(approvalSteps)
     .where(and(eq(approvalSteps.requestId, request.id), eq(approvalSteps.position, position)));
   if (step?.status !== "active") return;
-  const resolution: Resolution = await resolveRule(ctx, request, step.approverRule);
+  const resolution: Resolution = await resolveStep(ctx, request, step);
   const created = resolution.members.length ? await createStepTasks(ctx, request, step, resolution) : [];
   let requestStatus: "pending" | "approved" = "pending";
   if (!created.length) {

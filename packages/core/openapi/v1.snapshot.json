@@ -1487,6 +1487,9 @@
                                 },
                                 "selfApproved": {
                                   "type": "boolean"
+                                },
+                                "repeatApproval": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -1497,7 +1500,8 @@
                                 "status",
                                 "decidedAt",
                                 "comment",
-                                "selfApproved"
+                                "selfApproved",
+                                "repeatApproval"
                               ],
                               "additionalProperties": false
                             }

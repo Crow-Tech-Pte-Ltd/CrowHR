@@ -155,6 +155,13 @@
       "when": 1794509417609,
       "tag": "0021_email_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795358844633,
+      "tag": "0022_approval_repeat_approval",
+      "breakpoints": true
     }
   ]
 }
