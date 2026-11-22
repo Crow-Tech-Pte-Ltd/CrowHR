@@ -24,7 +24,7 @@ Shop-floor, F&B and field staff live on their phones, and QuickHR's mobile apps 
   - iOS builds and tests on a Mac over SSH; Android on Linux with the local SDK and the pinned Gradle wrapper.
   - Uploads go only to TestFlight internal or a Play internal draft.
   - Production release needs Daniel's explicit approval.
-  - Privacy and support pages live at `crow.sg/apps/crow-hr/{privacy,support}`, kept out of crow.sg global navigation until launch.
+  - Privacy and support pages live at `crow.sg/crow-hr/{privacy,support}`, kept out of crow.sg global navigation until launch.
 
 ## Capabilities
 

@@ -70,9 +70,9 @@ LISTING = {
         "Crow HR is made by Crow Tech Pte. Ltd. in Singapore and is MIT licensed."
     ),
     "keywords": "HR,payroll,payslip,leave,clock in,attendance,Singapore,CPF,claims,roster",
-    "supportUrl": "https://crow.sg/apps/crow-hr/support/",
-    "marketingUrl": "https://crow.sg/apps/crow-hr/",
-    "privacyPolicyUrl": "https://crow.sg/apps/crow-hr/privacy/",
+    "supportUrl": "https://crow.sg/crow-hr/support/",
+    "marketingUrl": "https://crow.sg/crow-hr/",
+    "privacyPolicyUrl": "https://crow.sg/crow-hr/privacy/",
     "copyright": "2026 Crow Tech Pte. Ltd.",
     "primaryCategory": "BUSINESS",
 }
