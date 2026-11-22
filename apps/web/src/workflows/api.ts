@@ -82,6 +82,7 @@ export interface RequestDetail {
       decidedAt: string | null;
       comment: string | null;
       selfApproved: boolean;
+      repeatApproval: boolean;
     }[];
   }[];
   comments: { id: string; author: string; body: string; createdAt: string }[];

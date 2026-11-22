@@ -139,7 +139,8 @@ async function escalateStep(
     },
   });
 
-  // 2. One level up, only to members who may decide it (decideBlocker: role, subject, involvement).
+  // 2. One level up, only to members who may decide it (decideBlocker: role, subject, involvement,
+  //    not an earlier step's approver).
   //    A role step goes to the role's other holders, then owners; a manager or member step to each
   //    assignee's manager, then the hr_admins, then owners. Escalated tasks keep the role they were
   //    given, so delegation stays within it. Payroll runs and bank changes never reach a role that
@@ -150,7 +151,7 @@ async function escalateStep(
     const out = new Map<string, DirectoryMember>();
     for (const m of candidates) {
       if (already.has(m.membershipId) || out.has(m.membershipId)) continue;
-      if (!(await decideBlocker(db, deps, request, m))) out.set(m.membershipId, m);
+      if (!(await decideBlocker(db, deps, request, m, { position }))) out.set(m.membershipId, m);
     }
     return [...out.values()];
   };

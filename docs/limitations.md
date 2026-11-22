@@ -37,6 +37,11 @@ the change that fixes it.
 - **No eligible approver**: filer and beneficiary exclusions never fall back to self-approval. If every
   eligible member is excluded, the request stays pending; appoint an uninvolved approver, then
   withdraw and resubmit. Granting a role doesn't re-resolve a chain with no open tasks.
+- **One person per step** can't hold when one person is the employee's manager, the only HR admin
+  and the only owner: they approve every step, and the later decisions are marked as repeat
+  approvals in the chain and the audit log. Requests already waiting at the upgrade to migration
+  `0022` keep a later-step task that sits with its earlier approver when nobody else holds that
+  step, marked the same way; it isn't moved to an owner.
 - **Email templates are fixed in code**; they carry the organisation's name, not its logo.
 - **Work-pass renewals** must be added as a new pass with a later expiry; reminders read each
   employee's latest pass.
