@@ -25,9 +25,9 @@ The release record (uploaded builds, their IPA checks and the approvals) is in t
   You sign in with your company's method (email and password, Google, Microsoft, Singpass or your company's single sign-on) in a secure browser window. The app talks only to your company's server. Crow Tech collects nothing: no analytics, no tracking, no advertising.
   Crow HR is made by Crow Tech Pte. Ltd. in Singapore and is MIT licensed.
 - **Keywords:** HR,payroll,payslip,leave,clock in,attendance,Singapore,CPF,claims,roster
-- **Support URL:** https://crow.sg/apps/crow-hr/support/
-- **Marketing URL:** https://crow.sg/apps/crow-hr/
-- **Privacy policy URL:** https://crow.sg/apps/crow-hr/privacy/
+- **Support URL:** https://crow.sg/crow-hr/support/
+- **Marketing URL:** https://crow.sg/crow-hr/
+- **Privacy policy URL:** https://crow.sg/crow-hr/privacy/
 - **Copyright:** 2026 Crow Tech Pte. Ltd.
 - **Age rating:** every content question "None", every capability question "No" (no web
   browser, user-generated content, messaging, social media, advertising, gambling, loot boxes,

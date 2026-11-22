@@ -115,8 +115,8 @@ export const HELP_GROUP: SidebarGroup = {
     { slug: "help/security" },
     { slug: "help/privacy-pdpa" },
     // The mobile apps' support and privacy pages live on crow.sg, where the store listings point.
-    { label: "Mobile app support", link: "https://crow.sg/apps/crow-hr/support/" },
-    { label: "Mobile app privacy policy", link: "https://crow.sg/apps/crow-hr/privacy/" },
+    { label: "Mobile app support", link: "https://crow.sg/crow-hr/support/" },
+    { label: "Mobile app privacy policy", link: "https://crow.sg/crow-hr/privacy/" },
   ],
 };
 
