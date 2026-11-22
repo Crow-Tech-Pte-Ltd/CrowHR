@@ -1,0 +1,123 @@
+name: Dependency audit
+
+# `bun audit` of bun.lock once a day, outside the pull-request checks: a new advisory in a
+# dependency is news about the world, not about the change under review. Advisories at or above the
+# threshold (high by default, as the CI step this replaces) open one issue, or update it when they
+# change; a clean run closes it. The job fails only when the audit itself could not run.
+# Run it by hand from Actions → Dependency audit → Run workflow (optionally with a lower threshold).
+
+on:
+  schedule:
+    # 01:23 UTC, 09:23 in Singapore.
+    - cron: "23 1 * * *"
+  workflow_dispatch:
+    inputs:
+      level:
+        description: Lowest severity that opens the issue
+        type: choice
+        options: [high, critical, moderate, low]
+        default: high
+
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  BUN_VERSION: 1.3.9
+
+jobs:
+  audit:
+    name: bun audit, reported in one issue
+    if: github.repository == 'Crow-Tech-Pte-Ltd/CrowHR'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LEVEL: ${{ inputs.level || 'high' }}
+      TITLE: "Dependency audit: advisories to fix"
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Audit bun.lock
+        id: audit
+        # bun audit reads the lockfile; no install needed. --json lists every advisory whatever
+        # --audit-level says, so the threshold is applied below.
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/audit.json"
+          code=0
+          bun audit --json > "$report" 2> "$RUNNER_TEMP/audit.err" || code=$?
+          if [ "$code" -eq 0 ] && [ ! -s "$report" ]; then echo '{}' > "$report"; fi
+          if ! jq -e 'type == "object"' "$report" > /dev/null 2>&1; then
+            echo "::error::bun audit did not produce a report (exit $code)."
+            cat "$RUNNER_TEMP/audit.err" "$report" >&2
+            exit 1
+          fi
+          jq --arg level "$LEVEL" '
+            def rank: {"low": 1, "moderate": 2, "high": 3, "critical": 4}[.] // 0;
+            [to_entries[] | .key as $pkg | .value[]
+              | {pkg: $pkg, id, severity, title, url, vulnerable_versions}]
+            | {all: ., found: map(select((.severity | rank) >= ($level | rank))) | sort_by(-(.severity | rank), .pkg)}
+          ' "$report" > "$RUNNER_TEMP/advisories.json"
+          found=$(jq '.found | length' "$RUNNER_TEMP/advisories.json")
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+          {
+            echo "### bun audit: $found at or above $LEVEL"
+            jq -r '.all | group_by(.severity) | map("- \(.[0].severity): \(length)") | .[]' "$RUNNER_TEMP/advisories.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Open, update or close the issue
+        run: |
+          set -euo pipefail
+          advisories="$RUNNER_TEMP/advisories.json"
+          found=$(jq '.found | length' "$advisories")
+          ids=$(jq -r '[.found[].id] | sort | map(tostring) | join(",")' "$advisories")
+          issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 500 --json number,title,body \
+            --jq '.[] | select(.title == env.TITLE and (.body | contains("crowhr-dependency-audit"))) | .number' | head -n 1)
+          today=$(date -u +%Y-%m-%d)
+
+          if [ "$found" -eq 0 ]; then
+            echo "No advisories at or above $LEVEL."
+            if [ -n "$issue" ]; then
+              gh issue comment "$issue" --repo "$GITHUB_REPOSITORY" \
+                --body "Clean on $today: no advisories at or above $LEVEL ([run]($RUN_URL)). Closing."
+              gh issue close "$issue" --repo "$GITHUB_REPOSITORY"
+            fi
+            exit 0
+          fi
+
+          body="$RUNNER_TEMP/body.md"
+          {
+            echo "<!-- crowhr-dependency-audit ids=$ids -->"
+            noun=advisories
+            if [ "$found" -eq 1 ]; then noun=advisory; fi
+            echo "\`bun audit\` of \`bun.lock\` on \`$GITHUB_REF_NAME\` found $found $noun at or above **$LEVEL** on $today ([run]($RUN_URL))."
+            echo ""
+            echo "| Package | Severity | Vulnerable versions | Advisory |"
+            echo "| --- | --- | --- | --- |"
+            jq -r '.found[] | "| `\(.pkg)` | \(.severity) | `\(.vulnerable_versions)` | [\(.title | gsub("\\|"; "\\|"))](\(.url)) |"' "$advisories"
+            echo ""
+            below=$(jq '(.all | length) - (.found | length)' "$advisories")
+            echo "Below the threshold: $below more (\`bun audit\` lists them)."
+            echo ""
+            echo "Updated daily by \`.github/workflows/audit.yml\`, which closes this issue once the audit is clean. To fix: \`bun update <package>\` (or an \`overrides\` entry), \`bun run licences\`, then a pull request."
+          } > "$body"
+
+          if [ -z "$issue" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file "$body"
+            exit 0
+          fi
+          previous=$(gh issue view "$issue" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' \
+            | sed -n 's/^<!-- crowhr-dependency-audit ids=\([0-9,]*\) -->.*/\1/p' | head -n 1)
+          gh issue edit "$issue" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+          if [ "$previous" != "$ids" ]; then
+            gh issue comment "$issue" --repo "$GITHUB_REPOSITORY" \
+              --body "The advisories changed on $today: now $found at or above $LEVEL ([run]($RUN_URL)). The description lists them."
+          fi

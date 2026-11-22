@@ -1,12 +1,34 @@
 name: CI
 
+# What runs when (also on the docs site: developers/testing → "In CI"):
+#
+# - Every pull request: Biome, the licence check, TypeScript, sg-rules coverage, the OpenAPI
+#   snapshot, migrations in sync with the schema, the web and docs builds, and Vitest in six shards.
+#   They run in parallel and nothing waits for anything else.
+# - Playwright against PostgreSQL 17 and the Docker image + compose install smoke run on every push
+#   to main, nightly, on a manual run, and on pull requests that change what they test (the
+#   filters in the `changes` job) or carry the `full-ci` label. A skipped job reports "Skipped".
+# - Android unit tests + lint when Android files change, and nightly.
+#
+# For the whole suite on a pull request: add the `full-ci` label, then push or re-run this workflow
+# (the label is read when the run starts, so a re-run sees it).
+# The dependency audit runs daily in audit.yml and reports in one issue.
+
 on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # 16:37 UTC is 00:37 in Singapore: the runner's UTC date is still the day before, the hour in
+    # which a Singapore-date bug showed up (the date picker and claims, 1 Nov 2026).
+    - cron: "37 16 * * *"
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # A new push to a pull request cancels that pull request's older run. Pushes to main, nightly and
+  # manual runs get a group each, so every merged commit gets a complete run (one group for main
+  # cancelled 25 of 98 main runs in the four weeks to 22 Nov 2026).
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 permissions:
@@ -17,8 +39,119 @@ env:
   NODE_VERSION: 24
 
 jobs:
+  changes:
+    # Job-level filters rather than `on.paths`: on.paths would skip the whole workflow, and the
+    # fast checks must run on every pull request. dorny/paths-filter is pinned to a commit SHA
+    # (v3.0.4) because it is third-party code reading the repository.
+    name: What changed?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    outputs:
+      e2e: ${{ steps.decide.outputs.e2e }}
+      selfhost: ${{ steps.decide.outputs.selfhost }}
+      android: ${{ steps.decide.outputs.android }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        # Nightly and manual runs run everything; they have no diff to filter.
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        with:
+          filters: |
+            # Playwright (e2e/*.spec.ts) runs the built web app against the real server on Postgres.
+            e2e:
+              - 'apps/web/**'
+              - 'apps/server/**'
+              - 'packages/core/**'
+              - 'packages/ui/**'
+              - 'packages/sg-rules/src/**'
+              - 'packages/demo/src/**'
+              - 'e2e/*'
+              - 'playwright.config.ts'
+              - 'package.json'
+              - '**/package.json'
+              - 'bun.lock'
+              - '.github/workflows/ci.yml'
+            # e2e/self-host.sh: the image, the compose install, the setup wizard, migrations with
+            # their lock, backup/restore, the CLI and the reverse-proxy examples it reads from the docs.
+            selfhost:
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'docker-compose*.yml'
+              - '.env.example'
+              - 'e2e/self-host.sh'
+              - 'e2e/selfhost.config.ts'
+              - 'e2e/setup.spec.ts'
+              - 'e2e/fixtures.ts'
+              - 'apps/server/**'
+              - 'packages/core/drizzle/**'
+              - 'packages/core/src/db/**'
+              - 'packages/core/src/setup/**'
+              - 'packages/core/src/system/**'
+              - 'apps/docs/src/content/docs/self-hosting/reverse-proxy.md'
+              - 'package.json'
+              - '**/package.json'
+              - 'bun.lock'
+              - '.github/workflows/ci.yml'
+            android:
+              - 'apps/android/**'
+              - 'apps/mobile-fixtures/**'
+              - 'scripts/android-*'
+              - '.github/workflows/ci.yml'
+      - name: Is the pull request labelled full-ci?
+        id: labels
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        # Read now, not from the event, so that re-running the workflow after adding the label works.
+        run: |
+          labels=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/labels" --jq '.[].name')
+          full=false
+          if grep -qx 'full-ci' <<< "$labels"; then full=true; fi
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+      - name: Decide which jobs run
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          FULL_CI_LABEL: ${{ steps.labels.outputs.full }}
+          E2E_PATHS: ${{ steps.filter.outputs.e2e }}
+          SELFHOST_PATHS: ${{ steps.filter.outputs.selfhost }}
+          ANDROID_PATHS: ${{ steps.filter.outputs.android }}
+        run: |
+          # Pull requests: by path, or everything with the full-ci label. Main: Playwright and
+          # self-host always, Android by path (as before). Nightly and manual runs: everything.
+          case "$EVENT" in
+            pull_request) all="${FULL_CI_LABEL:-false}" ;;
+            push) all=false ;;
+            *) all=true ;;
+          esac
+          pick() { if [ "$all" = true ] || [ "$1" = true ]; then echo true; else echo false; fi; }
+          e2e=$(pick "${E2E_PATHS:-false}")
+          selfhost=$(pick "${SELFHOST_PATHS:-false}")
+          android=$(pick "${ANDROID_PATHS:-false}")
+          if [ "$EVENT" = push ]; then e2e=true; selfhost=true; fi
+          {
+            echo "e2e=$e2e"
+            echo "selfhost=$selfhost"
+            echo "android=$android"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Jobs beyond the fast checks ($EVENT${FULL_CI_LABEL:+, full-ci label: $FULL_CI_LABEL})"
+            echo ""
+            echo "| Job | Runs |"
+            echo "| --- | --- |"
+            echo "| Playwright smoke (Postgres 17) | $e2e |"
+            echo "| Docker image + compose install smoke | $selfhost |"
+            echo "| Android unit tests + lint | $android |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   check:
-    name: Lint, typecheck, build, audit
+    name: Lint, typecheck, build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -58,19 +191,18 @@ jobs:
         run: bun run build
       - name: Docs site build, link and API-coverage check
         run: bun run docs:build
-      - name: Dependency audit (fail on high or critical)
-        run: bun audit --audit-level=high
 
   test:
-    # The suite (2,000+ tests on in-process PGlite) is too slow for one 4-core hosted runner,
-    # so it is split across four. A self-hosted runner with more cores can use fewer shards.
-    name: Unit + integration tests (shard ${{ matrix.shard }}/4)
+    # The suite (2,000+ tests in 280 files on in-process PGlite) is too slow for one 4-core hosted
+    # runner, so it is split across six: Vitest took 1.4 to 2.6 min per shard, against 2.7 to 3.6 on
+    # four (Nov 2026). A self-hosted runner with more cores can use fewer shards.
+    name: Unit + integration tests (shard ${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -89,13 +221,14 @@ jobs:
       - name: Install poppler (PDF text and glyph checks)
         run: sudo apt-get install -y -q poppler-utils
       - name: Vitest (PGlite)
-        run: bunx vitest run --shard=${{ matrix.shard }}/4
+        run: bunx vitest run --shard=${{ matrix.shard }}/6
 
   e2e:
     name: Playwright smoke (Postgres 17)
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: check
     services:
       postgres:
         image: postgres:17-alpine
@@ -145,9 +278,10 @@ jobs:
 
   self-host:
     name: Docker image + compose install smoke (self-hosting)
+    needs: changes
+    if: needs.changes.outputs.selfhost == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    needs: check
     services:
       # Disposable Postgres 17 for the advisory-lock and pg_dump round-trip tests.
       postgres:
@@ -198,37 +332,13 @@ jobs:
           path: test-results/selfhost/
           retention-days: 7
 
-  android-changes:
-    # A job-level filter rather than `on.paths`: on.paths would skip the whole CI workflow, and the
-    # web/server jobs must keep running on every push. dorny/paths-filter is pinned to a commit
-    # SHA (v3.0.4) because it is third-party code reading the repository.
-    name: Android files changed?
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      android: ${{ steps.filter.outputs.android }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: filter
-        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
-        with:
-          filters: |
-            android:
-              - 'apps/android/**'
-              - 'apps/mobile-fixtures/**'
-              - 'scripts/android-*'
-              - '.github/workflows/ci.yml'
-
   android:
     # JVM unit tests (shared mobile fixtures included) and Android lint on the runner's preinstalled
     # SDK. No emulator: the device journeys need the seeded server and an emulator and run locally
     # (apps/android/README.md). Gradle's dependency and wrapper caches come from setup-gradle.
     name: Android unit tests + lint
-    needs: android-changes
-    if: needs.android-changes.outputs.android == 'true'
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

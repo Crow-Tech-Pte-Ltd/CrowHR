@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { totpAt } from "../packages/core/src/auth/totp.ts";
-import { E2E, HOME_HEADING, uiSignIn } from "./fixtures.ts";
+import { E2E, HOME_HEADING, uiSignIn, uiSignOut } from "./fixtures.ts";
 
 test.describe("password sign-in", () => {
   test("shows only the enabled methods and a fix-it message for a wrong password", async ({ page }) => {
@@ -45,8 +45,7 @@ test.describe("two-step verification", () => {
     await expect(codes).toContainText("Save your recovery codes now");
     await expect(codes.locator("li")).toHaveCount(10);
 
-    await page.getByRole("button", { name: "Account menu" }).click();
-    await page.getByRole("menuitem", { name: "Sign out" }).click();
+    await uiSignOut(page);
     await uiSignIn(page, E2E.members.mfa.email);
     await expect(page.getByRole("heading", { name: "Two-step verification" })).toBeVisible();
     // The enrolment code's time step was used; the next step is still inside the ±1 window.

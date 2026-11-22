@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { type Browser, expect, type Page, test } from "@playwright/test";
+import { untilDecided } from "./fixtures.ts";
 import { addDays, pickDate, todaySg } from "./leave-helpers.ts";
 
 /**
@@ -105,7 +106,7 @@ test("start a demo company, apply for leave as the employee, approve it as the m
   await expect(task).toBeVisible();
   await task.getByRole("button").first().click();
   await expect(siti.getByTestId("request-panel")).toContainText("My sister's wedding");
-  await siti.keyboard.press("a");
+  await untilDecided(siti, () => siti.keyboard.press("a"));
   await expect(task).toHaveCount(0);
 
   // Hafiz sees it approved.
