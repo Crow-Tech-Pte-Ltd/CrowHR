@@ -28,7 +28,7 @@ Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `@floating-ui/utils` | 0.2.12 | MIT | web, demo | <https://github.com/floating-ui/floating-ui/tree/HEAD/packages/utils> |
 | `@fontsource/azeret-mono` | 5.3.0 | OFL-1.1 | web, demo | <https://github.com/fontsource/font-files/tree/HEAD/fonts/google/azeret-mono> |
 | `@fontsource/ubuntu` | 5.3.0 | UFL-1.0 | web, demo | <https://github.com/fontsource/font-files/tree/HEAD/fonts/google/ubuntu> |
-| `@hono/node-server` | 2.1.5 | MIT | server | <https://github.com/honojs/node-server> |
+| `@hono/node-server` | 2.1.11 | MIT | server | <https://github.com/honojs/node-server> |
 | `@noble/ciphers` | 2.4.0 | MIT | server | <https://github.com/paulmillr/noble-ciphers> |
 | `@noble/curves` | 2.0.1 | MIT | server | <https://github.com/paulmillr/noble-curves> |
 | `@noble/curves` | 2.4.0 | MIT | server | <https://github.com/paulmillr/noble-curves> |
@@ -145,7 +145,7 @@ Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `find-up` | 4.1.0 | MIT | web, demo | <https://github.com/sindresorhus/find-up> |
 | `get-caller-file` | 2.0.5 | ISC | web, demo | <https://github.com/stefanpenner/get-caller-file> |
 | `get-nonce` | 1.0.1 | MIT | web, demo | <https://github.com/theKashey/get-nonce> |
-| `hono` | 4.13.14 | MIT | server, demo | <https://github.com/honojs/hono> |
+| `hono` | 4.13.20 | MIT | server, demo | <https://github.com/honojs/hono> |
 | `import-in-the-middle` | 3.6.0 | Apache-2.0 | server | <https://github.com/nodejs/import-in-the-middle> |
 | `is-fullwidth-code-point` | 3.0.0 | MIT | web, demo | <https://github.com/sindresorhus/is-fullwidth-code-point> |
 | `isbot` | 5.2.2 | Unlicense | web, demo | <https://github.com/omrilotan/isbot> |
