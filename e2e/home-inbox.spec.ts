@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from "@playwright/test";
-import { E2E, uiSignInOk } from "./fixtures.ts";
+import { E2E, uiSignInOk, untilDecided } from "./fixtures.ts";
 
 /**
  * Approvals end to end with a real module request type: people's profile change requests
@@ -40,8 +40,10 @@ test("a profile change goes submit → manager approves → HR approves → appl
     .getByTestId("approval-row")
     .filter({ hasText: E2E.members.requester.name })
     .filter({ hasText: "Personal details change" });
-  await row.getByRole("button", { name: "Approve Ahmad Ismail's request" }).click();
-  await expect(row).toHaveCount(0);
+  await untilDecided(manager, () => row.getByRole("button", { name: "Approve Ahmad Ismail's request" }).click());
+  // No toHaveCount(0) here: Kai Wen is also an HR admin, so the request comes straight back to him
+  // as an HR-step task. The row left and returned, and the check passed only if it looked in
+  // between (it didn't on 10 Nov 2026, when the server answered quickly).
   await expect(manager.getByText("Sent on to the next approver.")).toBeVisible();
 
   const hr = await signedIn(browser, E2E.members.hr.email);
@@ -53,7 +55,7 @@ test("a profile change goes submit → manager approves → HR approves → appl
   await expect(panel).toContainText("Religion");
   await expect(panel).toContainText("Christianity");
   await expect(panel.getByTestId("chain-step").first()).toContainText("Wong Kai Wen");
-  await hr.keyboard.press("a");
+  await untilDecided(hr, () => hr.keyboard.press("a"));
   await expect(task).toHaveCount(0);
 
   await requester.reload();
@@ -80,7 +82,7 @@ test("Home: rejecting inline needs a comment; the requester sees it", async ({ b
   await dialog.getByRole("button", { name: "Reject" }).click();
   await expect(dialog.getByText("Say why, so the requester knows what to change.")).toBeVisible();
   await dialog.getByLabel("Reason").fill("Please use the account in your own name, not the joint one.");
-  await dialog.getByRole("button", { name: "Reject" }).click();
+  await untilDecided(manager, () => dialog.getByRole("button", { name: "Reject" }).click());
   await expect(row).toHaveCount(0);
 
   await requester.reload();

@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from "@playwright/test";
-import { apiSignIn, E2E, uiSignInOk } from "./fixtures.ts";
+import { apiSignIn, E2E, uiSignInOk, untilDecided } from "./fixtures.ts";
 import { addDays, mondayOf, pickDate, todaySg } from "./leave-helpers.ts";
 
 /**
@@ -64,7 +64,7 @@ test("apply in the sheet → manager approves in the Inbox → balance updates �
   const panel = kaiWen.getByTestId("request-panel");
   await expect(panel).toContainText("Wedding in Johor Bahru");
   await expect(panel).toContainText("Annual leave left");
-  await kaiWen.keyboard.press("a");
+  await untilDecided(kaiWen, () => kaiWen.keyboard.press("a"));
   await expect(task).toHaveCount(0);
 
   await nadia.reload();

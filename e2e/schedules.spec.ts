@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from "@playwright/test";
-import { E2E, uiSignInOk } from "./fixtures.ts";
+import { E2E, uiSignInOk, untilDecided } from "./fixtures.ts";
 import { addDays, mondayOf, todaySg } from "./leave-helpers.ts";
 
 /**
@@ -96,7 +96,7 @@ test("build next week's roster → publish → employee sees it on mobile → sw
   await expect(task).toBeVisible();
   await task.getByRole("button").first().click();
   await expect(kaiWen.getByTestId("request-panel")).toContainText(E2E.members.crewB.name);
-  await kaiWen.keyboard.press("a");
+  await untilDecided(kaiWen, () => kaiWen.keyboard.press("a"));
   await expect(task).toHaveCount(0);
 
   // 5. Nurul now works Tuesday's closing shift, and no longer Monday.

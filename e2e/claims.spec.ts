@@ -1,6 +1,6 @@
 import { deflateSync } from "node:zlib";
 import { type Browser, expect, type Page, test } from "@playwright/test";
-import { E2E, uiSignInOk } from "./fixtures.ts";
+import { E2E, uiSignInOk, untilDecided } from "./fixtures.ts";
 
 /**
  * Claims end to end (add-claims): an employee snaps a receipt and submits a two-line claim on a
@@ -169,7 +169,7 @@ test("submit a claim with a receipt on a phone → manager approves in the Inbox
   await kaiWen.goto("/inbox");
   await task.getByRole("button").first().click();
   await expect(kaiWen.getByTestId("request-panel")).toContainText("Client entertainment");
-  await kaiWen.keyboard.press("a");
+  await untilDecided(kaiWen, () => kaiWen.keyboard.press("a"));
   await expect(task).toHaveCount(0);
 
   // 3. Approved and in the payroll reimbursement source for this period.

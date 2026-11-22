@@ -108,3 +108,34 @@ export async function uiSignInOk(page: Page, email: string, password: string = E
   await uiSignIn(page, email, password, org);
   await page.getByRole("heading", { level: 1, name: HOME_HEADING }).waitFor();
 }
+
+/**
+ * Signs out from the account menu and waits for the sign-in page. Sign-out ends the session with a
+ * request and only then opens /sign-in: going to /sign-in/<org> straight after the click could cancel
+ * that request, and the still signed-in user was sent on to Home, so the next uiSignIn waited out the
+ * test for a "Work email" field (members spec, three times in CI, 9 to 11 Nov 2026).
+ */
+export async function uiSignOut(page: Page) {
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await page.waitForURL(/\/sign-in/);
+}
+
+/**
+ * Runs `act` (an Approve or Reject click, or the inbox's "a" key) and waits until the server has
+ * recorded the decision. Home and the inbox drop a task the moment you decide, before the request
+ * returns, so a task leaving the list doesn't mean the decision is saved: reloading the requester's
+ * page straight after could still show "Waiting for approval" (claims spec in CI, 9 Nov 2026).
+ */
+export async function untilDecided(page: Page, act: () => Promise<unknown>) {
+  const [res] = await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.request().method() === "POST" &&
+        /\/api\/v1\/approvals\/tasks\/(?:[^/]+\/decision|decisions)$/.test(new URL(r.url()).pathname),
+      { timeout: 10_000 },
+    ),
+    act(),
+  ]);
+  if (!res.ok()) throw new Error(`the decision failed: ${res.status()} ${await res.text()}`);
+}

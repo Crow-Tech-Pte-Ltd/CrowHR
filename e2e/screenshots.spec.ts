@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { totpAt } from "../packages/core/src/auth/totp.ts";
-import { E2E, SHOTS, uiSignIn, uiSignInOk } from "./fixtures.ts";
+import { E2E, SHOTS, uiSignIn, uiSignInOk, uiSignOut } from "./fixtures.ts";
 
 /**
  * Design-review screenshots (run with SHOTS_DIR=<dir>). Desktop at 1440 wide; sign-in and My
@@ -45,8 +45,7 @@ test("two-step verification", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await snap(page, "my-sessions-390");
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.getByRole("button", { name: "Account menu" }).click();
-  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await uiSignOut(page);
   await uiSignIn(page, E2E.members.shots.email);
   await expect(page.getByRole("heading", { name: "Two-step verification" })).toBeVisible();
   await snap(page, "mfa-challenge");
@@ -64,8 +63,7 @@ test("owner settings", async ({ page }) => {
   await snap(page, "provider-setup", false);
   await page.getByRole("button", { name: "Cancel" }).click();
 
-  await page.getByRole("button", { name: "Account menu" }).click();
-  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await uiSignOut(page);
   await uiSignInOk(page, E2E.members.owner.email);
   await page.goto("/settings/members");
   await expect(page.getByTestId("members-table")).toBeVisible();
