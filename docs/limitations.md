@@ -256,8 +256,14 @@ How the rules were checked is in `packages/sg-rules/VERIFICATION.md`.
 - **Scheduled backups** try once a day; a failed attempt is retried the next day.
 - **Restore** restarts the app by signalling the container's main process; outside Docker it asks you
   to restart instead.
-- **Dependency audit**: one moderate advisory in a development-only tool (esbuild's dev server through
-  drizzle-kit), never shipped.
+- **Dependency audit** (`bun audit`, 22 Nov 2026): nothing shipped has a known advisory. One moderate
+  advisory remains in a development-only tool that isn't in the image: drizzle-kit (migration
+  generator) pulls esbuild 0.18 through `@esbuild-kit/core-utils`
+  ([GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99), any website can read
+  esbuild's development server). That path only transforms files and never starts the server. Not
+  fixable yet: drizzle-kit 0.31.11 is the latest stable release (its 1.0 release candidates drop the
+  dependency), and bun supports only top-level overrides, which would force drizzle-kit's and tsx's
+  own esbuild outside their declared ranges.
 - **PGlite server mode** (`DATABASE_URL=pglite:…`) is for development and tests only.
 - **Performance** is measured on PGlite in process (`packages/core/scripts/bench-hot-paths.ts`), not on
   PostgreSQL or under concurrent load.

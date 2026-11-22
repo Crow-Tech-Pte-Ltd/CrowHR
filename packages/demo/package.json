@@ -22,7 +22,7 @@
     "@crowhr/core": "workspace:*",
     "@electric-sql/pglite": "^0.5.13",
     "drizzle-orm": "^0.45.4",
-    "hono": "^4.13.14"
+    "hono": "^4.13.20"
   },
   "devDependencies": {
     "vite": "^8.3.5"

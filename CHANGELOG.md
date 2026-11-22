@@ -4,6 +4,10 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ## [Unreleased]
 
+### Security
+
+- **Server dependencies patched**: `hono` 4.13.20 and `@hono/node-server` 2.1.11 fix moderate advisories in the web framework the server and the demo run on (a backslash in the path read as a separator, middleware skipped for some routes and mounts, `csrf()` not checking hyperlink-auditing requests, form validation skipped for some multipart requests, a crash on a reset WebSocket upgrade). The documentation site's `astro` 7.4.13 fixes two more. One moderate advisory remains, in a development tool that isn't shipped ([known limitations](docs/limitations.md#self-hosting)).
+
 ### Fixed
 
 - **Docs home buttons**: "Set up with an AI agent" had no side padding, so its text touched its border.
