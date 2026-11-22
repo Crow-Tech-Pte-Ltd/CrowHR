@@ -10,6 +10,7 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ### Fixed
 
+- **Nobody approves two steps of the same request**: a manager who was also an HR admin could approve a claim's manager step and then its HR step. A later step now goes to someone who hasn't approved the request (the other HR admins, then owners), and an earlier approver's decision on it is refused. When nobody else may decide it (one person is the manager, the only HR admin and the only owner), they decide it too and the chain and audit log mark it as a repeat approval, so requests never wait for ever. Migration `0022` adds the mark and applies it to requests already waiting where nobody else holds the step. The API gained `repeatApproval` on request detail tasks ([one person per step](https://hr.crow.sg/docs/approvals/approvals/#one-person-per-step)).
 - **Docs home buttons**: "Set up with an AI agent" had no side padding, so its text touched its border.
 - **The public demo works in Safari**: it never got past sign-in in Safari (and other WebKit browsers), showing "This page failed to load: The demo is still starting". WebKit ran the demo's background worker a second time and the second copy, without a database, answered every request. The worker now starts from a small entry script that nothing else imports, and the demo build fails if one does. **Reset** in Safari also kept the old copy; the page now stops the worker and deletes the copy itself. The demo's browser tests run in WebKit as well as Chromium.
 

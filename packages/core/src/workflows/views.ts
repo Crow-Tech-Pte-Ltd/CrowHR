@@ -28,6 +28,7 @@ export const SKIP_LABEL: Record<string, string> = {
   no_members: "Skipped: nobody holds this role",
   excluded: "Skipped: the approver filed this request or benefits from it",
   not_allowed: "Skipped: the approver's role can't decide this kind of request",
+  earlier_approver: "Skipped: the approver already approved an earlier step",
 };
 
 async function namesOf(db: Db, orgId: string, membershipIds: string[]): Promise<Map<string, string>> {
@@ -97,6 +98,8 @@ export const requestDetail = z.object({
           decidedAt: z.iso.datetime().nullable(),
           comment: z.string().nullable(),
           selfApproved: z.boolean(),
+          /** The assignee approved an earlier step too: nobody else could decide this one. */
+          repeatApproval: z.boolean(),
         }),
       ),
     }),
@@ -228,6 +231,7 @@ export async function getRequestDetail(deps: AppDeps, viewer: ReadContext, reque
           decidedAt: t.decidedAt?.toISOString() ?? null,
           comment: t.comment,
           selfApproved: t.selfApproved,
+          repeatApproval: t.repeatApproval,
         })),
     })),
     comments: comments.map((c) => ({

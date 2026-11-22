@@ -193,6 +193,11 @@ export const approvalTasks = pgTable(
     decidedAt: timestamp("decided_at", { withTimezone: true }),
     comment: text("comment"),
     selfApproved: boolean("self_approved").notNull().default(false),
+    /**
+     * The assignee already approved an earlier step of this request and holds this one only
+     * because nobody else may decide it (segregation of duties has no one left to turn to).
+     */
+    repeatApproval: boolean("repeat_approval").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (t) => [

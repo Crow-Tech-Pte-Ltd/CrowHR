@@ -49,6 +49,8 @@ export async function myOpenTasks(
       !(await decideBlocker(db, deps, row.request, member, {
         viaRole: row.task.viaRole,
         selfApproved: row.task.selfApproved,
+        position: row.task.position,
+        repeatApproval: row.task.repeatApproval,
       }))
     )
       eligible.push(row);

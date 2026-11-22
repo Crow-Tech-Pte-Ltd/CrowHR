@@ -151,6 +151,7 @@ export function RequestPanel({
                                 ? "moved to someone else"
                                 : `${t.status}${t.decidedAt ? ` ${when(t.decidedAt)}` : ""}`}
                             {t.selfApproved ? " (self-approved: no one else could decide)" : ""}
+                            {t.repeatApproval ? " (also approved an earlier step: no one else could decide)" : ""}
                           </span>
                           {t.comment ? <q className="basis-full text-ink">{t.comment}</q> : null}
                         </li>
