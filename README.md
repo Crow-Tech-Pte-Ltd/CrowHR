@@ -1,3 +1,5 @@
+<p align="center"><img src=".github/logo.png" width="112" alt="Crow HR logo"></p>
+
 # Crow HR
 
 Free, MIT-licensed HR and payroll for Singapore SMEs that you host yourself. By [Crow Tech Pte. Ltd.](https://crow.sg)
