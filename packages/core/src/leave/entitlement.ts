@@ -69,6 +69,11 @@ export function unitFor(t: EmployeeTime, type: LeaveType, date: string): LeaveUn
   return "days";
 }
 
+/** A balance adjustment belongs to a leave year, using the unit in force at year end. */
+export function adjustmentUnitFor(t: EmployeeTime, type: LeaveType, year: number): LeaveUnit {
+  return unitFor(t, type, `${year}-12-31`);
+}
+
 export function childFacts(c: LeaveChild): ChildFacts {
   return {
     birthDate: c.birthDate,

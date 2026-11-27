@@ -177,6 +177,18 @@ export interface TimesheetTotalsSnapshot {
   leaveDays: number;
 }
 
+/** Dated time as approved. Exceptional work and leave stay with payroll for review. */
+export interface TimesheetPayrollDay {
+  date: string;
+  workedMinutes: number;
+  review: "not_employed" | "missing_punches" | "overtime" | "special_day" | "leave" | null;
+}
+
+export interface ApprovedTimesheetTotals extends TimesheetTotalsSnapshot {
+  /** Absent on approvals made before the hourly payroll feed. */
+  payrollDays?: TimesheetPayrollDay[];
+}
+
 /** One submission of an employee's timesheet for a period (add-timesheet-approval design 2). */
 export const attendanceTimesheets = pgTable(
   "attendance_timesheets",
@@ -194,7 +206,7 @@ export const attendanceTimesheets = pgTable(
     submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
     submittedTotals: jsonb("submitted_totals").$type<TimesheetTotalsSnapshot>().notNull(),
     /** Recomputed in the approval's transaction: what the approver saw. */
-    approvedTotals: jsonb("approved_totals").$type<TimesheetTotalsSnapshot>(),
+    approvedTotals: jsonb("approved_totals").$type<ApprovedTimesheetTotals>(),
     decidedAt: timestamp("decided_at", { withTimezone: true }),
     decidedByMembershipId: uuid("decided_by_membership_id"),
     /** The approver's comment (required when returned). */

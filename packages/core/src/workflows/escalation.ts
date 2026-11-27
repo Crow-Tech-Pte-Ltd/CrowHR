@@ -1,111 +1,96 @@
-import { and, eq, inArray, isNotNull, isNull, lte, ne } from "drizzle-orm";
+import { and, asc, eq, exists, gt, inArray, isNull, lte, ne } from "drizzle-orm";
 import type { AssignedRole } from "../access/matrix.ts";
 import { singaporeDate } from "../access/scope.ts";
 import { recordAudit, systemAuditContext } from "../audit/audit.ts";
-import { type ApprovalTask, approvalRequests, approvalSteps, approvalTasks } from "../db/schema/workflows.ts";
+import {
+  type ApprovalRequest,
+  type ApprovalTask,
+  approvalRequests,
+  approvalSteps,
+  approvalTasks,
+} from "../db/schema/workflows.ts";
 import type { AppDeps } from "../deps.ts";
 import { notify } from "../notifications/notify.ts";
 import { approverDirectory } from "./directory.ts";
-import { createStepTasks, decideBlocker, type EngineContext, lockRequest, memberName, subjectNoun } from "./engine.ts";
+import { createStepTasks, decideBlocker, type EngineContext, memberName, subjectNoun } from "./engine.ts";
 import { workflowRegistry } from "./registry.ts";
 import type { DirectoryMember } from "./types.ts";
-
-const BATCH = 100;
 
 /**
  * Escalation sweep (spec "Escalation and reassignment"; design decision 6). For every active step
  * with a pending task past its due time and not yet escalated: remind the assignees, add a task for
  * the next level (role step: the role's other holders, then owners; manager step: the assignee's
  * manager, or the hr_admins when the assignee has no manager or is an hr_admin, then owners; never
- * anyone who may not decide it), and mark the step escalated so it happens once. Due tasks are claimed with
- * `FOR UPDATE SKIP LOCKED`, so concurrent sweeps (two replicas) never double-process.
+ * anyone who may not decide it), and mark the step escalated so it happens once.
+ * Decisions and sweeps both take the request lock before touching tasks.
  */
 export async function sweepEscalations(deps: AppDeps, now: Date): Promise<number> {
   let escalated = 0;
+  let after: string | undefined;
   for (;;) {
-    const handled = await deps.db.transaction(async (tx) => {
-      const due = await tx
-        .select({ id: approvalTasks.id, requestId: approvalTasks.requestId, position: approvalTasks.position })
-        .from(approvalTasks)
-        .where(
-          and(
-            eq(approvalTasks.status, "pending"),
-            isNotNull(approvalTasks.dueAt),
-            lte(approvalTasks.dueAt, now),
-            isNull(approvalTasks.escalatedAt),
-          ),
-        )
-        .limit(BATCH)
-        .for("update", { skipLocked: true });
-      if (!due.length) return { claimed: 0, done: 0 };
-      const groups = new Map<string, { requestId: string; position: number }>();
-      for (const t of due) groups.set(`${t.requestId}:${t.position}`, t);
-      let done = 0;
-      for (const group of groups.values()) {
-        try {
-          // Savepoint per step: one broken request never blocks the rest of the batch.
-          const ok = await tx.transaction(async (sp) =>
-            escalateStep({ db: sp, deps, now }, group.requestId, group.position),
+    let claimed: string | undefined;
+    try {
+      const done = await deps.db.transaction(async (tx) => {
+        const due = tx
+          .select({ id: approvalTasks.id })
+          .from(approvalTasks)
+          .innerJoin(
+            approvalSteps,
+            and(
+              eq(approvalSteps.requestId, approvalTasks.requestId),
+              eq(approvalSteps.position, approvalTasks.position),
+            ),
+          )
+          .where(
+            and(
+              eq(approvalTasks.requestId, approvalRequests.id),
+              eq(approvalTasks.position, approvalRequests.currentPosition),
+              eq(approvalSteps.status, "active"),
+              isNull(approvalSteps.escalatedAt),
+              eq(approvalTasks.status, "pending"),
+              lte(approvalTasks.dueAt, now),
+              isNull(approvalTasks.escalatedAt),
+            ),
           );
-          if (ok) done++;
-        } catch (err) {
-          deps.logger.error("Escalation failed", { requestId: group.requestId, error: String(err) });
-          // Mark the claimed tasks so a permanent failure doesn't spin forever.
-          await tx
-            .update(approvalTasks)
-            .set({ escalatedAt: now })
-            .where(
-              and(
-                eq(approvalTasks.requestId, group.requestId),
-                eq(approvalTasks.position, group.position),
-                eq(approvalTasks.status, "pending"),
-              ),
-            );
-        }
-      }
-      return { claimed: due.length, done };
-    });
-    escalated += handled.done;
-    if (handled.claimed < BATCH) break;
+        const [request] = await tx
+          .select()
+          .from(approvalRequests)
+          .where(
+            and(
+              eq(approvalRequests.status, "pending"),
+              after ? gt(approvalRequests.id, after) : undefined,
+              exists(due),
+            ),
+          )
+          .orderBy(asc(approvalRequests.id))
+          .limit(1)
+          .for("update", { skipLocked: true });
+        if (!request) return false;
+        claimed = request.id;
+        return escalateStep({ db: tx, deps, now }, request);
+      });
+      if (done) escalated++;
+    } catch (err) {
+      if (!claimed) throw err;
+      deps.logger.error("Escalation failed", { requestId: claimed, error: String(err) });
+    }
+    if (!claimed) return escalated;
+    // A failed or locked request remains eligible on the next sweep.
+    after = claimed;
   }
-  return escalated;
 }
 
 async function escalateStep(
   base: Pick<EngineContext, "db" | "deps" | "now">,
-  requestId: string,
-  position: number,
+  request: ApprovalRequest,
 ): Promise<boolean> {
   const { db, deps, now } = base;
-  const [peek] = await db
-    .select({ orgId: approvalRequests.orgId })
-    .from(approvalRequests)
-    .where(eq(approvalRequests.id, requestId));
-  if (!peek) return false;
-  const request = await lockRequest(db, peek.orgId, requestId);
-  const markTasks = () =>
-    db
-      .update(approvalTasks)
-      .set({ escalatedAt: now })
-      .where(
-        and(
-          eq(approvalTasks.requestId, requestId),
-          eq(approvalTasks.position, position),
-          eq(approvalTasks.status, "pending"),
-        ),
-      );
-  if (request?.status !== "pending") {
-    await markTasks();
-    return false;
-  }
+  const { id: requestId, currentPosition: position } = request;
   const [step] = await db
     .select()
     .from(approvalSteps)
     .where(and(eq(approvalSteps.requestId, requestId), eq(approvalSteps.position, position)));
-  if (step?.status !== "active" || step.escalatedAt) {
-    await markTasks();
-    return false;
-  }
+  if (step?.status !== "active" || step.escalatedAt) return false;
   const audit = systemAuditContext(request.orgId, "system", "escalation sweep");
   const ctx: EngineContext = { db, deps, audit, now };
   const pending: ApprovalTask[] = await db
@@ -118,6 +103,7 @@ async function escalateStep(
         eq(approvalTasks.status, "pending"),
       ),
     );
+  if (!pending.some((task) => task.dueAt && task.dueAt <= now && !task.escalatedAt)) return false;
 
   // 1. Remind the current assignees.
   const adapter = workflowRegistry(deps).subjects.get(request.subjectType);

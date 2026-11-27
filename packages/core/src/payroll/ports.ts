@@ -1,5 +1,10 @@
-import { attendanceDaysWorkedSource, attendanceOvertimeSource } from "../attendance/outputs.ts";
+import {
+  attendanceDaysWorkedSource,
+  attendanceHoursWorkedSource,
+  attendanceOvertimeSource,
+} from "../attendance/outputs.ts";
 import { createClaimsReimbursementSource } from "../claims/reimbursement.ts";
+import type { TimesheetPayrollDay } from "../db/schema/attendance.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { leaveEncashmentSource } from "../leave/encashment.ts";
@@ -17,6 +22,7 @@ import { schedulingScheduledDaysSource } from "../scheduling/feeds.ts";
  * | `encashments` | Leave (approved encashment) | `leaveEncashmentSource` | `leave/encashment.http.test.ts` |
  * | `unpaidLeave` | WS5 leave (no-pay, unpaid infant care) | `leaveUnpaidSource` | `noUnpaidLeave` |
  * | `daysWorked` | WS5 attendance (rostered staff) | `attendanceDaysWorkedSource` | `noDaysWorked` |
+ * | `hoursWorked` | Attendance (approved timesheets) | `attendanceHoursWorkedSource` | `approved-hours.http.test.ts` |
  * | `scheduledDays` | WS5 scheduling (published rosters) | `schedulingScheduledDaysSource` | `noScheduledDays` |
  *
  * Approvals go through the workflows engine: `payroll/approval.ts` registers the `payroll_run`
@@ -139,6 +145,24 @@ export interface DaysWorkedSource {
   listDaysWorked(orgId: string, periodStart: string, periodEnd: string): Promise<RosterDaysWorked[]>;
 }
 
+export interface ApprovedHoursSheet {
+  id: string;
+  employeeId: string;
+  periodStart: string;
+  periodEnd: string;
+  days: TimesheetPayrollDay[] | null;
+}
+
+export interface HoursWorkedSource {
+  /** Null while the organisation does not use approved-timesheets-only payroll. */
+  listApproved(
+    orgId: string,
+    employeeIds: readonly string[],
+    periodStart: string,
+    periodEnd: string,
+  ): Promise<ApprovedHoursSheet[] | null>;
+}
+
 /**
  * Scheduled working days of rostered staff (no fixed week) from published rosters: the
  * denominator of EA s 20A's incomplete-month formula (`scheduled_days` run item).
@@ -180,6 +204,8 @@ export interface PayrollPorts {
   unpaidLeave: UnpaidLeaveSource;
   /** WS5 attendance: days worked by rostered staff who clock in. */
   daysWorked: DaysWorkedSource;
+  /** Dated snapshots from approved timesheets, for hourly staff. */
+  hoursWorked: HoursWorkedSource;
   /** WS5 scheduling: scheduled days of rostered staff whose period is fully published. A manual item wins. */
   scheduledDays: ScheduledDaysSource;
 }
@@ -194,6 +220,7 @@ export function payrollPorts(deps: AppDeps): PayrollPorts {
     overtime: p.overtime ?? attendanceOvertimeSource(deps),
     unpaidLeave: p.unpaidLeave ?? leaveUnpaidSource(deps),
     daysWorked: p.daysWorked ?? attendanceDaysWorkedSource(deps),
+    hoursWorked: p.hoursWorked ?? attendanceHoursWorkedSource(deps),
     scheduledDays: p.scheduledDays ?? schedulingScheduledDaysSource(deps),
   };
 }

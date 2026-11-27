@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createWorkflowWorld, movableClock, type WorkflowWorld } from "../../testing/index.ts";
 import { systemAuditContext } from "../audit/audit.ts";
 import { membershipRoles } from "../db/schema/access.ts";
@@ -129,6 +129,24 @@ describe("escalation", () => {
     const [x, y] = await Promise.all([tick(w.deps), tick(w.deps)]);
     expect(x.escalations + y.escalations).toBe(1);
     expect((await open(requestId)).filter((t) => t.origin === "escalated")).toHaveLength(1);
+  });
+
+  it("rolls back a failed escalation, continues the sweep and retries on the next tick", async () => {
+    const a = await w.submit(w.m.staff, "leave");
+    const b = await w.submit(w.m.other, "leave");
+    clock.advance(4 * DAY);
+    const directory = w.deps.approverDirectory;
+    if (!directory) throw new Error("test directory missing");
+    vi.spyOn(directory, "managerOf").mockRejectedValueOnce(new Error("transient directory failure"));
+
+    expect((await tick(w.deps)).escalations).toBe(1);
+    expect((await tick(w.deps)).escalations).toBe(1);
+    expect((await tick(w.deps)).escalations).toBe(0);
+    for (const { requestId } of [a, b]) {
+      expect((await open(requestId)).filter((task) => task.origin === "escalated")).toHaveLength(1);
+    }
+    const reminders = await w.deps.db.select().from(notifications).where(eq(notifications.kind, "task_reminder"));
+    expect(reminders).toHaveLength(2);
   });
 
   it("with no hr_admin left, an hr_admin assignee escalates to owners", async () => {

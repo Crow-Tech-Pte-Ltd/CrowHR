@@ -15,6 +15,7 @@ import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { RadioRow, SwitchRow } from "../../../leave/choice.tsx";
 import { ApiError, apiPut } from "../../../lib/api.ts";
+import { schedulesQuery } from "../people/-lib/api.ts";
 
 export const Route = createFileRoute("/_app/settings/attendance")({
   component: AttendanceSettingsPage,
@@ -113,7 +114,7 @@ function TimesheetApprovalCard({
           <FormField
             label="Payroll"
             error={error}
-            hint="Overtime and days worked reach payroll only from approved timesheets. Overtime approved later is paid by the next run."
+            hint="Payroll uses approved timesheets for overtime, rostered days worked and eligible hourly staff's regular hours. Overtime approved later is paid by the next run."
           >
             <SwitchRow
               checked={value.payrollApprovedOnly}
@@ -380,6 +381,13 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
           </FormField>
         </div>
       </Card>
+      <ScheduleStarts
+        editable={editable}
+        defaultStartTime={s.defaultStartTime}
+        starts={s.scheduleStartTimes}
+        errors={errors}
+        onChange={(scheduleStartTimes) => setS({ ...s, scheduleStartTimes })}
+      />
       <TimesheetApprovalCard
         value={s.timesheets}
         editable={editable}
@@ -392,5 +400,64 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
         </Button>
       ) : null}
     </form>
+  );
+}
+
+function ScheduleStarts({
+  editable,
+  defaultStartTime,
+  starts,
+  errors,
+  onChange,
+}: {
+  editable: boolean;
+  defaultStartTime: string;
+  starts: AttendanceSettings["scheduleStartTimes"];
+  errors: Record<string, string>;
+  onChange: (starts: AttendanceSettings["scheduleStartTimes"]) => void;
+}) {
+  const query = useQuery(schedulesQuery);
+  const schedules = query.data?.items.filter((schedule) => !schedule.archived && schedule.kind === "fixed") ?? [];
+  function setStart(id: string, time: string) {
+    const next = { ...starts };
+    if (time) next[id] = time;
+    else delete next[id];
+    onChange(next);
+  }
+  return (
+    <Card className="flex flex-col gap-4 p-4" data-testid="attendance-schedule-starts">
+      <div>
+        <h2 className={textStyle.section}>Start times by work schedule</h2>
+        <p className="mt-1 text-ui text-primary-300">
+          Set a start time for lateness and early departure checks. With a blank entry the usual start applies,
+          currently <span className="num">{defaultStartTime}</span>. Published shifts use the rostered time.
+        </p>
+      </div>
+      {query.isError ? (
+        <ErrorNote error={query.error} retry={() => void query.refetch()} />
+      ) : query.isPending ? (
+        <Skeleton className="h-10 max-w-40" />
+      ) : schedules.length ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {schedules.map((schedule) => (
+            <FormField
+              key={schedule.id}
+              label={`${schedule.name} start (SGT)`}
+              error={errors[`scheduleStartTimes.${schedule.id}`]}
+            >
+              <Input
+                type="time"
+                className="num w-32"
+                disabled={!editable}
+                value={starts[schedule.id] ?? ""}
+                onChange={(e) => setStart(schedule.id, e.target.value)}
+              />
+            </FormField>
+          ))}
+        </div>
+      ) : (
+        <p className="text-ui text-primary-300">Fixed work schedules from Settings → Structure appear here.</p>
+      )}
+    </Card>
   );
 }

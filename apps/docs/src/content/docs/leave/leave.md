@@ -177,9 +177,14 @@ Approved encashment is paid by the next regular payroll run, or a leaver's off-c
 | Policies, holidays, rules | Yes | — | — | — |
 | Government-paid report | Yes | Yes | — | — |
 
+### Adjusting balances and correcting child records
+
+Open the employee in **People → Leave**. In **Leave balances**, choose the **Leave year** and select **Adjust** on the appropriate row. Enter the number of days or hours to add or subtract, and give the reason. Crow HR records the adjustment in the audit log. The action requires leave editing permission and is unavailable for your own balance.
+
+Staff can correct a record with **Edit** under **My leave → Children**. HR can edit an employee's records from the **Children** card on the employee's Leave tab.
+
 ## Limitations
 
-- **Balance adjustments** and editing a child's record exist only in the API.
 - An employee can attach one document when applying; more, or later, only through the API.
 - **Shift workers**: dates in a week covered by the employee's published roster count only when they have a shift. Dates without a published roster count every day except public holidays, with a warning on the quote. Leave already applied for keeps its count even if the roster changes later. Parental leave assumes a 5-day week for shift workers.
 - Employment Act maternity leave for a non-citizen child approximates "fewer than 2 living children" by birth order.

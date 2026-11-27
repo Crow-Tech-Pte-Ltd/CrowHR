@@ -3,9 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, UserPlus } from "lucide-react";
 import * as React from "react";
+import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { LinkDialog } from "../../../settings/members-dialogs.tsx";
 import { ageNotices } from "./-lib/age.ts";
+import { type AllowanceDraft, HireAllowanceFields } from "./-lib/allowances.tsx";
 import {
   api,
   directoryQuery,
@@ -62,8 +64,11 @@ const orNull = (v: string) => (v.trim() === "" ? null : v.trim());
 function NewEmployeePage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const canSetPay = can(useMe(), "compensation:create");
   const [f, setF] = React.useState<Form>(() => ({ ...blank, hireDate: today() }));
   const [amount, setAmount] = React.useState<number | null>(null);
+  const [allowances, setAllowances] = React.useState<AllowanceDraft[]>([]);
+  const incompleteAllowance = canSetPay && allowances.some((a) => !a.allowanceTypeId || a.amountCents === null);
   // Without SMTP the hire returns a one-time sign-in link: show it once, then open the record.
   const [invite, setInvite] = React.useState<{ employeeId: string; url: string; body: string } | null>(null);
   const set = (k: keyof Form) => (v: string) => setF((s) => ({ ...s, [k]: v }));
@@ -106,7 +111,11 @@ function NewEmployeePage() {
           isWorkman: f.isWorkman,
           isManagerOrExecutive: f.isManagerOrExecutive,
         },
-        compensation: amount === null ? null : { payBasis: f.payBasis, amountCents: amount },
+        compensation: canSetPay && amount !== null ? { payBasis: f.payBasis, amountCents: amount } : null,
+        allowances:
+          canSetPay && allowances.length
+            ? allowances.map(({ allowanceTypeId, amountCents }) => ({ allowanceTypeId, amountCents }))
+            : undefined,
         workPass:
           foreigner && f.passType
             ? {
@@ -147,7 +156,7 @@ function NewEmployeePage() {
         noValidate
         onSubmit={(ev) => {
           ev.preventDefault();
-          save.mutate();
+          if (!incompleteAllowance) save.mutate();
         }}
       >
         {save.isError ? (
@@ -383,26 +392,29 @@ function NewEmployeePage() {
           />
         </FormSection>
 
-        <FormSection title="Pay" description="Payroll admins only. Leave empty and a payroll admin can add it later.">
-          <SelectInput
-            label="Pay basis"
-            value={f.payBasis}
-            onChange={set("payBasis")}
-            options={["monthly", "hourly"].map((v) => ({ value: v, label: label(v) }))}
-            error={e("compensation.payBasis")}
-          />
-          <FormField
-            label={f.payBasis === "hourly" ? "Hourly rate" : "Basic monthly pay"}
-            error={
-              e("compensation.amountCents") ??
-              (errorDetails<{ area?: string }>(save.error)?.area === "compensation"
-                ? errorMessage(save.error)
-                : undefined)
-            }
-          >
-            <MoneyInput value={amount} onChange={(c) => setAmount(c)} />
-          </FormField>
-        </FormSection>
+        {canSetPay ? (
+          <FormSection title="Pay" description="Leave empty if a payroll admin will set pay later.">
+            <SelectInput
+              label="Pay basis"
+              value={f.payBasis}
+              onChange={set("payBasis")}
+              options={["monthly", "hourly"].map((v) => ({ value: v, label: label(v) }))}
+              error={e("compensation.payBasis")}
+            />
+            <FormField
+              label={f.payBasis === "hourly" ? "Hourly rate" : "Basic monthly pay"}
+              error={
+                e("compensation.amountCents") ??
+                (errorDetails<{ area?: string }>(save.error)?.area === "compensation"
+                  ? errorMessage(save.error)
+                  : undefined)
+              }
+            >
+              <MoneyInput value={amount} onChange={(c) => setAmount(c)} />
+            </FormField>
+            <HireAllowanceFields rows={allowances} onChange={setAllowances} errors={errs} />
+          </FormSection>
+        ) : null}
 
         {foreigner ? (
           <FormSection title="Work pass" description="Required: the pass must be valid on the start date.">
@@ -442,7 +454,7 @@ function NewEmployeePage() {
         ) : null}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
-          <Button type="submit" variant="primary" disabled={save.isPending}>
+          <Button type="submit" variant="primary" disabled={save.isPending || incompleteAllowance}>
             <UserPlus aria-hidden /> {save.isPending ? "Saving…" : "Add employee"}
           </Button>
           <Button asChild variant="ghost">

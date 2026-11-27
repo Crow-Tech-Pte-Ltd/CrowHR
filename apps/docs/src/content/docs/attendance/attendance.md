@@ -133,12 +133,13 @@ Approved overtime goes to payroll automatically; nobody retypes it.
 
 ### Payroll from approved timesheets only
 
-With timesheet approval on, **Payroll uses approved timesheets only** (off by default) limits both feeds:
+With timesheet approval on, **Payroll uses approved timesheets only** (off by default) controls which attendance records reach payroll.
 
 - an approved overtime claim reaches payroll only when its date is inside an approved timesheet. Overtime whose timesheet is approved later is paid by the next run computed, because payroll also reads unpaid overtime from earlier periods;
-- **days worked** reaches payroll only for rostered staff whose every employed day in the pay period is inside an approved timesheet. Otherwise the run has no days-worked item for them and, for an incomplete month, blocks as it does for staff who don't clock in: approve the timesheet (or enter the figure by hand) and recompute.
+- **Days worked** reaches payroll for rostered staff when each employed day of the pay period is inside an approved timesheet. If the run needs a days-worked item and coverage is incomplete, approve the timesheet or enter the figure by hand and recompute.
+- **Regular hours for hourly staff** reach payroll when approvals cover every employed date and the hours can be priced from those records. The run shows the approved work dates. Old approvals without daily records need to be reopened and approved again. The run asks for manual hours when punches, overtime, special days or leave need review. Manual hours replace the whole feed for that employee in the run.
 
-Without it, payroll reads attendance as described above, approved timesheets or not.
+With the setting off, overtime and days-worked feeds read attendance and hourly staff's regular hours are entered manually.
 
 :::caution[Contractual and hourly-rated overtime]
 A fed overtime item carries minutes, not an amount. For an employee **not covered by Part 4** the run blocks with `OT_NOT_STATUTORY` ("Enter the contractual OT amount"), and for an **hourly-rated** employee with `OT_AMOUNT_REQUIRED`. The issue links to the employee's drawer in the run, where you enter the contractual amount for that overtime claim ([holiday pay and contractual overtime](/docs/payroll/settings/#holiday-pay-and-contractual-overtime-on-a-run)); it replaces the fed amount, so the overtime is paid once.
@@ -172,6 +173,8 @@ Work on a rest day or public holiday reaches payroll as plain overtime minutes. 
 
 Office checks that refuse punches need location, so saving location off with offices set to refuse is refused. Every change is audit-logged.
 
+**Start times by work schedule** lets you set a start for each schedule. A blank start uses the usual start. The start of a published shift takes precedence.
+
 ## Who can do what
 
 | | Owner, HR admin | Payroll admin | Manager | Employee |
@@ -184,15 +187,13 @@ Office checks that refuse punches need location, so saving location off with off
 | Correct a locked day, reopen a timesheet | Everyone except themselves | — | — | — |
 | Attendance settings | Yes | — | — | — |
 
-Owners and HR admins can also file an overtime claim for an employee through the API; the web app files claims for yourself only. The full rules are in the [permission matrix](/docs/roles-and-permissions/).
+Owners and HR admins can use **Claim OT** from **Attendance → Team** on a claimable employee day. On **My timesheet**, use **Refile OT** for a rejected or withdrawn overtime claim while the day is eligible and unlocked. The full rules are in the [permission matrix](/docs/roles-and-permissions/).
 
 ## Limitations
 
-- Lateness for fixed-week staff is measured from one usual start time for the organisation; per-schedule start times exist in the API but have no screen.
-- After a claim is rejected or withdrawn, the day shows that status instead of **Claim OT**; a new claim for that day can only be made through the API.
 - The late-sync threshold (10 minutes) is fixed.
 - There is no list of all overtime claims in the web app; approvers work from the Inbox.
-- Timesheet approval is per organisation, not per team. Hours of hourly-rated staff are not taken from approved timesheets; payroll asks for them per run.
+- Timesheet approval is per organisation.
 - Leave approved after a timesheet is approved still shows on its days. The approved totals keep the figures that were approved, but payroll's days-worked figure is worked out from the days as they are.
 - Changing the period setting doesn't move timesheets already submitted; a new period that overlaps one waiting or approved can't be submitted until that one is withdrawn or reopened.
 - Home reminds you only of the latest ended period, without a due date.

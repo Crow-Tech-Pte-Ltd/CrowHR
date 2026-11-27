@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
+import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
-import { pickDate } from "../leave-helpers.ts";
+import { addDays, pickDate, todaySg } from "../leave-helpers.ts";
 
 /**
  * Task 5.3: create a run → review → approve → payslip visible to the employee → download the PDF.
@@ -9,6 +10,27 @@ import { pickDate } from "../leave-helpers.ts";
 
 async function as(page: Page, persona: string, to: string) {
   await page.goto(`/__dev/as/${persona}?to=${encodeURIComponent(to)}`);
+}
+
+async function checkAllowanceAccessibility(page: Page, scope: string) {
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.classList.contains("dark")))
+      .toBe(colorScheme === "dark");
+    await page.evaluate(() =>
+      Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined))),
+    );
+    const result = await new AxeBuilder({ page })
+      .include(scope)
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(
+      result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`),
+      colorScheme,
+    ).toEqual([]);
+  }
+  await page.emulateMedia({ colorScheme: "light" });
 }
 
 test("monthly payroll from creation to the employee's payslip PDF", async ({ page }) => {
@@ -238,4 +260,156 @@ test("year end: a benefit-in-kind and a share gain flow into the IR8A totals and
   const csv = readFileSync(await sheet.path(), "utf8");
   expect(csv).toContain("*ID Type [Choose option],*ID No.,*Record ID");
   expect(csv).toContain(",ESOP,2024-03-01,2026-06-01,1.5,2.75,1000,");
+});
+
+test("payroll explains missing hours and shows dated hours from a subsequently approved timesheet", async ({
+  page,
+}) => {
+  await as(page, "payroll", "/payroll");
+  const api = "/api/v1";
+  const { october } = (await (await page.request.get("/__dev/runs")).json()) as { october: string };
+  const payroll = `/payroll/runs/${october}`;
+  const { items: people } = (await (await page.request.get(`${api}/employees?q=Rajesh`)).json()) as {
+    items: { id: string }[];
+  };
+  const employeeId = people[0]?.id;
+  expect(employeeId).toBeTruthy();
+  const change = await page.request.post(`${api}/employees/${employeeId}/events`, {
+    data: {
+      type: "salary_change",
+      effectiveDate: "2026-10-01",
+      compensation: { payBasis: "hourly", amountCents: 2_000, reason: "Moves to hourly pay" },
+    },
+  });
+  expect(change.ok(), await change.text()).toBe(true);
+
+  const settings = await page.request.get(`${api}/attendance/settings`);
+  expect(settings.ok()).toBe(true);
+  const { effectivePdpaNotice: _notice, ...attendance } = (await settings.json()) as Record<string, unknown>;
+  const enabled = await page.request.put(`${api}/attendance/settings`, {
+    data: {
+      ...attendance,
+      timesheets: { approval: true, period: "monthly", submittedBy: "manager", payrollApprovedOnly: true },
+    },
+  });
+  expect(enabled.ok(), await enabled.text()).toBe(true);
+  await page.goto(payroll);
+  await page.getByRole("button", { name: "Recompute", exact: true }).click();
+  const missing = page.locator('li[data-code="HOURS_MISSING"]').filter({ hasText: "Rajesh" });
+  await expect(missing).toContainText("No approved timesheet covers this date");
+  await missing.getByRole("button", { name: "Add hours worked" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Manual hours replace all timesheet hours");
+  await page.keyboard.press("Escape");
+
+  for (const [kind, time] of [
+    ["in", "09:00"],
+    ["out", "13:00"],
+  ] as const) {
+    const correction = await page.request.post(`${api}/attendance/corrections`, {
+      data: { employeeId, kind, time: `2026-10-05T${time}:00+08:00`, reason: "Migrated attendance records" },
+    });
+    expect(correction.ok(), await correction.text()).toBe(true);
+  }
+  const submitted = await page.request.post(`${api}/attendance/timesheets`, {
+    data: { employeeId, date: "2026-10-01" },
+  });
+  expect(submitted.ok(), await submitted.text()).toBe(true);
+  const { timesheet } = (await submitted.json()) as { timesheet: { approvalRequestId: string } };
+  await as(page, "owner", "/inbox");
+  const { items: tasks } = (await (await page.request.get(`${api}/approvals/tasks`)).json()) as {
+    items: { taskId: string; requestId: string }[];
+  };
+  const task = tasks.find((t) => t.requestId === timesheet.approvalRequestId);
+  expect(task).toBeTruthy();
+  const approved = await page.request.post(`${api}/approvals/tasks/${task?.taskId}/decision`, {
+    data: { decision: "approve" },
+  });
+  expect(approved.ok(), await approved.text()).toBe(true);
+
+  await as(page, "payroll", payroll);
+  await page.getByRole("button", { name: "Recompute", exact: true }).click();
+  await expect(missing).toHaveCount(0);
+  await page
+    .getByRole("table", { name: "Pay per employee" })
+    .getByRole("row", { name: /Rajesh/ })
+    .click();
+  const hours = page
+    .getByRole("dialog")
+    .getByRole("listitem")
+    .filter({ hasText: "Regular hours from approved timesheet" });
+  await expect(hours).toContainText("Attendance");
+  await expect(hours).toContainText("5 Oct 2026");
+  await expect(hours).toContainText("4 h");
+});
+
+test("payroll can create, assign, change, and end a recurring allowance from the web", async ({ page }) => {
+  test.setTimeout(60_000);
+  await as(page, "payroll", "/payroll/allowances");
+  await page.getByRole("button", { name: "Add allowance type" }).click();
+  const typeDialog = page.getByRole("dialog", { name: "Add allowance type" });
+  await typeDialog.getByRole("textbox", { name: "Name", exact: true }).fill("Pilot transport");
+  await typeDialog.getByRole("textbox", { name: "Code", exact: true }).fill("PILOTTRANSPORT");
+  await checkAllowanceAccessibility(page, '[role="dialog"]');
+  await typeDialog.getByRole("button", { name: "Create type" }).click();
+  await expect(page.getByRole("listitem", { name: "Pilot transport (PILOTTRANSPORT)" })).toBeVisible();
+
+  await page.goto("/people/new");
+  await page.getByLabel("Legal name").fill("Lau Yuen");
+  await page.getByLabel("NRIC").fill("S9317602B");
+  await pickDate(page, "Date of birth", "1997-05-14", page.locator("main"));
+  await page.getByLabel("Job title").fill("Barista");
+  await page.getByRole("combobox", { name: "Department" }).click();
+  await page.getByRole("option", { name: "Operations" }).click();
+  await page.getByLabel("Basic monthly pay").fill("4000.00");
+  await page.getByRole("button", { name: "Add recurring allowance" }).click();
+  await page.getByRole("combobox", { name: "Allowance type" }).click();
+  await page.getByRole("option", { name: "Pilot transport (PILOTTRANSPORT)" }).click();
+  await page.getByLabel("Monthly amount").fill("100.00");
+  await checkAllowanceAccessibility(page, "main fieldset fieldset");
+  await page.getByRole("button", { name: "Add employee" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Lau Yuen" })).toBeVisible();
+  await page.getByRole("tab", { name: "Pay" }).click();
+  const rows = page.getByRole("table", { name: "Recurring allowances" });
+  await expect(rows.getByRole("row", { name: /Pilot transport/ })).toContainText("S$100.00");
+
+  const [year, month] = todaySg().split("-").map(Number) as [number, number];
+  const nextMonth = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+  const monthAfter = new Date(Date.UTC(year, month + 1, 1)).toISOString().slice(0, 10);
+  const openAllowance = async () => {
+    await page.getByRole("button", { name: "Change allowance" }).click();
+    return page.getByRole("dialog", { name: "Change recurring allowance" });
+  };
+  const chooseAllowance = async () => {
+    await page.getByRole("combobox", { name: "Allowance type" }).click();
+    await page.getByRole("option", { name: "Pilot transport (PILOTTRANSPORT)" }).click();
+  };
+
+  const change = await openAllowance();
+  await pickDate(page, "Effective from", addDays(nextMonth, 13), change);
+  await chooseAllowance();
+  await change.getByLabel("Monthly amount").fill("150.00");
+  await checkAllowanceAccessibility(page, '[role="dialog"]');
+  await change.getByRole("button", { name: "Save allowance" }).click();
+  await expect(change.getByText(/Use the first day of a month/)).toBeVisible();
+  await pickDate(page, "Effective from", nextMonth, change);
+  await change.getByRole("button", { name: "Save allowance" }).click();
+  await expect(change).toBeHidden();
+  await expect(rows.getByRole("row", { name: /Pilot transport.*S\$150\.00/ })).toBeVisible();
+
+  const end = await openAllowance();
+  await pickDate(page, "Effective from", monthAfter, end);
+  await chooseAllowance();
+  await end.getByRole("combobox", { name: "Change" }).click();
+  await page.getByRole("option", { name: "End allowance" }).click();
+  await end.getByRole("button", { name: "Save allowance" }).click();
+  await expect(end).toBeHidden();
+  await expect(rows.getByRole("row", { name: /Pilot transport.*S\$150\.00/ })).not.toContainText("Ongoing");
+  await expect(page.getByRole("table", { name: "Pay history" }).getByRole("row")).toHaveCount(2);
+
+  await page.getByRole("tab", { name: "History" }).click();
+  const endEvent = page.getByRole("listitem").filter({ hasText: "allowance ends" });
+  await endEvent.getByRole("button", { name: "Cancel" }).click();
+  await expect(endEvent.getByText("Cancelled", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Pay" }).click();
+  await expect(rows.getByRole("row", { name: /Pilot transport.*S\$150\.00/ })).toContainText("Ongoing");
 });

@@ -23,6 +23,7 @@ import {
 } from "../db/schema/payroll.ts";
 import type { Db } from "../db/types.ts";
 import { findAsAt } from "../employees/effective.ts";
+import { approvedHoursItems } from "./approved-hours.ts";
 import { addMonths as addMonthsTo, maxDate, minDate, monthLabel } from "./engine/dates.ts";
 import {
   ENGINE_VERSION,
@@ -34,7 +35,9 @@ import {
   type RunItemInput,
 } from "./engine/types.ts";
 import type {
+  ApprovedHoursSheet,
   ApprovedOvertime,
+  HoursWorkedSource,
   PayableClaim,
   PayableEncashment,
   RosterDaysWorked,
@@ -228,6 +231,8 @@ export interface SnapshotContext {
   unpaidLeave?: UnpaidLeaveDay[];
   /** Days worked by rostered staff from attendance (`days_worked` items); a manual `days_worked` item wins. */
   daysWorked?: RosterDaysWorked[];
+  /** Dated regular hours from approved timesheets, for staff whose rates are hourly. */
+  hoursWorked?: HoursWorkedSource;
   /** Scheduled days from published rosters (`scheduled_days` items); a manual `scheduled_days` item wins. */
   scheduledDays?: RosterScheduledDays[];
 }
@@ -257,6 +262,19 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
     .select()
     .from(compensationRecords)
     .where(and(eq(compensationRecords.orgId, orgId), inArray(compensationRecords.employeeId, ids)));
+  const inPeriod = (c: (typeof comps)[number]) =>
+    c.effectiveFrom <= run.periodEnd && (c.effectiveTo === null || c.effectiveTo > run.periodStart);
+  const hourlyIds = [...new Set(comps.filter((c) => c.payBasis === "hourly" && inPeriod(c)).map((c) => c.employeeId))];
+  const approvedSheets =
+    ctx.hoursWorked && hourlyIds.length
+      ? await ctx.hoursWorked.listApproved(orgId, hourlyIds, run.periodStart, run.periodEnd)
+      : null;
+  const sheetsByEmployee = new Map<string, ApprovedHoursSheet[]>();
+  for (const sheet of approvedSheets ?? []) {
+    const mine = sheetsByEmployee.get(sheet.employeeId) ?? [];
+    mine.push(sheet);
+    sheetsByEmployee.set(sheet.employeeId, mine);
+  }
   const allowances = await db
     .select({ a: recurringAllowances, type: allowanceTypes, setting: payrollAllowanceSettings })
     .from(recurringAllowances)
@@ -426,6 +444,38 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
         }),
       );
 
+    const compensation = comps
+      .filter((c) => c.employeeId === id && inPeriod(c))
+      .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1))
+      .map((c) => ({ from: c.effectiveFrom, to: c.effectiveTo, payBasis: c.payBasis, amountCents: c.amountCents }));
+    const windowStart = maxDate(run.periodStart, tenure.hireDate);
+    const employmentEnd = tenure.lastWorkingDay ? minDate(run.periodEnd, tenure.lastWorkingDay) : run.periodEnd;
+    const inEmployment = compensation.filter((c) => c.from <= employmentEnd && (c.to === null || c.to > windowStart));
+    const hasSeparateOvertime = (i: { periodStart: string | null; periodEnd: string | null }) =>
+      (i.periodStart ?? run.periodStart) <= employmentEnd && (i.periodEnd ?? run.periodEnd) >= windowStart;
+    const approvedHours =
+      approvedSheets &&
+      windowStart <= employmentEnd &&
+      inEmployment.length &&
+      inEmployment.every((c) => c.payBasis === "hourly") &&
+      !itemRows.some((i) => i.kind === "hours")
+        ? approvedHoursItems(sheetsByEmployee.get(id) ?? [], {
+            from: windowStart,
+            to: employmentEnd,
+            hasMultipleTenures: tens.some(
+              (t) =>
+                t.employeeId === id &&
+                t.id !== tenure.id &&
+                t.hireDate <= run.periodEnd &&
+                (t.lastWorkingDay === null || t.lastWorkingDay >= run.periodStart),
+            ),
+            hasSeparateOvertime:
+              itemRows.some((i) => i.kind === "overtime" && hasSeparateOvertime(i)) ||
+              (ctx.overtime ?? []).some((i) => i.employeeId === id && hasSeparateOvertime(i)),
+          })
+        : null;
+    if (approvedHours?.issue) snapshotIssues.push(approvedHours.issue);
+
     // CPF YTD state before this month.
     const mine = slips.get(id) ?? [];
     const earlier = mine
@@ -538,15 +588,7 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
         jobTitle: job?.jobTitle ?? null,
         department: depts.find((d) => d.id === job?.departmentId)?.name ?? null,
       },
-      compensation: comps
-        .filter(
-          (c) =>
-            c.employeeId === id &&
-            c.effectiveFrom <= run.periodEnd &&
-            (c.effectiveTo === null || c.effectiveTo > run.periodStart),
-        )
-        .sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? -1 : 1))
-        .map((c) => ({ from: c.effectiveFrom, to: c.effectiveTo, payBasis: c.payBasis, amountCents: c.amountCents })),
+      compensation,
       allowances: allowances
         .filter(
           ({ a }) =>
@@ -568,6 +610,7 @@ export async function buildSnapshots(db: Db, ctx: SnapshotContext): Promise<PayI
         })),
       items: [
         ...itemRows,
+        ...(approvedHours?.items ?? []),
         ...(ctx.unpaidLeave ?? [])
           .filter((u) => u.employeeId === id && !itemRows.some((i) => i.kind === "unpaid_leave" && i.date === u.date))
           .sort((a, b) => (a.date === b.date ? (a.sourceId < b.sourceId ? -1 : 1) : a.date < b.date ? -1 : 1))

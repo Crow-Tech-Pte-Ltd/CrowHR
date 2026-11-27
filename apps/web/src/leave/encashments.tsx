@@ -62,7 +62,7 @@ const LABEL = {
 };
 
 /** Used by employee self-service and HR's employee leave tab; all access is checked again by core. */
-export function Encashments({ employeeId, showBalances = false }: { employeeId?: string; showBalances?: boolean }) {
+export function Encashments({ employeeId }: { employeeId?: string }) {
   const me = useMe();
   const isHr = me.roles.includes("owner") || me.roles.includes("hr_admin");
   const own = !employeeId || employeeId === me.employeeId;
@@ -143,35 +143,6 @@ export function Encashments({ employeeId, showBalances = false }: { employeeId?:
   if (selfService && !q.data.items.length && !q.data.candidates.length && !eligible.length) return null;
   return (
     <>
-      {showBalances ? (
-        <Card className="mb-4">
-          <CardHeader>
-            <CardTitle>Leave balances</CardTitle>
-          </CardHeader>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Leave</TableHead>
-                <TableHead className="text-right">Available</TableHead>
-                <TableHead className="text-right">Pending</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {balances.data.items
-                .filter((b) => b.tracked)
-                .map((b) => (
-                  <TableRow key={`${b.typeId}-${b.childId}`}>
-                    <TableCell>{b.name}</TableCell>
-                    <TableCell className="num text-right">
-                      {b.available ?? "—"} {b.unit}
-                    </TableCell>
-                    <TableCell className="num text-right">{b.pending}</TableCell>
-                  </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-        </Card>
-      ) : null}
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-3">
           <CardTitle>Leave encashment</CardTitle>

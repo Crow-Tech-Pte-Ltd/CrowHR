@@ -37,6 +37,7 @@ When the run is computed, Crow HR adds these items itself, each labelled with wh
 | --- | --- | --- |
 | No-pay leave, unpaid infant care leave, unpaid company leave | [Leave](/docs/leave/leave/#how-leave-reaches-payroll) | Approved days in the run's period, in half days. A no-pay leave item you enter for the same date replaces it. |
 | Overtime | [Attendance](/docs/attendance/attendance/#how-approved-overtime-reaches-payroll) | Approved overtime claims for dates in the period, plus earlier approved claims that no run has paid yet. Items you enter are added on top, so don't enter the same hours twice. |
+| Regular hourly work | [Approved timesheets](/docs/attendance/attendance/#payroll-from-approved-timesheets-only) | Hours use the rate on the date worked. Every employed date needs usable approval coverage. A manual hours item replaces the entire feed for that employee in the run. |
 | Days worked | Attendance | Rostered staff who clock in. An item you enter wins. |
 | Scheduled days | [Published rosters](/docs/scheduling/scheduling/#payroll-scheduled-days) | Only when the whole month is published and the employee was employed all month. An item you enter wins. |
 | Claims reimbursement | [Claims](/docs/claims/claims/#through-payroll) | Approved claims paid with payroll, approved by the end of the month and not yet paid. Shown under "Reimbursements (not wages)": no CPF, not in gross pay. |

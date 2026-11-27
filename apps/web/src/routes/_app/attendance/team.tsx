@@ -44,8 +44,9 @@ import {
 } from "../../../attendance/api.ts";
 import { AttendanceNav } from "../../../attendance/attendance-nav.tsx";
 import { dayLabel, dm, exceptions } from "../../../attendance/day-table.tsx";
+import { ClaimDialog, OvertimeAction } from "../../../attendance/overtime-claim.tsx";
 import { LockedMark } from "../../../attendance/timesheet-approval.tsx";
-import { can, useMe } from "../../../auth/session.ts";
+import { can, canForEmployee, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { addDays, todaySg, weekdayOf } from "../../../leave/format.ts";
@@ -72,6 +73,7 @@ function TeamTimesheetPage() {
   const date = search.date ?? today;
   const q = useQuery(teamQuery(date, date));
   const [editing, setEditing] = React.useState<Row | null>(null);
+  const [claiming, setClaiming] = React.useState<Row | null>(null);
   const rows: Row[] = (q.data?.items ?? []).flatMap((s) =>
     s.days[0] ? [{ employee: s.employee, day: s.days[0] }] : [],
   );
@@ -131,8 +133,7 @@ function TeamTimesheetPage() {
                 <TableHead className="text-right">Out</TableHead>
                 <TableHead className="hidden text-right sm:table-cell">Worked</TableHead>
                 <TableHead className="hidden lg:table-cell">Notes</TableHead>
-                {/* Phones: the name opens the correction sheet, so the button column is left out. */}
-                <TableHead className="hidden text-right sm:table-cell">
+                <TableHead className="text-right">
                   <span className="sr-only">Actions</span>
                 </TableHead>
               </TableRow>
@@ -172,12 +173,25 @@ function TeamTimesheetPage() {
                       ))}
                     </span>
                   </TableCell>
-                  <TableCell className="hidden text-right sm:table-cell">
-                    {r.employee.id !== me.employeeId ? (
-                      <Button size="sm" onClick={() => setEditing(r)}>
-                        Correct
-                      </Button>
-                    ) : null}
+                  <TableCell className="text-right">
+                    <div className="flex flex-wrap items-center justify-end gap-1">
+                      <OvertimeAction
+                        day={r.day}
+                        today={today}
+                        employeeName={r.employee.name}
+                        showLock={false}
+                        onClaim={
+                          r.employee.id !== me.employeeId && canForEmployee(me, "attendance:create", r.employee.id)
+                            ? () => setClaiming(r)
+                            : undefined
+                        }
+                      />
+                      {r.employee.id !== me.employeeId ? (
+                        <Button size="sm" className="hidden sm:inline-flex" onClick={() => setEditing(r)}>
+                          Correct
+                        </Button>
+                      ) : null}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -186,6 +200,9 @@ function TeamTimesheetPage() {
         )}
       </Card>
       {editing ? <CorrectionSheet row={editing} date={date} onClose={() => setEditing(null)} /> : null}
+      {claiming ? (
+        <ClaimDialog day={claiming.day} employee={claiming.employee} onClose={() => setClaiming(null)} />
+      ) : null}
     </>
   );
 }

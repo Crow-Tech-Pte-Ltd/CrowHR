@@ -4,17 +4,7 @@ import {
   CardHeader,
   CardTitle,
   cn,
-  DatePicker,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   EmptyState,
-  FormField,
-  Input,
-  RadioGroup,
   Skeleton,
   StatusPill,
   Table,
@@ -24,31 +14,21 @@ import {
   TableHeader,
   TableRow,
   textStyle,
-  toast,
 } from "@crowhr/ui";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Baby, CalendarPlus, ChevronDown } from "lucide-react";
+import { CalendarPlus, ChevronDown } from "lucide-react";
 import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
-import {
-  type Balance,
-  balancesQuery,
-  type Child,
-  childrenQuery,
-  type LeaveRequest,
-  requestsQuery,
-  useLeaveInvalidate,
-} from "../../../leave/api.ts";
+import { type Balance, balancesQuery, childrenQuery, type LeaveRequest, requestsQuery } from "../../../leave/api.ts";
 import { ApplySheet } from "../../../leave/apply-sheet.tsx";
-import { CheckRow, RadioRow } from "../../../leave/choice.tsx";
+import { ChildRecords } from "../../../leave/child-records.tsx";
 import { Encashments } from "../../../leave/encashments.tsx";
 import { dateRange, fmt, qty, STATUS_LABEL, STATUS_TONE } from "../../../leave/format.ts";
 import { LeaveNav } from "../../../leave/leave-nav.tsx";
 import { RequestSheet } from "../../../leave/request-sheet.tsx";
-import { ApiError, apiPost } from "../../../lib/api.ts";
 
 interface LeaveSearch {
   request?: string;
@@ -92,7 +72,7 @@ function MyLeavePage() {
             <Encashments />
             <MyRequests onOpen={(id) => void navigate({ search: { request: id } })} />
           </div>
-          <Children />
+          <ChildRecords />
         </div>
       ) : (
         <EmptyState
@@ -326,197 +306,5 @@ function RequestRow({ r, onOpen }: { r: LeaveRequest; onOpen: (id: string) => vo
         </span>
       </button>
     </li>
-  );
-}
-
-function Children() {
-  const q = useQuery(childrenQuery());
-  const [open, setOpen] = React.useState(false);
-  const items = q.data?.items ?? [];
-  return (
-    <Card aria-labelledby="children-title" className="self-start" data-testid="leave-children">
-      <CardHeader>
-        <div>
-          <CardTitle id="children-title">Children</CardTitle>
-          <p className="mt-1 text-ui text-primary-300">
-            For maternity, paternity, shared parental and childcare leave.
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <Baby /> Add
-        </Button>
-      </CardHeader>
-      {q.isError ? (
-        <ErrorNote error={q.error} retry={() => void q.refetch()} />
-      ) : q.isPending ? (
-        <div className="border-t border-border p-4">
-          <Skeleton className="h-6 w-full" />
-        </div>
-      ) : items.length === 0 ? (
-        <p className="border-t border-border px-4 py-3 text-ui text-primary-300">
-          None recorded. Add a child (or an expected baby) to see your family leave.
-        </p>
-      ) : (
-        <ul className="divide-y divide-border border-t border-border">
-          {items.map((c) => (
-            <ChildRow key={c.id} c={c} />
-          ))}
-        </ul>
-      )}
-      <ChildDialog open={open} onOpenChange={setOpen} />
-    </Card>
-  );
-}
-
-function ChildRow({ c }: { c: Child }) {
-  const date = c.adoptionIntentDate ?? c.birthDate ?? c.expectedDeliveryDate;
-  const what = c.adoptionIntentDate ? "Adoption from" : c.birthDate ? "Born" : "Due";
-  return (
-    <li className="flex items-center justify-between gap-3 px-4 py-2.5 text-ui">
-      <span className="min-w-0">
-        <span className="block truncate font-medium">{c.name}</span>
-        <span className="text-2xs text-primary-200">
-          {what} <span className="num">{date ? dateLabel(date) : "—"}</span> · Child {c.birthOrder}
-        </span>
-      </span>
-      <span className="text-2xs text-primary-300">{c.isCitizen ? "Singapore citizen" : "Not a citizen"}</span>
-    </li>
-  );
-}
-
-function ChildDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const invalidate = useLeaveInvalidate();
-  const [name, setName] = React.useState("");
-  const [how, setHow] = React.useState<"born" | "expected" | "adopting">("born");
-  const [date, setDate] = React.useState<string | null>(null);
-  const [adoptedBirthDate, setAdoptedBirthDate] = React.useState<string | null>(null);
-  const [stillborn, setStillborn] = React.useState(false);
-  const [isCitizen, setCitizen] = React.useState(true);
-  const [order, setOrder] = React.useState("1");
-  const [married, setMarried] = React.useState(true);
-  const [errors, setErrors] = React.useState<Record<string, string>>({});
-  const reset = () => {
-    setName("");
-    setHow("born");
-    setDate(null);
-    setAdoptedBirthDate(null);
-    setStillborn(false);
-    setErrors({});
-  };
-  const save = useMutation({
-    mutationFn: () =>
-      apiPost<Child>("/api/v1/leave/children", {
-        name: name.trim(),
-        ...(how === "born"
-          ? { birthDate: date, stillborn }
-          : how === "expected"
-            ? { expectedDeliveryDate: date }
-            : { adoptionIntentDate: date, birthDate: adoptedBirthDate }),
-        isCitizen,
-        birthOrder: Number(order) || 1,
-        marriedToMother: married,
-      }),
-    onSuccess: () => {
-      invalidate();
-      toast.success("Child added. Family leave balances are updated.");
-      reset();
-      onOpenChange(false);
-    },
-    onError: (err) => setErrors(err instanceof ApiError ? err.fieldErrors : {}),
-  });
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add a child</DialogTitle>
-          <DialogDescription>Used only to work out parental and childcare leave.</DialogDescription>
-        </DialogHeader>
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save.mutate();
-          }}
-        >
-          <FormField label="Name" required error={errors.name} hint='Use "Baby" before the birth.'>
-            <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
-          </FormField>
-          <fieldset className="flex flex-col gap-2">
-            <legend className={cn("mb-1", textStyle.group)}>This child</legend>
-            <RadioGroup
-              value={how}
-              onValueChange={(v) => {
-                setHow(v as typeof how);
-                setStillborn(false);
-              }}
-              className="flex flex-col gap-2"
-            >
-              <RadioRow value="born">Has been born</RadioRow>
-              <RadioRow value="expected">Is expected (not born yet)</RadioRow>
-              <RadioRow value="adopting">Is being adopted</RadioRow>
-            </RadioGroup>
-          </fieldset>
-          <div className="grid grid-cols-2 gap-3">
-            <FormField
-              label={
-                how === "born" ? "Date of birth" : how === "expected" ? "Expected delivery" : "Formal intent to adopt"
-              }
-              hint={how === "adopting" ? "The date of the formal intent to adopt, as on the MSF records." : undefined}
-              required
-              error={how === "adopting" ? (errors.adoptionIntentDate ?? errors.birthDate) : errors.birthDate}
-            >
-              <DatePicker value={date} onChange={setDate} />
-            </FormField>
-            <FormField label="Child number" hint="1 for your first child." error={errors.birthOrder}>
-              <Input
-                inputMode="numeric"
-                className="num"
-                value={order}
-                onChange={(e) => setOrder(e.target.value.replace(/\D/g, ""))}
-              />
-            </FormField>
-          </div>
-          {how === "adopting" ? (
-            <FormField
-              label="Child's date of birth (optional)"
-              hint="Adoption leave is for a child below 12 months old at the formal intent to adopt."
-              error={errors.birthDate}
-            >
-              <DatePicker value={adoptedBirthDate} onChange={setAdoptedBirthDate} />
-            </FormField>
-          ) : null}
-          {how === "born" ? (
-            <div className="flex flex-col gap-1">
-              <CheckRow checked={stillborn} onChange={setStillborn}>
-                Our baby was stillborn
-              </CheckRow>
-              {stillborn ? (
-                <p className="pl-6 text-2xs text-primary-300">
-                  We're very sorry for your loss. Recording this keeps the leave you're still entitled to, such as 2
-                  weeks of paternity leave for fathers. It's used only to work out leave.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          <CheckRow checked={isCitizen} onChange={setCitizen}>
-            Singapore citizen (or will be within 12 months)
-          </CheckRow>
-          <CheckRow checked={married} onChange={setMarried}>
-            Fathers: married to the child's mother (needed for paternity leave)
-          </CheckRow>
-          {save.error && !Object.keys(errors).length ? (
-            <p className="text-ui text-danger-300">{save.error.message}</p>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={!name.trim() || !date || save.isPending}>
-              Add child
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
