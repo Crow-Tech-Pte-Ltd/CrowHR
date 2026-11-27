@@ -26684,7 +26684,7 @@
     "/api/v1/employees/export": {
       "get": {
         "operationId": "employees.getExport",
-        "summary": "Export the employee list (CSV or XLSX, masked identifiers)",
+        "summary": "Export the employee list (CSV, XLSX or JSON, masked identifiers)",
         "tags": [
           "Employees"
         ],
@@ -26707,7 +26707,8 @@
               "type": "string",
               "enum": [
                 "csv",
-                "xlsx"
+                "xlsx",
+                "json"
               ]
             }
           },
@@ -26801,9 +26802,11 @@
         ],
         "responses": {
           "200": {
-            "description": "CSV or XLSX file",
+            "description": "CSV, XLSX or JSON attachment",
             "content": {
-              "text/csv": {}
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+              "application/json": {}
             }
           },
           "400": {
@@ -65396,7 +65399,7 @@
     "/api/v1/reports/{id}/export": {
       "get": {
         "operationId": "reports.getByIdExport",
-        "summary": "Export the full report as CSV (UTF-8 with BOM) or XLSX, audit-logged",
+        "summary": "Export the full report as CSV (UTF-8 with BOM), XLSX or JSON, audit-logged",
         "tags": [
           "Reports"
         ],
@@ -65469,16 +65472,19 @@
               "type": "string",
               "enum": [
                 "csv",
-                "xlsx"
+                "xlsx",
+                "json"
               ]
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "CSV or XLSX file",
+            "description": "CSV, XLSX or JSON attachment",
             "content": {
-              "text/csv": {}
+              "text/csv": {},
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+              "application/json": {}
             }
           },
           "400": {

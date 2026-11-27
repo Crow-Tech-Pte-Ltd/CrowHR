@@ -27,6 +27,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AlertOctagon, CheckCircle2, Download, FileText, RotateCcw, Search, Send, Undo2 } from "lucide-react";
 import * as React from "react";
 import { useReauth } from "../../../auth/reauth.tsx";
+import { can, useMe } from "../../../auth/session.ts";
 import { isNotFound, NotFoundPage } from "../../../components/not-found.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
@@ -117,6 +118,7 @@ function RunPage() {
 
 function RunHeader({ o }: { o: PayrollOverviewDto }) {
   const { run } = o;
+  const me = useMe();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const reauth = useReauth();
@@ -240,6 +242,19 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
         </Button>,
       );
     }
+  }
+  if (computed && can(me, "reports_payroll_cost:read")) {
+    actions.unshift(
+      <Button asChild key="register" size="sm">
+        <Link
+          to="/reports/$reportId"
+          params={{ reportId: "payroll.register" }}
+          search={{ from: run.month, to: run.month, state: "all", runId: run.id }}
+        >
+          <Download aria-hidden /> Payroll register
+        </Link>
+      </Button>,
+    );
   }
   const kindNote =
     run.kind === "adjustment"

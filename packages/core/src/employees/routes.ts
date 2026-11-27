@@ -2,6 +2,7 @@ import { z } from "zod";
 import { revealSensitive } from "../access/nric.ts";
 import { sensitive } from "../access/sensitivity.ts";
 import { AppError } from "../errors.ts";
+import { XLSX_CONTENT_TYPE } from "../export/xlsx.ts";
 import { csvEnum, listQuery } from "../http/list.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
 import { WORK_PASS_TYPES } from "../organisation/statutory.ts";
@@ -191,10 +192,15 @@ export const employeesModule = defineModule({
     defineRoute({
       method: "get",
       path: "/export",
-      summary: "Export the employee list (CSV or XLSX, masked identifiers)",
+      summary: "Export the employee list (CSV, XLSX or JSON, masked identifiers)",
       access: { permission: "directory:read" },
-      request: { query: exportQuery },
-      responses: { 200: { description: "CSV or XLSX file", contentType: "text/csv" } },
+      request: { query: exportQuery.extend({ format: z.enum(["csv", "xlsx", "json"]).default("csv") }) },
+      responses: {
+        200: {
+          description: "CSV, XLSX or JSON attachment",
+          contentType: ["text/csv", XLSX_CONTENT_TYPE, "application/json"],
+        },
+      },
       errors: ["forbidden"],
       handler: async ({ c, deps, query }) => {
         const { actor, ports } = actorFrom(c);

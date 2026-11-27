@@ -6,6 +6,7 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ### Added
 
+- Export data in the web app offers Excel, CSV and JSON for reports and the employee list, adds payroll registers and line items, leave requests and daily timesheets, and links to payslip, statutory and other native files.
 - **Portable VPS install**. The hosted installer prepares a private Docker Compose project, handles HTTPS through Caddy, checks service health and exports encrypted backups. See the [operator runbook](deploy/hosted/README.md#start-on-a-vps-with-caddy).
 
 - **Approved hourly work in payroll**: the approved-timesheets-only setting brings unambiguous, dated regular hours into an hourly employee's run. Payroll explains when it needs a manual amount.

@@ -32,12 +32,14 @@ import { ApiError } from "../../../lib/api.ts";
 import {
   type Cell,
   type ColumnType,
+  EXPORT_FORMATS,
   exportHref,
   formatCell,
   isNumeric,
   type ReportResult,
   reportQuery,
 } from "../../../reports/api.ts";
+import { DownloadFeedback, useExportDownload } from "../../../reports/download.tsx";
 
 type Search = Record<string, string>;
 
@@ -52,6 +54,7 @@ function ReportPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const q = useQuery(reportQuery(reportId, search));
+  const download = useExportDownload();
   const set = (patch: Search) => {
     const next: Search = { ...search, ...patch };
     for (const k of Object.keys(next)) if (next[k] === "") delete next[k];
@@ -75,22 +78,22 @@ function ReportPage() {
         title={title}
         description={data?.report.description}
         actions={
-          data?.canExport ? (
-            <>
-              <Button asChild size="sm">
-                <a href={exportHref(reportId, params, "csv")} download data-testid="export-csv">
-                  <Download aria-hidden /> CSV
-                </a>
-              </Button>
-              <Button asChild size="sm">
-                <a href={exportHref(reportId, params, "xlsx")} download data-testid="export-xlsx">
-                  <Download aria-hidden /> Excel
-                </a>
-              </Button>
-            </>
-          ) : null
+          data?.canExport
+            ? EXPORT_FORMATS.map(({ id, label }) => (
+                <Button
+                  key={id}
+                  size="sm"
+                  disabled={download.isPending || q.isPlaceholderData}
+                  onClick={() => download.mutate(exportHref(reportId, params, id))}
+                  data-testid={`export-${id}`}
+                >
+                  <Download aria-hidden /> {label}
+                </Button>
+              ))
+            : null
         }
       />
+      <DownloadFeedback download={download} />
       {data ? <Parameters data={data} onChange={set} search={search} /> : null}
       {err && err.status === 403 ? (
         <EmptyState

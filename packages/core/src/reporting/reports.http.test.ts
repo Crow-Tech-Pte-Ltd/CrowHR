@@ -63,13 +63,18 @@ describe("reports", () => {
       "people.work_pass_expiry",
       "leave.taken",
       "leave.balances",
+      "leave.requests",
+      "leave.government_paid",
       "attendance.exceptions",
+      "attendance.timesheets",
       "claims.summary",
       "claims.ageing",
       "claims.cap_usage",
       "claims.payouts",
       "claims.lines",
       "payroll.cost",
+      "payroll.register",
+      "payroll.line_items",
       "scheduling.hours",
     ]);
     const hr = (await ids(await w.as("hr"))).map((r) => r.id);
@@ -77,18 +82,23 @@ describe("reports", () => {
     expect(hr).not.toContain("payroll.cost");
     expect((await ids(await w.as("payroll"))).map((r) => r.id)).toEqual([
       "people.work_pass_expiry",
+      "leave.government_paid",
       "claims.summary",
       "claims.ageing",
       "claims.cap_usage",
       "claims.payouts",
       "claims.lines",
       "payroll.cost",
+      "payroll.register",
+      "payroll.line_items",
     ]);
     // Manager catalogue: leave, attendance and scheduled hours, team-scoped; no payroll cost or headcount.
     expect(await ids(await w.as("manager"))).toEqual([
       expect.objectContaining({ id: "leave.taken", scope: "team" }),
       expect.objectContaining({ id: "leave.balances", scope: "team" }),
+      expect.objectContaining({ id: "leave.requests", scope: "team" }),
       expect.objectContaining({ id: "attendance.exceptions", scope: "team" }),
+      expect.objectContaining({ id: "attendance.timesheets", scope: "team" }),
       expect.objectContaining({ id: "scheduling.hours", scope: "team" }),
     ]);
     expect(await ids(await w.as("staff"))).toEqual([]);
@@ -107,7 +117,41 @@ describe("reports", () => {
     expect((await ids(owner)).map((r) => r.id)).not.toContain("leave.balances");
   });
 
-  it.each(["csv", "xlsx"])(
+  it("exports leave requests that overlap the period for the manager's own team", async () => {
+    const manager = await w.as("manager");
+    const response = await manager.get(
+      "/api/v1/reports/leave.requests/export?from=2026-10-01&to=2026-11-03&format=json",
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      rows: [
+        expect.objectContaining({
+          name: "Ravi Kumar",
+          startDate: "2026-11-03",
+          endDate: "2026-11-04",
+          status: "approved",
+        }),
+      ],
+    });
+  });
+
+  it("exports one timesheet row per employee and day, in the caller's scope", async () => {
+    const manager = await w.as("manager");
+    const response = await manager.get(
+      "/api/v1/reports/attendance.timesheets/export?from=2026-11-10&to=2026-11-10&format=json",
+    );
+    expect(response.status).toBe(200);
+    const { rows } = (await response.json()) as { rows: Record<string, unknown>[] };
+    expect(rows.find((row) => row.name === "Ravi Kumar")).toMatchObject({
+      date: "2026-11-10",
+      lateMinutes: 12,
+      firstIn: "2026-11-10T01:12:00.000Z",
+      lastOut: "2026-11-10T10:00:00.000Z",
+    });
+    expect(rows.some((row) => String(row.name).includes("Farah"))).toBe(false);
+  });
+
+  it.each(["csv", "xlsx", "json"])(
     "salary exports require recent re-auth (%s), ordinary reports remain available",
     async (format) => {
       const stale = await clientAs(w.app, w.deps, w.m.owner, {
@@ -315,4 +359,35 @@ describe("reports", () => {
     expect((await (await w.as("manager")).get("/api/v1/reports/leave.taken/export")).status).toBe(200);
     expect((await (await w.as("staff")).get("/api/v1/reports/leave.taken/export")).status).toBe(403);
   });
+});
+
+it("keeps JSON report exports scoped, redacted and audited", async () => {
+  const world = await createLeaveWorld({ now: "2026-11-13T02:00:00.000Z" });
+  try {
+    const manager = await world.as("manager");
+    const response = await manager.get("/api/v1/reports/leave.balances/export?asAt=2026-11-13&format=json");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-disposition")).toMatch(/attachment; filename="leave-balances-.*\.json"/);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const body = (await response.json()) as {
+      columns: { key: string; type: string }[];
+      rows: { name: string }[];
+      redactedColumns: string[];
+    };
+    expect(body.redactedColumns).toContain("liability");
+    expect(body.columns.some((column) => column.key === "liability")).toBe(false);
+    expect(body.rows.map((row) => row.name).sort()).toEqual([
+      "Ahmad Ismail",
+      "Daniel Goh",
+      "Ravi Kumar",
+      "Siti Rahmah",
+    ]);
+    expect(body.rows.every((row) => !("liability" in row))).toBe(true);
+    const events = await world.deps.db.select().from(auditEvents).where(eq(auditEvents.action, "report.exported"));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.meta).toMatchObject({ report: "leave.balances", format: "json", rowCount: 4 });
+    expect((await manager.get("/api/v1/reports/payroll.register/export?format=json")).status).toBe(403);
+  } finally {
+    await world.close();
+  }
 });

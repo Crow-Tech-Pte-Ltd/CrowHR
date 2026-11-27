@@ -12,6 +12,7 @@
 /documents      /            200
 /documents/*    /            200
 /email/*        /            200
+/export-data    /            200
 /inbox          /            200
 /inbox/*        /            200
 /invite/*       /            200

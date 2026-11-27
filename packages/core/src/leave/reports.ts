@@ -1,15 +1,24 @@
 import { dailyRate, roundHalfUpToCent } from "@crowhr/sg-rules";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { z } from "zod";
-import { compensationRecords } from "../db/schema/employees.ts";
+import { orgScope } from "../access/org-scope.ts";
+import { compensationRecords, employees } from "../db/schema/employees.ts";
 import { leaveRequestDays, leaveRequests, leaveTypes } from "../db/schema/leave.ts";
 import { displayDate, isIsoDate } from "../employees/dates.ts";
 import { asAtMany } from "../employees/effective.ts";
+import { displayName } from "../employees/records.ts";
 import { membersOn } from "../employees/reports/people-data.ts";
-import { inBatches, type ReportDefinition, type ReportRow, type ReportSource } from "../reporting/types.ts";
+import {
+  inBatches,
+  type ReportColumn,
+  type ReportDefinition,
+  type ReportRow,
+  type ReportSource,
+} from "../reporting/types.ts";
 import { balancesFor, loadBalanceFacts } from "./balances.ts";
 import { loadEmployeesTime, workingDaysPerWeekOn } from "./calendar.ts";
 import { ensureLeaveSetup } from "./defaults.ts";
+import { governmentPaidReport } from "./outputs.ts";
 
 /**
  * Leave reports (add-reporting spec "Module reports through definitions": leave balances as at a
@@ -237,4 +246,144 @@ export const leaveBalancesReport: ReportDefinition<z.output<ReturnType<typeof ba
   ],
 };
 
-export const leaveReportSource: ReportSource = { module: "leave", reports: [leaveTakenReport, leaveBalancesReport] };
+const periodParams = ({ today }: { today: string }) =>
+  z
+    .object({ from: isoDate.default(`${today.slice(0, 4)}-01-01`), to: isoDate.default(today) })
+    .refine((p) => p.from <= p.to, { message: "Pick a start date on or before the end date.", path: ["from"] });
+
+const periodFields = [
+  { key: "from", label: "From", kind: "date" },
+  { key: "to", label: "To", kind: "date" },
+] as const;
+
+const requestColumns: ReportColumn[] = [
+  { key: "name", title: "Employee", type: "text" },
+  { key: "leaveType", title: "Leave type", type: "text" },
+  { key: "startDate", title: "Start", type: "date" },
+  { key: "endDate", title: "End", type: "date" },
+];
+
+const leaveRequestsReport: ReportDefinition<z.output<ReturnType<typeof periodParams>>> = {
+  id: "leave.requests",
+  module: "leave",
+  title: "Leave requests",
+  description: "Individual requests, dates, half-day sessions, units and decision status.",
+  read: "reports_leave:read",
+  export: "reports_leave:export",
+  params: periodParams,
+  fields: periodFields,
+  columns: () => [
+    ...requestColumns,
+    { key: "employeeNumber", title: "Employee number", type: "text" },
+    { key: "status", title: "Status", type: "text" },
+    { key: "startSession", title: "Start session", type: "text" },
+    { key: "endSession", title: "End session", type: "text" },
+    { key: "amount", title: "Requested amount", type: "decimal" },
+    { key: "unit", title: "Unit", type: "text" },
+  ],
+  defaultSort: { key: "startDate", dir: "desc" },
+  async *run({ db, orgId, employeeIds }, p) {
+    if (employeeIds?.size === 0) return;
+    const rows = await db
+      .select({
+        legalName: employees.legalName,
+        preferredName: employees.preferredName,
+        employeeNumber: employees.employeeNumber,
+        leaveType: leaveTypes.name,
+        startDate: leaveRequests.startDate,
+        endDate: leaveRequests.endDate,
+        startSession: leaveRequests.startSession,
+        endSession: leaveRequests.endSession,
+        status: leaveRequests.status,
+        unit: leaveRequests.unit,
+        hundredths: leaveRequests.hundredths,
+      })
+      .from(leaveRequests)
+      .innerJoin(employees, and(eq(employees.orgId, leaveRequests.orgId), eq(employees.id, leaveRequests.employeeId)))
+      .innerJoin(
+        leaveTypes,
+        and(eq(leaveTypes.orgId, leaveRequests.orgId), eq(leaveTypes.id, leaveRequests.leaveTypeId)),
+      )
+      .where(
+        orgScope(db, orgId).where(
+          leaveRequests,
+          lte(leaveRequests.startDate, p.to),
+          gte(leaveRequests.endDate, p.from),
+          employeeIds ? inArray(leaveRequests.employeeId, [...employeeIds]) : undefined,
+        ),
+      );
+    yield* inBatches(
+      rows.map(({ hundredths, legalName, preferredName, ...row }) => ({
+        ...row,
+        name: displayName({ legalName, preferredName }),
+        amount: days(hundredths),
+      })),
+    );
+  },
+  emptyMessage: () => "No leave requests overlap these dates. Widen the date range.",
+  notes: ["Amounts are for the whole request, including any days outside the selected dates."],
+};
+
+const governmentPaidLeaveReport: ReportDefinition<z.output<ReturnType<typeof periodParams>>> = {
+  id: "leave.government_paid",
+  module: "leave",
+  title: "Government-paid leave",
+  description: "Government-paid and employer-paid days, claim deadlines and claim routes.",
+  read: "leave_claims:read",
+  export: "leave_claims:read",
+  scopes: ["all"],
+  params: periodParams,
+  fields: periodFields,
+  columns: () => [
+    ...requestColumns,
+    { key: "scheme", title: "Scheme", type: "text" },
+    { key: "days", title: "Days in period", type: "decimal" },
+    { key: "employerDays", title: "Employer-paid days", type: "decimal" },
+    { key: "governmentDays", title: "Government-paid days", type: "decimal" },
+    { key: "unpaidDays", title: "Unpaid days", type: "decimal" },
+    { key: "claimBy", title: "Claim by", type: "date" },
+    { key: "claimVia", title: "Claim via", type: "text" },
+  ],
+  defaultSort: { key: "startDate", dir: "desc" },
+  async *run({ db, orgId, employeeIds }, p) {
+    if (employeeIds?.size === 0) return;
+    const rows = await governmentPaidReport(db, orgId, p.from, p.to);
+    yield* inBatches(
+      rows
+        .filter((row) => !employeeIds || employeeIds.has(row.employeeId))
+        .map(
+          ({
+            employeeName,
+            leaveType,
+            startDate,
+            endDate,
+            scheme,
+            days,
+            employerDays,
+            governmentDays,
+            unpaidDays,
+            claimBy,
+            claimVia,
+          }) => ({
+            name: employeeName,
+            leaveType,
+            startDate,
+            endDate,
+            scheme,
+            days,
+            employerDays,
+            governmentDays,
+            unpaidDays,
+            claimBy,
+            claimVia,
+          }),
+        ),
+    );
+  },
+  emptyMessage: () => "No government-paid leave was found in these dates. Widen the date range.",
+};
+
+export const leaveReportSource: ReportSource = {
+  module: "leave",
+  reports: [leaveTakenReport, leaveBalancesReport, leaveRequestsReport, governmentPaidLeaveReport],
+};

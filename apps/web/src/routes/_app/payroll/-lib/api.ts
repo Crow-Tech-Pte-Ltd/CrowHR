@@ -1,5 +1,4 @@
 import type {
-  ErrorEnvelope,
   PayrollEmployeeDetailDto,
   PayrollItemInput,
   PayrollOverviewDto,
@@ -10,7 +9,7 @@ import type {
   PayslipViewDto,
 } from "@crowhr/core";
 import { type QueryClient, queryOptions } from "@tanstack/react-query";
-import { ApiError } from "../../../../lib/api.ts";
+import { downloadApiFile } from "../../../../lib/download.ts";
 import { api } from "../../people/-lib/api.ts";
 
 export { api, errorMessage, fieldErrors } from "../../people/-lib/api.ts";
@@ -159,27 +158,8 @@ export function runTitle(r: Pick<PayrollRunDto, "kind" | "offCycleReason" | "mon
   return `${monthName(r.month)} payroll`;
 }
 
-export interface Excluded {
-  employeeName: string;
-  reason: string;
-}
+export type { Excluded } from "../../../../lib/download.ts";
 
-/** Downloads a generated file (sensitive exports may answer 403 reauth_required: wrap in useReauth). */
-export async function downloadFile(path: string): Promise<{ fileName: string; excluded: Excluded[] }> {
-  const res = await fetch(`/api/v1${path}`, { credentials: "same-origin" });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as ErrorEnvelope | null;
-    throw new ApiError(res.status, body);
-  }
-  const fileName = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "download";
-  const excluded = JSON.parse(decodeURIComponent(res.headers.get("x-crowhr-excluded") ?? "%5B%5D")) as Excluded[];
-  const url = URL.createObjectURL(await res.blob());
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1_000);
-  return { fileName, excluded };
+export function downloadFile(path: string) {
+  return downloadApiFile(`/api/v1${path}`);
 }

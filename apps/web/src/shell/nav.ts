@@ -3,6 +3,7 @@ import {
   CalendarClock,
   CalendarDays,
   Clock,
+  Download,
   FileText,
   Home,
   Inbox,
@@ -24,6 +25,7 @@ export type ModuleId =
   | "claims"
   | "documents"
   | "reports"
+  | "export-data"
   | "settings";
 
 export interface ModuleDef {
@@ -144,8 +146,18 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
     summary: "Headcount, turnover, payroll cost, leave, attendance, claims",
     emptyTitle: "No reports yet",
     emptyBody:
-      "Headcount, turnover, payroll cost, leave, attendance, claims and work-pass reports, with CSV and Excel export.",
+      "Headcount, turnover, payroll cost, leave, attendance, claims and work-pass reports, with Excel, CSV and JSON export.",
     keywords: ["headcount", "turnover", "payroll cost", "export", "excel", "work pass"],
+  },
+  "export-data": {
+    id: "export-data",
+    label: "Export data",
+    to: "/export-data",
+    icon: Download,
+    summary: "Download reports, documents and payroll files",
+    emptyTitle: "No downloads available.",
+    emptyBody: "Reports and files you have access to appear here.",
+    keywords: ["export", "download", "excel", "xlsx", "csv", "json", "pdf"],
   },
   settings: {
     id: "settings",
@@ -164,13 +176,13 @@ export interface NavGroup {
   items: ModuleId[];
 }
 
-/** Admin sidebar, grouped by the job being done. Reports closes the list on its own; Settings sits at the bottom. */
+/** Admin sidebar, grouped by the job being done. Reports and exports close the list. */
 export const NAV_GROUPS: NavGroup[] = [
   { label: null, items: ["home", "inbox"] },
   { label: "People", items: ["people", "documents"] },
   { label: "Time", items: ["leave", "attendance", "schedules"] },
   { label: "Pay", items: ["payroll", "claims"] },
-  { label: null, items: ["reports"] },
+  { label: null, items: ["reports", "export-data"] },
 ];
 
 /** Employee bottom tab bar on mobile (< 768px). */

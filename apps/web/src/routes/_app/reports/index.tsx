@@ -1,7 +1,7 @@
-import { Card, cn, EmptyState, Skeleton, StatusPill, textStyle } from "@crowhr/ui";
+import { Button, Card, cn, EmptyState, Skeleton, StatusPill, textStyle } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Download } from "lucide-react";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { type CatalogueEntry, catalogueQuery, MODULE_LABEL } from "../../../reports/api.ts";
@@ -20,10 +20,17 @@ function ReportsCatalogue() {
     <>
       <PageHeader
         title="Reports"
+        actions={
+          <Button asChild size="sm">
+            <Link to="/export-data">
+              <Download aria-hidden /> Export data
+            </Link>
+          </Button>
+        }
         description={
           items.length && items.every((r) => r.scope === "team")
-            ? "Fixed reports about your team, from your own data. Every report exports to CSV and Excel."
-            : "Fixed reports from your own data, limited to what your role may see. Every report exports to CSV and Excel."
+            ? "Fixed reports about your team, from your own data. Download in Excel, CSV or JSON."
+            : "Fixed reports from your own data, limited to what your role may see. Download in Excel, CSV or JSON."
         }
       />
       {q.isError ? (

@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { addDays, displayDate, isIsoDate } from "../employees/dates.ts";
 import { inBatches, type ReportDefinition, type ReportSource } from "../reporting/types.ts";
-import { attendanceSummary, MAX_REPORT_DAYS } from "./reports.ts";
+import { attendanceSummary, employeesInScope, MAX_REPORT_DAYS } from "./reports.ts";
+import { timesheets } from "./timesheet.ts";
 
 /**
  * Attendance exceptions and hours by employee for a period (add-reporting spec "Module reports
@@ -54,4 +55,69 @@ export const attendanceExceptionsReport: ReportDefinition<z.output<ReturnType<ty
   chart: { label: "name", value: "lateCount" },
 };
 
-export const attendanceReportSource: ReportSource = { module: "attendance", reports: [attendanceExceptionsReport] };
+const timesheetReport: ReportDefinition<z.output<ReturnType<typeof params>>> = {
+  id: "attendance.timesheets",
+  module: "attendance",
+  title: "Daily timesheets",
+  description: "Daily clock-in and clock-out, scheduled and worked hours, exceptions and overtime decisions.",
+  read: "reports_attendance:read",
+  export: "reports_attendance:export",
+  params,
+  fields: attendanceExceptionsReport.fields,
+  columns: () => [
+    { key: "date", title: "Date", type: "date" },
+    { key: "name", title: "Employee", type: "text" },
+    { key: "dayType", title: "Day type", type: "text" },
+    { key: "firstIn", title: "First clock-in", type: "datetime" },
+    { key: "lastOut", title: "Last clock-out", type: "datetime" },
+    { key: "scheduledMinutes", title: "Scheduled hours", type: "hours", total: "sum" },
+    { key: "workedMinutes", title: "Worked hours", type: "hours", total: "sum" },
+    { key: "breakMinutes", title: "Break minutes", type: "integer", total: "sum" },
+    { key: "lateMinutes", title: "Late minutes", type: "integer", total: "sum" },
+    { key: "earlyOutMinutes", title: "Early-out minutes", type: "integer", total: "sum" },
+    { key: "missingPunches", title: "Missing punches", type: "integer", total: "sum" },
+    { key: "otMinutes", title: "Computed overtime hours", type: "hours", total: "sum" },
+    { key: "otClaimStatus", title: "Overtime claim status", type: "text" },
+    { key: "claimedMinutes", title: "Claimed overtime hours", type: "hours", total: "sum" },
+    { key: "approvedMinutes", title: "Approved overtime hours", type: "hours", total: "sum" },
+    { key: "locked", title: "Approved timesheet", type: "boolean" },
+  ],
+  defaultSort: { key: "date", dir: "desc" },
+  async *run(ctx, p) {
+    const ids = (await employeesInScope(ctx.db, ctx.orgId, ctx.grant, p.from, p.to)).filter(
+      (id) => !ctx.employeeIds || ctx.employeeIds.has(id),
+    );
+    // A daily record includes punches and roster data. Load small groups so large teams stay bounded.
+    for (let start = 0; start < ids.length; start += 50) {
+      const sheet = await timesheets(ctx.db, ctx.orgId, ids.slice(start, start + 50), p.from, p.to, ctx.today);
+      for (const [id, days] of sheet.days) {
+        yield days
+          .filter((day) => day.dayType !== "not_employed")
+          .map((day) => ({
+            date: day.date,
+            name: sheet.times.get(id)?.name ?? "",
+            dayType: day.dayType,
+            firstIn: day.firstIn,
+            lastOut: day.lastOut,
+            scheduledMinutes: day.scheduledMinutes,
+            workedMinutes: day.workedMinutes,
+            breakMinutes: day.breakMinutes,
+            lateMinutes: day.lateMinutes,
+            earlyOutMinutes: day.earlyOutMinutes,
+            missingPunches: day.missingPunches,
+            otMinutes: day.otMinutes,
+            otClaimStatus: day.otClaim?.status ?? null,
+            claimedMinutes: day.otClaim?.claimedMinutes ?? null,
+            approvedMinutes: day.otClaim?.approvedMinutes ?? null,
+            locked: day.locked,
+          }));
+      }
+    }
+  },
+  emptyMessage: (p) => `No timesheet days between ${displayDate(p.from)} and ${displayDate(p.to)}.`,
+};
+
+export const attendanceReportSource: ReportSource = {
+  module: "attendance",
+  reports: [attendanceExceptionsReport, timesheetReport],
+};
