@@ -58,7 +58,7 @@ The independent review of the payroll choices marked these as **unclear**: the a
 
 | Question | Crow HR's choice |
 | --- | --- |
-| Should foreign employees' SHG appear in the EZPay file only as a fund summary, without detail records? | Summary record only; employees without an S/T number are listed for you to key in EZPay. |
+| Should foreign employees' SHG appear in the EZPay file only as a fund summary, without detail records? | Crow HR excludes their contributions from the export totals and lists the employees for manual entry in CPF EZPay. |
 | How is a top-up on earlier AW encoded in the EZPay file when the month has no new AW? | Reported in the current month's CPF amount, with no new AW in that month's AW column. |
 | Is a pay date after the raw 7- or 14-day deadline always late, given the Interpretation Act rule for Sundays and public holidays? | Flagged as late on the raw count (may be a day early). |
 | Should the bank file set a service level (FAST/GIRO), and which charge bearer? | No service level; charge bearer `SLEV`. Depends on your bank. |

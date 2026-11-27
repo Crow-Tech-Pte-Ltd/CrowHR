@@ -73,9 +73,10 @@ the change that fixes it.
 - **The bank file is generic**: SS611 leaves service level (FAST or GIRO), charge bearer and BIC
   details to each bank. It validates against the ISO 20022 schema but is not mapped to any bank's
   guide and hasn't been tested with a bank.
-- **CPF EZPay file** (not confirmed by CPF Board): SHG for staff who aren't citizens or PRs is a summary
-  record only; a top-up on earlier AW is reported in the current month's amount with no AW in that
-  month's AW column; each run gets its own advice code, and a month past code 99 is refused.
+- **CPF EZPay file** (not confirmed by CPF Board): the export excludes SHG for employees without a
+  CPF account from the file totals and lists the employees for manual entry. A top-up on earlier AW
+  is reported in the current month's amount with no AW in that month's AW column. Each run gets its
+  own advice code, and a month past code 99 is refused.
 - **IR8A** is exported as rows in the column layout of IRAS's IR8A import template (version 1.0), at
   most 200 records per part, to paste into the template and import in myTax Portal. Not filled:
   residential address, director's fees, d3 gratuity and notice pay, d6 excess employer CPF, tax
