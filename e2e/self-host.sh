@@ -368,4 +368,7 @@ for peer in "$(ip_of "${PROJECT}-caddy")" "$(ip_of "${PROJECT}-nginx")" "$GATEWA
     fail "no untrusted-proxy hint for ${peer} in the app logs"
 done
 
+step "Portable hosted install with Caddy and encrypted backup"
+CADDY_IMAGE="$CADDY_IMAGE" "$ROOT/e2e/hosted-vps.sh" "$IMAGE"
+
 step "All self-host checks passed"

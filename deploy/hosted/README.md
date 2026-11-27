@@ -2,7 +2,41 @@
 
 Run one Crow HR installation per customer on a dedicated host. Each installation owns its Compose network, PostgreSQL database, uploaded files, encryption key and backup volume.
 
-## Prepare the host
+## Start on a VPS with Caddy
+
+Use a Linux VPS that supports the Crow HR release image (amd64 or arm64) with Docker Engine, the Compose plugin, Bash, GNU coreutils, OpenSSL and curl. Point the hostname at the VPS, allow incoming TCP ports 80 and 443, and leave those ports free for Caddy. If you publish an IPv6 address, it needs to reach the VPS too. [Caddy automatic HTTPS requirements](https://caddyserver.com/docs/automatic-https#overview).
+
+From the Crow HR source checkout, choose a project name prefix and substitute the 64-character digest of the approved Crow HR release image.
+
+```sh
+./deploy/hosted/crowhr-vps prepare ./customer-hr crowhr-customer hr.example.sg IMAGE_SHA256
+./customer-hr/crowhr-vps up
+./customer-hr/crowhr-vps setup-code
+```
+
+Preparation writes a new private installation directory with its own `.env`, backup passphrase and a project name with a unique suffix. Keep that project name and volume data when updating the installation. Save the generated `BACKUP_PASSPHRASE` in the operator vault before the first backup. Give the setup code to the company owner privately so they can complete the browser wizard.
+
+Caddy provisions and renews the certificate. Its state lives in the project's Caddy volumes. The app and database are reachable only on the Compose network. If startup reaches Docker but HTTPS fails, check the DNS records, firewall and Caddy logs, then retry the same `up` command.
+
+```sh
+./customer-hr/crowhr-vps check
+./customer-hr/crowhr-vps backup /path/to/private-backup-directory
+```
+
+The backup command exports an encrypted archive into an existing directory on a filesystem that supports hard links. Copy the `.tar.gz.age` archive off the VPS and verify the transfer. For uninterrupted nightly copies, configure a transfer using the [backup guide](../../apps/docs/src/content/docs/self-hosting/backups.md#copy-backups-off-the-machine). The installer uses the local Docker context. Run it on the intended VPS.
+
+For direct Compose access to a prepared installation, run from its directory:
+
+```sh
+crowhr_compose() {
+  docker compose -p "$(cat project)" -f docker-compose.yml -f compose.hosted.yml -f compose.caddy.yml "$@"
+}
+crowhr_compose logs caddy
+```
+
+Use this function in the recovery steps below. For ordinary upgrades, export an encrypted backup first, replace `CROWHR_IMAGE_SHA256` in the installation's `.env` with the approved digest, and run `./crowhr-vps up`.
+
+## Use a reverse proxy already on the host
 
 Use a Docker Compose plugin with support for [`!override`](https://docs.docker.com/reference/compose-file/merge/#replace-value). The overlay replaces the base port binding so the proxy is the only public path to the app.
 
