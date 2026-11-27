@@ -6,6 +6,7 @@ import {
   type OvertimeClaim,
   overtimeClaims,
   type PunchFlag,
+  type TimesheetPayrollDay,
 } from "../db/schema/attendance.ts";
 import { leaveRequestDays, leaveRequests, leaveTypes } from "../db/schema/leave.ts";
 import type { Db } from "../db/types.ts";
@@ -342,4 +343,23 @@ export function totalsOf(days: readonly DayRecord[]): TimesheetTotals {
     otMinutes: days.reduce((s, d) => s + d.otMinutes, 0),
     leaveDays: days.reduce((s, d) => s + (d.leave ? (d.leave.session === "full" ? 1 : 0.5) : 0), 0),
   };
+}
+
+/** Capture the accepted minutes before mutable leave, schedules or settings can change the view. */
+export function hourlyPayrollDay(day: DayRecord): TimesheetPayrollDay {
+  const { date, workedMinutes } = day;
+  const ordinaryDay = day.dayType === "working" || day.dayType === "half" || day.dayType === "shift";
+  let review: TimesheetPayrollDay["review"] = null;
+  if (day.dayType === "not_employed") review = "not_employed";
+  else if (day.missingPunches || day.open) review = "missing_punches";
+  else if (day.leave) review = "leave";
+  else if ((workedMinutes > 0 && !ordinaryDay) || day.dayType === "public_holiday") review = "special_day";
+  else if (
+    workedMinutes > day.scheduledMinutes ||
+    day.otClaim?.status === "pending" ||
+    day.otClaim?.status === "approved"
+  ) {
+    review = "overtime";
+  }
+  return { date, workedMinutes, review };
 }

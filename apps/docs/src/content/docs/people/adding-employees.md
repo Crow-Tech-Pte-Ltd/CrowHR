@@ -18,7 +18,7 @@ Choose **Add employee**. The form follows the record's sections:
 | Race and religion | Optional | Default self-help group (SHG) fund. An SHG opt-out can be recorded with its date. |
 | Contact | Work email, personal email, mobile, address | The work email receives the sign-in invitation. 8-digit mobile numbers are taken as +65. |
 | Job | Start date, job title, department, team, location, cost centre, manager, employment type, work schedule, probation end | Reporting lines (manager scope), pro-ration, checklists. |
-| Pay (payroll roles only) | Pay basis (monthly or hourly) and amount | Payroll. Recurring allowances are added through the API for now (`allowances` on the hire or a pay change); the **Pay** tab shows them. |
+| Pay (payroll roles only) | Pay basis (monthly or hourly), amount and any recurring allowances | Create allowance types under **Payroll → Allowance treatment**. View or change an employee's allowances from their **Pay** tab. |
 | Work pass (foreigners) | Pass type, number, issue and expiry dates | A foreigner cannot be hired without a pass valid on the start date. See [work passes](/docs/people/work-passes/). |
 
 Saving creates the employee, their first employment period, the onboarding checklist from the default template and a sign-in invitation: emailed when SMTP is configured, otherwise shown once as a link to copy.

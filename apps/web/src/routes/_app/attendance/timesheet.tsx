@@ -1,27 +1,9 @@
-import {
-  Button,
-  Card,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  FormField,
-  Input,
-  Skeleton,
-  StatusPill,
-  Textarea,
-  textStyle,
-  toast,
-} from "@crowhr/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button, Card, Skeleton, textStyle } from "@crowhr/ui";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import {
-  attKeys,
-  type Claim,
   type DayRecord,
   duration,
   sheetQuery,
@@ -30,13 +12,13 @@ import {
   timesheetsQuery,
 } from "../../../attendance/api.ts";
 import { AttendanceNav } from "../../../attendance/attendance-nav.tsx";
-import { DayTable, dm } from "../../../attendance/day-table.tsx";
-import { LockedMark, PeriodNav, TimesheetStatusCard } from "../../../attendance/timesheet-approval.tsx";
-import { useMe } from "../../../auth/session.ts";
+import { DayTable } from "../../../attendance/day-table.tsx";
+import { ClaimDialog, OvertimeAction } from "../../../attendance/overtime-claim.tsx";
+import { PeriodNav, TimesheetStatusCard } from "../../../attendance/timesheet-approval.tsx";
+import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { addDays, dateRange, mondayOf, todaySg } from "../../../leave/format.ts";
-import { ApiError, apiPost } from "../../../lib/api.ts";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -124,7 +106,13 @@ function MyPeriodPage() {
                   label={`My timesheet ${period.label}`}
                   days={q.data.days}
                   today={today}
-                  action={(d) => <DayAction day={d} today={today} onClaim={setClaiming} />}
+                  action={(d) => (
+                    <OvertimeAction
+                      day={d}
+                      today={today}
+                      onClaim={can(me, "attendance:create") ? setClaiming : undefined}
+                    />
+                  )}
                 />
                 {t ? <TotalsRow totals={t} /> : null}
               </>
@@ -135,25 +123,6 @@ function MyPeriodPage() {
       {claiming ? <ClaimDialog day={claiming} onClose={() => setClaiming(null)} /> : null}
     </>
   );
-}
-
-function DayAction({ day, today, onClaim }: { day: DayRecord; today: string; onClaim: (d: DayRecord) => void }) {
-  if (day.otClaim) {
-    return (
-      <StatusPill tone={CLAIM_TONE[day.otClaim.status]}>
-        {CLAIM_LABEL[day.otClaim.status]} {duration(day.otClaim.approvedMinutes ?? day.otClaim.claimedMinutes)}
-      </StatusPill>
-    );
-  }
-  if (day.locked) return <LockedMark />;
-  if (day.otMinutes > 0 && day.date <= today) {
-    return (
-      <Button size="sm" onClick={() => onClaim(day)} data-testid="claim-ot">
-        Claim OT
-      </Button>
-    );
-  }
-  return null;
 }
 
 function TotalsRow({ totals: t }: { totals: Totals }) {
@@ -175,15 +144,8 @@ function TotalsRow({ totals: t }: { totals: Totals }) {
   );
 }
 
-const CLAIM_LABEL = {
-  pending: "OT claimed",
-  approved: "OT approved",
-  rejected: "OT not approved",
-  withdrawn: "Withdrawn",
-};
-const CLAIM_TONE = { pending: "warning", approved: "success", rejected: "danger", withdrawn: "neutral" } as const;
-
 function MyTimesheetPage() {
+  const me = useMe();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/attendance/timesheet" });
   const today = todaySg();
@@ -234,7 +196,13 @@ function MyTimesheetPage() {
               label="My timesheet"
               days={q.data.days}
               today={today}
-              action={(d) => <DayAction day={d} today={today} onClaim={setClaiming} />}
+              action={(d) => (
+                <OvertimeAction
+                  day={d}
+                  today={today}
+                  onClaim={can(me, "attendance:create") ? setClaiming : undefined}
+                />
+              )}
             />
             {t ? <TotalsRow totals={t} /> : null}
           </>
@@ -242,69 +210,5 @@ function MyTimesheetPage() {
       </Card>
       {claiming ? <ClaimDialog day={claiming} onClose={() => setClaiming(null)} /> : null}
     </>
-  );
-}
-
-function ClaimDialog({ day, onClose }: { day: DayRecord; onClose: () => void }) {
-  const qc = useQueryClient();
-  const [minutes, setMinutes] = React.useState(String(day.otMinutes));
-  const [reason, setReason] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
-  const claim = useMutation({
-    mutationFn: () =>
-      apiPost<{ claim: Claim; warnings: string[] }>("/api/v1/attendance/overtime", {
-        date: day.date,
-        minutes: Number(minutes),
-        reason: reason.trim() || null,
-      }),
-    onSuccess: (r) => {
-      void qc.invalidateQueries({ queryKey: attKeys.all });
-      for (const w of r.warnings) toast.warning(w);
-      toast.success(
-        `Overtime claimed: ${duration(r.claim.claimedMinutes)}${r.claim.statutory ? "" : " (contractual: not covered by Part 4)"}. Your manager has been told.`,
-      );
-      onClose();
-    },
-    onError: (err) => setError(err instanceof ApiError ? err.message : "That didn't send. Try again."),
-  });
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Claim overtime for {dm(day.date)}</DialogTitle>
-          <DialogDescription>
-            You worked {duration(day.workedMinutes)} against {duration(day.scheduledMinutes)} scheduled:{" "}
-            <span className="num font-semibold">{duration(day.otMinutes)}</span> of overtime by the clock.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            claim.mutate();
-          }}
-        >
-          <FormField label="Minutes" hint={`Up to ${day.otMinutes} minutes for this day.`} error={error ?? undefined}>
-            <Input
-              className="num w-28"
-              inputMode="numeric"
-              value={minutes}
-              onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ""))}
-            />
-          </FormField>
-          <FormField label="What was it for?" hint="Optional. Your approver sees it.">
-            <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />
-          </FormField>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={!Number(minutes) || claim.isPending}>
-              Send for approval
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

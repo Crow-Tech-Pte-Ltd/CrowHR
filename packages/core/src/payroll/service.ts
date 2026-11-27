@@ -717,6 +717,7 @@ async function computeAll(deps: AppDeps, run: PayrollRun): Promise<{ computed: C
     overtime,
     unpaidLeave,
     daysWorked,
+    hoursWorked: bonusOnly ? undefined : ports.hoursWorked,
     scheduledDays,
     encashments,
   });

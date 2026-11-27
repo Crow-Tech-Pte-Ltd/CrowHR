@@ -25,7 +25,7 @@ Generation stops with a message saying how to fix it when:
 - an amount would be negative;
 - a CPF account number does not start with S or T.
 
-Employees without an S/T number who have an SHG contribution (foreign employees) are left out of the detail records with a warning to key them in EZPay; their SHG is written as a summary record only.
+Employees without a CPF account who have an SHG contribution are listed as excluded. Their contributions are absent from both the detail records and the file totals. Use the run's employee figures to reconcile and enter the excluded contributions in CPF EZPay.
 
 ## Advice codes
 
@@ -35,7 +35,7 @@ The month's regular run uses the advice code from [payroll settings](/docs/payro
 
 The file is tested against a committed golden file built from the specification, but it **has not been accepted by CPF's systems in a real submission**, and CPF Board has not reviewed it. Points the specification does not settle:
 
-- whether foreign employees' SHG should appear as a summary record only (what Crow HR does);
+- whether CPF EZPay accepts foreign employees' SHG as a summary record without a corresponding detail record;
 - how a top-up on earlier AW should be declared: Crow HR reports it in the current month's amount with no new AW in that month's AW column.
 
 Check the first file you upload against CPF EZPay's own validation and your payroll records.

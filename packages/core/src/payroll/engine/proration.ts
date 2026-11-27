@@ -114,13 +114,15 @@ export function prorate(input: PayInput): ProrationResult {
   if (hourlySegs.length > 0) {
     const minutes = hours.reduce((s, i) => s + (i.minutes ?? 0), 0);
     if (hours.length === 0) {
-      issues.push(
-        blocking(
-          "HOURS_MISSING",
-          `Hourly-rated at ${centsText(lastSeg.amountCents)}/h: enter the hours worked in this period ("Hours worked" item), then recompute.`,
-          null,
-        ),
-      );
+      if (!input.snapshotIssues.some((issue) => issue.code === "HOURS_MISSING")) {
+        issues.push(
+          blocking(
+            "HOURS_MISSING",
+            `Hourly-rated at ${centsText(lastSeg.amountCents)}/h: enter the hours worked in this period ("Hours worked" item), then recompute.`,
+            null,
+          ),
+        );
+      }
       return out;
     }
     const rates = new Set(hourlySegs.map((s) => s.amountCents));

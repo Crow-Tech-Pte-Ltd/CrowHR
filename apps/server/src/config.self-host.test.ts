@@ -156,3 +156,51 @@ describe("self-host configuration", () => {
     for (const p of problems) expect(p).toMatch(/Set it in \.env\.$/);
   });
 });
+
+describe("dedicated hosted configuration", () => {
+  const hosted = (overrides: Record<string, string> = {}) =>
+    prod({
+      CROWHR_HOSTED: "true",
+      PUBLIC_URL: "https://hr.example.test",
+      TRUSTED_PROXIES: "172.23.0.1",
+      BACKUP_PASSPHRASE: "fixture for tests",
+      ...overrides,
+    });
+
+  it("accepts HTTPS behind a configured proxy with encrypted scheduled backups", () => {
+    expect(hosted()).toMatchObject({
+      secureCookies: true,
+      TRUSTED_PROXIES: { entries: ["172.23.0.1"] },
+      BACKUP_TIME: { hour: 2, minute: 0 },
+      BACKUP_BEFORE_MIGRATE: true,
+      SETUP_GATE: true,
+      demoCompanies: null,
+    });
+  });
+
+  it.each([
+    ["PUBLIC_URL", "http://hr.example.test"],
+    ["TRUSTED_PROXIES", ""],
+    ["TRUSTED_PROXIES", "0.0.0.0/0"],
+    ["TRUSTED_PROXIES", "::/0"],
+    ["DATABASE_URL", "pglite:memory"],
+    ["SETUP_GATE", "false"],
+    ["BACKUP_PASSPHRASE", ""],
+    ["BACKUP_TIME", "off"],
+    ["BACKUP_BEFORE_MIGRATE", "false"],
+    ["DEMO_COMPANIES", "true"],
+  ])("rejects an unsafe %s", (name, value) => {
+    expect(problemsOf(() => hosted({ [name]: value }))).toEqual([expect.stringMatching(new RegExp(`^${name} `))]);
+  });
+
+  it("rejects the public demo Singpass redirect even when both settings are valid", () => {
+    expect(
+      problemsOf(() =>
+        hosted({
+          DEMO_SINGPASS_PROVIDER_ID: "00000000-0000-0000-0000-000000000001",
+          DEMO_SINGPASS_RETURN_URL: "https://demo.example.test/sign-in/sample",
+        }),
+      ),
+    ).toEqual([expect.stringMatching(/^DEMO_SINGPASS_PROVIDER_ID and DEMO_SINGPASS_RETURN_URL /)]);
+  });
+});

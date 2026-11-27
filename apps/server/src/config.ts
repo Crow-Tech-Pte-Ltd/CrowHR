@@ -410,6 +410,29 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     demoCompanies,
     monitoring: monitoring.config,
   };
+  if (bool("CROWHR_HOSTED", false)) {
+    if (!config.secureCookies) fail("PUBLIC_URL must use HTTPS for dedicated hosting. Set it in .env.");
+    if (
+      trusted.ok &&
+      (config.TRUSTED_PROXIES.entries.length === 0 ||
+        config.TRUSTED_PROXIES.entries.some((entry) => entry.endsWith("/0")))
+    ) {
+      fail("TRUSTED_PROXIES must identify the reverse proxy for dedicated hosting. Set it in .env.");
+    }
+    if (config.DATABASE_URL.startsWith("pglite:")) {
+      fail("DATABASE_URL must use PostgreSQL for dedicated hosting. Unset it in .env to use the bundled database.");
+    }
+    if (!config.SETUP_GATE) fail("SETUP_GATE must be true for dedicated hosting. Set it in .env.");
+    if (!config.BACKUP_PASSPHRASE) fail("BACKUP_PASSPHRASE is required for dedicated hosting. Set it in .env.");
+    if (!config.BACKUP_TIME) fail("BACKUP_TIME must schedule daily backups for dedicated hosting. Set it in .env.");
+    if (!config.BACKUP_BEFORE_MIGRATE) {
+      fail("BACKUP_BEFORE_MIGRATE must be true for dedicated hosting. Set it in .env.");
+    }
+    if (demoCompanies) fail("DEMO_COMPANIES must be off for dedicated hosting. Unset it in .env.");
+    if (DEMO_SINGPASS_PROVIDER_ID || DEMO_SINGPASS_RETURN_URL) {
+      fail("DEMO_SINGPASS_PROVIDER_ID and DEMO_SINGPASS_RETURN_URL must be unset in .env for dedicated hosting.");
+    }
+  }
   if (problems.length) throw new ConfigError(problems);
   return config;
 }

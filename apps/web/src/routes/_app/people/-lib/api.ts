@@ -86,9 +86,26 @@ export const peopleKeys = {
   me: ["people", "me"] as const,
   structure: (kind: StructureKind) => ["org", "structure", kind] as const,
   schedules: ["org", "schedules"] as const,
+  allowanceTypes: ["org", "allowance-types"] as const,
   profile: ["org", "profile"] as const,
   setup: ["org", "setup"] as const,
 };
+
+export interface AllowanceType {
+  id: string;
+  code: string;
+  name: string;
+  archived: boolean;
+}
+
+export const allowanceTypesQuery = queryOptions({
+  queryKey: peopleKeys.allowanceTypes,
+  queryFn: () => api<{ items: AllowanceType[] }>("GET", "/organisation/allowance-types"),
+});
+
+export function createAllowanceType(input: { code: string; name: string }) {
+  return api<AllowanceType>("POST", "/organisation/allowance-types", input);
+}
 
 export const referenceQuery = queryOptions({
   queryKey: peopleKeys.reference,

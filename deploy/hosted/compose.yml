@@ -1,0 +1,22 @@
+# Apply with the root docker-compose.yml and a distinct Compose project per customer.
+# See deploy/hosted/README.md for the required env and host reverse proxy.
+x-release-image: &release-image
+  image: ghcr.io/crow-tech-pte-ltd/crowhr@sha256:${CROWHR_IMAGE_SHA256:?Set the approved Crow HR release image SHA-256}
+
+services:
+  init:
+    <<: *release-image
+  app:
+    <<: *release-image
+    environment:
+      CROWHR_HOSTED: "true"
+      DATABASE_URL: ""
+      DATABASE_PASSWORD: ""
+      DATABASE_PORT: "5432"
+      DATA_DIR: /data
+      FILE_STORAGE_DIR: /data/files
+      SECRET_KEY_FILE: /data/secrets/crowhr.key
+      CROWHR_SECRET_KEY: ""
+      BACKUP_DIR: /backups
+    ports: !override
+      - "127.0.0.1:${HTTP_PORT:-8080}:8080"

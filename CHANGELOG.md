@@ -4,12 +4,19 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ## [Unreleased]
 
+### Added
+
+- **Approved hourly work in payroll**: the approved-timesheets-only setting brings unambiguous, dated regular hours into an hourly employee's run. Payroll explains when it needs a manual amount.
+- **Web controls for HR**: create allowance types and manage recurring allowances from hire or the Pay tab, adjust tracked leave balances, correct child records, set start times by work schedule, and file overtime on behalf of employees or refile a returned claim.
+- **Dedicated hosting**: a digest-pinned Compose overlay binds the app to host loopback and checks for HTTPS, encrypted scheduled backups and the protected setup flow. See the [operator runbook](deploy/hosted/README.md).
+
 ### Security
 
 - **Server dependencies patched**: `hono` 4.13.20 and `@hono/node-server` 2.1.11 fix moderate advisories in the web framework the server and the demo run on (a backslash in the path read as a separator, middleware skipped for some routes and mounts, `csrf()` not checking hyperlink-auditing requests, form validation skipped for some multipart requests, a crash on a reset WebSocket upgrade). The documentation site's `astro` 7.4.13 fixes two more. One moderate advisory remains, in a development tool that isn't shipped ([known limitations](docs/limitations.md#self-hosting)).
 
 ### Fixed
 
+- **Concurrent approvals and escalation**: escalation skips requests locked by another decision, processes other due requests and retries failed work on a later sweep.
 - **Nobody approves two steps of the same request**: a manager who was also an HR admin could approve a claim's manager step and then its HR step. A later step now goes to someone who hasn't approved the request (the other HR admins, then owners), and an earlier approver's decision on it is refused. When nobody else may decide it (one person is the manager, the only HR admin and the only owner), they decide it too and the chain and audit log mark it as a repeat approval, so requests never wait for ever. Migration `0022` adds the mark and applies it to requests already waiting where nobody else holds the step. The API gained `repeatApproval` on request detail tasks ([one person per step](https://hr.crow.sg/docs/approvals/approvals/#one-person-per-step)).
 - **Docs home buttons**: "Set up with an AI agent" had no side padding, so its text touched its border.
 - **The public demo works in Safari**: it never got past sign-in in Safari (and other WebKit browsers), showing "This page failed to load: The demo is still starting". WebKit ran the demo's background worker a second time and the second copy, without a database, answered every request. The worker now starts from a small entry script that nothing else imports, and the demo build fails if one does. **Reset** in Safari also kept the old copy; the page now stops the worker and deletes the copy itself. The demo's browser tests run in WebKit as well as Chromium.

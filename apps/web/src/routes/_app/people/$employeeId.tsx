@@ -36,7 +36,10 @@ import { canForEmployee, useMe } from "../../../auth/session.ts";
 import { isNotFound, NotFoundPage } from "../../../components/not-found.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { EmployeeDocuments } from "../../../documents/employee-tab.tsx";
+import { ChildRecords } from "../../../leave/child-records.tsx";
+import { EmployeeBalances } from "../../../leave/employee-balances.tsx";
 import { Encashments } from "../../../leave/encashments.tsx";
+import { RecurringAllowances } from "./-lib/allowances.tsx";
 import {
   api,
   checklistsQuery,
@@ -79,6 +82,7 @@ function EmployeePage() {
   const { employeeId } = Route.useParams();
   const { tab = "overview" } = Route.useSearch();
   const navigate = Route.useNavigate();
+  const me = useMe();
   const q = useQuery(employeeQuery(employeeId));
   const [dialog, setDialog] = React.useState<null | "change" | "pay" | "leave">(null);
 
@@ -103,6 +107,7 @@ function EmployeePage() {
   }
   const e = q.data;
   const canEditJob = !!e.employment;
+  const canEditPay = me.employeeId !== e.id && canForEmployee(me, "compensation:update", e.id);
   return (
     <>
       <PageHeader
@@ -137,7 +142,7 @@ function EmployeePage() {
               <Button size="sm" onClick={() => setDialog("change")}>
                 <ArrowRightLeft aria-hidden /> Record change
               </Button>
-              {e.compensation ? (
+              {canEditPay && e.compensation ? (
                 <Button size="sm" onClick={() => setDialog("pay")}>
                   <Wallet aria-hidden /> Change pay
                 </Button>
@@ -171,16 +176,20 @@ function EmployeePage() {
           <JobTab e={e} />
         </TabsContent>
         <TabsContent value="pay">
-          <PayTab e={e} onChangePay={() => setDialog("pay")} />
+          <PayTab e={e} editable={canEditPay} onChangePay={() => setDialog("pay")} />
         </TabsContent>
         <TabsContent value="leave">
-          <Encashments employeeId={e.id} showBalances />
+          <div key={e.id} className="grid gap-4">
+            <EmployeeBalances employeeId={e.id} />
+            <Encashments employeeId={e.id} />
+            <ChildRecords employeeId={e.id} />
+          </div>
         </TabsContent>
         <TabsContent value="documents">
           <EmployeeDocuments employeeId={e.id} employeeName={e.name} />
         </TabsContent>
         <TabsContent value="history">
-          <HistoryTab e={e} />
+          <HistoryTab e={e} editablePay={canEditPay} />
         </TabsContent>
       </Tabs>
       {dialog === "change" ? <ChangeDialog e={e} onClose={() => setDialog(null)} /> : null}
@@ -443,7 +452,7 @@ function JobTab({ e }: { e: EmployeeDetailDto }) {
   );
 }
 
-function PayTab({ e, onChangePay }: { e: EmployeeDetailDto; onChangePay: () => void }) {
+function PayTab({ e, editable, onChangePay }: { e: EmployeeDetailDto; editable: boolean; onChangePay: () => void }) {
   const c = e.compensation;
   return (
     <div className="flex flex-col gap-4">
@@ -451,7 +460,7 @@ function PayTab({ e, onChangePay }: { e: EmployeeDetailDto; onChangePay: () => v
         <Section
           title="Basic pay"
           actions={
-            c ? (
+            c && editable ? (
               <Button size="sm" variant="ghost" onClick={onChangePay}>
                 <Pencil aria-hidden /> Change
               </Button>
@@ -502,6 +511,7 @@ function PayTab({ e, onChangePay }: { e: EmployeeDetailDto; onChangePay: () => v
           )}
         </Section>
       </div>
+      {c ? <RecurringAllowances employeeId={e.id} rows={c.allowances} editable={editable} /> : null}
       {c ? (
         <Section title="Pay history">
           <div className="-mx-4 -my-2">
@@ -528,15 +538,6 @@ function PayTab({ e, onChangePay }: { e: EmployeeDetailDto; onChangePay: () => v
                     <TableCell className="hidden sm:table-cell">{h.reason ?? "—"}</TableCell>
                   </TableRow>
                 ))}
-                {c.allowances.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell numeric>{formatDate(a.effectiveFrom)}</TableCell>
-                    <TableCell numeric>{a.effectiveTo ? formatDate(a.effectiveTo) : "—"}</TableCell>
-                    <TableCell>{a.name}</TableCell>
-                    <TableCell numeric>{formatMoney(a.amountCents)}</TableCell>
-                    <TableCell className="hidden sm:table-cell">Recurring allowance</TableCell>
-                  </TableRow>
-                ))}
               </TableBody>
             </Table>
           </div>
@@ -546,7 +547,7 @@ function PayTab({ e, onChangePay }: { e: EmployeeDetailDto; onChangePay: () => v
   );
 }
 
-function HistoryTab({ e }: { e: EmployeeDetailDto }) {
+function HistoryTab({ e, editablePay }: { e: EmployeeDetailDto; editablePay: boolean }) {
   const qc = useQueryClient();
   const cancel = useMutation({
     mutationFn: (eventId: string) => api("POST", `/employees/${e.id}/events/${eventId}/cancel`),
@@ -576,7 +577,10 @@ function HistoryTab({ e }: { e: EmployeeDetailDto }) {
               ) : ev.status === "cancelled" ? (
                 <span className="text-2xs text-primary-300">Cancelled</span>
               ) : null}
-              {ev.status === "scheduled" && ev.type !== "hire" && ev.type !== "rehire" ? (
+              {ev.status === "scheduled" &&
+              ev.type !== "hire" &&
+              ev.type !== "rehire" &&
+              (ev.type !== "salary_change" || editablePay) ? (
                 <Button size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => cancel.mutate(ev.id)}>
                   Cancel
                 </Button>
@@ -614,6 +618,7 @@ function describeEvent(p: Record<string, unknown>): string {
   if (typeof p.noticeDays === "number")
     bits.push(`${p.noticeDays} days' notice${p.noticeBasis === "statutory" ? " (Employment Act minimum)" : ""}`);
   if (typeof p.jobTitle === "string") bits.push(p.jobTitle);
+  if (Array.isArray(p.endedAllowances) && p.endedAllowances.length) bits.push("allowance ends");
   return bits.length ? ` · ${bits.join(", ")}` : "";
 }
 

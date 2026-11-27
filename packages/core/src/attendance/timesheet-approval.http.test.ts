@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setTimesheetApproval } from "../../testing/attendance.ts";
 import type { TestClient } from "../../testing/http.ts";
 import { createLeaveWorld, type LeaveWorld } from "../../testing/leave.ts";
-import { attendancePunches } from "../db/schema/attendance.ts";
+import { attendancePunches, attendanceTimesheets } from "../db/schema/attendance.ts";
 import { auditEvents } from "../db/schema/audit.ts";
 
 /**
@@ -185,6 +185,7 @@ describe("timesheet approval", () => {
       reason: "Forgot to clock out",
     });
     expect(fix.status, await fix.clone().text()).toBe(201);
+    await punchAt(s, "2026-10-06", "in", "09:00"); // a second, still incomplete punch
     const changed = (await (await manager.get(`/api/v1/approvals/requests/${requestId}`)).json()) as {
       summary: { context: { label: string }[] };
     };
@@ -194,6 +195,19 @@ describe("timesheet approval", () => {
     expect(got).toMatchObject({ status: "approved", decidedBy: "Wong Kai Wen" });
     expect(got.submittedTotals.workedMinutes).toBe(1110);
     expect(got.approvedTotals?.workedMinutes).toBe(1110 + 480);
+    expect(got.approvedTotals).not.toHaveProperty("payrollDays");
+    const [approved] = await w.deps.db
+      .select()
+      .from(attendanceTimesheets)
+      .where(and(eq(attendanceTimesheets.orgId, w.orgId), eq(attendanceTimesheets.id, got.id)));
+    expect(approved?.approvedTotals).toMatchObject({
+      payrollDays: expect.arrayContaining([
+        { date: "2026-10-01", workedMinutes: 480, review: null },
+        { date: "2026-10-02", workedMinutes: 480, review: null },
+        { date: "2026-10-05", workedMinutes: 630, review: "overtime" },
+        { date: "2026-10-06", workedMinutes: 0, review: "missing_punches" },
+      ]),
+    });
     // HR may reopen it; the employee and the manager may not.
     const asHr = (await (
       await (await w.as("hr")).get(`/api/v1/attendance/timesheets?date=2026-10-01&employeeId=${s}`)
