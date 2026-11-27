@@ -38,7 +38,9 @@ Open **Payroll → Settings**:
 
 The gross rate has no default because no answer is right for every allowance. Answer it for each allowance before your first run: while one is not set, every run lists it as a warning (`ALLOWANCE_GROSS_RATE_UNSET`, with a link to this screen), a public holiday on an off day blocks payroll for the staff who get it (`PH_GROSS_RATE_REQUIRED`), and their leave encashment can't be requested. Changing a setting later does not reprice encashment requests already made.
 
-Allowance types, and the recurring allowances on each employee, are added through the API for now ([API reference](/docs/api/)): allowance types under organisation settings, and allowances on a hire or pay-change event. They show on the employee's **Pay** tab.
+Select **Add allowance type**, then choose its treatment. Use **Add recurring allowance** when hiring an employee. On the employee's **Pay** tab, choose **Change allowance** to set a monthly amount or end the allowance. Ending it keeps the prior amounts on record.
+
+When changing an existing amount, start the new rate on the first day of a month. Enter any earlier difference as a one-off item on the payroll run. This avoids paying two monthly rates for the same allowance in one run.
 
 ## Holiday pay and contractual overtime on a run
 

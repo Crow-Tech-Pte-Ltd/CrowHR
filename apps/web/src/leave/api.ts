@@ -31,6 +31,7 @@ export interface Balance {
   name: string;
   statutoryCode: string | null;
   unit: Unit;
+  adjustmentUnit: Unit;
   tracked: boolean;
   eligible: boolean;
   eligibleFrom: string | null;

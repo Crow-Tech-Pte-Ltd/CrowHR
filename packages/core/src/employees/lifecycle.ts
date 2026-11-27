@@ -1,5 +1,5 @@
 import { checkEmploymentAge, RulesNotAvailableError, statutoryMinimumNotice } from "@crowhr/sg-rules";
-import { and, asc, desc, eq, gt, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
 import { z } from "zod";
 import { orgScope } from "../access/org-scope.ts";
 import { membershipRoles, memberships } from "../db/schema/access.ts";
@@ -281,6 +281,7 @@ async function insertAllowances(
   eventId: string,
   effectiveFrom: string,
   allowances: z.output<typeof allowanceInput>[],
+  requireSingleRatePerMonth = false,
 ) {
   if (allowances.length) {
     assertCanWrite(ctx.actor, "compensation");
@@ -292,22 +293,14 @@ async function insertAllowances(
       .from(allowanceTypes)
       .where(ctx.actor.org.whereId(allowanceTypes, a.allowanceTypeId));
     if (!t || t.archivedAt) throw fieldError("allowances", "Choose an existing, active allowance type.");
-    const existing = await tx
-      .select()
-      .from(recurringAllowances)
-      .where(
-        ctx.actor.org.where(
-          recurringAllowances,
-          eq(recurringAllowances.employeeId, employeeId),
-          eq(recurringAllowances.allowanceTypeId, a.allowanceTypeId),
-        ),
-      );
+    const existing = await allowanceTimeline(tx, ctx.actor.orgId, employeeId, a.allowanceTypeId);
+    if (requireSingleRatePerMonth) assertSingleAllowanceRatePerMonth(existing, effectiveFrom);
     const plan = planInsert(existing, effectiveFrom);
     if (plan.close) {
       await tx
         .update(recurringAllowances)
         .set({ effectiveTo: effectiveFrom })
-        .where(eq(recurringAllowances.id, plan.close.id));
+        .where(ctx.actor.org.whereId(recurringAllowances, plan.close.id));
     }
     await tx.insert(recurringAllowances).values({
       id: ctx.deps.ids.newId(),
@@ -317,9 +310,137 @@ async function insertAllowances(
       eventId,
       amountCents: a.amountCents,
       effectiveFrom,
-      effectiveTo: plan.newEffectiveTo,
+      // Preserve a previously recorded stop when changing the amount before it takes effect.
+      effectiveTo: earliestEnd(plan.newEffectiveTo, plan.close?.effectiveTo),
     });
   }
+}
+
+function assertSingleAllowanceRatePerMonth(
+  timeline: readonly { effectiveFrom: string; effectiveTo: string | null }[],
+  date: string,
+) {
+  const month = date.slice(0, 7);
+  const monthStart = `${month}-01`;
+  if (
+    date !== monthStart &&
+    timeline.some((row) => row.effectiveFrom < date && (!row.effectiveTo || row.effectiveTo > monthStart))
+  ) {
+    throw fieldError(
+      "effectiveDate",
+      "Use the first day of a month when changing an existing allowance amount. Enter any earlier difference as a one-off payroll item.",
+    );
+  }
+  if (timeline.some((row) => row.effectiveFrom > date && row.effectiveFrom.startsWith(month))) {
+    throw fieldError(
+      "effectiveDate",
+      "An allowance change is already scheduled later that month. Cancel the later change first, or choose a different month.",
+    );
+  }
+}
+
+function allowanceTimeline(tx: Db, orgId: string, employeeId: string, allowanceTypeId: string) {
+  return tx
+    .select()
+    .from(recurringAllowances)
+    .where(
+      orgScope(tx, orgId).where(
+        recurringAllowances,
+        eq(recurringAllowances.employeeId, employeeId),
+        eq(recurringAllowances.allowanceTypeId, allowanceTypeId),
+      ),
+    )
+    .orderBy(asc(recurringAllowances.effectiveFrom));
+}
+
+function earliestEnd(...dates: (string | null | undefined)[]): string | null {
+  return dates.filter((date): date is string => !!date).sort()[0] ?? null;
+}
+
+interface EndedAllowance {
+  allowanceTypeId: string;
+  /** A boundary inherent to the record. Later rates and employment ends are read again when cancelling. */
+  previousEnd: string | null;
+}
+
+function endedAllowancesOf(payload: LifecycleEvent["payload"]): EndedAllowance[] {
+  return Array.isArray(payload.endedAllowances) ? (payload.endedAllowances as EndedAllowance[]) : [];
+}
+
+async function assertAllowancePeriodOpen(tx: Db, ctx: LifecycleCtx, date: string) {
+  const finalisedEnd = await ctx.ports.payroll.lastFinalisedPeriodEnd(ctx.actor.orgId, tx);
+  if (finalisedEnd && date <= finalisedEnd) {
+    const [year, month] = finalisedEnd.split("-").map(Number) as [number, number];
+    throw fieldError(
+      "effectiveDate",
+      `${displayMonth(year, month)} payroll is finalised. Choose a date after that period and record any earlier correction on an adjustment run.`,
+    );
+  }
+}
+
+async function allowanceTenureEnd(tx: Db, orgId: string, employeeId: string, tenureId: string | null) {
+  if (!tenureId) return null;
+  const [tenure] = await tx
+    .select({ lastWorkingDay: tenures.lastWorkingDay })
+    .from(tenures)
+    .where(orgScope(tx, orgId).where(tenures, eq(tenures.id, tenureId), eq(tenures.employeeId, employeeId)));
+  return tenure?.lastWorkingDay ? addDays(tenure.lastWorkingDay, 1) : null;
+}
+
+async function endAllowances(
+  tx: Db,
+  ctx: LifecycleCtx,
+  employeeId: string,
+  tenureId: string,
+  date: string,
+  typeIds: string[],
+): Promise<EndedAllowance[]> {
+  if (!typeIds.length) return [];
+  const { orgId } = ctx.actor;
+  const employmentEnd = await allowanceTenureEnd(tx, orgId, employeeId, tenureId);
+  const laterPayEvents = await tx
+    .select({ date: lifecycleEvents.effectiveDate, payload: lifecycleEvents.payload })
+    .from(lifecycleEvents)
+    .where(
+      orgScope(tx, orgId).where(
+        lifecycleEvents,
+        eq(lifecycleEvents.employeeId, employeeId),
+        eq(lifecycleEvents.type, "salary_change"),
+        gt(lifecycleEvents.effectiveDate, date),
+        isNull(lifecycleEvents.cancelledAt),
+      ),
+    );
+  const ended: EndedAllowance[] = [];
+  for (const allowanceTypeId of typeIds) {
+    const rows = await allowanceTimeline(tx, orgId, employeeId, allowanceTypeId);
+    const active = findAsAt(rows, date);
+    if (!active) throw fieldError("endAllowanceTypeIds", "Choose an allowance in force on the effective date.");
+    if (active.effectiveFrom === date) {
+      throw fieldError("effectiveDate", "Choose a date after the allowance starts, or cancel its scheduled start.");
+    }
+    if (
+      laterPayEvents.some(
+        (event) =>
+          event.date === active.effectiveTo &&
+          endedAllowancesOf(event.payload).some((a) => a.allowanceTypeId === allowanceTypeId),
+      )
+    ) {
+      throw new AppError(
+        "conflict",
+        "This allowance already has an end scheduled. Cancel it before setting a new end.",
+      );
+    }
+    const versionEnd = rows.some((row) => row.effectiveFrom === active.effectiveTo);
+    ended.push({
+      allowanceTypeId,
+      previousEnd: versionEnd || active.effectiveTo === employmentEnd ? null : active.effectiveTo,
+    });
+    await tx
+      .update(recurringAllowances)
+      .set({ effectiveTo: date })
+      .where(orgScope(tx, orgId).whereId(recurringAllowances, active.id));
+  }
+  return ended;
 }
 
 async function insertEvent(
@@ -583,6 +704,8 @@ const salaryEvent = z.object({
   effectiveDate: isoDate,
   compensation: compensationInput.nullish(),
   allowances: z.array(allowanceInput).max(20).optional(),
+  endAllowanceTypeIds: z.array(z.uuid()).max(20).optional(),
+  requireSingleAllowanceRatePerMonth: z.boolean().optional(),
   note: z.string().trim().max(500).nullish(),
 });
 const probationEvent = z.object({ type: z.literal("probation_confirmed"), effectiveDate: isoDate });
@@ -740,18 +863,34 @@ async function applyChange(
         : {};
   const comp = "compensation" in input ? input.compensation : null;
   const allowances = "allowances" in input ? (input.allowances ?? []) : [];
-  if (Object.keys(changes).length === 0 && !comp && allowances.length === 0) {
+  const ends = input.type === "salary_change" ? (input.endAllowanceTypeIds ?? []) : [];
+  const requireSingleRatePerMonth = input.type === "salary_change" && input.requireSingleAllowanceRatePerMonth;
+  const guardedAllowanceChange = allowances.length > 0 && requireSingleRatePerMonth === true;
+  if (Object.keys(changes).length === 0 && !comp && !allowances.length && !ends.length) {
     throw new AppError("validation_failed", "Nothing to change. Add at least one new value.", {
       target: "json",
       issues: [{ path: "changes", message: "Change at least one field, or the pay." }],
     });
   }
+  if (ends.length || guardedAllowanceChange) {
+    const typeIds = [...allowances.map((a) => a.allowanceTypeId), ...ends];
+    if (new Set(typeIds).size !== typeIds.length) {
+      throw fieldError("allowances", "Choose one change per allowance type.");
+    }
+    await assertAllowancePeriodOpen(tx, ctx, date);
+  }
+  const endedAllowances = await endAllowances(tx, ctx, employeeId, base.tenureId, date, ends);
   const eventId = await insertEvent(tx, ctx, {
     employeeId,
     tenureId: base.tenureId,
     type: input.type,
     effectiveDate: date,
-    payload: { changes, note: "note" in input ? (input.note ?? null) : null },
+    payload: {
+      changes,
+      note: "note" in input ? (input.note ?? null) : null,
+      ...(endedAllowances.length ? { endedAllowances } : {}),
+      ...(guardedAllowanceChange ? { guardedAllowanceChange: true } : {}),
+    },
   });
   const audit: ApplyResult["audit"] = {};
   if (Object.keys(changes).length) {
@@ -766,9 +905,9 @@ async function applyChange(
     if (previous?.amountCents !== comp.amountCents) audit.basicPayCents = { changed: true };
   }
   if (allowances.length) {
-    await insertAllowances(tx, ctx, employeeId, eventId, date, allowances);
-    audit.allowances = { changed: true };
+    await insertAllowances(tx, ctx, employeeId, eventId, date, allowances, requireSingleRatePerMonth);
   }
+  if (allowances.length || endedAllowances.length) audit.allowances = { changed: true };
   return { eventId, effectiveDate: date, audit };
 }
 
@@ -1065,6 +1204,9 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
         reason: "not_supported",
       });
     }
+    if (e.payload.guardedAllowanceChange === true || endedAllowancesOf(e.payload).length > 0) {
+      await assertAllowancePeriodOpen(tx, ctx, e.effectiveDate);
+    }
     if (e.type === "resignation" || e.type === "termination") {
       const closed = (e.payload.closed ?? { employment: [], compensation: [], allowances: [] }) as Record<
         "employment" | "compensation" | "allowances",
@@ -1080,11 +1222,7 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
           .update(compensationRecords)
           .set({ effectiveTo: null })
           .where(inArray(compensationRecords.id, closed.compensation));
-      if (closed.allowances.length)
-        await tx
-          .update(recurringAllowances)
-          .set({ effectiveTo: null })
-          .where(inArray(recurringAllowances.id, closed.allowances));
+      await restoreAllowancesAfterCancelledLeaving(tx, e);
       await tx
         .update(tenures)
         .set({
@@ -1097,6 +1235,7 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
         .where(org.where(tenures, eq(tenures.cessationEventId, eventId)));
     } else {
       await removeEventVersions(tx, orgId, employeeId, eventId);
+      await restoreEndedAllowances(tx, e);
     }
     await cancelChecklistsForEvent(tx, orgId, eventId);
     // Workflows: a cancelled transfer may restore the previous line manager.
@@ -1114,6 +1253,66 @@ export async function cancelEvent(ctx: LifecycleCtx, employeeId: string, eventId
       meta: { eventId, type: e.type, touchesPay },
     });
   });
+}
+
+async function restoreEndedAllowances(tx: Db, event: LifecycleEvent) {
+  const ended = endedAllowancesOf(event.payload);
+  if (!ended.length) return;
+  const { orgId, employeeId, tenureId, effectiveDate } = event;
+  const employmentEnd = await allowanceTenureEnd(tx, orgId, employeeId, tenureId);
+  for (const { allowanceTypeId, previousEnd } of ended) {
+    const rows = await allowanceTimeline(tx, orgId, employeeId, allowanceTypeId);
+    // An earlier scheduled amount change may have split the interval after the stop was recorded.
+    const previous = rows.find((row) => row.effectiveFrom < effectiveDate && row.effectiveTo === effectiveDate);
+    if (!previous) continue;
+    const next = rows.find((row) => row.effectiveFrom >= effectiveDate);
+    await tx
+      .update(recurringAllowances)
+      .set({ effectiveTo: earliestEnd(previousEnd, next?.effectiveFrom, employmentEnd) })
+      .where(orgScope(tx, orgId).whereId(recurringAllowances, previous.id));
+  }
+}
+
+async function restoreAllowancesAfterCancelledLeaving(tx: Db, event: LifecycleEvent) {
+  const { orgId, employeeId, effectiveDate: lastDay } = event;
+  const org = orgScope(tx, orgId);
+  const end = addDays(lastDay, 1);
+  // The rate that was originally curtailed may have been replaced or cancelled since the leaving event.
+  const endingRows = await tx
+    .select({ id: recurringAllowances.id, allowanceTypeId: recurringAllowances.allowanceTypeId })
+    .from(recurringAllowances)
+    .where(
+      org.where(
+        recurringAllowances,
+        eq(recurringAllowances.employeeId, employeeId),
+        eq(recurringAllowances.effectiveTo, end),
+        lt(recurringAllowances.effectiveFrom, end),
+      ),
+    );
+  if (!endingRows.length) return;
+  const changes = await tx
+    .select({ payload: lifecycleEvents.payload })
+    .from(lifecycleEvents)
+    .where(
+      org.where(
+        lifecycleEvents,
+        eq(lifecycleEvents.employeeId, employeeId),
+        eq(lifecycleEvents.effectiveDate, end),
+        isNull(lifecycleEvents.cancelledAt),
+      ),
+    );
+  const independentlyEnded = new Set(
+    changes.flatMap(({ payload }) => endedAllowancesOf(payload).map((a) => a.allowanceTypeId)),
+  );
+  for (const { id, allowanceTypeId } of endingRows) {
+    if (independentlyEnded.has(allowanceTypeId)) continue;
+    const timeline = await allowanceTimeline(tx, orgId, employeeId, allowanceTypeId);
+    const next = timeline.find((row) => row.effectiveFrom >= end);
+    await tx
+      .update(recurringAllowances)
+      .set({ effectiveTo: next?.effectiveFrom ?? null })
+      .where(org.whereId(recurringAllowances, id));
+  }
 }
 
 /** Deletes the versions an event created and re-opens each predecessor (it ended where the removed one began). */

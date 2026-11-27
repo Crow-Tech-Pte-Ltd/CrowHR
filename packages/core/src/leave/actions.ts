@@ -20,7 +20,7 @@ import { memberForEmployee } from "./apply.ts";
 import { childrenOf, computeBalance } from "./balances.ts";
 import { loadEmployeeTime } from "./calendar.ts";
 import { ensureLeaveSetup, PER_CHILD_CODES } from "./defaults.ts";
-import { unitFor } from "./entitlement.ts";
+import { adjustmentUnitFor } from "./entitlement.ts";
 import { getType, type LeaveActor, lockEmployeeLeave } from "./service.ts";
 
 export async function loadRequest(db: Db, orgId: string, requestId: string): Promise<LeaveRequest> {
@@ -299,7 +299,7 @@ export async function adjustBalance(
   return deps.db.transaction(async (tx) => {
     const type = await getType(tx, actor.orgId, input.leaveTypeId);
     const t = await loadEmployeeTime(tx, actor.orgId, input.employeeId);
-    const unit = unitFor(t, type, `${input.year}-12-31`);
+    const unit = adjustmentUnitFor(t, type, input.year);
     if (unit === "days" && !Number.isInteger(Math.round(input.amount * 100) / 50)) {
       throw new AppError("validation_failed", "Adjust days in steps of half a day.", {
         issues: [{ path: "amount", message: "Use steps of 0.5 days." }],

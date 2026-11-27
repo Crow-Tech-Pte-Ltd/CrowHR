@@ -5,7 +5,14 @@ import { leaveRequestDays, leaveRequests, leaveTypes } from "../db/schema/leave.
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { datesBetween, dayInfo, loadEmployeesTime, scheduleOn } from "../leave/calendar.ts";
-import type { ApprovedOvertime, DaysWorkedSource, OvertimeSource, RosterDaysWorked } from "../payroll/ports.ts";
+import { leaveCalendar } from "../leave/outputs.ts";
+import type {
+  ApprovedOvertime,
+  DaysWorkedSource,
+  HoursWorkedSource,
+  OvertimeSource,
+  RosterDaysWorked,
+} from "../payroll/ports.ts";
 import { approvedOverlapping } from "./locks.ts";
 import { loadAttendanceSettings } from "./settings.ts";
 import { timesheets } from "./timesheet.ts";
@@ -176,4 +183,31 @@ export async function listRosterDaysWorked(db: Db, orgId: string, periodStart: s
 
 export function attendanceDaysWorkedSource(deps: Pick<AppDeps, "db">): DaysWorkedSource {
   return { listDaysWorked: (orgId, from, to) => listRosterDaysWorked(deps.db, orgId, from, to) };
+}
+
+export function attendanceHoursWorkedSource({ db }: Pick<AppDeps, "db">): HoursWorkedSource {
+  return {
+    async listApproved(orgId, employeeIds, from, to) {
+      if (!(await payrollLimited(db, orgId))) return null;
+      const approved = await approvedOverlapping(db, orgId, employeeIds, from, to);
+      if (!approved.length) return [];
+      // Leave approval doesn't lock against attendance approval. If leave came later, keep the
+      // signed-off minutes but flag the new pay implication before the run is submitted.
+      const ids = [...new Set(approved.map((ts) => ts.employeeId))];
+      const leave = await leaveCalendar({ db }).entries(orgId, ids, from, to);
+      const approvedLeave = new Set(
+        leave.filter((entry) => entry.status === "approved").map((entry) => `${entry.employeeId}:${entry.date}`),
+      );
+      return approved.map((ts) => ({
+        id: ts.id,
+        employeeId: ts.employeeId,
+        periodStart: ts.periodStart,
+        periodEnd: ts.periodEnd,
+        days:
+          ts.approvedTotals?.payrollDays?.map((day) =>
+            !day.review && approvedLeave.has(`${ts.employeeId}:${day.date}`) ? { ...day, review: "leave" } : day,
+          ) ?? null,
+      }));
+    },
+  };
 }

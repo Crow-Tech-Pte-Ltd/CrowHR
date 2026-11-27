@@ -27,14 +27,14 @@ Crow HR does not decide these; it computes from what you enter.
 
 ## Payroll inputs
 
-- **Fed inputs**: approved no-pay and other unpaid leave, approved overtime, rostered staff's days worked and scheduled days, and approved claims reach the run automatically ([items fed from other modules](/docs/payroll/running-payroll/#items-fed-from-other-modules)). **Approved claims are paid by payroll**: to pay one by transfer instead, mark it paid outside payroll under Claims before the run is computed, or it is paid twice. Hours for hourly-paid staff are still typed in.
+- **Fed inputs**: approved unpaid leave, approved overtime, rostered staff's days worked and scheduled days, and approved claims reach the run automatically ([items fed from other modules](/docs/payroll/running-payroll/#items-fed-from-other-modules)). To pay a claim by transfer, mark it paid outside payroll under Claims before computing the run.
+- **Regular hourly work** can come from approved timesheets when the corresponding payroll setting is on and all employed days are covered. The run asks for manual hours when an old approval lacks daily records, punches are incomplete, or overtime, special days or leave need review. Manual hours replace the automatic hours for that employee in the run.
 - **Fed overtime has no amount**: for employees not covered by Part 4, or paid by the hour, approved overtime from attendance blocks the run until you enter the contractual amount on the run ([holiday pay and contractual overtime](/docs/payroll/settings/#holiday-pay-and-contractual-overtime-on-a-run)).
 - **Rest-day and public-holiday work premiums** are entered by hand. Pay for a public holiday on an off day is automatic for monthly-paid staff on a fixed week; for hourly or rostered staff you enter the amount on the run. A holiday on a rest day gives a substitute day off.
 - **Leave encashment**, including days encashed at year end, is paid only after an approved request. The employee's active allowances must first be classified for the gross rate in **Payroll → Allowance treatment** ([allowance treatment](/docs/payroll/settings/#allowance-treatment)); for shift staff the request states the contractual average workdays per week.
 - **Back pay** from a retroactive change is flagged on the next run (`BACKPAY_OWED`) but not computed; enter the amount as a "Back pay" item.
 - **Staff without a fixed week** (rostered or shift) need scheduled days and days worked for an incomplete month; the run blocks without them. They come from published rosters and attendance when the whole month is covered, otherwise HR enters them. A mid-month rate change and SPR graduated-to-full conversion are blocked for these staff.
 - **Not handled**: daily-rated and piece-rated pay.
-- **Allowance types and recurring allowances** are added through the API; their treatment (CPF liability, pro-ration, gross rate) is set in **Payroll → Allowance treatment**.
 - **Adjustments do not recompute later months**; CPF's December (or last-month) AW recomputation absorbs the difference, and Crow HR warns when you reopen an earlier month.
 
 ## Employment Act checks
@@ -58,7 +58,7 @@ The independent review of the payroll choices marked these as **unclear**: the a
 
 | Question | Crow HR's choice |
 | --- | --- |
-| Should foreign employees' SHG appear in the EZPay file only as a fund summary, without detail records? | Summary record only; employees without an S/T number are listed for you to key in EZPay. |
+| Should foreign employees' SHG appear in the EZPay file only as a fund summary, without detail records? | Crow HR excludes their contributions from the export totals and lists the employees for manual entry in CPF EZPay. |
 | How is a top-up on earlier AW encoded in the EZPay file when the month has no new AW? | Reported in the current month's CPF amount, with no new AW in that month's AW column. |
 | Is a pay date after the raw 7- or 14-day deadline always late, given the Interpretation Act rule for Sundays and public holidays? | Flagged as late on the raw count (may be a day early). |
 | Should the bank file set a service level (FAST/GIRO), and which charge bearer? | No service level; charge bearer `SLEV`. Depends on your bank. |

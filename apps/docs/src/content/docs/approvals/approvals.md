@@ -68,6 +68,8 @@ Anyone who approves requests (an approver role, or tasks waiting) can set cover 
 
 When a task passes its due time, its assignees get a reminder. Role steps escalate within that role, then to eligible owners, keeping the required role on the new task. Manager steps try the next manager, eligible HR admins, then owners. Every candidate must be allowed to decide that subject. This happens once per step.
 
+If someone is deciding a request during a sweep, Crow HR checks it again on a later sweep and escalates it only if it is still pending and overdue.
+
 Owners and HR admins can reassign a pending task to another eligible member holding the task's required role, with a reason (HR admins cannot reassign payroll run tasks). Nobody can reassign a task on a request they made, filed or benefit from. When a requester's manager changes, open manager tasks move to the new manager.
 
 Suspending a member or making them former supersedes their open tasks, revokes cover to and from them, and re-resolves steps that have no approver left. Inactive members cannot act on approvals.

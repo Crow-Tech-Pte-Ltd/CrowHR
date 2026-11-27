@@ -25,6 +25,13 @@ This page is checked by a test (`apps/docs/tests/env-vars.test.ts`) that reads e
 | `BIND_ADDRESS` | `0.0.0.0` | Host address the port binds to. Use `127.0.0.1` when a proxy on the same machine is the only way in. |
 | `TRUSTED_PROXIES` | empty | Comma-separated IPs/CIDRs (IPv4 or IPv6) whose `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host` are believed. Shorthands: `private` (10/8, 172.16/12, 192.168/16, fc00::/7, loopback) and `loopback`. Empty: the TCP peer is the client and forwarded headers are ignored (the app logs a hint when it sees them). The client IP is the right-most `X-Forwarded-For` address that is not itself a trusted proxy, so clients cannot spoof it. |
 
+## Dedicated hosting
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CROWHR_HOSTED` | `false` | Enabled by the dedicated hosting Compose overlay. Requires HTTPS, a configured trusted proxy, PostgreSQL, the setup gate, scheduled encrypted backups and a backup before migration. Demo features must be off. |
+| `CROWHR_IMAGE_SHA256` | unset | Required by the dedicated hosting overlay. Set this to the approved release image's 64-character SHA-256 digest, without the `sha256:` prefix. |
+
 ## Backups
 
 | Variable | Default | Meaning |

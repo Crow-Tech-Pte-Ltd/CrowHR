@@ -214,6 +214,29 @@ describe("leave administration", () => {
     ).toEqual([expect.objectContaining({ path: "childId" })]);
   });
 
+  it("reports the adjustment unit even when it differs from the balance's displayed unit", async () => {
+    const hr = await w.as("hr");
+    const transfer = await hr.post(`/api/v1/employees/${w.emp.partTimer}/events`, {
+      type: "transfer",
+      effectiveDate: "2026-12-01",
+      changes: { employmentType: "full_time", workScheduleId: w.scheduleId },
+    });
+    expect(transfer.status, await transfer.clone().text()).toBe(201);
+    const balances = await hr.get(`/api/v1/leave/balances?employeeId=${w.emp.partTimer}&year=2026`);
+    const { items } = (await balances.json()) as { items: { code: string; typeId: string }[] };
+    const annual = items.find((row) => row.code === "annual");
+    expect(annual).toMatchObject({ unit: "hours", adjustmentUnit: "days" });
+    const adjustment = await hr.post("/api/v1/leave/adjustments", {
+      employeeId: w.emp.partTimer,
+      leaveTypeId: annual?.typeId,
+      year: 2026,
+      amount: 0.5,
+      reason: "Correct opening balance",
+    });
+    expect(adjustment.status, await adjustment.clone().text()).toBe(201);
+    expect(await adjustment.json()).toMatchObject({ unit: "days" });
+  });
+
   it("children: employees add their own; HR for anyone; colleagues can't", async () => {
     const staff = await w.as("staff");
     const add = await staff.post("/api/v1/leave/children", {

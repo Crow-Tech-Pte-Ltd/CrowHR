@@ -36,6 +36,7 @@ import {
   requestEncashment,
   withdrawEncashment,
 } from "./encashment.ts";
+import { adjustmentUnitFor } from "./entitlement.ts";
 import { governmentPaidCsv, governmentPaidReport, listUnpaidLeave } from "./outputs.ts";
 import { applyInput, attachmentInput, isoDate, type LeaveActor, listTypes, quoteInput } from "./service.ts";
 import {
@@ -79,6 +80,7 @@ const balanceView = z.object({
   name: z.string(),
   statutoryCode: z.string().nullable(),
   unit: z.enum(["days", "hours"]),
+  adjustmentUnit: z.enum(["days", "hours"]),
   tracked: z.boolean(),
   eligible: z.boolean(),
   eligibleFrom: z.string().nullable(),
@@ -151,8 +153,10 @@ async function balancesView(
   const t = await loadEmployeeTime(deps.db, auth.orgId, target);
   const facts = await loadBalanceFacts(deps.db, auth.orgId, [target], y, asOf);
   const rows = await balancesFor(deps.db, t, types, y, asOf, facts);
+  const adjustmentUnits = new Map(types.map((type) => [type.id, adjustmentUnitFor(t, type, y)]));
   return rows.map((b) => ({
     ...b,
+    adjustmentUnit: adjustmentUnits.get(b.typeId) ?? b.unit,
     entitlement: b.entitlement / 100,
     carriedForward: b.carriedForward / 100,
     expired: b.expired / 100,

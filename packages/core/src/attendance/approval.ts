@@ -14,7 +14,7 @@ import type { InboxSource, SubjectAdapter, WorkflowPlugin } from "../workflows/t
 import { loadClaim, MONTHLY_OT_LIMIT_MINUTES, minutesText, monthMinutes, setClaimStatus } from "./overtime.ts";
 import { latestEndedPeriod, periodLabel, submittableFrom } from "./periods.ts";
 import { loadAttendanceSettings } from "./settings.ts";
-import { timesheets, totalsOf } from "./timesheet.ts";
+import { hourlyPayrollDay, timesheets, totalsOf } from "./timesheet.ts";
 import { latestTimesheets, loadTimesheet, setDecided, toTimesheetViews, unsubmitted } from "./timesheet-approval.ts";
 
 /**
@@ -137,7 +137,8 @@ export function timesheetAdapter(deps: AppDeps): SubjectAdapter {
       if (sheet.settings.timesheetApproval && sheet.settings.payrollApprovedTimesheetsOnly) {
         context.push({
           label: "Payroll",
-          value: "Uses approved timesheets only: approving releases this period's overtime and days worked to payroll.",
+          value:
+            "Uses approved timesheets only: approval supplies overtime, days worked and regular hours for hourly staff when payroll has all the dates it needs.",
         });
       }
       context.push({
@@ -148,13 +149,13 @@ export function timesheetAdapter(deps: AppDeps): SubjectAdapter {
     },
     async onApproved(db, ref, decision) {
       const ts = await loadTimesheet(db, ref.orgId, ref.subjectId);
-      const { totals } = await live(db, ts);
+      const { days, totals } = await live(db, ts);
       await setDecided(db, ref.orgId, ref.subjectId, {
         status: "approved",
         at: decision.decidedAt,
         by: decision.decidedByMembershipId,
         comment: decision.comment,
-        approvedTotals: totals,
+        approvedTotals: { ...totals, payrollDays: days.map(hourlyPayrollDay) },
       });
     },
     onRejected: (db, ref, decision) =>

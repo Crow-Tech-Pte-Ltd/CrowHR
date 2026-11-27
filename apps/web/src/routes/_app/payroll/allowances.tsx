@@ -5,7 +5,15 @@ import {
   Button,
   Card,
   cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   EmptyState,
+  FormField,
+  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -17,11 +25,12 @@ import {
 } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { AlertTriangle, ExternalLink } from "lucide-react";
+import { AlertTriangle, ExternalLink, Plus } from "lucide-react";
 import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { allowanceTypesQuery, createAllowanceType } from "../people/-lib/api.ts";
 import {
   type AllowanceSettingDto,
   allowanceSettingsQuery,
@@ -43,11 +52,12 @@ export const Route = createFileRoute("/_app/payroll/allowances")({
 function AllowancesPage() {
   const me = useMe();
   if (!can(me, "payroll:read")) return <Navigate to="/me/payslips" />;
-  return <Allowances editable={can(me, "payroll:update")} />;
+  return <Allowances editable={can(me, "payroll:update")} canAdd={can(me, "compensation:create")} />;
 }
 
-function Allowances({ editable }: { editable: boolean }) {
+function Allowances({ editable, canAdd }: { editable: boolean; canAdd: boolean }) {
   const q = useQuery(allowanceSettingsQuery);
+  const [add, setAdd] = React.useState(false);
   const { highlight } = Route.useSearch();
   const marked = new Set((highlight ?? "").split(",").filter(Boolean));
   const unset = q.data?.items.filter((a) => a.grossRateIncluded === null) ?? [];
@@ -57,7 +67,15 @@ function Allowances({ editable }: { editable: boolean }) {
         crumbs={[{ label: "Payroll", to: "/payroll" }]}
         title="Allowance treatment"
         description="How each recurring allowance counts: for CPF, in a month someone joins or leaves, and in the Employment Act's gross rate of pay (one day's pay for a public holiday on an off day, and leave encashment)."
+        actions={
+          canAdd ? (
+            <Button size="sm" variant="primary" onClick={() => setAdd(true)}>
+              <Plus aria-hidden /> Add allowance type
+            </Button>
+          ) : null
+        }
       />
+      {add ? <AddAllowanceType onClose={() => setAdd(false)} /> : null}
       {unset.length ? (
         <Alert variant="warning" className="mb-5">
           <AlertTriangle aria-hidden />
@@ -86,7 +104,7 @@ function Allowances({ editable }: { editable: boolean }) {
       ) : q.data.items.length === 0 ? (
         <EmptyState
           title="No allowance types yet."
-          description="Allowance types and employees' recurring allowances are added through the API for now (allowance types, then allowances on a hire or pay change). Once there are some, you set how each one counts here."
+          description="Allowance types appear here once they are created. You can then assign them on an employee’s Pay tab."
         />
       ) : (
         <Card>
@@ -111,6 +129,59 @@ function Allowances({ editable }: { editable: boolean }) {
         </Card>
       )}
     </>
+  );
+}
+
+function AddAllowanceType({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = React.useState("");
+  const [code, setCode] = React.useState("");
+  const save = useMutation({
+    mutationFn: () => createAllowanceType({ name, code }),
+    onSuccess: async (created) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: allowanceTypesQuery.queryKey }),
+        qc.invalidateQueries({ queryKey: allowanceSettingsQuery.queryKey }),
+      ]);
+      toast.success(`${created.name} added. Set its payroll treatment before assigning it.`);
+      onClose();
+    },
+  });
+  const errors = fieldErrors(save.error);
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add allowance type</DialogTitle>
+          <DialogDescription>
+            Create a type you can assign to employees as a recurring monthly allowance.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="grid gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (name.trim() && code.trim()) save.mutate();
+          }}
+        >
+          <FormField label="Name" required error={errors.name}>
+            <Input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} />
+          </FormField>
+          <FormField label="Code" required error={errors.code} hint="Use a short, unique code, such as TRANSPORT.">
+            <Input className="num" value={code} onChange={(event) => setCode(event.target.value)} maxLength={30} />
+          </FormField>
+          {save.isError && !Object.keys(errors).length ? <ErrorNote error={save.error} /> : null}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={save.isPending || !name.trim() || !code.trim()}>
+              Create type
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

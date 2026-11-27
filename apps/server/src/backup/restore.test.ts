@@ -258,11 +258,12 @@ describe("crowhr restore", () => {
 
 /** Real pg_dump/pg_restore/psql. Runs when CROWHR_TEST_POSTGRES_URL points at a disposable database. */
 describe.skipIf(!process.env.CROWHR_TEST_POSTGRES_URL)("crowhr backup + restore with real PostgreSQL", () => {
-  it("round-trips the database exactly, atomically replacing newer data", async () => {
+  it("round-trips an encrypted archive, atomically replacing newer data", async () => {
     const url = process.env.CROWHR_TEST_POSTGRES_URL as string;
     const pool = new pg.Pool({ connectionString: url, max: 3 });
     const db = drizzle({ client: pool, schema }) as unknown as Db;
     const dir = await mkdtemp(join(tmpdir(), "crowhr-pg-restore-"));
+    const passphrase = "restore test fixture";
     const reset = () =>
       pool.query("drop schema if exists drizzle cascade; drop schema public cascade; create schema public;");
     try {
@@ -279,17 +280,18 @@ describe.skipIf(!process.env.CROWHR_TEST_POSTGRES_URL)("crowhr backup + restore 
         backupDir: join(dir, "backups"),
         filesDir: join(dir, "files"),
         key: new Uint8Array(32).fill(3),
-        passphrase: null,
+        passphrase,
         trigger: "manual",
         schemaTag: latestTag,
         newId: () => ids.newId(),
       });
+      expect(backup.path).toMatch(/\.tar\.gz\.age$/);
 
       await db.insert(schema.organisations).values({ id: ids.newId(), name: "After Backup Pte. Ltd." });
       await pool.query("create table stray (id int)");
       const result = await restoreBackup({
         archive: backup.path,
-        passphrase: null,
+        passphrase,
         db,
         dumper,
         backupDir: join(dir, "backups"),

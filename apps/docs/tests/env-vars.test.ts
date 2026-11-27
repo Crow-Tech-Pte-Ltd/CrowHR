@@ -1,7 +1,7 @@
 /**
  * The configuration reference must list every environment variable Crow HR reads, and nothing
  * else. Sources: the server and CLI code (apps/server/src), the Dockerfile's ENV, the variables
- * docker-compose.yml interpolates, and .env.example. Fails with the names to add or remove.
+ * the Compose files interpolate, and .env.example. Fails with the names to add or remove.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -33,9 +33,10 @@ function variablesInCode(): Map<string, string> {
   for (const block of dockerfile.match(/^ENV [\s\S]*?(?<!\\)\n/gm) ?? []) {
     for (const n of matchAll(block, new RegExp(`(?:^ENV |\\s)(${NAME})=`, "g"))) add(n, "Dockerfile");
   }
-  // docker-compose.yml: ${VAR} and ${VAR:-default}
-  for (const n of matchAll(read("docker-compose.yml"), new RegExp(`\\$\\{(${NAME})`, "g")))
-    add(n, "docker-compose.yml");
+  // Compose interpolation: ${VAR}, ${VAR:-default}, and ${VAR:?message}.
+  for (const file of ["docker-compose.yml", "deploy/hosted/compose.yml"]) {
+    for (const n of matchAll(read(file), new RegExp(`\\$\\{(${NAME})`, "g"))) add(n, file);
+  }
   // .env.example: VAR= or # VAR= at the start of a line
   for (const n of matchAll(read(".env.example"), new RegExp(`^#?\\s?(${NAME})=`, "gm"))) add(n, ".env.example");
   return found;

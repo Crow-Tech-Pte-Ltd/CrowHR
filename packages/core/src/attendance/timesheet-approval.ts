@@ -6,6 +6,7 @@ import { singaporeDate } from "../access/scope.ts";
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
 import { memberships } from "../db/schema/access.ts";
 import {
+  type ApprovedTimesheetTotals,
   type AttendanceTimesheet,
   attendanceTimesheets,
   type TimesheetStatus,
@@ -138,7 +139,7 @@ export async function toTimesheetViews(db: Db, orgId: string, rows: readonly Att
       submittedAt: r.submittedAt.toISOString(),
       submittedBy: who(r.submittedByMembershipId) ?? "",
       submittedTotals: r.submittedTotals,
-      approvedTotals: r.approvedTotals ?? null,
+      approvedTotals: r.approvedTotals ? totalsView.parse(r.approvedTotals) : null,
       decidedAt: r.decidedAt?.toISOString() ?? null,
       decidedBy: who(r.decidedByMembershipId),
       comment: r.comment,
@@ -404,7 +405,7 @@ export async function setDecided(
     at: Date;
     by?: string | null;
     comment?: string | null;
-    approvedTotals?: TimesheetTotalsSnapshot;
+    approvedTotals?: ApprovedTimesheetTotals;
   },
 ) {
   await db

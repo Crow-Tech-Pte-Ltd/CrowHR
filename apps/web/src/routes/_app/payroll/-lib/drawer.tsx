@@ -507,7 +507,7 @@ const FED_SOURCE: [string, string][] = [
 
 function quantity(i: { amountCents: number | null; minutes: number | null; days: number | null }): string {
   if (i.amountCents !== null) return formatMoney(i.amountCents);
-  if (i.minutes) return `${i.minutes / 60} h`;
+  if (i.minutes !== null) return `${i.minutes / 60} h`;
   if (i.days) return `${i.days} d`;
   return "";
 }
@@ -907,7 +907,13 @@ function ItemForm({
         </FormField>
       ) : null}
       {(f.kind === "overtime" && !f.overtimeSourceId) || f.kind === "hours" ? (
-        <FormField label="Hours" error={errors.minutes}>
+        <FormField
+          label="Hours"
+          error={errors.minutes}
+          hint={
+            f.kind === "hours" ? "Manual hours replace all timesheet hours for this employee in this run." : undefined
+          }
+        >
           <Input
             inputMode="decimal"
             value={f.hours}
@@ -920,7 +926,7 @@ function ItemForm({
         <FormField
           label="Date worked (optional)"
           error={errors.date}
-          hint="Needed when the hourly rate changes this month: add one item per rate, dated on or after the change."
+          hint="When the hourly rate changes, add a separate item for hours at each rate, with a date when that rate applied."
         >
           <DatePicker
             value={f.workedOn || null}
