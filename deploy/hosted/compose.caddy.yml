@@ -1,0 +1,26 @@
+# Optional automatic HTTPS for a dedicated VPS. Apply after compose.yml.
+services:
+  app:
+    ports: !override []
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:?Set the public HTTPS URL}
+      TRUSTED_PROXIES: private
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:?Set the public HTTPS URL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

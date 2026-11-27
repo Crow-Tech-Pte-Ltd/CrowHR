@@ -34,7 +34,7 @@ function variablesInCode(): Map<string, string> {
     for (const n of matchAll(block, new RegExp(`(?:^ENV |\\s)(${NAME})=`, "g"))) add(n, "Dockerfile");
   }
   // Compose interpolation: ${VAR}, ${VAR:-default}, and ${VAR:?message}.
-  for (const file of ["docker-compose.yml", "deploy/hosted/compose.yml"]) {
+  for (const file of ["docker-compose.yml", "deploy/hosted/compose.yml", "deploy/hosted/compose.caddy.yml"]) {
     for (const n of matchAll(read(file), new RegExp(`\\$\\{(${NAME})`, "g"))) add(n, file);
   }
   // .env.example: VAR= or # VAR= at the start of a line

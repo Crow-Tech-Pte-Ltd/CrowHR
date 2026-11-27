@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+
+die() { printf '%s\n' "$*" >&2; exit 1; }
+
+usage() {
+  cat <<'USAGE'
+Prepare from a Crow HR source checkout
+  crowhr-vps prepare DIRECTORY PROJECT_PREFIX HOSTNAME IMAGE_SHA256
+
+Run from the prepared directory
+  crowhr-vps up
+  crowhr-vps check
+  crowhr-vps setup-code
+  crowhr-vps backup DESTINATION_DIRECTORY
+USAGE
+}
+
+valid_hostname() {
+  local hostname=$1 label='[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?'
+  [[ ${#hostname} -le 253 && "$hostname" =~ ^($label\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$ ]]
+}
+
+prepare() {
+  [[ $# == 4 ]] || die "Run crowhr-vps prepare DIRECTORY PROJECT_PREFIX HOSTNAME IMAGE_SHA256."
+  local path=$1 project=$2 hostname=${3,,} digest=$4
+  [[ "$project" =~ ^[a-z0-9][a-z0-9_-]{0,62}$ ]] || die "Choose a Compose project prefix using lowercase letters, numbers, hyphens and underscores."
+  valid_hostname "$hostname" || die "Use a public DNS hostname such as hr.example.sg, without a scheme or port."
+  [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || die "Use the approved release image's 64-character SHA-256 digest, without the sha256: prefix."
+
+  local base source target staged passphrase
+  source="$(cd "$directory/../.." && pwd -P)"
+  [[ -f "$source/docker-compose.yml" && -f "$directory/compose.caddy.yml" ]] ||
+    die "Run prepare from deploy/hosted in a Crow HR checkout."
+  base="$(cd -- "$(dirname -- "$path")" && pwd -P)" || die "Create the installation's parent directory first."
+  target="$base/$(basename -- "$path")"
+  [[ ! -e "$target" && ! -L "$target" ]] || die "Installation already exists at $target."
+
+  passphrase="$(openssl rand -hex 32)"
+  project="$project-$(openssl rand -hex 8)"
+  staged="$(mktemp -d "$base/.crowhr-prepare.XXXXXX")"
+  temporary_directory="$staged"
+  trap 'rm -rf -- "$temporary_directory"' EXIT
+  cp -- "$source/docker-compose.yml" "$directory/compose.caddy.yml" "$directory/Caddyfile" "$staged/"
+  cp -- "$directory/compose.yml" "$staged/compose.hosted.yml"
+  install -m 700 -- "$directory/crowhr-vps" "$staged/crowhr-vps"
+  printf '%s\n' "$project" > "$staged/project"
+  {
+    printf 'PUBLIC_URL=https://%s\n' "$hostname"
+    printf 'CROWHR_IMAGE_SHA256=%s\n' "$digest"
+    printf 'BACKUP_PASSPHRASE=%s\n' "$passphrase"
+  } > "$staged/.env"
+
+  mv -nT -- "$staged" "$target"
+  [[ ! -e "$staged" ]] || die "Installation already exists at $target."
+  printf 'Prepared %s for https://%s. Run %q up once DNS is ready.\n' "$target" "$hostname" "$target/crowhr-vps"
+}
+
+compose() (
+  # The installation file is authoritative even if an operator has another site's settings exported.
+  unset PUBLIC_URL CROWHR_IMAGE_SHA256
+  docker compose --project-directory "$directory" --project-name "$(<"$directory/project")" \
+    --env-file "$directory/.env" -f "$directory/docker-compose.yml" \
+    -f "$directory/compose.hosted.yml" -f "$directory/compose.caddy.yml" "$@"
+)
+
+health() {
+  local url hostname response
+  url="$(sed -n 's/^PUBLIC_URL=//p' "$directory/.env")"
+  hostname=${url#https://}
+  [[ "$url" == https://* ]] && valid_hostname "$hostname" ||
+    die "Set PUBLIC_URL=https://your-hostname in $directory/.env."
+  if ! response="$(curl --fail --silent --show-error --noproxy "*" --connect-timeout 3 --max-time 10 \
+    --resolve "$hostname:443:127.0.0.1" "$@" "$url/api/health")" ||
+    [[ ! "$response" =~ \"status\"[[:space:]]*:[[:space:]]*\"ok\" ]]; then
+    die "Crow HR did not answer over HTTPS at $url. Check DNS, ports 80 and 443, and the Caddy logs."
+  fi
+  printf 'Crow HR is healthy over HTTPS at %s.\n' "$url"
+}
+
+backup() {
+  [[ $# == 1 && -d "$1" ]] || die "Give backup an existing destination directory."
+  local destination output archive temporary header
+  destination="$(cd -- "$1" && pwd -P)"
+  if ! output="$(compose exec -T app crowhr backup)"; then
+    die "Crow HR could not create the backup."
+  fi
+  archive="$(sed -nE 's@^Backup written: /backups/(crowhr-backup-[0-9A-Za-z-]+\.tar\.gz\.age) .*@\1@p' <<<"$output")"
+  [[ -n "$archive" && "$archive" != *$'\n'* ]] || die "Crow HR did not produce an encrypted backup."
+  [[ ! -e "$destination/$archive" && ! -L "$destination/$archive" ]] || die "Backup already exists at $destination/$archive."
+  temporary="$(mktemp "$destination/.crowhr-backup.XXXXXX")"
+  temporary_file="$temporary"
+  trap 'rm -f -- "$temporary_file"' EXIT
+  compose exec -T app cat "/backups/$archive" > "$temporary" || die "Could not copy the backup."
+  IFS= read -r header < "$temporary" || die "Backup is incomplete."
+  [[ "$header" == age-encryption.org/v1 ]] || die "Expected an encrypted age archive."
+  ln -T -- "$temporary" "$destination/$archive" || die "Could not publish the backup without replacing another file."
+  printf 'Encrypted backup exported to %s/%s.\n' "$destination" "$archive"
+}
+
+operation=${1:-help}
+if [[ $# -gt 0 ]]; then shift; fi
+case "$operation" in
+  help|-h|--help) usage; exit 0 ;;
+  prepare) prepare "$@"; exit 0 ;;
+  up|check|setup-code|backup) ;;
+  *) usage >&2; exit 1 ;;
+esac
+[[ -f "$directory/.env" && -f "$directory/project" ]] ||
+  die "Run prepare first and use the crowhr-vps command it installs."
+command -v docker >/dev/null || die "Install Docker Engine and the Compose plugin first."
+
+case "$operation" in
+  up)
+    [[ $# == 0 ]] || die "up takes no arguments."
+    compose config --quiet
+    compose pull --policy missing
+    compose up -d --wait --wait-timeout 180
+    health --retry 8 --retry-all-errors --retry-max-time 90
+    ;;
+  check)
+    [[ $# == 0 ]] || die "check takes no arguments."
+    compose ps
+    health
+    ;;
+  setup-code)
+    [[ $# == 0 ]] || die "setup-code takes no arguments."
+    compose exec -T app crowhr setup-code
+    ;;
+  backup) backup "$@" ;;
+esac
