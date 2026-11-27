@@ -85,6 +85,7 @@ jobs:
               - 'deploy/hosted/**'
               - '.env.example'
               - 'e2e/hosted-compose.sh'
+              - 'e2e/hosted-vps.sh'
               - 'e2e/self-host.sh'
               - 'e2e/selfhost.config.ts'
               - 'e2e/setup.spec.ts'
@@ -322,7 +323,9 @@ jobs:
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
       - name: Validate the dedicated hosted Compose overlay
-        run: e2e/hosted-compose.sh
+        run: |
+          e2e/hosted-compose.sh
+          e2e/hosted-vps.sh
       - name: Build image, docker compose install, setup wizard, backup, restore, Caddy, nginx, Traefik
         # Builds the image from the checkout (amd64 only; release.yml builds and publishes amd64 and
         # arm64) and tears down only its own compose project and proxy containers. The proxies run

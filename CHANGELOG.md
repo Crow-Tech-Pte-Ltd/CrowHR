@@ -6,6 +6,8 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ### Added
 
+- **Portable VPS install**. The hosted installer prepares a private Docker Compose project, handles HTTPS through Caddy, checks service health and exports encrypted backups. See the [operator runbook](deploy/hosted/README.md#start-on-a-vps-with-caddy).
+
 - **Approved hourly work in payroll**: the approved-timesheets-only setting brings unambiguous, dated regular hours into an hourly employee's run. Payroll explains when it needs a manual amount.
 - **Web controls for HR**: create allowance types and manage recurring allowances from hire or the Pay tab, adjust tracked leave balances, correct child records, set start times by work schedule, and file overtime on behalf of employees or refile a returned claim.
 - **Dedicated hosting**: a digest-pinned Compose overlay binds the app to host loopback and checks for HTTPS, encrypted scheduled backups and the protected setup flow. See the [operator runbook](deploy/hosted/README.md).
