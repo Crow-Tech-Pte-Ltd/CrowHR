@@ -1,6 +1,7 @@
 import { bankAccounts, compensationRecords, employees, workPasses } from "../db/schema/employees.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
+import { XLSX_CONTENT_TYPE } from "../export/xlsx.ts";
 import { type Actor, listScope, type Section } from "./access.ts";
 import { recordAudit } from "./audit-helpers.ts";
 import { bankName } from "./banks.ts";
@@ -94,7 +95,7 @@ export async function exportEmployees(
   deps: AppDeps,
   ports: PeoplePorts,
   actor: Actor,
-  input: { columns?: string[]; format: "csv" | "xlsx"; filters: DirectoryFilters; unmasked?: boolean },
+  input: { columns?: string[]; format: "csv" | "xlsx" | "json"; filters: DirectoryFilters; unmasked?: boolean },
 ): Promise<{ body: Uint8Array | string; contentType: string; fileName: string; rows: number; columns: string[] }> {
   const { rowsScope, sections } = await exportScope(actor);
   const requested = input.columns?.length ? input.columns : DEFAULT_EXPORT_COLUMNS;
@@ -251,26 +252,40 @@ export async function exportEmployees(
     out.push(line);
   }
   const headers = columns.map((c) => c.label);
+  const keys = columns.map((c) => c.key);
   // A read: nothing to roll back, so the event commits on its own (before the file is returned).
   await recordAudit(deps.db, ports, actor, {
     action: "employees.exported",
     targetType: "employee_list",
     targetId: actor.orgId,
     meta: {
-      columns: columns.map((c) => c.key),
+      columns: keys,
       rowCount: out.length,
       format: input.format,
       unmasked: !!input.unmasked,
     },
   });
   const stamp = today.replace(/-/g, "");
+  if (input.format === "json") {
+    return {
+      body: JSON.stringify({
+        generatedAt: deps.clock.now().toISOString(),
+        columns: columns.map(({ key, label }) => ({ key, label })),
+        rows: out.map((line) => Object.fromEntries(keys.map((key, i) => [key, line[i] ?? null]))),
+      }),
+      contentType: "application/json",
+      fileName: `employees-${stamp}.json`,
+      rows: out.length,
+      columns: keys,
+    };
+  }
   if (input.format === "xlsx") {
     return {
       body: writeXlsx("Employees", headers, out),
-      contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      contentType: XLSX_CONTENT_TYPE,
       fileName: `employees-${stamp}.xlsx`,
       rows: out.length,
-      columns: columns.map((c) => c.key),
+      columns: keys,
     };
   }
   return {
@@ -278,6 +293,6 @@ export async function exportEmployees(
     contentType: "text/csv; charset=utf-8",
     fileName: `employees-${stamp}.csv`,
     rows: out.length,
-    columns: columns.map((c) => c.key),
+    columns: keys,
   };
 }

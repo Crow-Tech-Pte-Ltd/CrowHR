@@ -30,6 +30,8 @@ export const MAX_EXPORT_ROWS = 50_000;
 /** Rows the runner will hold while sorting; beyond the export limit nothing is shown either. */
 const MAX_ROWS = MAX_EXPORT_ROWS;
 
+export type ReportExportFormat = "csv" | "xlsx" | "json";
+
 export interface ReportQuery {
   page?: number;
   sort?: string;
@@ -311,7 +313,7 @@ function paramText(v: unknown): string {
  * streamed in 500-row chunks; the XLSX is encoded batch by batch. Audited with the report ID,
  * parameters, row count and redacted columns.
  */
-export async function exportReport(c: AppContext, id: string, query: ReportQuery, format: "csv" | "xlsx") {
+export async function exportReport(c: AppContext, id: string, query: ReportQuery, format: ReportExportFormat) {
   const deps: AppDeps = c.var.deps;
   const p = await prepare(c, id, query, "export");
   if (p.columns.some((col) => col.sensitivity === "salary")) requireRecentAuth(c);
@@ -339,6 +341,21 @@ export async function exportReport(c: AppContext, id: string, query: ReportQuery
   }
   if (format === "csv") {
     return new Response(csvStream(p.columns, batches()), { headers: { ...headers, "content-type": CSV_CONTENT_TYPE } });
+  }
+  if (format === "json") {
+    const columns = p.columns.map(({ key, title, type }) => ({ key, title, type }));
+    return Response.json(
+      {
+        report: { id: p.def.id, title: p.def.title },
+        generatedAt: p.ctx.now.toISOString(),
+        params: p.params,
+        columns,
+        rows: rows.map((row) => Object.fromEntries(columns.map(({ key }) => [key, row[key] ?? null]))),
+        totals,
+        redactedColumns: p.redactedColumns,
+      },
+      { headers },
+    );
   }
   const auth = c.var.auth;
   const parameters: [string, string][] = [

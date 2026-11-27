@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { XLSX_CONTENT_TYPE } from "../export/xlsx.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
-import { catalogue, exportReport, type ReportQuery, runReport } from "./runner.ts";
+import { catalogue, exportReport, type ReportExportFormat, type ReportQuery, runReport } from "./runner.ts";
 
 const cell = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 const columnType = z.enum([
@@ -71,7 +72,7 @@ const runQuery = z
 
 const reportId = z.object({ id: z.string().regex(/^[a-z_]+\.[a-z_]+$/, "Use a report ID such as people.headcount.") });
 
-/** Reports (openspec/changes/add-reporting): the catalogue, one report, and its CSV/XLSX export. */
+/** Reports (openspec/changes/add-reporting): the catalogue, one report, and its CSV/XLSX/JSON export. */
 export const reportsModule = defineModule({
   name: "reports",
   basePath: "/reports",
@@ -101,17 +102,22 @@ export const reportsModule = defineModule({
     defineRoute({
       method: "get",
       path: "/:id/export",
-      summary: "Export the full report as CSV (UTF-8 with BOM) or XLSX, audit-logged",
+      summary: "Export the full report as CSV (UTF-8 with BOM), XLSX or JSON, audit-logged",
       access: "authenticated",
       request: {
         params: reportId,
-        query: runQuery.extend({ format: z.enum(["csv", "xlsx"]).default("csv") }),
+        query: runQuery.extend({ format: z.enum(["csv", "xlsx", "json"]).default("csv") }),
       },
-      responses: { 200: { description: "CSV or XLSX file", contentType: "text/csv" } },
+      responses: {
+        200: {
+          description: "CSV, XLSX or JSON attachment",
+          contentType: ["text/csv", XLSX_CONTENT_TYPE, "application/json"],
+        },
+      },
       errors: ["forbidden", "not_found", "too_many_rows", "reauth_required"],
       crossOrgExempt: "The path holds a report ID, not a record ID; rows are always the caller's organisation.",
       handler: async ({ c, params, query }) => {
-        const { format, ...rest } = query as ReportQuery & { format: "csv" | "xlsx" };
+        const { format, ...rest } = query as ReportQuery & { format: ReportExportFormat };
         return exportReport(c, params.id, rest, format);
       },
     }),

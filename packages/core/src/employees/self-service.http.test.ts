@@ -240,6 +240,14 @@ describe("export", () => {
     expect((await mgr.get("/employees/export?columns=name,basic_pay")).status).toBe(403);
     const ev = h.ports.audit.events.find((e) => e.action === "employees.exported");
     expect(ev?.meta).toMatchObject({ rowCount: 1, format: "csv" });
+    const json = await mgr.get("/employees/export?format=json&columns=employee_number,name");
+    expect(json.status).toBe(200);
+    expect(json.headers.get("content-disposition")).toContain(".json");
+    expect(JSON.parse(json.text)).toMatchObject({
+      rows: [{ employee_number: expect.any(String), name: "Report One" }],
+    });
+    expect(json.text).not.toContain("Stranger");
+    expect((await mgr.get("/employees/export?format=json&columns=basic_pay")).status).toBe(403);
   });
 
   it("hr_admin cannot export pay; payroll can; unmasked NRIC only on the re-auth route", async () => {

@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { clientAs, createTestDb, seedMember, type TestClient, type TestDb } from "../../testing/index.ts";
+import { clientAs, createTestDb, seedMember, seedOrg, type TestClient, type TestDb } from "../../testing/index.ts";
 import { type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
 import { notifications } from "../db/schema/notifications.ts";
 import { payrollPayslips, payrollRuns } from "../db/schema/payroll.ts";
@@ -195,6 +195,66 @@ describe("payroll cost report", () => {
     expect((await p.owner.get("/api/v1/reports/payroll.cost")).status).toBe(200);
     expect((await hr.get("/api/v1/reports/payroll.cost")).status).toBe(403);
     expect((await hr.get("/api/v1/reports/payroll.cost/export?format=xlsx")).status).toBe(403);
+  });
+});
+
+describe("payroll register and line items", () => {
+  it("exports authoritative results for the selected run as integer cents and numeric Excel cells", async () => {
+    const [run] = await t.db
+      .select()
+      .from(payrollRuns)
+      .where(and(eq(payrollRuns.orgId, p.co.h.orgId), eq(payrollRuns.kind, "off_cycle")));
+    if (!run) throw new Error("Missing the seeded bonus run.");
+    const slips = await t.db
+      .select()
+      .from(payrollPayslips)
+      .where(and(eq(payrollPayslips.orgId, p.co.h.orgId), eq(payrollPayslips.runId, run.id)));
+    expect(slips).toHaveLength(2);
+    const query = `from=2026-10&to=2026-10&runId=${run.id}`;
+    const register = "/api/v1/reports/payroll.register/export";
+    const json = await p.ok<Report>(p.admin.get(`${register}?${query}&format=json`));
+    expect(json.rows).toHaveLength(slips.length);
+    for (const slip of slips) {
+      expect(json.rows.find((row) => row.employeeNumber === slip.employeeNumber)).toMatchObject({
+        runId: run.id,
+        gross: slip.grossCents,
+        netPayable: slip.result.totals.netPayableCents,
+      });
+    }
+    const xlsx = await p.admin.get(`${register}?${query}&format=xlsx`);
+    expect(xlsx.status).toBe(200);
+    const [headers, ...sheet] = readXlsxSheet(new Uint8Array(await xlsx.arrayBuffer()));
+    const gross = headers?.find((c) => c.value === "Gross pay (S$)")?.ref.replace(/\d+$/, "");
+    expect(gross).toBeTruthy();
+    const grossCells = sheet.map((row) => row.find((c) => c.ref.replace(/\d+$/, "") === gross)?.value);
+    expect(grossCells).toContain(1234.57);
+    expect(grossCells).toContain(987.65);
+
+    const lines = await p.ok<Report>(p.admin.get(`/api/v1/reports/payroll.line_items/export?${query}&format=json`));
+    expect(
+      lines.rows
+        .filter((r) => r.label === "Performance bonus")
+        .map((r) => r.amount)
+        .sort(),
+    ).toEqual([123_457, 98_765]);
+    expect((await hr.get(`${register}?${query}&format=json`)).status).toBe(403);
+
+    const otherOrg = await seedOrg(p.co.h.deps, { slug: "other-payroll" });
+    const otherOwner = await clientAs(
+      p.app,
+      p.co.h.deps,
+      await seedMember(p.co.h.deps, otherOrg.id, { roles: ["owner"] }),
+    );
+    const other = await p.ok<Report>(otherOwner.get(`${register}?${query}&format=json`));
+    expect(other.rows).toEqual([]);
+  });
+
+  it("includes computed draft rows only when requested", async () => {
+    const url = "/api/v1/reports/payroll.register/export?from=2026-11&to=2026-11&format=json";
+    expect((await p.ok<Report>(p.admin.get(url))).rows).toEqual([]);
+    const { rows } = await p.ok<Report>(p.admin.get(`${url}&state=all`));
+    expect(rows).toHaveLength(3);
+    expect(rows.every((row) => row.state === "draft")).toBe(true);
   });
 });
 

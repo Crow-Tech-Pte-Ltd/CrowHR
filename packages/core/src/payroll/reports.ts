@@ -4,6 +4,7 @@ import { payrollPayslips, payrollRuns } from "../db/schema/payroll.ts";
 import type { Db } from "../db/types.ts";
 import { inBatches, type ReportDefinition, type ReportRow, type ReportSource } from "../reporting/types.ts";
 import { dateLabel } from "./engine/dates.ts";
+import { payrollLinesReport, payrollRegisterReport } from "./register.ts";
 
 /**
  * Payroll cost by month and department (add-reporting design decision 5, spec "Module reports
@@ -300,4 +301,7 @@ export const payrollCostReport: ReportDefinition<z.output<ReturnType<typeof para
   chart: { label: "month", value: "employerTotalCents" },
 };
 
-export const payrollReportSource: ReportSource = { module: "payroll", reports: [payrollCostReport] };
+export const payrollReportSource: ReportSource = {
+  module: "payroll",
+  reports: [payrollCostReport, payrollRegisterReport, payrollLinesReport],
+};

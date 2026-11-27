@@ -66,7 +66,13 @@ export function reportQuery(id: string, query: Record<string, string>) {
   });
 }
 
-export function exportHref(id: string, query: Record<string, string>, format: "csv" | "xlsx") {
+export const EXPORT_FORMATS = [
+  { id: "xlsx", label: "Excel" },
+  { id: "csv", label: "CSV" },
+  { id: "json", label: "JSON" },
+] as const;
+
+export function exportHref(id: string, query: Record<string, string>, format: (typeof EXPORT_FORMATS)[number]["id"]) {
   return `/api/v1/reports/${encodeURIComponent(id)}/export?${new URLSearchParams({ ...query, format })}`;
 }
 

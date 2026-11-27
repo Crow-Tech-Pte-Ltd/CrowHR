@@ -108,9 +108,10 @@ function operation(module: ApiModule, route: AnyRoute): JsonSchema {
   for (const [status, spec] of Object.entries(route.responses as Record<string, ResponseSpec>)) {
     if (spec === null) responses[status] = { description: "No content." };
     else if (isRaw(spec)) {
+      const contentTypes = typeof spec.contentType === "string" ? [spec.contentType] : spec.contentType;
       responses[status] = {
         description: spec.description,
-        ...(spec.contentType ? { content: { [spec.contentType]: {} } } : {}),
+        ...(contentTypes?.length ? { content: Object.fromEntries(contentTypes.map((type) => [type, {}])) } : {}),
       };
     } else {
       const schema = toSchema(spec, "output");

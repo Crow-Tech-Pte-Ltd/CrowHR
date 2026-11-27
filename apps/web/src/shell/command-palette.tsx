@@ -26,6 +26,7 @@ const ORDER: ModuleId[] = [
   "claims",
   "documents",
   "reports",
+  "export-data",
   "settings",
 ];
 

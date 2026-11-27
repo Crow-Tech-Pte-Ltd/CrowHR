@@ -1,9 +1,15 @@
 ---
 title: Reports
-description: The reports Crow HR ships, who can run each one, the exact formulas behind the numbers, and the CSV and XLSX exports.
+description: The reports Crow HR ships, who can run each one, the exact formulas behind the numbers, and how to download Excel, CSV, JSON and native files.
 ---
 
-**Reports** lists the reports you may run, grouped by the module that supplies the data. Each report has its parameters at the top, then a dense table (50 rows per page, sortable by any column, a totals row where totals make sense), the rules behind the numbers, and **CSV** and **Excel** (XLSX) download buttons. Where it helps, a simple bar chart follows the table; the table always comes first.
+**Reports** lists the reports you may run, grouped by the module that supplies the data. Each report has its parameters at the top, then a dense table (50 rows per page, sortable by any column, a totals row where totals make sense), the rules behind the numbers, and **Excel**, **CSV** and **JSON** download buttons. Where it helps, a simple bar chart follows the table; the table always comes first.
+
+## Export data
+
+Open **Export data** in the sidebar or account menu. Choose **Download** next to a report to use its default dates and columns. To change the selection, open the report, set its filters and choose a format. Exports include the full filtered result.
+
+You can also download the masked employee list in Excel, CSV or JSON. Its export scope follows your People permissions. **Other downloads** takes you to the files you can access, including payslip PDFs, generated letters and key employment terms, CPF and bank payment files, IR8A and appendices, roster weeks, government-paid leave claim CSV, document acknowledgements and the audit log. Select the corresponding employee, run, year, week or filters there.
 
 ## The reports
 
@@ -15,6 +21,9 @@ description: The reports Crow HR ships, who can run each one, the exact formulas
 | Work pass expiry | Current employees' latest work passes that have expired or expire by a date, soonest first | Owner, HR admin, payroll admin |
 | Leave taken | Approved leave in a period by leave type, by department and type, or by employee and type | Owner, HR admin; managers for their team |
 | Leave balances and liability | Entitlement, carried forward, taken, pending and available leave as at a date, and the annual leave liability | Owner, HR admin; managers for their team |
+| Leave requests | Each overlapping request with dates, sessions, amount, unit and status. Amounts cover the entire request. | Owner, HR admin; managers for their team |
+| Government-paid leave | Government-paid and employer-paid days, claim deadlines and claim routes | Owner, HR admin, payroll admin |
+| Daily timesheets | First clock-in and last clock-out, scheduled and worked time, exceptions and overtime claim status per employee per day | Owner, HR admin; managers for their team |
 | Lateness, missing punches and overtime | Days worked, hours, late days and minutes, early outs, missing punches, timesheet and approved overtime hours (up to 62 days) | Owner, HR admin; managers for their team |
 | Scheduled hours | Shifts, rest days and paid hours per employee from published rosters (up to 62 days); drafts never count | Owner, HR admin; managers for their team |
 | Claims by type, department or month | Claim amounts and GST by expense date, per status | Owner, HR admin, payroll admin |
@@ -23,14 +32,17 @@ description: The reports Crow HR ships, who can run each one, the exact formulas
 | Claims payout register | Paid claims with the payment date, payroll or outside payroll, and the reference | Owner, HR admin, payroll admin |
 | Claim lines register | Every submitted claim line with merchant, description, amount, SGD, GST and receipt count | Owner, HR admin, payroll admin |
 | Payroll cost | Gross pay, employer CPF, SDL, FWL estimate and total employer cost by month and department | Owner, payroll admin |
+| Payroll register | One row per employee and computed run. Includes earnings, deductions, CPF, reimbursements, net pay, and the net amount payable on that run. | Owner, payroll admin |
+| Payroll line items | One row per computed earning, deduction, reimbursement or contribution, labelled with the employee and run | Owner, payroll admin |
 
-The permissions come from the server's [permission matrix](/docs/roles-and-permissions/) (`reports_people`, `reports_leave`, `reports_attendance`, `reports_claims`, `reports_payroll_cost`, `work_pass` for the expiry list, and `rosters` for scheduled hours). A report you may not run answers `403`; a report from a module that isn't installed answers `404`. Reports never run at "own" scope: an employee's own data is on their own pages.
+The permissions come from the server's [permission matrix](/docs/roles-and-permissions/) (`reports_people`, `reports_leave`, `reports_attendance`, `reports_claims`, `reports_payroll_cost`, `work_pass` for the expiry list, `leave_claims` for government-paid leave, and `rosters` for scheduled hours). A report you may not run answers `403`; a report from a module that isn't installed answers `404`. Reports never run at "own" scope: an employee's own data is on their own pages.
 
 ## Scope and sensitive columns
 
 - **Managers** see only their team (their direct and indirect reports) in leave and attendance reports. Totals are computed over the rows you can see, never over the whole company.
-- **Salary columns** (headcount's monthly basic pay, leave liability, every payroll cost amount) need salary access to every employee in the report. An HR admin who is not also a payroll admin gets the report without those columns; the response and the export list them in `redactedColumns` (for example `basicPay`). An HR admin who also holds payroll admin sees them.
+- **Salary columns** (headcount's monthly basic pay, leave liability, payroll amounts) need salary access to every employee in the report. An HR admin who is not also a payroll admin gets the report without those columns; the response and the export list them in `redactedColumns` (for example `basicPay`). An HR admin who also holds payroll admin sees them.
 - **Work pass numbers** in the work pass expiry list are an identity field: readers without access to personal details get the list without them, listed in `redactedColumns` the same way.
+- Downloading a report with salary columns requires a recent sign-in. Crow HR prompts you to confirm when needed.
 - Viewing a report that shows sensitive columns (salary or work pass numbers) is audit-logged (`report.viewed`), and so is every export (`report.exported`, with the parameters, the row count and the columns left out).
 
 ## How the numbers are worked out
@@ -46,6 +58,8 @@ The permissions come from the server's [permission matrix](/docs/roles-and-permi
 - employer total = gross pay + employer CPF (+ any employee CPF share the employer bore) + SDL + FWL;
 - the department is the one on each payslip's employment snapshot (as at the end of the pay period).
 
+**Payroll register and line items** default to approved and paid runs. Use **All computed runs** to include drafts and runs in review. A run's **Payroll register** shortcut opens a selection for that run. An original run and its adjustment are shown as separate rows, with the replacement run ID on the original. Net payable is the amount payable on that run. Payroll cost provides the effective gross and employer cost totals.
+
 FWL is an estimate from the levy settings, as on the [SHG, SDL and FWL](/docs/payroll/shg-sdl-fwl/) page; payroll never deducts it. Employee CPF and SHG are shown as deductions, not as employer cost.
 
 **Leave liability** = available annual leave days × daily basic rate, where the daily rate is 12 × monthly basic salary ÷ (52 × working days a week), the Employment Act formula, rounded half-up to the cent. Hourly and daily-rated employees show no liability. Balances are for the leave year of the date, and pending requests are not counted as available.
@@ -54,16 +68,17 @@ FWL is an estimate from the levy settings, as on the [SHG, SDL and FWL](/docs/pa
 
 ## Exports
 
-Every export holds the full result, not just the page on screen, with the same columns and redactions.
+Report exports contain every matching row, with the selected columns and any redactions applied.
 
 - **CSV**: UTF-8 with a byte-order mark (so Excel on Windows reads it correctly), comma-separated, RFC 4180 quoting, a header row of column titles, dates as `YYYY-MM-DD`, money as plain decimals with two places and no symbol (`1234.56`), percentages with one place. Text cells starting with `=`, `+`, `-` or `@` get a leading apostrophe so a spreadsheet cannot run them as formulas.
 - **XLSX**: typed cells, money as numbers formatted `#,##0.00` (123456 cents is the number 1234.56), dates as real dates formatted `dd mmm yyyy`, a bold frozen header row with filters, a totals row, and a second sheet "Parameters" with the report, its parameters, the columns left out, who generated it and when.
 
-An export of more than 50,000 rows is refused with `422 too_many_rows`; narrow the dates or pick a smaller group.
+- **JSON**: UTF-8 with column keys and types, rows, totals, resolved parameters, generation time and redacted columns. Money is integer cents, hours are integer minutes and percentages are integer tenths of a percent (143 = 14.3%).
+
+A report export of more than 50,000 rows is refused with `422 too_many_rows`; narrow the dates or pick a smaller group.
 
 ## Not available
 
 - Custom report builders, saved views, scheduled or emailed reports.
 - The chart shows the rows on the current page of the table, not the whole result.
 - Cost-centre breakdowns of payroll cost (payslips record the department only).
-- The CPF EZPay file, bank file and IR8A export are payroll files, not reports; see [running payroll](/docs/payroll/running-payroll/).

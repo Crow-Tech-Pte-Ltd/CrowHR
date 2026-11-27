@@ -26,11 +26,11 @@ export type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
  */
 export type RouteAccess = "public" | "authenticated" | { permission: Permission };
 
-/** A non-JSON response (redirect, CSV, HTML). The handler must return a `Response`. */
+/** A response returned directly by the handler, such as a redirect or an attachment. */
 export interface RawResponseSpec {
   description: string;
   /** Omit for bodiless responses such as redirects. */
-  contentType?: string;
+  contentType?: string | readonly string[];
 }
 
 /** `null` = no body (e.g. 204). */
