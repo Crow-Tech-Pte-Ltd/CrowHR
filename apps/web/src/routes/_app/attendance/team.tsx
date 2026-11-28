@@ -49,6 +49,7 @@ import { LockedMark } from "../../../attendance/timesheet-approval.tsx";
 import { can, canForEmployee, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { addDays, todaySg, weekdayOf } from "../../../leave/format.ts";
 import { ApiError, apiPost } from "../../../lib/api.ts";
 
@@ -66,6 +67,7 @@ interface Row {
 }
 
 function TeamTimesheetPage() {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/attendance/team" });
@@ -86,26 +88,27 @@ function TeamTimesheetPage() {
   return (
     <>
       <PageHeader
-        title="Attendance"
-        description="Your team's day. Fix a missing or wrong punch with Correct; every change is audited."
+        title={tWorkflow("Attendance")}
+        description={tWorkflow("Your team's day. Fix a missing or wrong punch with Correct; every change is audited.")}
       />
       <AttendanceNav current="team" />
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button size="icon-sm" aria-label="Previous day" onClick={() => go(addDays(date, -1))}>
+        <Button size="icon-sm" aria-label={tWorkflow("Previous day")} onClick={() => go(addDays(date, -1))}>
           <ChevronLeft />
         </Button>
-        <Button size="icon-sm" aria-label="Next day" onClick={() => go(addDays(date, 1))}>
+        <Button size="icon-sm" aria-label={tWorkflow("Next day")} onClick={() => go(addDays(date, 1))}>
           <ChevronRight />
         </Button>
-        <DatePicker value={date} onChange={(d) => go(d ?? undefined)} className="w-40" aria-label="Day" />
+        <DatePicker value={date} onChange={(d) => go(d ?? undefined)} className="w-40" aria-label={tWorkflow("Day")} />
         {date !== today ? (
           <Button size="sm" variant="ghost" onClick={() => go(undefined)}>
-            Today
+            {tWorkflow("Today")}
           </Button>
         ) : null}
         {q.data ? (
           <span className="num ml-auto text-ui text-primary-300">
-            {counts.in} in · {counts.late} late · {counts.missing} missing a punch
+            {counts.in} {tWorkflow("in ·")} {counts.late} {tWorkflow("late ·")} {counts.missing}{" "}
+            {tWorkflow("missing a punch")}
           </span>
         ) : null}
       </div>
@@ -120,21 +123,21 @@ function TeamTimesheetPage() {
         ) : rows.length === 0 ? (
           <EmptyState
             variant="plain"
-            title={`No one to show for ${weekdayOf(date)} ${dm(date)}.`}
-            description="The people you manage show here with their punches for the day."
+            title={tWorkflow("No one to show for {arg1} {arg2}.", { arg1: tWorkflow(weekdayOf(date)), arg2: dm(date) })}
+            description={tWorkflow("The people you manage show here with their punches for the day.")}
           />
         ) : (
-          <Table aria-label={`Team attendance ${dm(date)}`}>
+          <Table aria-label={tWorkflow("Team attendance {arg1}", { arg1: dm(date) })}>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="hidden md:table-cell">Day</TableHead>
-                <TableHead className="text-right">In</TableHead>
-                <TableHead className="text-right">Out</TableHead>
-                <TableHead className="hidden text-right sm:table-cell">Worked</TableHead>
-                <TableHead className="hidden lg:table-cell">Notes</TableHead>
+                <TableHead>{tWorkflow("Name")}</TableHead>
+                <TableHead className="hidden md:table-cell">{tWorkflow("Day")}</TableHead>
+                <TableHead className="text-right">{tWorkflow("In")}</TableHead>
+                <TableHead className="text-right">{tWorkflow("Out")}</TableHead>
+                <TableHead className="hidden text-right sm:table-cell">{tWorkflow("Worked")}</TableHead>
+                <TableHead className="hidden lg:table-cell">{tWorkflow("Notes")}</TableHead>
                 <TableHead className="text-right">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{tWorkflow("Actions")}</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -149,13 +152,13 @@ function TeamTimesheetPage() {
                         onClick={() => setEditing(r)}
                       >
                         <span className="truncate">{r.employee.name}</span>
-                        <span className="sr-only">: correct punches</span>
+                        <span className="sr-only">{tWorkflow(": correct punches")}</span>
                         <ChevronRight className="size-3.5 text-primary-200" aria-hidden />
                       </button>
                     ) : null}
                     <span className={cn(r.employee.id !== me.employeeId && "hidden sm:inline")}>{r.employee.name}</span>
                   </TableCell>
-                  <TableCell className="hidden text-primary-300 md:table-cell">{dayLabel(r.day)}</TableCell>
+                  <TableCell className="hidden text-primary-300 md:table-cell">{dayLabel(r.day, tWorkflow)}</TableCell>
                   <TableCell className="num text-right">{r.day.firstIn ? sgTime(r.day.firstIn) : "—"}</TableCell>
                   <TableCell className="num text-right">
                     {r.day.lastOut ? sgTime(r.day.lastOut) : r.day.open ? "…" : "—"}
@@ -166,7 +169,7 @@ function TeamTimesheetPage() {
                   <TableCell className="hidden lg:table-cell">
                     <span className="flex flex-wrap items-center gap-1">
                       {r.day.locked ? <LockedMark /> : null}
-                      {exceptions(r.day).map((n) => (
+                      {exceptions(r.day, tWorkflow).map((n) => (
                         <StatusPill key={n.text} tone={n.tone}>
                           {n.text}
                         </StatusPill>
@@ -188,7 +191,7 @@ function TeamTimesheetPage() {
                       />
                       {r.employee.id !== me.employeeId ? (
                         <Button size="sm" className="hidden sm:inline-flex" onClick={() => setEditing(r)}>
-                          Correct
+                          {tWorkflow("Correct")}
                         </Button>
                       ) : null}
                     </div>
@@ -208,6 +211,7 @@ function TeamTimesheetPage() {
 }
 
 function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClose: () => void }) {
+  const tWorkflow = useT("workflows");
   const qc = useQueryClient();
   const me = useMe();
   const live = useQuery(teamQuery(date, date));
@@ -232,9 +236,11 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
       toast.error(err.message);
       // The day was locked (or unlocked) since the sheet opened: show its current state.
       if (err.code === "timesheet_locked") void qc.invalidateQueries({ queryKey: attKeys.all });
-    } else toast.error("That didn't save. Try again.");
+    } else toast.error(tWorkflow("That didn't save. Try again."));
   };
-  const reopenNote = locked ? " The timesheet was reopened: it must be submitted and approved again." : "";
+  const reopenNote = locked
+    ? ` ${tWorkflow("The timesheet was reopened: it must be submitted and approved again.")}`
+    : "";
   const add = useMutation({
     mutationFn: () =>
       apiPost<Punch>("/api/v1/attendance/corrections", {
@@ -247,7 +253,11 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
     onSuccess: () => {
       setReason("");
       setErrors({});
-      done(`Punch added. The timesheet is updated and the change is in the audit log.${reopenNote}`);
+      done(
+        tWorkflow("Punch added. The timesheet is updated and the change is in the audit log.{arg1}", {
+          arg1: reopenNote,
+        }),
+      );
     },
     onError: fail,
   });
@@ -260,7 +270,11 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
     onSuccess: () => {
       setVoiding(null);
       setVoidReason("");
-      done(`Punch removed from the timesheet. The original is kept in the audit log.${reopenNote}`);
+      done(
+        tWorkflow("Punch removed from the timesheet. The original is kept in the audit log.{arg1}", {
+          arg1: reopenNote,
+        }),
+      );
     },
     onError: fail,
   });
@@ -268,48 +282,63 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
     <Sheet open onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-[min(32rem,100vw)] overflow-y-auto">
         <div className="border-b border-border px-5 pb-4 pt-5">
-          <SheetTitle className="font-azeret text-sm font-semibold">Correct {row.employee.name}</SheetTitle>
+          <SheetTitle className="font-azeret text-sm font-semibold">
+            {tWorkflow("Correct")} {row.employee.name}
+          </SheetTitle>
           <SheetDescription className="num mt-1 text-ui text-primary-300">
-            {weekdayOf(date)} {dm(date)} · {dayLabel(day)}
-            {day.workedMinutes ? ` · ${duration(day.workedMinutes)} worked` : ""}
+            {tWorkflow(weekdayOf(date))} {dm(date)} · {dayLabel(day, tWorkflow)}
+            {day.workedMinutes ? ` ${tWorkflow("· {arg1} worked", { arg1: duration(day.workedMinutes) })}` : ""}
           </SheetDescription>
         </div>
         {locked ? (
           <Alert variant={readOnly ? "info" : "warning"} className="mx-5 mt-4" data-testid="locked-notice">
             <AlertDescription>
               {readOnly
-                ? "This day is in an approved timesheet, so it can't be corrected. Ask an HR admin: their correction reopens the timesheet."
-                : "This day is in an approved timesheet. Saving a correction reopens the timesheet: it must then be submitted and approved again. The reopening is audit-logged and the employee is told."}
+                ? tWorkflow(
+                    "This day is in an approved timesheet, so it can't be corrected. Ask an HR admin: their correction reopens the timesheet.",
+                  )
+                : tWorkflow(
+                    "This day is in an approved timesheet. Saving a correction reopens the timesheet: it must then be submitted and approved again. The reopening is audit-logged and the employee is told.",
+                  )}
             </AlertDescription>
           </Alert>
         ) : null}
         <section className="border-b border-border px-5 py-4" aria-labelledby="punches-title">
           <h3 id="punches-title" className={cn(textStyle.group, "mb-2")}>
-            Punches
+            {tWorkflow("Punches")}
           </h3>
           {day.punches.length === 0 ? (
-            <p className="text-ui text-primary-300">No punches on this day.</p>
+            <p className="text-ui text-primary-300">{tWorkflow("No punches on this day.")}</p>
           ) : (
             <ul className="flex flex-col divide-y divide-border">
               {day.punches.map((p) => (
                 <li key={p.id} className="py-2 text-ui" data-testid="correction-punch">
                   <div className={cn("flex items-center justify-between gap-3", p.voided && "text-primary-200")}>
                     <span className={cn(p.voided && "line-through")}>
-                      <span className="num font-semibold">{sgTime(p.recordedAt)}</span> {p.kind === "in" ? "In" : "Out"}
-                      {p.source === "correction" ? <span className="text-primary-300"> · correction</span> : null}
+                      <span className="num font-semibold">{sgTime(p.recordedAt)}</span>{" "}
+                      {p.kind === "in" ? tWorkflow("In") : tWorkflow("Out")}
+                      {p.source === "correction" ? (
+                        <span className="text-primary-300"> {tWorkflow("· correction")}</span>
+                      ) : null}
                     </span>
                     {p.voided ? (
-                      <span className="text-2xs">Removed: {p.voidReason}</span>
+                      <span className="text-2xs">
+                        {tWorkflow("Removed:")} {p.voidReason}
+                      </span>
                     ) : readOnly ? null : (
                       <Button size="sm" variant="ghost" onClick={() => setVoiding(p)}>
-                        Remove
+                        {tWorkflow("Remove")}
                       </Button>
                     )}
                   </div>
-                  {p.reason ? <p className="text-2xs text-primary-300">Reason: {p.reason}</p> : null}
+                  {p.reason ? (
+                    <p className="text-2xs text-primary-300">
+                      {tWorkflow("Reason:")} {p.reason}
+                    </p>
+                  ) : null}
                   {p.flags.length ? (
                     <p className="text-2xs text-warning-400">
-                      {p.flags.map((f) => FLAG_TEXT[f as PunchFlag]).join(" · ")}
+                      {p.flags.map((f) => tWorkflow(FLAG_TEXT[f as PunchFlag])).join(" · ")}
                     </p>
                   ) : null}
                   {voiding?.id === p.id ? (
@@ -320,16 +349,16 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
                         voidIt.mutate(p);
                       }}
                     >
-                      <FormField label="Why remove it?" required error={errors.reason}>
+                      <FormField label={tWorkflow("Why remove it?")} required error={errors.reason}>
                         <Input
                           value={voidReason}
                           onChange={(e) => setVoidReason(e.target.value)}
-                          placeholder="Clocked in twice"
+                          placeholder={tWorkflow("Clocked in twice")}
                         />
                       </FormField>
                       <div className="flex justify-end gap-2">
                         <Button type="button" size="sm" variant="ghost" onClick={() => setVoiding(null)}>
-                          Keep
+                          {tWorkflow("Keep")}
                         </Button>
                         <Button
                           type="submit"
@@ -337,7 +366,7 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
                           variant="ink"
                           disabled={voidReason.trim().length < 3 || voidIt.isPending}
                         >
-                          {locked ? "Remove and reopen" : "Remove punch"}
+                          {locked ? tWorkflow("Remove and reopen") : tWorkflow("Remove punch")}
                         </Button>
                       </div>
                     </form>
@@ -355,33 +384,33 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
             add.mutate();
           }}
         >
-          <h3 className={textStyle.group}>Add a punch</h3>
+          <h3 className={textStyle.group}>{tWorkflow("Add a punch")}</h3>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Kind">
+            <FormField label={tWorkflow("Kind")}>
               <Select value={kind} onValueChange={(v) => setKind(v as "in" | "out")}>
-                <SelectTrigger aria-label="Kind">
+                <SelectTrigger aria-label={tWorkflow("Kind")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="in">Clock in</SelectItem>
-                  <SelectItem value="out">Clock out</SelectItem>
+                  <SelectItem value="in">{tWorkflow("Clock in")}</SelectItem>
+                  <SelectItem value="out">{tWorkflow("Clock out")}</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
-            <FormField label="Time (SGT)" error={errors.time}>
+            <FormField label={tWorkflow("Time (SGT)")} error={errors.time}>
               <Input type="time" className="num" value={time} onChange={(e) => setTime(e.target.value)} />
             </FormField>
           </div>
           <FormField
-            label="Reason"
+            label={tWorkflow("Reason")}
             required
             error={errors.reason}
-            hint="Shown to the employee and kept in the audit log."
+            hint={tWorkflow("Shown to the employee and kept in the audit log.")}
           >
             <Input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Forgot to clock out"
+              placeholder={tWorkflow("Forgot to clock out")}
               maxLength={300}
             />
           </FormField>
@@ -391,7 +420,7 @@ function CorrectionSheet({ row, date, onClose }: { row: Row; date: string; onClo
             className="self-start"
             disabled={reason.trim().length < 3 || !time || add.isPending}
           >
-            {locked ? "Add punch and reopen" : "Add punch"}
+            {locked ? tWorkflow("Add punch and reopen") : tWorkflow("Add punch")}
           </Button>
         </form>
       </SheetContent>

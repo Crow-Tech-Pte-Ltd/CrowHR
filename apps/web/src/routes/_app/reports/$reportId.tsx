@@ -28,6 +28,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp, Download, Info } from "lucide-react";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { ApiError } from "../../../lib/api.ts";
 import {
   type Cell,
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/_app/reports/$reportId")({
 });
 
 function ReportPage() {
+  const translate = useT("people-payroll");
   const { reportId } = Route.useParams();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -63,7 +65,7 @@ function ReportPage() {
   };
   const data = q.data;
   const err = q.error instanceof ApiError ? q.error : null;
-  const title = data?.report.title ?? (q.isPending ? "Loading…" : "Report");
+  const title = translate(data?.report.title ?? (q.isPending ? "Loading…" : "Report"));
   // Echo the resolved parameters (defaults filled by the server) into the export links.
   const params: Search = {};
   for (const [k, v] of Object.entries(data?.params ?? {})) if (v !== undefined && v !== null) params[k] = String(v);
@@ -74,9 +76,9 @@ function ReportPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Reports", to: "/reports" }]}
+        crumbs={[{ label: translate("Reports"), to: "/reports" }]}
         title={title}
-        description={data?.report.description}
+        description={data && translate(data.report.description)}
         actions={
           data?.canExport
             ? REPORT_EXPORT_FORMATS.map(({ id, label }) => (
@@ -97,11 +99,14 @@ function ReportPage() {
       {data ? <Parameters data={data} onChange={set} search={search} /> : null}
       {err && err.status === 403 ? (
         <EmptyState
-          title="You can't run this report."
-          description="Your role doesn't include this report. Ask an owner if you need access."
+          title={translate("You can't run this report.")}
+          description={translate("Your role doesn't include this report. Ask an owner if you need access.")}
         />
       ) : err && err.status === 404 ? (
-        <EmptyState title="Report not found." description="This report isn't available on this server." />
+        <EmptyState
+          title={translate("Report not found.")}
+          description={translate("This report isn't available on this server.")}
+        />
       ) : q.isError && !data ? (
         <Card>
           <ErrorNote error={q.error} retry={() => void q.refetch()} />
@@ -124,6 +129,7 @@ function ReportPage() {
 }
 
 function Parameters({ data, search, onChange }: { data: ReportResult; search: Search; onChange: (p: Search) => void }) {
+  const t = useT("people-payroll");
   const requested = new Set((search.columns ?? "").split(",").filter(Boolean));
   return (
     <div className="mb-4 flex flex-wrap items-end gap-3" data-testid="report-params">
@@ -131,7 +137,7 @@ function Parameters({ data, search, onChange }: { data: ReportResult; search: Se
         const value = String(data.params[f.key] ?? "");
         const id = `param-${f.key}`;
         return (
-          <FormField key={f.key} label={f.label} id={id} hint={f.hint}>
+          <FormField key={f.key} label={t(f.label)} id={id} hint={f.hint && t(f.hint)}>
             {f.kind === "date" ? (
               <DatePicker
                 id={id}
@@ -149,13 +155,13 @@ function Parameters({ data, search, onChange }: { data: ReportResult; search: Se
               />
             ) : (
               <Select value={value} onValueChange={(v) => onChange({ [f.key]: v })}>
-                <SelectTrigger id={id} aria-label={f.label} className="w-56">
+                <SelectTrigger id={id} aria-label={t(f.label)} className="w-56">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {(f.options ?? []).map((o) => (
                     <SelectItem key={o.value} value={o.value}>
-                      {o.label}
+                      {t(o.label)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -176,7 +182,7 @@ function Parameters({ data, search, onChange }: { data: ReportResult; search: Se
               onChange({ columns: [...next].join(",") });
             }}
           />
-          <label htmlFor={`col-${c.key}`}>Show {c.title.charAt(0).toLowerCase() + c.title.slice(1)}</label>
+          <label htmlFor={`col-${c.key}`}>{t("Show {column}", { column: t(c.title).toLowerCase() })}</label>
         </div>
       ))}
     </div>
@@ -196,6 +202,7 @@ function ReportBody({
   stale: boolean;
   error: unknown;
 }) {
+  const translate = useT("people-payroll");
   const sortBy = (key: string) =>
     onChange({
       sort: key,
@@ -212,15 +219,15 @@ function ReportBody({
       {data.redactedColumns.length ? (
         <p className="flex items-center gap-2 text-ui text-primary-300" data-testid="redacted-note">
           <Info className="size-4" aria-hidden />
-          Pay columns are left out because your role doesn't include salary access.
+          {translate("Pay columns are left out because your role doesn't include salary access.")}
         </p>
       ) : null}
       {data.summary.length ? (
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 lg:grid-cols-4" data-testid="report-summary">
           {data.summary.map((s) => (
             <div key={s.label} className="border-l-2 border-ink/10 pl-3">
-              <dt className="text-2xs text-primary-300">{s.label}</dt>
-              <dd className={cn("font-medium", isNumeric(s.type) && "num")} title={s.hint}>
+              <dt className="text-2xs text-primary-300">{translate(s.label)}</dt>
+              <dd className={cn("font-medium", isNumeric(s.type) && "num")} title={s.hint && translate(s.hint)}>
                 {s.value === null ? "n/a" : formatCell(s.value, s.type)}
               </dd>
             </div>
@@ -231,13 +238,13 @@ function ReportBody({
         {data.totalRows === 0 ? (
           <EmptyState
             variant="plain"
-            title="Nothing to show."
-            description={data.emptyMessage ?? "No rows for these parameters. Widen them and try again."}
+            title={translate("Nothing to show.")}
+            description={translate(data.emptyMessage ?? "No rows for these parameters. Widen them and try again.")}
             data-testid="report-empty"
           />
         ) : (
           <div className="max-h-[70vh] overflow-auto">
-            <Table aria-label={data.report.title}>
+            <Table aria-label={translate(data.report.title)}>
               <TableHeader className="sticky top-0 z-10 bg-surface-50 shadow-[0_1px_0_0_hsl(var(--ink)/0.1)]">
                 <TableRow>
                   {data.columns.map((c) => {
@@ -256,7 +263,7 @@ function ReportBody({
                             active && "text-ink",
                           )}
                         >
-                          {c.title}
+                          {translate(c.title)}
                           {active ? (
                             data.sort.dir === "asc" ? (
                               <ArrowUp className="size-3" aria-hidden />
@@ -311,7 +318,7 @@ function ReportBody({
       {data.notes.length ? (
         <ul className="flex flex-col gap-1 text-2xs text-primary-300" data-testid="report-notes">
           {data.notes.map((n) => (
-            <li key={n}>{n}</li>
+            <li key={n}>{translate(n)}</li>
           ))}
         </ul>
       ) : null}
@@ -325,6 +332,7 @@ function ReportBody({
  * accessible view; this chart only shows the rows on this page.
  */
 function BarChart({ data }: { data: ReportResult }) {
+  const t = useT("people-payroll");
   const chart = data.chart as { label: string; value: string };
   const label = data.columns.find((c) => c.key === chart.label);
   const value = data.columns.find((c) => c.key === chart.value);
@@ -341,10 +349,10 @@ function BarChart({ data }: { data: ReportResult }) {
   return (
     <figure
       className="rounded-lg border border-ink/10 bg-surface-50 p-4"
-      aria-label={`${value.title} by ${label.title}`}
+      aria-label={t("{value} by {label}", { value: t(value.title), label: t(label.title) })}
     >
       <figcaption className={cn("mb-3", textStyle.group)}>
-        {value.title} by {label.title.toLowerCase()}
+        {t("{value} by {label}", { value: t(value.title), label: t(label.title).toLowerCase() })}
         {data.totalRows > rows.length ? (
           <span className="font-normal text-primary-300"> · rows on this page</span>
         ) : null}

@@ -14,6 +14,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import * as React from "react";
+import { useT } from "../../../../i18n/index.ts";
 import { directoryQuery } from "../../people/-lib/api.ts";
 
 export interface PickedEmployee {
@@ -49,6 +50,7 @@ export function EmployeePicker({
   "aria-invalid"?: boolean;
   "aria-describedby"?: string;
 }) {
+  const tWorkflow = useT("workflows");
   const [open, setOpen] = React.useState(false);
   const people = useQuery({ ...directoryQuery({ status: "active,leaving" }), enabled: open, staleTime: 5 * 60_000 });
   const others = (people.data?.items ?? []).filter((p) => p.id !== me?.id);
@@ -83,31 +85,33 @@ export function EmployeePicker({
       <PopoverContent
         align="start"
         className="w-[min(var(--radix-popover-trigger-width),92vw)] p-0"
-        aria-label="Choose who the claim is for"
+        aria-label={tWorkflow("Choose who the claim is for")}
       >
         <Command loop>
-          <CommandInput placeholder="Name or employee number" aria-label="Search employees" />
-          <CommandList aria-label="Employees">
+          <CommandInput placeholder={tWorkflow("Name or employee number")} aria-label={tWorkflow("Search employees")} />
+          <CommandList aria-label={tWorkflow("Employees")}>
             {people.isPending ? (
               <p className="flex items-center justify-center gap-2 px-3 py-6 text-ui text-primary-200" role="status">
-                <Loader2 className="size-4 animate-spin" aria-hidden /> Loading employees…
+                <Loader2 className="size-4 animate-spin" aria-hidden /> {tWorkflow("Loading employees…")}
               </p>
             ) : people.isError ? (
               <p className="px-3 py-6 text-center text-ui text-danger-300" role="alert">
-                Couldn't load employees. Close this list and open it again.
+                {tWorkflow("Couldn't load employees. Close this list and open it again.")}
               </p>
             ) : (
               <>
-                <CommandEmpty>No employee matches. Check the spelling, or search by employee number.</CommandEmpty>
+                <CommandEmpty>
+                  {tWorkflow("No employee matches. Check the spelling, or search by employee number.")}
+                </CommandEmpty>
                 {me ? (
                   <CommandGroup>
                     <CommandItem value="me" keywords={["me", "myself"]} onSelect={() => pick(null)}>
                       <Check className={cn(value ? "opacity-0" : "opacity-100")} aria-hidden />
-                      Me
+                      {tWorkflow("Me")}
                     </CommandItem>
                   </CommandGroup>
                 ) : null}
-                <CommandGroup heading="Employees">
+                <CommandGroup heading={tWorkflow("Employees")}>
                   {others.map((p) => (
                     <CommandItem
                       key={p.id}

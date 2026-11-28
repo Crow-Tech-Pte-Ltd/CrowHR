@@ -5,10 +5,12 @@ import QRCode from "qrcode";
 import * as React from "react";
 import { useReauth } from "../auth/reauth.tsx";
 import { meQuery, useMe } from "../auth/session.ts";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiDelete, apiPost } from "../lib/api.ts";
 
 /** Authenticator-app enrolment, recovery codes, and turning MFA off. */
 export function MfaCard({ autoStart }: { autoStart: boolean }) {
+  const t = useT("settings-account");
   const me = useMe();
   const qc = useQueryClient();
   const withReauth = useReauth();
@@ -26,11 +28,11 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
       const res = await apiPost<{ secret: string; otpauthUri: string }>("/api/v1/me/mfa/totp/setup");
       setSetup({ ...res, qr: await QRCode.toDataURL(res.otpauthUri, { margin: 1, width: 168 }) });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't start setup. Try again.");
+      setError(err instanceof ApiError ? err.message : t("Couldn't start setup. Try again."));
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     if (autoStart && !me.mfa.enrolled && !started.current) {
@@ -42,7 +44,7 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
   const confirm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{6}$/.test(code.trim())) {
-      setError("Enter the 6-digit code shown in your authenticator app.");
+      setError(t("Enter the 6-digit code shown in your authenticator app."));
       return;
     }
     setBusy(true);
@@ -54,7 +56,7 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
       setCode("");
       await qc.invalidateQueries({ queryKey: meQuery.queryKey });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't confirm. Try again.");
+      setError(err instanceof ApiError ? err.message : t("Couldn't confirm. Try again."));
     } finally {
       setBusy(false);
     }
@@ -67,7 +69,7 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
       await qc.invalidateQueries({ queryKey: meQuery.queryKey });
     } catch (err) {
       if (!(err instanceof ApiError && err.code === "reauth_required"))
-        toast.error(err instanceof Error ? err.message : "Couldn't create new codes.");
+        toast.error(err instanceof Error ? err.message : t("Couldn't create new codes."));
     }
   };
 
@@ -76,10 +78,10 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
       await withReauth(() => apiDelete("/api/v1/me/mfa"));
       setCodes(null);
       await qc.invalidateQueries({ queryKey: meQuery.queryKey });
-      toast.success("Two-step verification is off.");
+      toast.success(t("Two-step verification is off."));
     } catch (err) {
       if (!(err instanceof ApiError && err.code === "reauth_required"))
-        toast.error(err instanceof Error ? err.message : "Couldn't turn it off.");
+        toast.error(err instanceof Error ? err.message : t("Couldn't turn it off."));
     }
   };
 
@@ -89,9 +91,11 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
         <Alert variant="danger">
           <KeyRound aria-hidden />
           <div>
-            <AlertTitle>Set up two-step verification to continue</AlertTitle>
+            <AlertTitle>{t("Set up two-step verification to continue")}</AlertTitle>
             <AlertDescription>
-              Your role requires it and the 7-day grace period has ended. Everything else unlocks as soon as you finish.
+              {t(
+                "Your role requires it and the 7-day grace period has ended. Everything else unlocks as soon as you finish.",
+              )}
             </AlertDescription>
           </div>
         </Alert>
@@ -100,18 +104,24 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
         <div className="flex items-center gap-3">
           <ShieldCheck className="size-4 shrink-0" aria-hidden />
           <div>
-            <p className="font-azeret text-xs font-semibold">Authenticator app</p>
+            <p className="font-azeret text-xs font-semibold">{t("Authenticator app")}</p>
             <p className="text-ui text-primary-300">
               {me.mfa.enrolled
-                ? `On. ${me.mfa.remainingRecoveryCodes} of 10 recovery codes left.`
+                ? t("On. {remainingRecoveryCodes} of 10 recovery codes left.", {
+                    remainingRecoveryCodes: me.mfa.remainingRecoveryCodes,
+                  })
                 : me.authMethod !== "password"
-                  ? "You sign in with single sign-on; your identity provider handles two-step verification. You can still add an authenticator for password sign-in."
-                  : "Adds a 6-digit code from an app like Google Authenticator, Microsoft Authenticator or 1Password when you sign in with a password."}
+                  ? t(
+                      "You sign in with single sign-on; your identity provider handles two-step verification. You can still add an authenticator for password sign-in.",
+                    )
+                  : t(
+                      "Adds a 6-digit code from an app like Google Authenticator, Microsoft Authenticator or 1Password when you sign in with a password.",
+                    )}
             </p>
           </div>
         </div>
         <StatusPill tone={me.mfa.enrolled ? "success" : me.mfa.required ? "warning" : "neutral"}>
-          {me.mfa.enrolled ? "On" : me.mfa.required ? "Required for your role" : "Off"}
+          {me.mfa.enrolled ? t("On") : me.mfa.required ? t("Required for your role") : t("Off")}
         </StatusPill>
       </div>
 
@@ -119,9 +129,11 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
         <Alert variant="success" data-testid="recovery-codes">
           <KeyRound aria-hidden />
           <div className="flex flex-col gap-3">
-            <AlertTitle>Save your recovery codes now</AlertTitle>
+            <AlertTitle>{t("Save your recovery codes now")}</AlertTitle>
             <AlertDescription>
-              Each code works once if you lose your phone. They won't be shown again; any older codes no longer work.
+              {t(
+                "Each code works once if you lose your phone. They won't be shown again; any older codes no longer work.",
+              )}
             </AlertDescription>
             <ol className="grid grid-cols-2 gap-x-6 gap-y-1 font-azeret text-xs tabular-nums sm:grid-cols-5">
               {codes.map((c) => (
@@ -133,13 +145,13 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
                 size="sm"
                 variant="secondary"
                 onClick={() =>
-                  void navigator.clipboard?.writeText(codes.join("\n")).then(() => toast.success("Copied."))
+                  void navigator.clipboard?.writeText(codes.join("\n")).then(() => toast.success(t("Copied.")))
                 }
               >
-                Copy codes
+                {t("Copy codes")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setCodes(null)}>
-                I've saved them
+                {t("I've saved them")}
               </Button>
             </div>
           </div>
@@ -151,28 +163,28 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
           onSubmit={confirm}
           noValidate
           className="flex flex-col gap-4 rounded-md border border-border p-4 sm:flex-row"
-          aria-label="Set up authenticator"
+          aria-label={t("Set up authenticator")}
         >
           {/* QR code generated locally from the otpauth URI; nothing leaves the browser. */}
           <img
             src={setup.qr}
             width={168}
             height={168}
-            alt="QR code to scan with your authenticator app"
+            alt={t("QR code to scan with your authenticator app")}
             className="shrink-0 self-start rounded-md border border-border bg-white p-1"
           />
           <div className="flex flex-1 flex-col gap-3">
             <ol className="list-decimal pl-4 text-ui text-primary-300">
-              <li>Scan the QR code with your authenticator app, or enter the key below.</li>
-              <li>Enter the 6-digit code the app shows.</li>
+              <li>{t("Scan the QR code with your authenticator app, or enter the key below.")}</li>
+              <li>{t("Enter the 6-digit code the app shows.")}</li>
             </ol>
             <p className="font-azeret text-2xs text-primary-300">
-              Setup key:{" "}
+              {t("Setup key:")}{" "}
               <span className="num select-all text-ink" data-testid="totp-secret">
                 {setup.secret.match(/.{1,4}/g)?.join(" ")}
               </span>
             </p>
-            <FormField label="Code from the app" error={error}>
+            <FormField label={t("Code from the app")} error={error}>
               <Input
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -184,10 +196,10 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
             </FormField>
             <div className="flex gap-2">
               <Button type="submit" variant="primary" disabled={busy}>
-                {busy ? "Checking…" : "Turn on"}
+                {busy ? t("Checking…") : t("Turn on")}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setSetup(null)}>
-                Cancel
+                {t("Cancel")}
               </Button>
             </div>
           </div>
@@ -197,15 +209,15 @@ export function MfaCard({ autoStart }: { autoStart: boolean }) {
           {me.mfa.enrolled ? (
             <>
               <Button size="sm" variant="secondary" onClick={() => void regenerate()}>
-                New recovery codes
+                {t("New recovery codes")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => void turnOff()}>
-                Turn off
+                {t("Turn off")}
               </Button>
             </>
           ) : (
             <Button size="sm" variant="primary" onClick={() => void start()} disabled={busy}>
-              Set up authenticator app
+              {t("Set up authenticator app")}
             </Button>
           )}
           {error && !setup ? <p className="text-2xs text-danger-300">{error}</p> : null}

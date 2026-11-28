@@ -16,11 +16,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Laptop, Link2, Smartphone } from "lucide-react";
 import { AssistantSettingsPanel } from "../../../assistant/settings.tsx";
 import { relativeTime } from "../../../auth/format.ts";
+import { providerSignInLabel } from "../../../auth/provider-label.ts";
 import { useReauth } from "../../../auth/reauth.tsx";
 import { useMe } from "../../../auth/session.ts";
 import type { SessionItem, SignInMethods } from "../../../auth/types.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote, Section } from "../../../components/section.tsx";
+import { useLocale, useT } from "../../../i18n/index.ts";
 import { ApiError, apiDelete, apiGet, apiPost } from "../../../lib/api.ts";
 import { EmailCard } from "../../../me/email-card.tsx";
 import { MfaCard } from "../../../me/mfa-card.tsx";
@@ -36,42 +38,43 @@ export const Route = createFileRoute("/_app/me/sessions")({
 });
 
 function MySecurity() {
+  const t = useT("settings-account");
   const me = useMe();
   const search = Route.useSearch();
   return (
     <>
       <PageHeader
-        title="Sign-in and devices"
-        description="How you sign in, two-step verification, and where you're signed in."
+        title={t("Sign-in and devices")}
+        description={t("How you sign in, two-step verification, and where you're signed in.")}
       />
-      <Section id="mfa" title="Two-step verification">
+      <Section id="mfa" title={t("Two-step verification")}>
         <MfaCard autoStart={search.enrol === "1"} />
       </Section>
       {me.mfa.blocked ? null : (
         <>
           <Section
             id="sessions"
-            title="Sessions and devices"
-            description="Browsers and phones signed in to your account. Sign out any you don't recognise."
+            title={t("Sessions and devices")}
+            description={t("Browsers and phones signed in to your account. Sign out any you don't recognise.")}
           >
             <SessionsTable />
           </Section>
           <AssistantSettingsPanel />
           <Section
             id="identities"
-            title="Linked sign-in methods"
-            description="Single sign-on accounts that can sign you in."
+            title={t("Linked sign-in methods")}
+            description={t("Single sign-on accounts that can sign you in.")}
           >
             <Identities linkResult={search.link} />
           </Section>
           <Section
             id="email"
-            title="Sign-in email"
-            description="The address you sign in with, in every organisation you belong to."
+            title={t("Sign-in email")}
+            description={t("The address you sign in with, in every organisation you belong to.")}
           >
             <EmailCard />
           </Section>
-          <Section id="password" title="Password">
+          <Section id="password" title={t("Password")}>
             <PasswordCard />
           </Section>
         </>
@@ -81,6 +84,8 @@ function MySecurity() {
 }
 
 function SessionsTable() {
+  const locale = useLocale();
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ["me", "sessions"],
@@ -89,25 +94,27 @@ function SessionsTable() {
   const revoke = useMutation({
     mutationFn: (id: string) => apiDelete(`/api/v1/me/sessions/${encodeURIComponent(id)}`),
     onSuccess: () => {
-      toast.success("Signed out that session.");
+      toast.success(t("Signed out that session."));
       void qc.invalidateQueries({ queryKey: ["me", "sessions"] });
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Couldn't sign it out."),
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("Couldn't sign it out.")),
   });
   const others = useMutation({
     mutationFn: () => apiPost<{ revoked: number }>("/api/v1/me/sessions/revoke-others"),
     onSuccess: (r) => {
       toast.success(
         r.revoked
-          ? `Signed out ${r.revoked} other session${r.revoked === 1 ? "" : "s"}.`
-          : "No other sessions were signed in.",
+          ? r.revoked === 1
+            ? t("Signed out one other session.")
+            : t("Signed out {count} other sessions.", { count: r.revoked })
+          : t("No other sessions were signed in."),
       );
       void qc.invalidateQueries({ queryKey: ["me", "sessions"] });
     },
   });
   if (q.isPending)
     return (
-      <div className="flex flex-col gap-2 p-4" role="status" aria-busy="true" aria-label="Loading sessions">
+      <div className="flex flex-col gap-2 p-4" role="status" aria-busy="true" aria-label={t("Loading sessions")}>
         <Skeleton className="h-8 w-full" />
         <Skeleton className="h-8 w-full" />
       </div>
@@ -119,11 +126,11 @@ function SessionsTable() {
       <Table data-testid="sessions-table">
         <TableHeader>
           <TableRow>
-            <TableHead>Device</TableHead>
-            <TableHead className="hidden sm:table-cell">IP address</TableHead>
-            <TableHead>Last active</TableHead>
+            <TableHead>{t("Device")}</TableHead>
+            <TableHead className="hidden sm:table-cell">{t("IP address")}</TableHead>
+            <TableHead>{t("Last active")}</TableHead>
             <TableHead className="w-0">
-              <span className="sr-only">Actions</span>
+              <span className="sr-only">{t("Actions")}</span>
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -138,12 +145,12 @@ function SessionsTable() {
                     <Laptop className="size-4" aria-hidden />
                   )}
                   <span>{s.device}</span>
-                  {s.kind === "mobile" ? <Badge variant="muted">Mobile app</Badge> : null}
-                  {s.current ? <Badge variant="brand">This device</Badge> : null}
+                  {s.kind === "mobile" ? <Badge variant="muted">{t("Mobile app")}</Badge> : null}
+                  {s.current ? <Badge variant="brand">{t("This device")}</Badge> : null}
                 </span>
               </TableCell>
               <TableCell className="num hidden sm:table-cell">{s.ip ?? "—"}</TableCell>
-              <TableCell className="num">{relativeTime(s.lastActiveAt)}</TableCell>
+              <TableCell className="num">{relativeTime(s.lastActiveAt, undefined, locale)}</TableCell>
               <TableCell>
                 {s.current ? null : (
                   <Button
@@ -151,9 +158,9 @@ function SessionsTable() {
                     variant="ghost"
                     onClick={() => revoke.mutate(s.id)}
                     disabled={revoke.isPending}
-                    aria-label={`Sign out ${s.device}`}
+                    aria-label={t("Sign out {device}", { device: s.device })}
                   >
-                    Sign out
+                    {t("Sign out")}
                   </Button>
                 )}
               </TableCell>
@@ -164,7 +171,7 @@ function SessionsTable() {
       {items.length > 1 ? (
         <div className="border-t border-border p-3">
           <Button size="sm" variant="secondary" onClick={() => others.mutate()} disabled={others.isPending}>
-            Sign out everywhere else
+            {t("Sign out everywhere else")}
           </Button>
         </div>
       ) : null}
@@ -173,6 +180,8 @@ function SessionsTable() {
 }
 
 function Identities({ linkResult }: { linkResult?: string }) {
+  const locale = useLocale();
+  const t = useT("settings-account");
   const me = useMe();
   const qc = useQueryClient();
   const withReauth = useReauth();
@@ -191,11 +200,11 @@ function Identities({ linkResult }: { linkResult?: string }) {
   const unlink = async (id: string) => {
     try {
       await withReauth(() => apiDelete(`/api/v1/me/identities/${id}`));
-      toast.success("Unlinked.");
+      toast.success(t("Unlinked."));
       void qc.invalidateQueries({ queryKey: ["me", "identities"] });
     } catch (err) {
       if (!(err instanceof ApiError && err.code === "reauth_required"))
-        toast.error(err instanceof Error ? err.message : "Couldn't unlink.");
+        toast.error(err instanceof Error ? err.message : t("Couldn't unlink."));
     }
   };
   if (ids.isPending)
@@ -209,16 +218,18 @@ function Identities({ linkResult }: { linkResult?: string }) {
   const linkable = (methods.data?.providers ?? []).filter((p) => !linkedKinds.has(p.kind));
   return (
     <div className="flex flex-col gap-3 p-4">
-      {linkResult === "ok" ? <p className="text-ui text-success-400">Linked. You can now sign in with it.</p> : null}
+      {linkResult === "ok" ? (
+        <p className="text-ui text-success-400">{t("Linked. You can now sign in with it.")}</p>
+      ) : null}
       {linkResult === "failed" ? (
         <p className="text-ui text-danger-300">
-          Linking failed. That account may already be linked to someone else; try again or ask an owner.
+          {t("Linking failed. That account may already be linked to someone else; try again or ask an owner.")}
         </p>
       ) : null}
       {ids.data.items.length === 0 ? (
         <p className="flex items-center gap-2 text-ui text-primary-300">
           <Link2 className="size-4" aria-hidden />
-          No single sign-on linked. You sign in with your email and password.
+          {t("No single sign-on linked. You sign in with your email and password.")}
         </p>
       ) : (
         <ul className="divide-y divide-border">
@@ -226,10 +237,12 @@ function Identities({ linkResult }: { linkResult?: string }) {
             <li key={i.id} className="flex items-center justify-between py-2">
               <span>
                 <span className="font-medium">{i.providerName}</span>
-                <span className="ml-2 text-2xs text-primary-200">Last used {relativeTime(i.lastUsedAt)}</span>
+                <span className="ml-2 text-2xs text-primary-200">
+                  {t("Last used")} {relativeTime(i.lastUsedAt, undefined, locale)}
+                </span>
               </span>
               <Button size="sm" variant="ghost" onClick={() => void unlink(i.id)}>
-                Unlink
+                {t("Unlink")}
               </Button>
             </li>
           ))}
@@ -241,7 +254,7 @@ function Identities({ linkResult }: { linkResult?: string }) {
             <ProviderButton
               key={p.id}
               provider={p.kind === "entra" ? "microsoft" : p.kind}
-              oidcName={p.kind === "oidc" ? p.displayName : undefined}
+              label={providerSignInLabel(p.kind, p.displayName, t)}
               onClick={() => window.location.assign(`/api/v1/auth/oidc/${p.id}/start?purpose=link`)}
             />
           ))}

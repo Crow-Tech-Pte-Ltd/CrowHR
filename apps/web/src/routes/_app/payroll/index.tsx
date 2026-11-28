@@ -31,6 +31,7 @@ import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { type Locale, type Translate, useLocale, useT } from "../../../i18n/index.ts";
 import { directoryQuery } from "../people/-lib/api.ts";
 import { createRun, errorMessage, fieldErrors, monthName, runsQuery, runTitle } from "./-lib/api.ts";
 import { Ir8aPanel } from "./-lib/ir8a.tsx";
@@ -61,105 +62,115 @@ const KIND: Record<PayrollRunSummaryDto["kind"], string> = {
  * chip marks a run that still needs someone (to approve, pay or release it).
  */
 export function RunState({ run }: { run: PayrollRunSummaryDto }) {
-  if (run.supersededByRunId) return <span className="text-primary-200">Superseded by an adjustment</span>;
+  const t = useT("people-payroll");
+  if (run.supersededByRunId) return <span className="text-primary-200">{t("Superseded by an adjustment")}</span>;
   if (run.status === "paid")
     return run.releasedAt ? (
-      <span className="text-primary-300">Paid · released</span>
+      <span className="text-primary-300">{t("Paid · released")}</span>
     ) : (
-      <StatusPill tone="warning">Paid · payslips not released</StatusPill>
+      <StatusPill tone="warning">{t("Paid · payslips not released")}</StatusPill>
     );
   if (run.status === "approved")
     return (
-      <StatusPill tone="info">{run.releasedAt ? "Approved · not marked paid" : "Approved · not released"}</StatusPill>
+      <StatusPill tone="info">
+        {run.releasedAt ? t("Approved · not marked paid") : t("Approved · not released")}
+      </StatusPill>
     );
-  if (run.status === "in_review") return <StatusPill tone="info">In review</StatusPill>;
-  return <StatusPill tone="neutral">Draft</StatusPill>;
+  if (run.status === "in_review") return <StatusPill tone="info">{t("In review")}</StatusPill>;
+  return <StatusPill tone="neutral">{t("Draft")}</StatusPill>;
 }
 
 /** Issues as counted on the run page: one per employee and issue. */
 function RunIssues({ run }: { run: PayrollRunSummaryDto }) {
+  const translate = useT("people-payroll");
   const t = run.totals;
-  if (!t) return <span className="text-primary-200">Not computed</span>;
-  if (t.blocking) return <span className="font-medium text-danger-300">{t.blocking} blocking</span>;
+  if (!t) return <span className="text-primary-200">{translate("Not computed")}</span>;
+  if (t.blocking)
+    return <span className="font-medium text-danger-300">{translate("{count} blocking", { count: t.blocking })}</span>;
   return t.warnings ? (
     <span className="text-warning-400">
-      {t.warnings} {t.warnings === 1 ? "warning" : "warnings"}
+      {translate(t.warnings === 1 ? "{count} warning" : "{count} warnings", { count: t.warnings })}
     </span>
   ) : (
     <span className="text-primary-200">—</span>
   );
 }
 
-const columns: ColumnDef<PayrollRunSummaryDto, unknown>[] = [
-  {
-    id: "run",
-    header: "Run",
-    accessorFn: (r) => `${r.month}${r.kind}`,
-    cell: ({ row }) => (
-      <Link
-        to="/payroll/runs/$runId"
-        params={{ runId: row.original.id }}
-        tabIndex={-1}
-        className="focus-ring rounded-sm font-medium hover:underline"
-      >
-        {runTitle(row.original)}
-      </Link>
-    ),
-  },
-  {
-    id: "kind",
-    header: "Kind",
-    accessorFn: (r) => KIND[r.kind],
-    cell: ({ getValue }) => <span className="text-primary-300">{getValue() as string}</span>,
-  },
-  {
-    id: "status",
-    header: "Status",
-    accessorFn: (r) => r.status,
-    cell: ({ row }) => <RunState run={row.original} />,
-  },
-  {
-    id: "payDate",
-    header: "Pay date",
-    accessorFn: (r) => r.payDate,
-    cell: ({ getValue }) => formatDate(getValue() as string),
-    meta: { numeric: true },
-  },
-  {
-    id: "headcount",
-    header: "People",
-    accessorFn: (r) => r.totals?.headcount ?? 0,
-    cell: ({ row }) => (row.original.totals ? row.original.totals.headcount : "–"),
-    meta: { numeric: true },
-  },
-  {
-    id: "net",
-    header: "Net pay",
-    accessorFn: (r) => r.totals?.netPayableCents ?? 0,
-    cell: ({ row }) => (row.original.totals ? <Money cents={row.original.totals.netPayableCents} /> : "–"),
-    meta: { numeric: true },
-  },
-  {
-    id: "cpf",
-    header: "CPF total",
-    accessorFn: (r) => r.totals?.cpfTotalChargedCents ?? 0,
-    cell: ({ row }) => (row.original.totals ? <Money cents={row.original.totals.cpfTotalChargedCents} /> : "–"),
-    meta: { numeric: true, headerClassName: "hidden md:table-cell", cellClassName: "hidden md:table-cell" },
-  },
-  {
-    id: "issues",
-    header: "Issues",
-    accessorFn: (r) => r.totals?.blocking ?? 0,
-    cell: ({ row }) => <RunIssues run={row.original} />,
-    meta: { headerClassName: "hidden sm:table-cell", cellClassName: "hidden sm:table-cell" },
-  },
-];
+function translatedColumns(t: Translate, locale: Locale): ColumnDef<PayrollRunSummaryDto, unknown>[] {
+  return [
+    {
+      id: "run",
+      header: t("Run"),
+      accessorFn: (r) => `${r.month}${r.kind}`,
+      cell: ({ row }) => (
+        <Link
+          to="/payroll/runs/$runId"
+          params={{ runId: row.original.id }}
+          tabIndex={-1}
+          className="focus-ring rounded-sm font-medium hover:underline"
+        >
+          {runTitle(row.original, locale)}
+        </Link>
+      ),
+    },
+    {
+      id: "kind",
+      header: t("Kind"),
+      accessorFn: (r) => KIND[r.kind],
+      cell: ({ getValue }) => <span className="text-primary-300">{t(getValue() as string)}</span>,
+    },
+    {
+      id: "status",
+      header: t("Status"),
+      accessorFn: (r) => r.status,
+      cell: ({ row }) => <RunState run={row.original} />,
+    },
+    {
+      id: "payDate",
+      header: t("Pay date"),
+      accessorFn: (r) => r.payDate,
+      cell: ({ getValue }) => formatDate(getValue() as string),
+      meta: { numeric: true },
+    },
+    {
+      id: "headcount",
+      header: t("People"),
+      accessorFn: (r) => r.totals?.headcount ?? 0,
+      cell: ({ row }) => (row.original.totals ? row.original.totals.headcount : "–"),
+      meta: { numeric: true },
+    },
+    {
+      id: "net",
+      header: t("Net pay"),
+      accessorFn: (r) => r.totals?.netPayableCents ?? 0,
+      cell: ({ row }) => (row.original.totals ? <Money cents={row.original.totals.netPayableCents} /> : "–"),
+      meta: { numeric: true },
+    },
+    {
+      id: "cpf",
+      header: t("CPF total"),
+      accessorFn: (r) => r.totals?.cpfTotalChargedCents ?? 0,
+      cell: ({ row }) => (row.original.totals ? <Money cents={row.original.totals.cpfTotalChargedCents} /> : "–"),
+      meta: { numeric: true, headerClassName: "hidden md:table-cell", cellClassName: "hidden md:table-cell" },
+    },
+    {
+      id: "issues",
+      header: t("Issues"),
+      accessorFn: (r) => r.totals?.blocking ?? 0,
+      cell: ({ row }) => <RunIssues run={row.original} />,
+      meta: { headerClassName: "hidden sm:table-cell", cellClassName: "hidden sm:table-cell" },
+    },
+  ];
+}
 
 function nextMonth(): string {
   return singaporeTodayIso().slice(0, 7);
 }
 
 function Runs() {
+  const t = useT("people-payroll");
+  const locale = useLocale();
+  const columns = React.useMemo(() => translatedColumns(t, locale), [t, locale]);
   const runs = useQuery(runsQuery);
   const navigate = useNavigate();
   const [open, setOpen] = React.useState(false);
@@ -175,15 +186,15 @@ function Runs() {
   return (
     <>
       <PageHeader
-        title="Payroll"
-        description="Monthly and off-cycle runs. Open a run to see how each figure was worked out."
+        title={t("Payroll")}
+        description={t("Monthly and off-cycle runs. Open a run to see how each figure was worked out.")}
         actions={
           <>
             <Button size="sm" onClick={() => setSettingsOpen(true)}>
-              <Settings2 aria-hidden /> Settings
+              <Settings2 aria-hidden /> {t("Settings")}
             </Button>
             <Button variant="primary" size="sm" onClick={() => setOpen(true)}>
-              <Plus aria-hidden /> New run
+              <Plus aria-hidden /> {t("New run")}
             </Button>
           </>
         }
@@ -198,17 +209,19 @@ function Runs() {
                   params={{ runId: active.id }}
                   className="focus-ring rounded-sm hover:underline"
                 >
-                  {runTitle(active)}
+                  {runTitle(active, locale)}
                 </Link>
                 <RunStatusPill status={active.status} />
               </h2>
               <p className="mt-1 text-ui text-primary-300">
-                Pay date <span className="num">{formatDate(active.payDate)}</span>
+                {t("Pay date {date}", { date: formatDate(active.payDate) })}
                 {active.totals ? (
                   <>
                     {" · "}
-                    <span className="num">{active.totals.headcount}</span> people · net{" "}
-                    <span className="num">{formatMoney(active.totals.netPayableCents)}</span>
+                    {t("{count} people · net {amount}", {
+                      count: active.totals.headcount,
+                      amount: formatMoney(active.totals.netPayableCents),
+                    })}
                     {active.totals.blocking || active.totals.warnings ? (
                       <>
                         {" · "}
@@ -217,13 +230,13 @@ function Runs() {
                     ) : null}
                   </>
                 ) : (
-                  " · not computed yet"
+                  ` ${t("· not computed yet")}`
                 )}
               </p>
             </div>
             <Button asChild variant="primary" size="sm">
               <Link to="/payroll/runs/$runId" params={{ runId: active.id }}>
-                {active.status === "in_review" ? "Review and approve" : "Continue"} <ArrowRight aria-hidden />
+                {active.status === "in_review" ? t("Review and approve") : t("Continue")} <ArrowRight aria-hidden />
               </Link>
             </Button>
           </div>
@@ -238,7 +251,7 @@ function Runs() {
           <MobileRunList runs={others} loading={runs.isPending} />
           <DataTable
             className={others.length ? "hidden sm:block" : undefined}
-            label="Payroll runs"
+            label={t("Payroll runs")}
             columns={columns}
             data={others}
             loading={runs.isPending}
@@ -248,14 +261,18 @@ function Runs() {
               active ? (
                 <EmptyState
                   variant="plain"
-                  title="No earlier runs."
-                  description={`${runTitle(active)} is the first. Once approved and paid, it is listed here.`}
+                  title={t("No earlier runs.")}
+                  description={t("{run} is the first. Once approved and paid, it is listed here.", {
+                    run: runTitle(active, locale),
+                  })}
                 />
               ) : (
                 <EmptyState
                   variant="plain"
-                  title="No payroll runs yet."
-                  description="Start the first monthly run with New run. Crow HR reads basic pay, allowances and CPF details from People, so check those first."
+                  title={t("No payroll runs yet.")}
+                  description={t(
+                    "Start the first monthly run with New run. Crow HR reads basic pay, allowances and CPF details from People, so check those first.",
+                  )}
                 />
               )
             }
@@ -275,9 +292,11 @@ function Runs() {
 
 /** Phones: the runs as a list of rows instead of a table that scrolls sideways. */
 function MobileRunList({ runs, loading }: { runs: PayrollRunSummaryDto[]; loading: boolean }) {
+  const t = useT("people-payroll");
+  const locale = useLocale();
   if (loading || !runs.length) return null;
   return (
-    <ul className="divide-y divide-border rounded-lg border border-border sm:hidden" aria-label="Payroll runs">
+    <ul className="divide-y divide-border rounded-lg border border-border sm:hidden" aria-label={t("Payroll runs")}>
       {runs.map((r) => (
         <li key={r.id}>
           <Link
@@ -286,13 +305,13 @@ function MobileRunList({ runs, loading }: { runs: PayrollRunSummaryDto[]; loadin
             className="focus-ring flex items-start gap-3 px-3 py-2.5 hover:bg-ink/[0.03]"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium">{runTitle(r)}</span>
+              <span className="block truncate font-medium">{runTitle(r, locale)}</span>
               <span className="block text-2xs text-primary-300">
-                Pay date <span className="num">{formatDate(r.payDate)}</span>
+                {t("Pay date {date}", { date: formatDate(r.payDate) })}
                 {r.totals ? (
                   <>
                     {" · "}
-                    <span className="num">{r.totals.headcount}</span> people
+                    {t(r.totals.headcount === 1 ? "{count} person" : "{count} people", { count: r.totals.headcount })}
                   </>
                 ) : null}
               </span>
@@ -317,6 +336,8 @@ function MobileRunList({ runs, loading }: { runs: PayrollRunSummaryDto[]; loadin
 }
 
 function NewRunDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const t = useT("people-payroll");
+  const locale = useLocale();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [kind, setKind] = React.useState<"regular" | "final_pay" | "bonus">("regular");
@@ -336,7 +357,7 @@ function NewRunDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
     onSuccess: async (run) => {
       await qc.invalidateQueries({ queryKey: runsQuery.queryKey });
       onOpenChange(false);
-      toast.success(`${runTitle(run)} created`);
+      toast.success(t("{run} created", { run: runTitle(run, locale) }));
       void navigate({ to: "/payroll/runs/$runId", params: { runId: run.id } });
     },
   });
@@ -345,9 +366,9 @@ function NewRunDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>New payroll run</DialogTitle>
+          <DialogTitle>{t("New payroll run")}</DialogTitle>
           <DialogDescription>
-            Pay is computed from People records when you open the run; nothing is paid until it is approved.
+            {t("Pay is computed from People records when you open the run; nothing is paid until it is approved.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -361,7 +382,7 @@ function NewRunDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
             value={kind}
             onValueChange={(v) => setKind(v as typeof kind)}
             className="grid gap-2"
-            aria-label="Kind of run"
+            aria-label={t("Kind of run")}
           >
             {(
               [
@@ -380,27 +401,35 @@ function NewRunDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
               >
                 <RadioGroupItem value={value} className="mt-0.5" />
                 <span>
-                  <span className="block text-ui font-medium">{title}</span>
-                  <span className="block text-2xs text-primary-300">{hint}</span>
+                  <span className="block text-ui font-medium">{t(title)}</span>
+                  <span className="block text-2xs text-primary-300">{t(hint)}</span>
                 </span>
               </Label>
             ))}
           </RadioGroup>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Month" error={errors.month} hint={monthName(month.length === 7 ? month : nextMonth())}>
+            <FormField
+              label={t("Month")}
+              error={errors.month}
+              hint={monthName(month.length === 7 ? month : nextMonth(), locale)}
+            >
               <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} required />
             </FormField>
-            <FormField label="Pay date" error={errors.payDate} hint="Leave empty for the default from settings.">
+            <FormField
+              label={t("Pay date")}
+              error={errors.payDate}
+              hint={t("Leave empty for the default from settings.")}
+            >
               <DatePicker
                 value={payDate || null}
                 onChange={(v) => setPayDate(v ?? "")}
                 min={/^\d{4}-\d{2}$/.test(month) ? `${month}-01` : null}
-                placeholder="From settings"
+                placeholder={t("From settings")}
               />
             </FormField>
           </div>
           {kind !== "regular" ? (
-            <FormField label="Employees" error={errors.employeeIds}>
+            <FormField label={t("Employees")} error={errors.employeeIds}>
               <div className="max-h-48 overflow-y-auto rounded-md border border-border">
                 {(people.data?.items ?? []).map((p) => (
                   <Label
@@ -430,10 +459,10 @@ function NewRunDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={create.isPending}>
-              Create run
+              {t("Create run")}
             </Button>
           </DialogFooter>
         </form>

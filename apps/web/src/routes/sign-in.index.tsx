@@ -4,6 +4,7 @@ import * as React from "react";
 import { AuthLayout } from "../auth/auth-layout.tsx";
 import { rememberedOrg } from "../auth/session.ts";
 import type { SignInMethods } from "../auth/types.ts";
+import { useT } from "../i18n/index.ts";
 import { apiGet } from "../lib/api.ts";
 
 type Search = { native?: string; reason?: string; error?: string; provider?: string; reset?: string };
@@ -28,14 +29,17 @@ export const Route = createFileRoute("/sign-in/")({
 });
 
 function ChooseOrganisation() {
+  const t = useT("settings-account");
   const navigate = useNavigate();
   const search = Route.useSearch();
   const [slug, setSlug] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   return (
     <AuthLayout
-      title="Which organisation?"
-      description="This server hosts more than one organisation. Enter the one you belong to; it's in the sign-in link your HR team sent."
+      title={t("Which organisation?")}
+      description={t(
+        "This server hosts more than one organisation. Enter the one you belong to; it's in the sign-in link your HR team sent.",
+      )}
     >
       <form
         noValidate
@@ -47,17 +51,17 @@ function ChooseOrganisation() {
             .toLowerCase()
             .replace(/^.*\/sign-in\//, "");
           if (!/^[a-z0-9-]+$/.test(clean)) {
-            setError("Use the short name from your sign-in link, like kampong-kopi (letters, numbers and hyphens).");
+            setError(t("Use the short name from your sign-in link, like kampong-kopi (letters, numbers and hyphens)."));
             return;
           }
           void navigate({ to: "/sign-in/$org", params: { org: clean }, search });
         }}
       >
-        <FormField label="Organisation" error={error} hint="For example kampong-kopi.">
+        <FormField label={t("Organisation")} error={error} hint={t("For example kampong-kopi.")}>
           <Input value={slug} onChange={(e) => setSlug(e.target.value)} autoFocus autoCapitalize="none" />
         </FormField>
         <Button type="submit" variant="primary" size="lg">
-          Continue
+          {t("Continue")}
         </Button>
       </form>
     </AuthLayout>

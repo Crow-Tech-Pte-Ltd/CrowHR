@@ -33,6 +33,7 @@ import {
 } from "@crowhr/ui";
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
+import { useT } from "../../../../i18n/index.ts";
 import { directoryQuery } from "../../people/-lib/api.ts";
 import { api, errorMessage, fieldErrors } from "./api.ts";
 
@@ -369,6 +370,7 @@ function EntryForm({
   initialKind: AppendixKind;
   onClose: () => void;
 }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const [saved, setSaved] = React.useState<AppendixEntry | null>(initial);
   const [d, setD] = React.useState<Draft>(() => (initial ? draftOf(initial) : blankDraft(initialKind, year)));
@@ -394,7 +396,7 @@ function EntryForm({
     mutationFn: () => api<void>("DELETE", `/payroll/ir8a/appendices/${saved?.id}`),
     onSuccess: async () => {
       await invalidate();
-      toast.success("Record deleted");
+      toast.success(t("Record deleted"));
       onClose();
     },
   });
@@ -407,10 +409,10 @@ function EntryForm({
       <DialogHeader>
         <DialogTitle>
           {saved
-            ? `${KIND_LABEL[d.kind]}: ${saved.employeeName}`
+            ? `${t(KIND_LABEL[d.kind])}: ${saved.employeeName}`
             : sharePlan
-              ? "Record a share-plan gain"
-              : "Record a benefit-in-kind"}
+              ? t("Record a share-plan gain")
+              : t("Record a benefit-in-kind")}
         </DialogTitle>
         <DialogDescription>
           {sharePlan
@@ -427,10 +429,10 @@ function EntryForm({
       >
         {saved ? null : (
           <>
-            <FormField label="Employee" error={errors.employeeId}>
+            <FormField label={t("Employee")} error={errors.employeeId}>
               <Select value={d.employeeId} onValueChange={(v) => set("employeeId", v)}>
-                <SelectTrigger aria-label="Employee">
-                  <SelectValue placeholder={people.isPending ? "Loading…" : "Choose an employee"} />
+                <SelectTrigger aria-label={t("Employee")}>
+                  <SelectValue placeholder={people.isPending ? t("Loading…") : t("Choose an employee")} />
                 </SelectTrigger>
                 <SelectContent>
                   {(people.data?.items ?? []).map((p) => (
@@ -442,15 +444,15 @@ function EntryForm({
               </Select>
             </FormField>
             {sharePlan ? null : (
-              <FormField label="Benefit">
+              <FormField label={t("Benefit")}>
                 <Select value={d.kind} onValueChange={(v) => set("kind", v as AppendixKind)}>
-                  <SelectTrigger aria-label="Benefit">
+                  <SelectTrigger aria-label={t("Benefit")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {(["residence", "hotel", "car", "other"] as const).map((k) => (
                       <SelectItem key={k} value={k}>
-                        {KIND_LABEL[k]}
+                        {t(KIND_LABEL[k])}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -463,13 +465,13 @@ function EntryForm({
         {d.kind === "hotel" ? (
           <>
             <FormField
-              label="Actual cost of the stay (3a)"
-              hint="Hotel, or a serviced apartment in a hotel building."
+              label={t("Actual cost of the stay (3a)")}
+              hint={t("Hotel, or a serviced apartment in a hotel building.")}
               error={err("costCents")}
             >
               <MoneyInput value={d.costCents} onChange={(c) => set("costCents", c)} />
             </FormField>
-            <FormField label="Paid by the employee (3b)" error={err("paidByEmployeeCents")}>
+            <FormField label={t("Paid by the employee (3b)")} error={err("paidByEmployeeCents")}>
               <MoneyInput value={d.paidByEmployeeCents} onChange={(c) => set("paidByEmployeeCents", c)} />
             </FormField>
           </>
@@ -477,28 +479,28 @@ function EntryForm({
         {d.kind === "car" ? <CarFields d={d} set={set} err={err} /> : null}
         {d.kind === "other" ? (
           <>
-            <FormField label="Item" className="sm:col-span-2">
+            <FormField label={t("Item")} className="sm:col-span-2">
               <Select value={d.item} onValueChange={(v) => set("item", v as OtherItem)}>
-                <SelectTrigger aria-label="Item">
+                <SelectTrigger aria-label={t("Item")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {OTHER_ITEMS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
-                      {o.code} {o.label}
+                      {o.code} {t(o.label)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </FormField>
             <FormField
-              label="Cost to the employer"
+              label={t("Cost to the employer")}
               hint={
                 d.item === "loan_interest"
-                  ? "IRAS values interest benefits at 3-month SORA + 1.5%: work it out from IRAS's rates."
+                  ? t("IRAS values interest benefits at 3-month SORA + 1.5%: work it out from IRAS's rates.")
                   : d.item === "home_leave"
-                    ? "Full cost for the employee and family (taxable in full since YA 2018)."
-                    : "The actual cost of providing the benefit."
+                    ? t("Full cost for the employee and family (taxable in full since YA 2018).")
+                    : t("The actual cost of providing the benefit.")
               }
               error={err("amountCents")}
             >
@@ -508,8 +510,8 @@ function EntryForm({
         ) : null}
         {sharePlan ? <ShareFields d={d} set={set} err={err} /> : null}
         <FormField
-          label="Note"
-          hint="For your records, e.g. a car plate or plan name. Not exported."
+          label={t("Note")}
+          hint={t("For your records, e.g. a car plate or plan name. Not exported.")}
           className="sm:col-span-2"
           error={err("note")}
         >
@@ -536,19 +538,19 @@ function EntryForm({
                 disabled={remove.isPending}
                 onClick={() => remove.mutate()}
               >
-                Confirm delete
+                {t("Confirm delete")}
               </Button>
             ) : (
               <Button type="button" size="sm" onClick={() => setConfirmDelete(true)}>
-                Delete
+                {t("Delete")}
               </Button>
             )
           ) : null}
           <Button type="button" size="sm" onClick={onClose}>
-            {saved ? "Done" : "Cancel"}
+            {saved ? t("Done") : t("Cancel")}
           </Button>
           <Button type="submit" variant="primary" size="sm" disabled={save.isPending || (!saved && !d.employeeId)}>
-            {save.isPending ? "Saving…" : saved ? "Save changes" : "Save"}
+            {save.isPending ? t("Saving…") : saved ? t("Save changes") : t("Save")}
           </Button>
         </DialogFooter>
       </form>
@@ -563,11 +565,12 @@ type FieldsProps = {
 };
 
 function ResidenceFields({ d, set, err }: FieldsProps) {
+  const translate = useT("people-payroll");
   const none = d.basis === "none";
   return (
     <>
       <fieldset className="sm:col-span-2">
-        <legend className="mb-1.5 text-ui font-medium">Who pays for the premises</legend>
+        <legend className="mb-1.5 text-ui font-medium">{translate("Who pays for the premises")}</legend>
         <RadioGroup value={d.basis} onValueChange={(v) => set("basis", v as Draft["basis"])} className="gap-1.5">
           {(
             [
@@ -584,10 +587,10 @@ function ResidenceFields({ d, set, err }: FieldsProps) {
       </fieldset>
       {none ? null : (
         <>
-          <FormField label="Address" className="sm:col-span-2" error={err("address")}>
+          <FormField label={translate("Address")} className="sm:col-span-2" error={err("address")}>
             <Input value={d.address} maxLength={115} onChange={(e) => set("address", e.target.value)} />
           </FormField>
-          <FormField label="Occupied from" error={err("occupiedFrom")}>
+          <FormField label={translate("Occupied from")} error={err("occupiedFrom")}>
             <DatePicker
               value={d.occupiedFrom || null}
               onChange={(v) => set("occupiedFrom", v ?? "")}
@@ -595,7 +598,11 @@ function ResidenceFields({ d, set, err }: FieldsProps) {
               yearPicker
             />
           </FormField>
-          <FormField label="Occupied to" hint="One record per unbroken period." error={err("occupiedTo")}>
+          <FormField
+            label={translate("Occupied to")}
+            hint={translate("One record per unbroken period.")}
+            error={err("occupiedTo")}
+          >
             <DatePicker
               value={d.occupiedTo || null}
               onChange={(v) => set("occupiedTo", v ?? "")}
@@ -604,8 +611,8 @@ function ResidenceFields({ d, set, err }: FieldsProps) {
             />
           </FormField>
           <FormField
-            label="Employees sharing"
-            hint="1 if not shared; family members who aren't employees don't count."
+            label={translate("Employees sharing")}
+            hint={translate("1 if not shared; family members who aren't employees don't count.")}
             error={err("employeesSharing")}
           >
             <Input
@@ -616,31 +623,36 @@ function ResidenceFields({ d, set, err }: FieldsProps) {
           </FormField>
           {d.basis === "rented" ? (
             <FormField
-              label="Rent paid by the employer"
-              hint="For the period, whole premises, including furniture and fittings. Crow HR divides it between the employees sharing."
+              label={translate("Rent paid by the employer")}
+              hint={translate(
+                "For the period, whole premises, including furniture and fittings. Crow HR divides it between the employees sharing.",
+              )}
               error={err("rentPaidByEmployerCents")}
             >
               <MoneyInput value={d.rentPaidByEmployerCents} onChange={(c) => set("rentPaidByEmployerCents", c)} />
             </FormField>
           ) : (
             <>
-              <FormField label="Furnishing" error={err("furnishing")}>
+              <FormField label={translate("Furnishing")} error={err("furnishing")}>
                 <Select value={d.furnishing} onValueChange={(v) => set("furnishing", v as Draft["furnishing"])}>
-                  <SelectTrigger aria-label="Furnishing">
+                  <SelectTrigger aria-label={translate("Furnishing")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="partial">Partly furnished: fittings only (40% of AV)</SelectItem>
-                    <SelectItem value="full">Fully furnished: furniture too (50% of AV)</SelectItem>
+                    <SelectItem value="partial">{translate("Partly furnished: fittings only (40% of AV)")}</SelectItem>
+                    <SelectItem value="full">{translate("Fully furnished: furniture too (50% of AV)")}</SelectItem>
                   </SelectContent>
                 </Select>
               </FormField>
               <Label className="flex items-center gap-2 font-normal sm:col-span-2">
                 <Checkbox checked={d.enterPeriodValue} onCheckedChange={(c) => set("enterPeriodValue", c === true)} />
-                Enter the annual value for the period myself (AV revised during the year, or a leap year)
+                {translate("Enter the annual value for the period myself (AV revised during the year, or a leap year)")}
               </Label>
               {d.enterPeriodValue ? (
-                <FormField label="Annual value for the period (2a)" error={err("annualValueForPeriodCents")}>
+                <FormField
+                  label={translate("Annual value for the period (2a)")}
+                  error={err("annualValueForPeriodCents")}
+                >
                   <MoneyInput
                     value={d.annualValueForPeriodCents}
                     onChange={(c) => set("annualValueForPeriodCents", c)}
@@ -648,8 +660,8 @@ function ResidenceFields({ d, set, err }: FieldsProps) {
                 </FormField>
               ) : (
                 <FormField
-                  label="Annual value of the premises"
-                  hint="On the property tax bill or IRAS's e-Valuation List. Crow HR apportions it."
+                  label={translate("Annual value of the premises")}
+                  hint={translate("On the property tax bill or IRAS's e-Valuation List. Crow HR apportions it.")}
                   error={err("annualValueCents")}
                 >
                   <MoneyInput value={d.annualValueCents} onChange={(c) => set("annualValueCents", c)} />
@@ -657,42 +669,42 @@ function ResidenceFields({ d, set, err }: FieldsProps) {
               )}
             </>
           )}
-          <FormField label="Rent paid by the employee (2e)" error={err("rentPaidByEmployeeCents")}>
+          <FormField label={translate("Rent paid by the employee (2e)")} error={err("rentPaidByEmployeeCents")}>
             <MoneyInput value={d.rentPaidByEmployeeCents} onChange={(c) => set("rentPaidByEmployeeCents", c)} />
           </FormField>
         </>
       )}
-      <Sub>Utilities and housekeeping</Sub>
+      <Sub>{translate("Utilities and housekeeping")}</Sub>
       <FormField
-        label="Utilities, phone and gadgets (2g)"
-        hint="Actual amount the employer paid."
+        label={translate("Utilities, phone and gadgets (2g)")}
+        hint={translate("Actual amount the employer paid.")}
         error={err("utilitiesCents")}
       >
         <MoneyInput value={d.utilitiesCents} onChange={(c) => set("utilitiesCents", c)} />
       </FormField>
       <FormField
-        label="Servant, gardener or upkeep (2i)"
-        hint="Annual wages, or what a company was paid."
+        label={translate("Servant, gardener or upkeep (2i)")}
+        hint={translate("Annual wages, or what a company was paid.")}
         error={err("servantCents")}
       >
         <MoneyInput value={d.servantCents} onChange={(c) => set("servantCents", c)} />
       </FormField>
       <FormField
-        label="Driver's annual cost"
-        hint="Valued at cost × private ÷ total mileage (2h)."
+        label={translate("Driver's annual cost")}
+        hint={translate("Valued at cost × private ÷ total mileage (2h).")}
         error={err("driverAnnualCostCents")}
       >
         <MoneyInput value={d.driverAnnualCostCents} onChange={(c) => set("driverAnnualCostCents", c)} />
       </FormField>
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Private km" error={err("driverPersonalKm")}>
+        <FormField label={translate("Private km")} error={err("driverPersonalKm")}>
           <Input
             inputMode="numeric"
             value={d.driverPersonalKm}
             onChange={(e) => set("driverPersonalKm", e.target.value)}
           />
         </FormField>
-        <FormField label="Total km" error={err("driverTotalKm")}>
+        <FormField label={translate("Total km")} error={err("driverTotalKm")}>
           <Input inputMode="numeric" value={d.driverTotalKm} onChange={(e) => set("driverTotalKm", e.target.value)} />
         </FormField>
       </div>
@@ -701,25 +713,26 @@ function ResidenceFields({ d, set, err }: FieldsProps) {
 }
 
 function CarFields({ d, set, err }: FieldsProps) {
+  const t = useT("people-payroll");
   const leased = d.carType === "leased";
   const renewed = d.carType === "renewed_coe";
   return (
     <>
-      <FormField label="Car" className="sm:col-span-2">
+      <FormField label={t("Car")} className="sm:col-span-2">
         <Select value={d.carType} onValueChange={(v) => set("carType", v as CarType)}>
-          <SelectTrigger aria-label="Car">
+          <SelectTrigger aria-label={t("Car")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {CAR_TYPES.map((c) => (
               <SelectItem key={c.value} value={c.value}>
-                {c.label}
+                {t(c.label)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </FormField>
-      <FormField label="Provided from" error={err("usedFrom")}>
+      <FormField label={t("Provided from")} error={err("usedFrom")}>
         <DatePicker
           value={d.usedFrom || null}
           onChange={(v) => set("usedFrom", v ?? "")}
@@ -727,7 +740,7 @@ function CarFields({ d, set, err }: FieldsProps) {
           yearPicker
         />
       </FormField>
-      <FormField label="Provided to" error={err("usedTo")}>
+      <FormField label={t("Provided to")} error={err("usedTo")}>
         <DatePicker
           value={d.usedTo || null}
           onChange={(v) => set("usedTo", v ?? "")}
@@ -736,29 +749,29 @@ function CarFields({ d, set, err }: FieldsProps) {
         />
       </FormField>
       {leased ? (
-        <FormField label="Rental for the period" error={err("rentalCents")}>
+        <FormField label={t("Rental for the period")} error={err("rentalCents")}>
           <MoneyInput value={d.rentalCents} onChange={(c) => set("rentalCents", c)} />
         </FormField>
       ) : (
         <>
           <FormField
-            label={renewed ? "Amount paid to renew the COE" : "Car cost, including COE"}
-            hint={renewed ? undefined : "Acquisition cost paid or payable at purchase."}
+            label={renewed ? t("Amount paid to renew the COE") : t("Car cost, including COE")}
+            hint={renewed ? undefined : t("Acquisition cost paid or payable at purchase.")}
             error={err("costCents")}
           >
             <MoneyInput value={d.carCostCents} onChange={(c) => set("carCostCents", c)} />
           </FormField>
           <FormField
-            label={renewed ? "PARF rebate forgone by renewing" : "PARF rebate"}
-            hint={renewed ? undefined : "On de-registration at 9 to 10 years; 0 if over 10 years old at purchase."}
+            label={renewed ? t("PARF rebate forgone by renewing") : t("PARF rebate")}
+            hint={renewed ? undefined : t("On de-registration at 9 to 10 years; 0 if over 10 years old at purchase.")}
             error={err("parfRebateCents")}
           >
             <MoneyInput value={d.parfRebateCents} onChange={(c) => set("parfRebateCents", c)} />
           </FormField>
           {d.carType === "second_hand" || renewed ? (
             <FormField
-              label={renewed ? "Renewed COE term (years)" : "Years from purchase to COE expiry"}
-              hint={renewed ? "5 or 10." : "Rounded up: 6 years 2 months is 7."}
+              label={renewed ? t("Renewed COE term (years)") : t("Years from purchase to COE expiry")}
+              hint={renewed ? t("5 or 10.") : t("Rounded up: 6 years 2 months is 7.")}
               error={err("coeYears")}
             >
               <Input inputMode="numeric" value={d.coeYears} onChange={(e) => set("coeYears", e.target.value)} />
@@ -767,8 +780,8 @@ function CarFields({ d, set, err }: FieldsProps) {
         </>
       )}
       <FormField
-        label="Running costs borne by the employer"
-        hint="Road tax, petrol, parking, ERP, insurance, repairs, including reimbursements."
+        label={t("Running costs borne by the employer")}
+        hint={t("Road tax, petrol, parking, ERP, insurance, repairs, including reimbursements.")}
         error={err("runningCostsCents")}
       >
         <MoneyInput value={d.runningCostsCents} onChange={(c) => set("runningCostsCents", c)} />
@@ -778,20 +791,21 @@ function CarFields({ d, set, err }: FieldsProps) {
 }
 
 function ShareFields({ d, set, err }: FieldsProps) {
+  const t = useT("people-payroll");
   return (
     <>
-      <FormField label="Plan">
+      <FormField label={t("Plan")}>
         <Select value={d.planType} onValueChange={(v) => set("planType", v as Draft["planType"])}>
-          <SelectTrigger aria-label="Plan">
+          <SelectTrigger aria-label={t("Plan")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ESOP">ESOP: share options</SelectItem>
-            <SelectItem value="ESOW">ESOW: share awards or purchase plan</SelectItem>
+            <SelectItem value="ESOP">{t("ESOP: share options")}</SelectItem>
+            <SelectItem value="ESOW">{t("ESOW: share awards or purchase plan")}</SelectItem>
           </SelectContent>
         </Select>
       </FormField>
-      <FormField label="Granted on" error={err("grantedOn")}>
+      <FormField label={t("Granted on")} error={err("grantedOn")}>
         <DatePicker
           value={d.grantedOn || null}
           onChange={(v) => set("grantedOn", v ?? "")}
@@ -800,8 +814,8 @@ function ShareFields({ d, set, err }: FieldsProps) {
         />
       </FormField>
       <FormField
-        label="Gain accrued on"
-        hint="Exercise (ESOP), vesting, or grant without vesting; the day a moratorium lifted, if any."
+        label={t("Gain accrued on")}
+        hint={t("Exercise (ESOP), vesting, or grant without vesting; the day a moratorium lifted, if any.")}
         error={err("eventDate")}
       >
         <DatePicker
@@ -811,7 +825,7 @@ function ShareFields({ d, set, err }: FieldsProps) {
           yearPicker
         />
       </FormField>
-      <FormField label="Number of shares" error={err("shares")}>
+      <FormField label={t("Number of shares")} error={err("shares")}>
         <Input
           inputMode="decimal"
           className="num text-right"
@@ -820,8 +834,8 @@ function ShareFields({ d, set, err }: FieldsProps) {
         />
       </FormField>
       <FormField
-        label="Price paid per share (S$)"
-        hint="Exercise price; 0 for free shares."
+        label={t("Price paid per share (S$)")}
+        hint={t("Exercise price; 0 for free shares.")}
         error={err("exercisePrice")}
       >
         <Input
@@ -832,8 +846,10 @@ function ShareFields({ d, set, err }: FieldsProps) {
         />
       </FormField>
       <FormField
-        label="Open market value per share (S$)"
-        hint="On the accrual date: SGX last done price; net asset value if there is no market. Convert other currencies at that day's rate."
+        label={t("Open market value per share (S$)")}
+        hint={t(
+          "On the accrual date: SGX last done price; net asset value if there is no market. Convert other currencies at that day's rate.",
+        )}
         error={err("openMarketValue")}
       >
         <Input
@@ -843,29 +859,29 @@ function ShareFields({ d, set, err }: FieldsProps) {
           onChange={(e) => set("openMarketValue", e.target.value)}
         />
       </FormField>
-      <Sub>Granting company (only if not the employer)</Sub>
-      <FormField label="ID type" error={err("companyIdType")}>
+      <Sub>{t("Granting company (only if not the employer)")}</Sub>
+      <FormField label={t("ID type")} error={err("companyIdType")}>
         <Select
           value={d.companyIdType || "none"}
           onValueChange={(v) => set("companyIdType", v === "none" ? "" : (v as Draft["companyIdType"]))}
         >
-          <SelectTrigger aria-label="Company ID type">
+          <SelectTrigger aria-label={t("Company ID type")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">The employer granted it</SelectItem>
-            <SelectItem value="UEN-Local Co">UEN (local company)</SelectItem>
-            <SelectItem value="UEN-Others">UEN (other entity)</SelectItem>
-            <SelectItem value="OTHERS">Other (foreign company)</SelectItem>
+            <SelectItem value="none">{t("The employer granted it")}</SelectItem>
+            <SelectItem value="UEN-Local Co">{t("UEN (local company)")}</SelectItem>
+            <SelectItem value="UEN-Others">{t("UEN (other entity)")}</SelectItem>
+            <SelectItem value="OTHERS">{t("Other (foreign company)")}</SelectItem>
           </SelectContent>
         </Select>
       </FormField>
       {d.companyIdType ? (
         <>
-          <FormField label="Company ID number" error={err("companyIdNumber")}>
+          <FormField label={t("Company ID number")} error={err("companyIdNumber")}>
             <Input value={d.companyIdNumber} maxLength={25} onChange={(e) => set("companyIdNumber", e.target.value)} />
           </FormField>
-          <FormField label="Company name" className="sm:col-span-2" error={err("companyName")}>
+          <FormField label={t("Company name")} className="sm:col-span-2" error={err("companyName")}>
             <Input value={d.companyName} maxLength={100} onChange={(e) => set("companyName", e.target.value)} />
           </FormField>
         </>
@@ -878,6 +894,7 @@ const OPTIONAL_LINES = new Set(["2e", "2g", "2h", "2i", "3b"]);
 
 /** What Crow HR computed for a saved record: IRAS's items with computed/entered tags and the working. */
 function Computed({ entry }: { entry: AppendixEntry }) {
+  const translate = useT("people-payroll");
   const c = entry.computed;
   if (!c) return null;
   return (
@@ -897,7 +914,9 @@ function Computed({ entry }: { entry: AppendixEntry }) {
                 <td className="w-10 px-3 py-1.5 font-azeret text-2xs text-primary-200">{l.code}</td>
                 <td className="px-1 py-1.5">
                   {l.label}
-                  <span className="ml-1.5 text-2xs text-primary-200">{l.entered ? "Entered" : "Computed"}</span>
+                  <span className="ml-1.5 text-2xs text-primary-200">
+                    {l.entered ? translate("Entered") : translate("Computed")}
+                  </span>
                 </td>
                 <td className="num px-3 py-1.5 text-right">
                   {l.amountCents === null ? "–" : formatMoney(l.amountCents)}

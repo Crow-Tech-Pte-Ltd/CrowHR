@@ -26,19 +26,18 @@ import * as React from "react";
 import { useMe } from "../auth/session.ts";
 import { PageHeader } from "../components/page-header.tsx";
 import { ErrorNote } from "../components/section.tsx";
+import { useLocale, useT } from "../i18n/index.ts";
 import { type Inbox, type InboxItem, inboxQuery, useDecide } from "../workflows/api.ts";
 import { DecisionButtons, DuePill, OriginBadge, RejectDialog } from "../workflows/decision-controls.tsx";
 import { ageLabel } from "../workflows/format.ts";
-import { daysBetween, daysLeftLabel, weekday } from "./dates.ts";
+import { daysBetween, weekday } from "./dates.ts";
 
 const SECTION_SOURCES = new Set(["approvals", "work_passes", "probation", "setup", "backups", "payroll"]);
 
-function plural(n: number, one: string, many = `${one}s`) {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
 /** Admin and manager Home: real work to do from GET /api/v1/inbox. */
 export function AdminHome() {
+  const t = useT("home");
+  const locale = useLocale();
   const me = useMe();
   const inbox = useQuery(inboxQuery);
   const data = inbox.data;
@@ -56,18 +55,40 @@ export function AdminHome() {
   const total = data?.items.length ?? 0;
 
   const parts = [
-    approvals.length ? plural(approvals.length, "approval") : null,
-    other.length ? plural(other.length, "to-do") : null,
-    setup.length ? plural(setup.length, "setup step") : null,
-    backups.length ? "backups" : null,
-    passes.length ? plural(passes.length, "work pass", "work passes") : null,
-    probation.length ? plural(probation.length, "probation review") : null,
+    approvals.length === 1
+      ? t("{count} approval", { count: 1 })
+      : approvals.length
+        ? t("{count} approvals", { count: approvals.length })
+        : "",
+    other.length === 1
+      ? t("{count} to-do", { count: 1 })
+      : other.length
+        ? t("{count} to-dos", { count: other.length })
+        : "",
+    setup.length === 1
+      ? t("{count} setup step", { count: 1 })
+      : setup.length
+        ? t("{count} setup steps", { count: setup.length })
+        : "",
+    backups.length ? t("backups") : "",
+    passes.length === 1
+      ? t("{count} work pass", { count: 1 })
+      : passes.length
+        ? t("{count} work passes", { count: passes.length })
+        : "",
+    probation.length === 1
+      ? t("{count} probation review", { count: 1 })
+      : probation.length
+        ? t("{count} probation reviews", { count: probation.length })
+        : "",
+    payroll.length ? t("payroll") : "",
   ].filter(Boolean);
+  const attention = new Intl.ListFormat(locale, { type: "conjunction" }).format(parts);
 
   return (
     <>
       <PageHeader
-        title="Work to do"
+        title={t("Work to do")}
         description={
           inbox.isPending ? (
             <Skeleton className="h-4 w-64" />
@@ -76,18 +97,16 @@ export function AdminHome() {
               {data ? (
                 <>
                   <span className="num">
-                    {weekday(data.today)} {formatDate(data.today)}
+                    {weekday(data.today, locale)} {formatDate(data.today)}
                   </span>
                   {" · "}
                 </>
               ) : null}
-              {total === 0 ? (
-                "Nothing waiting for you."
-              ) : (
-                <>
-                  {parts.join(", ")} {total === 1 ? "needs" : "need"} your attention.
-                </>
-              )}
+              {total === 0
+                ? t("Nothing waiting for you.")
+                : t(total === 1 ? "{items} needs your attention." : "{items} need your attention.", {
+                    items: attention,
+                  })}
             </>
           )
         }
@@ -112,7 +131,7 @@ export function AdminHome() {
               ))}
             </div>
             <Button asChild size="sm" variant="secondary">
-              <Link to="/settings/system">{backups[0]?.actionLabel ?? "Check backups"}</Link>
+              <Link to="/settings/system">{t(backups[0]?.actionLabel ?? "Check backups")}</Link>
             </Button>
           </div>
         </Alert>
@@ -131,29 +150,33 @@ export function AdminHome() {
           {isHr ? (
             <ReminderCard
               id="passes"
-              title="Work passes expired or expiring"
-              subtitle="Expired, or expiring in the next 90 days"
-              verbs={["Expires", "Expired"]}
+              title={t("Work passes expired or expiring")}
+              subtitle={t("Expired, or expiring in the next 90 days")}
+              dateMessages={["Expires {date}", "Expired {date}"]}
               items={passes}
               today={data?.today ?? ""}
               loading={inbox.isPending}
               status={sourceStatus("work_passes")}
-              empty="No work pass has expired or expires in the next 90 days."
-              notSetUp="Work pass expiry dates come from employee records. They appear here once you add employees in People."
+              empty={t("No work pass has expired or expires in the next 90 days.")}
+              notSetUp={t(
+                "Work pass expiry dates come from employee records. They appear here once you add employees in People.",
+              )}
             />
           ) : null}
           {isHr || me.roles.includes("manager") ? (
             <ReminderCard
               id="probation"
-              title="Probation ending"
-              subtitle="Next 14 days"
-              verbs={["Ends", "Ended"]}
+              title={t("Probation ending")}
+              subtitle={t("Next 14 days")}
+              dateMessages={["Ends {date}", "Ended {date}"]}
               items={probation}
               today={data?.today ?? ""}
               loading={inbox.isPending}
               status={sourceStatus("probation")}
-              empty="No probation periods end in the next 14 days."
-              notSetUp="Probation end dates come from employee records. They appear here once you add employees in People."
+              empty={t("No probation periods end in the next 14 days.")}
+              notSetUp={t(
+                "Probation end dates come from employee records. They appear here once you add employees in People.",
+              )}
             />
           ) : null}
         </div>
@@ -163,6 +186,8 @@ export function AdminHome() {
 }
 
 function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: string; loading: boolean }) {
+  const t = useT("home");
+  const locale = useLocale();
   const [rejecting, setRejecting] = React.useState<InboxItem | null>(null);
   const decide = useDecide({ onDone: () => setRejecting(null) });
   const approve = (item: InboxItem) => item.task && decide.mutate({ taskIds: [item.task.id], decision: "approve" });
@@ -171,7 +196,7 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
     <Card aria-labelledby="approvals-title" data-testid="home-approvals">
       <CardHeader className="items-center">
         <div className="flex items-center gap-2">
-          <CardTitle id="approvals-title">Approvals waiting</CardTitle>
+          <CardTitle id="approvals-title">{t("Approvals waiting")}</CardTitle>
           {items.length ? (
             <Badge variant="ink" className="num">
               {items.length}
@@ -182,11 +207,15 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
           to="/inbox"
           className="focus-ring inline-flex items-center gap-1 rounded-sm text-ui font-medium text-biru-400 hover:underline"
         >
-          Open inbox <ArrowRight className="size-3.5" aria-hidden />
+          {t("Open inbox")} <ArrowRight className="size-3.5" aria-hidden />
         </Link>
       </CardHeader>
       {loading ? (
-        <div className="flex flex-col gap-2 border-t border-border p-4" role="status" aria-label="Loading approvals">
+        <div
+          className="flex flex-col gap-2 border-t border-border p-4"
+          role="status"
+          aria-label={t("Loading approvals")}
+        >
           <Skeleton className="h-8 w-full" />
           <Skeleton className="h-8 w-full" />
         </div>
@@ -194,22 +223,22 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
         <div className="border-t border-border">
           <EmptyState
             variant="plain"
-            title="Nothing is waiting for your decision."
-            description="Leave, claims and other requests that need you appear here."
+            title={t("Nothing is waiting for your decision.")}
+            description={t("Leave, claims and other requests that need you appear here.")}
           />
         </div>
       ) : (
         <>
           <div className="hidden border-t border-border md:block">
-            <Table aria-label="Approvals waiting" className="table-fixed">
+            <Table aria-label={t("Approvals waiting")} className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[10rem]">Requester</TableHead>
-                  <TableHead>Request</TableHead>
-                  <TableHead className="w-[8.5rem] text-right">Due</TableHead>
+                  <TableHead className="w-[10rem]">{t("Requester")}</TableHead>
+                  <TableHead>{t("Request")}</TableHead>
+                  <TableHead className="w-[8.5rem] text-right">{t("Due")}</TableHead>
                   {/* Wide enough for "Reject" and "Approve" side by side (they don't wrap). */}
                   <TableHead className="w-[13.5rem]">
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t("Actions")}</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -233,7 +262,10 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
                         </Link>
                       </div>
                       <p className="truncate text-2xs leading-4 text-primary-200">
-                        {item.detail} · <span className="num">sent {ageLabel(item.createdAt, today)}</span>
+                        {item.detail} ·{" "}
+                        <span className="num">
+                          {t("sent {when}", { when: ageLabel(item.createdAt, today, locale) })}
+                        </span>
                       </p>
                     </TableCell>
                     <TableCell className="text-right">
@@ -261,7 +293,9 @@ function ApprovalsCard({ items, today, loading }: { items: InboxItem[]; today: s
                 {/* The due pill and the buttons get a line each: side by side they squeeze "Reject" to a bare ✕. */}
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-[34px]">
                   <DueOrOrigin item={item} today={today} />
-                  <span className="num text-2xs text-primary-200">sent {ageLabel(item.createdAt, today)}</span>
+                  <span className="num text-2xs text-primary-200">
+                    {t("sent {when}", { when: ageLabel(item.createdAt, today, locale) })}
+                  </span>
                 </div>
                 <div className="flex justify-end pl-[34px]">
                   <RowAction
@@ -305,10 +339,11 @@ function RowAction({
   /** Keep "Reject" spelled out even on a phone (the buttons have their own line there). */
   labelled?: boolean;
 }) {
+  const t = useT("home");
   if (item.task?.inline) {
     return (
       <DecisionButtons
-        who={item.concerns ?? "this"}
+        who={item.concerns ?? t("this request")}
         onApprove={() => onApprove(item)}
         onReject={() => onReject(item)}
         disabled={pending}
@@ -319,7 +354,7 @@ function RowAction({
   return (
     <Button size="sm" variant="secondary" asChild>
       <Link to="/inbox" search={{ task: item.task?.id }}>
-        Review
+        {t("Review")}
       </Link>
     </Button>
   );
@@ -338,14 +373,19 @@ function DueOrOrigin({ item, today }: { item: InboxItem; today: string }) {
 }
 
 function SetupCard({ items }: { items: InboxItem[] }) {
+  const t = useT("home");
   return (
     <Card aria-labelledby="setup-title" data-testid="home-setup">
       <CardHeader>
         <div>
-          <CardTitle id="setup-title">Finish setting up</CardTitle>
+          <CardTitle id="setup-title">{t("Finish setting up")}</CardTitle>
           <p className="mt-0.5 text-2xs text-primary-200">
-            <span className="num">{items.length}</span> {items.length === 1 ? "step" : "steps"} left before your first
-            payroll
+            {t(
+              items.length === 1
+                ? "{count} step left before your first payroll"
+                : "{count} steps left before your first payroll",
+              { count: items.length },
+            )}
           </p>
         </div>
       </CardHeader>
@@ -371,10 +411,11 @@ function SetupCard({ items }: { items: InboxItem[] }) {
 }
 
 function OtherCard({ items, today }: { items: InboxItem[]; today: string }) {
+  const t = useT("home");
   return (
     <Card aria-labelledby="todo-title">
       <CardHeader>
-        <CardTitle id="todo-title">Checklists and other to-dos</CardTitle>
+        <CardTitle id="todo-title">{t("Checklists and other to-dos")}</CardTitle>
       </CardHeader>
       <ul className="divide-y divide-border border-t border-border">
         {items.map((item) => (
@@ -405,10 +446,11 @@ function OtherCard({ items, today }: { items: InboxItem[]; today: string }) {
 }
 
 function PayrollCard({ items, status, today }: { items: InboxItem[]; status: string; today: string }) {
+  const t = useT("home");
   return (
     <Card aria-labelledby="payroll-title" data-testid="home-payroll">
       <CardHeader>
-        <CardTitle id="payroll-title">Payroll</CardTitle>
+        <CardTitle id="payroll-title">{t("Payroll")}</CardTitle>
       </CardHeader>
       {items.length > 0 ? (
         <ul className="divide-y divide-border border-t border-border">
@@ -435,14 +477,16 @@ function PayrollCard({ items, status, today }: { items: InboxItem[]; status: str
           {status === "not_set_up" ? (
             <EmptyState
               variant="plain"
-              title="Payroll isn't set up yet."
-              description="Set the pay day and CPF details in Payroll settings. Monthly runs and their due dates then show here."
+              title={t("Payroll isn't set up yet.")}
+              description={t(
+                "Set the pay day and CPF details in Payroll settings. Monthly runs and their due dates then show here.",
+              )}
             />
           ) : (
             <EmptyState
               variant="plain"
-              title="No payroll is due."
-              description="This month's run is done. The next one shows here when it is due."
+              title={t("No payroll is due.")}
+              description={t("This month's run is done. The next one shows here when it is due.")}
             />
           )}
         </div>
@@ -455,7 +499,8 @@ function PayrollCard({ items, status, today }: { items: InboxItem[]; status: str
  * "Expires 19 Dec 2026 (49 days)" or "Expired 20 Oct 2026": the same words the People pages use.
  * Every row here is due, so there is no chip on each one; past dates are red, the next 30 days amber.
  */
-function DueDate({ dueOn, today, verbs }: { dueOn: string; today: string; verbs: [string, string] }) {
+function DueDate({ dueOn, today, dateMessages }: { dueOn: string; today: string; dateMessages: [string, string] }) {
+  const t = useT("home");
   const days = daysBetween(today, dueOn);
   return (
     <p
@@ -464,8 +509,12 @@ function DueDate({ dueOn, today, verbs }: { dueOn: string; today: string; verbs:
         days < 0 ? "font-medium text-danger-300" : days <= 30 ? "text-warning-400" : "text-primary-300",
       )}
     >
-      {days < 0 ? verbs[1] : verbs[0]} <span className="num">{formatDate(dueOn)}</span>
-      {days >= 0 ? <span className="num block">({days === 0 ? "today" : daysLeftLabel(days)})</span> : null}
+      {t(dateMessages[days < 0 ? 1 : 0], { date: formatDate(dueOn) })}
+      {days >= 0 ? (
+        <span className="num block">
+          ({days === 0 ? t("today") : t(days === 1 ? "{count} day" : "{count} days", { count: days })})
+        </span>
+      ) : null}
     </p>
   );
 }
@@ -474,7 +523,7 @@ function ReminderCard({
   id,
   title,
   subtitle,
-  verbs,
+  dateMessages,
   items,
   today,
   loading,
@@ -486,7 +535,7 @@ function ReminderCard({
   title: string;
   subtitle: string;
   /** How the date reads before and after it passes: ["Expires", "Expired"]. */
-  verbs: [string, string];
+  dateMessages: [string, string];
   items: InboxItem[];
   today: string;
   loading: boolean;
@@ -523,7 +572,7 @@ function ReminderCard({
                 </a>
                 <p className="truncate text-2xs text-primary-300">{item.detail ?? item.title}</p>
               </div>
-              {item.dueOn ? <DueDate dueOn={item.dueOn} today={today} verbs={verbs} /> : null}
+              {item.dueOn ? <DueDate dueOn={item.dueOn} today={today} dateMessages={dateMessages} /> : null}
             </li>
           ))}
         </ul>

@@ -1,5 +1,6 @@
 import { cn } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
+import { useT } from "../i18n/index.ts";
 import { healthQuery } from "../lib/api.ts";
 
 /**
@@ -7,11 +8,12 @@ import { healthQuery } from "../lib/api.ts";
  * developer chrome, but people need to know when their changes aren't being saved.
  */
 export function ApiStatus({ collapsed = false, className }: { collapsed?: boolean; className?: string }) {
+  const t = useT("common");
   const { data, isError } = useQuery(healthQuery);
   const problem = isError
-    ? "Can't reach the server. Changes are not saved."
+    ? t("Can't reach the server. Changes are not saved.")
     : data && data.status !== "ok"
-      ? "The server can't reach its database. Changes are not saved."
+      ? t("The server can't reach its database. Changes are not saved.")
       : null;
   if (!problem) return null;
   return (

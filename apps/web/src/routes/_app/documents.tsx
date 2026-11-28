@@ -51,6 +51,7 @@ import {
   RequestLetterDialog,
   UploadDialog,
 } from "../../documents/ui.tsx";
+import { useT } from "../../i18n/index.ts";
 import { ApiError, apiPost } from "../../lib/api.ts";
 
 const TABS = ["mine", "expiring", "acknowledgements", "retention", "deleted"] as const;
@@ -65,6 +66,7 @@ export const Route = createFileRoute("/_app/documents")({
 });
 
 function DocumentsPage() {
+  const translate = useT("people-payroll");
   const me = useMe();
   const { open, tab } = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -94,20 +96,24 @@ function DocumentsPage() {
   return (
     <>
       <PageHeader
-        title="Documents"
+        title={translate("Documents")}
         description={
           isHr
-            ? "Your own documents, and the organisation's expiring documents, acknowledgements and retention reviews. Employee files are on each person's Documents tab."
-            : "Your contracts, letters, passes and certificates. Open a document HR asked you to acknowledge, then confirm you've read it."
+            ? translate(
+                "Your own documents, and the organisation's expiring documents, acknowledgements and retention reviews. Employee files are on each person's Documents tab.",
+              )
+            : translate(
+                "Your contracts, letters, passes and certificates. Open a document HR asked you to acknowledge, then confirm you've read it.",
+              )
         }
         actions={
           hasEmployee ? (
             <>
               <Button size="sm" onClick={() => setUpload(true)}>
-                <Upload aria-hidden /> Upload
+                <Upload aria-hidden /> {translate("Upload")}
               </Button>
               <Button size="sm" onClick={() => setRequest(true)}>
-                <FilePlus2 aria-hidden /> Request a letter
+                <FilePlus2 aria-hidden /> {translate("Request a letter")}
               </Button>
             </>
           ) : null
@@ -116,11 +122,11 @@ function DocumentsPage() {
       <Tabs value={current} onValueChange={setTab}>
         {isHr ? (
           <TabsList className="mb-4 max-w-full overflow-x-auto">
-            {hasEmployee ? <TabsTrigger value="mine">My documents</TabsTrigger> : null}
-            <TabsTrigger value="expiring">Expiring</TabsTrigger>
-            <TabsTrigger value="acknowledgements">Acknowledgements</TabsTrigger>
-            <TabsTrigger value="retention">Retention review</TabsTrigger>
-            {isOwner ? <TabsTrigger value="deleted">Deleted</TabsTrigger> : null}
+            {hasEmployee ? <TabsTrigger value="mine">{translate("My documents")}</TabsTrigger> : null}
+            <TabsTrigger value="expiring">{translate("Expiring")}</TabsTrigger>
+            <TabsTrigger value="acknowledgements">{translate("Acknowledgements")}</TabsTrigger>
+            <TabsTrigger value="retention">{translate("Retention review")}</TabsTrigger>
+            {isOwner ? <TabsTrigger value="deleted">{translate("Deleted")}</TabsTrigger> : null}
           </TabsList>
         ) : null}
         <TabsContent value="mine">
@@ -168,13 +174,14 @@ function MyDocuments({
   loading: boolean;
   onOpen: (d: Doc) => void;
 }) {
+  const translate = useT("people-payroll");
   const toAck = (docs ?? []).filter((d) => d.acknowledgement?.status === "requested" && d.acknowledgement.current);
   return (
     <div className="flex flex-col gap-4">
       {toAck.length ? (
         <Card className="border-ink/25 p-4" data-testid="to-acknowledge">
           <h2 className={cn("mb-2", textStyle.section)}>
-            To read and acknowledge <span className="num">({toAck.length})</span>
+            {translate("To read and acknowledge")} <span className="num">({toAck.length})</span>
           </h2>
           <ul className="flex flex-col gap-1">
             {toAck.map((d) => (
@@ -200,11 +207,13 @@ function MyDocuments({
           </div>
         ) : !docs?.length ? (
           <DocumentsEmpty
-            title="HR hasn't shared any documents with you yet."
-            description="Your contract, letters and anything else HR shares with you appear here. Need a letter? Use Request a letter."
+            title={translate("HR hasn't shared any documents with you yet.")}
+            description={translate(
+              "Your contract, letters and anything else HR shares with you appear here. Need a letter? Use Request a letter.",
+            )}
           />
         ) : (
-          <DocumentTable docs={docs} onOpen={onOpen} label="My documents" />
+          <DocumentTable docs={docs} onOpen={onOpen} label={translate("My documents")} />
         )}
       </Card>
     </div>
@@ -212,6 +221,7 @@ function MyDocuments({
 }
 
 function MyRequests() {
+  const t = useT("people-payroll");
   const q = useQuery(requestsQuery);
   const items = q.data?.items ?? [];
   if (!items.length) return null;
@@ -226,15 +236,15 @@ function MyRequests() {
   return (
     <section className="mt-6" aria-labelledby="letter-requests">
       <h2 id="letter-requests" className={cn("mb-2", textStyle.section)}>
-        Letter requests
+        {t("Letter requests")}
       </h2>
       <Card>
-        <Table aria-label="Letter requests">
+        <Table aria-label={t("Letter requests")}>
           <TableHeader>
             <TableRow>
-              <TableHead>Purpose</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead numeric>Requested</TableHead>
+              <TableHead>{t("Purpose")}</TableHead>
+              <TableHead>{t("Status")}</TableHead>
+              <TableHead numeric>{t("Requested")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -255,6 +265,7 @@ function MyRequests() {
 }
 
 function Expiring({ onOpen }: { onOpen: (d: Doc) => void }) {
+  const t = useT("people-payroll");
   const [page, setPage] = React.useState(1);
   const q = useQuery(documentsQuery({ expiry: "attention" }, page));
   return (
@@ -267,11 +278,13 @@ function Expiring({ onOpen }: { onOpen: (d: Doc) => void }) {
         </div>
       ) : !q.data.items.length ? (
         <DocumentsEmpty
-          title="No document expires in the next 30 days."
-          description="Documents that expire within 30 days, or have expired, appear here. Reminders go out 30 and 7 days before and on the day."
+          title={t("No document expires in the next 30 days.")}
+          description={t(
+            "Documents that expire within 30 days, or have expired, appear here. Reminders go out 30 and 7 days before and on the day.",
+          )}
         />
       ) : (
-        <DocumentTable docs={q.data.items} onOpen={onOpen} showEmployee label="Expiring and expired documents" />
+        <DocumentTable docs={q.data.items} onOpen={onOpen} showEmployee label={t("Expiring and expired documents")} />
       )}
       <DocumentsPager list={q.data} page={page} onPage={setPage} />
     </Card>
@@ -279,6 +292,7 @@ function Expiring({ onOpen }: { onOpen: (d: Doc) => void }) {
 }
 
 function Acknowledgements() {
+  const t = useT("people-payroll");
   const [status, setStatus] = React.useState<"outstanding" | "completed">("outstanding");
   const q = useQuery(acknowledgementsQuery(status));
   return (
@@ -292,7 +306,7 @@ function Acknowledgements() {
             onClick={() => setStatus(s)}
             aria-pressed={status === s}
           >
-            {s === "outstanding" ? "Outstanding" : "Completed"}
+            {s === "outstanding" ? t("Outstanding") : t("Completed")}
           </Button>
         ))}
         <Button asChild size="sm" variant="ghost">
@@ -312,20 +326,20 @@ function Acknowledgements() {
           <DocumentsEmpty
             title={
               status === "outstanding"
-                ? "Everyone has acknowledged what they were sent."
-                : "No acknowledgements asked for yet."
+                ? t("Everyone has acknowledged what they were sent.")
+                : t("No acknowledgements asked for yet.")
             }
-            description="Ask for an acknowledgement from a document on the employee's Documents tab."
+            description={t("Ask for an acknowledgement from a document on the employee's Documents tab.")}
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table aria-label="Acknowledgements">
+            <Table aria-label={t("Acknowledgements")}>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Document</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead numeric>Requested</TableHead>
-                  <TableHead numeric>Acknowledged</TableHead>
+                  <TableHead>{t("Document")}</TableHead>
+                  <TableHead>{t("Employee")}</TableHead>
+                  <TableHead numeric>{t("Requested")}</TableHead>
+                  <TableHead numeric>{t("Acknowledged")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -358,6 +372,7 @@ function Acknowledgements() {
 }
 
 function Retention() {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const q = useQuery(retentionQuery);
   const decide = useMutation({
@@ -370,7 +385,7 @@ function Retention() {
       ),
     onSuccess: async (_r, v) => {
       toast.success(
-        v.resolution === "keep" ? "Kept for another 12 months" : "Deleted. An owner can purge it permanently.",
+        v.resolution === "keep" ? t("Kept for another 12 months") : t("Deleted. An owner can purge it permanently."),
       );
       await invalidateDocuments(qc);
     },
@@ -379,9 +394,9 @@ function Retention() {
   return (
     <div className="flex flex-col gap-3">
       <p className="max-w-3xl text-ui text-primary-300">
-        The Employment Act asks you to keep an ex-employee's records for a year after they leave. After that, documents
-        are listed here for a decision. Nothing is deleted unless you choose to; tax and CPF records may need to be kept
-        longer.
+        {t(
+          "The Employment Act asks you to keep an ex-employee's records for a year after they leave. After that, documents are listed here for a decision. Nothing is deleted unless you choose to; tax and CPF records may need to be kept longer.",
+        )}
       </p>
       <Card>
         {q.isError ? (
@@ -392,19 +407,19 @@ function Retention() {
           </div>
         ) : !q.data.items.length ? (
           <DocumentsEmpty
-            title="No document is past its keeping period."
-            description="Documents kept longer than their category's retention period appear here for review."
+            title={t("No document is past its keeping period.")}
+            description={t("Documents kept longer than their category's retention period appear here for review.")}
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table aria-label="Retention review">
+            <Table aria-label={t("Retention review")}>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Document</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Why</TableHead>
+                  <TableHead>{t("Document")}</TableHead>
+                  <TableHead>{t("Employee")}</TableHead>
+                  <TableHead>{t("Why")}</TableHead>
                   <TableHead>
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t("Actions")}</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -418,14 +433,14 @@ function Retention() {
                     <TableCell className="text-2xs text-primary-300">{r.reason}</TableCell>
                     <TableCell className="whitespace-nowrap text-right">
                       <Button size="sm" onClick={() => decide.mutate({ id: r.id, resolution: "keep" })}>
-                        Keep
+                        {t("Keep")}
                       </Button>{" "}
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => decide.mutate({ id: r.id, resolution: "delete" })}
                       >
-                        Delete
+                        {t("Delete")}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -441,14 +456,16 @@ function Retention() {
 
 /** Owners only: deleted documents (hidden, still stored) and the irreversible purge. */
 function Deleted() {
+  const translate = useT("people-payroll");
   const [page, setPage] = React.useState(1);
   const q = useQuery(documentsQuery({ deleted: "true" }, page));
   const [purging, setPurging] = React.useState<Doc | null>(null);
   return (
     <div className="flex flex-col gap-3">
       <p className="max-w-3xl text-ui text-primary-300">
-        Deleted documents are hidden from everyone but still stored, with their history in the audit log. Purging
-        removes the files for good. Only owners can purge, and it can't be undone.
+        {translate(
+          "Deleted documents are hidden from everyone but still stored, with their history in the audit log. Purging removes the files for good. Only owners can purge, and it can't be undone.",
+        )}
       </p>
       <Card>
         {q.isError ? (
@@ -459,19 +476,19 @@ function Deleted() {
           </div>
         ) : !q.data.items.length ? (
           <DocumentsEmpty
-            title="No deleted documents."
-            description="Documents you delete are kept here until they are purged."
+            title={translate("No deleted documents.")}
+            description={translate("Documents you delete are kept here until they are purged.")}
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table aria-label="Deleted documents">
+            <Table aria-label={translate("Deleted documents")}>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Document</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead numeric>Deleted</TableHead>
+                  <TableHead>{translate("Document")}</TableHead>
+                  <TableHead>{translate("Employee")}</TableHead>
+                  <TableHead numeric>{translate("Deleted")}</TableHead>
                   <TableHead>
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{translate("Actions")}</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -485,7 +502,7 @@ function Deleted() {
                     <TableCell numeric>{d.deletedAt ? sgDay(d.deletedAt) : "—"}</TableCell>
                     <TableCell className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => setPurging(d)}>
-                        <Trash2 aria-hidden /> Purge
+                        <Trash2 aria-hidden /> {translate("Purge")}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -502,6 +519,7 @@ function Deleted() {
 }
 
 function PurgeDialog({ doc, onClose }: { doc: Doc | null; onClose: () => void }) {
+  const translate = useT("people-payroll");
   const qc = useQueryClient();
   const withReauth = useReauth();
   const [typed, setTyped] = React.useState("");
@@ -517,7 +535,7 @@ function PurgeDialog({ doc, onClose }: { doc: Doc | null; onClose: () => void })
   const purge = useMutation({
     mutationFn: (d: Doc) => withReauth(() => apiPost(`/api/v1/documents/${d.id}/purge`, { reason: reason.trim() })),
     onSuccess: async () => {
-      toast.success("Document purged");
+      toast.success(translate("Document purged"));
       await invalidateDocuments(qc);
       onClose();
     },
@@ -530,10 +548,11 @@ function PurgeDialog({ doc, onClose }: { doc: Doc | null; onClose: () => void })
     <Dialog open={!!doc} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Purge this document?</DialogTitle>
+          <DialogTitle>{translate("Purge this document?")}</DialogTitle>
           <DialogDescription>
-            This permanently removes every version's file. It can't be undone; the audit log keeps only that it
-            happened.
+            {translate(
+              "This permanently removes every version's file. It can't be undone; the audit log keeps only that it happened.",
+            )}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -543,7 +562,11 @@ function PurgeDialog({ doc, onClose }: { doc: Doc | null; onClose: () => void })
             if (doc && matches && reason.trim()) purge.mutate(doc);
           }}
         >
-          <FormField label="Why purge it?" required hint="For example: uploaded to the wrong employee.">
+          <FormField
+            label={translate("Why purge it?")}
+            required
+            hint={translate("For example: uploaded to the wrong employee.")}
+          >
             <Input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />
           </FormField>
           <FormField label={`Type the document title to confirm: ${doc?.title ?? ""}`} required>
@@ -556,10 +579,10 @@ function PurgeDialog({ doc, onClose }: { doc: Doc | null; onClose: () => void })
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {translate("Cancel")}
             </Button>
             <Button type="submit" variant="destructive" disabled={!matches || !reason.trim() || purge.isPending}>
-              Purge permanently
+              {translate("Purge permanently")}
             </Button>
           </DialogFooter>
         </form>

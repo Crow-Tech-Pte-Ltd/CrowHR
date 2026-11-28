@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import * as React from "react";
 import { AuthLayout } from "../auth/auth-layout.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiPost } from "../lib/api.ts";
 
 /**
@@ -12,6 +13,7 @@ import { ApiError, apiPost } from "../lib/api.ts";
 export const Route = createFileRoute("/email/$token")({ component: ConfirmEmail });
 
 function ConfirmEmail() {
+  const t = useT("settings-account");
   const { token } = Route.useParams();
   const [state, setState] = React.useState<
     { kind: "ready" } | { kind: "done"; email: string; orgSlug: string | null } | { kind: "failed"; message: string }
@@ -20,27 +22,25 @@ function ConfirmEmail() {
 
   if (state.kind === "done")
     return (
-      <AuthLayout title="Sign-in email changed">
+      <AuthLayout title={t("Sign-in email changed")}>
         <Alert variant="success" data-testid="email-change-state">
           <CheckCircle2 aria-hidden />
-          <AlertDescription>
-            Sign in with <span className="font-medium">{state.email}</span> from now on.
-          </AlertDescription>
+          <AlertDescription>{t("Sign in with {email} from now on.", { email: state.email })}</AlertDescription>
         </Alert>
         <Button asChild variant="primary">
           {state.orgSlug ? (
             <Link to="/sign-in/$org" params={{ org: state.orgSlug }}>
-              Go to sign in
+              {t("Go to sign in")}
             </Link>
           ) : (
-            <Link to="/sign-in">Go to sign in</Link>
+            <Link to="/sign-in">{t("Go to sign in")}</Link>
           )}
         </Button>
       </AuthLayout>
     );
 
   return (
-    <AuthLayout title="Confirm your new sign-in email">
+    <AuthLayout title={t("Confirm your new sign-in email")}>
       {state.kind === "failed" ? (
         <Alert variant="warning" data-testid="email-change-state">
           <AlertTriangle aria-hidden />
@@ -48,8 +48,9 @@ function ConfirmEmail() {
         </Alert>
       ) : (
         <p className="text-ui text-primary-300">
-          You asked to sign in to Crow HR with this address. Confirm it to make the change; your old address stops
-          working for sign-in.
+          {t(
+            "You asked to sign in to Crow HR with this address. Confirm it to make the change; your old address stops working for sign-in.",
+          )}
         </p>
       )}
       {state.kind === "ready" ? (
@@ -69,14 +70,14 @@ function ConfirmEmail() {
                 message:
                   err instanceof ApiError
                     ? err.message
-                    : "The server didn't answer. Check your connection and try again.",
+                    : t("The server didn't answer. Check your connection and try again."),
               });
             } finally {
               setBusy(false);
             }
           }}
         >
-          {busy ? "Confirming…" : "Confirm new email"}
+          {busy ? t("Confirming…") : t("Confirm new email")}
         </Button>
       ) : null}
     </AuthLayout>

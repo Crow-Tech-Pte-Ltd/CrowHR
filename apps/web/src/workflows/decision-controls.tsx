@@ -15,6 +15,7 @@ import {
 } from "@crowhr/ui";
 import { Check, X } from "lucide-react";
 import * as React from "react";
+import { useT } from "../i18n/index.ts";
 import { ORIGIN_LABEL, type TaskOrigin } from "./api.ts";
 import { dueLabel } from "./format.ts";
 
@@ -36,6 +37,7 @@ export function RejectDialog({
   onConfirm: (comment: string) => void;
   pending?: boolean;
 }) {
+  const tWorkflow = useT("workflows");
   const [comment, setComment] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   React.useEffect(() => {
@@ -47,8 +49,8 @@ export function RejectDialog({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const text = comment.trim();
-    if (!text) return setError("Say why, so the requester knows what to change.");
-    if (text.length > MAX) return setError(`Shorten this to ${MAX} characters or fewer.`);
+    if (!text) return setError(tWorkflow("Say why, so the requester knows what to change."));
+    if (text.length > MAX) return setError(tWorkflow("Shorten this to {arg1} characters or fewer.", { arg1: MAX }));
     onConfirm(text);
   };
   return (
@@ -57,14 +59,18 @@ export function RejectDialog({
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>
-              {count > 1 ? `Reject ${count} requests` : `Reject ${who ? `${who}'s request` : "request"}`}
+              {count > 1
+                ? tWorkflow("Reject {arg1} requests", { arg1: count })
+                : tWorkflow("Reject {arg1}", { arg1: who ? `${who}'s request` : "request" })}
             </DialogTitle>
             <DialogDescription>
-              {count > 1 ? "Every requester sees this comment." : "The requester sees this comment."} Say what would
-              need to change.
+              {count > 1
+                ? tWorkflow("Every requester sees this comment.")
+                : tWorkflow("The requester sees this comment.")}{" "}
+              {tWorkflow("Say what would need to change.")}
             </DialogDescription>
           </DialogHeader>
-          <FormField label="Reason" error={error} hint={`${comment.trim().length}/${MAX}`}>
+          <FormField label={tWorkflow("Reason")} error={error} hint={`${comment.trim().length}/${MAX}`}>
             <Textarea
               autoFocus
               rows={4}
@@ -74,15 +80,15 @@ export function RejectDialog({
                 setComment(e.target.value);
                 setError(null);
               }}
-              placeholder="e.g. Clashes with the year-end stocktake on 4 Nov. Could you move it a week?"
+              placeholder={tWorkflow("e.g. Clashes with the year-end stocktake on 4 Nov. Could you move it a week?")}
             />
           </FormField>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {tWorkflow("Cancel")}
             </Button>
             <Button type="submit" variant="destructive" disabled={pending}>
-              Reject
+              {tWorkflow("Reject")}
             </Button>
           </DialogFooter>
         </form>
@@ -108,6 +114,7 @@ export function DecisionButtons({
   /** Spell out "Reject" at every width (the caller gave the buttons a line of their own). */
   labelled?: boolean;
 }) {
+  const tWorkflow = useT("workflows");
   return (
     <div className="flex shrink-0 justify-end gap-1">
       {/* Named "Reject" where there is room: a bare ✕ beside Approve reads as "close". */}
@@ -116,7 +123,7 @@ export function DecisionButtons({
           <Button
             size="sm"
             variant="ghost"
-            aria-label={`Reject ${who}'s request`}
+            aria-label={tWorkflow("Reject {arg1}'s request", { arg1: who })}
             disabled={disabled}
             onClick={(e) => {
               e.stopPropagation();
@@ -124,15 +131,15 @@ export function DecisionButtons({
             }}
           >
             <X />
-            {compact ? null : <span className={labelled ? undefined : "hidden sm:inline"}>Reject</span>}
+            {compact ? null : <span className={labelled ? undefined : "hidden sm:inline"}>{tWorkflow("Reject")}</span>}
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Reject (needs a reason)</TooltipContent>
+        <TooltipContent>{tWorkflow("Reject (needs a reason)")}</TooltipContent>
       </Tooltip>
       <Button
         size="sm"
         variant="secondary"
-        aria-label={`Approve ${who}'s request`}
+        aria-label={tWorkflow("Approve {arg1}'s request", { arg1: who })}
         disabled={disabled}
         onClick={(e) => {
           e.stopPropagation();
@@ -140,7 +147,7 @@ export function DecisionButtons({
         }}
       >
         <Check />
-        {compact ? null : "Approve"}
+        {compact ? null : tWorkflow("Approve")}
       </Button>
     </div>
   );
@@ -148,7 +155,8 @@ export function DecisionButtons({
 
 /** A chip only when the date needs attention (overdue, today, tomorrow); a later due date is plain text. */
 export function DuePill({ dueOn, today, short }: { dueOn: string | null; today: string; short?: boolean }) {
-  const due = dueLabel(dueOn, today, { short });
+  const tWorkflow = useT("workflows");
+  const due = dueLabel(dueOn, today, { short, t: tWorkflow });
   if (!due) return null;
   if (due.tone === "neutral")
     return <span className="num whitespace-nowrap text-2xs text-primary-300">{due.text}</span>;
@@ -160,11 +168,12 @@ export function DuePill({ dueOn, today, short }: { dueOn: string | null; today: 
 }
 
 export function OriginBadge({ origin, onBehalfOf }: { origin: TaskOrigin; onBehalfOf?: string | null }) {
+  const tWorkflow = useT("workflows");
   const label = ORIGIN_LABEL[origin];
   if (!label) return null;
   return (
     <StatusPill tone={origin === "escalated" ? "warning" : "info"}>
-      {origin === "delegated" && onBehalfOf ? `Covering for ${onBehalfOf}` : label}
+      {origin === "delegated" && onBehalfOf ? tWorkflow("Covering for {arg1}", { arg1: onBehalfOf }) : tWorkflow(label)}
     </StatusPill>
   );
 }

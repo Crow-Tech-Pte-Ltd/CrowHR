@@ -2,9 +2,11 @@ import { Button, FormField, Input, toast } from "@crowhr/ui";
 import * as React from "react";
 import { useReauth } from "../auth/reauth.tsx";
 import { useMe } from "../auth/session.ts";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiPost } from "../lib/api.ts";
 
 export function PasswordCard() {
+  const t = useT("settings-account");
   const me = useMe();
   const withReauth = useReauth();
   const [current, setCurrent] = React.useState("");
@@ -29,21 +31,21 @@ export function PasswordCard() {
       setCurrent("");
       setNext("");
       setConfirm("");
-      toast.success("Password changed. Your other sessions and devices were signed out.");
+      toast.success(t("Password changed. Your other sessions and devices were signed out."));
     } catch (err) {
       if (err instanceof ApiError && err.code === "validation_failed") setErrors(err.fieldErrors);
       else if (err instanceof ApiError && err.code === "invalid_credentials")
         setErrors({ currentPassword: err.message });
       else if (!(err instanceof ApiError && err.code === "reauth_required"))
-        toast.error(err instanceof Error ? err.message : "Couldn't change the password.");
+        toast.error(err instanceof Error ? err.message : t("Couldn't change the password."));
     } finally {
       setBusy(false);
     }
   };
   return (
-    <form onSubmit={submit} noValidate className="grid gap-4 p-4 sm:grid-cols-3" aria-label="Change password">
+    <form onSubmit={submit} noValidate className="grid gap-4 p-4 sm:grid-cols-3" aria-label={t("Change password")}>
       {me.hasPassword ? (
-        <FormField label="Current password" error={errors.currentPassword}>
+        <FormField label={t("Current password")} error={errors.currentPassword}>
           <Input
             type="password"
             autoComplete="current-password"
@@ -53,13 +55,13 @@ export function PasswordCard() {
         </FormField>
       ) : null}
       <FormField
-        label={me.hasPassword ? "New password" : "Set a password"}
+        label={me.hasPassword ? t("New password") : t("Set a password")}
         error={errors.newPassword}
-        hint="At least 12 characters."
+        hint={t("At least 12 characters.")}
       >
         <Input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
       </FormField>
-      <FormField label="Type it again" error={errors.confirm}>
+      <FormField label={t("Type it again")} error={errors.confirm}>
         <Input
           type="password"
           autoComplete="new-password"
@@ -69,7 +71,7 @@ export function PasswordCard() {
       </FormField>
       <div className="sm:col-span-3">
         <Button type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Change password"}
+          {busy ? t("Saving…") : t("Change password")}
         </Button>
       </div>
     </form>

@@ -41,6 +41,7 @@ import * as React from "react";
 import { can, canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import {
   api,
   type ClaimRowDto,
@@ -116,9 +117,13 @@ function monthRange(): { from: string; to: string } {
 
 /** Phones: one line per claim instead of a table that scrolls sideways. */
 function MobileClaims({ rows, loading, showStatus }: { rows: ClaimRowDto[]; loading: boolean; showStatus: boolean }) {
+  const tWorkflow = useT("workflows");
   if (loading || !rows.length) return null;
   return (
-    <ul className="mb-4 divide-y divide-border rounded-lg border border-border sm:hidden" aria-label="Claims">
+    <ul
+      className="mb-4 divide-y divide-border rounded-lg border border-border sm:hidden"
+      aria-label={tWorkflow("Claims")}
+    >
       {rows.map((r) => (
         <li key={r.id}>
           <Link
@@ -129,7 +134,7 @@ function MobileClaims({ rows, loading, showStatus }: { rows: ClaimRowDto[]; load
             <span className="min-w-0">
               <span className="block truncate font-medium">{r.employee.name}</span>
               <span className="block truncate text-2xs text-primary-300">
-                <span className="num">{r.claimNumber ?? "Draft"}</span> · {r.title ?? r.typeNames.join(", ")}
+                <span className="num">{r.claimNumber ?? tWorkflow("Draft")}</span> · {r.title ?? r.typeNames.join(", ")}
               </span>
             </span>
             <span className="flex shrink-0 flex-col items-end gap-1">
@@ -144,6 +149,7 @@ function MobileClaims({ rows, loading, showStatus }: { rows: ClaimRowDto[]; load
 }
 
 function ClaimsAdminPage() {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -206,14 +212,14 @@ function ClaimsAdminPage() {
             id: "select",
             header: () => (
               <Checkbox
-                aria-label="Select all claims to mark paid"
+                aria-label={tWorkflow("Select all claims to mark paid")}
                 checked={payable.length > 0 && payable.every((r) => selected.has(r.id))}
                 onCheckedChange={(v) => setSelected(v ? new Set(payable.map((r) => r.id)) : new Set())}
               />
             ),
             cell: ({ row }: { row: { original: ClaimRowDto } }) => (
               <Checkbox
-                aria-label={`Select ${row.original.claimNumber}`}
+                aria-label={tWorkflow("Select {arg1}", { arg1: row.original.claimNumber ?? "" })}
                 disabled={row.original.reservedByPayrollRun}
                 checked={selected.has(row.original.id)}
                 onClick={(e) => e.stopPropagation()}
@@ -225,7 +231,7 @@ function ClaimsAdminPage() {
       : []),
     {
       id: "claim",
-      header: "Claim",
+      header: tWorkflow("Claim"),
       accessorFn: (r) => r.claimNumber ?? undefined,
       // Numeric (C-9999 before C-10000); drafts have no number and stay last either way.
       sortUndefined: "last",
@@ -243,7 +249,7 @@ function ClaimsAdminPage() {
     },
     {
       id: "employee",
-      header: "Employee",
+      header: tWorkflow("Employee"),
       accessorFn: (r) => r.employee.name,
       cell: ({ row }) => (
         <span className="block max-w-[14rem] truncate whitespace-nowrap">
@@ -254,14 +260,14 @@ function ClaimsAdminPage() {
     },
     {
       id: "department",
-      header: "Department",
+      header: tWorkflow("Department"),
       accessorFn: (r) => r.employee.departmentName ?? "",
       cell: ({ getValue }) => <span className="whitespace-nowrap">{(getValue() as string) || "—"}</span>,
       meta: { headerClassName: "hidden xl:table-cell", cellClassName: "hidden xl:table-cell" },
     },
     {
       id: "types",
-      header: "For",
+      header: tWorkflow("For"),
       accessorFn: (r) => r.typeNames.join(", "),
       cell: ({ row }) => (
         <span className="block max-w-[14rem] truncate">
@@ -274,7 +280,7 @@ function ClaimsAdminPage() {
     },
     {
       id: "dates",
-      header: "Expenses",
+      header: tWorkflow("Expenses"),
       accessorFn: (r) => r.expenseFrom ?? "",
       cell: ({ row }) => (
         <span className="num whitespace-nowrap">
@@ -286,7 +292,7 @@ function ClaimsAdminPage() {
     },
     {
       id: "amount",
-      header: "Amount",
+      header: tWorkflow("Amount"),
       accessorFn: (r) => r.totalCents,
       cell: ({ row }) => <span className="num">{formatMoney(row.original.totalCents)}</span>,
       meta: { numeric: true },
@@ -297,14 +303,14 @@ function ClaimsAdminPage() {
       ? [
           {
             id: "waiting",
-            header: "Waiting",
+            header: tWorkflow("Waiting"),
             accessorFn: (r: ClaimRowDto) => r.daysWaiting ?? 0,
             cell: ({ row }: { row: { original: ClaimRowDto } }) => (
               <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <WaitingDays row={row.original} />
                 {row.original.approverTask ? (
                   <Link to="/inbox" className="whitespace-nowrap text-2xs font-medium text-biru-400 hover:underline">
-                    Decide in Inbox
+                    {tWorkflow("Decide in Inbox")}
                   </Link>
                 ) : null}
               </span>
@@ -316,14 +322,14 @@ function ClaimsAdminPage() {
         : [
             {
               id: "state",
-              header: "Status",
+              header: tWorkflow("Status"),
               accessorFn: (r: ClaimRowDto) => r.status,
               cell: ({ row }: { row: { original: ClaimRowDto } }) => <ClaimStatusPill status={row.original.status} />,
             } as ColumnDef<ClaimRowDto, unknown>,
           ]),
     {
       id: "payout",
-      header: "Payout",
+      header: tWorkflow("Payout"),
       accessorFn: (r) => r.paidOn ?? r.approvedOn ?? "",
       cell: ({ row }) => {
         const r = row.original;
@@ -340,7 +346,11 @@ function ClaimsAdminPage() {
         if (r.status === "approved")
           return (
             <span className="whitespace-nowrap text-primary-300">
-              {r.reservedByPayrollRun ? "In payroll run" : r.payoutMethod === "payroll" ? "Next payroll" : "Transfer"}
+              {r.reservedByPayrollRun
+                ? tWorkflow("In payroll run")
+                : r.payoutMethod === "payroll"
+                  ? tWorkflow("Next payroll")
+                  : tWorkflow("Transfer")}
             </span>
           );
         return <span className="text-primary-200">—</span>;
@@ -354,34 +364,34 @@ function ClaimsAdminPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Claims", to: "/claims" }]}
-        title={isAll ? "All claims" : "Team claims"}
+        crumbs={[{ label: tWorkflow("Claims"), to: "/claims" }]}
+        title={isAll ? tWorkflow("All claims") : tWorkflow("Team claims")}
         description={
           list.data ? (
             <span className="num">
               {list.data.total} {list.data.total === 1 ? "claim" : "claims"} · {formatMoney(total)}
             </span>
           ) : (
-            "Claims from your team, waiting, approved and paid."
+            tWorkflow("Claims from your team, waiting, approved and paid.")
           )
         }
         actions={
           <>
             {onBehalf ? (
               <Button size="sm" variant="primary" onClick={() => setSheet(true)} data-testid="new-claim">
-                <Plus aria-hidden /> New claim
+                <Plus aria-hidden /> {tWorkflow("New claim")}
               </Button>
             ) : null}
             {canReport ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button size="sm" variant="secondary">
-                    <Download aria-hidden /> Export
+                    <Download aria-hidden /> {tWorkflow("Export")}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel className="num">
-                    Expenses {formatDate(from)} – {formatDate(to)}
+                    {tWorkflow("Expenses")} {formatDate(from)} – {formatDate(to)}
                   </DropdownMenuLabel>
                   {(
                     [
@@ -393,12 +403,12 @@ function ClaimsAdminPage() {
                     <React.Fragment key={report}>
                       <DropdownMenuItem asChild>
                         <a href={exportHref({ report, by: "type", from, to, format: "csv" })} download>
-                          {label} (CSV)
+                          {tWorkflow(label)} (CSV)
                         </a>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <a href={exportHref({ report, by: "type", from, to, format: "xlsx" })} download>
-                          {label} (Excel)
+                          {tWorkflow(label)} (Excel)
                         </a>
                       </DropdownMenuItem>
                     </React.Fragment>
@@ -406,12 +416,12 @@ function ClaimsAdminPage() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <a href={exportHref({ report: "summary", by: "department", from, to, format: "xlsx" })} download>
-                      Totals by department (Excel)
+                      {tWorkflow("Totals by department (Excel)")}
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <a href={exportHref({ report: "summary", by: "employee", from, to, format: "xlsx" })} download>
-                      Totals by employee (Excel)
+                      {tWorkflow("Totals by employee (Excel)")}
                     </a>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -422,7 +432,7 @@ function ClaimsAdminPage() {
       />
 
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Claim status">
+        <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label={tWorkflow("Claim status")}>
           {TABS.map((t) => {
             const active = status === t.value;
             return (
@@ -443,7 +453,7 @@ function ClaimsAdminPage() {
                     : "border-transparent text-primary-300 hover:bg-ink/5",
                 )}
               >
-                {t.label}
+                {tWorkflow(t.label)}
               </button>
             );
           })}
@@ -453,9 +463,9 @@ function ClaimsAdminPage() {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Claim number or employee"
+            placeholder={tWorkflow("Claim number or employee")}
             className="pl-8"
-            aria-label="Search claims"
+            aria-label={tWorkflow("Search claims")}
           />
         </div>
         {types.data?.items.length ? (
@@ -465,11 +475,11 @@ function ClaimsAdminPage() {
               void navigate({ search: (s: AdminSearch) => ({ ...s, type: v === "any" ? undefined : v }) })
             }
           >
-            <SelectTrigger className="sm:w-48" aria-label="Claim type">
-              <SelectValue placeholder="Any type" />
+            <SelectTrigger className="sm:w-48" aria-label={tWorkflow("Claim type")}>
+              <SelectValue placeholder={tWorkflow("Any type")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="any">Any type</SelectItem>
+              <SelectItem value="any">{tWorkflow("Any type")}</SelectItem>
               {types.data.items.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
                   {t.name}
@@ -483,8 +493,9 @@ function ClaimsAdminPage() {
       {canPay && status === "approved" ? (
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-100/60 px-3 py-2 text-ui">
           <span className="text-primary-300">
-            Approved claims with payroll payout are paid with the next payroll run automatically. Pay the rest by
-            transfer and record it here.
+            {tWorkflow(
+              "Approved claims with payroll payout are paid with the next payroll run automatically. Pay the rest by transfer and record it here.",
+            )}
           </span>
           <Button
             size="sm"
@@ -494,7 +505,7 @@ function ClaimsAdminPage() {
             onClick={() => setPayOpen(true)}
             data-testid="mark-paid"
           >
-            <BadgeCheck aria-hidden /> Mark {selected.size || ""} paid
+            <BadgeCheck aria-hidden /> {tWorkflow("Mark")} {selected.size || ""} paid
           </Button>
         </div>
       ) : null}
@@ -504,7 +515,7 @@ function ClaimsAdminPage() {
       {selectable ? null : <MobileClaims rows={rows} loading={list.isPending} showStatus={!ONE_STATUS.has(status)} />}
       <DataTable
         className={!selectable && rows.length ? "hidden sm:block" : undefined}
-        label="Claims"
+        label={tWorkflow("Claims")}
         columns={columns}
         data={rows}
         getRowId={(r) => r.id}
@@ -514,14 +525,14 @@ function ClaimsAdminPage() {
           search.q || search.type ? (
             <EmptyState
               variant="plain"
-              title="No claims match these filters."
-              description="Try another claim number or name, or any claim type."
+              title={tWorkflow("No claims match these filters.")}
+              description={tWorkflow("Try another claim number or name, or any claim type.")}
             />
           ) : (
             <EmptyState
               variant="plain"
-              title={(EMPTY[status] ?? EMPTY_ALL)[0]}
-              description={(EMPTY[status] ?? EMPTY_ALL)[1]}
+              title={tWorkflow((EMPTY[status] ?? EMPTY_ALL)[0])}
+              description={tWorkflow((EMPTY[status] ?? EMPTY_ALL)[1])}
             />
           )
         }
@@ -566,6 +577,7 @@ function MarkPaidDialog({
   claims: ClaimRowDto[];
   onDone: () => void;
 }) {
+  const tWorkflow = useT("workflows");
   const [paidOn, setPaidOn] = React.useState(toIsoDate(singaporeToday()));
   const [reference, setReference] = React.useState("");
   // The server takes a payment date from the last approval up to 31 days ahead (claims/payouts.ts).
@@ -577,7 +589,9 @@ function MarkPaidDialog({
     mutationFn: () =>
       api<{ paid: number }>("POST", "/claims/mark-paid", { claimIds: claims.map((c) => c.id), paidOn, reference }),
     onSuccess: (r) => {
-      toast.success(`${r.paid} ${r.paid === 1 ? "claim" : "claims"} marked paid`);
+      toast.success(
+        tWorkflow(r.paid === 1 ? "{count} claim marked paid" : "{count} claims marked paid", { count: r.paid }),
+      );
       onOpenChange(false);
       setReference("");
       onDone();
@@ -591,12 +605,15 @@ function MarkPaidDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Mark paid outside payroll</DialogTitle>
+          <DialogTitle>{tWorkflow("Mark paid outside payroll")}</DialogTitle>
           <DialogDescription>
             <span className="num">
-              {claims.length} {claims.length === 1 ? "claim" : "claims"}, {formatMoney(total)}
+              {tWorkflow(claims.length === 1 ? "{count} claim, {total}" : "{count} claims, {total}", {
+                count: claims.length,
+                total: formatMoney(total),
+              })}
             </span>
-            . They won't be paid again with payroll.
+            . {tWorkflow("They won't be paid again with payroll.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -606,7 +623,7 @@ function MarkPaidDialog({
             pay.mutate();
           }}
         >
-          <FormField label="Paid on" error={errors.paidOn} required>
+          <FormField label={tWorkflow("Paid on")} error={errors.paidOn} required>
             <DatePicker
               value={paidOn}
               min={earliest || undefined}
@@ -615,8 +632,8 @@ function MarkPaidDialog({
             />
           </FormField>
           <FormField
-            label="Payment reference"
-            hint="The bank or FAST/PayNow reference, e.g. FAST 4 Nov."
+            label={tWorkflow("Payment reference")}
+            hint={tWorkflow("The bank or FAST/PayNow reference, e.g. FAST 4 Nov.")}
             error={errors.reference}
             required
           >
@@ -629,10 +646,10 @@ function MarkPaidDialog({
           </FormField>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {tWorkflow("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={pay.isPending || !reference.trim()}>
-              Mark paid
+              {tWorkflow("Mark paid")}
             </Button>
           </DialogFooter>
         </form>
@@ -643,11 +660,12 @@ function MarkPaidDialog({
 
 /** How long a submitted claim has waited; amber after a week. */
 function WaitingDays({ row }: { row: ClaimRowDto }) {
+  const tWorkflow = useT("workflows");
   if (row.status !== "submitted" || row.daysWaiting === null) return null;
   const d = row.daysWaiting;
   return (
     <span className={cn("num whitespace-nowrap text-2xs", d > 7 ? "font-medium text-warning-400" : "text-primary-300")}>
-      {d === 0 ? "Today" : d === 1 ? "1 day" : `${d} days`}
+      {d === 0 ? tWorkflow("Today") : d === 1 ? tWorkflow("1 day") : tWorkflow("{arg1} days", { arg1: d })}
     </span>
   );
 }
@@ -668,6 +686,7 @@ function SummarySection({
   to: string;
   onRange: (from: string, to: string) => void;
 }) {
+  const tWorkflow = useT("workflows");
   const [by, setBy] = React.useState<(typeof BY)[number]["value"]>("type");
   const q = useQuery(summaryQuery(by, from, to));
   // Fold statuses into one row per group: submitted, approved, paid (rejected/withdrawn left out of totals).
@@ -692,13 +711,15 @@ function SummarySection({
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 id="claims-summary-title" className={textStyle.section}>
-            Totals by expense date
+            {tWorkflow("Totals by expense date")}
           </h2>
-          <p className="mt-1 text-ui text-primary-300">Waiting, approved and paid, with GST, for the period.</p>
+          <p className="mt-1 text-ui text-primary-300">
+            {tWorkflow("Waiting, approved and paid, with GST, for the period.")}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <label htmlFor="claims-summary-from" className="sr-only">
-            From
+            {tWorkflow("From")}
           </label>
           <DatePicker
             id="claims-summary-from"
@@ -711,7 +732,7 @@ function SummarySection({
             –
           </span>
           <label htmlFor="claims-summary-to" className="sr-only">
-            To
+            {tWorkflow("To")}
           </label>
           <DatePicker
             id="claims-summary-to"
@@ -721,13 +742,13 @@ function SummarySection({
             onChange={(v) => v && onRange(from, v)}
           />
           <Select value={by} onValueChange={(v) => setBy(v as typeof by)}>
-            <SelectTrigger className="w-36" aria-label="Group by">
+            <SelectTrigger className="w-36" aria-label={tWorkflow("Group by")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {BY.map((b) => (
                 <SelectItem key={b.value} value={b.value}>
-                  By {b.label.toLowerCase()}
+                  {tWorkflow("By {group}", { group: tWorkflow(b.label).toLocaleLowerCase() })}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -735,7 +756,7 @@ function SummarySection({
         </div>
       </div>
       <section
-        aria-label="Claim totals"
+        aria-label={tWorkflow("Claim totals")}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: the table scrolls sideways on a phone; keyboard users must reach it (WCAG 2.1.1).
         tabIndex={0}
         className="focus-ring overflow-x-auto rounded-md border border-border bg-surface-50"
@@ -743,11 +764,11 @@ function SummarySection({
         <table className="w-full text-ui">
           <thead className={cn("bg-surface-100/70", textStyle.column)}>
             <tr className="h-9">
-              <th className="px-3 text-left font-medium">{BY.find((b) => b.value === by)?.label}</th>
-              <th className="px-3 text-right font-medium">Claims</th>
-              <th className="px-3 text-right font-medium">Waiting</th>
-              <th className="px-3 text-right font-medium">Approved</th>
-              <th className="px-3 text-right font-medium">Paid</th>
+              <th className="px-3 text-left font-medium">{tWorkflow(BY.find((b) => b.value === by)?.label ?? "")}</th>
+              <th className="px-3 text-right font-medium">{tWorkflow("Claims")}</th>
+              <th className="px-3 text-right font-medium">{tWorkflow("Waiting")}</th>
+              <th className="px-3 text-right font-medium">{tWorkflow("Approved")}</th>
+              <th className="px-3 text-right font-medium">{tWorkflow("Paid")}</th>
               <th className="px-3 text-right font-medium">GST</th>
             </tr>
           </thead>
@@ -755,12 +776,15 @@ function SummarySection({
             {q.isPending ? (
               <tr>
                 <td colSpan={6} className="px-3 py-5 text-primary-300">
-                  Loading…
+                  {tWorkflow("Loading…")}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <TableEmptyRow colSpan={6}>
-                No claims with expenses between {formatDate(from)} and {formatDate(to)}. Pick another period above.
+                {tWorkflow("No claims with expenses between {from} and {to}. Pick another period above.", {
+                  from: formatDate(from),
+                  to: formatDate(to),
+                })}
               </TableEmptyRow>
             ) : (
               rows.map((r) => (
@@ -778,7 +802,7 @@ function SummarySection({
           {rows.length ? (
             <tfoot className="border-t border-ink/20 font-medium">
               <tr className="h-9">
-                <td className="px-3">Total</td>
+                <td className="px-3">{tWorkflow("Total")}</td>
                 <td className="num px-3 text-right">{rows.reduce((s, r) => s + r.count, 0)}</td>
                 <td className="num px-3 text-right">{moneyOrDash(sum("waiting"))}</td>
                 <td className="num px-3 text-right">{moneyOrDash(sum("approved"))}</td>
@@ -790,7 +814,7 @@ function SummarySection({
         </table>
       </section>
       <p className="mt-2 text-2xs text-primary-200">
-        Each claim counts once per group. Rejected and withdrawn claims are left out.
+        {tWorkflow("Each claim counts once per group. Rejected and withdrawn claims are left out.")}
       </p>
     </section>
   );

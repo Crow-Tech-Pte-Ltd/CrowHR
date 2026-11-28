@@ -1,6 +1,7 @@
 import { cn, textStyle } from "@crowhr/ui";
 import { AlertTriangle, Ban, Info, Plus } from "lucide-react";
 import * as React from "react";
+import { useT } from "../i18n/index.ts";
 import {
   COLOUR_BAR,
   type Conflict,
@@ -41,6 +42,7 @@ export interface CellRef {
 const SEVERITY_ORDER: Record<Conflict["severity"], number> = { block: 0, ack: 1, warning: 2, hint: 3 };
 
 export function ConflictTag({ c, compact = false }: { c: Conflict; compact?: boolean }) {
+  const tWorkflow = useT("workflows");
   const Icon = c.severity === "block" ? Ban : c.severity === "hint" ? Info : AlertTriangle;
   return (
     <span
@@ -55,13 +57,14 @@ export function ConflictTag({ c, compact = false }: { c: Conflict; compact?: boo
       )}
     >
       <Icon className="size-3 shrink-0" aria-hidden />
-      {compact ? null : c.label}
-      {compact ? <span className="sr-only">{c.label}</span> : null}
+      {compact ? null : tWorkflow(c.label)}
+      {compact ? <span className="sr-only">{tWorkflow(c.label)}</span> : null}
     </span>
   );
 }
 
 function ShiftChip({ shift, draggable, onOpen }: { shift: Shift; draggable: boolean; onOpen: () => void }) {
+  const tWorkflow = useT("workflows");
   if (shift.kind === "rest") {
     return (
       <button
@@ -74,7 +77,7 @@ function ShiftChip({ shift, draggable, onOpen }: { shift: Shift; draggable: bool
         className="w-full rounded-sm px-1.5 py-0.5 text-left text-2xs text-primary-200 hover:bg-ink/[0.04]"
         data-testid="rest-chip"
       >
-        Rest day
+        {tWorkflow("Rest day")}
       </button>
     );
   }
@@ -94,7 +97,12 @@ function ShiftChip({ shift, draggable, onOpen }: { shift: Shift; draggable: bool
         onOpen();
       }}
       data-testid="shift-chip"
-      title={`${shift.start}–${shift.end}${shift.templateCode ? ` (${shift.templateCode})` : ""}, ${shift.paidMinutes} min paid`}
+      title={tWorkflow("{arg1}–{arg2}{arg3}, {arg4} min paid", {
+        arg1: shift.start ?? "",
+        arg2: shift.end ?? "",
+        arg3: shift.templateCode ? ` (${shift.templateCode})` : "",
+        arg4: shift.paidMinutes,
+      })}
       className={cn(
         "group flex w-full min-w-0 flex-col gap-0.5 overflow-hidden rounded-sm border bg-surface-50 py-1 pl-2 pr-1.5 text-left",
         conflicts.some((c) => c.severity === "block" || c.severity === "ack")
@@ -130,13 +138,15 @@ function ShiftChip({ shift, draggable, onOpen }: { shift: Shift; draggable: bool
               className="num text-[10px] text-primary-300"
               title={conflicts
                 .slice(2)
-                .map((c) => c.label)
+                .map((c) => tWorkflow(c.label))
                 .join(", ")}
             >
               +{conflicts.length - 2}
             </span>
           ) : null}
-          {shift.pendingSwap ? <span className="font-azeret text-[10px] text-biru-400">Swap asked</span> : null}
+          {shift.pendingSwap ? (
+            <span className="font-azeret text-[10px] text-biru-400">{tWorkflow("Swap asked")}</span>
+          ) : null}
         </span>
       ) : null}
     </button>
@@ -159,6 +169,7 @@ export function WeekGrid({
   ) => void;
   onMove: (shiftId: string, to: { employeeId: string | null; date: string }) => void;
 }) {
+  const tWorkflow = useT("workflows");
   const ref = React.useRef<HTMLDivElement>(null);
   const [focus, setFocus] = React.useState<{ r: number; c: number }>({ r: 0, c: 0 });
   const [dropTarget, setDropTarget] = React.useState<string | null>(null);
@@ -230,7 +241,7 @@ export function WeekGrid({
       data-testid="week-grid"
     >
       <table
-        aria-label={`Roster for ${data.roster.scopeLabel}`}
+        aria-label={tWorkflow("Roster for {arg1}", { arg1: data.roster.scopeLabel })}
         className="w-full min-w-[680px] table-fixed border-separate border-spacing-0"
       >
         <thead>
@@ -242,7 +253,7 @@ export function WeekGrid({
                 textStyle.column,
               )}
             >
-              Employee
+              {tWorkflow("Employee")}
             </th>
             {data.days.map((d) => (
               <th
@@ -257,7 +268,7 @@ export function WeekGrid({
                 {d.holiday ? (
                   <span
                     className="mt-0.5 flex items-center gap-1 text-[10px] leading-3 text-primary-300"
-                    title="Public holiday"
+                    title={tWorkflow("Public holiday")}
                   >
                     <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-kuning-300" />
                     <span className="truncate">{d.holiday}</span>
@@ -281,8 +292,11 @@ export function WeekGrid({
                   <span className={cn("truncate text-ui font-medium", !row.editable && "text-primary-300")}>
                     {row.name}
                   </span>
-                  <span className="num shrink-0 text-2xs text-primary-300" title="Rostered hours this week">
-                    {row.minutes ? `${hours(row.minutes)} h` : ""}
+                  <span
+                    className="num shrink-0 text-2xs text-primary-300"
+                    title={tWorkflow("Rostered hours this week")}
+                  >
+                    {row.minutes ? tWorkflow("{arg1} h", { arg1: hours(row.minutes) }) : ""}
                   </span>
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -363,7 +377,7 @@ export function WeekGrid({
               scope="row"
               className="sticky bottom-0 left-0 z-20 border-r border-t border-border bg-surface-100 px-3 py-1.5 text-left font-azeret text-2xs font-semibold text-primary-300"
             >
-              Hours <span className="num ml-1 text-ink">{hours(total)}</span>
+              {tWorkflow("Hours")} <span className="num ml-1 text-ink">{hours(total)}</span>
             </th>
             {data.days.map((d) => (
               <td key={d.date} className="sticky bottom-0 z-10 border-t border-border bg-surface-100 px-2 py-1.5">
@@ -389,6 +403,7 @@ export function DayList({
   date: string;
   onOpen: (cell: CellRef, shift: Shift | null) => void;
 }) {
+  const tWorkflow = useT("workflows");
   const shifts = data.shifts.filter((s) => s.date === date);
   return (
     <ul className="divide-y divide-border rounded-md border border-border" data-testid="day-list">
@@ -401,7 +416,7 @@ export function DayList({
             <span className="min-w-0">
               <span className="block truncate text-ui font-medium">{row.name}</span>
               <span className="text-2xs text-primary-300">
-                {row.minutes ? `${hours(row.minutes)} h this week` : row.detail}
+                {row.minutes ? tWorkflow("{arg1} h this week", { arg1: hours(row.minutes) }) : row.detail}
               </span>
             </span>
             <span className="flex min-w-[8rem] flex-col items-end gap-1">
@@ -414,7 +429,7 @@ export function DayList({
                   className="focus-ring flex flex-col items-end rounded-sm px-1 text-right"
                 >
                   {s.kind === "rest" ? (
-                    <span className="text-2xs text-primary-200">Rest day</span>
+                    <span className="text-2xs text-primary-200">{tWorkflow("Rest day")}</span>
                   ) : (
                     <span className="flex items-center gap-1.5">
                       <span aria-hidden className={cn("h-3.5 w-[3px] rounded-full", COLOUR_BAR[s.colour])} />
@@ -434,10 +449,12 @@ export function DayList({
                   onClick={() => onOpen(cell, null)}
                   className="focus-ring rounded-sm font-azeret text-2xs font-semibold text-biru-400"
                 >
-                  Add shift
+                  {tWorkflow("Add shift")}
                 </button>
               ) : null}
-              {!row.editable && !mine.length ? <span className="text-2xs text-primary-200">Off</span> : null}
+              {!row.editable && !mine.length ? (
+                <span className="text-2xs text-primary-200">{tWorkflow("Off")}</span>
+              ) : null}
             </span>
           </li>
         );

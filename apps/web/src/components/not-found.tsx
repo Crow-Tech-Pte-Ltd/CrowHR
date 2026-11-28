@@ -1,5 +1,6 @@
 import { Button, EmptyState } from "@crowhr/ui";
 import { Link } from "@tanstack/react-router";
+import { useT } from "../i18n/index.ts";
 
 import { ApiError } from "../lib/api.ts";
 import { type Crumb, PageHeader } from "./page-header.tsx";
@@ -22,12 +23,13 @@ export function NotFoundPage({
   crumbs: Crumb[];
   back: { to: string; label: string };
 }) {
+  const t = useT("common");
   return (
     <>
       <PageHeader crumbs={crumbs} title={title} />
       <EmptyState
-        title="It doesn't exist, or your role can't see it."
-        description="Check the link, or find it from the list."
+        title={t("It doesn't exist, or your role can't see it.")}
+        description={t("Check the link, or find it from the list.")}
         actions={
           <Button asChild size="sm">
             <Link to={back.to}>{back.label}</Link>

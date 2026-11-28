@@ -2,6 +2,7 @@ import { Button, toast } from "@crowhr/ui";
 import { Eye, EyeOff } from "lucide-react";
 import * as React from "react";
 import { useReauth } from "../../../../auth/reauth.tsx";
+import { useT } from "../../../../i18n/index.ts";
 import { ApiError } from "../../../../lib/api.ts";
 import { api, errorMessage } from "./api.ts";
 
@@ -22,6 +23,7 @@ export function RevealValue({
   employeeId: string;
   kind: "nric" | "bank";
 }) {
+  const translate = useT("people-payroll");
   const withReauth = useReauth();
   const [value, setValue] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -53,7 +55,7 @@ export function RevealValue({
       </span>
       {value ? (
         <Button size="sm" variant="ghost" className="h-6 px-1.5 text-2xs" onClick={() => setValue(null)}>
-          <EyeOff aria-hidden /> Hide
+          <EyeOff aria-hidden /> {translate("Hide")}
         </Button>
       ) : (
         <Button
@@ -64,7 +66,7 @@ export function RevealValue({
           onClick={() => void reveal()}
           aria-label={`Show full ${label}`}
         >
-          <Eye aria-hidden /> Show
+          <Eye aria-hidden /> {translate("Show")}
         </Button>
       )}
     </span>

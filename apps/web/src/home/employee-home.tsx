@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, CalendarPlus, Clock, ReceiptText } from "lucide-react";
 import { PageHeader } from "../components/page-header.tsx";
 import { ErrorNote } from "../components/section.tsx";
+import { useLocale, useT } from "../i18n/index.ts";
 import { inboxQuery, myRequestsQuery, STATUS_LABEL, STATUS_TONE } from "../workflows/api.ts";
 import { DuePill } from "../workflows/decision-controls.tsx";
 import { ageLabel, requestName } from "../workflows/format.ts";
@@ -11,6 +12,9 @@ import { weekday } from "./dates.ts";
 
 /** Employee self-service Home: my to-dos and my requests, from the inbox and approvals APIs. */
 export function EmployeeHome() {
+  const t = useT("home");
+  const locale = useLocale();
+  const workflowText = useT("workflows");
   const inbox = useQuery(inboxQuery);
   const mine = useQuery(myRequestsQuery);
   const todo = inbox.data?.items ?? [];
@@ -18,7 +22,7 @@ export function EmployeeHome() {
   return (
     <>
       <PageHeader
-        title="Today"
+        title={t("Today")}
         description={
           inbox.isPending ? (
             <Skeleton className="h-4 w-48" />
@@ -27,14 +31,14 @@ export function EmployeeHome() {
               {today ? (
                 <>
                   <span className="num">
-                    {weekday(today)} {formatDate(today)}
+                    {weekday(today, locale)} {formatDate(today)}
                   </span>
                   {" · "}
                 </>
               ) : null}
               {todo.length
-                ? `${todo.length} ${todo.length === 1 ? "thing" : "things"} to do.`
-                : "Nothing waiting for you."}
+                ? t(todo.length === 1 ? "{count} thing to do." : "{count} things to do.", { count: todo.length })
+                : t("Nothing waiting for you.")}
             </>
           )
         }
@@ -44,19 +48,19 @@ export function EmployeeHome() {
         <Button variant="primary" size="lg" className="col-span-2 sm:col-span-1" asChild>
           <Link to="/attendance">
             <Clock />
-            Clock in or out
+            {t("Clock in or out")}
           </Link>
         </Button>
         <Button variant="secondary" size="lg" asChild>
           <Link to="/leave">
             <CalendarPlus />
-            Apply leave
+            {t("Apply leave")}
           </Link>
         </Button>
         <Button variant="secondary" size="lg" asChild>
           <Link to="/claims">
             <ReceiptText />
-            New claim
+            {t("New claim")}
           </Link>
         </Button>
       </div>
@@ -65,7 +69,7 @@ export function EmployeeHome() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card aria-labelledby="todo-title" data-testid="employee-todo">
           <CardHeader>
-            <CardTitle id="todo-title">To do</CardTitle>
+            <CardTitle id="todo-title">{t("To do")}</CardTitle>
           </CardHeader>
           {inbox.isError ? (
             <ErrorNote error={inbox.error} retry={() => void inbox.refetch()} />
@@ -77,8 +81,8 @@ export function EmployeeHome() {
             <div className="border-t border-border">
               <EmptyState
                 variant="plain"
-                title="Nothing to do."
-                description="A form to sign or a request to approve shows here when it needs you."
+                title={t("Nothing to do.")}
+                description={t("A form to sign or a request to approve shows here when it needs you.")}
               />
             </div>
           ) : (
@@ -102,13 +106,13 @@ export function EmployeeHome() {
         </Card>
         <Card aria-labelledby="mine-title" data-testid="employee-requests">
           <CardHeader className="items-center">
-            <CardTitle id="mine-title">Your requests</CardTitle>
+            <CardTitle id="mine-title">{t("Your requests")}</CardTitle>
             <Link
               to="/inbox"
               search={{ view: "mine" }}
               className="focus-ring inline-flex items-center gap-1 rounded-sm text-ui font-medium text-biru-400 hover:underline"
             >
-              All <ArrowRight className="size-3.5" aria-hidden />
+              {t("All")} <ArrowRight className="size-3.5" aria-hidden />
             </Link>
           </CardHeader>
           {mine.isError ? (
@@ -119,7 +123,7 @@ export function EmployeeHome() {
             </div>
           ) : mine.data.items.length === 0 ? (
             <p className="border-t border-border px-4 py-4 text-ui text-primary-300">
-              You haven't sent any requests yet. Leave and claims you submit show here with their progress.
+              {t("You haven't sent any requests yet. Leave and claims you submit show here with their progress.")}
             </p>
           ) : (
             <ul className="divide-y divide-border border-t border-border">
@@ -137,17 +141,17 @@ export function EmployeeHome() {
                         search={{ request: r.id }}
                         className="focus-ring block truncate rounded-sm font-medium leading-5 hover:underline"
                       >
-                        {requestName(r.subjectLabel, r.title)}
+                        {requestName(r.subjectLabel, r.title, workflowText)}
                       </Link>
                       <p className="truncate text-2xs text-primary-300">
                         {r.status === "pending" && r.waitingOn
-                          ? `Waiting for ${r.waitingOn}`
-                          : `Sent ${today ? ageLabel(r.submittedAt, today) : ""}`}
+                          ? t("Waiting for {name}", { name: r.waitingOn })
+                          : t("Sent {when}", { when: today ? ageLabel(r.submittedAt, today, locale) : "" })}
                       </p>
                     </div>
                     {/* "Waiting for …" already says a pending request is pending. */}
                     {r.status === "pending" && r.waitingOn ? null : (
-                      <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+                      <StatusPill tone={STATUS_TONE[r.status]}>{workflowText(STATUS_LABEL[r.status])}</StatusPill>
                     )}
                   </li>
                 ))}

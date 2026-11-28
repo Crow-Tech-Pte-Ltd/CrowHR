@@ -27,6 +27,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Archive, ArchiveRestore, Plus } from "lucide-react";
 import * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
+import { useT } from "../../../i18n/index.ts";
 import {
   api,
   errorCode,
@@ -58,14 +59,17 @@ const TITLES: Record<Tab, string> = {
 };
 
 function StructurePage() {
+  const t = useT("settings-account");
   const { tab = "departments" } = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Structure"
-        description="How your company is organised. Entries are archived, never deleted, so history stays readable."
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Structure")}
+        description={t(
+          "How your company is organised. Entries are archived, never deleted, so history stays readable.",
+        )}
       />
       <Tabs
         value={tab}
@@ -74,9 +78,9 @@ function StructurePage() {
         }
       >
         <TabsList className="mb-4 max-w-full overflow-x-auto">
-          {TABS.map((t) => (
-            <TabsTrigger key={t} value={t}>
-              {TITLES[t]}
+          {TABS.map((section) => (
+            <TabsTrigger key={section} value={section}>
+              {t(TITLES[section])}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -94,6 +98,7 @@ function StructurePage() {
 }
 
 function StructureList({ kind }: { kind: StructureKind }) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const q = useQuery(structureQuery(kind));
   const departments = useQuery({ ...structureQuery("departments"), enabled: kind === "teams" });
@@ -101,10 +106,9 @@ function StructureList({ kind }: { kind: StructureKind }) {
   const [code, setCode] = React.useState("");
   const [extra, setExtra] = React.useState("");
   const [showArchived, setShowArchived] = React.useState(false);
-  const one = TITLES[kind as Tab]
-    .replace(/s$/, "")
-    .replace(/centre$/, "centre")
-    .toLowerCase();
+  const one = t(
+    { departments: "department", teams: "team", locations: "location", "cost-centres": "cost centre" }[kind],
+  );
   const create = useMutation({
     mutationFn: () =>
       api<StructureItem>("POST", `/organisation/structure/${kind}`, {
@@ -126,14 +130,16 @@ function StructureList({ kind }: { kind: StructureKind }) {
       api<StructureItem>("POST", `/organisation/structure/${kind}/${v.id}/archive`, { archived: v.archived }),
     onSuccess: async (_d, v) => {
       await invalidatePeople(qc);
-      toast(v.archived ? "Archived" : "Restored");
+      toast(v.archived ? t("Archived") : t("Restored"));
     },
     onError: (err) => {
       const d = errorDetails<{ count?: number }>(err);
       toast(
-        errorCode(err) === "in_use" && d
-          ? `In use by ${d.count} employee${d.count === 1 ? "" : "s"}`
-          : "Couldn't archive",
+        errorCode(err) === "in_use" && typeof d?.count === "number"
+          ? d.count === 1
+            ? t("In use by one employee")
+            : t("In use by {count} employees", { count: d.count })
+          : t("Couldn't archive"),
         {
           description: errorMessage(err),
         },
@@ -155,14 +161,14 @@ function StructureList({ kind }: { kind: StructureKind }) {
         }}
       >
         <TextInput
-          label={kind === "cost-centres" ? "Name" : `New ${one}`}
+          label={kind === "cost-centres" ? t("Name") : t("New {one}", { one })}
           value={name}
           onChange={setName}
           error={errs.name ?? (create.isError && !Object.keys(errs).length ? errorMessage(create.error) : undefined)}
         />
         {kind === "cost-centres" || kind === "departments" ? (
           <TextInput
-            label={kind === "cost-centres" ? "Code" : "Code (optional)"}
+            label={kind === "cost-centres" ? t("Code") : t("Code (optional)")}
             mono
             value={code}
             onChange={setCode}
@@ -171,7 +177,7 @@ function StructureList({ kind }: { kind: StructureKind }) {
           />
         ) : kind === "teams" ? (
           <SelectInput
-            label="Department (optional)"
+            label={t("Department (optional)")}
             value={extra}
             onChange={setExtra}
             options={(departments.data?.items ?? [])
@@ -181,7 +187,7 @@ function StructureList({ kind }: { kind: StructureKind }) {
           />
         ) : (
           <TextInput
-            label="Postal code"
+            label={t("Postal code")}
             mono
             value={code}
             onChange={setCode}
@@ -190,7 +196,7 @@ function StructureList({ kind }: { kind: StructureKind }) {
           />
         )}
         <Button type="submit" variant="primary" disabled={create.isPending || !name.trim()}>
-          <Plus aria-hidden /> Add
+          <Plus aria-hidden /> {t("Add")}
         </Button>
       </form>
       {q.isPending ? (
@@ -199,20 +205,20 @@ function StructureList({ kind }: { kind: StructureKind }) {
         <ErrorPanel error={q.error} onRetry={() => void q.refetch()} />
       ) : items.length === 0 ? (
         <EmptyState
-          title={`No ${TITLES[kind as Tab].toLowerCase()} yet`}
-          description={`Add your first ${one} above.`}
+          title={t("No {value} yet", { value: TITLES[kind as Tab].toLowerCase() })}
+          description={t("Add your first {one} above.", { one })}
         />
       ) : (
         <Table aria-label={TITLES[kind as Tab]}>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              {kind === "cost-centres" || kind === "departments" ? <TableHead>Code</TableHead> : null}
-              {kind === "teams" ? <TableHead>Department</TableHead> : null}
-              {kind === "locations" ? <TableHead className="hidden sm:table-cell">Address</TableHead> : null}
-              <TableHead numeric>Employees</TableHead>
+              <TableHead>{t("Name")}</TableHead>
+              {kind === "cost-centres" || kind === "departments" ? <TableHead>{t("Code")}</TableHead> : null}
+              {kind === "teams" ? <TableHead>{t("Department")}</TableHead> : null}
+              {kind === "locations" ? <TableHead className="hidden sm:table-cell">{t("Address")}</TableHead> : null}
+              <TableHead numeric>{t("Employees")}</TableHead>
               <TableHead className="w-28">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("Actions")}</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -220,7 +226,7 @@ function StructureList({ kind }: { kind: StructureKind }) {
             {items.map((i) => (
               <TableRow key={i.id}>
                 <TableCell>
-                  {i.name} {i.archived ? <Badge variant="muted">Archived</Badge> : null}
+                  {i.name} {i.archived ? <Badge variant="muted">{t("Archived")}</Badge> : null}
                 </TableCell>
                 {kind === "cost-centres" || kind === "departments" ? (
                   <TableCell className="num">{i.code ?? "—"}</TableCell>
@@ -256,7 +262,7 @@ function StructureList({ kind }: { kind: StructureKind }) {
                     onClick={() => archive.mutate({ id: i.id, archived: !i.archived })}
                   >
                     {i.archived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}{" "}
-                    {i.archived ? "Restore" : "Archive"}
+                    {i.archived ? t("Restore") : t("Archive")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -266,7 +272,7 @@ function StructureList({ kind }: { kind: StructureKind }) {
       )}
       {archivedCount ? (
         <Button variant="link" size="sm" className="self-start" onClick={() => setShowArchived((v) => !v)}>
-          {showArchived ? "Hide archived" : `Show ${archivedCount} archived`}
+          {showArchived ? t("Hide archived") : t("Show {archivedCount} archived", { archivedCount })}
         </Button>
       ) : null}
     </div>
@@ -283,6 +289,7 @@ const defaultWeek = (): Day[] => [
 const hours = (m: number) => `${Math.floor(m / 60)} h${m % 60 ? ` ${String(m % 60).padStart(2, "0")} min` : ""}`;
 
 function Schedules() {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const q = useQuery(schedulesQuery);
   const [name, setName] = React.useState("");
@@ -300,7 +307,7 @@ function Schedules() {
       setName("");
       setWeek(defaultWeek());
       await invalidatePeople(qc);
-      toast("Work schedule saved");
+      toast(t("Work schedule saved"));
     },
   });
   const makeDefault = useMutation({
@@ -328,14 +335,14 @@ function Schedules() {
       ) : q.isError ? (
         <ErrorPanel error={q.error} />
       ) : q.data.items.length ? (
-        <Table aria-label="Work schedules">
+        <Table aria-label={t("Work schedules")}>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Week</TableHead>
-              <TableHead numeric>Contracted</TableHead>
+              <TableHead>{t("Name")}</TableHead>
+              <TableHead>{t("Week")}</TableHead>
+              <TableHead numeric>{t("Contracted")}</TableHead>
               <TableHead className="w-36">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("Actions")}</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -343,15 +350,18 @@ function Schedules() {
             {q.data.items.map((s) => (
               <TableRow key={s.id}>
                 <TableCell>
-                  {s.name} {s.isDefault ? <Badge variant="brand">Default</Badge> : null}
+                  {s.name} {s.isDefault ? <Badge variant="brand">{t("Default")}</Badge> : null}
                 </TableCell>
                 <TableCell className="font-azeret text-2xs">
                   {s.kind === "shift"
-                    ? "From rosters"
+                    ? t("From rosters")
                     : (s.current?.days ?? []).map((d, i) => (
                         <span
                           key={DAYS[i]}
-                          title={`${DAYS[i]}: ${d.type === "rest" ? "rest day" : d.type === "off" ? "off day" : d.type}`}
+                          title={t("{value}: {type}", {
+                            value: t(DAYS[i] ?? ""),
+                            type: d.type === "rest" ? "rest day" : d.type === "off" ? "off day" : d.type,
+                          })}
                           className={
                             d.type === "rest"
                               ? "font-bold text-danger-300 underline"
@@ -369,7 +379,7 @@ function Schedules() {
                 <TableCell>
                   {!s.isDefault ? (
                     <Button size="sm" variant="ghost" onClick={() => makeDefault.mutate(s.id)}>
-                      Make default
+                      {t("Make default")}
                     </Button>
                   ) : null}
                 </TableCell>
@@ -379,8 +389,10 @@ function Schedules() {
         </Table>
       ) : (
         <EmptyState
-          title="No work schedule yet."
-          description="Leave and overtime need each employee's working days and rest day. Create the default below."
+          title={t("No work schedule yet.")}
+          description={t(
+            "Leave and overtime need each employee's working days and rest day. Create the default below.",
+          )}
         />
       )}
       <form
@@ -390,23 +402,23 @@ function Schedules() {
           create.mutate();
         }}
       >
-        <h2 className={textStyle.section}>New work schedule</h2>
+        <h2 className={textStyle.section}>{t("New work schedule")}</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextInput
-            label="Name"
+            label={t("Name")}
             required
             value={name}
             onChange={setName}
             error={errs.name}
-            placeholder="Office 5-day"
+            placeholder={t("Office 5-day")}
           />
           <SelectInput
-            label="Kind"
+            label={t("Kind")}
             value={kind}
             onChange={(v) => setKind(v as "fixed" | "shift")}
             options={[
-              { value: "fixed", label: "Fixed week" },
-              { value: "shift", label: "Shift (days from rosters)" },
+              { value: "fixed", label: t("Fixed week") },
+              { value: "shift", label: t("Shift (days from rosters)") },
             ]}
           />
         </div>
@@ -415,20 +427,23 @@ function Schedules() {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-7">
               {week.map((d, i) => (
                 <div key={DAYS[i]} className="flex flex-col gap-1.5 rounded-md border border-border p-2">
-                  <span className={textStyle.group}>{DAYS[i]}</span>
+                  <span className={textStyle.group}>{t(DAYS[i] ?? "")}</span>
                   <Select value={d.type} onValueChange={(v) => setDay(i, { type: v as Day["type"] })}>
-                    <SelectTrigger aria-label={`${DAYS[i]} day type`} className="h-8 text-2xs">
+                    <SelectTrigger
+                      aria-label={t("{value} day type", { value: t(DAYS[i] ?? "") })}
+                      className="h-8 text-2xs"
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="working">Working</SelectItem>
-                      <SelectItem value="half">Half day</SelectItem>
-                      <SelectItem value="off">Off day</SelectItem>
-                      <SelectItem value="rest">Rest day</SelectItem>
+                      <SelectItem value="working">{t("Working")}</SelectItem>
+                      <SelectItem value="half">{t("Half day")}</SelectItem>
+                      <SelectItem value="off">{t("Off day")}</SelectItem>
+                      <SelectItem value="rest">{t("Rest day")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <Input
-                    aria-label={`${DAYS[i]} hours`}
+                    aria-label={t("{value} hours", { value: t(DAYS[i] ?? "") })}
                     className="num h-8 text-right text-2xs"
                     inputMode="decimal"
                     disabled={d.type === "off" || d.type === "rest"}
@@ -439,12 +454,12 @@ function Schedules() {
               ))}
             </div>
             <p className="text-ui">
-              Weekly contracted hours: <span className="num font-semibold">{hours(total)}</span>
+              {t("Weekly contracted hours:")} <span className="num font-semibold">{hours(total)}</span>
             </p>
           </>
         ) : (
           <TextInput
-            label="Contracted hours per week"
+            label={t("Contracted hours per week")}
             mono
             inputMode="decimal"
             value={weekly}
@@ -460,7 +475,7 @@ function Schedules() {
         ) : null}
         <div>
           <Button type="submit" variant="primary" disabled={create.isPending || !name.trim()}>
-            <Plus aria-hidden /> Save schedule
+            <Plus aria-hidden /> {t("Save schedule")}
           </Button>
         </div>
       </form>

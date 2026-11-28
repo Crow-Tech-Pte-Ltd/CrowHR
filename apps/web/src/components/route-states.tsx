@@ -2,11 +2,13 @@ import { Alert, AlertDescription, AlertTitle, Button, EmptyState, Skeleton } fro
 import { type ErrorComponentProps, Link, useRouter } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
 import { useEffect } from "react";
+import { useT } from "../i18n/index.ts";
 import { reportError } from "../monitoring.ts";
 
 export function RoutePending() {
+  const t = useT("common");
   return (
-    <div role="status" aria-busy="true" aria-label="Loading" className="flex flex-col gap-4 py-2">
+    <div role="status" aria-busy="true" aria-label={t("Loading")} className="flex flex-col gap-4 py-2">
       <Skeleton className="h-3 w-24" />
       <Skeleton className="h-6 w-56" />
       <Skeleton className="mt-4 h-40 w-full" />
@@ -15,16 +17,17 @@ export function RoutePending() {
 }
 
 export function RouteError({ error, reset }: ErrorComponentProps) {
+  const t = useT("common");
   const router = useRouter();
   useEffect(() => reportError(error), [error]);
   return (
     <Alert variant="danger" className="max-w-xl">
       <AlertTriangle aria-hidden />
       <div className="flex flex-col gap-2">
-        <AlertTitle>This page failed to load</AlertTitle>
+        <AlertTitle>{t("This page failed to load")}</AlertTitle>
         <AlertDescription>
-          {error instanceof Error ? error.message : "An unexpected error occurred."} Try again; if it keeps happening,
-          tell your administrator.
+          {error instanceof Error ? error.message : t("An unexpected error occurred.")}{" "}
+          {t("Try again. If it keeps happening, tell your administrator.")}
         </AlertDescription>
         <div>
           <Button
@@ -34,7 +37,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
               void router.invalidate();
             }}
           >
-            Try again
+            {t("Try again")}
           </Button>
         </div>
       </div>
@@ -43,13 +46,14 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
 }
 
 export function RouteNotFound() {
+  const t = useT("common");
   return (
     <EmptyState
-      title="Page not found."
-      description="The address may be mistyped, or the page has moved."
+      title={t("Page not found.")}
+      description={t("The address may be mistyped, or the page has moved.")}
       actions={
         <Button asChild size="sm">
-          <Link to="/">Go to Home</Link>
+          <Link to="/">{t("Go to Home")}</Link>
         </Button>
       }
     />

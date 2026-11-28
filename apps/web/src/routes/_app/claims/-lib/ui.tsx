@@ -11,13 +11,15 @@ import {
 } from "@crowhr/ui";
 import { Download, FileText, ImageOff, ShieldAlert } from "lucide-react";
 import * as React from "react";
+import { useT } from "../../../../i18n/index.ts";
 import { type ClaimFileDto, type ClaimStatus, STATUS_LABEL, STATUS_TONE } from "./api.ts";
 import { exponentOf, formatMinorAmount } from "./money.ts";
 
 export function ClaimStatusPill({ status, className }: { status: ClaimStatus; className?: string }) {
+  const tWorkflow = useT("workflows");
   return (
     <StatusPill tone={STATUS_TONE[status]} className={className} data-testid="claim-status">
-      {STATUS_LABEL[status]}
+      {tWorkflow(STATUS_LABEL[status])}
     </StatusPill>
   );
 }
@@ -39,10 +41,11 @@ export function CapRemaining({
   cap: { capCents: number; usedCents: number; pendingCents: number; period: string; periodLabel: string };
   thisClaimCents: number;
 }) {
+  const tWorkflow = useT("workflows");
   const left = cap.capCents - cap.usedCents - cap.pendingCents - thisClaimCents;
   const when =
     cap.period === "per_claim"
-      ? "per claim"
+      ? tWorkflow("per claim")
       : cap.period === "monthly"
         ? `in ${cap.periodLabel}`
         : `in ${cap.periodLabel}`;
@@ -54,8 +57,16 @@ export function CapRemaining({
       aria-live="polite"
     >
       {over
-        ? `${formatMoney(-left)} over the ${formatMoney(cap.capCents)} cap ${when}`
-        : `${formatMoney(left)} left of ${formatMoney(cap.capCents)} ${when}`}
+        ? tWorkflow("{arg1} over the {arg2} cap {arg3}", {
+            arg1: formatMoney(-left),
+            arg2: formatMoney(cap.capCents),
+            arg3: when,
+          })
+        : tWorkflow("{arg1} left of {arg2} {arg3}", {
+            arg1: formatMoney(left),
+            arg2: formatMoney(cap.capCents),
+            arg3: when,
+          })}
     </p>
   );
 }
@@ -73,6 +84,7 @@ export function ReceiptChip({
   onOpen?: () => void;
   onRemove?: () => void;
 }) {
+  const tWorkflow = useT("workflows");
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-surface-50 p-1.5 pr-2">
       <button
@@ -80,7 +92,7 @@ export function ReceiptChip({
         onClick={onOpen}
         className="focus-ring flex min-w-0 items-center gap-2 rounded-sm text-left"
       >
-        <span className="sr-only">View receipt </span>
+        <span className="sr-only">{tWorkflow("View receipt")} </span>
         {file.previewable ? (
           <img src={file.url} alt="" className="size-9 shrink-0 rounded-sm border border-border object-cover" />
         ) : (
@@ -92,14 +104,20 @@ export function ReceiptChip({
           <span className="block truncate text-ui">{file.name}</span>
           <span className="num block text-2xs text-primary-200">
             {sizeLabel(file.sizeBytes)}
-            {file.scanStatus === "pending_scan" ? " · scanning" : ""}
-            {file.scanStatus === "scan_failed" ? " · scan failed" : ""}
+            {file.scanStatus === "pending_scan" ? ` ${tWorkflow("· scanning")}` : ""}
+            {file.scanStatus === "scan_failed" ? ` ${tWorkflow("· scan failed")}` : ""}
           </span>
         </span>
       </button>
       {onRemove ? (
-        <Button type="button" variant="ghost" size="sm" onClick={onRemove} aria-label={`Remove ${file.name}`}>
-          Remove
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onRemove}
+          aria-label={tWorkflow("Remove {arg1}", { arg1: file.name })}
+        >
+          {tWorkflow("Remove")}
         </Button>
       ) : null}
     </div>
@@ -118,6 +136,7 @@ export function ReceiptViewer({
   onIndex: (i: number) => void;
   onClose: () => void;
 }) {
+  const tWorkflow = useT("workflows");
   const current = index === null ? null : (files[index] ?? null);
   // Keep the last file on screen while the dialog animates closed (no empty frame).
   const last = React.useRef<ClaimFileDto | null>(null);
@@ -140,17 +159,23 @@ export function ReceiptViewer({
             <DialogHeader>
               <DialogTitle className="truncate pr-8">{file.name}</DialogTitle>
               <DialogDescription className="num">
-                {files.length > 1 ? `Receipt ${(index ?? 0) + 1} of ${files.length} · ` : ""}
+                {files.length > 1
+                  ? `${tWorkflow("Receipt {arg1} of {arg2} ·", { arg1: (index ?? 0) + 1, arg2: files.length })} `
+                  : ""}
                 {sizeLabel(file.sizeBytes)}
               </DialogDescription>
             </DialogHeader>
             <div className="flex min-h-48 items-center justify-center rounded-md border border-border bg-surface-100 p-2">
               {file.removed ? (
                 <p className="flex items-center gap-2 p-8 text-ui text-danger-300">
-                  <ShieldAlert className="size-4" aria-hidden /> The virus scanner removed this file.
+                  <ShieldAlert className="size-4" aria-hidden /> {tWorkflow("The virus scanner removed this file.")}
                 </p>
               ) : file.previewable ? (
-                <img src={file.url} alt={`Receipt ${file.name}`} className="max-h-[65dvh] w-auto object-contain" />
+                <img
+                  src={file.url}
+                  alt={tWorkflow("Receipt {arg1}", { arg1: file.name })}
+                  className="max-h-[65dvh] w-auto object-contain"
+                />
               ) : (
                 <div className="flex flex-col items-center gap-3 p-8 text-center">
                   {file.mime === "image/heic" ? (
@@ -160,8 +185,8 @@ export function ReceiptViewer({
                   )}
                   <p className="text-ui text-primary-300">
                     {file.mime === "image/heic"
-                      ? "Preview not available. Download to view."
-                      : "PDF receipts open in your PDF viewer."}
+                      ? tWorkflow("Preview not available. Download to view.")
+                      : tWorkflow("PDF receipts open in your PDF viewer.")}
                   </p>
                 </div>
               )}
@@ -169,20 +194,20 @@ export function ReceiptViewer({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex gap-2">
                 <Button size="sm" disabled={!index} onClick={() => onIndex((index ?? 0) - 1)}>
-                  Previous
+                  {tWorkflow("Previous")}
                 </Button>
                 <Button
                   size="sm"
                   disabled={index === null || index >= files.length - 1}
                   onClick={() => onIndex((index ?? 0) + 1)}
                 >
-                  Next
+                  {tWorkflow("Next")}
                 </Button>
               </div>
               {!file.removed ? (
                 <Button size="sm" variant="secondary" asChild>
                   <a href={`${file.url}?download=1`} download={file.name}>
-                    <Download aria-hidden /> Download
+                    <Download aria-hidden /> {tWorkflow("Download")}
                   </a>
                 </Button>
               ) : null}

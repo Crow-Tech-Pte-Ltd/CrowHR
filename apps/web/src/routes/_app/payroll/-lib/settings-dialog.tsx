@@ -23,6 +23,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import * as React from "react";
 import { useReauth } from "../../../../auth/reauth.tsx";
+import { useT } from "../../../../i18n/index.ts";
 import { api, errorMessage, fieldErrors, settingsQuery } from "./api.ts";
 import { groupKey, sectorLabel, tierSkillLabel, WORK_PERMIT_LEVY_GROUPS } from "./levy-options.ts";
 
@@ -30,18 +31,19 @@ const NONE = "none";
 
 /** Payroll settings: pay and cutoff day, release, CPF advice code, levy estimate and the bank file's debit account. */
 export function PayrollSettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const t = useT("people-payroll");
   const q = useQuery({ ...settingsQuery, enabled: open });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Payroll settings</DialogTitle>
-          <DialogDescription>Defaults for new runs and the files payroll produces.</DialogDescription>
+          <DialogTitle>{t("Payroll settings")}</DialogTitle>
+          <DialogDescription>{t("Defaults for new runs and the files payroll produces.")}</DialogDescription>
         </DialogHeader>
         {q.data ? (
           <SettingsForm initial={q.data} onDone={() => onOpenChange(false)} />
         ) : (
-          <p className="text-ui text-primary-300">Loading…</p>
+          <p className="text-ui text-primary-300">{t("Loading…")}</p>
         )}
       </DialogContent>
     </Dialog>
@@ -49,6 +51,7 @@ export function PayrollSettingsDialog({ open, onOpenChange }: { open: boolean; o
 }
 
 function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone: () => void }) {
+  const translate = useT("people-payroll");
   const qc = useQueryClient();
   const reauth = useReauth();
   const [payDay, setPayDay] = React.useState(initial.payDay ? String(initial.payDay) : "");
@@ -84,7 +87,7 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
       ),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: settingsQuery.queryKey });
-      toast.success("Payroll settings saved");
+      toast.success(translate("Payroll settings saved"));
       onDone();
     },
   });
@@ -98,61 +101,76 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
       }}
     >
       <FormField
-        label="Pay day"
-        hint="Day of the month; empty = last day. MOM: within 7 days after the period."
+        label={translate("Pay day")}
+        hint={translate("Day of the month; empty = last day. MOM: within 7 days after the period.")}
         error={errors.payDay}
       >
-        <Input inputMode="numeric" value={payDay} onChange={(e) => setPayDay(e.target.value)} placeholder="Last day" />
+        <Input
+          inputMode="numeric"
+          value={payDay}
+          onChange={(e) => setPayDay(e.target.value)}
+          placeholder={translate("Last day")}
+        />
       </FormField>
       <FormField
-        label="Cutoff day"
-        hint="Day of the month inputs close. Payroll admins are reminded 3 days before; empty = before the pay day."
+        label={translate("Cutoff day")}
+        hint={translate(
+          "Day of the month inputs close. Payroll admins are reminded 3 days before; empty = before the pay day.",
+        )}
         error={errors.cutoffDay}
       >
         <Input
           inputMode="numeric"
           value={cutoffDay}
           onChange={(e) => setCutoffDay(e.target.value)}
-          placeholder="Pay day"
+          placeholder={translate("Pay day")}
         />
       </FormField>
-      <FormField label="CPF advice code" hint="Two digits for the EZPay file, usually 01." error={errors.cpfAdviceCode}>
+      <FormField
+        label={translate("CPF advice code")}
+        hint={translate("Two digits for the EZPay file, usually 01.")}
+        error={errors.cpfAdviceCode}
+      >
         <Input value={advice} onChange={(e) => setAdvice(e.target.value)} maxLength={2} />
       </FormField>
       <p className="text-2xs text-primary-300 sm:col-span-2">
         How each allowance counts for CPF, pro-ration and the gross rate of pay is set in{" "}
         <Link to="/payroll/allowances" className="focus-ring rounded-sm text-biru-400 hover:underline" onClick={onDone}>
-          Allowance treatment
+          {translate("Allowance treatment")}
         </Link>
         .
       </p>
       <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 sm:col-span-2">
         <span className="text-ui">
-          Release payslips as soon as a run is approved
+          {translate("Release payslips as soon as a run is approved")}
           <span className="block text-2xs text-primary-300">
-            Off: release them yourself after checking the approved run.
+            {translate("Off: release them yourself after checking the approved run.")}
           </span>
         </span>
-        <Switch checked={autoRelease} onCheckedChange={setAutoRelease} aria-label="Release payslips on approval" />
+        <Switch
+          checked={autoRelease}
+          onCheckedChange={setAutoRelease}
+          aria-label={translate("Release payslips on approval")}
+        />
       </div>
-      <p className={cn("mt-1 sm:col-span-2", textStyle.group)}>Bank file debit account</p>
-      <FormField label="Bank SWIFT/BIC" error={errors.debitBankBic}>
+      <p className={cn("mt-1 sm:col-span-2", textStyle.group)}>{translate("Bank file debit account")}</p>
+      <FormField label={translate("Bank SWIFT/BIC")} error={errors.debitBankBic}>
         <Input value={bic} onChange={(e) => setBic(e.target.value)} placeholder="DBSSSGSG" />
       </FormField>
       <FormField
-        label="Account number"
-        hint={initial.debitAccountMasked ? `Saved: ${initial.debitAccountMasked}` : "Stored encrypted."}
+        label={translate("Account number")}
+        hint={initial.debitAccountMasked ? `Saved: ${initial.debitAccountMasked}` : translate("Stored encrypted.")}
         error={errors.debitAccountNumber}
       >
         <Input inputMode="numeric" value={account} onChange={(e) => setAccount(e.target.value)} autoComplete="off" />
       </FormField>
-      <FormField label="Account name" className="sm:col-span-2" error={errors.debitAccountName}>
+      <FormField label={translate("Account name")} className="sm:col-span-2" error={errors.debitAccountName}>
         <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
       </FormField>
       <p className={cn("mt-1 sm:col-span-2", textStyle.group)}>
-        Work Permit levy estimate (MOM's bill is authoritative)
+        {translate("Work Permit levy estimate (MOM's bill is authoritative)")}
       </p>
-      <FormField label="Sector" hint="As on MOM's levy bill.">
+      <FormField label={translate("Sector")} hint={translate("As on MOM's levy bill.")}>
         <Select
           value={sector || NONE}
           onValueChange={(v) => {
@@ -170,11 +188,11 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
             }
           }}
         >
-          <SelectTrigger aria-label="Sector">
+          <SelectTrigger aria-label={translate("Sector")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>No Work Permit holders</SelectItem>
+            <SelectItem value={NONE}>{translate("No Work Permit holders")}</SelectItem>
             {sectors.map((code) => (
               <SelectItem key={code} value={code}>
                 {sectorLabel(code)}
@@ -183,7 +201,7 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
           </SelectContent>
         </Select>
       </FormField>
-      <FormField label="Tier and skill">
+      <FormField label={translate("Tier and skill")}>
         <Select
           value={sector ? groupKey(tier, skill || null) : NONE}
           disabled={!sector}
@@ -193,11 +211,11 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
             setSkill(k ?? "");
           }}
         >
-          <SelectTrigger aria-label="Tier and skill">
-            <SelectValue placeholder="Choose a sector first" />
+          <SelectTrigger aria-label={translate("Tier and skill")}>
+            <SelectValue placeholder={translate("Choose a sector first")} />
           </SelectTrigger>
           <SelectContent>
-            {sector ? null : <SelectItem value={NONE}>Choose a sector first</SelectItem>}
+            {sector ? null : <SelectItem value={NONE}>{translate("Choose a sector first")}</SelectItem>}
             {tiers.map((g) => (
               <SelectItem key={groupKey(g.tier, g.skill)} value={groupKey(g.tier, g.skill)}>
                 {tierSkillLabel(g.tier, g.skill)}
@@ -213,10 +231,10 @@ function SettingsForm({ initial, onDone }: { initial: PayrollSettingsDto; onDone
       ) : null}
       <DialogFooter className="sm:col-span-2">
         <Button type="button" variant="ghost" onClick={onDone}>
-          Cancel
+          {translate("Cancel")}
         </Button>
         <Button type="submit" variant="primary" disabled={save.isPending}>
-          Save settings
+          {translate("Save settings")}
         </Button>
       </DialogFooter>
     </form>

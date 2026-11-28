@@ -6,6 +6,7 @@ import { ReauthProvider } from "../auth/reauth.tsx";
 import { meQuery, reasonFor, rememberOrg, useMe } from "../auth/session.ts";
 import { Brand } from "../branding/appearance.tsx";
 import { DemoCompanyBanner } from "../demo-company/notices.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiError } from "../lib/api.ts";
 import { AppShell } from "../shell/app-shell.tsx";
 
@@ -51,6 +52,7 @@ function SignedInLayout() {
 
 /** Privileged roles must enrol in MFA; during the 7-day grace period every page shows this. */
 function MfaBanner() {
+  const t = useT("common");
   const me = useMe();
   if (!me.mfa.required || me.mfa.enrolled || me.mfa.blocked || !me.mfa.graceEndsAt) return null;
   return (
@@ -58,16 +60,20 @@ function MfaBanner() {
       <ShieldAlert aria-hidden />
       <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <AlertTitle>Set up two-step verification by {formatDate(me.mfa.graceEndsAt.slice(0, 10))}</AlertTitle>
+          <AlertTitle>
+            {t("Set up two-step verification by {date}", { date: formatDate(me.mfa.graceEndsAt.slice(0, 10)) })}
+          </AlertTitle>
           {/* The full reason on wider screens; on a phone the banner would push each page down a third. */}
           <AlertDescription className="hidden sm:block">
-            Your role requires an authenticator app. After that date you won't be able to use Crow HR until it's set up.
+            {t(
+              "Your role requires an authenticator app. After that date you won't be able to use Crow HR until it's set up.",
+            )}
           </AlertDescription>
         </div>
         {/* Secondary: the page's own primary action keeps the one hard-shadow button. */}
         <Button asChild size="sm" variant="secondary" className="self-start sm:self-auto">
           <Link to="/me/sessions" search={{ enrol: "1" }}>
-            Set up now
+            {t("Set up now")}
           </Link>
         </Button>
       </div>

@@ -3,6 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import * as React from "react";
 import { cn } from "../lib/cn.ts";
+import { useUiLocale } from "../lib/locale.ts";
 import { overlayClass } from "./dialog.tsx";
 
 /** Side drawer (mobile navigation, record details). Built on Radix Dialog. */
@@ -29,18 +30,21 @@ const sheetVariants = cva(
 export const SheetContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & VariantProps<typeof sheetVariants>
->(({ side, className, children, ...props }, ref) => (
-  <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className={overlayClass} />
-    <DialogPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
-      {children}
-      <DialogPrimitive.Close className="focus-ring absolute right-3 top-3 rounded-sm p-1 text-primary-200 hover:bg-ink/5 hover:text-ink">
-        <X className="size-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPrimitive.Portal>
-));
+>(({ side, className, children, ...props }, ref) => {
+  const { t } = useUiLocale();
+  return (
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className={overlayClass} />
+      <DialogPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+        {children}
+        <DialogPrimitive.Close className="focus-ring absolute right-3 top-3 rounded-sm p-1 text-primary-200 hover:bg-ink/5 hover:text-ink">
+          <X className="size-4" />
+          <span className="sr-only">{t("Close")}</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  );
+});
 SheetContent.displayName = "SheetContent";
 
 export const SheetTitle = DialogPrimitive.Title;

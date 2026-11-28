@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import { can, canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
+import { useT } from "../../../i18n/index.ts";
 
 export const Route = createFileRoute("/_app/settings/")({
   component: SettingsPage,
@@ -35,121 +36,134 @@ type SettingsLink = {
  * in, then each module's defaults. Only what the role may manage is listed.
  */
 function SettingsPage() {
+  const t = useT("settings-account");
   const me = useMe();
   // Company and structure are for the people who maintain them; everyone else has nothing to set there.
   const maintainsOrg = canForAll(me, "org_structure:update");
   const groups: { id: string; title: string; links: SettingsLink[] }[] = [
     {
       id: "organisation",
-      title: "Organisation",
+      title: t("Organisation"),
       links: [
         {
           to: "/settings/company",
-          title: "Company",
-          body: "Legal name, UEN, CPF submission number, address.",
+          title: t("Company"),
+          body: t("Legal name, UEN, CPF submission number, address."),
           show: maintainsOrg,
         },
         {
           to: "/settings/structure",
-          title: "Structure",
-          body: "Departments, teams, locations, cost centres, work schedules.",
+          title: t("Structure"),
+          body: t("Departments, teams, locations, cost centres, work schedules."),
           show: maintainsOrg,
         },
       ],
     },
     {
       id: "access",
-      title: "Access",
+      title: t("Access"),
       links: [
         {
           to: "/settings/security",
-          title: "Security",
-          body: "Sign-in methods (email, Google, Microsoft, Singpass, OIDC), two-step verification policy, session timeouts.",
+          title: t("Security"),
+          body: t(
+            "Sign-in methods (email, Google, Microsoft, Singpass, OIDC), two-step verification policy, session timeouts.",
+          ),
           show: me.roles.includes("owner"),
         },
         {
           to: "/settings/members",
-          title: "Members and roles",
-          body: "Invite people, grant owner, HR admin and payroll admin roles, suspend access.",
+          title: t("Members and roles"),
+          body: t("Invite people, grant owner, HR admin and payroll admin roles, suspend access."),
           show: can(me, "members:read"),
         },
         {
           to: "/settings/audit",
-          title: "Audit log",
-          body: "Every sign-in, permission change and sensitive action.",
+          title: t("Audit log"),
+          body: t("Every sign-in, permission change and sensitive action."),
           show: can(me, "audit_log:read"),
         },
         {
           to: "/settings/system",
-          title: "System",
-          body: "Version, database, backups, disk space and reverse proxy diagnostics.",
+          title: t("System"),
+          body: t("Version, database, backups, disk space and reverse proxy diagnostics."),
           show: me.roles.includes("owner"),
         },
       ],
     },
     {
       id: "modules",
-      title: "Modules",
+      title: t("Modules"),
       links: [
         {
           to: "/settings/approvals",
-          title: "Approvals",
-          body: "Who approves leave, claims and payroll, amount thresholds, escalation and out-of-office cover.",
+          title: t("Approvals"),
+          body: t("Who approves leave, claims and payroll, amount thresholds, escalation and out-of-office cover."),
           show: can(me, "policies:read"),
         },
         {
           to: "/settings/leave",
-          title: "Leave",
-          body: "Leave types and entitlements (statutory ones preconfigured), public holidays, and government-paid leave to claim.",
+          title: t("Leave"),
+          body: t(
+            "Leave types and entitlements (statutory ones preconfigured), public holidays, and government-paid leave to claim.",
+          ),
           show: can(me, "policies:read") || can(me, "leave_claims:read"),
         },
         {
           to: "/settings/attendance",
-          title: "Attendance",
-          body: "Clock-in location and network checks, PDPA notice, start time, lateness grace and overtime rounding.",
+          title: t("Attendance"),
+          body: t(
+            "Clock-in location and network checks, PDPA notice, start time, lateness grace and overtime rounding.",
+          ),
           show: can(me, "policies:read"),
         },
         {
           to: "/settings/shift-templates",
-          title: "Shift templates",
-          body: "The shifts managers pick from on the roster: times, unpaid break, location and marker.",
+          title: t("Shift templates"),
+          body: t("The shifts managers pick from on the roster: times, unpaid break, location and marker."),
           show: can(me, "shift_templates:update"),
         },
         {
           to: "/settings/claim-types",
-          title: "Claim types",
-          body: "What staff can claim, receipt rules, monthly and yearly caps, and how claims are paid.",
+          title: t("Claim types"),
+          body: t("What staff can claim, receipt rules, monthly and yearly caps, and how claims are paid."),
           show: can(me, "claim_types:read"),
         },
         {
           // Payroll's settings live with the runs (Payroll → Settings); this opens that dialog.
           to: "/payroll",
-          title: "Payroll",
-          body: "Pay day, cutoff, payslip release, CPF advice code, FWL levy details and the bank account for salary files.",
+          title: t("Payroll"),
+          body: t(
+            "Pay day, cutoff, payslip release, CPF advice code, FWL levy details and the bank account for salary files.",
+          ),
           show: can(me, "payroll:read"),
         },
         {
           to: "/payroll/allowances",
-          title: "Allowance treatment",
-          body: "How each allowance counts for CPF, in incomplete months, and in the gross rate of pay for holiday pay and leave encashment.",
+          title: t("Allowance treatment"),
+          body: t(
+            "How each allowance counts for CPF, in incomplete months, and in the gross rate of pay for holiday pay and leave encashment.",
+          ),
           show: can(me, "payroll:read"),
         },
         {
           to: "/settings/documents",
-          title: "Documents",
-          body: "Document categories and who sees them, letter templates (offer, KETs, confirmation, salary change, employment certificate).",
+          title: t("Documents"),
+          body: t(
+            "Document categories and who sees them, letter templates (offer, KETs, confirmation, salary change, employment certificate).",
+          ),
           show: can(me, "documents:update"),
         },
       ],
     },
     {
       id: "account",
-      title: "Your account",
+      title: t("Your account"),
       links: [
         {
           to: "/settings/notifications",
-          title: "Notifications",
-          body: "What is emailed to you, and whether this server can send email.",
+          title: t("Notifications"),
+          body: t("What is emailed to you, and whether this server can send email."),
           show: true,
         },
       ],
@@ -158,7 +172,10 @@ function SettingsPage() {
   const visible = groups.map((g) => ({ ...g, links: g.links.filter((l) => l.show) })).filter((g) => g.links.length > 0);
   return (
     <>
-      <PageHeader title="Settings" description="Your organisation, who can sign in, and each module's defaults." />
+      <PageHeader
+        title={t("Settings")}
+        description={t("Your organisation, who can sign in, and each module's defaults.")}
+      />
       <div className="flex flex-col gap-8">
         {visible.map((group) => (
           <section key={group.id} aria-labelledby={`settings-${group.id}`}>
@@ -186,8 +203,9 @@ function SettingsPage() {
       </div>
       {visible.every((g) => g.id === "account") ? (
         <p className="mt-6 text-ui text-primary-300">
-          Your role doesn't manage the organisation's settings. Your profile, sign-in and devices are under your name,
-          top right.
+          {t(
+            "Your role doesn't manage the organisation's settings. Your profile, sign-in and devices are under your name, top right.",
+          )}
         </p>
       ) : null}
     </>

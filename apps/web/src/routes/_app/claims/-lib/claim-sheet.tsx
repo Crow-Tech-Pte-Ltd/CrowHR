@@ -26,6 +26,7 @@ import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Camera, Loader2, Paperclip, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 import { canForAll, useMe } from "../../../../auth/session.ts";
+import { useT } from "../../../../i18n/index.ts";
 import {
   api,
   type ClaimDto,
@@ -144,6 +145,7 @@ export function ClaimSheet({
   draft?: ClaimDto | null;
   onDone?: (claim: ClaimDto) => void;
 }) {
+  const tWorkflow = useT("workflows");
   const mobile = useIsMobile();
   const qc = useQueryClient();
   const me = useMe();
@@ -205,7 +207,10 @@ export function ClaimSheet({
     setLines((ls) => ls.map((l) => ({ ...l, receipts: [] })));
     setRecheckTypes(true);
     setErrors(({ employeeId: _, ...rest }) => rest);
-    if (hadReceipts) toast(`Receipts removed. Attach them again for ${next?.name ?? "yourself"}.`);
+    if (hadReceipts)
+      toast(
+        tWorkflow("Receipts removed. Attach them again for {arg1}.", { arg1: next?.name ?? tWorkflow("yourself") }),
+      );
   };
 
   const update = (key: string, patch: Partial<FormLine> | ((l: FormLine) => Partial<FormLine>)) =>
@@ -232,17 +237,20 @@ export function ClaimSheet({
   const payload = (): { employeeId?: string; lines: LineDraft[] } | null => {
     const errs: Record<string, string> = {};
     const out: LineDraft[] = [];
-    if (!targetId) errs.employeeId = "Choose who this claim is for.";
+    if (!targetId) errs.employeeId = tWorkflow("Choose who this claim is for.");
     lines.forEach((l, i) => {
       const amount = amountOf(l);
-      if (!l.claimTypeId) errs[`lines.${i}.claimTypeId`] = "Pick what the expense was for.";
+      if (!l.claimTypeId) errs[`lines.${i}.claimTypeId`] = tWorkflow("Pick what the expense was for.");
       if (amount === null)
         errs[`lines.${i}.amountMinor`] =
-          exponentOf(l.currency) === 0 ? "Enter a whole amount, e.g. 5000." : "Enter the amount, e.g. 45.60.";
+          exponentOf(l.currency) === 0
+            ? tWorkflow("Enter a whole amount, e.g. 5000.")
+            : tWorkflow("Enter the amount, e.g. 45.60.");
       if (l.currency !== "SGD" && previewSgd(l.currency, amount, l.rate || null) === null)
-        errs[`lines.${i}.rate`] = `Enter SGD per 1 ${l.currency}, up to 6 decimal places.`;
-      if (l.showGst && l.gstText && gstOf(l) === null) errs[`lines.${i}.gstCents`] = "Enter the GST, e.g. 3.76.";
-      if (l.uploading) errs[`lines.${i}.receiptIds`] = "Wait for the receipt to finish uploading.";
+        errs[`lines.${i}.rate`] = tWorkflow("Enter SGD per 1 {arg1}, up to 6 decimal places.", { arg1: l.currency });
+      if (l.showGst && l.gstText && gstOf(l) === null)
+        errs[`lines.${i}.gstCents`] = tWorkflow("Enter the GST, e.g. 3.76.");
+      if (l.uploading) errs[`lines.${i}.receiptIds`] = tWorkflow("Wait for the receipt to finish uploading.");
       out.push({
         claimTypeId: l.claimTypeId,
         expenseDate: l.expenseDate,
@@ -273,18 +281,18 @@ export function ClaimSheet({
     },
     onSuccess: (claim) => {
       void qc.invalidateQueries({ queryKey: claimKeys.all });
-      const forWhom = behalfName ? ` for ${behalfName}` : "";
+      const forWhom = behalfName ? ` ${tWorkflow("for {name}", { name: behalfName })}` : "";
       toast.success(
         claim.status === "submitted"
-          ? `Claim ${claim.claimNumber}${forWhom} sent for approval`
-          : `Draft saved${forWhom}`,
+          ? tWorkflow("Claim {arg1}{arg2} sent for approval", { arg1: claim.claimNumber ?? "", arg2: forWhom })
+          : tWorkflow("Draft saved{arg1}", { arg1: forWhom }),
       );
       onOpenChange(false);
       onDone?.(claim);
     },
     onError: (err) => {
       if (err instanceof Error && err.message === "fix-fields") {
-        setFormError("Some details are missing. Check the highlighted fields.");
+        setFormError(tWorkflow("Some details are missing. Check the highlighted fields."));
         return;
       }
       const kept = errorDetails<{ draftId?: string }>(err)?.draftId;
@@ -296,8 +304,8 @@ export function ClaimSheet({
       const code = errorCode(err);
       setFormError(
         code === "validation_failed" && Object.keys(fieldErrors(err)).length
-          ? `${errorMessage(err)}${kept ? " Your draft is saved." : ""}`
-          : `${errorMessage(err)}${kept ? " Your draft is saved." : ""}`,
+          ? `${errorMessage(err)}${kept ? ` ${tWorkflow("Your draft is saved.")}` : ""}`
+          : `${errorMessage(err)}${kept ? ` ${tWorkflow("Your draft is saved.")}` : ""}`,
       );
     },
   });
@@ -314,10 +322,10 @@ export function ClaimSheet({
       >
         <div className="border-b border-border px-4 pb-3 pt-4 sm:px-5">
           <SheetTitle className="font-azeret text-base font-semibold">
-            {draftId ? "Edit claim" : "New claim"}
+            {draftId ? tWorkflow("Edit claim") : tWorkflow("New claim")}
           </SheetTitle>
           <SheetDescription id="claim-sheet-desc" className="text-2xs text-primary-300">
-            Photo of the receipt first, then the amount, type and date.
+            {tWorkflow("Photo of the receipt first, then the amount, type and date.")}
           </SheetDescription>
         </div>
         <form
@@ -336,14 +344,14 @@ export function ClaimSheet({
             ) : null}
             {mayPick && !draftId ? (
               <FormField
-                label="Claim for"
+                label={tWorkflow("Claim for")}
                 className="mb-5"
                 required={!me.employeeId}
                 error={errors.employeeId}
                 hint={
                   uploading
-                    ? "Wait for the receipts to finish uploading to change the employee."
-                    : "The claim types, caps and receipts follow this employee."
+                    ? tWorkflow("Wait for the receipts to finish uploading to change the employee.")
+                    : tWorkflow("The claim types, caps and receipts follow this employee.")
                 }
               >
                 <EmployeePicker
@@ -355,7 +363,7 @@ export function ClaimSheet({
               </FormField>
             ) : behalfName ? (
               <p className="mb-5 text-ui" data-testid="claim-for">
-                <span className="text-primary-300">For </span>
+                <span className="text-primary-300">{tWorkflow("For")} </span>
                 {behalfName}
                 <span className="num text-primary-200">
                   {" "}
@@ -367,14 +375,17 @@ export function ClaimSheet({
               <Alert className="mb-4">
                 <AlertDescription>
                   {behalfName
-                    ? `No claim types are open to ${behalfName}. Check who can claim each type in Settings → Claim types.`
-                    : "No claim types are set up for you yet. Ask HR to add them in Settings → Claim types."}
+                    ? tWorkflow(
+                        "No claim types are open to {arg1}. Check who can claim each type in Settings → Claim types.",
+                        { arg1: behalfName },
+                      )
+                    : tWorkflow("No claim types are set up for you yet. Ask HR to add them in Settings → Claim types.")}
                 </AlertDescription>
               </Alert>
             ) : null}
             {!targetId ? (
               <p className="mb-4 text-ui text-primary-300" data-testid="choose-employee-first">
-                Choose the employee first: the claim types and caps depend on who the claim is for.
+                {tWorkflow("Choose the employee first: the claim types and caps depend on who the claim is for.")}
               </p>
             ) : null}
             <ol className="flex flex-col gap-5">
@@ -411,12 +422,12 @@ export function ClaimSheet({
               }
               disabled={lines.length >= 30}
             >
-              <Plus aria-hidden /> Add another expense
+              <Plus aria-hidden /> {tWorkflow("Add another expense")}
             </Button>
           </div>
           <div className="flex items-center gap-2 border-t border-border bg-surface-50 px-4 py-3 sm:px-5">
             <div className="mr-auto min-w-0">
-              <p className={textStyle.field}>Total</p>
+              <p className={textStyle.field}>{tWorkflow("Total")}</p>
               <p className="num text-base font-semibold" data-testid="claim-total">
                 {formatMoney(total)}
               </p>
@@ -430,11 +441,11 @@ export function ClaimSheet({
                 save.mutate(false);
               }}
             >
-              Save draft
+              {tWorkflow("Save draft")}
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending} data-testid="submit-claim">
               {save.isPending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              Submit
+              {tWorkflow("Submit")}
             </Button>
           </div>
         </form>
@@ -472,6 +483,7 @@ function LineEditor({
   onRemove: () => void;
   onView: (index: number) => void;
 }) {
+  const tWorkflow = useT("workflows");
   const camera = React.useRef<HTMLInputElement>(null);
   const picker = React.useRef<HTMLInputElement>(null);
   const type = types.find((t) => t.id === l.claimTypeId);
@@ -481,10 +493,18 @@ function LineEditor({
   return (
     <li className="flex flex-col gap-3" data-testid={`claim-line-${i}`}>
       <div className="flex items-center justify-between">
-        <h3 className={textStyle.group}>{lineCount > 1 ? `Expense ${i + 1}` : "Expense"}</h3>
+        <h3 className={textStyle.group}>
+          {lineCount > 1 ? tWorkflow("Expense {arg1}", { arg1: i + 1 }) : tWorkflow("Expense")}
+        </h3>
         {lineCount > 1 ? (
-          <Button type="button" variant="ghost" size="sm" onClick={onRemove} aria-label={`Remove expense ${i + 1}`}>
-            <Trash2 aria-hidden /> Remove
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            aria-label={tWorkflow("Remove expense {arg1}", { arg1: i + 1 })}
+          >
+            <Trash2 aria-hidden /> {tWorkflow("Remove")}
           </Button>
         ) : null}
       </div>
@@ -541,7 +561,11 @@ function LineEditor({
             disabled={l.receipts.length >= 5}
           >
             {l.uploading ? <Loader2 className="animate-spin" aria-hidden /> : <Camera aria-hidden />}
-            {l.uploading ? "Uploading…" : l.receipts.length ? "Add another photo" : "Snap receipt"}
+            {l.uploading
+              ? tWorkflow("Uploading…")
+              : l.receipts.length
+                ? tWorkflow("Add another photo")
+                : tWorkflow("Snap receipt")}
           </Button>
           <Button
             type="button"
@@ -549,14 +573,14 @@ function LineEditor({
             size="lg"
             onClick={() => picker.current?.click()}
             disabled={l.receipts.length >= 5}
-            aria-label="Choose file"
+            aria-label={tWorkflow("Choose file")}
           >
             <Paperclip aria-hidden />
-            <span className="hidden sm:inline">Choose file</span>
+            <span className="hidden sm:inline">{tWorkflow("Choose file")}</span>
           </Button>
         </div>
         <p className={cn("mt-1 text-2xs", err("receiptIds") ? "text-danger-300" : "text-primary-200")}>
-          {err("receiptIds") ?? (type ? type.receiptHint : "Photo or PDF, up to 10 MB.")}
+          {err("receiptIds") ?? (type ? type.receiptHint : tWorkflow("Photo or PDF, up to 10 MB."))}
         </p>
       </div>
 
@@ -564,7 +588,7 @@ function LineEditor({
       <div className="grid grid-cols-[6.5rem_1fr] gap-2">
         <div>
           <Label htmlFor={id("currency")} className="mb-1 block text-2xs">
-            Currency
+            {tWorkflow("Currency")}
           </Label>
           <Select
             value={l.currency}
@@ -572,7 +596,7 @@ function LineEditor({
               onChange({ currency, rate: currency === "SGD" ? "" : l.rate, showGst: currency === "SGD" && l.showGst })
             }
           >
-            <SelectTrigger id={id("currency")} className="num" aria-label="Currency">
+            <SelectTrigger id={id("currency")} className="num" aria-label={tWorkflow("Currency")}>
               <SelectValue>{l.currency}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -586,7 +610,7 @@ function LineEditor({
         </div>
         <div>
           <Label htmlFor={id("amount")} className="mb-1 block text-2xs">
-            Amount
+            {tWorkflow("Amount")}
           </Label>
           <Input
             id={id("amount")}
@@ -610,7 +634,7 @@ function LineEditor({
         <div className="grid grid-cols-[1fr_auto] items-end gap-2">
           <div>
             <Label htmlFor={id("rate")} className="mb-1 block text-2xs">
-              Rate: SGD per 1 {l.currency}
+              {tWorkflow("Rate: SGD per 1")} {l.currency}
             </Label>
             <Input
               id={id("rate")}
@@ -628,15 +652,15 @@ function LineEditor({
           </p>
           {err("rate") ? <p className="col-span-2 text-2xs text-danger-300">{err("rate")}</p> : null}
           <p className="col-span-2 text-2xs text-primary-200">
-            Use the rate on your card statement. Rounded half-up to the cent.
+            {tWorkflow("Use the rate on your card statement. Rounded half-up to the cent.")}
           </p>
         </div>
       ) : null}
 
       {/* Type: one tap. */}
       <fieldset>
-        <legend className="mb-1 text-2xs font-medium">What was it for?</legend>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Claim type">
+        <legend className="mb-1 text-2xs font-medium">{tWorkflow("What was it for?")}</legend>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={tWorkflow("Claim type")}>
           {types.map((t) => {
             const selected = t.id === l.claimTypeId;
             return (
@@ -670,7 +694,7 @@ function LineEditor({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label htmlFor={id("date")} className="mb-1 block text-2xs">
-            Date
+            {tWorkflow("Date")}
           </Label>
           <DatePicker
             id={id("date")}
@@ -682,11 +706,11 @@ function LineEditor({
         </div>
         <div>
           <Label htmlFor={id("merchant")} className="mb-1 block text-2xs">
-            Merchant
+            {tWorkflow("Merchant")}
           </Label>
           <Input
             id={id("merchant")}
-            placeholder="Grab, Kopitiam…"
+            placeholder={tWorkflow("Grab, Kopitiam…")}
             value={l.merchant}
             maxLength={100}
             onChange={(e) => onChange({ merchant: e.target.value })}
@@ -698,11 +722,11 @@ function LineEditor({
       </div>
       <div>
         <Label htmlFor={id("description")} className="mb-1 block text-2xs">
-          Description
+          {tWorkflow("Description")}
         </Label>
         <Input
           id={id("description")}
-          placeholder="Taxi to client meeting at Raffles Place"
+          placeholder={tWorkflow("Taxi to client meeting at Raffles Place")}
           value={l.description}
           maxLength={200}
           onChange={(e) => onChange({ description: e.target.value })}
@@ -715,7 +739,7 @@ function LineEditor({
           <div className="grid grid-cols-[1fr_auto] items-end gap-2">
             <div>
               <Label htmlFor={id("gst")} className="mb-1 block text-2xs">
-                GST included (S$)
+                {tWorkflow("GST included (S$)")}
               </Label>
               <Input
                 id={id("gst")}
@@ -728,7 +752,7 @@ function LineEditor({
               />
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ showGst: false, gstText: "" })}>
-              No GST
+              {tWorkflow("No GST")}
             </Button>
             {err("gstCents") ? <p className="col-span-2 text-2xs text-danger-300">{err("gstCents")}</p> : null}
           </div>
@@ -738,7 +762,7 @@ function LineEditor({
             className="focus-ring w-fit rounded-sm text-2xs font-medium text-biru-400 hover:underline"
             onClick={() => onChange({ showGst: true })}
           >
-            Add GST from a tax invoice
+            {tWorkflow("Add GST from a tax invoice")}
           </button>
         )
       ) : null}

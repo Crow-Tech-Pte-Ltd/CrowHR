@@ -1,8 +1,10 @@
 import { cn } from "@crowhr/ui";
 import { Link } from "@tanstack/react-router";
+import { useT } from "../i18n/index.ts";
 
 /** My leave | Team calendar, under the page header. */
 export function LeaveNav({ current }: { current: "mine" | "team" }) {
+  const tWorkflow = useT("workflows");
   const item = (to: "/leave" | "/leave/team", label: string, active: boolean) => (
     <Link
       to={to}
@@ -12,11 +14,11 @@ export function LeaveNav({ current }: { current: "mine" | "team" }) {
         active ? "border-ink text-ink" : "border-transparent text-primary-300 hover:text-ink",
       )}
     >
-      {label}
+      {tWorkflow(label)}
     </Link>
   );
   return (
-    <nav aria-label="Leave" className="mb-5 flex gap-5 border-b border-border">
+    <nav aria-label={tWorkflow("Leave")} className="mb-5 flex gap-5 border-b border-border">
       {item("/leave", "My leave", current === "mine")}
       {item("/leave/team", "Calendar", current === "team")}
     </nav>

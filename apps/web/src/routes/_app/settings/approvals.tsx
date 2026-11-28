@@ -30,6 +30,7 @@ import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote, Section } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { ApiError, apiPut } from "../../../lib/api.ts";
 import { delegationsQuery, type Policy, type PolicyType, peopleQuery, policiesQuery } from "../../../workflows/api.ts";
 import { thresholdLabel } from "../../../workflows/format.ts";
@@ -103,6 +104,7 @@ function defaultDraft(type: string): DraftPolicy {
 }
 
 function ApprovalSettingsPage() {
+  const t = useT("settings-account");
   const me = useMe();
   const policies = useQuery(policiesQuery);
   const [editing, setEditing] = React.useState<PolicyType | null>(null);
@@ -113,23 +115,27 @@ function ApprovalSettingsPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Approvals"
-        description="Who approves what. Requests go through the steps in order, and anyone in a step can decide. Requests already sent keep the chain they started with."
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Approvals")}
+        description={t(
+          "Who approves what. Requests go through the steps in order, and anyone in a step can decide. Requests already sent keep the chain they started with.",
+        )}
       />
       {!can(me, "policies:read") ? (
         <Alert variant="info" className="mb-6">
-          <AlertDescription>Only owners and HR admins can change approval chains.</AlertDescription>
+          <AlertDescription>{t("Only owners and HR admins can change approval chains.")}</AlertDescription>
         </Alert>
       ) : null}
 
       <Section
         id="chains"
-        title="Approval chains"
-        description="Sensible defaults are already on: a manager approves first, then HR. If someone has no manager, or would approve their own request, that step is skipped."
+        title={t("Approval chains")}
+        description={t(
+          "Sensible defaults are already on: a manager approves first, then HR. If someone has no manager, or would approve their own request, that step is skipped.",
+        )}
       >
         {policies.isPending ? (
-          <div className="flex flex-col gap-2 p-4" role="status" aria-label="Loading approval chains">
+          <div className="flex flex-col gap-2 p-4" role="status" aria-label={t("Loading approval chains")}>
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
           </div>
@@ -147,11 +153,13 @@ function ApprovalSettingsPage() {
       {canManageCover ? (
         <Section
           id="cover"
-          title="Out-of-office cover"
-          description="While someone is away, a colleague also gets their approval tasks and decides on their behalf."
+          title={t("Out-of-office cover")}
+          description={t(
+            "While someone is away, a colleague also gets their approval tasks and decides on their behalf.",
+          )}
           actions={
             <Button size="sm" variant="secondary" onClick={() => setCoverOpen(true)}>
-              <Plane /> Set cover
+              <Plane /> {t("Set cover")}
             </Button>
           }
         >
@@ -163,7 +171,7 @@ function ApprovalSettingsPage() {
             <ErrorNote error={cover.error} retry={() => void cover.refetch()} />
           ) : cover.data.items.length === 0 ? (
             <p className="px-4 py-4 text-ui text-primary-300">
-              Nobody is away. Members can also set their own cover from the Inbox.
+              {t("Nobody is away. Members can also set their own cover from the Inbox.")}
             </p>
           ) : (
             <ul className="divide-y divide-border">
@@ -177,7 +185,11 @@ function ApprovalSettingsPage() {
                     <span className="num text-2xs text-primary-300">
                       {formatDate(d.startsOn)} – {formatDate(d.endsOn)}
                     </span>
-                    {d.active ? <StatusPill tone="info">On now</StatusPill> : <StatusPill>Upcoming</StatusPill>}
+                    {d.active ? (
+                      <StatusPill tone="info">{t("On now")}</StatusPill>
+                    ) : (
+                      <StatusPill>{t("Upcoming")}</StatusPill>
+                    )}
                   </span>
                 </li>
               ))}
@@ -193,13 +205,14 @@ function ApprovalSettingsPage() {
 }
 
 function Chain({ steps }: { steps: Policy["steps"] }) {
+  const t = useT("settings-account");
   return (
     <span className="flex flex-wrap items-center gap-1">
       {steps.map((s, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: a static, ordered list of steps without IDs.
         <React.Fragment key={`${i}-${s.approverRule}`}>
-          {i > 0 ? <ArrowRight className="size-3 text-primary-200" aria-label="then" /> : null}
-          <Badge>{s.label}</Badge>
+          {i > 0 ? <ArrowRight className="size-3 text-primary-200" aria-label={t("then")} /> : null}
+          <Badge>{s.approverRule.startsWith("member:") ? s.label : t(s.label)}</Badge>
         </React.Fragment>
       ))}
     </span>
@@ -221,6 +234,7 @@ function conditionText(p: Policy) {
 }
 
 function TypeRow({ type, onEdit }: { type: PolicyType; onEdit: () => void }) {
+  const t = useT("settings-account");
   const def = type.policies.find((p) => p.isDefault) ?? type.policies[0];
   const rules = type.policies.filter((p) => !p.isDefault);
   return (
@@ -230,9 +244,9 @@ function TypeRow({ type, onEdit }: { type: PolicyType; onEdit: () => void }) {
     >
       <div className="flex min-w-0 flex-col gap-1.5">
         <p className="flex flex-wrap items-center gap-2">
-          <span className="font-azeret text-xs font-semibold">{type.label}</span>
-          {type.ownerOnly ? <Badge variant="muted">Owner only</Badge> : null}
-          {!type.installed ? <span className="text-2xs text-primary-200">Not in use yet</span> : null}
+          <span className="font-azeret text-xs font-semibold">{t(type.label)}</span>
+          {type.ownerOnly ? <Badge variant="muted">{t("Owner only")}</Badge> : null}
+          {!type.installed ? <span className="text-2xs text-primary-200">{t("Not in use yet")}</span> : null}
         </p>
         {def ? (
           <div className="flex flex-wrap items-center gap-2 text-2xs text-primary-300">
@@ -248,17 +262,23 @@ function TypeRow({ type, onEdit }: { type: PolicyType; onEdit: () => void }) {
         ))}
       </div>
       {type.canEdit ? (
-        <Button size="sm" variant="secondary" onClick={onEdit} aria-label={`Edit ${type.label} approvals`}>
-          Edit
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={onEdit}
+          aria-label={t("Edit {label} approvals", { label: t(type.label) })}
+        >
+          {t("Edit")}
         </Button>
       ) : (
-        <span className="text-2xs text-primary-200">Only an owner can change this</span>
+        <span className="text-2xs text-primary-200">{t("Only an owner can change this")}</span>
       )}
     </li>
   );
 }
 
 function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void }) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const people = useQuery(peopleQuery);
   const initial = React.useMemo(() => {
@@ -290,26 +310,28 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
         })),
       }),
     onSuccess: () => {
-      toast.success(`${type.label} approvals saved`, { description: "New requests use this chain from now on." });
+      toast.success(t("{label} approvals saved", { label: t(type.label) }), {
+        description: t("New requests use this chain from now on."),
+      });
       void qc.invalidateQueries({ queryKey: ["approvals", "policies"] });
       onClose();
     },
     onError: (err) => {
       const issues = err instanceof ApiError ? Object.values(err.fieldErrors) : [];
-      setError(issues[0] ?? (err instanceof Error ? err.message : "Not saved. Try again."));
+      setError(issues[0] ?? (err instanceof Error ? err.message : t("Not saved. Try again.")));
     },
   });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     for (const d of drafts) {
-      if (!d.steps.length) return setError("Every chain needs at least one step.");
+      if (!d.steps.length) return setError(t("Every chain needs at least one step."));
       if (d.steps.some((s) => s.rule === "member" && !s.memberId))
-        return setError("Choose the person for each “specific person” step.");
+        return setError(t("Choose the person for each “specific person” step."));
       if (d.steps.some((s) => !/^\d{1,2}$/.test(s.escalateAfterDays) || Number(s.escalateAfterDays) > 60))
-        return setError("Escalation is a whole number of days from 0 (off) to 60.");
+        return setError(t("Escalation is a whole number of days from 0 (off) to 60."));
       if (d.condition && d.condition.amountGte === undefined && !d.condition.typeCodes)
-        return setError("Enter the amount for each rule, or remove the rule.");
+        return setError(t("Enter the amount for each rule, or remove the rule."));
     }
     setError(null);
     save.mutate();
@@ -323,10 +345,13 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
           <DialogHeader>
-            <DialogTitle>Who approves {noun}?</DialogTitle>
+            <DialogTitle>
+              {t("Who approves")} {noun}?
+            </DialogTitle>
             <DialogDescription>
-              Steps run in order. Anyone in a step can decide; the first decision counts. If nobody acts, the request
-              escalates one level up after the number of days you set.
+              {t(
+                "Steps run in order. Anyone in a step can decide; the first decision counts. If nobody acts, the request escalates one level up after the number of days you set.",
+              )}
             </DialogDescription>
           </DialogHeader>
           {drafts.map((d) => (
@@ -336,23 +361,25 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
               data-testid="policy-draft"
             >
               <legend className={cn("px-1", textStyle.group)}>
-                {d.condition === null ? "Normally" : "Larger amounts"}
+                {d.condition === null ? t("Normally") : t("Larger amounts")}
               </legend>
               {d.condition !== null && d.condition.amountGte !== undefined ? (
                 <div className="flex flex-wrap items-center gap-2 text-ui">
-                  When the amount is
+                  {t("When the amount is")}
                   <MoneyInput
                     className="w-36"
-                    aria-label="Amount threshold"
+                    aria-label={t("Amount threshold")}
                     value={d.condition.amountGte ?? null}
                     onChange={(cents) =>
                       update(d.key, (x) => ({ ...x, condition: { ...x.condition, amountGte: cents ?? undefined } }))
                     }
                   />
-                  or more
+                  {t("or more")}
                 </div>
               ) : d.condition?.typeCodes ? (
-                <p className="text-ui text-primary-300">For types: {d.condition.typeCodes.join(", ")}</p>
+                <p className="text-ui text-primary-300">
+                  {t("For types:")} {d.condition.typeCodes.join(", ")}
+                </p>
               ) : null}
               <ol className="flex flex-col gap-2">
                 {d.steps.map((s, i) => (
@@ -360,7 +387,9 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
                     key={s.key}
                     className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:grid-cols-[auto_1fr_auto_auto]"
                   >
-                    <span className="num w-12 font-azeret text-2xs text-primary-200">Step {i + 1}</span>
+                    <span className="num w-12 font-azeret text-2xs text-primary-200">
+                      {t("Step")} {i + 1}
+                    </span>
                     <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
                       <Select
                         value={s.rule}
@@ -371,13 +400,13 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
                           }))
                         }
                       >
-                        <SelectTrigger aria-label={`Step ${i + 1} approver`} className="sm:w-56">
+                        <SelectTrigger aria-label={t("Step {value} approver", { value: i + 1 })} className="sm:w-56">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {RULES.map((r) => (
                             <SelectItem key={r.value} value={r.value}>
-                              {r.label}
+                              {t(r.label)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -392,8 +421,8 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
                             }))
                           }
                         >
-                          <SelectTrigger aria-label={`Step ${i + 1} person`} className="sm:w-48">
-                            <SelectValue placeholder="Choose a person" />
+                          <SelectTrigger aria-label={t("Step {value} person", { value: i + 1 })} className="sm:w-48">
+                            <SelectValue placeholder={t("Choose a person")} />
                           </SelectTrigger>
                           <SelectContent>
                             {(people.data?.items ?? []).map((p) => (
@@ -406,11 +435,11 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
                       ) : null}
                     </div>
                     <div className="col-start-2 flex items-center gap-1.5 text-2xs text-primary-300 sm:col-start-auto">
-                      Escalate after
+                      {t("Escalate after")}
                       <Input
                         inputMode="numeric"
                         className="num h-8 w-12 text-right"
-                        aria-label={`Step ${i + 1} escalate after days`}
+                        aria-label={t("Step {value} escalate after days", { value: i + 1 })}
                         value={s.escalateAfterDays}
                         onChange={(e) =>
                           update(d.key, (x) => ({
@@ -423,13 +452,13 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
                           }))
                         }
                       />
-                      days
+                      {t("days")}
                     </div>
                     <Button
                       type="button"
                       size="icon-sm"
                       variant="ghost"
-                      aria-label={`Remove step ${i + 1}`}
+                      aria-label={t("Remove step {value}", { value: i + 1 })}
                       disabled={d.steps.length === 1}
                       onClick={() => update(d.key, (x) => ({ ...x, steps: x.steps.filter((y) => y.key !== s.key) }))}
                       className="col-start-3 row-start-1 sm:col-start-auto sm:row-start-auto"
@@ -452,7 +481,7 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
                     }))
                   }
                 >
-                  <Plus /> Add a step
+                  <Plus /> {t("Add a step")}
                 </Button>
                 {d.condition !== null ? (
                   <Button
@@ -461,7 +490,7 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
                     variant="ghost"
                     onClick={() => setDrafts((all) => all.filter((x) => x.key !== d.key))}
                   >
-                    <Trash2 /> Remove this rule
+                    <Trash2 /> {t("Remove this rule")}
                   </Button>
                 ) : null}
               </div>
@@ -489,11 +518,11 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
                   ])
                 }
               >
-                <Plus /> Add a rule for larger amounts
+                <Plus /> {t("Add a rule for larger amounts")}
               </Button>
             ) : null}
             <Button type="button" size="sm" variant="ghost" onClick={() => setDrafts([defaultDraft(type.subjectType)])}>
-              <RotateCcw /> Back to the default
+              <RotateCcw /> {t("Back to the default")}
             </Button>
           </div>
           {error ? (
@@ -503,10 +532,10 @@ function ChainEditor({ type, onClose }: { type: PolicyType; onClose: () => void 
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending}>
-              Save
+              {t("Save")}
             </Button>
           </DialogFooter>
         </form>

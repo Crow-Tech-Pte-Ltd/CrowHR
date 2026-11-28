@@ -13,6 +13,7 @@ import {
 } from "@crowhr/ui";
 import { Moon, Trash2 } from "lucide-react";
 import * as React from "react";
+import { useT } from "../i18n/index.ts";
 import { COLOUR_BAR, hm, type Shift, shortDay, type Template } from "./api.ts";
 import { ConflictTag } from "./week-grid.tsx";
 
@@ -57,6 +58,7 @@ export function ShiftEditor({
   onDelete: (() => void) | null;
   onClose: () => void;
 }) {
+  const tWorkflow = useT("workflows");
   const s = target.shift;
   const [templateId, setTemplateId] = React.useState<string | null>(s?.templateId ?? null);
   const [start, setStart] = React.useState(s?.start ?? "09:00");
@@ -84,10 +86,13 @@ export function ShiftEditor({
       <DialogContent className="max-w-lg" data-testid="shift-editor">
         <DialogHeader>
           <DialogTitle>
-            {s?.kind === "rest" ? "Rest day" : s ? "Edit shift" : "Add shift"} · {shortDay(target.date)}
+            {s?.kind === "rest" ? tWorkflow("Rest day") : s ? tWorkflow("Edit shift") : tWorkflow("Add shift")} ·{" "}
+            {shortDay(target.date)}
           </DialogTitle>
           <DialogDescription>
-            {target.employeeId ? target.employeeName : "Open shift: anyone on the roster can ask to pick it up."}
+            {target.employeeId
+              ? target.employeeName
+              : tWorkflow("Open shift: anyone on the roster can ask to pick it up.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -100,7 +105,7 @@ export function ShiftEditor({
         >
           {templates.length ? (
             <fieldset>
-              <legend className="mb-1.5 text-ui font-medium">Shift</legend>
+              <legend className="mb-1.5 text-ui font-medium">{tWorkflow("Shift")}</legend>
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                 {templates.map((t, i) => (
                   <button
@@ -129,13 +134,13 @@ export function ShiftEditor({
             </fieldset>
           ) : null}
           <div className="grid grid-cols-3 gap-3">
-            <FormField label="Starts">
+            <FormField label={tWorkflow("Starts")}>
               <Input type="time" className="num" value={start} onChange={(e) => setStart(e.target.value)} />
             </FormField>
-            <FormField label="Ends" hint={end <= start ? "Next day" : undefined}>
+            <FormField label={tWorkflow("Ends")} hint={end <= start ? tWorkflow("Next day") : undefined}>
               <Input type="time" className="num" value={end} onChange={(e) => setEnd(e.target.value)} />
             </FormField>
-            <FormField label="Break (min)">
+            <FormField label={tWorkflow("Break (min)")}>
               <Input
                 className="num text-right"
                 inputMode="numeric"
@@ -145,8 +150,8 @@ export function ShiftEditor({
             </FormField>
           </div>
           <p className="text-2xs text-primary-300">
-            Paid <span className="num font-semibold text-ink">{p !== null && p > 0 ? hm(p) : "—"}</span>
-            {custom && templateId ? " · custom times" : ""}
+            {tWorkflow("Paid")} <span className="num font-semibold text-ink">{p !== null && p > 0 ? hm(p) : "—"}</span>
+            {custom && templateId ? ` ${tWorkflow("· custom times")}` : ""}
           </p>
           {s?.conflicts.length ? (
             <ul
@@ -161,7 +166,7 @@ export function ShiftEditor({
               ))}
             </ul>
           ) : null}
-          <FormField label="Note" hint="Shown to the employee. Up to 200 characters.">
+          <FormField label={tWorkflow("Note")} hint={tWorkflow("Shown to the employee. Up to 200 characters.")}>
             <Textarea rows={2} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
           </FormField>
           {error ? (
@@ -179,21 +184,21 @@ export function ShiftEditor({
                 disabled={busy}
                 onClick={() => onSave({ kind: "rest", templateId: null, note: null })}
               >
-                <Moon aria-hidden /> Mark rest day
+                <Moon aria-hidden /> {tWorkflow("Mark rest day")}
               </Button>
             ) : null}
             {onDelete ? (
               <Button variant="ghost" size="sm" disabled={busy} onClick={onDelete}>
-                <Trash2 aria-hidden /> Remove
+                <Trash2 aria-hidden /> {tWorkflow("Remove")}
               </Button>
             ) : null}
           </div>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {tWorkflow("Cancel")}
             </Button>
             <Button variant="primary" type="submit" form="shift-form" disabled={busy || p === null || p <= 0}>
-              {busy ? "Saving…" : "Save shift"}
+              {busy ? tWorkflow("Saving…") : tWorkflow("Save shift")}
             </Button>
           </div>
         </DialogFooter>

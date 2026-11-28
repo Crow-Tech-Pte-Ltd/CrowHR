@@ -38,6 +38,10 @@ It must pass: Biome (format and lint), the third-party licence check, TypeScript
 - **The design language**: calm, dense, precise. Hairline borders, Azeret Mono for headings and numbers, Ubuntu for text, the kuning accent for the one primary action. No gradients, blurred shadows or decorative statistics.
 - **Accessible screens**: keyboard navigation, visible focus, WCAG AA contrast, 360 px wide layouts.
 
+## Web localisation
+
+Use `useT` with the feature that owns the message. Keep the English source at the call site and add the same key to the feature’s Simplified Chinese, Malay and Tamil catalogs under `apps/web/src/i18n/catalogs/`. Use a whole sentence with named placeholders for dynamic values. The catalog test checks that every language preserves those placeholders. Keep organisation-entered text and statutory identifiers as supplied.
+
 ## Larger changes
 
 Anything beyond a bug fix or small improvement starts as an [OpenSpec change](/docs/developers/openspec/) so the requirements are agreed before code is written. Open an issue first to discuss it.

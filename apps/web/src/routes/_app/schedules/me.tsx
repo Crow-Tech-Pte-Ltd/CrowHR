@@ -30,6 +30,7 @@ import * as React from "react";
 import { useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { apiPost } from "../../../lib/api.ts";
 import {
   addDays,
@@ -53,9 +54,10 @@ export const Route = createFileRoute("/_app/schedules/me")({
   component: MySchedulePage,
 });
 
-const errorText = (err: unknown) => (err instanceof Error ? err.message : "That didn't work. Try again.");
+const errorText = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
 function MySchedulePage() {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const today = todaySg();
   const from = today;
@@ -65,10 +67,10 @@ function MySchedulePage() {
   if (!me.employeeId) {
     return (
       <>
-        <PageHeader title="My schedule" />
+        <PageHeader title={tWorkflow("My schedule")} />
         <EmptyState
-          title="Your sign-in isn't linked to an employee record."
-          description="There's no schedule to show. Ask HR to link your sign-in to your employee record."
+          title={tWorkflow("Your sign-in isn't linked to an employee record.")}
+          description={tWorkflow("There's no schedule to show. Ask HR to link your sign-in to your employee record.")}
         />
       </>
     );
@@ -76,12 +78,14 @@ function MySchedulePage() {
   return (
     <>
       <PageHeader
-        title="My schedule"
-        description="Your published shifts for the next 14 days. Offer a shift to a colleague or pick up an open one."
+        title={tWorkflow("My schedule")}
+        description={tWorkflow(
+          "Your published shifts for the next 14 days. Offer a shift to a colleague or pick up an open one.",
+        )}
         actions={
           <Button asChild variant="secondary" size="sm" className="hidden sm:inline-flex">
             <Link to="/schedules">
-              <CalendarClock aria-hidden /> Outlet roster
+              <CalendarClock aria-hidden /> {tWorkflow("Outlet roster")}
             </Link>
           </Button>
         }
@@ -108,7 +112,8 @@ function MySchedulePage() {
 }
 
 function ShiftLine({ s }: { s: MyShift }) {
-  if (s.kind === "rest") return <span className="text-ui text-primary-200">Rest day</span>;
+  const tWorkflow = useT("workflows");
+  if (s.kind === "rest") return <span className="text-ui text-primary-200">{tWorkflow("Rest day")}</span>;
   return (
     <span className="flex min-w-0 items-center gap-2">
       <span aria-hidden className={cn("h-8 w-[3px] shrink-0 rounded-full", COLOUR_BAR[s.colour])} />
@@ -151,6 +156,7 @@ function Days({
   today: string;
   onOffer: (s: MyShift) => void;
 }) {
+  const tWorkflow = useT("workflows");
   const dates: string[] = [];
   for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
   const weeks = [...new Set(dates.map(mondayOf))];
@@ -159,7 +165,7 @@ function Days({
   return (
     <Card aria-labelledby="days-title">
       <CardHeader>
-        <CardTitle id="days-title">Next 14 days</CardTitle>
+        <CardTitle id="days-title">{tWorkflow("Next 14 days")}</CardTitle>
       </CardHeader>
       <div className="border-t border-border" data-testid="my-days">
         {weeks.map((w) => {
@@ -172,10 +178,10 @@ function Days({
                 data-testid="unpublished-week"
               >
                 {w === thisWeek
-                  ? "This week's schedule hasn't been published yet."
+                  ? tWorkflow("This week's schedule hasn't been published yet.")
                   : w === addDays(thisWeek, 7)
-                    ? "Next week's schedule hasn't been published yet."
-                    : `The schedule for ${weekLabel(w)} hasn't been published yet.`}
+                    ? tWorkflow("Next week's schedule hasn't been published yet.")
+                    : tWorkflow("The schedule for {arg1} hasn't been published yet.", { arg1: weekLabel(w) })}
               </p>
             );
           }
@@ -200,22 +206,22 @@ function Days({
                             <ShiftLine s={s} />
                             {s.kind === "shift" && d >= today ? (
                               s.pendingSwap ? (
-                                <StatusPill tone="warning">Swap asked</StatusPill>
+                                <StatusPill tone="warning">{tWorkflow("Swap asked")}</StatusPill>
                               ) : (
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => onOffer(s)}
-                                  aria-label={`Swap or give away ${shortDay(d)}`}
+                                  aria-label={tWorkflow("Swap or give away {arg1}", { arg1: shortDay(d) })}
                                 >
-                                  <ArrowLeftRight aria-hidden /> Swap
+                                  <ArrowLeftRight aria-hidden /> {tWorkflow("Swap")}
                                 </Button>
                               )
                             ) : null}
                           </span>
                         ))
                       ) : (
-                        <span className="pt-0.5 text-ui text-primary-200">Off</span>
+                        <span className="pt-0.5 text-ui text-primary-200">{tWorkflow("Off")}</span>
                       )}
                     </span>
                   </li>
@@ -230,6 +236,7 @@ function Days({
 }
 
 function useSwapAction() {
+  const tWorkflow = useT("workflows");
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { id: string; action: "accept" | "decline" | "cancel" }) =>
@@ -237,50 +244,42 @@ function useSwapAction() {
     onSuccess: (s, v) => {
       toast.success(
         v.action === "accept"
-          ? "Accepted. Your manager will approve it."
+          ? tWorkflow("Accepted. Your manager will approve it.")
           : v.action === "decline"
-            ? "Declined"
-            : "Request cancelled",
+            ? tWorkflow("Declined")
+            : tWorkflow("Request cancelled"),
       );
       void qc.invalidateQueries({ queryKey: schedKeys.all });
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       return s;
     },
-    onError: (err) => toast.error(errorText(err)),
+    onError: (err) => toast.error(errorText(err, tWorkflow("That didn't work. Try again."))),
   });
 }
 
 function Offers({ swaps }: { swaps: Swap[] }) {
+  const tWorkflow = useT("workflows");
   const act = useSwapAction();
   if (!swaps.length) return null;
   return (
     <Card aria-labelledby="offers-title" className="border-ink/30">
       <CardHeader>
-        <CardTitle id="offers-title">Waiting for your answer</CardTitle>
+        <CardTitle id="offers-title">{tWorkflow("Waiting for your answer")}</CardTitle>
       </CardHeader>
       <ul className="divide-y divide-border border-t border-border" data-testid="swap-offers">
         {swaps.map((s) => (
           <li key={s.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-ui">
-              {s.kind === "swap" ? (
-                <>
-                  <span className="font-medium">{s.requester.name}</span> asks to swap their{" "}
-                  <span className="num">
-                    {shortDay(s.shift.date)} {s.shift.time}
-                  </span>{" "}
-                  for your{" "}
-                  <span className="num">
-                    {shortDay(s.peerShift?.date ?? "")} {s.peerShift?.time}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="font-medium">{s.requester.name}</span> offers you their shift on{" "}
-                  <span className="num">
-                    {shortDay(s.shift.date)} {s.shift.time}
-                  </span>
-                </>
-              )}
+              {s.kind === "swap"
+                ? tWorkflow("{name} asks to swap their {offered} for your {requested}.", {
+                    name: s.requester.name,
+                    offered: `${shortDay(s.shift.date)} ${s.shift.time}`,
+                    requested: `${shortDay(s.peerShift?.date ?? "")} ${s.peerShift?.time ?? ""}`,
+                  })
+                : tWorkflow("{name} offers you their shift on {shift}.", {
+                    name: s.requester.name,
+                    shift: `${shortDay(s.shift.date)} ${s.shift.time}`,
+                  })}
               {s.note ? <span className="block text-2xs text-primary-300">“{s.note}”</span> : null}
             </span>
             <span className="flex gap-2">
@@ -290,7 +289,7 @@ function Offers({ swaps }: { swaps: Swap[] }) {
                 onClick={() => act.mutate({ id: s.id, action: "decline" })}
                 disabled={act.isPending}
               >
-                Decline
+                {tWorkflow("Decline")}
               </Button>
               <Button
                 size="sm"
@@ -298,7 +297,7 @@ function Offers({ swaps }: { swaps: Swap[] }) {
                 onClick={() => act.mutate({ id: s.id, action: "accept" })}
                 disabled={act.isPending}
               >
-                Accept
+                {tWorkflow("Accept")}
               </Button>
             </span>
           </li>
@@ -309,19 +308,20 @@ function Offers({ swaps }: { swaps: Swap[] }) {
 }
 
 function OpenShifts({ shifts }: { shifts: MyShift[] }) {
+  const tWorkflow = useT("workflows");
   const qc = useQueryClient();
   const ask = useMutation({
     mutationFn: (id: string) => apiPost<Swap>("/api/v1/scheduling/swaps", { kind: "pickup", shiftId: id }),
     onSuccess: () => {
-      toast.success("Asked. Your manager will approve it.");
+      toast.success(tWorkflow("Asked. Your manager will approve it."));
       void qc.invalidateQueries({ queryKey: schedKeys.all });
     },
-    onError: (err) => toast.error(errorText(err)),
+    onError: (err) => toast.error(errorText(err, tWorkflow("That didn't work. Try again."))),
   });
   return (
     <Card aria-labelledby="open-title">
       <CardHeader>
-        <CardTitle id="open-title">Open shifts</CardTitle>
+        <CardTitle id="open-title">{tWorkflow("Open shifts")}</CardTitle>
       </CardHeader>
       {shifts.length ? (
         <ul className="divide-y divide-border border-t border-border">
@@ -332,24 +332,27 @@ function OpenShifts({ shifts }: { shifts: MyShift[] }) {
                 <ShiftLine s={s} />
               </span>
               <Button size="sm" variant="secondary" onClick={() => ask.mutate(s.id)} disabled={ask.isPending}>
-                Pick up
+                {tWorkflow("Pick up")}
               </Button>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="border-t border-border px-4 py-3 text-ui text-primary-300">No open shifts in the next 14 days.</p>
+        <p className="border-t border-border px-4 py-3 text-ui text-primary-300">
+          {tWorkflow("No open shifts in the next 14 days.")}
+        </p>
       )}
     </Card>
   );
 }
 
 function Requests({ swaps }: { swaps: Swap[] }) {
+  const tWorkflow = useT("workflows");
   const act = useSwapAction();
   return (
     <Card aria-labelledby="requests-title">
       <CardHeader>
-        <CardTitle id="requests-title">My swap requests</CardTitle>
+        <CardTitle id="requests-title">{tWorkflow("My swap requests")}</CardTitle>
       </CardHeader>
       {swaps.length ? (
         <ul className="divide-y divide-border border-t border-border" data-testid="my-swaps">
@@ -357,12 +360,16 @@ function Requests({ swaps }: { swaps: Swap[] }) {
             <li key={s.id} className="flex items-start justify-between gap-3 px-4 py-2.5">
               <span className="min-w-0 text-ui">
                 <span className="block">
-                  {s.kind === "pickup" ? "Pick up" : s.kind === "swap" ? "Swap" : "Give away"}{" "}
+                  {s.kind === "pickup"
+                    ? tWorkflow("Pick up")
+                    : s.kind === "swap"
+                      ? tWorkflow("Swap")
+                      : tWorkflow("Give away")}{" "}
                   <span className="num">{shortDay(s.shift.date)}</span>
                   {s.peer ? <> with {s.peer.name}</> : null}
                 </span>
                 <span className="block pt-1">
-                  <StatusPill tone={SWAP_STATUS[s.status].tone}>{SWAP_STATUS[s.status].label}</StatusPill>
+                  <StatusPill tone={SWAP_STATUS[s.status].tone}>{tWorkflow(SWAP_STATUS[s.status].label)}</StatusPill>
                 </span>
                 {s.reason && s.status !== "approved" ? (
                   <span className="block text-2xs text-primary-300">{s.reason}</span>
@@ -375,20 +382,23 @@ function Requests({ swaps }: { swaps: Swap[] }) {
                   onClick={() => act.mutate({ id: s.id, action: "cancel" })}
                   disabled={act.isPending}
                 >
-                  Cancel
+                  {tWorkflow("Cancel")}
                 </Button>
               ) : null}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="border-t border-border px-4 py-3 text-ui text-primary-300">You haven't asked for any swaps.</p>
+        <p className="border-t border-border px-4 py-3 text-ui text-primary-300">
+          {tWorkflow("You haven't asked for any swaps.")}
+        </p>
       )}
     </Card>
   );
 }
 
 function OfferSheet({ shift, onClose }: { shift: MyShift; onClose: () => void }) {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const roster = useQuery(rosterByIdQuery(shift.rosterId));
   const qc = useQueryClient();
@@ -411,11 +421,11 @@ function OfferSheet({ shift, onClose }: { shift: MyShift; onClose: () => void })
         note: note.trim() || null,
       }),
     onSuccess: () => {
-      toast.success("Sent. Your colleague accepts first, then your manager approves.");
+      toast.success(tWorkflow("Sent. Your colleague accepts first, then your manager approves."));
       void qc.invalidateQueries({ queryKey: schedKeys.all });
       onClose();
     },
-    onError: (err) => toast.error(errorText(err)),
+    onError: (err) => toast.error(errorText(err, tWorkflow("That didn't work. Try again."))),
   });
   return (
     <Sheet open onOpenChange={(o) => (o ? null : onClose())}>
@@ -427,7 +437,7 @@ function OfferSheet({ shift, onClose }: { shift: MyShift; onClose: () => void })
           </span>
         </SheetTitle>
         <SheetDescription>
-          Your colleague accepts first, then your manager approves. Nothing changes until then.
+          {tWorkflow("Your colleague accepts first, then your manager approves. Nothing changes until then.")}
         </SheetDescription>
         <form
           className="mt-5 flex flex-col gap-4"
@@ -439,18 +449,18 @@ function OfferSheet({ shift, onClose }: { shift: MyShift; onClose: () => void })
           <RadioGroup
             value={kind}
             onValueChange={(v) => setKind(v as "swap" | "giveaway")}
-            aria-label="Type of request"
+            aria-label={tWorkflow("Type of request")}
           >
             <span className="flex items-center gap-2 text-ui">
               <RadioGroupItem id="offer-swap" value="swap" />
-              <label htmlFor="offer-swap">Swap for one of their shifts</label>
+              <label htmlFor="offer-swap">{tWorkflow("Swap for one of their shifts")}</label>
             </span>
             <span className="flex items-center gap-2 text-ui">
               <RadioGroupItem id="offer-giveaway" value="giveaway" />
-              <label htmlFor="offer-giveaway">Give it away</label>
+              <label htmlFor="offer-giveaway">{tWorkflow("Give it away")}</label>
             </span>
           </RadioGroup>
-          <FormField label="Colleague" required>
+          <FormField label={tWorkflow("Colleague")} required>
             <Select
               value={peer}
               onValueChange={(v) => {
@@ -458,8 +468,8 @@ function OfferSheet({ shift, onClose }: { shift: MyShift; onClose: () => void })
                 setPeerShift("");
               }}
             >
-              <SelectTrigger aria-label="Colleague">
-                <SelectValue placeholder={roster.isPending ? "Loading…" : "Choose a colleague"} />
+              <SelectTrigger aria-label={tWorkflow("Colleague")}>
+                <SelectValue placeholder={roster.isPending ? tWorkflow("Loading…") : tWorkflow("Choose a colleague")} />
               </SelectTrigger>
               <SelectContent>
                 {colleagues.map((c) => (
@@ -471,11 +481,11 @@ function OfferSheet({ shift, onClose }: { shift: MyShift; onClose: () => void })
             </Select>
           </FormField>
           {kind === "swap" && peer ? (
-            <FormField label="Their shift you'd take" required>
+            <FormField label={tWorkflow("Their shift you'd take")} required>
               {theirShifts.length ? (
                 <Select value={peerShift} onValueChange={setPeerShift}>
-                  <SelectTrigger aria-label="Their shift">
-                    <SelectValue placeholder="Choose a shift" />
+                  <SelectTrigger aria-label={tWorkflow("Their shift")}>
+                    <SelectValue placeholder={tWorkflow("Choose a shift")} />
                   </SelectTrigger>
                   <SelectContent>
                     {theirShifts.map((s) => (
@@ -487,24 +497,24 @@ function OfferSheet({ shift, onClose }: { shift: MyShift; onClose: () => void })
                 </Select>
               ) : (
                 <p className="text-ui text-primary-300">
-                  They have no upcoming shifts on this roster. Give the shift away instead.
+                  {tWorkflow("They have no upcoming shifts on this roster. Give the shift away instead.")}
                 </p>
               )}
             </FormField>
           ) : null}
-          <FormField label="Note" hint="Optional. Up to 200 characters.">
+          <FormField label={tWorkflow("Note")} hint={tWorkflow("Optional. Up to 200 characters.")}>
             <Textarea rows={2} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
           </FormField>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {tWorkflow("Cancel")}
             </Button>
             <Button
               variant="primary"
               type="submit"
               disabled={!peer || (kind === "swap" && !peerShift) || send.isPending}
             >
-              {send.isPending ? "Sending…" : "Send request"}
+              {send.isPending ? tWorkflow("Sending…") : tWorkflow("Send request")}
             </Button>
           </div>
         </form>

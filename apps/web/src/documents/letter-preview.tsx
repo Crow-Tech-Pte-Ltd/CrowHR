@@ -1,5 +1,6 @@
 // biome-ignore-all lint/suspicious/noArrayIndexKey: AST nodes have no identity; each render rebuilds the whole tree.
 import type * as React from "react";
+import { useT } from "../i18n/index.ts";
 import type { Block, Inline } from "./api.ts";
 
 /**
@@ -35,6 +36,7 @@ function inline(nodes: readonly Inline[], key = ""): React.ReactNode[] {
 }
 
 export function LetterPreview({ blocks }: { blocks: readonly Block[] }) {
+  const translate = useT("people-payroll");
   return (
     <div className="letter-preview space-y-3 text-ui leading-relaxed" data-testid="letter-preview">
       {blocks.map((b, i) => {
@@ -98,7 +100,7 @@ export function LetterPreview({ blocks }: { blocks: readonly Block[] }) {
             return (
               <div key={k} className="flex items-center gap-2 text-2xs text-primary-200">
                 <span className="h-px flex-1 border-t border-dashed border-ink/20" />
-                New page
+                {translate("New page")}
                 <span className="h-px flex-1 border-t border-dashed border-ink/20" />
               </div>
             );

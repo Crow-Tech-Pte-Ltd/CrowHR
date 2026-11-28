@@ -36,6 +36,7 @@ import { canForEmployee, useMe } from "../../../auth/session.ts";
 import { isNotFound, NotFoundPage } from "../../../components/not-found.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { EmployeeDocuments } from "../../../documents/employee-tab.tsx";
+import { type Translate, useT } from "../../../i18n/index.ts";
 import { ChildRecords } from "../../../leave/child-records.tsx";
 import { EmployeeBalances } from "../../../leave/employee-balances.tsx";
 import { Encashments } from "../../../leave/encashments.tsx";
@@ -79,6 +80,7 @@ export const Route = createFileRoute("/_app/people/$employeeId")({
 });
 
 function EmployeePage() {
+  const translate = useT("people-payroll");
   const { employeeId } = Route.useParams();
   const { tab = "overview" } = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -89,7 +91,7 @@ function EmployeePage() {
   if (q.isPending) {
     return (
       <>
-        <PageHeader crumbs={[{ label: "People", to: "/people" }]} title="Loading…" />
+        <PageHeader crumbs={[{ label: translate("People"), to: "/people" }]} title={translate("Loading…")} />
         <PanelSkeleton rows={6} />
       </>
     );
@@ -97,9 +99,9 @@ function EmployeePage() {
   if (q.isError) {
     return isNotFound(q.error) ? (
       <NotFoundPage
-        title="Employee not found"
-        crumbs={[{ label: "People", to: "/people" }]}
-        back={{ to: "/people", label: "Back to People" }}
+        title={translate("Employee not found")}
+        crumbs={[{ label: translate("People"), to: "/people" }]}
+        back={{ to: "/people", label: translate("Back to People") }}
       />
     ) : (
       <ErrorPanel error={q.error} onRetry={() => void q.refetch()} />
@@ -111,7 +113,7 @@ function EmployeePage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "People", to: "/people" }]}
+        crumbs={[{ label: translate("People"), to: "/people" }]}
         leading={
           <span aria-hidden="true" className="contents">
             <Avatar name={e.name} />
@@ -128,10 +130,10 @@ function EmployeePage() {
         description={
           e.job ? (
             <>
-              {e.job.jobTitle} · {e.job.department?.name ?? "No department"}
+              {e.job.jobTitle} · {e.job.department?.name ?? translate("No department")}
               {e.job.location ? ` · ${e.job.location.name}` : ""}
               {e.preferredName && e.preferredName !== e.legalName ? (
-                <span className="text-primary-200"> · goes by {e.preferredName}</span>
+                <span className="text-primary-200"> {translate("· goes by {name}", { name: e.preferredName })}</span>
               ) : null}
             </>
           ) : null
@@ -140,16 +142,16 @@ function EmployeePage() {
           canEditJob ? (
             <>
               <Button size="sm" onClick={() => setDialog("change")}>
-                <ArrowRightLeft aria-hidden /> Record change
+                <ArrowRightLeft aria-hidden /> {translate("Record change")}
               </Button>
               {canEditPay && e.compensation ? (
                 <Button size="sm" onClick={() => setDialog("pay")}>
-                  <Wallet aria-hidden /> Change pay
+                  <Wallet aria-hidden /> {translate("Change pay")}
                 </Button>
               ) : null}
               {e.status.code === "active" || e.status.code === "not_started" ? (
                 <Button size="sm" variant="ghost" onClick={() => setDialog("leave")}>
-                  <UserMinus aria-hidden /> Record leaving
+                  <UserMinus aria-hidden /> {translate("Record leaving")}
                 </Button>
               ) : null}
             </>
@@ -165,7 +167,7 @@ function EmployeePage() {
         <TabsList className="mb-4 max-w-full overflow-x-auto">
           {TABS.map((t) => (
             <TabsTrigger key={t} value={t}>
-              {t === "pay" ? "Pay" : t.charAt(0).toUpperCase() + t.slice(1)}
+              {translate(t.charAt(0).toUpperCase() + t.slice(1))}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -200,9 +202,10 @@ function EmployeePage() {
 }
 
 function Restricted({ what }: { what: string }) {
+  const t = useT("people-payroll");
   return (
     <p className="flex items-center gap-2 py-3 text-ui text-primary-300">
-      <Lock className="size-4" aria-hidden /> Your role can't see {what}.
+      <Lock className="size-4" aria-hidden /> {t("Your role can't see {what}.", { what: t(what) })}
     </p>
   );
 }
@@ -215,34 +218,35 @@ function address(a: NonNullable<EmployeeDetailDto["personal"]>["address"]) {
 }
 
 function Overview({ e }: { e: EmployeeDetailDto }) {
+  const t = useT("people-payroll");
   const p = e.personal;
   const me = useMe();
   const [editingNames, setEditingNames] = React.useState(false);
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">
       <Section
-        title="Names"
+        title={t("Names")}
         actions={
           canForEmployee(me, "personal_details:update", e.id) ? (
             <Button size="sm" variant="ghost" onClick={() => setEditingNames(true)}>
-              <Pencil aria-hidden /> Edit
+              <Pencil aria-hidden /> {t("Edit")}
             </Button>
           ) : null
         }
       >
         <dl>
-          <Field term="Legal name">{e.legalName}</Field>
-          <Field term="Preferred name">{e.preferredName}</Field>
+          <Field term={t("Legal name")}>{e.legalName}</Field>
+          <Field term={t("Preferred name")}>{e.preferredName}</Field>
         </dl>
         {editingNames ? <NamesDialog e={e} onClose={() => setEditingNames(false)} /> : null}
       </Section>
-      <Section title="Work">
+      <Section title={t("Work")}>
         <dl>
-          <Field term="Job title">{e.job?.jobTitle}</Field>
-          <Field term="Department">{e.job?.department?.name}</Field>
-          <Field term="Team">{e.job?.team?.name}</Field>
-          <Field term="Location">{e.job?.location?.name}</Field>
-          <Field term="Manager">
+          <Field term={t("Job title")}>{e.job?.jobTitle}</Field>
+          <Field term={t("Department")}>{e.job?.department?.name}</Field>
+          <Field term={t("Team")}>{e.job?.team?.name}</Field>
+          <Field term={t("Location")}>{e.job?.location?.name}</Field>
+          <Field term={t("Manager")}>
             {e.job?.manager ? (
               <Link
                 className="text-biru-400 hover:underline"
@@ -253,45 +257,45 @@ function Overview({ e }: { e: EmployeeDetailDto }) {
               </Link>
             ) : null}
           </Field>
-          <Field term="Work email">{e.workEmail}</Field>
+          <Field term={t("Work email")}>{e.workEmail}</Field>
         </dl>
       </Section>
-      <Section title="Personal">
+      <Section title={t("Personal")}>
         {p ? (
           <dl>
             <Field term={p.idType === "other" ? "ID" : p.idType.toUpperCase()} mono>
               <RevealValue masked={p.idNumberMasked} employeeId={e.id} kind="nric" />
             </Field>
-            <Field term="Date of birth">
+            <Field term={t("Date of birth")}>
               {formatDate(p.dob)} <span className="num text-primary-200">· {p.age} years</span>
             </Field>
-            <Field term="Residency">
-              {label(p.residencyStatus)}
+            <Field term={t("Residency")}>
+              {label(p.residencyStatus, t)}
               {p.prStartDate ? <span className="text-primary-200"> · since {formatDate(p.prStartDate)}</span> : null}
             </Field>
-            {p.residencyStatus === "pr" ? <Field term="CPF rate option">{label(p.sprCpfOption)}</Field> : null}
-            <Field term="Nationality">{p.nationality}</Field>
-            <Field term="Race / religion">
+            {p.residencyStatus === "pr" ? <Field term={t("CPF rate option")}>{label(p.sprCpfOption, t)}</Field> : null}
+            <Field term={t("Nationality")}>{p.nationality}</Field>
+            <Field term={t("Race / religion")}>
               {[p.race, p.raceSecondary]
                 .filter(Boolean)
-                .map((r) => label(r))
+                .map((r) => label(r, t))
                 .join("-") || "—"}{" "}
-              · {label(p.religion)}
+              · {label(p.religion, t)}
               {p.shgOptOutOn ? (
                 <span className="text-primary-200"> · SHG opt-out {formatDate(p.shgOptOutOn)}</span>
               ) : null}
             </Field>
-            <Field term="Mobile" mono>
+            <Field term={t("Mobile")} mono>
               {formatPhone(p.mobile)}
             </Field>
-            <Field term="Personal email">{p.personalEmail}</Field>
-            <Field term="Address">{address(p.address)}</Field>
+            <Field term={t("Personal email")}>{p.personalEmail}</Field>
+            <Field term={t("Address")}>{address(p.address)}</Field>
           </dl>
         ) : (
           <Restricted what="personal details" />
         )}
       </Section>
-      <Section title="Emergency contacts">
+      <Section title={t("Emergency contacts")}>
         {e.emergencyContacts ? (
           e.emergencyContacts.length ? (
             <dl>
@@ -302,13 +306,13 @@ function Overview({ e }: { e: EmployeeDetailDto }) {
               ))}
             </dl>
           ) : (
-            <p className="py-3 text-ui text-primary-300">None recorded.</p>
+            <p className="py-3 text-ui text-primary-300">{t("None recorded.")}</p>
           )
         ) : (
           <Restricted what="emergency contacts" />
         )}
       </Section>
-      <Section title="Work passes">
+      <Section title={t("Work passes")}>
         {e.workPasses ? (
           e.workPasses.length ? (
             <dl>
@@ -332,7 +336,7 @@ function Overview({ e }: { e: EmployeeDetailDto }) {
               ))}
             </dl>
           ) : (
-            <p className="py-3 text-ui text-primary-300">No work pass: not needed for citizens and PRs.</p>
+            <p className="py-3 text-ui text-primary-300">{t("No work pass: not needed for citizens and PRs.")}</p>
           )
         ) : (
           <Restricted what="work passes" />
@@ -343,24 +347,25 @@ function Overview({ e }: { e: EmployeeDetailDto }) {
 }
 
 function JobTab({ e }: { e: EmployeeDetailDto }) {
+  const translate = useT("people-payroll");
   const emp = e.employment;
   const checklists = useQuery({ ...checklistsQuery(e.id), enabled: !!emp });
   if (!emp) return <Restricted what="employment records" />;
   return (
     <div className="flex flex-col gap-4">
       <div className="grid items-start gap-4 lg:grid-cols-2">
-        <Section title="Current terms">
+        <Section title={translate("Current terms")}>
           <dl>
-            <Field term="Employment type">{label(emp.employmentType)}</Field>
-            <Field term="Work schedule">{emp.workSchedule?.name}</Field>
-            <Field term="Cost centre">{emp.costCentre?.name}</Field>
-            <Field term="Probation ends">{emp.probationEnd ? formatDate(emp.probationEnd) : null}</Field>
-            <Field term="Employment Act">
-              {emp.eaCovered ? "Covered" : "Not covered"}
+            <Field term={translate("Employment type")}>{label(emp.employmentType, translate)}</Field>
+            <Field term={translate("Work schedule")}>{emp.workSchedule?.name}</Field>
+            <Field term={translate("Cost centre")}>{emp.costCentre?.name}</Field>
+            <Field term={translate("Probation ends")}>{emp.probationEnd ? formatDate(emp.probationEnd) : null}</Field>
+            <Field term={translate("Employment Act")}>
+              {emp.eaCovered ? translate("Covered") : translate("Not covered")}
               {emp.isWorkman ? " · workman" : ""}
             </Field>
-            <Field term="Manager or executive">
-              {emp.isManagerOrExecutive ? "Yes" : "No"}
+            <Field term={translate("Manager or executive")}>
+              {emp.isManagerOrExecutive ? translate("Yes") : translate("No")}
               <span className="mt-0.5 block text-2xs text-primary-300">
                 {emp.isManagerOrExecutive
                   ? "Not covered by Part 4 of the Employment Act: no statutory overtime rate, so OT follows the contract."
@@ -368,38 +373,39 @@ function JobTab({ e }: { e: EmployeeDetailDto }) {
                 <MomCoverageLink />
               </span>
             </Field>
-            <Field term="Reports">
-              {emp.directReports.length ? emp.directReports.map((r) => r.name).join(", ") : "None"}
+            <Field term={translate("Reports")}>
+              {emp.directReports.length ? emp.directReports.map((r) => r.name).join(", ") : translate("None")}
             </Field>
           </dl>
         </Section>
-        <Section title="Employment periods">
+        <Section title={translate("Employment periods")}>
           <dl>
             {emp.tenures.map((t) => (
               <Field key={t.id} term={`From ${formatDate(t.hireDate)}`}>
                 {t.lastWorkingDay ? (
                   <>
-                    Last day <span className="num">{formatDate(t.lastWorkingDay)}</span> · {label(t.cessationReason)}
+                    {translate("Last day")} <span className="num">{formatDate(t.lastWorkingDay)}</span> ·{" "}
+                    {label(t.cessationReason, translate)}
                     {t.noticeDays ? <span className="num text-primary-200"> · {t.noticeDays} days' notice</span> : null}
                   </>
                 ) : (
-                  "Current"
+                  translate("Current")
                 )}
               </Field>
             ))}
           </dl>
         </Section>
       </div>
-      <Section title="Job history">
+      <Section title={translate("Job history")}>
         <div className="-mx-4 -my-2">
-          <Table aria-label="Job history">
+          <Table aria-label={translate("Job history")}>
             <TableHeader>
               <TableRow>
-                <TableHead numeric>From</TableHead>
-                <TableHead numeric>Until</TableHead>
-                <TableHead>Job title</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead className="hidden md:table-cell">Manager</TableHead>
+                <TableHead numeric>{translate("From")}</TableHead>
+                <TableHead numeric>{translate("Until")}</TableHead>
+                <TableHead>{translate("Job title")}</TableHead>
+                <TableHead>{translate("Department")}</TableHead>
+                <TableHead className="hidden md:table-cell">{translate("Manager")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -419,14 +425,14 @@ function JobTab({ e }: { e: EmployeeDetailDto }) {
           </Table>
         </div>
       </Section>
-      <Section title="Checklists">
+      <Section title={translate("Checklists")}>
         {checklists.isPending ? (
           <PanelSkeleton rows={2} />
         ) : checklists.data?.items.length ? (
           checklists.data.items.map((c) => (
             <div key={c.id} className="py-2">
               <h3 className={cn(textStyle.group, "mb-1")}>
-                {c.kind === "onboarding" ? "Onboarding" : "Offboarding"}{" "}
+                {c.kind === "onboarding" ? translate("Onboarding") : translate("Offboarding")}{" "}
                 <span className="font-sans font-normal text-primary-300">
                   from <span className="num">{formatDate(c.anchorDate)}</span>
                   {c.status === "cancelled" ? " · cancelled" : ""}
@@ -436,7 +442,7 @@ function JobTab({ e }: { e: EmployeeDetailDto }) {
                 {c.items.map((i) => (
                   <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-ui">
                     <span>
-                      {i.title} <span className="text-primary-200">· {label(i.assigneeRole)}</span>
+                      {i.title} <span className="text-primary-200">· {label(i.assigneeRole, translate)}</span>
                     </span>
                     <ChecklistItemState status={i.status} dueOn={i.dueOn} />
                   </li>
@@ -445,7 +451,7 @@ function JobTab({ e }: { e: EmployeeDetailDto }) {
             </div>
           ))
         ) : (
-          <p className="py-3 text-ui text-primary-300">No checklists.</p>
+          <p className="py-3 text-ui text-primary-300">{translate("No checklists.")}</p>
         )}
       </Section>
     </div>
@@ -453,16 +459,17 @@ function JobTab({ e }: { e: EmployeeDetailDto }) {
 }
 
 function PayTab({ e, editable, onChangePay }: { e: EmployeeDetailDto; editable: boolean; onChangePay: () => void }) {
+  const translate = useT("people-payroll");
   const c = e.compensation;
   return (
     <div className="flex flex-col gap-4">
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Section
-          title="Basic pay"
+          title={translate("Basic pay")}
           actions={
             c && editable ? (
               <Button size="sm" variant="ghost" onClick={onChangePay}>
-                <Pencil aria-hidden /> Change
+                <Pencil aria-hidden /> {translate("Change")}
               </Button>
             ) : null
           }
@@ -470,40 +477,40 @@ function PayTab({ e, editable, onChangePay }: { e: EmployeeDetailDto; editable: 
           {c ? (
             c.current ? (
               <dl>
-                <Field term={c.current.payBasis === "hourly" ? "Hourly rate" : "Monthly"} mono>
+                <Field term={c.current.payBasis === "hourly" ? translate("Hourly rate") : translate("Monthly")} mono>
                   <span className="text-lg font-semibold">{formatMoney(c.current.amountCents)}</span>
                 </Field>
-                <Field term="Since">{formatDate(c.current.effectiveFrom)}</Field>
+                <Field term={translate("Since")}>{formatDate(c.current.effectiveFrom)}</Field>
                 {c.history
                   .filter((h) => h.effectiveFrom > today())
                   .map((h) => (
-                    <Field key={h.id} term="Scheduled">
+                    <Field key={h.id} term={translate("Scheduled")}>
                       <span className="num">{formatMoney(h.amountCents)}</span> from{" "}
                       <span className="num">{formatDate(h.effectiveFrom)}</span>
                     </Field>
                   ))}
               </dl>
             ) : (
-              <p className="py-3 text-ui text-primary-300">No pay recorded yet.</p>
+              <p className="py-3 text-ui text-primary-300">{translate("No pay recorded yet.")}</p>
             )
           ) : (
             <Restricted what="pay (owner and payroll admins only)" />
           )}
         </Section>
-        <Section title="Bank account">
+        <Section title={translate("Bank account")}>
           {e.bank ? (
             e.bank.current ? (
               <dl>
-                <Field term="Bank">{e.bank.current.bankName}</Field>
-                <Field term="Account" mono>
+                <Field term={translate("Bank")}>{e.bank.current.bankName}</Field>
+                <Field term={translate("Account")} mono>
                   <RevealValue masked={`••••${e.bank.current.accountLast4}`} employeeId={e.id} kind="bank" />
                 </Field>
-                <Field term="Holder">{e.bank.current.holderName}</Field>
-                <Field term="Since">{formatDate(e.bank.current.effectiveFrom)}</Field>
+                <Field term={translate("Holder")}>{e.bank.current.holderName}</Field>
+                <Field term={translate("Since")}>{formatDate(e.bank.current.effectiveFrom)}</Field>
               </dl>
             ) : (
               <p className="py-3 text-ui text-primary-300">
-                No bank account. Salary can't be paid by GIRO until one is added.
+                {translate("No bank account. Salary can't be paid by GIRO until one is added.")}
               </p>
             )
           ) : (
@@ -513,16 +520,16 @@ function PayTab({ e, editable, onChangePay }: { e: EmployeeDetailDto; editable: 
       </div>
       {c ? <RecurringAllowances employeeId={e.id} rows={c.allowances} editable={editable} /> : null}
       {c ? (
-        <Section title="Pay history">
+        <Section title={translate("Pay history")}>
           <div className="-mx-4 -my-2">
-            <Table aria-label="Pay history">
+            <Table aria-label={translate("Pay history")}>
               <TableHeader>
                 <TableRow>
-                  <TableHead numeric>From</TableHead>
-                  <TableHead numeric>Until</TableHead>
-                  <TableHead>Basis</TableHead>
-                  <TableHead numeric>Amount</TableHead>
-                  <TableHead className="hidden sm:table-cell">Reason</TableHead>
+                  <TableHead numeric>{translate("From")}</TableHead>
+                  <TableHead numeric>{translate("Until")}</TableHead>
+                  <TableHead>{translate("Basis")}</TableHead>
+                  <TableHead numeric>{translate("Amount")}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{translate("Reason")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -531,7 +538,7 @@ function PayTab({ e, editable, onChangePay }: { e: EmployeeDetailDto; editable: 
                     <TableCell numeric>{formatDate(h.effectiveFrom)}</TableCell>
                     <TableCell numeric>{h.effectiveTo ? formatDate(h.effectiveTo) : "—"}</TableCell>
                     <TableCell>
-                      {label(h.payBasis)}
+                      {label(h.payBasis, translate)}
                       {h.retroactive ? " · retro" : ""}
                     </TableCell>
                     <TableCell numeric>{formatMoney(h.amountCents)}</TableCell>
@@ -548,41 +555,42 @@ function PayTab({ e, editable, onChangePay }: { e: EmployeeDetailDto; editable: 
 }
 
 function HistoryTab({ e, editablePay }: { e: EmployeeDetailDto; editablePay: boolean }) {
+  const translate = useT("people-payroll");
   const qc = useQueryClient();
   const cancel = useMutation({
     mutationFn: (eventId: string) => api("POST", `/employees/${e.id}/events/${eventId}/cancel`),
     onSuccess: async () => {
       await invalidatePeople(qc);
-      toast("Change cancelled", { description: "The previous record is back in force." });
+      toast(translate("Change cancelled"), { description: translate("The previous record is back in force.") });
     },
-    onError: (err) => toast("Couldn't cancel", { description: errorMessage(err) }),
+    onError: (err) => toast(translate("Couldn't cancel"), { description: errorMessage(err) }),
   });
   if (!e.employment) return <Restricted what="lifecycle events" />;
   return (
-    <Section title="Lifecycle events">
+    <Section title={translate("Lifecycle events")}>
       <ol className="divide-y divide-border">
         {e.employment.events.map((ev) => (
           <li key={ev.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
             <div className="min-w-0">
-              <p className="font-medium">{label(ev.type)}</p>
+              <p className="font-medium">{label(ev.type, translate)}</p>
               <p className="text-2xs text-primary-200">
                 <span className="num">{formatDate(ev.effectiveDate)}</span>
-                {describeEvent(ev.payload)}
+                {describeEvent(ev.payload, translate)}
               </p>
             </div>
             <div className="flex items-center gap-2">
               {/* Effective is the normal state; only a scheduled or cancelled event is marked. */}
               {ev.status === "scheduled" ? (
-                <StatusPill tone="info">Scheduled</StatusPill>
+                <StatusPill tone="info">{translate("Scheduled")}</StatusPill>
               ) : ev.status === "cancelled" ? (
-                <span className="text-2xs text-primary-300">Cancelled</span>
+                <span className="text-2xs text-primary-300">{translate("Cancelled")}</span>
               ) : null}
               {ev.status === "scheduled" &&
               ev.type !== "hire" &&
               ev.type !== "rehire" &&
               (ev.type !== "salary_change" || editablePay) ? (
                 <Button size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => cancel.mutate(ev.id)}>
-                  Cancel
+                  {translate("Cancel")}
                 </Button>
               ) : null}
             </div>
@@ -595,26 +603,27 @@ function HistoryTab({ e, editablePay }: { e: EmployeeDetailDto; editablePay: boo
 
 /** A checklist item's due date, and a mark only when it needs someone (overdue) or is finished. */
 function ChecklistItemState({ status, dueOn }: { status: string; dueOn: string }) {
-  if (status === "done") return <span className="text-2xs text-primary-300">Done</span>;
-  if (status !== "open") return <span className="text-2xs text-primary-300">{label(status)}</span>;
+  const t = useT("people-payroll");
+  if (status === "done") return <span className="text-2xs text-primary-300">{t("Done")}</span>;
+  if (status !== "open") return <span className="text-2xs text-primary-300">{label(status, t)}</span>;
   const overdue = daysBetween(today(), dueOn) < 0;
   return overdue ? (
     <StatusPill tone="warning">
-      <span className="num">Overdue · due {formatDate(dueOn)}</span>
+      <span className="num">{t("Overdue · due {date}", { date: formatDate(dueOn) })}</span>
     </StatusPill>
   ) : (
-    <span className="num text-2xs text-primary-300">Due {formatDate(dueOn)}</span>
+    <span className="num text-2xs text-primary-300">{t("Due {date}", { date: formatDate(dueOn) })}</span>
   );
 }
 
-function describeEvent(p: Record<string, unknown>): string {
+function describeEvent(p: Record<string, unknown>, t: Translate): string {
   const bits: string[] = [];
   const ch = (p.changes ?? {}) as Record<string, unknown>;
   if (typeof ch.jobTitle === "string") bits.push(`job title ${ch.jobTitle}`);
   if (ch.departmentId) bits.push("department");
   if (ch.managerEmployeeId !== undefined) bits.push("manager");
   if (ch.locationId) bits.push("location");
-  if (typeof p.reason === "string" && p.reason !== "resignation") bits.push(label(p.reason));
+  if (typeof p.reason === "string" && p.reason !== "resignation") bits.push(label(p.reason, t));
   if (typeof p.noticeDays === "number")
     bits.push(`${p.noticeDays} days' notice${p.noticeBasis === "statutory" ? " (Employment Act minimum)" : ""}`);
   if (typeof p.jobTitle === "string") bits.push(p.jobTitle);
@@ -623,6 +632,7 @@ function describeEvent(p: Record<string, unknown>): string {
 }
 
 function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const departments = useQuery(structureQuery("departments"));
   const locations = useQuery(structureQuery("locations"));
@@ -651,8 +661,8 @@ function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => voi
     },
     onSuccess: async (r) => {
       await invalidatePeople(qc);
-      toast(r.status === "scheduled" ? "Change scheduled" : "Change saved", {
-        description: `${label(type)} effective ${formatDate(date)}.`,
+      toast(r.status === "scheduled" ? t("Change scheduled") : t("Change saved"), {
+        description: `${label(type, t)} effective ${formatDate(date)}.`,
       });
       onClose();
     },
@@ -662,8 +672,8 @@ function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => voi
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Record a change</DialogTitle>
-          <DialogDescription>Future dates are scheduled and apply automatically on the day.</DialogDescription>
+          <DialogTitle>{t("Record a change")}</DialogTitle>
+          <DialogDescription>{t("Future dates are scheduled and apply automatically on the day.")}</DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-3"
@@ -673,18 +683,18 @@ function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => voi
           }}
         >
           <SelectInput
-            label="Type"
+            label={t("Type")}
             value={type}
             onChange={setType}
             options={[
-              { value: "transfer", label: "Transfer" },
-              { value: "promotion", label: "Promotion" },
+              { value: "transfer", label: t("Transfer") },
+              { value: "promotion", label: t("Promotion") },
             ]}
           />
-          <DateInput label="Effective from" required value={date} onChange={setDate} error={errs.effectiveDate} />
-          <TextInput label="Job title" value={jobTitle} onChange={setJobTitle} error={errs["changes.jobTitle"]} />
+          <DateInput label={t("Effective from")} required value={date} onChange={setDate} error={errs.effectiveDate} />
+          <TextInput label={t("Job title")} value={jobTitle} onChange={setJobTitle} error={errs["changes.jobTitle"]} />
           <SelectInput
-            label="Department"
+            label={t("Department")}
             value={departmentId}
             onChange={setDepartmentId}
             options={(departments.data?.items ?? [])
@@ -692,7 +702,7 @@ function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => voi
               .map((d) => ({ value: d.id, label: d.name }))}
           />
           <SelectInput
-            label="Location"
+            label={t("Location")}
             value={locationId}
             onChange={setLocationId}
             options={(locations.data?.items ?? [])
@@ -700,7 +710,7 @@ function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => voi
               .map((d) => ({ value: d.id, label: d.name }))}
           />
           <SelectInput
-            label="Manager"
+            label={t("Manager")}
             value={managerId}
             onChange={setManagerId}
             options={(people.data?.items ?? [])
@@ -715,10 +725,10 @@ function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => voi
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending}>
-              Save change
+              {t("Save change")}
             </Button>
           </DialogFooter>
         </form>
@@ -728,6 +738,7 @@ function ChangeDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => voi
 }
 
 function PayDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const current = e.compensation?.current;
   const [amount, setAmount] = React.useState<number | null>(current?.amountCents ?? null);
@@ -744,7 +755,7 @@ function PayDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }
       }),
     onSuccess: async (r) => {
       await invalidatePeople(qc);
-      toast(r.status === "scheduled" ? "Pay change scheduled" : "Pay changed", {
+      toast(r.status === "scheduled" ? t("Pay change scheduled") : t("Pay changed"), {
         description: `${formatMoney(amount ?? 0)} from ${formatDate(date)}.`,
       });
       onClose();
@@ -756,7 +767,7 @@ function PayDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Change pay</DialogTitle>
+          <DialogTitle>{t("Change pay")}</DialogTitle>
           <DialogDescription>
             Currently {current ? <span className="num">{formatMoney(current.amountCents)}</span> : "not set"}. The old
             amount stays in history.
@@ -770,31 +781,33 @@ function PayDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }
           }}
         >
           <SelectInput
-            label="Pay basis"
+            label={t("Pay basis")}
             value={basis}
             onChange={setBasis}
-            options={["monthly", "hourly"].map((v) => ({ value: v, label: label(v) }))}
+            options={["monthly", "hourly"].map((v) => ({ value: v, label: label(v, t) }))}
           />
           <FormField
-            label={basis === "hourly" ? "New hourly rate" : "New basic monthly pay"}
+            label={basis === "hourly" ? t("New hourly rate") : t("New basic monthly pay")}
             required
             error={errs["compensation.amountCents"]}
           >
-            <MoneyInput value={amount} onChange={(c) => setAmount(c)} aria-label="New amount" />
+            <MoneyInput value={amount} onChange={(c) => setAmount(c)} aria-label={t("New amount")} />
           </FormField>
-          <DateInput label="Effective from" required value={date} onChange={setDate} error={errs.effectiveDate} />
-          <FormField label="Reason">
+          <DateInput label={t("Effective from")} required value={date} onChange={setDate} error={errs.effectiveDate} />
+          <FormField label={t("Reason")}>
             <Textarea
               value={reason}
               onChange={(ev) => setReason(ev.target.value)}
               rows={2}
-              placeholder="Annual increment"
+              placeholder={t("Annual increment")}
             />
           </FormField>
           {finalised ? (
             <label className="flex items-start gap-2 rounded-md border border-warning-300/50 bg-warning-50 p-3 text-ui">
               <input type="checkbox" checked={retro} onChange={(ev) => setRetro(ev.target.checked)} className="mt-1" />
-              <span>{finalised} Tick to record it as retroactive.</span>
+              <span>
+                {finalised} {t("Tick to record it as retroactive.")}
+              </span>
             </label>
           ) : null}
           {save.isError && !finalised ? (
@@ -804,10 +817,10 @@ function PayDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending || amount === null}>
-              Save pay
+              {t("Save pay")}
             </Button>
           </DialogFooter>
         </form>
@@ -817,6 +830,7 @@ function PayDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }
 }
 
 function NamesDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const [legalName, setLegalName] = React.useState(e.legalName);
   const [preferredName, setPreferredName] = React.useState(e.preferredName ?? "");
@@ -824,7 +838,7 @@ function NamesDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
     mutationFn: () => api("PATCH", `/employees/${e.id}`, { legalName: legalName.trim(), preferredName }),
     onSuccess: async () => {
       await invalidatePeople(qc);
-      toast("Names saved");
+      toast(t("Names saved"));
       onClose();
     },
   });
@@ -833,9 +847,9 @@ function NamesDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit names</DialogTitle>
+          <DialogTitle>{t("Edit names")}</DialogTitle>
           <DialogDescription>
-            The legal name goes on payslips, letters and statutory forms. The preferred name is what they go by.
+            {t("The legal name goes on payslips, letters and statutory forms. The preferred name is what they go by.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -846,19 +860,19 @@ function NamesDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
           }}
         >
           <TextInput
-            label="Legal name"
+            label={t("Legal name")}
             required
             value={legalName}
             onChange={setLegalName}
             error={errs.legalName}
-            hint="As on the NRIC, FIN card or passport."
+            hint={t("As on the NRIC, FIN card or passport.")}
           />
           <TextInput
-            label="Preferred name"
+            label={t("Preferred name")}
             value={preferredName}
             onChange={setPreferredName}
             error={errs.preferredName}
-            hint="Optional, e.g. Hafiz for Muhammad Hafiz bin Ismail. Leave empty to use the legal name."
+            hint={t("Optional, e.g. Hafiz for Muhammad Hafiz bin Ismail. Leave empty to use the legal name.")}
           />
           {save.isError ? (
             <p role="alert" className="text-ui text-danger-300">
@@ -867,10 +881,10 @@ function NamesDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending}>
-              Save
+              {t("Save")}
             </Button>
           </DialogFooter>
         </form>
@@ -880,6 +894,7 @@ function NamesDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
 }
 
 function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const ref = useQuery(referenceQuery);
   const [type, setType] = React.useState("resignation");
@@ -904,7 +919,7 @@ function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
       ),
     onSuccess: async () => {
       await invalidatePeople(qc);
-      toast("Leaving recorded", { description: "An offboarding checklist was created." });
+      toast(t("Leaving recorded"), { description: t("An offboarding checklist was created.") });
       onClose();
     },
   });
@@ -913,8 +928,10 @@ function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Record leaving</DialogTitle>
-          <DialogDescription>The notice date counts as day 1. A shorter last day can be agreed.</DialogDescription>
+          <DialogTitle>{t("Record leaving")}</DialogTitle>
+          <DialogDescription>
+            {t("The notice date counts as day 1. A shorter last day can be agreed.")}
+          </DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-3"
@@ -924,25 +941,25 @@ function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
           }}
         >
           <SelectInput
-            label="Type"
+            label={t("Type")}
             value={type}
             onChange={setType}
             options={[
-              { value: "resignation", label: "Resignation" },
-              { value: "termination", label: "Termination" },
+              { value: "resignation", label: t("Resignation") },
+              { value: "termination", label: t("Termination") },
             ]}
           />
           {type === "resignation" ? (
             <>
               <DateInput
-                label="Notice given on"
+                label={t("Notice given on")}
                 required
                 value={noticeOn}
                 onChange={setNoticeOn}
                 error={errs.noticeGivenOn}
               />
               <TextInput
-                label="Notice period (days)"
+                label={t("Notice period (days)")}
                 mono
                 inputMode="numeric"
                 value={noticeDays}
@@ -951,7 +968,7 @@ function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
                 hint="From the employment contract. Leave empty if the contract states none: the Employment Act minimum applies (1 day under 26 weeks of service, 1 week under 2 years, 2 weeks under 5 years, then 4 weeks)."
               />
               <DateInput
-                label="Agreed last day (optional)"
+                label={t("Agreed last day (optional)")}
                 min={noticeOn || undefined}
                 value={lastDay}
                 onChange={setLastDay}
@@ -961,13 +978,13 @@ function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
           ) : (
             <>
               <SelectInput
-                label="Reason"
+                label={t("Reason")}
                 value={reason}
                 onChange={setReason}
-                options={(ref.data?.terminationReasons ?? []).map((r) => ({ value: r, label: label(r) }))}
+                options={(ref.data?.terminationReasons ?? []).map((r) => ({ value: r, label: label(r, t) }))}
               />
               <DateInput
-                label="Last working day"
+                label={t("Last working day")}
                 required
                 value={lastDay}
                 onChange={setLastDay}
@@ -982,10 +999,10 @@ function LeaveDialog({ e, onClose }: { e: EmployeeDetailDto; onClose: () => void
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending}>
-              Save
+              {t("Save")}
             </Button>
           </DialogFooter>
         </form>

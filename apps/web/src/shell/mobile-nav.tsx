@@ -1,6 +1,7 @@
 import { cn, Sheet, SheetContent, SheetDescription, SheetTitle } from "@crowhr/ui";
 import { Link } from "@tanstack/react-router";
 import { Wordmark } from "../components/wordmark.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiStatus } from "./api-status.tsx";
 import { EMPLOYEE_TABS, MODULES } from "./nav.ts";
 import { NavLink } from "./nav-link.tsx";
@@ -9,19 +10,20 @@ import { NavSections } from "./sidebar.tsx";
 
 /** Admin navigation drawer for < 768px. */
 export function NavDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const t = useT("common");
   const close = () => onOpenChange(false);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="left" className="bg-surface-100">
-        <SheetTitle className="sr-only">Navigation</SheetTitle>
-        <SheetDescription className="sr-only">Jump to a section of Crow HR.</SheetDescription>
+        <SheetTitle className="sr-only">{t("Navigation")}</SheetTitle>
+        <SheetDescription className="sr-only">{t("Jump to a section of Crow HR.")}</SheetDescription>
         <div className="flex h-14 items-center border-b border-border px-4">
           <Wordmark />
         </div>
         <div className="border-b border-border p-2">
           <OrgSwitcher className="w-full" />
         </div>
-        <nav aria-label="Main navigation" className="flex-1 overflow-y-auto px-3 py-4">
+        <nav aria-label={t("Main navigation")} className="flex-1 overflow-y-auto px-3 py-4">
           <NavSections onNavigate={close} />
         </nav>
         <div className="flex flex-col gap-3 border-t border-border p-3">
@@ -36,9 +38,10 @@ export function NavDrawer({ open, onOpenChange }: { open: boolean; onOpenChange:
 
 /** Employee bottom tab bar for < 768px. */
 export function BottomTabBar() {
+  const t = useT("common");
   return (
     <nav
-      aria-label="Employee navigation"
+      aria-label={t("Employee navigation")}
       className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/15 bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="grid grid-cols-5">
@@ -51,7 +54,7 @@ export function BottomTabBar() {
                 to={tab.to ?? m.to}
                 activeOptions={{ exact: m.to === "/", includeSearch: false }}
                 className={cn(
-                  "focus-ring group relative flex h-14 flex-col items-center justify-center gap-1 font-azeret text-[10px] font-medium text-primary-200",
+                  "focus-ring group relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center font-azeret text-[10px] font-medium leading-tight text-primary-200",
                   "data-[status=active]:text-ink",
                 )}
               >
@@ -63,7 +66,7 @@ export function BottomTabBar() {
                 <span className="flex h-6 w-10 items-center justify-center rounded-full group-data-[status=active]:bg-[var(--brand-action,hsl(var(--kuning-200)))] group-data-[status=active]:text-[color:var(--brand-action-text,hsl(var(--accent-foreground)))]">
                   <Icon className="size-4" aria-hidden />
                 </span>
-                {tab.label}
+                {t(tab.label)}
               </Link>
             </li>
           );

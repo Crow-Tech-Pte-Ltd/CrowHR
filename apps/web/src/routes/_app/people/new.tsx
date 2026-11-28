@@ -5,6 +5,7 @@ import { AlertTriangle, UserPlus } from "lucide-react";
 import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { LinkDialog } from "../../../settings/members-dialogs.tsx";
 import { ageNotices } from "./-lib/age.ts";
 import { type AllowanceDraft, HireAllowanceFields } from "./-lib/allowances.tsx";
@@ -62,6 +63,7 @@ type Form = typeof blank;
 const orNull = (v: string) => (v.trim() === "" ? null : v.trim());
 
 function NewEmployeePage() {
+  const translate = useT("people-payroll");
   const navigate = useNavigate();
   const qc = useQueryClient();
   const canSetPay = can(useMe(), "compensation:create");
@@ -133,9 +135,12 @@ function NewEmployeePage() {
         return;
       }
       if (sent)
-        toast(sent.status === "skipped" ? "Employee added; no invitation sent" : "Employee added", {
-          description: sent.message,
-        });
+        toast(
+          sent.status === "skipped" ? translate("Employee added; no invitation sent") : translate("Employee added"),
+          {
+            description: sent.message,
+          },
+        );
       void navigate({ to: "/people/$employeeId", params: { employeeId } });
     },
   });
@@ -147,9 +152,11 @@ function NewEmployeePage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "People", to: "/people" }]}
-        title="Add employee"
-        description="The essentials for payroll and sign-in. You can fill in the rest from their profile later."
+        crumbs={[{ label: translate("People"), to: "/people" }]}
+        title={translate("Add employee")}
+        description={translate(
+          "The essentials for payroll and sign-in. You can fill in the rest from their profile later.",
+        )}
       />
       <form
         className="flex max-w-4xl flex-col gap-6"
@@ -163,16 +170,20 @@ function NewEmployeePage() {
           <Alert variant="danger">
             <AlertTriangle aria-hidden />
             <div>
-              <AlertTitle>{dup ? "This person is already on record" : "Check the highlighted fields"}</AlertTitle>
+              <AlertTitle>
+                {dup ? translate("This person is already on record") : translate("Check the highlighted fields")}
+              </AlertTitle>
               <AlertDescription>
-                {Object.keys(errs).length ? "Each problem is shown next to its field below." : errorMessage(save.error)}{" "}
+                {Object.keys(errs).length
+                  ? translate("Each problem is shown next to its field below.")
+                  : errorMessage(save.error)}{" "}
                 {dup?.existingEmployeeId ? (
                   <Link
                     className="font-medium text-biru-400 underline"
                     to="/people/$employeeId"
                     params={{ employeeId: dup.existingEmployeeId }}
                   >
-                    Open their record
+                    {translate("Open their record")}
                   </Link>
                 ) : null}
               </AlertDescription>
@@ -180,9 +191,9 @@ function NewEmployeePage() {
           </Alert>
         ) : null}
 
-        <FormSection title="Person" description="As on the NRIC, FIN card or passport.">
+        <FormSection title={translate("Person")} description={translate("As on the NRIC, FIN card or passport.")}>
           <TextInput
-            label="Legal name"
+            label={translate("Legal name")}
             required
             value={f.legalName}
             onChange={set("legalName")}
@@ -190,14 +201,16 @@ function NewEmployeePage() {
             autoComplete="off"
           />
           <TextInput
-            label="Preferred name"
+            label={translate("Preferred name")}
             value={f.preferredName}
             onChange={set("preferredName")}
             error={e("person.preferredName")}
-            hint="Optional. The name they go by, e.g. Hafiz for Muhammad Hafiz bin Ismail. Used in greetings and the directory; leave empty to use the legal name."
+            hint={translate(
+              "Optional. The name they go by, e.g. Hafiz for Muhammad Hafiz bin Ismail. Used in greetings and the directory; leave empty to use the legal name.",
+            )}
           />
           <SelectInput
-            label="Residency"
+            label={translate("Residency")}
             required
             value={f.residencyStatus}
             onChange={(v) =>
@@ -207,31 +220,31 @@ function NewEmployeePage() {
                 idType: v === "foreigner" ? "fin" : s.idType === "fin" && v !== "pr" ? "nric" : s.idType,
               }))
             }
-            options={["citizen", "pr", "foreigner"].map((v) => ({ value: v, label: label(v) }))}
+            options={["citizen", "pr", "foreigner"].map((v) => ({ value: v, label: label(v, translate) }))}
             error={e("person.residencyStatus")}
           />
           {f.residencyStatus === "pr" ? (
             <DateInput
-              label="PR start date"
+              label={translate("PR start date")}
               required
               value={f.prStartDate}
               onChange={set("prStartDate")}
               max={today()}
               yearPicker
               error={e("person.prStartDate")}
-              hint="The SPR status date on the ICA entry permit. CPF rates depend on it."
+              hint={translate("The SPR status date on the ICA entry permit. CPF rates depend on it.")}
             />
           ) : null}
           <SelectInput
-            label="ID type"
+            label={translate("ID type")}
             required
             value={f.idType}
             onChange={set("idType")}
-            options={["nric", "fin", "other"].map((v) => ({ value: v, label: label(v) }))}
+            options={["nric", "fin", "other"].map((v) => ({ value: v, label: label(v, translate) }))}
             error={e("person.idType")}
           />
           <TextInput
-            label={f.idType === "other" ? "Passport number" : f.idType.toUpperCase()}
+            label={f.idType === "other" ? translate("Passport number") : f.idType.toUpperCase()}
             required
             mono
             value={f.idNumber}
@@ -239,10 +252,10 @@ function NewEmployeePage() {
             error={e("person.idNumber")}
             placeholder={f.idType === "fin" ? "G1234567X" : "S1234567D"}
             autoComplete="off"
-            hint="Stored encrypted and shown masked."
+            hint={translate("Stored encrypted and shown masked.")}
           />
           <DateInput
-            label="Date of birth"
+            label={translate("Date of birth")}
             required
             value={f.dob}
             onChange={set("dob")}
@@ -251,40 +264,43 @@ function NewEmployeePage() {
             yearPicker
           />
           <SelectInput
-            label="Gender"
+            label={translate("Gender")}
             value={f.gender}
             onChange={set("gender")}
-            options={(ref.data?.genders ?? []).map((v) => ({ value: v, label: label(v) }))}
+            options={(ref.data?.genders ?? []).map((v) => ({ value: v, label: label(v, translate) }))}
             error={e("person.gender")}
           />
           <TextInput
-            label="Nationality"
+            label={translate("Nationality")}
             value={f.nationality}
             onChange={set("nationality")}
             error={e("person.nationality")}
-            placeholder="Singaporean"
+            placeholder={translate("Singaporean")}
           />
           <SelectInput
-            label="Race"
+            label={translate("Race")}
             value={f.race}
             onChange={set("race")}
-            options={(ref.data?.races ?? []).map((v) => ({ value: v, label: label(v) }))}
+            options={(ref.data?.races ?? []).map((v) => ({ value: v, label: label(v, translate) }))}
             error={e("person.race")}
-            hint="As on the NRIC. Decides the SHG fund (CDAC, ECF, SINDA)."
+            hint={translate("As on the NRIC. Decides the SHG fund (CDAC, ECF, SINDA).")}
           />
           <SelectInput
-            label="Religion"
+            label={translate("Religion")}
             value={f.religion}
             onChange={set("religion")}
-            options={(ref.data?.religions ?? []).map((v) => ({ value: v, label: label(v) }))}
+            options={(ref.data?.religions ?? []).map((v) => ({ value: v, label: label(v, translate) }))}
             error={e("person.religion")}
-            hint="Muslims contribute to MBMF."
+            hint={translate("Muslims contribute to MBMF.")}
           />
         </FormSection>
 
-        <FormSection title="Contact" description="The work email gets the sign-in invitation.">
+        <FormSection
+          title={translate("Contact")}
+          description={translate("The work email gets the sign-in invitation.")}
+        >
           <TextInput
-            label="Work email"
+            label={translate("Work email")}
             type="email"
             value={f.workEmail}
             onChange={set("workEmail")}
@@ -292,20 +308,20 @@ function NewEmployeePage() {
             autoComplete="off"
           />
           <TextInput
-            label="Mobile"
+            label={translate("Mobile")}
             inputMode="tel"
             mono
             value={f.mobile}
             onChange={set("mobile")}
             error={e("person.mobile")}
             placeholder="9123 4567"
-            hint="8-digit numbers are taken as +65."
+            hint={translate("8-digit numbers are taken as +65.")}
           />
         </FormSection>
 
-        <FormSection title="Job">
+        <FormSection title={translate("Job")}>
           <DateInput
-            label="Start date"
+            label={translate("Start date")}
             required
             value={f.hireDate}
             onChange={set("hireDate")}
@@ -314,14 +330,14 @@ function NewEmployeePage() {
           />
           <AgeConditions dob={f.dob} startDate={f.hireDate} />
           <TextInput
-            label="Job title"
+            label={translate("Job title")}
             required
             value={f.jobTitle}
             onChange={set("jobTitle")}
             error={e("job.jobTitle")}
           />
           <SelectInput
-            label="Department"
+            label={translate("Department")}
             required
             value={f.departmentId}
             onChange={set("departmentId")}
@@ -332,20 +348,20 @@ function NewEmployeePage() {
             hint={
               departments.data?.items.length === 0 ? (
                 <Link className="text-biru-400 underline" to="/settings/structure">
-                  Add a department first
+                  {translate("Add a department first")}
                 </Link>
               ) : undefined
             }
           />
           <SelectInput
-            label="Team"
+            label={translate("Team")}
             value={f.teamId}
             onChange={set("teamId")}
             options={(teams.data?.items ?? []).filter((d) => !d.archived).map((d) => ({ value: d.id, label: d.name }))}
             error={e("job.teamId")}
           />
           <SelectInput
-            label="Location"
+            label={translate("Location")}
             value={f.locationId}
             onChange={set("locationId")}
             options={(locations.data?.items ?? [])
@@ -354,32 +370,35 @@ function NewEmployeePage() {
             error={e("job.locationId")}
           />
           <SelectInput
-            label="Manager"
+            label={translate("Manager")}
             value={f.managerEmployeeId}
             onChange={set("managerEmployeeId")}
             options={(people.data?.items ?? []).map((p) => ({ value: p.id, label: `${p.name} · ${p.jobTitle ?? ""}` }))}
             error={e("job.managerEmployeeId")}
           />
           <SelectInput
-            label="Employment type"
+            label={translate("Employment type")}
             required
             value={f.employmentType}
             onChange={set("employmentType")}
-            options={(ref.data?.employmentTypes ?? ["full_time"]).map((v) => ({ value: v, label: label(v) }))}
+            options={(ref.data?.employmentTypes ?? ["full_time"]).map((v) => ({
+              value: v,
+              label: label(v, translate),
+            }))}
             error={e("job.employmentType")}
           />
           <SelectInput
-            label="Work schedule"
+            label={translate("Work schedule")}
             value={f.workScheduleId}
             onChange={set("workScheduleId")}
-            placeholder="Organisation default"
+            placeholder={translate("Organisation default")}
             options={(schedules.data?.items ?? [])
               .filter((s) => !s.archived)
               .map((s) => ({ value: s.id, label: `${s.name}${s.isDefault ? " (default)" : ""}` }))}
             error={e("job.workScheduleId")}
           />
           <DateInput
-            label="Probation ends"
+            label={translate("Probation ends")}
             value={f.probationEnd}
             onChange={set("probationEnd")}
             min={f.hireDate || undefined}
@@ -393,16 +412,19 @@ function NewEmployeePage() {
         </FormSection>
 
         {canSetPay ? (
-          <FormSection title="Pay" description="Leave empty if a payroll admin will set pay later.">
+          <FormSection
+            title={translate("Pay")}
+            description={translate("Leave empty if a payroll admin will set pay later.")}
+          >
             <SelectInput
-              label="Pay basis"
+              label={translate("Pay basis")}
               value={f.payBasis}
               onChange={set("payBasis")}
-              options={["monthly", "hourly"].map((v) => ({ value: v, label: label(v) }))}
+              options={["monthly", "hourly"].map((v) => ({ value: v, label: label(v, translate) }))}
               error={e("compensation.payBasis")}
             />
             <FormField
-              label={f.payBasis === "hourly" ? "Hourly rate" : "Basic monthly pay"}
+              label={f.payBasis === "hourly" ? translate("Hourly rate") : translate("Basic monthly pay")}
               error={
                 e("compensation.amountCents") ??
                 (errorDetails<{ area?: string }>(save.error)?.area === "compensation"
@@ -417,9 +439,12 @@ function NewEmployeePage() {
         ) : null}
 
         {foreigner ? (
-          <FormSection title="Work pass" description="Required: the pass must be valid on the start date.">
+          <FormSection
+            title={translate("Work pass")}
+            description={translate("Required: the pass must be valid on the start date.")}
+          >
             <SelectInput
-              label="Pass type"
+              label={translate("Pass type")}
               required
               value={f.passType}
               onChange={set("passType")}
@@ -427,7 +452,7 @@ function NewEmployeePage() {
               error={e("workPass.passType") ?? e("workPass")}
             />
             <TextInput
-              label="Pass / FIN number"
+              label={translate("Pass / FIN number")}
               mono
               value={f.passNumber}
               onChange={set("passNumber")}
@@ -435,7 +460,7 @@ function NewEmployeePage() {
               autoComplete="off"
             />
             <DateInput
-              label="Issued on"
+              label={translate("Issued on")}
               value={f.passIssuedOn}
               onChange={set("passIssuedOn")}
               max={today()}
@@ -443,7 +468,7 @@ function NewEmployeePage() {
               error={e("workPass.issuedOn")}
             />
             <DateInput
-              label="Expires on"
+              label={translate("Expires on")}
               required
               value={f.passExpiresOn}
               onChange={set("passExpiresOn")}
@@ -455,15 +480,15 @@ function NewEmployeePage() {
 
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
           <Button type="submit" variant="primary" disabled={save.isPending || incompleteAllowance}>
-            <UserPlus aria-hidden /> {save.isPending ? "Saving…" : "Add employee"}
+            <UserPlus aria-hidden /> {save.isPending ? translate("Saving…") : translate("Add employee")}
           </Button>
           <Button asChild variant="ghost">
-            <Link to="/people">Cancel</Link>
+            <Link to="/people">{translate("Cancel")}</Link>
           </Button>
         </div>
       </form>
       <LinkDialog
-        link={invite ? { title: "Send them this sign-in link", body: invite.body, url: invite.url } : null}
+        link={invite ? { title: translate("Send them this sign-in link"), body: invite.body, url: invite.url } : null}
         onOpenChange={(open) => {
           if (open || !invite) return;
           const { employeeId } = invite;
@@ -484,6 +509,7 @@ interface HireInvite {
 
 /** Employment Act conditions for a hire under 16, shown as soon as both dates are known. */
 function AgeConditions({ dob, startDate }: { dob: string; startDate: string }) {
+  const t = useT("people-payroll");
   const notices = ageNotices(dob, startDate);
   if (!notices.length) return null;
   const refused = notices.some((n) => n.severity === "blocking");
@@ -491,7 +517,7 @@ function AgeConditions({ dob, startDate }: { dob: string; startDate: string }) {
     <Alert variant={refused ? "danger" : "warning"} className="sm:col-span-2" data-testid="age-conditions">
       <AlertTriangle aria-hidden />
       <div>
-        <AlertTitle>{refused ? "Too young to hire" : "Under 16 on the start date"}</AlertTitle>
+        <AlertTitle>{refused ? t("Too young to hire") : t("Under 16 on the start date")}</AlertTitle>
         {notices.map((n) => (
           <AlertDescription key={n.code}>
             {n.message}
@@ -499,7 +525,7 @@ function AgeConditions({ dob, startDate }: { dob: string; startDate: string }) {
               <>
                 {" "}
                 <a href={n.source} target="_blank" rel="noreferrer" className="text-biru-400 underline">
-                  MOM guidance
+                  {t("MOM guidance")}
                 </a>
               </>
             ) : null}

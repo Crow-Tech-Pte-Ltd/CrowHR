@@ -31,6 +31,9 @@ test("setup checklist on Home, company profile with a UEN error, department, def
   await page.getByLabel("Postal code").fill("380015");
   await page.getByRole("button", { name: "Save company profile" }).click();
   await expect(page.getByText("Company profile saved")).toBeVisible();
+  const warning = page.getByRole("status").filter({ hasText: "Company details needed to finalise payroll" });
+  await expect(warning).toContainText("Missing details: CPF Submission Number (CSN) and Street.");
+  await expect(page.getByText("Ready for payroll", { exact: true })).toHaveCount(0);
 
   await page.goto("/");
   await expect(card).toContainText("3 steps left");

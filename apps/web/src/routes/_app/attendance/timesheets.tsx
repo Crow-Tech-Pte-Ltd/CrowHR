@@ -16,7 +16,6 @@ import {
 } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-
 import * as React from "react";
 import {
   duration,
@@ -37,6 +36,7 @@ import {
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { todaySg } from "../../../leave/format.ts";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -59,6 +59,7 @@ export const Route = createFileRoute("/_app/attendance/timesheets")({
 });
 
 function TimesheetsPage() {
+  const tWorkflow = useT("workflows");
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/attendance/timesheets" });
   // An approval task links here by timesheet ID: open its period and person.
@@ -74,7 +75,7 @@ function TimesheetsPage() {
   if (search.timesheet) {
     return (
       <>
-        <PageHeader title="Attendance" />
+        <PageHeader title={tWorkflow("Attendance")} />
         <AttendanceNav current="timesheets" />
         {record.isError ? (
           <ErrorNote error={record.error} retry={() => void record.refetch()} />
@@ -88,6 +89,7 @@ function TimesheetsPage() {
 }
 
 function PeriodList({ date, employee }: { date?: string; employee?: string }) {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const navigate = useNavigate({ from: "/attendance/timesheets" });
   const today = todaySg();
@@ -98,8 +100,10 @@ function PeriodList({ date, employee }: { date?: string; employee?: string }) {
   return (
     <>
       <PageHeader
-        title="Attendance"
-        description="Timesheets for the period: who has submitted, what waits for your approval, and what is approved and locked."
+        title={tWorkflow("Attendance")}
+        description={tWorkflow(
+          "Timesheets for the period: who has submitted, what waits for your approval, and what is approved and locked.",
+        )}
       />
       <AttendanceNav current="timesheets" />
       {q.isError ? (
@@ -110,12 +114,14 @@ function PeriodList({ date, employee }: { date?: string; employee?: string }) {
         <Card>
           <EmptyState
             variant="plain"
-            title="Timesheet approval is off, so there are no timesheets to submit or approve."
-            description="Managers and HR correct attendance directly. Turn approval on to have timesheets submitted, approved and locked."
+            title={tWorkflow("Timesheet approval is off, so there are no timesheets to submit or approve.")}
+            description={tWorkflow(
+              "Managers and HR correct attendance directly. Turn approval on to have timesheets submitted, approved and locked.",
+            )}
             actions={
               can(me, "policies:update") ? (
                 <Button asChild size="sm">
-                  <Link to="/settings/attendance">Open Settings → Attendance</Link>
+                  <Link to="/settings/attendance">{tWorkflow("Open Settings → Attendance")}</Link>
                 </Button>
               ) : undefined
             }
@@ -135,21 +141,21 @@ function PeriodList({ date, employee }: { date?: string; employee?: string }) {
             {data.items.length === 0 ? (
               <EmptyState
                 variant="plain"
-                title={`No timesheets for ${data.period.label}.`}
-                description="The people you manage show here with their timesheet for the period."
+                title={tWorkflow("No timesheets for {arg1}.", { arg1: data.period.label })}
+                description={tWorkflow("The people you manage show here with their timesheet for the period.")}
               />
             ) : (
-              <Table aria-label={`Timesheets ${data.period.label}`}>
+              <Table aria-label={tWorkflow("Timesheets {arg1}", { arg1: data.period.label })}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="hidden text-right sm:table-cell">Days</TableHead>
-                    <TableHead className="text-right">Worked</TableHead>
-                    <TableHead className="hidden text-right md:table-cell">OT</TableHead>
-                    <TableHead className="hidden text-right md:table-cell">Missing</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{tWorkflow("Name")}</TableHead>
+                    <TableHead className="hidden text-right sm:table-cell">{tWorkflow("Days")}</TableHead>
+                    <TableHead className="text-right">{tWorkflow("Worked")}</TableHead>
+                    <TableHead className="hidden text-right md:table-cell">{tWorkflow("OT")}</TableHead>
+                    <TableHead className="hidden text-right md:table-cell">{tWorkflow("Missing")}</TableHead>
+                    <TableHead>{tWorkflow("Status")}</TableHead>
                     <TableHead className="text-right">
-                      <span className="sr-only">Actions</span>
+                      <span className="sr-only">{tWorkflow("Actions")}</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -184,7 +190,7 @@ function PeriodList({ date, employee }: { date?: string; employee?: string }) {
                             size="sm"
                             variant={verb === "Open" ? "ghost" : "secondary"}
                             onClick={() => go({ date: data.period.start, employee: r.employee.id })}
-                            aria-label={`${verb} ${r.employee.name}'s timesheet`}
+                            aria-label={tWorkflow("{arg1} {arg2}'s timesheet", { arg1: verb, arg2: r.employee.name })}
                           >
                             {verb}
                           </Button>
@@ -211,12 +217,14 @@ function PeriodList({ date, employee }: { date?: string; employee?: string }) {
 }
 
 function Counts({ data }: { data: TimesheetOverview }) {
+  const tWorkflow = useT("workflows");
   const n = (s: TimesheetRow["status"][]) => data.items.filter((i) => s.includes(i.status)).length;
   const mine = data.items.filter((i) => i.taskId).length;
   return (
     <p className="num mb-3 text-ui text-primary-300" data-testid="timesheet-counts">
-      {n(["approved"])} approved · {n(["submitted"])} waiting{mine ? ` (${mine} for you)` : ""} ·{" "}
-      {n(["not_submitted", "returned", "withdrawn", "reopened"])} to submit
+      {n(["approved"])} {tWorkflow("approved ·")} {n(["submitted"])} {tWorkflow("waiting")}
+      {mine ? ` ${tWorkflow("({arg1} for you)", { arg1: mine })}` : ""} ·{" "}
+      {n(["not_submitted", "returned", "withdrawn", "reopened"])} {tWorkflow("to submit")}
     </p>
   );
 }
@@ -232,6 +240,7 @@ function PersonSheet({
   mine: boolean;
   onClose: () => void;
 }) {
+  const tWorkflow = useT("workflows");
   const today = todaySg();
   const days = useQuery(sheetQuery(data.period.start, data.period.end, row.employee.id));
   const me = useMe();
@@ -242,8 +251,9 @@ function PersonSheet({
         <div className="border-b border-border px-5 pb-4 pt-5">
           <SheetTitle className="font-azeret text-sm font-semibold">{row.employee.name}</SheetTitle>
           <SheetDescription className="num mt-1 text-ui text-primary-300">
-            {data.period.label} · {row.totals.daysWorked} days · {duration(row.totals.workedMinutes)} worked
-            {row.totals.otMinutes ? ` · ${duration(row.totals.otMinutes)} OT` : ""}
+            {data.period.label} · {row.totals.daysWorked} {tWorkflow("days ·")} {duration(row.totals.workedMinutes)}{" "}
+            {tWorkflow("worked")}
+            {row.totals.otMinutes ? ` ${tWorkflow("· {arg1} OT", { arg1: duration(row.totals.otMinutes) })}` : ""}
           </SheetDescription>
         </div>
         <div className="px-5 pt-4">
@@ -273,7 +283,7 @@ function PersonSheet({
                   ) : canCorrect && d.dayType !== "not_employed" && d.date <= today ? (
                     <Button asChild size="sm" variant="ghost">
                       <Link to="/attendance/team" search={{ date: d.date }}>
-                        Correct
+                        {tWorkflow("Correct")}
                       </Link>
                     </Button>
                   ) : null

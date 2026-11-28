@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
 import { Bell } from "lucide-react";
 import * as React from "react";
+import { useLocale, useT } from "../i18n/index.ts";
 import { apiPost } from "../lib/api.ts";
 import { type NotificationItem, notificationsQuery, unreadQuery } from "../workflows/api.ts";
 import { ageLabel } from "../workflows/format.ts";
@@ -19,6 +20,8 @@ import { shellExtensions } from "./extensions.ts";
 
 /** Top-bar bell with the unread count (workflows "In-app notifications"). */
 export function NotificationBell() {
+  const t = useT("common");
+  const locale = useLocale();
   const qc = useQueryClient();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -47,7 +50,7 @@ export function NotificationBell() {
           variant="ghost"
           size="icon"
           className="relative"
-          aria-label={count ? `Notifications, ${count} unread` : "Notifications"}
+          aria-label={count ? t("Notifications, {count} unread", { count }) : t("Notifications")}
           data-testid="notification-bell"
         >
           <Bell />
@@ -61,16 +64,16 @@ export function NotificationBell() {
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(92vw,380px)] p-0" aria-label="Notifications">
+      <PopoverContent align="end" className="w-[min(92vw,380px)] p-0" aria-label={t("Notifications")}>
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <p className={textStyle.group}>Notifications</p>
+          <p className={textStyle.group}>{t("Notifications")}</p>
           {count ? (
             <button
               type="button"
               className="focus-ring rounded-sm text-2xs font-medium text-biru-400 hover:underline"
               onClick={() => markAll.mutate()}
             >
-              Mark all read
+              {t("Mark all read")}
             </button>
           ) : null}
         </div>
@@ -80,13 +83,13 @@ export function NotificationBell() {
             <Skeleton className="h-8 w-full" />
           </div>
         ) : list.isError ? (
-          <p className="p-3 text-ui text-danger-300">Notifications didn't load. Close this and try again.</p>
+          <p className="p-3 text-ui text-danger-300">{t("Notifications didn't load. Close this and try again.")}</p>
         ) : list.data.items.length === 0 ? (
           <p className="p-4 text-ui text-primary-300">
-            No notifications yet. Decisions on your requests and tasks for you appear here.
+            {t("No notifications yet. Decisions on your requests and tasks for you appear here.")}
           </p>
         ) : (
-          <ul className="max-h-[60vh] divide-y divide-border overflow-y-auto" aria-label="Notifications">
+          <ul className="max-h-[60vh] divide-y divide-border overflow-y-auto" aria-label={t("Notifications")}>
             {list.data.items.map((n) => (
               <li key={n.id}>
                 <button
@@ -102,8 +105,8 @@ export function NotificationBell() {
                     <span className={cn("block text-ui leading-5", !n.readAt && "font-medium")}>{n.title}</span>
                     {n.body ? <span className="block truncate text-2xs text-primary-300">{n.body}</span> : null}
                     <span className="num block text-2xs text-primary-200">
-                      {ageLabel(n.createdAt, today)}
-                      {n.readAt ? "" : <span className="sr-only"> (unread)</span>}
+                      {ageLabel(n.createdAt, today, locale)}
+                      {n.readAt ? "" : <span className="sr-only"> {t("(unread)")}</span>}
                     </span>
                   </span>
                 </button>
@@ -117,7 +120,7 @@ export function NotificationBell() {
             onClick={() => setOpen(false)}
             className="focus-ring rounded-sm text-2xs font-medium text-biru-400 hover:underline"
           >
-            Notification settings
+            {t("Notification settings")}
           </Link>
           {Footer ? <Footer onNavigate={() => setOpen(false)} /> : null}
         </div>

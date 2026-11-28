@@ -22,6 +22,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Info, Paperclip, X } from "lucide-react";
 import * as React from "react";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiGet, apiPost } from "../lib/api.ts";
 import {
   ACCEPTED_TYPES,
@@ -94,6 +95,7 @@ export function ApplySheet({
   onBehalf: boolean;
   onApplied?: (r: LeaveRequest) => void;
 }) {
+  const tWorkflow = useT("workflows");
   const types = useQuery(typesQuery);
   const people = useQuery({
     queryKey: ["leave", "people"],
@@ -171,7 +173,12 @@ export function ApplySheet({
     },
     onSuccess: (r) => {
       invalidate();
-      toast.success(`${r.type.name} requested: ${qty(r.quantity, r.unit)}. Your approver has been told.`);
+      toast.success(
+        tWorkflow("{arg1} requested: {arg2}. Your approver has been told.", {
+          arg1: r.type.name,
+          arg2: qty(r.quantity, r.unit, tWorkflow),
+        }),
+      );
       onApplied?.(r);
       reset();
       onOpenChange(false);
@@ -180,7 +187,7 @@ export function ApplySheet({
       if (err instanceof ApiError) {
         setServerErrors(err.fieldErrors);
         toast.error(err.message);
-      } else toast.error(err instanceof Error ? err.message : "That didn't work. Try again.");
+      } else toast.error(err instanceof Error ? err.message : tWorkflow("That didn't work. Try again."));
     },
   });
 
@@ -196,8 +203,9 @@ export function ApplySheet({
   const onFile = (f: File | null) => {
     setFileError(null);
     if (!f) return setFile(null);
-    if (f.size > MAX_FILE_BYTES) return setFileError("This file is larger than 5 MB. Take a smaller photo or a PDF.");
-    if (!ACCEPTED_TYPES.includes(f.type)) return setFileError("Attach a PDF, JPEG, PNG, WebP or HEIC file.");
+    if (f.size > MAX_FILE_BYTES)
+      return setFileError(tWorkflow("This file is larger than 5 MB. Take a smaller photo or a PDF."));
+    if (!ACCEPTED_TYPES.includes(f.type)) return setFileError(tWorkflow("Attach a PDF, JPEG, PNG, WebP or HEIC file."));
     setFile(f);
   };
 
@@ -223,20 +231,20 @@ export function ApplySheet({
           }}
         >
           <div className="border-b border-border px-5 pb-4 pt-5">
-            <SheetTitle className="font-azeret text-sm font-semibold">Apply for leave</SheetTitle>
+            <SheetTitle className="font-azeret text-sm font-semibold">{tWorkflow("Apply for leave")}</SheetTitle>
             <SheetDescription id="apply-desc" className="mt-1 text-ui text-primary-300">
-              Rest days, off days and public holidays are left out automatically.
+              {tWorkflow("Rest days, off days and public holidays are left out automatically.")}
             </SheetDescription>
           </div>
           <div className="flex flex-col gap-4 px-5 py-4">
             {onBehalf ? (
-              <FormField label="Employee" hint="Leave blank for your own leave.">
+              <FormField label={tWorkflow("Employee")} hint={tWorkflow("Leave blank for your own leave.")}>
                 <Select value={employeeId ?? "me"} onValueChange={(v) => setEmployeeId(v === "me" ? undefined : v)}>
-                  <SelectTrigger aria-label="Employee">
-                    <SelectValue placeholder="Me" />
+                  <SelectTrigger aria-label={tWorkflow("Employee")}>
+                    <SelectValue placeholder={tWorkflow("Me")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="me">Me</SelectItem>
+                    <SelectItem value="me">{tWorkflow("Me")}</SelectItem>
                     {(people.data?.items ?? []).map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.name}
@@ -249,15 +257,15 @@ export function ApplySheet({
             {types.isPending ? (
               <Skeleton className="h-9 w-full" />
             ) : (
-              <FormField label="Leave type" required error={issueFor("leaveTypeId")}>
+              <FormField label={tWorkflow("Leave type")} required error={issueFor("leaveTypeId")}>
                 <Select value={typeId} onValueChange={setTypeId}>
-                  <SelectTrigger aria-label="Leave type">
-                    <SelectValue placeholder="Choose a type" />
+                  <SelectTrigger aria-label={tWorkflow("Leave type")}>
+                    <SelectValue placeholder={tWorkflow("Choose a type")} />
                   </SelectTrigger>
                   <SelectContent>
                     {groupTypes(allTypes).map((g) => (
                       <SelectGroup key={g.label}>
-                        <SelectLabel>{g.label}</SelectLabel>
+                        <SelectLabel>{tWorkflow(g.label)}</SelectLabel>
                         {g.items.map((t) => (
                           <SelectItem key={t.id} value={t.id}>
                             {t.name}
@@ -270,7 +278,7 @@ export function ApplySheet({
               </FormField>
             )}
             <div className="grid grid-cols-2 gap-3">
-              <FormField label="From" required error={issueFor("startDate")}>
+              <FormField label={tWorkflow("From")} required error={issueFor("startDate")}>
                 <DatePicker
                   value={start}
                   onChange={(v) => {
@@ -279,13 +287,13 @@ export function ApplySheet({
                   }}
                 />
               </FormField>
-              <FormField label="To" required error={issueFor("endDate")}>
+              <FormField label={tWorkflow("To")} required error={issueFor("endDate")}>
                 <DatePicker value={end} onChange={setEnd} min={start} />
               </FormField>
             </div>
             {halfOk ? (
               single ? (
-                <FormField label="Day" error={issueFor("startSession")}>
+                <FormField label={tWorkflow("Day")} error={issueFor("startSession")}>
                   <SessionPicker
                     value={startSession}
                     onChange={setStartSession}
@@ -298,7 +306,7 @@ export function ApplySheet({
                 </FormField>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <FormField label="First day" error={issueFor("startSession")}>
+                  <FormField label={tWorkflow("First day")} error={issueFor("startSession")}>
                     <SessionPicker
                       value={startSession}
                       onChange={setStartSession}
@@ -308,7 +316,7 @@ export function ApplySheet({
                       ]}
                     />
                   </FormField>
-                  <FormField label="Last day" error={issueFor("endSession")}>
+                  <FormField label={tWorkflow("Last day")} error={issueFor("endSession")}>
                     <SessionPicker
                       value={endSession}
                       onChange={setEndSession}
@@ -323,18 +331,18 @@ export function ApplySheet({
             ) : null}
             {type?.needsChild ? (
               <FormField
-                label="Child"
+                label={tWorkflow("Child")}
                 required
                 error={issueFor("childId")}
                 hint={
                   children.data && children.data.items.length === 0
-                    ? "No children recorded yet. Add them under My leave → Children."
+                    ? tWorkflow("No children recorded yet. Add them under My leave → Children.")
                     : undefined
                 }
               >
                 <Select value={childId} onValueChange={setChildId}>
-                  <SelectTrigger aria-label="Child">
-                    <SelectValue placeholder="Choose the child" />
+                  <SelectTrigger aria-label={tWorkflow("Child")}>
+                    <SelectValue placeholder={tWorkflow("Choose the child")} />
                   </SelectTrigger>
                   <SelectContent>
                     {(children.data?.items ?? []).map((c) => (
@@ -346,15 +354,15 @@ export function ApplySheet({
                 </Select>
               </FormField>
             ) : null}
-            <FormField label="Reason" hint="Optional. Your approver sees it.">
+            <FormField label={tWorkflow("Reason")} hint={tWorkflow("Optional. Your approver sees it.")}>
               <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500} />
             </FormField>
             {type && type.attachment !== "none" ? (
               <FormField
-                label={type.attachmentLabel ?? "Attachment"}
+                label={type.attachmentLabel ?? tWorkflow("Attachment")}
                 required={type.attachment === "required"}
                 error={fileError ?? serverErrors.attachments ?? serverErrors["attachments.0"]}
-                hint="PDF or photo, up to 5 MB."
+                hint={tWorkflow("PDF or photo, up to 5 MB.")}
               >
                 <FileInput file={file} onFile={onFile} />
               </FormField>
@@ -363,10 +371,10 @@ export function ApplySheet({
           <QuotePanel quote={quoteData} loading={q.isPending && !!debounced} stale={stale} error={q.error} />
           <div className="sticky bottom-0 mt-auto flex items-center justify-end gap-2 border-t border-border bg-background px-5 py-3">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {tWorkflow("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={blocked || apply.isPending}>
-              {apply.isPending ? "Sending…" : "Send for approval"}
+              {apply.isPending ? tWorkflow("Sending…") : tWorkflow("Send for approval")}
             </Button>
           </div>
         </form>
@@ -386,6 +394,7 @@ function SessionPicker({
   options: [Session, string][];
   id?: string;
 }) {
+  const tWorkflow = useT("workflows");
   return (
     <div role="radiogroup" className="flex rounded-md border border-ink/20 p-0.5" id={aria.id}>
       {options.map(([v, label]) => (
@@ -401,7 +410,7 @@ function SessionPicker({
             value === v ? "bg-kuning-200 text-accent-foreground" : "text-primary-300 hover:bg-ink/5",
           )}
         >
-          {label}
+          {tWorkflow(label)}
         </button>
       ))}
     </div>
@@ -409,6 +418,7 @@ function SessionPicker({
 }
 
 function FileInput({ file, onFile, ...aria }: { file: File | null; onFile: (f: File | null) => void; id?: string }) {
+  const tWorkflow = useT("workflows");
   const ref = React.useRef<HTMLInputElement>(null);
   return (
     <div className="flex items-center gap-2">
@@ -422,7 +432,7 @@ function FileInput({ file, onFile, ...aria }: { file: File | null; onFile: (f: F
         onChange={(e) => onFile(e.target.files?.[0] ?? null)}
       />
       <Button type="button" size="sm" onClick={() => ref.current?.click()}>
-        <Paperclip /> {file ? "Change file" : "Choose file"}
+        <Paperclip /> {file ? tWorkflow("Change file") : tWorkflow("Choose file")}
       </Button>
       {file ? (
         <span className="flex min-w-0 items-center gap-1 text-ui">
@@ -431,7 +441,7 @@ function FileInput({ file, onFile, ...aria }: { file: File | null; onFile: (f: F
           <button
             type="button"
             className="focus-ring rounded-sm p-0.5 text-primary-200 hover:text-ink"
-            aria-label="Remove file"
+            aria-label={tWorkflow("Remove file")}
             onClick={() => {
               onFile(null);
               if (ref.current) ref.current.value = "";
@@ -441,7 +451,7 @@ function FileInput({ file, onFile, ...aria }: { file: File | null; onFile: (f: F
           </button>
         </span>
       ) : (
-        <span className="text-ui text-primary-200">No file chosen</span>
+        <span className="text-ui text-primary-200">{tWorkflow("No file chosen")}</span>
       )}
     </div>
   );
@@ -459,6 +469,7 @@ function QuotePanel({
   stale: boolean;
   error: unknown;
 }) {
+  const tWorkflow = useT("workflows");
   const [showDays, setShowDays] = React.useState(false);
   if (error && !q) {
     return (
@@ -466,7 +477,7 @@ function QuotePanel({
         className="mx-5 mb-4 rounded-md border border-danger-200/40 bg-danger-50 p-3 text-ui text-danger-300"
         role="alert"
       >
-        {error instanceof Error ? error.message : "Couldn't work out the days."}
+        {error instanceof Error ? error.message : tWorkflow("Couldn't work out the days.")}
       </div>
     );
   }
@@ -482,26 +493,26 @@ function QuotePanel({
   const skipped = q.days.filter((d) => d.quantity === 0 && d.note);
   return (
     <section
-      aria-label="Days and balance"
+      aria-label={tWorkflow("Days and balance")}
       aria-live="polite"
       data-testid="leave-quote"
       className={cn("mx-5 mb-4 rounded-md border border-border bg-surface-50", stale && "opacity-60")}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-3 py-2.5">
-        <span className={textStyle.group}>This request</span>
+        <span className={textStyle.group}>{tWorkflow("This request")}</span>
         <span className="num text-lg font-semibold" data-testid="quote-quantity">
-          {qty(q.quantity, q.unit)}
+          {qty(q.quantity, q.unit, tWorkflow)}
         </span>
       </div>
       {q.years.length ? (
         <table className="w-full text-ui">
-          <caption className="sr-only">Balance before and after</caption>
+          <caption className="sr-only">{tWorkflow("Balance before and after")}</caption>
           <thead>
             <tr className="text-2xs text-primary-200">
-              <th className="px-3 py-1.5 text-left font-azeret font-medium">Year</th>
-              <th className="px-3 py-1.5 text-right font-azeret font-medium">Taking</th>
-              <th className="px-3 py-1.5 text-right font-azeret font-medium">Available</th>
-              <th className="px-3 py-1.5 text-right font-azeret font-medium">After</th>
+              <th className="px-3 py-1.5 text-left font-azeret font-medium">{tWorkflow("Year")}</th>
+              <th className="px-3 py-1.5 text-right font-azeret font-medium">{tWorkflow("Taking")}</th>
+              <th className="px-3 py-1.5 text-right font-azeret font-medium">{tWorkflow("Available")}</th>
+              <th className="px-3 py-1.5 text-right font-azeret font-medium">{tWorkflow("After")}</th>
             </tr>
           </thead>
           <tbody>
@@ -509,7 +520,9 @@ function QuotePanel({
               <tr key={y.year} className="border-t border-border">
                 <td className="num px-3 py-1.5">{y.year}</td>
                 <td className="num px-3 py-1.5 text-right">{fmt(y.quantity)}</td>
-                <td className="num px-3 py-1.5 text-right">{y.available === null ? "No limit" : fmt(y.available)}</td>
+                <td className="num px-3 py-1.5 text-right">
+                  {y.available === null ? tWorkflow("No limit") : fmt(y.available)}
+                </td>
                 <td
                   className={cn(
                     "num px-3 py-1.5 text-right font-semibold",
@@ -553,15 +566,18 @@ function QuotePanel({
             onClick={() => setShowDays((s) => !s)}
           >
             {showDays
-              ? "Hide dates"
-              : `Show dates (${counted.length} counted${skipped.length ? `, ${skipped.length} not` : ""})`}
+              ? tWorkflow("Hide dates")
+              : tWorkflow("Show dates ({arg1} counted{arg2})", {
+                  arg1: counted.length,
+                  arg2: skipped.length ? `, ${skipped.length} not` : "",
+                })}
           </button>
           {showDays || q.days.length <= 7 ? (
             <ul className="mt-1.5 flex flex-col">
               {q.days.map((d) => (
                 <li key={d.date} className="flex items-baseline justify-between gap-3 py-0.5 text-ui">
                   <span className="num whitespace-nowrap">
-                    <span className="inline-block w-9 text-primary-200">{weekdayOf(d.date)}</span>
+                    <span className="inline-block w-9 text-primary-200">{tWorkflow(weekdayOf(d.date))}</span>
                     {shortDate(d.date)}
                     {d.session !== "full" ? (
                       <span className="ml-1 text-primary-200">{d.session.toUpperCase()}</span>

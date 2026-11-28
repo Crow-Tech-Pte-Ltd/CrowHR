@@ -13,6 +13,7 @@ import {
 } from "@crowhr/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiPost } from "../lib/api.ts";
 import { meQuery } from "./session.ts";
 
@@ -25,6 +26,7 @@ type Pending = { resolve: () => void; reject: (e: unknown) => void };
 const Ctx = React.createContext<((run: () => Promise<unknown>) => Promise<unknown>) | null>(null);
 
 export function ReauthProvider({ children }: { children: React.ReactNode }) {
+  const t = useT("settings-account");
   const [pending, setPending] = React.useState<Pending | null>(null);
   const withReauth = React.useCallback(async (run: () => Promise<unknown>) => {
     try {
@@ -46,7 +48,7 @@ export function ReauthProvider({ children }: { children: React.ReactNode }) {
         }}
         onCancel={() => {
           pending?.reject(
-            new ApiError(403, { error: { code: "reauth_required", message: "Cancelled.", requestId: "" } }),
+            new ApiError(403, { error: { code: "reauth_required", message: t("Cancelled."), requestId: "" } }),
           );
           setPending(null);
         }}
@@ -62,6 +64,7 @@ export function useReauth() {
 }
 
 function ReauthDialog({ open, onDone, onCancel }: { open: boolean; onDone: () => void; onCancel: () => void }) {
+  const t = useT("settings-account");
   const { data: me } = useQuery(meQuery);
   const qc = useQueryClient();
   const [password, setPassword] = React.useState("");
@@ -86,7 +89,7 @@ function ReauthDialog({ open, onDone, onCancel }: { open: boolean; onDone: () =>
       await qc.invalidateQueries({ queryKey: meQuery.queryKey });
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't confirm. Try again.");
+      setError(err instanceof ApiError ? err.message : t("Couldn't confirm. Try again."));
     } finally {
       setBusy(false);
     }
@@ -96,20 +99,20 @@ function ReauthDialog({ open, onDone, onCancel }: { open: boolean; onDone: () =>
     <Dialog open={open} onOpenChange={(o) => (o ? null : onCancel())}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Confirm it's you</DialogTitle>
+          <DialogTitle>{t("Confirm it's you")}</DialogTitle>
           <DialogDescription>
-            This is a sensitive change, and your last sign-in was more than 10 minutes ago.
+            {t("This is a sensitive change, and your last sign-in was more than 10 minutes ago.")}
           </DialogDescription>
         </DialogHeader>
         {sso ? (
           <Alert variant="info">
             <AlertDescription>
-              You signed in with single sign-on. Sign out and sign in again, then retry within 10 minutes.
+              {t("You signed in with single sign-on. Sign out and sign in again, then retry within 10 minutes.")}
             </AlertDescription>
           </Alert>
         ) : (
           <form id="reauth-form" onSubmit={submit} className="flex flex-col gap-4" noValidate>
-            <FormField label="Password" error={error}>
+            <FormField label={t("Password")} error={error}>
               <Input
                 type="password"
                 autoComplete="current-password"
@@ -120,8 +123,8 @@ function ReauthDialog({ open, onDone, onCancel }: { open: boolean; onDone: () =>
             </FormField>
             {me?.mfa.enrolled ? (
               <FormField
-                label="Authenticator code"
-                hint="The 6-digit code from your authenticator app, or a recovery code."
+                label={t("Authenticator code")}
+                hint={t("The 6-digit code from your authenticator app, or a recovery code.")}
               >
                 <Input
                   inputMode="numeric"
@@ -135,11 +138,11 @@ function ReauthDialog({ open, onDone, onCancel }: { open: boolean; onDone: () =>
         )}
         <DialogFooter>
           <Button variant="secondary" onClick={onCancel}>
-            Cancel
+            {t("Cancel")}
           </Button>
           {sso ? null : (
             <Button variant="primary" type="submit" form="reauth-form" disabled={busy || !password}>
-              {busy ? "Checking…" : "Confirm"}
+              {busy ? t("Checking…") : t("Confirm")}
             </Button>
           )}
         </DialogFooter>

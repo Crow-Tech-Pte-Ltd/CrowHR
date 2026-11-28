@@ -4,6 +4,8 @@ import { createDemoClient, type DemoClient, interceptFetch } from "@crowhr/demo/
 import { type BootStage, type BootTimings, DB_PREFIX, type DemoInfo, type WireRequest } from "@crowhr/demo/protocol";
 import DemoWorker from "@crowhr/demo/worker?worker";
 import { setAppClockOffset } from "@crowhr/ui/clock";
+import { localeReady } from "../../web/src/i18n/index.ts";
+import { bootButton, demoText, localiseBoot } from "./boot-copy.ts";
 import { configureWebForDemo } from "./web-extensions.tsx";
 
 /**
@@ -36,9 +38,9 @@ function showStage(stage: BootStage) {
   bar.style.width = `${Math.max(6, Math.round(((at + 1) / STAGES.length) * 92))}%`;
 }
 
-function showError(html: string) {
+function showError(...content: (string | Node)[]) {
   const el = document.getElementById("demo-boot-error") as HTMLElement;
-  el.innerHTML = html;
+  el.replaceChildren(...content);
   el.hidden = false;
   bootEl.hidden = false;
 }
@@ -83,21 +85,23 @@ let worker: Worker | null = null;
 function watchBoot() {
   const timer = setTimeout(() => {
     const el = document.getElementById("demo-boot-slow") as HTMLElement;
-    el.innerHTML =
-      "This is taking longer than usual. " +
-      '<button type="button" id="demo-slow-reload">Reload the page</button>, or ' +
-      '<button type="button" id="demo-slow-reset">start again with a fresh copy</button> ' +
-      "(changes you made in the demo are lost).";
-    el.hidden = false;
-    document.getElementById("demo-slow-reload")?.addEventListener("click", () => location.reload());
-    document.getElementById("demo-slow-reset")?.addEventListener(
-      "click",
-      () => {
-        worker?.terminate();
-        void deleteLocalCopy().then(() => location.reload());
-      },
-      { once: true },
+    el.replaceChildren(
+      demoText("This is taking longer than usual."),
+      " ",
+      bootButton(demoText("Reload the page"), () => location.reload(), "demo-slow-reload"),
+      " · ",
+      bootButton(
+        demoText("start again with a fresh copy"),
+        () => {
+          worker?.terminate();
+          void deleteLocalCopy().then(() => location.reload());
+        },
+        "demo-slow-reset",
+      ),
+      " ",
+      demoText("(changes you made in the demo are lost)."),
     );
+    el.hidden = false;
   }, SLOW_BOOT_MS);
   return () => {
     clearTimeout(timer);
@@ -188,40 +192,48 @@ async function startApp(t0: number) {
   bootEl.hidden = true;
   // Navigation start → app on screen (performance.now() counts from navigation start).
   record.readyMs = Math.round(performance.now());
-  document.title = "Crow HR demo";
 }
 
 function otherTab(take: () => void) {
-  const el = document.getElementById("demo-boot-error") as HTMLElement;
   showError(
-    "The demo is open in another tab of this browser. It can only run in one tab at a time, because both would write the same local database. " +
-      '<button type="button" id="demo-take-over">Use it here instead</button>',
+    demoText("The demo is already open in another tab and can only run in one tab at a time."),
+    " ",
+    bootButton(demoText("Use it here instead"), take, "demo-take-over"),
   );
-  el.querySelector("#demo-take-over")?.addEventListener("click", take, { once: true });
   bar.style.width = "0%";
 }
 
 async function main() {
+  // Let the database boot while the visitor's language pack downloads.
+  void localeReady.then(localiseBoot);
   if (location.pathname === "/about-demo") {
     const { mountAboutPage } = await import("./about.tsx");
+    await localeReady;
     bootEl.hidden = true;
     mountAboutPage(DATA_VERSION);
     return;
   }
   if (!("indexedDB" in window) || !("Worker" in window)) {
     showError(
-      "This browser can't run the demo (it needs IndexedDB and Web Workers). Try a current Chrome, Edge, Firefox or Safari.",
+      demoText(
+        "This browser can't run the demo (it needs IndexedDB and Web Workers). Try a current Chrome, Edge, Firefox or Safari.",
+      ),
     );
     return;
   }
   const run = () =>
     runApp().catch((err: unknown) => {
       console.error(err);
+      const about = document.createElement("a");
+      about.href = "/about-demo";
+      about.textContent = demoText("Read about the demo");
       showError(
-        `The demo couldn't start: ${String(err instanceof Error ? err.message : err).replace(/</g, "&lt;")}. ` +
-          '<button type="button" id="demo-reload">Reload</button> or <a href="/about-demo">read about the demo</a>.',
+        demoText("The demo couldn't start: {message}", { message: err instanceof Error ? err.message : String(err) }),
+        " ",
+        bootButton(demoText("Reload"), () => location.reload(), "demo-reload"),
+        " · ",
+        about,
       );
-      document.getElementById("demo-reload")?.addEventListener("click", () => location.reload());
     });
   if (!navigator.locks) {
     await run();
@@ -240,9 +252,12 @@ async function main() {
       })
       .catch(() => {
         // Another tab took over: stop using the database here.
-        document.body.innerHTML =
-          '<div style="padding:32px 16px;font:14px/1.5 system-ui,sans-serif;max-width:480px;margin:auto">' +
-          "<p><strong>The demo moved to another tab.</strong> Close this tab, or reload it to take the demo back.</p></div>";
+        const notice = document.createElement("div");
+        notice.style.cssText = "padding:32px 16px;font:14px/1.5 system-ui,sans-serif;max-width:480px;margin:auto";
+        notice.textContent = demoText(
+          "The demo moved to another tab. Close this tab, or reload it to take the demo back.",
+        );
+        document.body.replaceChildren(notice);
       });
   await hold(false);
 }

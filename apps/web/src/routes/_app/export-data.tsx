@@ -15,6 +15,7 @@ import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import { can, useMe } from "../../auth/session.ts";
 import { PageHeader } from "../../components/page-header.tsx";
 import { ErrorNote } from "../../components/section.tsx";
+import { useT } from "../../i18n/index.ts";
 import {
   type CatalogueEntry,
   catalogueQuery,
@@ -84,6 +85,8 @@ const fileWorkflows = linkOptions([
 ]);
 
 function ExportDataPage() {
+  const t = useT("home");
+  const reportText = useT("people-payroll");
   const me = useMe();
   const query = useQuery(catalogueQuery);
   const download = useExportDownload();
@@ -102,25 +105,28 @@ function ExportDataPage() {
   return (
     <>
       <PageHeader
-        title="Export data"
+        title={t("Export data")}
         description={
           hasReports
-            ? "Download a report with its default filters, or open the report to choose a period and columns."
+            ? t("Download a report with its default filters, or open the report to choose a period and columns.")
             : undefined
         }
       />
       <DownloadFeedback download={download} />
       {query.isError ? <ErrorNote error={query.error} retry={() => void query.refetch()} /> : null}
       {query.isPending ? (
-        <Skeleton className="mb-6 h-24 w-full" aria-label="Loading reports" />
+        <Skeleton className="mb-6 h-24 w-full" aria-label={t("Loading reports")} />
       ) : !query.isError && !hasReports && !hasFiles ? (
-        <EmptyState title="No downloads available." description="Reports and files you have access to appear here." />
+        <EmptyState
+          title={t("No downloads available.")}
+          description={t("Reports and files you have access to appear here.")}
+        />
       ) : null}
       <div className="flex flex-col gap-6">
         {[...groups].map(([module, reports]) => (
           <section key={module} aria-labelledby={`exports-${module}`}>
             <h2 id={`exports-${module}`} className={`mb-2 ${textStyle.section}`}>
-              {MODULE_LABEL[module] ?? module}
+              {reportText(MODULE_LABEL[module] ?? module)}
             </h2>
             <Card className="divide-y divide-ink/10">
               {reports.map((report) => (
@@ -131,7 +137,7 @@ function ExportDataPage() {
                     search={{}}
                     className="focus-ring rounded-sm font-medium hover:underline"
                   >
-                    {report.title}
+                    {reportText(report.title)}
                   </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -139,9 +145,9 @@ function ExportDataPage() {
                         size="sm"
                         disabled={download.isPending}
                         className="shrink-0"
-                        aria-label={`Download ${report.title}`}
+                        aria-label={t("Download {report}", { report: reportText(report.title) })}
                       >
-                        <Download aria-hidden /> <span className="hidden sm:inline">Download</span>
+                        <Download aria-hidden /> <span className="hidden sm:inline">{t("Download")}</span>
                         <ChevronDown aria-hidden />
                       </Button>
                     </DropdownMenuTrigger>
@@ -161,13 +167,13 @@ function ExportDataPage() {
         {hasFiles ? (
           <section aria-labelledby="exports-files">
             <h2 id="exports-files" className={`mb-2 ${textStyle.section}`}>
-              Other downloads
+              {t("Other downloads")}
             </h2>
             <Card className="divide-y divide-ink/10">
               {canExportDirectory ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
                   <Link to="/people" search={{}} className="focus-ring rounded-sm font-medium hover:underline">
-                    Employee directory
+                    {t("Employee directory")}
                   </Link>
                   <div className="flex gap-2">
                     {DATA_EXPORT_FORMATS.map(({ id, label }) => (
@@ -176,7 +182,7 @@ function ExportDataPage() {
                         size="sm"
                         disabled={download.isPending}
                         onClick={() => download.mutate(`/api/v1/employees/export?format=${id}`)}
-                        aria-label={`Download employee directory as ${label}`}
+                        aria-label={t("Download employee directory as {format}", { format: label })}
                       >
                         {label}
                       </Button>
@@ -192,8 +198,8 @@ function ExportDataPage() {
                   className="focus-ring flex items-center justify-between gap-3 px-4 py-2 hover:bg-ink/[0.03]"
                 >
                   <span>
-                    <span className="block font-medium">{file.title}</span>
-                    <span className="block text-ui text-primary-300">{file.detail}</span>
+                    <span className="block font-medium">{t(file.title)}</span>
+                    <span className="block text-ui text-primary-300">{t(file.detail)}</span>
                   </span>
                   <ChevronRight className="size-4 shrink-0 text-primary-200" aria-hidden />
                 </Link>

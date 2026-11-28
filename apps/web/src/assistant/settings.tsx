@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMe } from "../auth/session.ts";
 import { CopyField } from "../components/copy-field.tsx";
 import { ErrorNote, Section } from "../components/section.tsx";
+import { useT } from "../i18n/index.ts";
 import { apiDelete, apiGet, apiPut } from "../lib/api.ts";
 
 interface AssistantSettings {
@@ -18,15 +19,18 @@ interface AssistantConnection {
 }
 
 export function AssistantDisclosure() {
+  const t = useT("settings-account");
   return (
     <p className="text-ui text-primary-300">
-      Each person signs in to Crow HR and decides whether to share their annual leave balance, next published shift and
-      pending approval count. Results can appear in their conversations with ChatGPT or Claude.
+      {t(
+        "Each person signs in to Crow HR and decides whether to share their annual leave balance, next published shift and pending approval count. Results can appear in their conversations with ChatGPT or Claude.",
+      )}
     </p>
   );
 }
 
 export function AssistantSettingsPanel({ company = false }: { company?: boolean }) {
+  const t = useT("settings-account");
   const me = useMe();
   const isDemo = me.demoMode || !!me.demoCompany;
   const configKey = ["assistant", me.organisation.id, "settings"];
@@ -47,24 +51,24 @@ export function AssistantSettingsPanel({ company = false }: { company?: boolean 
     onSuccess: (data) => {
       qc.setQueryData(configKey, data);
       void qc.invalidateQueries({ queryKey: connectionsKey });
-      toast(data.enabled ? "AI assistants enabled" : "AI assistants disconnected");
+      toast(data.enabled ? t("AI assistants enabled") : t("AI assistants disconnected"));
     },
   });
   const disconnect = useMutation({
     mutationFn: (id: string) => apiDelete(`/api/v1/assistant/connections/${encodeURIComponent(id)}`),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: connectionsKey });
-      toast("Assistant disconnected");
+      toast(t("Assistant disconnected"));
     },
   });
 
   return (
-    <Section id="ai-assistants" title="AI assistants">
+    <Section id="ai-assistants" title={t("AI assistants")}>
       <div className="flex flex-col gap-4 p-4">
         {isDemo ? (
           <>
             <AssistantDisclosure />
-            <p className="text-ui">Connections are disabled in the public demo.</p>
+            <p className="text-ui">{t("Connections are disabled in the public demo.")}</p>
           </>
         ) : settings.isPending ? (
           <Skeleton className="h-7 w-1/2" />
@@ -73,18 +77,21 @@ export function AssistantSettingsPanel({ company = false }: { company?: boolean 
         ) : !settings.data.available ? (
           <p className="text-ui text-primary-300">
             {company
-              ? "To make this available, set AI_ASSISTANT_ENABLED=1 on your HTTPS Crow HR server and restart the app."
-              : "Your Crow HR server has disabled AI assistant connections."}
+              ? t(
+                  "To make this available, set AI_ASSISTANT_ENABLED=1 on your HTTPS Crow HR server and restart the app.",
+                )
+              : t("Your Crow HR server has disabled AI assistant connections.")}
           </p>
         ) : (
           <>
             <AssistantDisclosure />
             {settings.data.url ? (
               <>
-                <CopyField label="Connector URL" value={settings.data.url} />
+                <CopyField label={t("Connector URL")} value={settings.data.url} />
                 <p className="text-ui text-primary-300">
-                  Add this URL as a custom connector in your assistant. Choose OAuth and automatic registration in
-                  Claude. When asked, sign in here and approve the connection.
+                  {t(
+                    "Add this URL as a custom connector in your assistant. Choose OAuth and automatic registration in Claude. When asked, sign in here and approve the connection.",
+                  )}
                 </p>
                 <ul className="flex flex-wrap gap-x-4 gap-y-1 text-ui">
                   <li>
@@ -94,7 +101,7 @@ export function AssistantSettingsPanel({ company = false }: { company?: boolean 
                       target="_blank"
                       rel="noreferrer"
                     >
-                      ChatGPT setup
+                      {t("ChatGPT setup")}
                     </a>
                   </li>
                   <li>
@@ -104,13 +111,13 @@ export function AssistantSettingsPanel({ company = false }: { company?: boolean 
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Claude setup
+                      {t("Claude setup")}
                     </a>
                   </li>
                 </ul>
               </>
             ) : (
-              <p className="text-ui text-primary-300">AI assistant connections are off for this company.</p>
+              <p className="text-ui text-primary-300">{t("AI assistant connections are off for this company.")}</p>
             )}
             {company ? (
               <div>
@@ -120,7 +127,7 @@ export function AssistantSettingsPanel({ company = false }: { company?: boolean 
                   disabled={toggle.isPending}
                   onClick={() => toggle.mutate(!settings.data.enabled)}
                 >
-                  {settings.data.enabled ? "Disable and disconnect all assistants" : "Enable AI assistants"}
+                  {settings.data.enabled ? t("Disable and disconnect all assistants") : t("Enable AI assistants")}
                 </Button>
                 {toggle.isError ? <ErrorNote error={toggle.error} /> : null}
               </div>
@@ -143,15 +150,15 @@ export function AssistantSettingsPanel({ company = false }: { company?: boolean 
                         type="button"
                         disabled={disconnect.isPending}
                         onClick={() => disconnect.mutate(connection.id)}
-                        aria-label={`Disconnect ${connection.provider}`}
+                        aria-label={t("Disconnect {provider}", { provider: connection.provider })}
                       >
-                        Disconnect
+                        {t("Disconnect")}
                       </Button>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-ui">You have no connected assistants.</p>
+                <p className="text-ui">{t("You have no connected assistants.")}</p>
               )
             ) : null}
             {disconnect.isError ? <ErrorNote error={disconnect.error} /> : null}

@@ -40,6 +40,7 @@ import {
 } from "../../../documents/api.ts";
 import { LetterPreview } from "../../../documents/letter-preview.tsx";
 import { invalidateDocuments } from "../../../documents/ui.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { apiPatch, apiPost, apiPut } from "../../../lib/api.ts";
 
 export const Route = createFileRoute("/_app/settings/documents")({
@@ -47,12 +48,15 @@ export const Route = createFileRoute("/_app/settings/documents")({
 });
 
 function DocumentSettings() {
+  const t = useT("settings-account");
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Documents"
-        description="Who can see each category of employee document, and the letter templates HR generates from employee records."
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Documents")}
+        description={t(
+          "Who can see each category of employee document, and the letter templates HR generates from employee records.",
+        )}
       />
       <Categories />
       <Templates />
@@ -69,6 +73,7 @@ const FLAGS: { key: keyof DocCategory; label: string }[] = [
 ];
 
 function Categories() {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const q = useQuery(categoriesQuery);
   const [name, setName] = React.useState("");
@@ -89,8 +94,10 @@ function Categories() {
   return (
     <Section
       id="doc-categories"
-      title="Categories"
-      description="Medical documents are visible only to HR, owners and the employee. Views of medical and identity documents are audit-logged."
+      title={t("Categories")}
+      description={t(
+        "Medical documents are visible only to HR, owners and the employee. Views of medical and identity documents are audit-logged.",
+      )}
     >
       {q.isError ? (
         <ErrorNote error={q.error} retry={() => void q.refetch()} />
@@ -101,33 +108,34 @@ function Categories() {
       ) : (
         <>
           <div className="overflow-x-auto">
-            <Table aria-label="Document categories">
+            <Table aria-label={t("Document categories")}>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Category</TableHead>
+                  <TableHead>{t("Category")}</TableHead>
                   {FLAGS.map((f) => (
                     <TableHead key={f.key} className="text-center">
-                      {f.label}
+                      {t(f.label)}
                     </TableHead>
                   ))}
-                  <TableHead numeric>Documents</TableHead>
+                  <TableHead numeric>{t("Documents")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {q.data.items.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="whitespace-nowrap font-medium">
-                      {c.name} {c.sensitivity === "medical" ? <StatusPill tone="warning">Medical</StatusPill> : null}
+                      {c.name}{" "}
+                      {c.sensitivity === "medical" ? <StatusPill tone="warning">{t("Medical")}</StatusPill> : null}
                     </TableCell>
                     {FLAGS.map((f) => {
                       const locked = f.key === "managerVisible" && c.sensitivity === "medical";
                       return (
                         <TableCell key={f.key} className="text-center">
                           <Switch
-                            aria-label={`${c.name}: ${f.label}`}
+                            aria-label={t("{name}: {label}", { name: c.name, label: t(f.label) })}
                             checked={Boolean(c[f.key])}
                             disabled={locked || patch.isPending}
-                            title={locked ? "Medical documents are never shown to managers." : undefined}
+                            title={locked ? t("Medical documents are never shown to managers.") : undefined}
                             onCheckedChange={(v) => patch.mutate({ id: c.id, patch: { [f.key]: v } })}
                           />
                         </TableCell>
@@ -146,11 +154,11 @@ function Categories() {
               create.mutate();
             }}
           >
-            <FormField label="New category">
+            <FormField label={t("New category")}>
               <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} className="w-64" />
             </FormField>
             <Button type="submit" size="sm" disabled={!name.trim() || create.isPending}>
-              <Plus aria-hidden /> Add
+              <Plus aria-hidden /> {t("Add")}
             </Button>
           </form>
         </>
@@ -160,16 +168,19 @@ function Categories() {
 }
 
 function Templates() {
+  const t = useT("settings-account");
   const q = useQuery(templatesQuery);
   const [editing, setEditing] = React.useState<LetterTemplate | "new" | null>(null);
   return (
     <Section
       id="doc-templates"
-      title="Letter templates"
-      description="Restricted Markdown with {{merge.fields}}. The KET template keeps every MOM mandatory item; you can reword it but not remove one."
+      title={t("Letter templates")}
+      description={t(
+        "Restricted Markdown with {{merge.fields}}. The KET template keeps every MOM mandatory item; you can reword it but not remove one.",
+      )}
       actions={
         <Button size="sm" onClick={() => setEditing("new")}>
-          <Plus aria-hidden /> New template
+          <Plus aria-hidden /> {t("New template")}
         </Button>
       }
     >
@@ -180,29 +191,32 @@ function Templates() {
           <Skeleton className="h-24 w-full" />
         </div>
       ) : (
-        <Table aria-label="Letter templates">
+        <Table aria-label={t("Letter templates")}>
           <TableHeader>
             <TableRow>
-              <TableHead>Template</TableHead>
-              <TableHead>Kind</TableHead>
-              <TableHead numeric>Version</TableHead>
+              <TableHead>{t("Template")}</TableHead>
+              <TableHead>{t("Kind")}</TableHead>
+              <TableHead numeric>{t("Version")}</TableHead>
               <TableHead>
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{t("Actions")}</span>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {q.data.items.map((t) => (
-              <TableRow key={t.id}>
+            {q.data.items.map((template) => (
+              <TableRow key={template.id}>
                 <TableCell className="font-medium">
-                  {t.name} {t.usesSalary ? <StatusPill tone="neutral">Salary fields</StatusPill> : null}
-                  {!t.active ? <StatusPill tone="neutral">Inactive</StatusPill> : null}
+                  {template.name}{" "}
+                  {template.usesSalary ? <StatusPill tone="neutral">{t("Salary fields")}</StatusPill> : null}
+                  {!template.active ? <StatusPill tone="neutral">{t("Inactive")}</StatusPill> : null}
                 </TableCell>
-                <TableCell className="text-primary-300">{LETTER_KIND_LABEL[t.kind] ?? t.kind}</TableCell>
-                <TableCell numeric>{t.version}</TableCell>
+                <TableCell className="text-primary-300">
+                  {t(LETTER_KIND_LABEL[template.kind] ?? template.kind)}
+                </TableCell>
+                <TableCell numeric>{template.version}</TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(t)}>
-                    Edit
+                  <Button size="sm" variant="ghost" onClick={() => setEditing(template)}>
+                    {t("Edit")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -218,6 +232,7 @@ function Templates() {
 }
 
 function TemplateEditor({ template, onClose }: { template: LetterTemplate | null; onClose: () => void }) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const fields = useQuery(fieldsQuery);
   const [name, setName] = React.useState(template?.name ?? "");
@@ -251,7 +266,7 @@ function TemplateEditor({ template, onClose }: { template: LetterTemplate | null
         ? apiPut(`/api/v1/documents/templates/${template.id}`, { name, kind, bodyMd: body })
         : apiPost("/api/v1/documents/templates", { name, kind, bodyMd: body }),
     onSuccess: async () => {
-      toast.success("Template saved");
+      toast.success(t("Template saved"));
       await invalidateDocuments(qc);
       onClose();
     },
@@ -273,12 +288,12 @@ function TemplateEditor({ template, onClose }: { template: LetterTemplate | null
   return (
     <Card ref={cardRef} className="m-3 scroll-mt-20 border-ink/20 p-4" data-testid="template-editor">
       <div className="mb-3 flex flex-wrap items-end gap-3">
-        <FormField label="Name">
+        <FormField label={t("Name")}>
           <Input value={name} onChange={(e) => setName(e.target.value)} className="w-72" />
         </FormField>
-        <FormField label="Kind">
+        <FormField label={t("Kind")}>
           <Select value={kind} onValueChange={setKind} disabled={template?.kind === "ket"}>
-            <SelectTrigger aria-label="Kind" className="w-60">
+            <SelectTrigger aria-label={t("Kind")} className="w-60">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -294,7 +309,7 @@ function TemplateEditor({ template, onClose }: { template: LetterTemplate | null
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-2">
           <FormField
-            label="Body"
+            label={t("Body")}
             hint="# headings, **bold**, *italic*, - lists, | tables |, \pagebreak on its own line."
           >
             <Textarea
@@ -314,7 +329,7 @@ function TemplateEditor({ template, onClose }: { template: LetterTemplate | null
             </ul>
           ) : null}
           <details>
-            <summary className="cursor-pointer text-ui">Insert a merge field</summary>
+            <summary className="cursor-pointer text-ui">{t("Insert a merge field")}</summary>
             <div className="mt-2 flex flex-col gap-2">
               {[...groups].map(([g, list]) => (
                 <div key={g}>
@@ -325,11 +340,11 @@ function TemplateEditor({ template, onClose }: { template: LetterTemplate | null
                         key={f.id}
                         type="button"
                         className="focus-ring num rounded-sm border border-ink/15 px-1.5 py-0.5 text-2xs hover:bg-ink/[0.04]"
-                        title={f.label}
+                        title={t(f.label)}
                         onClick={() => insert(f.id)}
                       >
                         {f.id}
-                        {f.sensitivity === "salary" ? " (salary)" : ""}
+                        {f.sensitivity === "salary" ? t(" (salary)") : ""}
                       </button>
                     ))}
                   </div>
@@ -339,7 +354,7 @@ function TemplateEditor({ template, onClose }: { template: LetterTemplate | null
           </details>
         </div>
         <div className="rounded-md border border-ink/10 bg-surface-50 p-4">
-          <p className={cn("mb-3", textStyle.group)}>Preview</p>
+          <p className={cn("mb-3", textStyle.group)}>{t("Preview")}</p>
           {check ? <LetterPreview blocks={check.blocks} /> : <Skeleton className="h-40 w-full" />}
         </div>
       </div>
@@ -349,10 +364,10 @@ function TemplateEditor({ template, onClose }: { template: LetterTemplate | null
           disabled={!name.trim() || !!check?.issues.length || save.isPending}
           onClick={() => save.mutate()}
         >
-          Save template
+          {t("Save template")}
         </Button>
         <Button variant="ghost" onClick={onClose}>
-          Cancel
+          {t("Cancel")}
         </Button>
       </div>
     </Card>

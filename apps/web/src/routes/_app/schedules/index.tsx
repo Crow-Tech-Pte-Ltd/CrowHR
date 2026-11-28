@@ -35,6 +35,7 @@ import * as React from "react";
 import { canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { ApiError, apiDelete, apiPatch, apiPost } from "../../../lib/api.ts";
 import {
   addDays,
@@ -73,9 +74,10 @@ export const Route = createFileRoute("/_app/schedules/")({
   component: SchedulesPage,
 });
 
-const errorText = (err: unknown) => (err instanceof Error ? err.message : "That didn't save. Try again.");
+const errorText = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
 function SchedulesPage() {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/schedules/" });
@@ -96,28 +98,30 @@ function SchedulesPage() {
   return (
     <>
       <PageHeader
-        title="Schedules"
+        title={tWorkflow("Schedules")}
         description={
           s.canEdit
-            ? "Build the week, check the warnings, then publish. Staff see only what you publish."
-            : "Your outlet's published roster. Your own shifts and swap requests are in My schedule."
+            ? tWorkflow("Build the week, check the warnings, then publish. Staff see only what you publish.")
+            : tWorkflow("Your outlet's published roster. Your own shifts and swap requests are in My schedule.")
         }
         actions={
           <Button asChild variant="secondary" size="sm">
             <Link to="/schedules/me">
-              <UserRound aria-hidden /> My schedule
+              <UserRound aria-hidden /> {tWorkflow("My schedule")}
             </Link>
           </Button>
         }
       />
       {noScope ? (
         <EmptyState
-          title="There are no locations or departments yet."
-          description="Rosters are built per location or department. Add your outlets or departments first."
+          title={tWorkflow("There are no locations or departments yet.")}
+          description={tWorkflow(
+            "Rosters are built per location or department. Add your outlets or departments first.",
+          )}
           actions={
             canForAll(me, "org_structure:create") ? (
               <Button asChild size="sm">
-                <Link to="/settings/structure">Open Settings → Structure</Link>
+                <Link to="/settings/structure">{tWorkflow("Open Settings → Structure")}</Link>
               </Button>
             ) : undefined
           }
@@ -135,19 +139,19 @@ function SchedulesPage() {
           />
           {!ref.locationId && !ref.departmentId ? (
             <EmptyState
-              title="Pick a location or a department above."
-              description="A roster covers one location, one department, or a department at one location."
+              title={tWorkflow("Pick a location or a department above.")}
+              description={tWorkflow("A roster covers one location, one department, or a department at one location.")}
             />
           ) : roster.isPending ? (
             <Skeleton className="h-96 w-full" />
           ) : roster.isError ? (
             roster.error instanceof ApiError && roster.error.status === 404 ? (
               <EmptyState
-                title="There is nothing to show for this roster."
+                title={tWorkflow("There is nothing to show for this roster.")}
                 description={
                   s.canEdit
-                    ? "None of your team works here. Pick a location where your team works."
-                    : "You're not on this roster. Pick your own location."
+                    ? tWorkflow("None of your team works here. Pick a location where your team works.")
+                    : tWorkflow("You're not on this roster. Pick your own location.")
                 }
               />
             ) : (
@@ -185,13 +189,14 @@ function Toolbar({
   onScope: (loc: string | null, dept: string | null) => void;
   roster: Roster | undefined;
 }) {
+  const tWorkflow = useT("workflows");
   const thisWeek = mondayOf(todaySg());
   const r = roster?.roster;
   return (
     <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap items-center gap-2">
         <Select value={loc ?? "none"} onValueChange={(v) => onScope(v === "none" ? null : v, dept)}>
-          <SelectTrigger aria-label="Location" className="h-9 w-48">
+          <SelectTrigger aria-label={tWorkflow("Location")} className="h-9 w-48">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -200,15 +205,15 @@ function Toolbar({
                 {l.name}
               </SelectItem>
             ))}
-            <SelectItem value="none">Any location</SelectItem>
+            <SelectItem value="none">{tWorkflow("Any location")}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={dept ?? "all"} onValueChange={(v) => onScope(loc, v === "all" ? null : v)}>
-          <SelectTrigger aria-label="Department" className="h-9 w-44">
+          <SelectTrigger aria-label={tWorkflow("Department")} className="h-9 w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All departments</SelectItem>
+            <SelectItem value="all">{tWorkflow("All departments")}</SelectItem>
             {scopes.departments.map((d) => (
               <SelectItem key={d.id} value={d.id}>
                 {d.name}
@@ -217,19 +222,29 @@ function Toolbar({
           </SelectContent>
         </Select>
         <div className="flex items-center rounded-md border border-ink/20">
-          <Button variant="ghost" size="icon-sm" aria-label="Previous week" onClick={() => onWeek(addDays(week, -7))}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={tWorkflow("Previous week")}
+            onClick={() => onWeek(addDays(week, -7))}
+          >
             <ChevronLeft />
           </Button>
           <span className="num min-w-[9.5rem] px-1 text-center text-xs font-semibold" data-testid="week-label">
             {weekLabel(week)}
           </span>
-          <Button variant="ghost" size="icon-sm" aria-label="Next week" onClick={() => onWeek(addDays(week, 7))}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={tWorkflow("Next week")}
+            onClick={() => onWeek(addDays(week, 7))}
+          >
             <ChevronRight />
           </Button>
         </div>
         {week !== thisWeek ? (
           <Button variant="link" size="sm" onClick={() => onWeek(thisWeek)}>
-            This week
+            {tWorkflow("This week")}
           </Button>
         ) : null}
       </div>
@@ -238,22 +253,26 @@ function Toolbar({
           {r.status === "published" ? (
             r.hasChanges ? (
               <>
-                <StatusPill tone="warning">Unpublished changes</StatusPill>
-                <span>Staff still see version {r.version}.</span>
+                <StatusPill tone="warning">{tWorkflow("Unpublished changes")}</StatusPill>
+                <span>
+                  {tWorkflow("Staff still see version")} {r.version}.
+                </span>
               </>
             ) : (
               <>
-                <StatusPill tone="success">Published</StatusPill>
-                <span className="num whitespace-nowrap">Version {r.version}</span>
+                <StatusPill tone="success">{tWorkflow("Published")}</StatusPill>
+                <span className="num whitespace-nowrap">
+                  {tWorkflow("Version")} {r.version}
+                </span>
               </>
             )
           ) : roster.mode === "edit" ? (
             <>
-              <StatusPill tone="neutral">Draft</StatusPill>
-              <span>Not visible to staff yet.</span>
+              <StatusPill tone="neutral">{tWorkflow("Draft")}</StatusPill>
+              <span>{tWorkflow("Not visible to staff yet.")}</span>
             </>
           ) : (
-            <StatusPill tone="neutral">Not published yet</StatusPill>
+            <StatusPill tone="neutral">{tWorkflow("Not published yet")}</StatusPill>
           )}
         </div>
       ) : null}
@@ -274,6 +293,7 @@ function RosterBoard({
   day: string;
   onDay: (d: string) => void;
 }) {
+  const tWorkflow = useT("workflows");
   const qc = useQueryClient();
   const [editor, setEditor] = React.useState<EditorTarget | null>(null);
   const [editorError, setEditorError] = React.useState<string | null>(null);
@@ -308,8 +328,8 @@ function RosterBoard({
       void refresh();
     },
     onError: (err) => {
-      if (editor) setEditorError(errorText(err));
-      else toast.error(errorText(err));
+      if (editor) setEditorError(errorText(err, tWorkflow("That didn't save. Try again.")));
+      else toast.error(errorText(err, tWorkflow("That didn't save. Try again.")));
       if (err instanceof ApiError && err.code === "stale") void refresh();
     },
   });
@@ -321,7 +341,7 @@ function RosterBoard({
       setEditor(null);
       void refresh();
     },
-    onError: (err) => toast.error(errorText(err)),
+    onError: (err) => toast.error(errorText(err, tWorkflow("That didn't save. Try again."))),
   });
   const copy = useMutation({
     mutationFn: async () =>
@@ -330,7 +350,7 @@ function RosterBoard({
       toast.success(r.message);
       void refresh();
     },
-    onError: (err) => toast.error(errorText(err)),
+    onError: (err) => toast.error(errorText(err, tWorkflow("That didn't save. Try again."))),
   });
   const clear = useMutation({
     mutationFn: async () => apiPost<{ removed: number }>(`/api/v1/scheduling/rosters/${await ensureId()}/clear`),
@@ -339,7 +359,7 @@ function RosterBoard({
       setClearing(false);
       void refresh();
     },
-    onError: (err) => toast.error(errorText(err)),
+    onError: (err) => toast.error(errorText(err, tWorkflow("That didn't save. Try again."))),
   });
   const draftOf = (t: Template): ShiftDraft => ({ kind: "shift", templateId: t.id, note: null });
   const open = (cell: CellRef, shift: Shift | null) => {
@@ -358,7 +378,10 @@ function RosterBoard({
     if (a.type === "rest")
       return save.mutate({ target: cell, shift: first, draft: { kind: "rest", templateId: null, note: null } });
     const t = templates[a.index];
-    if (!t) return toast.error(`There's no shift template ${a.index + 1}. Add more in Settings → Shift templates.`);
+    if (!t)
+      return toast.error(
+        tWorkflow("There's no shift template {arg1}. Add more in Settings → Shift templates.", { arg1: a.index + 1 }),
+      );
     save.mutate({ target: cell, shift: first, draft: draftOf(t) });
   };
   const moveShift = (id: string, to: { employeeId: string | null; date: string }) => {
@@ -384,15 +407,20 @@ function RosterBoard({
     <>
       {editable ? (
         <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="Shift templates">
-            <span className={cn("mr-1", textStyle.group)}>Assign</span>
+          <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label={tWorkflow("Shift templates")}>
+            <span className={cn("mr-1", textStyle.group)}>{tWorkflow("Assign")}</span>
             {templates.length ? (
               templates.slice(0, 9).map((t, i) => (
                 <button
                   key={t.id}
                   type="button"
                   aria-pressed={paint === t.id}
-                  title={`${t.name} ${t.startTime}–${t.endTime}. Click a cell to assign, or press ${i + 1} on a cell.`}
+                  title={tWorkflow("{arg1} {arg2}–{arg3}. Click a cell to assign, or press {arg4} on a cell.", {
+                    arg1: t.name,
+                    arg2: t.startTime,
+                    arg3: t.endTime,
+                    arg4: i + 1,
+                  })}
                   onClick={() => setPaint((p) => (p === t.id ? null : t.id))}
                   className={cn(
                     "focus-ring flex h-8 items-center gap-1.5 rounded-md border px-2",
@@ -409,21 +437,21 @@ function RosterBoard({
               ))
             ) : (
               <Link to="/settings/shift-templates" className="text-ui text-biru-400 hover:underline">
-                Add shift templates
+                {tWorkflow("Add shift templates")}
               </Link>
             )}
             {paint ? (
               <Button variant="link" size="sm" onClick={() => setPaint(null)}>
-                Stop assigning
+                {tWorkflow("Stop assigning")}
               </Button>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" onClick={() => copy.mutate()} disabled={copy.isPending}>
-              <Copy aria-hidden /> Copy last week
+              <Copy aria-hidden /> {tWorkflow("Copy last week")}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setClearing(true)} disabled={!data.shifts.length}>
-              <Eraser aria-hidden /> Clear week
+              <Eraser aria-hidden /> {tWorkflow("Clear week")}
             </Button>
             {data.roster.id ? (
               <Button asChild variant="ghost" size="sm">
@@ -439,7 +467,8 @@ function RosterBoard({
               disabled={!data.roster.id || (data.roster.status === "published" && !data.roster.hasChanges)}
               data-testid="publish"
             >
-              <Send aria-hidden /> {data.roster.status === "published" ? "Publish changes" : "Publish"}
+              <Send aria-hidden />{" "}
+              {data.roster.status === "published" ? tWorkflow("Publish changes") : tWorkflow("Publish")}
             </Button>
           </div>
         </div>
@@ -449,29 +478,31 @@ function RosterBoard({
         {editable ? (
           <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-primary-300">
             <span>
-              <Kbd>←</Kbd> <Kbd>→</Kbd> <Kbd>↑</Kbd> <Kbd>↓</Kbd> move
+              <Kbd>←</Kbd> <Kbd>→</Kbd> <Kbd>↑</Kbd> <Kbd>↓</Kbd> {tWorkflow("move")}
             </span>
             <span>
-              <Kbd>Enter</Kbd> edit
+              <Kbd>Enter</Kbd> {tWorkflow("edit")}
             </span>
             <span>
-              <Kbd>1</Kbd>–<Kbd>9</Kbd> assign a shift
+              <Kbd>1</Kbd>–<Kbd>9</Kbd> {tWorkflow("assign a shift")}
             </span>
             <span>
-              <Kbd>R</Kbd> rest day
+              <Kbd>R</Kbd> {tWorkflow("rest day")}
             </span>
             <span>
-              <Kbd>Del</Kbd> clear
+              <Kbd>Del</Kbd> {tWorkflow("clear")}
             </span>
-            <span>Drag a shift to move it.</span>
+            <span>{tWorkflow("Drag a shift to move it.")}</span>
             {warnings ? (
-              <span className="ml-auto">{warnings} hour or rest-day warnings: hover a label to read it.</span>
+              <span className="ml-auto">
+                {warnings} {tWorkflow("hour or rest-day warnings: hover a label to read it.")}
+              </span>
             ) : null}
           </p>
         ) : null}
       </div>
       <div className="md:hidden">
-        <div className="mb-3 grid grid-cols-7 gap-1" role="tablist" aria-label="Day">
+        <div className="mb-3 grid grid-cols-7 gap-1" role="tablist" aria-label={tWorkflow("Day")}>
           {data.days.map((d) => (
             <button
               key={d.date}
@@ -513,14 +544,18 @@ function RosterBoard({
       <AlertDialog open={clearing} onOpenChange={setClearing}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Clear the week of {weekLabel(data.roster.weekStart)}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {tWorkflow("Clear the week of")} {weekLabel(data.roster.weekStart)}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Removes every shift you can edit from the draft. What staff already see stays until you publish again.
+              {tWorkflow(
+                "Removes every shift you can edit from the draft. What staff already see stays until you publish again.",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep shifts</AlertDialogCancel>
-            <AlertDialogAction onClick={() => clear.mutate()}>Clear week</AlertDialogAction>
+            <AlertDialogCancel>{tWorkflow("Keep shifts")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => clear.mutate()}>{tWorkflow("Clear week")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -539,6 +574,7 @@ function PublishDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const tWorkflow = useT("workflows");
   const [checked, setChecked] = React.useState<Set<string>>(new Set());
   const key = (a: { shiftId: string; kind: string }) => `${a.shiftId}:${a.kind}`;
   const publish = useMutation({
@@ -555,12 +591,12 @@ function PublishDialog({
       toast.success(
         r.notified
           ? `Published. ${r.notified} ${r.notified === 1 ? "person was" : "people were"} notified.`
-          : "Published. Nobody's shifts changed, so nobody was notified.",
+          : tWorkflow("Published. Nobody's shifts changed, so nobody was notified."),
       );
       onDone();
       onClose();
     },
-    onError: (err) => toast.error(errorText(err)),
+    onError: (err) => toast.error(errorText(err, tWorkflow("That didn't save. Try again."))),
   });
   const people = new Set(data.shifts.filter((s) => s.employeeId && s.kind === "shift").map((s) => s.employeeId)).size;
   const names = new Map(data.employees.map((e) => [e.id, e.name]));
@@ -582,17 +618,22 @@ function PublishDialog({
     <Dialog open onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto" data-testid="publish-dialog">
         <DialogHeader>
-          <DialogTitle>Publish {weekLabel(data.roster.weekStart)}</DialogTitle>
+          <DialogTitle>
+            {tWorkflow("Publish")} {weekLabel(data.roster.weekStart)}
+          </DialogTitle>
           <DialogDescription>
             {data.roster.status === "published"
-              ? "Only people whose shifts changed are notified, with the old and new times."
-              : `${people} ${people === 1 ? "person" : "people"} with shifts will be notified.`}{" "}
-            Attendance, leave and payroll use the published roster.
+              ? tWorkflow("Only people whose shifts changed are notified, with the old and new times.")
+              : tWorkflow("{arg1} {arg2} with shifts will be notified.", {
+                  arg1: people,
+                  arg2: people === 1 ? "person" : "people",
+                })}{" "}
+            {tWorkflow("Attendance, leave and payroll use the published roster.")}
           </DialogDescription>
         </DialogHeader>
         {data.toAcknowledge.length ? (
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-ui font-medium">Check these before publishing</legend>
+            <legend className="mb-1 text-ui font-medium">{tWorkflow("Check these before publishing")}</legend>
             {data.toAcknowledge.map((a) => (
               <div
                 key={key(a)}
@@ -620,7 +661,7 @@ function PublishDialog({
         ) : null}
         {warnings.length ? (
           <div className="text-ui">
-            <p className="mb-1 font-medium">Warnings (you can still publish)</p>
+            <p className="mb-1 font-medium">{tWorkflow("Warnings (you can still publish)")}</p>
             <ul className="max-h-48 list-disc overflow-y-auto pl-5 text-primary-300">
               {warnings.map(({ key: k, name, w }) => (
                 <li key={k}>
@@ -632,7 +673,7 @@ function PublishDialog({
         ) : null}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Not yet
+            {tWorkflow("Not yet")}
           </Button>
           <Button
             variant="primary"
@@ -640,7 +681,7 @@ function PublishDialog({
             onClick={() => publish.mutate()}
             data-testid="confirm-publish"
           >
-            <Send aria-hidden /> {publish.isPending ? "Publishing…" : "Publish"}
+            <Send aria-hidden /> {publish.isPending ? tWorkflow("Publishing…") : tWorkflow("Publish")}
           </Button>
         </DialogFooter>
       </DialogContent>

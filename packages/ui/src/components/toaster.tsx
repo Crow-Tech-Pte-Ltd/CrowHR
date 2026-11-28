@@ -1,13 +1,17 @@
 import { Toaster as Sonner, toast } from "sonner";
+import { useUiLocale } from "../lib/locale.ts";
 
 /** Toasts (sonner) in the Crow Tech style. Render <Toaster /> once near the root. */
 export function Toaster(props: React.ComponentProps<typeof Sonner>) {
+  const { t } = useUiLocale();
   return (
     <Sonner
+      containerAriaLabel={t("Notifications")}
       position="bottom-right"
       gap={8}
       toastOptions={{
         unstyled: true,
+        closeButtonAriaLabel: t("Close"),
         classNames: {
           toast:
             "flex w-[min(24rem,calc(100vw-2rem))] items-start gap-3 rounded-md border border-ink/20 bg-surface-50 p-3 text-ui text-ink shadow-float",

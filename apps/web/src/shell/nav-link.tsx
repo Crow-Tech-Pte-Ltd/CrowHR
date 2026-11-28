@@ -1,5 +1,6 @@
 import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@crowhr/ui";
 import { Link } from "@tanstack/react-router";
+import { useT } from "../i18n/index.ts";
 import { MODULES, type ModuleId } from "./nav.ts";
 
 export function NavLink({
@@ -11,6 +12,7 @@ export function NavLink({
   collapsed?: boolean;
   onNavigate?: () => void;
 }) {
+  const t = useT("common");
   const m = MODULES[id];
   const Icon = m.icon;
   const link = (
@@ -25,14 +27,14 @@ export function NavLink({
       )}
     >
       <Icon className="size-4 shrink-0" aria-hidden />
-      <span className={cn("truncate", collapsed && "sr-only")}>{m.label}</span>
+      <span className={cn("truncate", collapsed && "sr-only")}>{t(m.label)}</span>
     </Link>
   );
   if (!collapsed) return link;
   return (
     <Tooltip>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{m.label}</TooltipContent>
+      <TooltipContent side="right">{t(m.label)}</TooltipContent>
     </Tooltip>
   );
 }

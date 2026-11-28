@@ -3,6 +3,8 @@ import { Button, cn, formatDate, formatMoney, StatusPill, textStyle } from "@cro
 import { Link } from "@tanstack/react-router";
 import { AlertOctagon, AlertTriangle, ArrowRight, Download, ExternalLink } from "lucide-react";
 import * as React from "react";
+import { useLocale, useT } from "../../../../i18n/index.ts";
+import { payslipTitle } from "./api.ts";
 import type { IssueFix } from "./fixes.ts";
 
 /** Right-aligned tabular money. Zero shows as an en dash so real amounts stand out in dense tables. */
@@ -36,6 +38,7 @@ export const FLAG_LABEL: Record<string, string> = {
 };
 
 export function Flags({ flags }: { flags: string[] }) {
+  const t = useT("people-payroll");
   if (!flags.length) return null;
   return (
     <span className="flex gap-1">
@@ -44,7 +47,7 @@ export function Flags({ flags }: { flags: string[] }) {
           key={f}
           className="whitespace-nowrap rounded-sm border border-ink/15 px-1 font-azeret text-2xs leading-4 text-primary-300"
         >
-          {FLAG_LABEL[f] ?? f}
+          {t(FLAG_LABEL[f] ?? f)}
         </span>
       ))}
     </span>
@@ -66,9 +69,10 @@ const fixLinkClass =
 
 /** A fix: a link to the page that holds the record, or (via `onFix`) a task in the employee drawer. */
 export function FixAction({ fix, onFix }: { fix: IssueFix; onFix?: (fix: IssueFix) => void }) {
+  const t = useT("people-payroll");
   const inner = (
     <>
-      {fix.label} <ArrowRight className="size-3" aria-hidden />
+      {t(fix.label)} <ArrowRight className="size-3" aria-hidden />
     </>
   );
   switch (fix.kind) {
@@ -132,6 +136,7 @@ export function IssueList({
   fixes?: (issue: IssueRow) => IssueFix[];
   onFix?: (fix: IssueFix) => void;
 }) {
+  const t = useT("people-payroll");
   const [all, setAll] = React.useState(false);
   const shown = all ? issues : issues.slice(0, limit);
   return (
@@ -142,11 +147,11 @@ export function IssueList({
           data-code={i.code}
           className="flex gap-2.5 px-4 py-2.5 text-ui"
         >
-          <span title={`Rule ID ${i.code}`} className="mt-0.5 shrink-0">
+          <span title={t("Rule ID {code}", { code: i.code })} className="mt-0.5 shrink-0">
             {i.severity === "blocking" ? (
-              <AlertOctagon className="size-4 text-danger-300" aria-label="Blocking" />
+              <AlertOctagon className="size-4 text-danger-300" aria-label={t("Blocking")} />
             ) : (
-              <AlertTriangle className="size-4 text-warning-400" aria-label="Warning" />
+              <AlertTriangle className="size-4 text-warning-400" aria-label={t("Warning")} />
             )}
           </span>
           <div className="min-w-0 flex-1">
@@ -185,7 +190,7 @@ export function IssueList({
       {issues.length > limit ? (
         <li className="px-4 py-2">
           <Button variant="link" size="sm" onClick={() => setAll(!all)}>
-            {all ? "Show fewer" : `Show all ${issues.length}`}
+            {all ? t("Show fewer") : t("Show all {count}", { count: issues.length })}
           </Button>
         </li>
       ) : null}
@@ -266,6 +271,9 @@ function SlipSection({
 
 /** The payslip as employees see it; the PDF has the same items in the same order. */
 export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHref: string }) {
+  const translate = useT("people-payroll");
+  const locale = useLocale();
+  const title = payslipTitle(slip, slip.periodStart.slice(0, 7), locale);
   const particulars: [string, string][] = [
     ["Employee", slip.employee.name],
     ["Employee no.", slip.employee.employeeNumber],
@@ -278,12 +286,12 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
       "CPF",
       slip.cpf?.rateTableLabel
         ? `${slip.cpf.rateTableLabel}${slip.cpf.ageBand ? `, age ${slip.cpf.ageBand}` : ""}`
-        : "Not applicable",
+        : translate("Not applicable"),
     ],
   ];
   return (
     <article
-      aria-label={slip.title}
+      aria-label={title}
       className="mx-auto max-w-3xl rounded-lg border border-border bg-card px-4 py-5 sm:px-8 sm:py-7"
     >
       <header className="flex flex-col gap-2 border-b-2 border-ink pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -292,7 +300,7 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
           <p className="text-lg font-medium">{slip.employer.legalName}</p>
         </div>
         <div className="flex items-center gap-2 sm:flex-col sm:items-end">
-          <h2 className={textStyle.section}>{slip.title}</h2>
+          <h2 className={textStyle.section}>{title}</h2>
           <Button asChild size="sm" variant="secondary">
             <a href={pdfHref} download>
               <Download aria-hidden /> PDF
@@ -302,22 +310,23 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
       </header>
       {slip.revision ? (
         <p className="mt-3 rounded-sm border border-warning-300/50 bg-warning-50 px-3 py-2 text-ui">
-          This revised payslip replaces an earlier one for the same month. Net already paid{" "}
-          <span className="num">{formatMoney(slip.revision.previouslyPaidCents)}</span>.
+          {translate("This revised payslip replaces an earlier one for the same month. Net already paid {amount}.", {
+            amount: formatMoney(slip.revision.previouslyPaidCents),
+          })}
         </p>
       ) : null}
       <dl className="mt-4 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
         {particulars.map(([k, v]) => (
           <div key={k} className="flex items-baseline gap-3">
-            <dt className={cn("w-28 shrink-0", textStyle.field)}>{k}</dt>
+            <dt className={cn("w-28 shrink-0", textStyle.field)}>{translate(k)}</dt>
             <dd className="min-w-0 text-ui">{v}</dd>
           </div>
         ))}
       </dl>
-      <SlipSection title="Earnings" total={{ label: "Gross pay", cents: slip.grossCents }}>
+      <SlipSection title={translate("Earnings")} total={{ label: translate("Gross pay"), cents: slip.grossCents }}>
         {slip.basic ? (
           <SlipRow
-            label="Basic salary"
+            label={translate("Basic salary")}
             detail={
               slip.basic.hourly
                 ? `${slip.basic.hourly.hours} h × ${formatMoney(slip.basic.hourly.rateCents)}`
@@ -326,17 +335,26 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
             cents={slip.basic.amountCents}
           />
         ) : (
-          <SlipRow label="Basic salary (paid in the monthly payslip)" cents={0} />
+          <SlipRow label={translate("Basic salary (paid in the monthly payslip)")} cents={0} />
         )}
         {slip.allowances.map((a, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: labels can repeat on a payslip; the list never reorders.
-          <SlipRow key={`${a.label}-${i}`} label={a.label} detail={a.detail ?? "Allowance"} cents={a.amountCents} />
+          <SlipRow
+            // biome-ignore lint/suspicious/noArrayIndexKey: labels can repeat on a payslip; the list never reorders.
+            key={`${a.label}-${i}`}
+            label={a.label}
+            detail={a.detail ?? translate("Allowance")}
+            cents={a.amountCents}
+          />
         ))}
         {(slip.overtime?.periods ?? []).map((p) => (
           <SlipRow
             key={`${p.label}-${p.periodStart ?? ""}-${p.periodEnd ?? ""}`}
-            label={p.label === "Overtime" ? "Overtime pay" : `Overtime pay: ${p.label}`}
-            detail={`${p.hours} h worked${p.differsFromSalaryPeriod && p.periodStart && p.periodEnd ? `, ${formatDate(p.periodStart)} – ${formatDate(p.periodEnd)}` : ""}`}
+            label={
+              p.label === "Overtime"
+                ? translate("Overtime pay")
+                : translate("Overtime pay: {label}", { label: p.label })
+            }
+            detail={`${translate("{hours} h worked", { hours: p.hours })}${p.differsFromSalaryPeriod && p.periodStart && p.periodEnd ? `, ${formatDate(p.periodStart)} – ${formatDate(p.periodEnd)}` : ""}`}
             cents={p.payCents}
           />
         ))}
@@ -345,21 +363,24 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
           <SlipRow key={`${a.label}-${i}`} label={a.label} detail={a.detail} cents={a.amountCents} />
         ))}
       </SlipSection>
-      <SlipSection title="Deductions" total={{ label: "Total deductions", cents: slip.totalDeductionsCents }}>
-        {slip.deductions.length === 0 ? <SlipRow label="No deductions" cents={0} /> : null}
+      <SlipSection
+        title={translate("Deductions")}
+        total={{ label: translate("Total deductions"), cents: slip.totalDeductionsCents }}
+      >
+        {slip.deductions.length === 0 ? <SlipRow label={translate("No deductions")} cents={0} /> : null}
         {slip.deductions.map((d, i) => (
           <SlipRow
             // biome-ignore lint/suspicious/noArrayIndexKey: labels can repeat on a payslip; the list never reorders.
             key={`${d.label}-${i}`}
             label={d.label}
-            detail={d.type === "fixed" ? "Fixed" : (d.detail ?? "Ad hoc")}
+            detail={d.type === "fixed" ? translate("Fixed") : (d.detail ?? translate("Ad hoc"))}
             cents={d.amountCents}
             negative
           />
         ))}
       </SlipSection>
       {slip.reimbursements.length ? (
-        <SlipSection title="Reimbursements (not wages)">
+        <SlipSection title={translate("Reimbursements (not wages)")}>
           {slip.reimbursements.map((r, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: labels can repeat on a payslip; the list never reorders.
             <SlipRow key={`${r.label}-${i}`} label={r.label} cents={r.amountCents} />
@@ -368,40 +389,43 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
       ) : null}
       {/* A 2px ink rule, not a hard-shadow box: the shadow is kept for the few emphasised surfaces. */}
       <div className="mt-6 flex items-baseline justify-between border-t-2 border-ink px-2 pt-3">
-        <span className={textStyle.section}>Net pay</span>
+        <span className={textStyle.section}>{translate("Net pay")}</span>
         <span className="num text-xl font-semibold">{formatMoney(slip.netCents)}</span>
       </div>
       {slip.revision ? (
         <p className="mt-2 text-right text-2xs text-primary-300">
-          {slip.netPayableCents >= 0 ? "To pay now" : "Overpaid"}:{" "}
-          <span className="num">{formatMoney(Math.abs(slip.netPayableCents))}</span>
+          {translate(slip.netPayableCents >= 0 ? "To pay now: {amount}" : "Overpaid: {amount}", {
+            amount: formatMoney(Math.abs(slip.netPayableCents)),
+          })}
         </p>
       ) : null}
       <dl className="mt-5 grid grid-cols-1 gap-2 border-t border-border pt-4 text-ui sm:grid-cols-2">
         <div className="flex justify-between gap-3">
-          <dt className="text-primary-300">Employer CPF (not deducted)</dt>
+          <dt className="text-primary-300">{translate("Employer CPF (not deducted)")}</dt>
           <dd className="num">{formatMoney(slip.employerCpfCents)}</dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="text-primary-300">AW subject to CPF, {slip.ytd.year} to date</dt>
+          <dt className="text-primary-300">
+            {translate("AW subject to CPF, {year} to date", { year: slip.ytd.year })}
+          </dt>
           <dd className="num">{formatMoney(slip.ytd.awSubjectCents)}</dd>
         </div>
         {slip.shgFunds.length ? (
           <div className="flex justify-between gap-3">
-            <dt className="text-primary-300">Self-help group</dt>
+            <dt className="text-primary-300">{translate("Self-help group")}</dt>
             <dd>{slip.shgFunds.join(", ")}</dd>
           </div>
         ) : null}
       </dl>
       <p className="mt-5 text-2xs text-primary-200">
-        Itemised payslip with the items MOM requires.{" "}
+        {translate("Itemised payslip with the items MOM requires.")}{" "}
         <a
           className="text-biru-400 underline underline-offset-2"
           href="https://www.mom.gov.sg/employment-practices/salary/itemised-payslips"
           target="_blank"
           rel="noreferrer"
         >
-          What must be on a payslip
+          {translate("What must be on a payslip")}
         </a>
         .
       </p>
@@ -416,12 +440,13 @@ export function RunStatusPill({
   status: "draft" | "in_review" | "approved" | "paid";
   superseded?: boolean;
 }) {
-  if (superseded) return <StatusPill tone="neutral">Superseded</StatusPill>;
+  const t = useT("people-payroll");
+  if (superseded) return <StatusPill tone="neutral">{t("Superseded")}</StatusPill>;
   const s = {
     draft: ["Draft", "neutral"],
     in_review: ["In review", "info"],
     approved: ["Approved", "success"],
     paid: ["Paid", "success"],
   } as const;
-  return <StatusPill tone={s[status][1]}>{s[status][0]}</StatusPill>;
+  return <StatusPill tone={s[status][1]}>{t(s[status][0])}</StatusPill>;
 }

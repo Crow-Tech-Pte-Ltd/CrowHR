@@ -22,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import * as React from "react";
 import { useMe } from "../auth/session.ts";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiDelete, apiPost } from "../lib/api.ts";
 import { delegationsQuery, peopleQuery } from "./api.ts";
 
@@ -38,6 +39,7 @@ export function OutOfOfficeDialog({
   onOpenChange: (o: boolean) => void;
   forOthers?: boolean;
 }) {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const qc = useQueryClient();
   const people = useQuery({ ...peopleQuery, enabled: open });
@@ -67,7 +69,9 @@ export function OutOfOfficeDialog({
         endsOn,
       }),
     onSuccess: () => {
-      toast.success("Cover set", { description: "Approval tasks will also go to the person covering." });
+      toast.success(tWorkflow("Cover set"), {
+        description: tWorkflow("Approval tasks will also go to the person covering."),
+      });
       void qc.invalidateQueries({ queryKey: ["approvals", "delegations"] });
       void qc.invalidateQueries({ queryKey: ["inbox"] });
       setTo("");
@@ -81,7 +85,8 @@ export function OutOfOfficeDialog({
   const remove = useMutation({
     mutationFn: (id: string) => apiDelete(`/api/v1/approvals/delegations/${id}`),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["approvals", "delegations"] }),
-    onError: (err) => toast.error("Not removed", { description: err instanceof Error ? err.message : undefined }),
+    onError: (err) =>
+      toast.error(tWorkflow("Not removed"), { description: err instanceof Error ? err.message : undefined }),
   });
 
   const submit = (e: React.FormEvent) => {
@@ -101,17 +106,20 @@ export function OutOfOfficeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{forOthers ? "Out-of-office cover" : "Out of office"}</DialogTitle>
+          <DialogTitle>{forOthers ? tWorkflow("Out-of-office cover") : tWorkflow("Out of office")}</DialogTitle>
           <DialogDescription>
-            While cover is on, the person covering also gets {forOthers ? "their" : "your"} approval tasks and decides
-            on {forOthers ? "their" : "your"} behalf. Role-based steps (HR admin, payroll admin, owner) only go to
-            someone who holds that role.
+            {tWorkflow(
+              forOthers
+                ? "While cover is on, the person covering also gets their approval tasks and decides on their behalf."
+                : "While cover is on, the person covering also gets your approval tasks and decides on your behalf.",
+            )}{" "}
+            {tWorkflow("Role-based steps (HR admin, payroll admin, owner) only go to someone who holds that role.")}
           </DialogDescription>
         </DialogHeader>
         {existing.data?.items.length ? (
           <ul
             className="flex flex-col divide-y divide-border rounded-md border border-border"
-            aria-label="Current cover"
+            aria-label={tWorkflow("Current cover")}
           >
             {existing.data.items.map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-2 text-ui">
@@ -122,11 +130,15 @@ export function OutOfOfficeDialog({
                   </span>
                 </span>
                 <span className="flex items-center gap-2">
-                  {d.active ? <StatusPill tone="info">On now</StatusPill> : <StatusPill>Upcoming</StatusPill>}
+                  {d.active ? (
+                    <StatusPill tone="info">{tWorkflow("On now")}</StatusPill>
+                  ) : (
+                    <StatusPill>{tWorkflow("Upcoming")}</StatusPill>
+                  )}
                   <Button
                     size="icon-sm"
                     variant="ghost"
-                    aria-label={`Remove cover from ${d.from.name} to ${d.to.name}`}
+                    aria-label={tWorkflow("Remove cover from {arg1} to {arg2}", { arg1: d.from.name, arg2: d.to.name })}
                     onClick={() => remove.mutate(d.id)}
                   >
                     <Trash2 />
@@ -138,26 +150,26 @@ export function OutOfOfficeDialog({
         ) : null}
         <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
           {forOthers ? (
-            <FormField label="Who is away">
+            <FormField label={tWorkflow("Who is away")}>
               <Select value={from} onValueChange={setFrom}>
-                <SelectTrigger aria-label="Who is away">
+                <SelectTrigger aria-label={tWorkflow("Who is away")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {(people.data?.items ?? []).map((p) => (
                     <SelectItem key={p.membershipId} value={p.membershipId}>
                       {p.name}
-                      {p.membershipId === me.membershipId ? " (you)" : ""}
+                      {p.membershipId === me.membershipId ? ` ${tWorkflow("(you)")}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </FormField>
           ) : null}
-          <FormField label="Who covers" error={errors.toMembershipId}>
+          <FormField label={tWorkflow("Who covers")} error={errors.toMembershipId}>
             <Select value={to} onValueChange={setTo}>
-              <SelectTrigger aria-label="Who covers">
-                <SelectValue placeholder="Choose a colleague" />
+              <SelectTrigger aria-label={tWorkflow("Who covers")}>
+                <SelectValue placeholder={tWorkflow("Choose a colleague")} />
               </SelectTrigger>
               <SelectContent>
                 {choices.map((p) => (
@@ -169,10 +181,10 @@ export function OutOfOfficeDialog({
             </Select>
           </FormField>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label="First day away" error={errors.startsOn}>
+            <FormField label={tWorkflow("First day away")} error={errors.startsOn}>
               <DatePicker value={startsOn} onChange={setStartsOn} min={today} />
             </FormField>
-            <FormField label="Last day away" error={errors.endsOn} hint="Both days included.">
+            <FormField label={tWorkflow("Last day away")} error={errors.endsOn} hint={tWorkflow("Both days included.")}>
               <DatePicker value={endsOn} onChange={setEndsOn} min={startsOn ?? today} />
             </FormField>
           </div>
@@ -183,10 +195,10 @@ export function OutOfOfficeDialog({
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Close
+              {tWorkflow("Close")}
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending}>
-              Set cover
+              {tWorkflow("Set cover")}
             </Button>
           </DialogFooter>
         </form>

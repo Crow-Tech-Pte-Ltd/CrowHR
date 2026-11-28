@@ -11,6 +11,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import * as React from "react";
 import { useMe } from "../auth/session.ts";
+import { type Translate, useT } from "../i18n/index.ts";
 import { ApiError, apiGet, apiPost } from "../lib/api.ts";
 
 export interface MyOrganisation {
@@ -28,13 +29,19 @@ export const myOrganisationsQuery = {
 };
 
 /** What to say when a switch is refused, and where to go instead. */
-export function switchFailure(err: unknown, org: Pick<MyOrganisation, "name" | "slug">): string {
+export function switchFailure(err: unknown, org: Pick<MyOrganisation, "name" | "slug">, t: Translate): string {
   if (err instanceof ApiError) {
     if (err.code === "password_sign_in_disabled")
-      return `${org.name} uses single sign-on. Sign in from its sign-in page: /sign-in/${org.slug}.`;
+      return t("{name} uses single sign-on. Sign in from its sign-in page: {path}.", {
+        name: org.name,
+        path: `/sign-in/${org.slug}`,
+      });
     if (err.code === "reauth_required" || err.code === "not_found") return err.message;
   }
-  return `Couldn't switch to ${org.name}. Try again, or sign in from /sign-in/${org.slug}.`;
+  return t("Couldn't switch to {name}. Try again, or sign in from {path}.", {
+    name: org.name,
+    path: `/sign-in/${org.slug}`,
+  });
 }
 
 /**
@@ -43,6 +50,7 @@ export function switchFailure(err: unknown, org: Pick<MyOrganisation, "name" | "
  * in memory.
  */
 export function OrgSwitcher({ className }: { className?: string }) {
+  const t = useT("common");
   const me = useMe();
   const [open, setOpen] = React.useState(false);
   const list = useQuery({ ...myOrganisationsQuery, enabled: open });
@@ -50,7 +58,7 @@ export function OrgSwitcher({ className }: { className?: string }) {
     mutationFn: (org: MyOrganisation) =>
       apiPost<{ orgSlug: string }>("/api/v1/auth/switch-organisation", { org: org.slug }),
     onSuccess: () => window.location.assign("/"),
-    onError: (err, org) => toast.error(switchFailure(err, org)),
+    onError: (err, org) => toast.error(switchFailure(err, org, t)),
   });
   const current = { name: me.organisation.name, slug: me.organisation.slug ?? "" };
   const others = (list.data?.items ?? []).filter((o) => !o.current);
@@ -72,20 +80,20 @@ export function OrgSwitcher({ className }: { className?: string }) {
           <span className="truncate text-ui font-medium leading-4">{current.name}</span>
           <span className="num truncate text-[10px] leading-3 text-primary-200">{current.slug}</span>
         </span>
-        <span className="sr-only">Switch organisation</span>
+        <span className="sr-only">{t("Switch organisation")}</span>
         <ChevronsUpDown className="size-3.5 shrink-0 text-primary-200" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel>Organisations</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("Organisations")}</DropdownMenuLabel>
         <DropdownMenuItem disabled className="data-[disabled]:opacity-100">
           <Check className="!text-ink" />
           <span className="truncate">{current.name}</span>
-          <span className="ml-auto text-2xs text-primary-200">Current</span>
+          <span className="ml-auto text-2xs text-primary-200">{t("Current")}</span>
         </DropdownMenuItem>
         {list.isPending ? (
           <DropdownMenuItem disabled>
             <Loader2 className="animate-spin" />
-            Loading your other organisations…
+            {t("Loading your other organisations…")}
           </DropdownMenuItem>
         ) : list.isError ? (
           <DropdownMenuItem
@@ -94,7 +102,7 @@ export function OrgSwitcher({ className }: { className?: string }) {
               void list.refetch();
             }}
           >
-            Couldn't load your other organisations. Try again
+            {t("Couldn't load your other organisations. Try again")}
           </DropdownMenuItem>
         ) : (
           others.map((o) => (
@@ -115,16 +123,16 @@ export function OrgSwitcher({ className }: { className?: string }) {
                 )}
               >
                 {switchTo.isPending && switchTo.variables?.id === o.id
-                  ? "Switching…"
+                  ? t("Switching…")
                   : o.status === "former"
-                    ? "Former member"
+                    ? t("Former member")
                     : o.slug}
               </span>
             </DropdownMenuItem>
           ))
         )}
         {list.isSuccess && others.length === 0 ? (
-          <p className="px-2 py-1.5 text-2xs text-primary-300">You belong to this organisation only.</p>
+          <p className="px-2 py-1.5 text-2xs text-primary-300">{t("You belong to this organisation only.")}</p>
         ) : null}
       </DropdownMenuContent>
     </DropdownMenu>

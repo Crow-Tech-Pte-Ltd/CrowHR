@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle, Button, cn, StatusPill, textStyle, toast } from "@crowhr/ui";
+import { Alert, AlertDescription, AlertTitle, Button, cn, textStyle, toast } from "@crowhr/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, Building2, ImageUp } from "lucide-react";
@@ -7,6 +7,7 @@ import { AssistantSettingsPanel } from "../../../assistant/settings.tsx";
 import { canForAll, useMe } from "../../../auth/session.ts";
 import { AppearanceSettings } from "../../../branding/settings.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
+import { useLocale, useT } from "../../../i18n/index.ts";
 import { api, companyQuery, errorMessage, fieldErrors, invalidatePeople } from "../people/-lib/api.ts";
 import { ErrorPanel, PanelSkeleton, TextInput } from "../people/-lib/ui.tsx";
 
@@ -25,8 +26,11 @@ const empty = {
 };
 
 function CompanyPage() {
+  const t = useT("company");
+  const locale = useLocale();
   // Everyone may read the company profile; only owners and HR admins change it.
-  const editable = canForAll(useMe(), "org_structure:update");
+  const me = useMe();
+  const editable = canForAll(me, "org_structure:update");
   const qc = useQueryClient();
   const q = useQuery(companyQuery);
   const [f, setF] = React.useState(empty);
@@ -54,32 +58,30 @@ function CompanyPage() {
     mutationFn: () => api("PUT", "/organisation/profile", f),
     onSuccess: async () => {
       await invalidatePeople(qc);
-      toast("Company profile saved");
+      toast(t("Company profile saved"));
     },
   });
   const errs = fieldErrors(save.error);
   const profile = q.data?.profile;
-  const me = useMe();
+  const missingFields =
+    profile?.missingForPayroll.flatMap((field) => {
+      if (field === "uen") return [t("UEN")];
+      if (field === "csn") return [t("CPF Submission Number (CSN)")];
+      if (field === "address") {
+        return [
+          ...(profile.address.street ? [] : [t("Street")]),
+          ...(profile.address.postalCode ? [] : [t("Postal code")]),
+        ];
+      }
+      return [field];
+    }) ?? [];
 
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Company"
-        description="The legal entity on payslips, CPF submissions and IR8A. One UEN and one CSN per organisation."
-        actions={
-          profile ? (
-            profile.payrollReady ? (
-              <span className="text-ui text-primary-300" data-testid="payroll-ready">
-                Ready for payroll
-              </span>
-            ) : (
-              <StatusPill tone="warning">
-                Payroll blocked: add {profile.missingForPayroll.join(", ").toUpperCase()}
-              </StatusPill>
-            )
-          ) : null
-        }
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Company")}
+        description={t("The legal entity on payslips, CPF submissions and IR8A. One UEN and one CSN per organisation.")}
       />
       {q.isPending ? (
         <PanelSkeleton rows={6} />
@@ -98,9 +100,22 @@ function CompanyPage() {
             <Alert variant="info">
               <Building2 aria-hidden />
               <div>
-                <AlertTitle>Set up your company</AlertTitle>
+                <AlertTitle>{t("Set up your company")}</AlertTitle>
                 <AlertDescription>
-                  Legal name and UEN are enough to start. Payroll needs the CSN and address too.
+                  {t("Legal name and UEN are enough to start. Payroll needs the CSN and address too.")}
+                </AlertDescription>
+              </div>
+            </Alert>
+          ) : null}
+          {missingFields.length ? (
+            <Alert variant="warning">
+              <AlertTriangle aria-hidden />
+              <div>
+                <AlertTitle>{t("Company details needed to finalise payroll")}</AlertTitle>
+                <AlertDescription>
+                  {t("Missing details: {fields}.", {
+                    fields: new Intl.ListFormat(locale, { type: "conjunction" }).format(missingFields),
+                  })}
                 </AlertDescription>
               </div>
             </Alert>
@@ -109,7 +124,7 @@ function CompanyPage() {
             <Alert variant="danger">
               <AlertTriangle aria-hidden />
               <div>
-                <AlertTitle>Not saved</AlertTitle>
+                <AlertTitle>{t("Not saved")}</AlertTitle>
                 <AlertDescription>{errorMessage(save.error)}</AlertDescription>
               </div>
             </Alert>
@@ -118,24 +133,24 @@ function CompanyPage() {
             disabled={!editable}
             className="grid gap-4 rounded-lg border border-border bg-surface-50 p-4 sm:grid-cols-2 sm:p-5"
           >
-            <legend className={cn("-ml-1 px-1", textStyle.group)}>Legal entity</legend>
+            <legend className={cn("-ml-1 px-1", textStyle.group)}>{t("Legal entity")}</legend>
             <TextInput
-              label="Legal name"
+              label={t("Legal name")}
               required
               value={f.legalName}
               onChange={set("legalName")}
               error={errs.legalName}
-              hint="As registered with ACRA."
+              hint={t("As registered with ACRA.")}
               className="sm:col-span-2"
             />
             <TextInput
-              label="Trading name"
+              label={t("Trading name")}
               value={f.tradingName}
               onChange={set("tradingName")}
               error={errs.tradingName}
             />
             <TextInput
-              label="UEN"
+              label={t("UEN")}
               required
               mono
               value={f.uen}
@@ -144,13 +159,13 @@ function CompanyPage() {
               placeholder="201912345K"
             />
             <TextInput
-              label="CPF Submission Number (CSN)"
+              label={t("CPF Submission Number (CSN)")}
               mono
               value={f.csn}
               onChange={set("csn")}
               error={errs.csn}
               placeholder={`${f.uen || "201912345K"}PTE01`}
-              hint="Your UEN + payment type (PTE for staff) + 2-digit serial."
+              hint={t("Your UEN + payment type (PTE for staff) + 2-digit serial.")}
               className="sm:col-span-2"
             />
           </fieldset>
@@ -158,21 +173,21 @@ function CompanyPage() {
             disabled={!editable}
             className="grid gap-4 rounded-lg border border-border bg-surface-50 p-4 sm:grid-cols-2 sm:p-5"
           >
-            <legend className={cn("-ml-1 px-1", textStyle.group)}>Registered address</legend>
+            <legend className={cn("-ml-1 px-1", textStyle.group)}>{t("Registered address")}</legend>
             <TextInput
-              label="Block / house no."
+              label={t("Block / house no.")}
               value={f.addressBlock}
               onChange={set("addressBlock")}
               error={errs.addressBlock}
             />
             <TextInput
-              label="Street"
+              label={t("Street")}
               value={f.addressStreet}
               onChange={set("addressStreet")}
               error={errs.addressStreet}
             />
             <TextInput
-              label="Unit"
+              label={t("Unit")}
               mono
               value={f.addressUnit}
               onChange={set("addressUnit")}
@@ -180,13 +195,13 @@ function CompanyPage() {
               placeholder="#12-04"
             />
             <TextInput
-              label="Building"
+              label={t("Building")}
               value={f.addressBuilding}
               onChange={set("addressBuilding")}
               error={errs.addressBuilding}
             />
             <TextInput
-              label="Postal code"
+              label={t("Postal code")}
               mono
               inputMode="numeric"
               value={f.postalCode}
@@ -196,15 +211,15 @@ function CompanyPage() {
             />
           </fieldset>
           {profile ? <LogoField hasLogo={profile.hasLogo} version={profile.updatedAt} editable={editable} /> : null}
-          <p className="text-2xs text-primary-200">Time zone Asia/Singapore · currency SGD (fixed).</p>
+          <p className="text-2xs text-primary-200">{t("Time zone Asia/Singapore · currency SGD (fixed).")}</p>
           {editable ? (
             <div>
               <Button type="submit" variant="primary" disabled={save.isPending}>
-                {save.isPending ? "Saving…" : "Save company profile"}
+                {save.isPending ? t("Saving…") : t("Save company profile")}
               </Button>
             </div>
           ) : (
-            <p className="text-ui text-primary-300">Only owners and HR admins can change the company profile.</p>
+            <p className="text-ui text-primary-300">{t("Only owners and HR admins can change the company profile.")}</p>
           )}
         </form>
       )}
@@ -244,6 +259,7 @@ async function isPng(file: File): Promise<boolean> {
  * Company logo for report PDFs and letters. It saves as soon as a PNG file is chosen.
  */
 function LogoField({ hasLogo, version, editable }: { hasLogo: boolean; version: string; editable: boolean }) {
+  const t = useT("company");
   const qc = useQueryClient();
   const input = React.useRef<HTMLInputElement>(null);
   const [problem, setProblem] = React.useState<string | null>(null);
@@ -252,21 +268,21 @@ function LogoField({ hasLogo, version, editable }: { hasLogo: boolean; version: 
       api("PUT", "/organisation/profile/logo", { contentType: "image/png", dataBase64: await pngBase64(file) }),
     onSuccess: async () => {
       await invalidatePeople(qc);
-      toast("Logo saved");
+      toast(t("Logo saved"));
     },
     onError: (err) => setProblem(errorMessage(err)),
   });
   const choose = async (file: File | undefined) => {
     setProblem(null);
     if (!file) return;
-    if (file.size > MAX_LOGO_BYTES) return setProblem("The logo must be at most 1 MB. Export a smaller PNG.");
+    if (file.size > MAX_LOGO_BYTES) return setProblem(t("The logo must be at most 1 MB. Export a smaller PNG."));
     if (!(await isPng(file)))
-      return setProblem("Upload the logo as a PNG file. Export SVG or JPEG artwork to PNG first.");
+      return setProblem(t("Upload the logo as a PNG file. Export SVG or JPEG artwork to PNG first."));
     upload.mutate(file);
   };
   return (
     <fieldset className="flex flex-col gap-3 rounded-lg border border-border bg-surface-50 p-4 sm:p-5">
-      <legend className={cn("-ml-1 px-1", textStyle.group)}>Logo</legend>
+      <legend className={cn("-ml-1 px-1", textStyle.group)}>{t("Logo")}</legend>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         {/* The logo is printed on white letters: preview it on white in both themes. */}
         <div
@@ -278,17 +294,18 @@ function LogoField({ hasLogo, version, editable }: { hasLogo: boolean; version: 
           {hasLogo ? (
             <img
               src={`/api/v1/organisation/profile/logo?v=${encodeURIComponent(version)}`}
-              alt="Current company logo"
+              alt={t("Current company logo")}
               className="max-h-full max-w-full object-contain"
             />
           ) : (
-            <span className="text-2xs text-primary-200">No logo yet</span>
+            <span className="text-2xs text-primary-200">{t("No logo yet")}</span>
           )}
         </div>
         <div className="flex flex-col gap-1.5">
           <p className="text-ui text-primary-300">
-            Printed on report PDFs and letters generated from templates. Use a PNG up to 1 MB. A transparent background
-            works best.
+            {t(
+              "Printed on report PDFs and letters generated from templates. Use a PNG up to 1 MB. A transparent background works best.",
+            )}
           </p>
           {editable ? (
             <div>
@@ -296,7 +313,7 @@ function LogoField({ hasLogo, version, editable }: { hasLogo: boolean; version: 
                 ref={input}
                 type="file"
                 accept="image/png"
-                aria-label="Logo file (PNG)"
+                aria-label={t("Logo file (PNG)")}
                 className="sr-only"
                 tabIndex={-1}
                 onChange={(e) => {
@@ -305,7 +322,8 @@ function LogoField({ hasLogo, version, editable }: { hasLogo: boolean; version: 
                 }}
               />
               <Button type="button" size="sm" disabled={upload.isPending} onClick={() => input.current?.click()}>
-                <ImageUp aria-hidden /> {upload.isPending ? "Uploading…" : hasLogo ? "Replace logo" : "Upload logo"}
+                <ImageUp aria-hidden />{" "}
+                {upload.isPending ? t("Uploading…") : hasLogo ? t("Replace logo") : t("Upload logo")}
               </Button>
             </div>
           ) : null}

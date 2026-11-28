@@ -1,5 +1,6 @@
 import { toast } from "@crowhr/ui";
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiGet, apiPost } from "../lib/api.ts";
 
 /** Wire shapes of the approvals, inbox and notifications endpoints (mirror packages/core schemas). */
@@ -219,6 +220,7 @@ interface DecideVars {
  * dropped for good and the toast says who decided it.
  */
 export function useDecide(options: { onDone?: (taskIds: string[]) => void } = {}) {
+  const t = useT("workflows");
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ taskIds, decision, comment }: DecideVars) => {
@@ -260,28 +262,34 @@ export function useDecide(options: { onDone?: (taskIds: string[]) => void } = {}
         if (context?.inbox) qc.setQueryData(inboxQuery.queryKey, context.inbox);
         if (context?.tasks) qc.setQueryData(tasksQuery.queryKey, context.tasks);
       }
-      toast.error(conflict ? "Already handled" : "Nothing was changed", {
-        description: err instanceof Error ? err.message : "The server didn't respond. Try again.",
+      toast.error(conflict ? t("Already handled") : t("Nothing was changed"), {
+        description: err instanceof Error ? err.message : t("The server didn't respond. Try again."),
       });
       options.onDone?.(vars.taskIds);
     },
     onSuccess: (results, vars) => {
       const ok = results.filter((r) => r.ok);
       const failed = results.filter((r) => !r.ok);
-      const verb = vars.decision === "approve" ? "Approved" : "Rejected";
       if (ok.length) {
         const finished = ok.filter((r) => r.requestStatus !== "pending").length;
-        toast.success(ok.length === 1 ? verb : `${verb} ${ok.length} requests`, {
+        const approved = vars.decision === "approve";
+        const outcome =
+          ok.length === 1
+            ? t(approved ? "Approved" : "Rejected")
+            : t(approved ? "Approved {count} requests" : "Rejected {count} requests", { count: ok.length });
+        toast.success(outcome, {
           description:
             vars.decision === "reject"
-              ? "The requester has been told why."
+              ? t("The requester has been told why.")
               : finished === ok.length
-                ? "The requester has been notified."
-                : "Sent on to the next approver.",
+                ? t("The requester has been notified.")
+                : t("Sent on to the next approver."),
         });
       }
       if (failed.length) {
-        toast.error(`${failed.length} not changed`, { description: failed[0]?.message ?? "Try again." });
+        toast.error(t("{count} not changed", { count: failed.length }), {
+          description: failed[0]?.message ?? t("Try again."),
+        });
       }
       options.onDone?.(vars.taskIds);
     },

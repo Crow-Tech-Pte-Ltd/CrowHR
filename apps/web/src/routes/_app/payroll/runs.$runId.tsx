@@ -31,6 +31,7 @@ import { can, useMe } from "../../../auth/session.ts";
 import { isNotFound, NotFoundPage } from "../../../components/not-found.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useLocale, useT } from "../../../i18n/index.ts";
 import {
   decide,
   downloadFile,
@@ -56,6 +57,7 @@ export const Route = createFileRoute("/_app/payroll/runs/$runId")({
 });
 
 function RunPage() {
+  const t = useT("people-payroll");
   const { runId } = Route.useParams();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -69,7 +71,7 @@ function RunPage() {
 
   if (q.isPending) {
     return (
-      <div role="status" aria-label="Loading payroll run" className="flex flex-col gap-4">
+      <div role="status" aria-label={t("Loading payroll run")} className="flex flex-col gap-4">
         <Skeleton className="h-6 w-64" />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-80 w-full" />
@@ -79,9 +81,9 @@ function RunPage() {
   if (q.isError) {
     return isNotFound(q.error) ? (
       <NotFoundPage
-        title="Payroll run not found"
-        crumbs={[{ label: "Payroll", to: "/payroll" }]}
-        back={{ to: "/payroll", label: "Back to payroll" }}
+        title={t("Payroll run not found")}
+        crumbs={[{ label: t("Payroll"), to: "/payroll" }]}
+        back={{ to: "/payroll", label: t("Back to payroll") }}
       />
     ) : (
       <Card>
@@ -117,6 +119,8 @@ function RunPage() {
 }
 
 function RunHeader({ o }: { o: PayrollOverviewDto }) {
+  const locale = useLocale();
+  const translate = useT("people-payroll");
   const { run } = o;
   const me = useMe();
   const qc = useQueryClient();
@@ -141,22 +145,30 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
         size="sm"
         disabled={busy}
         onClick={() =>
-          act.mutate(() => runAction(run.id, "compute").then(() => toast.success("Computed from the current records")))
+          act.mutate(() =>
+            runAction(run.id, "compute").then(() => toast.success(translate("Computed from the current records"))),
+          )
         }
       >
-        <RotateCcw aria-hidden /> {computed ? "Recompute" : "Compute"}
+        <RotateCcw aria-hidden /> {computed ? translate("Recompute") : translate("Compute")}
       </Button>,
       <Button
         key="submit"
         variant="primary"
         size="sm"
         disabled={busy || !computed || blocking > 0}
-        title={!computed ? "Compute the run first" : blocking ? "Resolve the blocking issues first" : undefined}
+        title={
+          !computed
+            ? translate("Compute the run first")
+            : blocking
+              ? translate("Resolve the blocking issues first")
+              : undefined
+        }
         onClick={() =>
-          act.mutate(() => runAction(run.id, "submit").then(() => toast.success("Submitted for approval")))
+          act.mutate(() => runAction(run.id, "submit").then(() => toast.success(translate("Submitted for approval"))))
         }
       >
-        <Send aria-hidden /> Submit for approval
+        <Send aria-hidden /> {translate("Submit for approval")}
       </Button>,
     );
   }
@@ -169,12 +181,12 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
         disabled={busy}
         onClick={() => act.mutate(() => runAction(run.id, "withdraw"))}
       >
-        Withdraw
+        {translate("Withdraw")}
       </Button>,
       ...(taskId
         ? [
             <Button key="reject" size="sm" disabled={busy} onClick={() => setDialog("reject")}>
-              Reject
+              {translate("Reject")}
             </Button>,
             <Button
               key="approve"
@@ -185,17 +197,17 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
                 act.mutate(() =>
                   decide(taskId, "approved").then(async () => {
                     await qc.invalidateQueries({ queryKey: ["approvals"] });
-                    toast.success("Run approved");
+                    toast.success(translate("Run approved"));
                   }),
                 )
               }
             >
-              <CheckCircle2 aria-hidden /> Approve
+              <CheckCircle2 aria-hidden /> {translate("Approve")}
             </Button>,
           ]
         : [
             <span key="waiting" className="self-center text-2xs text-primary-300">
-              Waiting for the approver (an owner by default). It is in their Inbox.
+              {translate("Waiting for the approver (an owner by default). It is in their Inbox.")}
             </span>,
           ]),
     );
@@ -204,13 +216,13 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
     if (!run.supersededByRunId) {
       actions.push(
         <Button key="reopen" variant="ghost" size="sm" disabled={busy} onClick={() => setDialog("reopen")}>
-          Reopen
+          {translate("Reopen")}
         </Button>,
       );
       if (run.status === "approved") {
         actions.push(
           <Button key="draft" variant="ghost" size="sm" disabled={busy} onClick={() => setDialog("draft")}>
-            <Undo2 aria-hidden /> Return to draft
+            <Undo2 aria-hidden /> {translate("Return to draft")}
           </Button>,
         );
       }
@@ -221,9 +233,11 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
           key="paid"
           size="sm"
           disabled={busy}
-          onClick={() => act.mutate(() => runAction(run.id, "mark-paid").then(() => toast.success("Marked paid")))}
+          onClick={() =>
+            act.mutate(() => runAction(run.id, "mark-paid").then(() => toast.success(translate("Marked paid"))))
+          }
         >
-          Mark paid
+          {translate("Mark paid")}
         </Button>,
       );
     }
@@ -235,10 +249,12 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
           size="sm"
           disabled={busy}
           onClick={() =>
-            act.mutate(() => runAction(run.id, "release").then(() => toast.success("Payslips released to employees")))
+            act.mutate(() =>
+              runAction(run.id, "release").then(() => toast.success(translate("Payslips released to employees"))),
+            )
           }
         >
-          <FileText aria-hidden /> Release payslips
+          <FileText aria-hidden /> {translate("Release payslips")}
         </Button>,
       );
     }
@@ -251,14 +267,14 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
           params={{ reportId: "payroll.register" }}
           search={{ from: run.month, to: run.month, state: "all", runId: run.id }}
         >
-          <Download aria-hidden /> Payroll register
+          <Download aria-hidden /> {translate("Payroll register")}
         </Link>
       </Button>,
     );
   }
   const kindNote =
     run.kind === "adjustment"
-      ? `Adjustment of ${o.adjustment ? monthName(o.adjustment.ofMonth) : "an earlier run"}: ${run.reopenReason ?? ""}`
+      ? `Adjustment of ${o.adjustment ? monthName(o.adjustment.ofMonth, locale) : "an earlier run"}: ${run.reopenReason ?? ""}`
       : run.kind === "off_cycle"
         ? run.offCycleReason === "final_pay"
           ? "Off-cycle final pay"
@@ -267,17 +283,17 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Payroll", to: "/payroll" }]}
-        title={runTitle(run)}
+        crumbs={[{ label: translate("Payroll"), to: "/payroll" }]}
+        title={runTitle(run, locale)}
         trailing={
           <span className="flex flex-wrap items-center gap-2.5">
             <RunStatusPill status={run.status} superseded={!!run.supersededByRunId} />
-            {run.releasedAt ? <span className="text-ui text-primary-300">Payslips released</span> : null}
+            {run.releasedAt ? <span className="text-ui text-primary-300">{translate("Payslips released")}</span> : null}
           </span>
         }
         description={
           <>
-            Pay date <span className="num">{formatDate(run.payDate)}</span> · period{" "}
+            {translate("Pay date")} <span className="num">{formatDate(run.payDate)}</span> · period{" "}
             <span className="num">
               {formatDate(run.periodStart)} – {formatDate(run.periodEnd)}
             </span>
@@ -308,9 +324,9 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
       />
       <ReasonDialog
         open={dialog === "reject"}
-        title="Reject this run"
-        description="It goes back to draft with your comment, so the preparer knows what to fix."
-        label="What needs fixing"
+        title={translate("Reject this run")}
+        description={translate("It goes back to draft with your comment, so the preparer knows what to fix.")}
+        label={translate("What needs fixing")}
         confirm="Reject run"
         onClose={() => setDialog(null)}
         onConfirm={(reason) =>
@@ -324,9 +340,9 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
       />
       <ReasonDialog
         open={dialog === "draft"}
-        title="Return to draft"
+        title={translate("Return to draft")}
         description={`For a change that must not be paid as an adjustment, such as an employee's new bank account. The run becomes a draft to recompute and approve again${run.releasedAt ? "; employees can't see its payslips until they are released again" : ""}. If a later month already used this run's CPF figures, reopen it as an adjustment instead.`}
-        label="Reason (kept in the audit log)"
+        label={translate("Reason (kept in the audit log)")}
         confirm="Return to draft"
         onClose={() => setDialog(null)}
         onConfirm={(reason) =>
@@ -334,7 +350,7 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
             .then(async () => {
               await invalidateRun(qc, run.id);
               setDialog(null);
-              toast.success("Returned to draft. Recompute it, then submit it for approval again.");
+              toast.success(translate("Returned to draft. Recompute it, then submit it for approval again."));
             })
             .catch((e) => {
               toast.error(errorMessage(e));
@@ -343,9 +359,11 @@ function RunHeader({ o }: { o: PayrollOverviewDto }) {
       />
       <ReasonDialog
         open={dialog === "reopen"}
-        title="Reopen as an adjustment"
-        description="A new adjustment run starts from this run's items. This run's figures, payslips and files never change; employees get a revised payslip showing what is still payable."
-        label="Reason (kept in the audit log)"
+        title={translate("Reopen as an adjustment")}
+        description={translate(
+          "A new adjustment run starts from this run's items. This run's figures, payslips and files never change; employees get a revised payslip showing what is still payable.",
+        )}
+        label={translate("Reason (kept in the audit log)")}
         confirm="Create adjustment"
         onClose={() => setDialog(null)}
         onConfirm={(reason) =>
@@ -373,6 +391,7 @@ function ReasonDialog(props: {
   onClose: () => void;
   onConfirm: (reason: string) => Promise<unknown>;
 }) {
+  const t = useT("people-payroll");
   const [text, setText] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   return (
@@ -400,7 +419,7 @@ function ReasonDialog(props: {
           </FormField>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={props.onClose}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={busy || !text.trim()}>
               {props.confirm}
@@ -421,14 +440,15 @@ function IssuesPanel({
   onEmployee: (id: string) => void;
   onFix: (fix: IssueFix) => void;
 }) {
+  const t = useT("people-payroll");
   if (!o.run.computedAt) {
     return (
       <Alert className="mb-5">
         <AlertOctagon aria-hidden />
         <div>
-          <AlertTitle>Not computed yet</AlertTitle>
+          <AlertTitle>{t("Not computed yet")}</AlertTitle>
           <AlertDescription>
-            Compute the run to read basic pay, allowances and CPF details from People and apply this run's items.
+            {t("Compute the run to read basic pay, allowances and CPF details from People and apply this run's items.")}
           </AlertDescription>
         </div>
       </Alert>
@@ -444,8 +464,8 @@ function IssuesPanel({
     <Alert variant="warning" className="mb-3">
       <RotateCcw aria-hidden />
       <div>
-        <AlertTitle>Items changed since the last computation</AlertTitle>
-        <AlertDescription>The figures below are from before the change. Recompute to apply it.</AlertDescription>
+        <AlertTitle>{t("Items changed since the last computation")}</AlertTitle>
+        <AlertDescription>{t("The figures below are from before the change. Recompute to apply it.")}</AlertDescription>
       </div>
     </Alert>
   ) : null;
@@ -454,7 +474,7 @@ function IssuesPanel({
       <>
         {stale}
         <p className="mb-5 flex items-center gap-2 text-ui text-success-400">
-          <CheckCircle2 className="size-4" aria-hidden /> No issues. Every employee computed without warnings.
+          <CheckCircle2 className="size-4" aria-hidden /> {t("No issues. Every employee computed without warnings.")}
         </p>
       </>
     );
@@ -465,13 +485,13 @@ function IssuesPanel({
       <h2 id="issues-title" className={cn("mb-2", textStyle.section)}>
         {blocking.length ? (
           <span className="text-danger-300">
-            Blocking issues <span className="num">({blockingCount})</span>
+            {t("Blocking issues")} <span className="num">({blockingCount})</span>
           </span>
         ) : null}
         {blocking.length && warnings.length ? <span className="text-primary-200"> · </span> : null}
         {warnings.length ? (
           <span className="text-warning-400">
-            Warnings <span className="num">({warningCount})</span>
+            {t("Warnings")} <span className="num">({warningCount})</span>
           </span>
         ) : null}
       </h2>
@@ -489,7 +509,7 @@ function IssuesPanel({
         search={{ topic: "payroll" }}
         className="focus-ring mt-2 inline-block rounded-sm text-ui text-biru-400 underline"
       >
-        Help with payroll issues
+        {t("Help with payroll issues")}
       </Link>
     </section>
   );
@@ -501,6 +521,7 @@ function IssuesPanel({
  * column sums (gross, CPF, claims), so the strip doesn't repeat them.
  */
 function TotalsCard({ o }: { o: PayrollOverviewDto }) {
+  const translate = useT("people-payroll");
   const t = o.run.totals;
   if (!t) return null;
   const shgCharged = Object.values(t.shgChargedByFund).reduce((s, v) => s + v, 0);
@@ -511,22 +532,24 @@ function TotalsCard({ o }: { o: PayrollOverviewDto }) {
       {/* Wrapping flex, not a fixed grid: amounts of any size fit, and a full row never leaves gaps. */}
       <dl className="flex flex-wrap gap-px overflow-hidden rounded-[inherit] bg-border">
         <div className="flex-[1.4_1_10rem] bg-kuning-50 px-3 py-2.5">
-          <dt className={textStyle.field}>{o.run.kind === "adjustment" ? "Net to pay now" : "Net pay"}</dt>
+          <dt className={textStyle.field}>
+            {o.run.kind === "adjustment" ? translate("Net to pay now") : translate("Net pay")}
+          </dt>
           <dd className="num mt-0.5 whitespace-nowrap text-base font-semibold">{formatMoney(t.netPayableCents)}</dd>
         </div>
         <div className="flex-[1.4_1_14rem] bg-card px-3 py-2.5">
-          <dt className={textStyle.field}>To CPF Board (the CPF EZPay file)</dt>
+          <dt className={textStyle.field}>{translate("To CPF Board (the CPF EZPay file)")}</dt>
           <dd className="num mt-0.5 whitespace-nowrap text-base">{formatMoney(cpfBoard)}</dd>
           <dd className="mt-0.5 text-2xs text-primary-300">
             CPF <span className="num">{formatMoney(t.cpfTotalChargedCents)}</span> · SHG{" "}
             <span className="num">{formatMoney(shgCharged)}</span> ·{" "}
-            <span title="Rounded down to the dollar for the month">
+            <span title={translate("Rounded down to the dollar for the month")}>
               SDL <span className="num">{formatMoney(t.sdlChargedCents)}</span>
             </span>
           </dd>
         </div>
-        <div className="flex-[1_1_9rem] bg-card px-3 py-2.5" title="MOM's levy bill is authoritative">
-          <dt className={textStyle.field}>Foreign worker levy, estimate</dt>
+        <div className="flex-[1_1_9rem] bg-card px-3 py-2.5" title={translate("MOM's levy bill is authoritative")}>
+          <dt className={textStyle.field}>{translate("Foreign worker levy, estimate")}</dt>
           <dd className="num mt-0.5 whitespace-nowrap text-base">{formatMoney(t.fwlCents)}</dd>
         </div>
       </dl>
@@ -535,15 +558,16 @@ function TotalsCard({ o }: { o: PayrollOverviewDto }) {
 }
 
 /** "Changes since September (12)": the server's headline sentence, as a heading with a count. */
-function changesTitle(o: PayrollOverviewDto): string {
+function changesTitle(o: PayrollOverviewDto, locale: ReturnType<typeof useLocale>): string {
   const { comparedWith, headline, items } = o.changes;
   if (!comparedWith || !items.length) return headline.replace(/\.$/, "");
-  const against =
-    o.run.kind === "adjustment" ? "the original run" : (monthName(comparedWith.month).split(" ")[0] ?? "");
+  const against = o.run.kind === "adjustment" ? "the original run" : monthName(comparedWith.month, locale, true);
   return `Changes since ${against} (${items.length})`;
 }
 
 function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (id: string) => void }) {
+  const locale = useLocale();
+  const translate = useT("people-payroll");
   if (!o.run.computedAt) return null;
   const { items } = o.changes;
   // Identical lines (three separate 1 h overtime items for one person) show once with a count;
@@ -562,14 +586,14 @@ function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (i
   return (
     <section aria-labelledby="changes-title" className="mb-5">
       <h2 id="changes-title" className={cn("mb-2", textStyle.section)}>
-        {changesTitle(o)}
+        {changesTitle(o, locale)}
       </h2>
       {items.length ? (
         <Card>
           <ul className="grid grid-cols-1 gap-x-6 px-4 py-1.5 lg:grid-cols-2">
             {grouped.map(({ key, c, count }) => (
               <li key={key} className="flex gap-2 py-1.5 text-ui">
-                <span className="w-20 shrink-0 text-2xs leading-5 text-primary-200">{CHANGE[c.kind]}</span>
+                <span className="w-20 shrink-0 text-2xs leading-5 text-primary-200">{translate(CHANGE[c.kind])}</span>
                 <span className="min-w-0">
                   <button
                     type="button"
@@ -591,6 +615,7 @@ function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (i
 }
 
 function FilesPanel({ runId }: { runId: string }) {
+  const translate = useT("people-payroll");
   const reauth = useReauth();
   const [excluded, setExcluded] = React.useState<{ file: string; list: Excluded[] } | null>(null);
   const get = (path: string) =>
@@ -604,16 +629,17 @@ function FilesPanel({ runId }: { runId: string }) {
   return (
     <section aria-labelledby="files-title" className="mt-6">
       <h2 id="files-title" className={cn("mb-2", textStyle.section)}>
-        Files
+        {translate("Files")}
       </h2>
       <Card>
         <ul className="divide-y divide-border">
           <li className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-ui font-medium">CPF EZPay submission file</p>
+              <p className="text-ui font-medium">{translate("CPF EZPay submission file")}</p>
               <p className="text-2xs text-primary-300">
-                CPF Board's fixed-width FTP format (spec of 16 Jan 2025). Upload it in CPF EZPay; it holds the CPF, SHG
-                and SDL this run charged.
+                {translate(
+                  "CPF Board's fixed-width FTP format (spec of 16 Jan 2025). Upload it in CPF EZPay; it holds the CPF, SHG and SDL this run charged.",
+                )}
               </p>
             </div>
             <Button size="sm" onClick={() => void get(`/payroll/runs/${runId}/files/cpf-ezpay`)}>
@@ -622,10 +648,11 @@ function FilesPanel({ runId }: { runId: string }) {
           </li>
           <li className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-ui font-medium">Bank payment file (ISO 20022 pain.001)</p>
+              <p className="text-ui font-medium">{translate("Bank payment file (ISO 20022 pain.001)")}</p>
               <p className="text-2xs text-primary-300">
-                Generic ISO 20022 file. Each bank has its own rules for this format (FAST or GIRO, fees, BIC length),
-                and none is applied yet. Test it with your bank before the first payroll.
+                {translate(
+                  "Generic ISO 20022 file. Each bank has its own rules for this format (FAST or GIRO, fees, BIC length), and none is applied yet. Test it with your bank before the first payroll.",
+                )}
               </p>
             </div>
             <Button size="sm" onClick={() => void get(`/payroll/runs/${runId}/files/bank`)}>
@@ -677,6 +704,7 @@ const COLS: { key: keyof PayrollRowDto; label: string; className?: string }[] = 
 ];
 
 function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string) => void }) {
+  const translate = useT("people-payroll");
   const [filter, setFilter] = React.useState("");
   const [onlyIssues, setOnlyIssues] = React.useState(false);
   const filterRef = React.useRef<HTMLInputElement>(null);
@@ -721,7 +749,7 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
     <section aria-labelledby="employees-title">
       <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <h2 id="employees-title" className={textStyle.section}>
-          Employees{" "}
+          {translate("Employees")}{" "}
           <span className="num text-primary-200">
             ({rows.length === o.rows.length ? rows.length : `${rows.length} of ${o.rows.length}`})
           </span>
@@ -735,7 +763,7 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
               checked={onlyIssues}
               onChange={(e) => setOnlyIssues(e.target.checked)}
             />
-            With issues only
+            {translate("With issues only")}
           </label>
           <div className="relative">
             <Search
@@ -746,8 +774,8 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
               ref={filterRef}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter"
-              aria-label="Filter employees"
+              placeholder={translate("Filter")}
+              aria-label={translate("Filter employees")}
               className="h-8 w-44 pl-8 text-ui"
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown") {
@@ -760,17 +788,19 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
         </div>
       </div>
       <div className="max-h-[70vh] overflow-auto rounded-lg border border-border bg-card">
-        <table className="w-full border-collapse text-ui" aria-label="Pay per employee">
+        <table className="w-full border-collapse text-ui" aria-label={translate("Pay per employee")}>
           <thead className="sticky top-0 z-10 bg-surface-100">
             <tr className="h-9 border-b border-border">
-              <th className={cn("sticky left-0 z-10 bg-surface-100 px-3 text-left", textStyle.column)}>Employee</th>
+              <th className={cn("sticky left-0 z-10 bg-surface-100 px-3 text-left", textStyle.column)}>
+                {translate("Employee")}
+              </th>
               {COLS.map((c) => (
                 <th key={c.key} className={cn("px-3 text-right", textStyle.column, c.className)}>
-                  {c.label}
+                  {translate(c.label)}
                 </th>
               ))}
               <th className="w-10 px-2">
-                <span className="sr-only">Issues</span>
+                <span className="sr-only">{translate("Issues")}</span>
               </th>
             </tr>
           </thead>
@@ -780,9 +810,9 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
                 <td colSpan={COLS.length + 2} className="px-3 py-5 text-primary-300">
                   {o.rows.length
                     ? onlyIssues && !filter
-                      ? "No one in this run has an issue."
-                      : "No one matches the filter. Clear it to see everyone."
-                    : "Nobody is in this run. Check hire dates and the off-cycle employee list."}
+                      ? translate("No one in this run has an issue.")
+                      : translate("No one matches the filter. Clear it to see everyone.")
+                    : translate("Nobody is in this run. Check hire dates and the off-cycle employee list.")}
                 </td>
               </tr>
             ) : (
@@ -818,7 +848,10 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
                   ))}
                   <td className="px-2 text-center">
                     {r.blocking ? (
-                      <AlertOctagon className="inline size-4 text-danger-300" aria-label={`${r.blocking} blocking`} />
+                      <AlertOctagon
+                        className="inline size-4 text-danger-300"
+                        aria-label={translate("{count} blocking", { count: r.blocking })}
+                      />
                     ) : r.warnings ? (
                       <span className="inline-flex items-center">
                         <span aria-hidden className="inline-block size-2 rounded-full bg-warning-300" />
@@ -834,7 +867,7 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
             <tfoot className="sticky bottom-0 bg-surface-100">
               <tr className="h-9 border-t border-ink/30">
                 <th scope="row" className="sticky left-0 bg-surface-100 px-3 text-left font-medium">
-                  {rows.length === o.rows.length ? "Total" : `Total of ${rows.length} shown`}
+                  {rows.length === o.rows.length ? translate("Total") : `Total of ${rows.length} shown`}
                 </th>
                 {COLS.map((c) => (
                   <td key={c.key} className={cn("px-3 text-right font-semibold", c.className)}>

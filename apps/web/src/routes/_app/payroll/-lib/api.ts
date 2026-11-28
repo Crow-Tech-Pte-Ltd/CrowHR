@@ -9,6 +9,7 @@ import type {
   PayslipViewDto,
 } from "@crowhr/core";
 import { type QueryClient, queryOptions } from "@tanstack/react-query";
+import { type Locale, translate } from "../../../../i18n/index.ts";
 import { downloadApiFile } from "../../../../lib/download.ts";
 import { api } from "../../people/-lib/api.ts";
 
@@ -132,30 +133,48 @@ export const RUN_STATUS: Record<
   paid: { label: "Paid", tone: "success" },
 };
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-export function monthName(month: string): string {
-  return `${MONTHS[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
+export function monthName(month: string, locale: Locale = "en-SG", short = false): string {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return month;
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "UTC",
+    month: short ? "short" : "long",
+    ...(short ? {} : { year: "numeric" }),
+  }).format(new Date(`${month}-01T00:00:00Z`));
 }
 
-export function runTitle(r: Pick<PayrollRunDto, "kind" | "offCycleReason" | "month">): string {
-  if (r.kind === "adjustment") return `${monthName(r.month)} adjustment`;
+export function runTitle(
+  r: Pick<PayrollRunDto, "kind" | "offCycleReason" | "month">,
+  locale: Locale = "en-SG",
+): string {
+  const month = monthName(r.month, locale);
+  if (r.kind === "adjustment") return translate(locale, "people-payroll", "{month} adjustment", { month });
   if (r.kind === "off_cycle")
-    return `${monthName(r.month)} ${r.offCycleReason === "final_pay" ? "final pay" : "bonus run"}`;
-  return `${monthName(r.month)} payroll`;
+    return translate(
+      locale,
+      "people-payroll",
+      r.offCycleReason === "final_pay" ? "{month} final pay" : "{month} bonus run",
+      { month },
+    );
+  return translate(locale, "people-payroll", "{month} payroll", { month });
+}
+
+/** Use the server title in English and localise its fixed template for the web view. */
+export function payslipTitle(
+  slip: { title: string; runKind: string; offCycleReason?: string | null },
+  month: string,
+  locale: Locale,
+): string {
+  if (locale === "en-SG") return slip.title;
+  const formattedMonth = monthName(month, locale);
+  const message =
+    slip.runKind === "adjustment"
+      ? "Revised payslip, {month}"
+      : slip.runKind === "regular"
+        ? "Payslip, {month}"
+        : slip.offCycleReason === "final_pay" || slip.title.startsWith("Final pay ")
+          ? "Final pay payslip, {month}"
+          : "Bonus payslip, {month}";
+  return translate(locale, "people-payroll", message, { month: formattedMonth });
 }
 
 export type { Excluded } from "../../../../lib/download.ts";

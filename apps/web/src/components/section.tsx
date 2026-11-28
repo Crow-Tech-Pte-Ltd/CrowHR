@@ -2,6 +2,7 @@ import { Card, textStyle } from "@crowhr/ui";
 import { Link } from "@tanstack/react-router";
 import type * as React from "react";
 import { requestReference } from "../help/diagnostics.ts";
+import { useT } from "../i18n/index.ts";
 import { ApiError } from "../lib/api.ts";
 
 /** A titled settings section: heading + one-line description + content card. */
@@ -35,6 +36,7 @@ export function Section({
 }
 
 export function ErrorNote({ error, retry }: { error: unknown; retry?: () => void }) {
+  const t = useT("common");
   // Retrying a 404 can't help.
   const gone = error instanceof ApiError && error.status === 404;
   const topic =
@@ -61,7 +63,7 @@ export function ErrorNote({ error, retry }: { error: unknown; retry?: () => void
               className="focus-ring rounded-sm font-azeret text-2xs font-semibold text-ink underline"
               onClick={retry}
             >
-              Try again
+              {t("Try again")}
             </button>
           ) : null}
           {topic ? (
@@ -70,7 +72,7 @@ export function ErrorNote({ error, retry }: { error: unknown; retry?: () => void
               search={{ topic, reference }}
               className="focus-ring rounded-sm font-azeret text-2xs font-semibold text-ink underline"
             >
-              Help with this error
+              {t("Help with this error")}
             </Link>
           ) : null}
         </div>

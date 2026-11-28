@@ -10,6 +10,7 @@ import {
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import * as React from "react";
 import { cn } from "../lib/cn.ts";
+import { useUiLocale } from "../lib/locale.ts";
 import { Skeleton } from "./skeleton.tsx";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./table.tsx";
 
@@ -52,6 +53,7 @@ export function DataTable<TData>({
   initialSorting = [],
   className,
 }: DataTableProps<TData>) {
+  const { t } = useUiLocale();
   const [sorting, setSorting] = React.useState<SortingState>(initialSorting);
   const table = useReactTable({
     data,
@@ -140,7 +142,7 @@ export function DataTable<TData>({
         ) : rows.length === 0 ? (
           <TableRow className="hover:bg-transparent">
             <TableCell colSpan={colCount} className="p-0">
-              {empty ?? <p className="px-3 py-8 text-center text-primary-200">Nothing to show.</p>}
+              {empty ?? <p className="px-3 py-8 text-center text-primary-200">{t("Nothing to show.")}</p>}
             </TableCell>
           </TableRow>
         ) : (

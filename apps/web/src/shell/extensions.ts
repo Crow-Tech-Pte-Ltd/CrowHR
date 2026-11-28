@@ -15,8 +15,8 @@ export interface ShellExtensions {
    * `/api/v1/auth/oidc/<id>/start?purpose=demo`). Unset: the button stays disabled like the others.
    */
   demoSingpassStartUrl?: string;
-  /** Shown under the persona picker (e.g. the shared demo password). */
-  demoSignInNote?: string;
+  /** Shared password shown under the public demo persona picker. */
+  demoPassword?: string;
 }
 
 export const shellExtensions: ShellExtensions = {};
