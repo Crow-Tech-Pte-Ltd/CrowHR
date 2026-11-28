@@ -7,7 +7,7 @@ Please **do not open a public issue** for a security problem.
 Report it privately:
 
 - through GitHub's private vulnerability reporting on this repository: **Security → [Report a vulnerability](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/security/advisories/new)**; or
-- by email to **hello@crow.sg**.
+- by email to [hello@crow.sg](mailto:hello@crow.sg?subject=%5BCrow%20HR%5D%20Security%20report).
 
 Please include:
 

@@ -6,6 +6,7 @@ All notable changes to Crow HR are recorded here. Versions follow [semantic vers
 
 ### Added
 
+- **Help in the web app** gives employees and admins troubleshooting steps and role-appropriate shortcuts. It also provides a reviewable technical summary and an owner support email draft.
 - Export data in the web app offers Excel, CSV and JSON for reports and the employee list, adds payroll registers and line items, leave requests and daily timesheets, and links to payslip, statutory and other native files.
 - **Portable VPS install**. The hosted installer prepares a private Docker Compose project, handles HTTPS through Caddy, checks service health and exports encrypted backups. See the [operator runbook](deploy/hosted/README.md#start-on-a-vps-with-caddy).
 

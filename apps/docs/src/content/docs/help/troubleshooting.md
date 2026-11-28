@@ -3,6 +3,8 @@ title: Troubleshooting
 description: Fixes for common Crow HR problems with sign-in, single sign-on, invitations, people imports and payroll runs.
 ---
 
+Open **Account menu → Help** in Crow HR for instructions and shortcuts for your role. If an error offers **Help with this error**, the linked topic includes its request reference. If you cannot sign in, use **Help signing in** on the sign-in page.
+
 For problems with the server itself (startup errors, setup code, backups, proxies), see [troubleshooting the server](/docs/self-hosting/troubleshooting/).
 
 ## Signing in
@@ -66,6 +68,16 @@ A run's issues are written out in words. The rule ID below (such as `EA_FINAL_PA
 | An employee is missing from the bank file | They have no bank account current on the pay date; the download lists excluded employees. |
 | An employee is missing from the EZPay file | Foreign employees with SHG and no S/T number are listed for you to key in EZPay. |
 
+## Attendance
+
+| Symptom | What to do |
+| --- | --- |
+| A punch is missing or incorrect | Open your timesheet and request a correction. Check the request in your Inbox. |
+| The app refuses a clock-in | Allow location access if your organisation uses it. Check whether the company requires a particular workplace network or location. Ask your administrator to review the attendance policy. |
+| Your leave balance looks wrong | Check the leave year and any pending requests. Ask HR to review the entitlement, carry-over and any prior corrections. |
+
 ## Still stuck
 
-Collect `docker compose exec app crowhr doctor`, the request ID shown with the error (every API error carries one) and the matching lines of `docker compose logs app`, and [open an issue](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/issues). Do not post NRIC numbers, salaries or other personal data in public issues.
+Employees should give their company administrator the **technical summary** from Help. An owner can see additional health checks in **Help → Server, backups and errors**, and open a support email draft. The summary uses the area, version, UTC check time, request reference when available, and the owner’s fixed health categories. Review it before sharing. Describe what happened and what you expected, using fictional staff details where needed.
+
+Self-hosted owners can run `docker compose exec app crowhr doctor` and use the request reference to find the matching line in the app logs. Keep server logs within your company. If you can reproduce a software bug with fictional data, share those steps in a [public issue](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/issues) or use the support email draft.

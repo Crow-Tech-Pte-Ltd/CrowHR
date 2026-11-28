@@ -484,6 +484,13 @@ function IssuesPanel({
           onFix={onFix}
         />
       </Card>
+      <Link
+        to="/help"
+        search={{ topic: "payroll" }}
+        className="focus-ring mt-2 inline-block rounded-sm text-ui text-biru-400 underline"
+      >
+        Help with payroll issues
+      </Link>
     </section>
   );
 }

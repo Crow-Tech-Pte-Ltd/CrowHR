@@ -21,6 +21,7 @@ import { meQuery } from "../auth/session.ts";
 import type { SignInMethods, SignInResult } from "../auth/types.ts";
 import { Wordmark } from "../components/wordmark.tsx";
 import { DemoCompanyNotice } from "../demo-company/notices.tsx";
+import { DOCS } from "../help/topics.ts";
 import { ApiError, apiPost } from "../lib/api.ts";
 import { shellExtensions } from "../shell/extensions.ts";
 import { DEMO_SINGPASS_PERSONAS, DemoPersonaPicker } from "./demo-personas.tsx";
@@ -339,6 +340,14 @@ export function SignInPage({
             ) : null}
           </>
         )}
+        <p className="mt-5 text-ui text-primary-300">
+          <a
+            href={`${DOCS}/help/troubleshooting/#signing-in`}
+            className="focus-ring rounded-sm text-biru-400 underline"
+          >
+            Help signing in
+          </a>
+        </p>
       </div>
       <ResetRequestDialog open={resetOpen} onOpenChange={setResetOpen} orgSlug={orgSlug} defaultEmail={email} />
     </main>

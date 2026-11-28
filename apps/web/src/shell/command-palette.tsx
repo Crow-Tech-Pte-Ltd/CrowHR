@@ -9,7 +9,7 @@ import {
 } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { LogOut, UserRound } from "lucide-react";
+import { CircleHelp, LogOut, UserRound } from "lucide-react";
 import * as React from "react";
 import { useSignOut } from "../auth/sign-out.ts";
 import { directoryQuery } from "../routes/_app/people/-lib/api.ts";
@@ -123,6 +123,10 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Account">
+          <CommandItem value="Help" keywords={["support", "troubleshooting", "recovery"]} onSelect={() => go("/help")}>
+            <CircleHelp />
+            Help
+          </CommandItem>
           <CommandItem
             value="Sign out"
             onSelect={() => {

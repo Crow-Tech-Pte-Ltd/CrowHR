@@ -34,6 +34,8 @@ bun run docs:dev                # http://localhost:4321/docs/
 
 Start with the [install guide](https://hr.crow.sg/docs/self-hosting/install/) and the [limitations](docs/limitations.md).
 
+For setup and sign-in issues, start with the [troubleshooting guide](https://hr.crow.sg/docs/help/troubleshooting/). Ask your company’s HR team about your records or access. For a software issue, email [hello@crowhr.com](mailto:hello@crowhr.com?subject=%5BCrow%20HR%5D%20Support) with the version, what you expected and what happened. Keep employee records out of the report.
+
 ## Status
 
 Version 1.1.1 ([changelog](CHANGELOG.md)). Check payroll results before you pay or file.
