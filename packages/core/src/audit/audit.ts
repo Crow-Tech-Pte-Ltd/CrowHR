@@ -274,7 +274,7 @@ async function verifySnapshot(db: Db, orgId: string): Promise<ChainVerification>
 
 /** Event families for read rules (spec "Audit log access"). */
 export function auditCategory(action: string): "security" | "payroll" | "general" {
-  if (/^(security_settings|sso)\./.test(action)) return "security";
+  if (/^(assistant|security_settings|sso)\./.test(action)) return "security";
   if (/^(payroll|payslip|compensation|bank|bank_account)\./.test(action)) return "payroll";
   return "general";
 }
@@ -282,6 +282,6 @@ export function auditCategory(action: string): "security" | "payroll" | "general
 /** SQL fragment matching an action family (kept next to `auditCategory` so both agree). */
 export function auditCategorySql(category: "security" | "payroll") {
   return category === "security"
-    ? sql`(${auditEvents.action} like 'security_settings.%' or ${auditEvents.action} like 'sso.%')`
+    ? sql`(${auditEvents.action} like 'assistant.%' or ${auditEvents.action} like 'security_settings.%' or ${auditEvents.action} like 'sso.%')`
     : sql`(${auditEvents.action} like 'payroll.%' or ${auditEvents.action} like 'payslip.%' or ${auditEvents.action} like 'compensation.%' or ${auditEvents.action} like 'bank.%' or ${auditEvents.action} like 'bank!_account.%' escape '!')`;
 }

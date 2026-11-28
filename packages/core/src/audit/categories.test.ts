@@ -10,7 +10,7 @@ import { auditCategory, auditCategorySql, recordAudit, systemAuditContext } from
 
 // Explicit classification: adding a new family requires reviewing its read permissions.
 const families = {
-  security: ["security_settings", "sso"],
+  security: ["assistant", "security_settings", "sso"],
   payroll: ["payroll", "payslip", "compensation", "bank", "bank_account"],
   general: [
     "allowance_type",
@@ -25,6 +25,7 @@ const families = {
     "claim_settings",
     "claim_type",
     "claims",
+    "company_appearance",
     "company_profile",
     "demo_company",
     "document",

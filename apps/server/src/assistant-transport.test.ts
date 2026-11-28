@@ -186,7 +186,7 @@ describe("remote MCP authorization", () => {
     const connections = ((await (await owner.get(list)).json()) as { connections: { id: string }[] }).connections;
     expect(connections).toHaveLength(1);
     const connection = `${list}/${connections[0]?.id}`;
-    expect((await other.delete(connection)).status).toBe(204);
+    expect((await other.delete(connection)).status).toBe(404);
     expect((await rpc("tools/list", undefined, resourcePath, renewed.access_token)).status).toBe(200);
     expect((await owner.delete(connection)).status).toBe(204);
     expect((await rpc("tools/list", undefined, resourcePath, renewed.access_token)).status).toBe(401);

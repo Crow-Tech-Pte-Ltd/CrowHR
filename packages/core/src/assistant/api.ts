@@ -104,6 +104,7 @@ export const assistantModule = defineModule({
       allowDuringMfaEnrolment: true,
       request: { params: z.object({ id: z.uuid() }) },
       responses: { 204: null },
+      errors: ["not_found"],
       handler: async ({ c, deps, auth, params }) => {
         await deps.db.transaction(async (tx) => {
           const org = orgScope(tx, auth);
@@ -117,12 +118,12 @@ export const assistantModule = defineModule({
               ),
             )
             .returning({ id: assistantGrants.id });
-          if (deleted)
-            await recordAudit(tx, deps, auditContext(c), {
-              action: "assistant.disconnected",
-              targetType: "assistant_connection",
-              targetId: deleted.id,
-            });
+          if (!deleted) throw new AppError("not_found", "This assistant connection is no longer available.");
+          await recordAudit(tx, deps, auditContext(c), {
+            action: "assistant.disconnected",
+            targetType: "assistant_connection",
+            targetId: deleted.id,
+          });
         });
       },
     }),

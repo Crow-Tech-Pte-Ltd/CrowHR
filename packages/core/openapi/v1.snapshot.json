@@ -2789,6 +2789,19 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
