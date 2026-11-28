@@ -1,5 +1,5 @@
 import type { HistoryInput } from "./history.ts";
-import { receiptPng } from "./receipt.ts";
+import { workPassPdf } from "./work-pass.ts";
 
 /** Generated, versioned KET PDFs and an explicitly fictional pass attachment, via real APIs. */
 export async function seedDocuments({ clock, http, members, people }: HistoryInput) {
@@ -42,18 +42,14 @@ export async function seedDocuments({ clock, http, members, people }: HistoryInp
   const categories = await hr.get<{ items: { id: string; systemKey: string }[] }>("/api/v1/documents/categories");
   const identity = categories.items.find((c) => c.systemKey === "identity");
   if (!identity) throw new Error("Missing identity document category");
+  const expiresOn = "2026-11-20";
   const query = new URLSearchParams({
     employeeId: people.employees.spass as string,
     categoryId: identity.id,
     title: "Fictional work pass — Maria — renewal due",
-    expiresOn: "2026-11-20",
+    expiresOn,
     notes: "DEMO ONLY. Invented attachment, not an identity document or evidence of a real work pass.",
-    fileName: "fictional-work-pass.png",
+    fileName: "fictional-work-pass.pdf",
   });
-  // A patterned sample attachment, explicitly marked fictional in its title, filename and notes.
-  await hr.upload(
-    `/api/v1/documents/upload?${query}`,
-    await receiptPng("FICTIONAL DEMO WORK PASS", 0, "2026-11-20"),
-    "image/png",
-  );
+  await hr.upload(`/api/v1/documents/upload?${query}`, await workPassPdf(expiresOn), "application/pdf");
 }

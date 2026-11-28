@@ -95,16 +95,26 @@ function RunPage() {
   return (
     <>
       <RunHeader o={o} />
-      <IssuesPanel
-        o={o}
-        onEmployee={openEmployee}
-        onFix={(fix) => {
-          if (fix.kind === "drawer") openEmployee(fix.employeeId, o.run.status === "draft" ? (fix.task ?? null) : null);
-        }}
-      />
       <TotalsCard o={o} />
-      <ChangesPanel o={o} onEmployee={openEmployee} />
-      <ReviewTable o={o} onOpen={openEmployee} />
+      <div
+        className={cn(
+          "grid items-start gap-4",
+          o.run.computedAt && "min-[1360px]:grid-cols-[minmax(0,1fr)_17rem] 2xl:grid-cols-[minmax(0,1fr)_19rem]",
+        )}
+      >
+        <ReviewTable o={o} onOpen={openEmployee} />
+        <div className="min-w-0 space-y-4">
+          <IssuesPanel
+            o={o}
+            onEmployee={openEmployee}
+            onFix={(fix) => {
+              if (fix.kind === "drawer")
+                openEmployee(fix.employeeId, o.run.status === "draft" ? (fix.task ?? null) : null);
+            }}
+          />
+          <ChangesPanel o={o} onEmployee={openEmployee} />
+        </div>
+      </div>
       <EmployeeDrawer
         runId={runId}
         run={o.run}
@@ -443,7 +453,7 @@ function IssuesPanel({
   const t = useT("people-payroll");
   if (!o.run.computedAt) {
     return (
-      <Alert className="mb-5">
+      <Alert>
         <AlertOctagon aria-hidden />
         <div>
           <AlertTitle>{t("Not computed yet")}</AlertTitle>
@@ -473,14 +483,14 @@ function IssuesPanel({
     return (
       <>
         {stale}
-        <p className="mb-5 flex items-center gap-2 text-ui text-success-400">
+        <p className="flex items-start gap-2 text-ui text-success-400">
           <CheckCircle2 className="size-4" aria-hidden /> {t("No issues. Every employee computed without warnings.")}
         </p>
       </>
     );
   }
   return (
-    <section aria-labelledby="issues-title" className="mb-5">
+    <section aria-labelledby="issues-title">
       {stale}
       <h2 id="issues-title" className={cn("mb-2", textStyle.section)}>
         {blocking.length ? (
@@ -584,17 +594,17 @@ function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (i
       .values(),
   ];
   return (
-    <section aria-labelledby="changes-title" className="mb-5">
+    <section aria-labelledby="changes-title">
       <h2 id="changes-title" className={cn("mb-2", textStyle.section)}>
         {changesTitle(o, locale)}
       </h2>
       {items.length ? (
         <Card>
-          <ul className="grid grid-cols-1 gap-x-6 px-4 py-1.5 lg:grid-cols-2">
+          <ul className="max-h-80 divide-y divide-border overflow-y-auto px-3">
             {grouped.map(({ key, c, count }) => (
-              <li key={key} className="flex gap-2 py-1.5 text-ui">
-                <span className="w-20 shrink-0 text-2xs leading-5 text-primary-200">{translate(CHANGE[c.kind])}</span>
-                <span className="min-w-0">
+              <li key={key} className="py-2 text-ui">
+                <p className="text-2xs text-primary-300">{translate(CHANGE[c.kind])}</p>
+                <p className="break-words">
                   <button
                     type="button"
                     className="focus-ring rounded-sm font-medium hover:underline"
@@ -604,7 +614,7 @@ function ChangesPanel({ o, onEmployee }: { o: PayrollOverviewDto; onEmployee: (i
                   </button>{" "}
                   <span className="text-primary-300">{c.text}</span>
                   {count > 1 ? <span className="num text-primary-200"> ×{count}</span> : null}
-                </span>
+                </p>
               </li>
             ))}
           </ul>
@@ -687,20 +697,21 @@ const CHANGE: Record<PayrollOverviewDto["changes"]["items"][number]["kind"], str
   residency: "Residency",
 };
 
+// Reveal breakdown columns according to the employee table's own width, including when the
+// sidebar or review rail takes space. Every amount remains available in the employee drawer.
 const COLS: { key: keyof PayrollRowDto; label: string; className?: string }[] = [
-  { key: "basicCents", label: "Basic", className: "hidden sm:table-cell" },
-  { key: "allowancesCents", label: "Allow.", className: "hidden lg:table-cell" },
-  { key: "overtimeCents", label: "OT", className: "hidden lg:table-cell" },
-  { key: "additionalCents", label: "Bonus/other", className: "hidden lg:table-cell" },
-  { key: "nplCents", label: "No-pay", className: "hidden 2xl:table-cell" },
-  { key: "grossCents", label: "Gross", className: "hidden sm:table-cell" },
-  { key: "cpfEmployeeCents", label: "CPF ee", className: "hidden md:table-cell" },
-  { key: "shgCents", label: "SHG", className: "hidden 2xl:table-cell" },
-  { key: "otherDeductionsCents", label: "Deduct.", className: "hidden 2xl:table-cell" },
-  // From lg, so the claims in the totals can be traced to the people they are paid to.
-  { key: "reimbursementsCents", label: "Claims", className: "hidden lg:table-cell" },
+  { key: "basicCents", label: "Basic", className: "hidden [@container(min-width:34rem)]:table-cell" },
+  { key: "allowancesCents", label: "Allow.", className: "hidden [@container(min-width:58rem)]:table-cell" },
+  { key: "overtimeCents", label: "OT", className: "hidden [@container(min-width:58rem)]:table-cell" },
+  { key: "additionalCents", label: "Bonus/other", className: "hidden [@container(min-width:69rem)]:table-cell" },
+  { key: "nplCents", label: "No-pay", className: "hidden [@container(min-width:80rem)]:table-cell" },
+  { key: "grossCents", label: "Gross", className: "hidden [@container(min-width:32rem)]:table-cell" },
+  { key: "cpfEmployeeCents", label: "CPF ee", className: "hidden [@container(min-width:41rem)]:table-cell" },
+  { key: "shgCents", label: "SHG", className: "hidden [@container(min-width:80rem)]:table-cell" },
+  { key: "otherDeductionsCents", label: "Deduct.", className: "hidden [@container(min-width:80rem)]:table-cell" },
+  { key: "reimbursementsCents", label: "Claims", className: "hidden [@container(min-width:46rem)]:table-cell" },
   { key: "netPayableCents", label: "Net" },
-  { key: "cpfEmployerCents", label: "CPF er", className: "hidden md:table-cell" },
+  { key: "cpfEmployerCents", label: "CPF er", className: "hidden [@container(min-width:49rem)]:table-cell" },
 ];
 
 function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string) => void }) {
@@ -746,7 +757,7 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
   if (!o.run.computedAt) return null;
   const sum = (k: keyof PayrollRowDto) => rows.reduce((s, r) => s + (r[k] as number), 0);
   return (
-    <section aria-labelledby="employees-title">
+    <section aria-labelledby="employees-title" className="min-w-0 [container-type:inline-size]">
       <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <h2 id="employees-title" className={textStyle.section}>
           {translate("Employees")}{" "}
@@ -791,11 +802,11 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
         <table className="w-full border-collapse text-ui" aria-label={translate("Pay per employee")}>
           <thead className="sticky top-0 z-10 bg-surface-100">
             <tr className="h-9 border-b border-border">
-              <th className={cn("sticky left-0 z-10 bg-surface-100 px-3 text-left", textStyle.column)}>
+              <th className={cn("sticky left-0 z-10 bg-surface-100 px-2.5 text-left", textStyle.column)}>
                 {translate("Employee")}
               </th>
               {COLS.map((c) => (
-                <th key={c.key} className={cn("px-3 text-right", textStyle.column, c.className)}>
+                <th key={c.key} className={cn("px-2.5 text-right", textStyle.column, c.className)}>
                   {translate(c.label)}
                 </th>
               ))}
@@ -807,7 +818,7 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
           <tbody ref={bodyRef}>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={COLS.length + 2} className="px-3 py-5 text-primary-300">
+                <td colSpan={COLS.length + 2} className="px-2.5 py-5 text-primary-300">
                   {o.rows.length
                     ? onlyIssues && !filter
                       ? translate("No one in this run has an issue.")
@@ -825,9 +836,11 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
                   onClick={() => onOpen(r.employeeId)}
                   className="group h-10 cursor-pointer border-b border-border last:border-b-0 hover:bg-surface-200/40 focus-visible:bg-kuning-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 >
-                  <td className="sticky left-0 bg-card px-3 py-1.5 group-hover:bg-surface-100 group-focus-visible:bg-kuning-50">
+                  <td className="sticky left-0 bg-card px-2.5 py-1.5 group-hover:bg-surface-100 group-focus-visible:bg-kuning-50">
                     <span className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
-                      <span className="truncate font-medium">{r.name}</span>
+                      <span className="max-w-[12rem] truncate font-medium" title={r.name}>
+                        {r.name}
+                      </span>
                       <span className="num text-2xs text-primary-200">{r.employeeNumber}</span>
                       <span className="hidden 2xl:inline-flex">
                         <Flags flags={r.flags} />
@@ -838,7 +851,7 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
                     <td
                       key={c.key}
                       className={cn(
-                        "px-3 py-1.5 text-right",
+                        "px-2.5 py-1.5 text-right",
                         c.className,
                         c.key === "netPayableCents" && "font-semibold",
                       )}
@@ -866,11 +879,11 @@ function ReviewTable({ o, onOpen }: { o: PayrollOverviewDto; onOpen: (id: string
           {rows.length ? (
             <tfoot className="sticky bottom-0 bg-surface-100">
               <tr className="h-9 border-t border-ink/30">
-                <th scope="row" className="sticky left-0 bg-surface-100 px-3 text-left font-medium">
+                <th scope="row" className="sticky left-0 bg-surface-100 px-2.5 text-left font-medium">
                   {rows.length === o.rows.length ? translate("Total") : `Total of ${rows.length} shown`}
                 </th>
                 {COLS.map((c) => (
-                  <td key={c.key} className={cn("px-3 text-right font-semibold", c.className)}>
+                  <td key={c.key} className={cn("px-2.5 text-right font-semibold", c.className)}>
                     <Money cents={sum(c.key)} />
                   </td>
                 ))}

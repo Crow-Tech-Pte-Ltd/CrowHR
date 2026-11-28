@@ -3,6 +3,7 @@ import { Button, cn, formatDate, formatMoney, StatusPill, textStyle } from "@cro
 import { Link } from "@tanstack/react-router";
 import { AlertOctagon, AlertTriangle, ArrowRight, Download, ExternalLink } from "lucide-react";
 import * as React from "react";
+import { ApiDownloadLink } from "../../../../components/api-download-link.tsx";
 import { useLocale, useT } from "../../../../i18n/index.ts";
 import { payslipTitle } from "./api.ts";
 import type { IssueFix } from "./fixes.ts";
@@ -302,9 +303,9 @@ export function PayslipDocument({ slip, pdfHref }: { slip: PayslipViewDto; pdfHr
         <div className="flex items-center gap-2 sm:flex-col sm:items-end">
           <h2 className={textStyle.section}>{title}</h2>
           <Button asChild size="sm" variant="secondary">
-            <a href={pdfHref} download>
+            <ApiDownloadLink href={pdfHref}>
               <Download aria-hidden /> PDF
-            </a>
+            </ApiDownloadLink>
           </Button>
         </div>
       </header>

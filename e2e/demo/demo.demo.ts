@@ -1,4 +1,4 @@
-import { open } from "node:fs/promises";
+import { open, readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { go, pickPersona, signOut, startDemo, waitForDemo, watchErrors } from "./helpers.ts";
 
@@ -25,6 +25,19 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
     "Not available in the demo. Self-hosted installs can enable this in Settings → Security.",
   );
   await expect(page.getByTestId("sso-methods").getByRole("button").first()).toBeDisabled();
+
+  // The fictional work pass is a downloadable PDF in the HR document register.
+  await pickPersona(page, "hr-admin");
+  await go(page, "/documents?tab=expiring");
+  await page.getByTestId("document-row").filter({ hasText: "Fictional work pass" }).click();
+  const [workPass] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("dialog").getByRole("link", { name: "Download", exact: true }).click(),
+  ]);
+  expect(workPass.suggestedFilename()).toBe("fictional-work-pass.pdf");
+  expect((await readFile(await workPass.path())).subarray(0, 5).toString()).toBe("%PDF-");
+  await page.keyboard.press("Escape");
+  await signOut(page);
 
   // 2. Payroll admin: October's draft run, with warnings, and one employee's CPF working.
   await pickPersona(page, "payroll-admin");
@@ -53,6 +66,21 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
   await expect(page.getByRole("heading", { level: 1, name: "Payroll cost" })).toBeVisible();
   await expect(page.getByRole("table").locator("tbody tr").first()).toBeVisible();
   await expect(page.getByText("Operations", { exact: true }).first()).toBeVisible();
+
+  await go(page, "/payroll");
+  await page
+    .getByRole("link", { name: /September 2026/ })
+    .first()
+    .click();
+  await page
+    .getByRole("table", { name: "Pay per employee" })
+    .getByRole("row")
+    .filter({ hasText: "Goh Jun Jie" })
+    .click();
+  await page.getByRole("dialog").getByRole("link", { name: "View payslip", exact: true }).click();
+  const adminPayslip = page.getByRole("article", { name: "Payslip, September 2026" });
+  await expect(adminPayslip).toContainText("Goh Jun Jie");
+  await expect(adminPayslip.getByRole("link", { name: "PDF", exact: true })).toBeVisible();
   await signOut(page);
 
   // 3. Manager: approve Maria's taxi claim from the Inbox.
@@ -110,6 +138,17 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
   await expect(doc.getByTestId("ack-status")).toContainText("Acknowledged");
   await page.keyboard.press("Escape");
 
+  await go(page, "/me/payslips");
+  await page.getByRole("link", { name: "Payslip, September 2026", exact: true }).click();
+  const employeePayslip = page.getByRole("article", { name: "Payslip, September 2026" });
+  await expect(employeePayslip).toContainText("Goh Jun Jie");
+  const [payslipPdf] = await Promise.all([
+    page.waitForEvent("download"),
+    employeePayslip.getByRole("link", { name: "PDF", exact: true }).click(),
+  ]);
+  expect(payslipPdf.suggestedFilename()).toMatch(/^payslip-2026-09-.+\.pdf$/);
+  expect((await readFile(await payslipPdf.path())).subarray(0, 5).toString()).toBe("%PDF-");
+
   // 4. Reset: back to the seeded company, the claim is waiting again.
   await page.getByTestId("demo-options").click();
   await page.getByTestId("demo-reset").click();
@@ -134,7 +173,12 @@ test("downloads a report PDF from both report entry points", async ({ page }) =>
   await expect(page.getByTestId("demo-personas")).toBeVisible({ timeout: 20_000 });
   await pickPersona(page, "payroll-admin");
   await go(page, "/reports/payroll.cost?from=2026-07&to=2026-09");
-  const [report] = await Promise.all([page.waitForEvent("download"), page.getByTestId("export-pdf").click()]);
+  await page.getByRole("button", { name: "Download", exact: true }).click();
+  await expect(page.getByRole("menuitem")).toHaveCount(4);
+  const [report] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("menuitem", { name: "PDF (.pdf)", exact: true }).click(),
+  ]);
   expect(report.suggestedFilename()).toMatch(/^payroll-cost-\d{4}-\d{2}-\d{2}\.pdf$/);
   const fileHandle = await open(await report.path(), "r");
   try {
@@ -152,6 +196,16 @@ test("downloads a report PDF from both report entry points", async ({ page }) =>
     page.getByRole("menuitem", { name: "PDF (.pdf)" }).click(),
   ]);
   expect(shortcut.suggestedFilename()).toBe(report.suggestedFilename());
+
+  await go(page, "/reports/payroll.register?from=2026-09&to=2026-09");
+  const register = page.getByRole("table", { name: "Payroll register", exact: true });
+  await expect(register.getByRole("columnheader", { name: /^Net payable/ })).toBeVisible();
+  await expect(register.getByRole("columnheader", { name: "Run ID", exact: true })).toHaveCount(0);
+  const allColumns = page.getByRole("button", { name: "Show all columns", exact: true });
+  await allColumns.click();
+  await expect(register.getByRole("columnheader", { name: "Run ID", exact: true })).toBeVisible();
+  await allColumns.click();
+  await expect(register.getByRole("columnheader", { name: "Run ID", exact: true })).toHaveCount(0);
 });
 
 // The fallback remains a working real demo, including after a malformed snapshot reaches PGlite.

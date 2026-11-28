@@ -30,7 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <main
             id="main"
             className={cn(
-              "mx-auto w-full max-w-[1240px] flex-1 px-4 pb-10 pt-6 md:px-8 md:pt-8",
+              "w-full min-w-0 flex-1 px-3 pb-10 pt-5 md:px-4 md:pt-6 xl:px-5",
               mode === "employee" && "pb-24 md:pb-10",
             )}
           >

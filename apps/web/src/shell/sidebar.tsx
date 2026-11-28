@@ -10,7 +10,7 @@ import { NavLink } from "./nav-link.tsx";
 export function NavSections({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const t = useT("common");
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-3.5">
       {NAV_GROUPS.map((group) => (
         <div key={group.label ?? group.items.join()} className="flex flex-col gap-0.5">
           {group.label ? (
@@ -46,32 +46,36 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       )}
     >
       <div className="sticky top-0 flex h-dvh flex-col">
-        <div className={cn("flex h-14 items-center border-b border-border", collapsed ? "justify-center" : "px-4")}>
-          <Link to="/" className="focus-ring rounded-sm">
-            <Wordmark compact={collapsed} />
+        <div
+          className={cn(
+            "flex h-14 shrink-0 items-center border-b border-border",
+            collapsed ? "justify-center gap-0.5 px-0.5" : "justify-between gap-2 px-3",
+          )}
+        >
+          <Link to="/" className="focus-ring block min-w-0 rounded-sm">
+            <Wordmark compact={collapsed} className={collapsed ? "max-w-6" : undefined} />
             <span className="sr-only"> {t("home")}</span>
           </Link>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
+            aria-expanded={!collapsed}
+            className="focus-ring grid size-7 shrink-0 place-items-center rounded-sm text-primary-200 hover:bg-ink/5 hover:text-ink"
+          >
+            {collapsed ? (
+              <PanelLeftOpen aria-hidden className="size-4" />
+            ) : (
+              <PanelLeftClose aria-hidden className="size-4" />
+            )}
+          </button>
         </div>
-        <nav className={cn("flex-1 overflow-y-auto py-4", collapsed ? "px-3" : "px-3")}>
+        <nav className="flex-1 overflow-y-auto px-3 py-3">
           <NavSections collapsed={collapsed} />
         </nav>
-        <div
-          className={cn("flex flex-col gap-3 border-t border-border py-3", collapsed ? "items-center px-3" : "px-3")}
-        >
+        <div className={cn("flex flex-col gap-2 border-t border-border px-3 py-2", collapsed && "items-center")}>
           <NavLink id="settings" collapsed={collapsed} />
-          <div className={cn("flex items-center gap-2", collapsed ? "flex-col" : "justify-end pl-2.5")}>
-            {/* Renders only when the server or its database can't be reached. */}
-            <ApiStatus collapsed={collapsed} className={collapsed ? undefined : "min-w-0 flex-1"} />
-            <button
-              type="button"
-              onClick={onToggle}
-              aria-label={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
-              aria-expanded={!collapsed}
-              className="focus-ring rounded-sm p-1 text-primary-200 hover:bg-ink/5 hover:text-ink"
-            >
-              {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-            </button>
-          </div>
+          <ApiStatus collapsed={collapsed} className={collapsed ? undefined : "min-w-0 px-2.5"} />
         </div>
       </div>
     </aside>

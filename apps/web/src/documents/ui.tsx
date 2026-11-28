@@ -37,6 +37,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Download, Eye, Upload } from "lucide-react";
 import * as React from "react";
+import { ApiDownloadLink } from "../components/api-download-link.tsx";
 import { useT } from "../i18n/index.ts";
 import { ApiError, apiDelete, apiPost } from "../lib/api.ts";
 import {
@@ -186,9 +187,10 @@ export function DocumentTable({
 export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () => void }) {
   const translate = useT("people-payroll");
   const qc = useQueryClient();
-  const [opened, setOpened] = React.useState(false);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset when another document opens.
-  React.useEffect(() => setOpened(false), [doc?.id]);
+  const [openedId, setOpenedId] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!doc) setOpenedId(null);
+  }, [doc]);
   const ack = useMutation({
     mutationFn: (id: string) => apiPost<Doc>(`/api/v1/documents/${id}/acknowledge`),
     onSuccess: async () => {
@@ -228,7 +230,7 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
   });
   if (!doc) return null;
   const needsAck = doc.acknowledgement?.status === "requested" && doc.acknowledgement.current && !doc.canManage;
-  const viewed = doc.viewed || opened;
+  const viewed = doc.viewed || openedId === doc.id;
   return (
     <Sheet open={!!doc} onOpenChange={(o) => (o ? null : onClose())}>
       <SheetContent className="gap-4 overflow-y-auto p-5 sm:w-[min(32rem,100vw)]" aria-describedby="doc-sheet-desc">
@@ -278,15 +280,15 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
               href={fileHref(doc.id, { inline: true })}
               target="_blank"
               rel="noreferrer"
-              onClick={() => setOpened(true)}
+              onClick={() => setOpenedId(doc.id)}
             >
               <Eye aria-hidden /> {translate("Open")}
             </a>
           </Button>
           <Button asChild size="sm" variant="ghost">
-            <a href={fileHref(doc.id)} download onClick={() => setOpened(true)}>
+            <ApiDownloadLink href={fileHref(doc.id)} onDownloaded={() => setOpenedId(doc.id)}>
               <Download aria-hidden /> {translate("Download")}
-            </a>
+            </ApiDownloadLink>
           </Button>
         </div>
         {needsAck ? (
@@ -350,9 +352,9 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
                         v{v.version} · {sgDay(v.createdAt)}
                         {v.expiresOn ? ` · expires ${formatDate(v.expiresOn)}` : ""}
                       </span>
-                      <a className="text-biru-400 underline" href={fileHref(doc.id, { version: v.id })} download>
+                      <ApiDownloadLink className="text-biru-400 underline" href={fileHref(doc.id, { version: v.id })}>
                         {translate("Download")}
-                      </a>
+                      </ApiDownloadLink>
                     </li>
                   ))}
                 </ul>
