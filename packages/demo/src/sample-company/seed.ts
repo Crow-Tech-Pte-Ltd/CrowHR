@@ -555,19 +555,24 @@ async function setPasswords(
   newPassword: () => string,
 ): Promise<SampleAccount[]> {
   const all = [
-    ...PERSONAS.map((p) => ({ key: p.key, email: p.email, roles: [...p.roles] as string[], employee: p.employee })),
-    ...OTHER_MEMBERS.map((m) => ({ key: m.employee, email: m.email, roles: [] as string[], employee: m.employee })),
+    ...PERSONAS.map((p) => ({ key: p.key, roles: [...p.roles] as string[] })),
+    ...OTHER_MEMBERS.map((m) => ({ key: m.employee, roles: [] as string[] })),
   ];
   const accounts: SampleAccount[] = [];
   for (const a of all) {
     const membershipId = seed.members[a.key];
     if (!membershipId) throw new Error(`No seeded member ${a.key}`);
     const [row] = await deps.db
-      .select({ status: schema.memberships.status, userId: schema.memberships.userId, name: schema.users.displayName })
+      .select({
+        status: schema.memberships.status,
+        userId: schema.memberships.userId,
+        name: schema.users.displayName,
+        email: schema.users.email,
+      })
       .from(schema.memberships)
       .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
       .where(eq(schema.memberships.id, membershipId));
-    if (!row) throw new Error(`No membership for ${a.email}`);
+    if (!row) throw new Error(`No membership for ${a.key}`);
     const password = newPassword();
     if (row.status === "active") {
       const client = member(a.key, { fresh: true });
@@ -590,7 +595,7 @@ async function setPasswords(
       key: a.key,
       label: LABELS[a.key] ?? (row.status === "active" ? "Staff" : `Staff (${row.status})`),
       name: row.name,
-      email: a.email,
+      email: row.email,
       password,
       roles: a.roles,
       reviewer: a.key === REVIEWER_KEYS.employee ? "employee" : a.key === REVIEWER_KEYS.manager ? "manager" : null,
