@@ -71489,6 +71489,7 @@
                         "google",
                         "entra",
                         "singpass",
+                        "managed_singpass",
                         "oidc"
                       ]
                     },
@@ -71659,6 +71660,7 @@
                       "google",
                       "entra",
                       "singpass",
+                      "managed_singpass",
                       "oidc"
                     ]
                   },
@@ -71788,6 +71790,7 @@
                         "google",
                         "entra",
                         "singpass",
+                        "managed_singpass",
                         "oidc"
                       ]
                     },
@@ -71990,6 +71993,7 @@
                         "google",
                         "entra",
                         "singpass",
+                        "managed_singpass",
                         "oidc"
                       ]
                     },
@@ -72412,6 +72416,9 @@
                     "demoMode": {
                       "type": "boolean"
                     },
+                    "managedSingpassAvailable": {
+                      "type": "boolean"
+                    },
                     "providers": {
                       "type": "array",
                       "items": {
@@ -72428,6 +72435,7 @@
                               "google",
                               "entra",
                               "singpass",
+                              "managed_singpass",
                               "oidc"
                             ]
                           },
@@ -72636,6 +72644,9 @@
                     "demoMode": {
                       "type": "boolean"
                     },
+                    "managedSingpassAvailable": {
+                      "type": "boolean"
+                    },
                     "providers": {
                       "type": "array",
                       "items": {
@@ -72652,6 +72663,7 @@
                               "google",
                               "entra",
                               "singpass",
+                              "managed_singpass",
                               "oidc"
                             ]
                           },

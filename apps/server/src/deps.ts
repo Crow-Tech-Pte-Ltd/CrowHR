@@ -36,6 +36,7 @@ export function createServerDeps(
   const fileStore = createDiskFileStore(config.FILE_STORAGE_DIR);
   return {
     ...{ fileScanner },
+    ...(config.MANAGED_SINGPASS_ISSUER ? { managedSingpassIssuer: config.MANAGED_SINGPASS_ISSUER } : {}),
     db: database.db,
     passwordHasher: createArgon2Hasher(),
     fileStore,

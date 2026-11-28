@@ -91,7 +91,7 @@ export interface Page<T> {
 
 export interface Provider {
   id: string;
-  kind: ProviderKind;
+  kind: ProviderKind | "managed_singpass";
   displayName: string;
   issuer: string;
   clientId: string;
@@ -117,6 +117,7 @@ export interface SecuritySettings {
   insecureTransport: boolean;
   emailConfigured: boolean;
   demoMode: boolean;
+  managedSingpassAvailable?: boolean;
   providers: Provider[];
 }
 
@@ -145,9 +146,10 @@ export const ROLE_LABEL: Record<string, string> = {
   employee: "Employee",
 };
 
-export const PROVIDER_LABEL: Record<ProviderKind, string> = {
+export const PROVIDER_LABEL: Record<Provider["kind"], string> = {
   google: "Google Workspace",
   entra: "Microsoft Entra ID",
   singpass: "Singpass",
+  managed_singpass: "Managed Singpass",
   oidc: "OpenID Connect",
 };

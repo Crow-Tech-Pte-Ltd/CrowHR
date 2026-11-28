@@ -83,7 +83,9 @@ export const signInResult = z.object({
 
 /** Names of the enabled SSO methods, for the "password sign-in is disabled" message. */
 async function enabledSsoNames(c: AppContext, orgId: string): Promise<string[]> {
-  return (await publicSignInMethods(c.var.deps.db, orgId)).providers.map((p) => p.displayName);
+  return (await publicSignInMethods(c.var.deps.db, orgId, c.var.deps.managedSingpassIssuer)).providers.map(
+    (p) => p.displayName,
+  );
 }
 
 /**

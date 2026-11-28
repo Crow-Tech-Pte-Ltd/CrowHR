@@ -28,7 +28,6 @@ import {
   type AssignedRole,
   PROVIDER_LABEL,
   type Provider,
-  type ProviderKind,
   ROLE_LABEL,
   type SecuritySettings,
 } from "../../../auth/types.ts";
@@ -177,7 +176,7 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
   const t = useT("settings-account");
   const qc = useQueryClient();
   const withReauth = useReauth();
-  const [adding, setAdding] = React.useState<ProviderKind | null>(null);
+  const [adding, setAdding] = React.useState<Provider["kind"] | null>(null);
   const [editing, setEditing] = React.useState<Provider | null>(null);
   const refresh = () => void qc.invalidateQueries({ queryKey: settingsKey });
   const tested = settings.providers.some((p) => p.enabled && p.lastTestOkAt);
@@ -191,8 +190,10 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
         toast.error(err instanceof Error ? err.message : t("Couldn't save."));
     }
   };
-  const missingKinds = (["google", "entra", "singpass", "oidc"] as const).filter(
-    (k) => k === "oidc" || !settings.providers.some((p) => p.kind === k),
+  const missingKinds = (["google", "entra", "singpass", "oidc", "managed_singpass"] as const).filter(
+    (k) =>
+      (k !== "managed_singpass" || settings.managedSingpassAvailable) &&
+      (k === "oidc" || !settings.providers.some((p) => p.kind === k)),
   );
 
   return (

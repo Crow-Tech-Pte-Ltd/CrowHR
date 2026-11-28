@@ -1,0 +1,2 @@
+ALTER TABLE "sso_providers" DROP CONSTRAINT "sso_providers_kind_check";--> statement-breakpoint
+ALTER TABLE "sso_providers" ADD CONSTRAINT "sso_providers_kind_check" CHECK ("sso_providers"."kind" in ('google', 'entra', 'singpass', 'managed_singpass', 'oidc'));

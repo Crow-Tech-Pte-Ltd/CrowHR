@@ -7,14 +7,17 @@ the change that fixes it.
 
 ## Sign-in and security
 
-- **Singpass is tested against Singpass staging only** (FAPI 2.0: PAR, PKCE, `private_key_jwt`, DPoP,
-  encrypted ID token). Production Singpass has not been tried. Singpass's
+- **Singpass production approval is specific to the registered user journey.** The Crow HR demo
+  has an active production app registered for demo visitors. For a self-hosted installation, complete
+  staging and production sign-in tests with your own registration. Singpass's
   [button specification](https://docs.developer.singpass.gov.sg/docs/getting-started/singpass-button-design-specification)
   requires its official logo, which can't be redistributed in this repository: whoever runs the
   server adds it (`<DATA_DIR>/branding/singpass-logo.svg` or `.png`; `VITE_SINGPASS_LOGO_SRC` for the
   demo). Without it the button is plain text and not compliant, so don't go live with Singpass
   without it. Behind Cloudflare Bot Fight Mode, Singpass can't fetch the JWKS URL; paste a JWKS object
   in the Singpass portal instead.
+- **Managed Singpass for Crow Tech hosting** still needs an end-to-end Singpass staging test and
+  production approval for employee sign-in. See the [managed login runbook](../apps/managed-login/README.md).
 - **Google Workspace and Microsoft Entra ID** have been tested against the mock identity provider
   only, not the real services.
 - **Invitation and password-reset emails are sent directly**, not through the retryable outbox: their

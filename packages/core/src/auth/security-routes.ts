@@ -14,7 +14,7 @@ import { ENTRA_FORBIDDEN_TENANTS, entraIssuer, GOOGLE_ISSUER, PRESETS, SINGPASS_
 import { noticeSignInSettingsChanged } from "./security-notices.ts";
 import { loadSecuritySettings, sessionCookie } from "./settings.ts";
 
-const kind = z.enum(["google", "entra", "singpass", "oidc"]);
+const kind = z.enum(["google", "entra", "singpass", "managed_singpass", "oidc"]);
 const role = z.enum(["owner", "hr_admin", "payroll_admin"]);
 const domain = z
   .string()
@@ -57,7 +57,7 @@ function present(deps: AppDeps, p: SsoProvider): z.input<typeof providerOut> {
     environment: p.environment,
     jitEnabled: p.jitEnabled,
     enabled: p.enabled,
-    configured: isConfigured(p),
+    configured: isConfigured(p, deps.managedSingpassIssuer),
     lastTestOkAt: p.lastTestOkAt?.toISOString() ?? null,
     callbackUrl: callbackUrl(deps.publicUrl, p.id),
     jwksUrl: p.kind === "singpass" ? jwksUrl(deps.publicUrl, p.id) : null,
@@ -74,6 +74,7 @@ const settingsOut = z.object({
   insecureTransport: z.boolean(),
   emailConfigured: z.boolean(),
   demoMode: z.boolean(),
+  managedSingpassAvailable: z.boolean().optional(),
   providers: z.array(providerOut),
 });
 
@@ -90,6 +91,7 @@ async function settingsView(c: AppContext, orgId: string): Promise<z.input<typeo
     insecureTransport: !sessionCookie(deps.publicUrl).secure,
     emailConfigured: !!deps.mailer,
     demoMode: !!deps.demoMode,
+    ...(deps.managedSingpassIssuer ? { managedSingpassAvailable: true } : {}),
     providers: providers.map((p) => present(deps, p)),
   };
 }
@@ -126,7 +128,10 @@ function fieldError(path: string, message: string) {
 }
 
 /** Resolves the issuer from the preset and checks preset-specific rules. */
-function resolveIssuer(input: Pick<ProviderInput, "kind" | "issuer" | "tenantId" | "environment">): string {
+function resolveIssuer(
+  deps: AppDeps,
+  input: Pick<ProviderInput, "kind" | "issuer" | "tenantId" | "environment">,
+): string {
   switch (input.kind) {
     case "google":
       return GOOGLE_ISSUER;
@@ -147,6 +152,13 @@ function resolveIssuer(input: Pick<ProviderInput, "kind" | "issuer" | "tenantId"
     }
     case "singpass":
       return input.issuer ?? SINGPASS_ISSUERS[input.environment ?? "staging"];
+    case "managed_singpass": {
+      const issuer = deps.managedSingpassIssuer;
+      if (!issuer || (input.issuer !== undefined && input.issuer !== issuer)) {
+        throw fieldError("issuer", "Use the managed Singpass issuer set by your hosting operator.");
+      }
+      return issuer;
+    }
     case "oidc":
       if (!input.issuer) throw fieldError("issuer", "Enter the issuer URL of your identity provider.");
       return input.issuer.replace(/\/$/, "");
@@ -182,7 +194,7 @@ async function assertPasswordStillPossible(c: AppContext, orgId: string, excludi
     .select()
     .from(ssoProviders)
     .where(and(eq(ssoProviders.orgId, orgId), eq(ssoProviders.enabled, true), isNotNull(ssoProviders.lastTestOkAt)));
-  if (!rows.some((r) => r.id !== excludingProviderId)) {
+  if (!rows.some((r) => r.id !== excludingProviderId && r.kind !== "managed_singpass")) {
     throw new AppError(
       "conflict",
       "Staff would have no way to sign in. Turn email and password sign-in back on first, or enable another tested method.",
@@ -263,10 +275,10 @@ export const securityModule = defineModule({
                 isNotNull(ssoProviders.lastTestOkAt),
               ),
             );
-          if (!tested.length) {
+          if (!tested.some((provider) => provider.kind !== "managed_singpass")) {
             throw new AppError(
               "conflict",
-              "Enable a single sign-on method and complete a test sign-in with it before turning off passwords.",
+              "Enable a single sign-on method and complete a test sign-in with it before turning off passwords. Managed Singpass needs an alternative sign-in method.",
             );
           }
         }
@@ -311,7 +323,7 @@ export const securityModule = defineModule({
       errors: ["conflict"],
       handler: async ({ c, deps, auth, body }) => {
         const preset = PRESETS[body.kind];
-        const issuer = resolveIssuer(body);
+        const issuer = resolveIssuer(deps, body);
         if (!body.clientId && body.kind !== "singpass")
           throw fieldError("clientId", "Paste the client ID from your identity provider.");
         if (body.enabled && !body.clientId)
@@ -432,7 +444,7 @@ export const securityModule = defineModule({
         const preset = PRESETS[current.kind];
         const issuer =
           body.issuer !== undefined || body.tenantId !== undefined || body.environment !== undefined
-            ? resolveIssuer({
+            ? resolveIssuer(deps, {
                 kind: current.kind,
                 issuer: body.issuer ?? (current.kind === "oidc" ? current.issuer : undefined),
                 tenantId: body.tenantId ?? current.tenantId ?? undefined,
@@ -472,7 +484,7 @@ export const securityModule = defineModule({
           );
           next.publicJwks = { keys: (body.privateJwks.keys as JsonWebKey[]).map(publicOnly) };
         }
-        if (next.enabled && !isConfigured({ ...current, ...next } as SsoProvider)) {
+        if (next.enabled && !isConfigured({ ...current, ...next } as SsoProvider, deps.managedSingpassIssuer)) {
           throw new AppError(
             "conflict",
             current.kind === "singpass"
