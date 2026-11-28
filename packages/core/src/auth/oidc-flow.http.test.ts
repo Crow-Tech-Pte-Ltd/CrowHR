@@ -15,8 +15,10 @@ import {
 } from "../../testing/index.ts";
 import { createApp } from "../app.ts";
 import { auditEvents } from "../db/schema/audit.ts";
-import { userIdentities } from "../db/schema/auth.ts";
+import { oidcTransactions, ssoProviders, userIdentities } from "../db/schema/auth.ts";
 import { notifications } from "../db/schema/notifications.ts";
+import { tick } from "../jobs/tick.ts";
+import { providerConfig } from "./oidc/client.ts";
 
 const TENANT = "11111111-2222-3333-4444-555555555555";
 
@@ -149,6 +151,71 @@ describe("OIDC sign-in flow (Google, Entra, generic) against the mock IdP", () =
     clock.set(new Date());
     expect(res.headers.get("location")).toContain("error=sso_failed");
     expect(await reasons()).toContain("expired");
+  });
+
+  it("clears expired transactions in bounded batches and keeps active callbacks", async () => {
+    const providerId = ids.generic as string;
+    await seedMember(deps, org.id, { email: "after-sweep@kampongkopi.sg" });
+    generic.nextUser = { sub: "after-sweep", email: "after-sweep@kampongkopi.sg", email_verified: true };
+    const http = testClient(app, deps);
+    const start = await http.get(`/api/v1/auth/oidc/${providerId}/start`);
+    expect(start.status).toBe(302);
+    const at = clock.now();
+    const expired = Array.from({ length: 501 }, (_, i) => ({
+      stateHash: `expired-sweep-fixture-${i}`,
+      orgId: org.id,
+      providerId,
+      purpose: "sign_in" as const,
+      nonce: "fixture",
+      codeVerifierEnc: "fixture",
+      createdAt: new Date(at.getTime() - 600_000),
+      expiresAt: at,
+    }));
+    await t.db.insert(oidcTransactions).values(expired);
+    const remaining = async () =>
+      (await t.db.select().from(oidcTransactions)).filter((state) =>
+        state.stateHash.startsWith("expired-sweep-fixture-"),
+      );
+    expect((await tick(deps, at)).errors).toEqual([]);
+    expect(await remaining()).toHaveLength(1);
+    expect((await tick(deps, at)).errors).toEqual([]);
+    expect(await remaining()).toHaveLength(0);
+    const cb = await generic.login(start.headers.get("location") as string);
+    expect((await http.get(cb.pathname + cb.search)).headers.get("location")).toBe("/");
+  });
+
+  it("shares one configuration fetch and refreshes the cache on version change or expiry", async () => {
+    const [provider] = await t.db
+      .select()
+      .from(ssoProviders)
+      .where(eq(ssoProviders.id, ids.generic as string));
+    if (!provider) throw new Error("Missing test provider");
+    const cacheClock = movableClock(clock.now());
+    let discoveries = 0;
+    const fetch = deps.httpFetch as typeof globalThis.fetch;
+    const local = {
+      ...deps,
+      clock: cacheClock,
+      httpFetch: (async (...args: Parameters<typeof fetch>) => {
+        discoveries++;
+        return fetch(...args);
+      }) as typeof fetch,
+    };
+    const [first, second] = await Promise.all([providerConfig(local, provider), providerConfig(local, provider)]);
+    expect(first).toBe(second);
+    expect(discoveries).toBe(1);
+    const edited = { ...provider, updatedAt: new Date(provider.updatedAt.getTime() + 1) };
+    expect(await providerConfig(local, edited)).not.toBe(first);
+    expect(discoveries).toBe(2);
+    cacheClock.advance(60 * 60_000);
+    await tick(local);
+    const refreshed = await providerConfig(local, edited);
+    expect(discoveries).toBe(3);
+    for (let i = 0; i < 128; i++) {
+      await providerConfig(local, { ...edited, id: deps.ids.newId() });
+    }
+    expect(await providerConfig(local, edited)).not.toBe(refreshed);
+    expect(discoveries).toBe(132);
   });
 
   it.each([

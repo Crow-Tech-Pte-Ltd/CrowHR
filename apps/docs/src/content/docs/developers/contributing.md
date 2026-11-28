@@ -42,6 +42,18 @@ It must pass: Biome (format and lint), the third-party licence check, TypeScript
 
 Use `useT` with the feature that owns the message. Keep the English source at the call site and add the same key to the feature’s Simplified Chinese, Malay and Tamil catalogs under `apps/web/src/i18n/catalogs/`. Use a whole sentence with named placeholders for dynamic values. The catalog test checks that every language preserves those placeholders. Keep organisation-entered text and statutory identifiers as supplied.
 
+## Benchmark backend changes
+
+Run the same settings before and after a change. The benchmark calls the API in process, counts SQL statements and reports warm request times. By default it uses PGlite. On Linux or macOS, `BENCH_POSTGRES=1` starts an isolated PostgreSQL 17 cluster with a private Unix socket and fictional records. Install PostgreSQL 17 binaries and put `pg_config` on the path, or set `BENCH_PG_BIN` to the directory containing the binaries.
+
+```sh
+BENCH_POSTGRES=1 BENCH_EMPLOYEES=200 BENCH_AUDIT_ROWS=25000 \
+  BENCH_LEAVE_HISTORY=10000 BENCH_PAYROLL_HISTORY=12 BENCH_PAYROLL=1 \
+  node packages/core/scripts/bench-hot-paths.ts
+```
+
+Set `BENCH_SOAK_SECONDS=86400` for a day-long run on a test machine. The workload mixes reads with payroll recomputation, CSV export and encrypted backups. It reports latency percentiles, Node CPU and memory, event-loop delay, total PostgreSQL process RSS, and database size. PostgreSQL process RSS sums each process, so shared pages can count more than once. Use a disk-backed `TMPDIR` with enough space for the temporary cluster and archive. This benchmark uses a fixed application clock and in-process API calls. Measure proxy, browser and network performance separately.
+
 ## Larger changes
 
 Anything beyond a bug fix or small improvement starts as an [OpenSpec change](/docs/developers/openspec/) so the requirements are agreed before code is written. Open an issue first to discuss it.

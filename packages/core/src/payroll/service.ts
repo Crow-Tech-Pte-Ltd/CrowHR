@@ -1030,28 +1030,32 @@ export async function computeRun(deps: AppDeps, actor: PayrollActor, runId: stri
     await tx
       .delete(payrollPayslips)
       .where(and(eq(payrollPayslips.orgId, actor.orgId), eq(payrollPayslips.runId, run.id)));
-    for (const c of computed) {
-      await tx.insert(payrollPayslips).values({
-        id: deps.ids.newId(),
-        orgId: actor.orgId,
-        runId: run.id,
-        employeeId: c.input.employee.id,
-        employeeNumber: c.input.employee.employeeNumber,
-        employeeName: c.input.employee.legalName,
-        input: c.input,
-        inputHash: c.inputHash,
-        result: c.result,
-        resultHash: c.resultHash,
-        grossCents: c.result.totals.grossCents,
-        netCents: c.result.totals.netCents,
-        netPayableCents: c.result.totals.netPayableCents,
-        cpfEmployeeCents: c.result.totals.cpfEmployeeCents,
-        cpfEmployerCents: c.result.totals.cpfEmployerCents,
-        blockingCount: c.result.issues.filter((i) => i.severity === "blocking").length,
-        warningCount: c.result.issues.filter((i) => i.severity === "warning").length,
-        payee: c.payee,
-        createdAt: now,
-      });
+    // Keep each statement well below PostgreSQL's bind parameter limit.
+    const batchSize = 100;
+    for (let i = 0; i < computed.length; i += batchSize) {
+      await tx.insert(payrollPayslips).values(
+        computed.slice(i, i + batchSize).map((c) => ({
+          id: deps.ids.newId(),
+          orgId: actor.orgId,
+          runId: run.id,
+          employeeId: c.input.employee.id,
+          employeeNumber: c.input.employee.employeeNumber,
+          employeeName: c.input.employee.legalName,
+          input: c.input,
+          inputHash: c.inputHash,
+          result: c.result,
+          resultHash: c.resultHash,
+          grossCents: c.result.totals.grossCents,
+          netCents: c.result.totals.netCents,
+          netPayableCents: c.result.totals.netPayableCents,
+          cpfEmployeeCents: c.result.totals.cpfEmployeeCents,
+          cpfEmployerCents: c.result.totals.cpfEmployerCents,
+          blockingCount: c.result.issues.filter((i) => i.severity === "blocking").length,
+          warningCount: c.result.issues.filter((i) => i.severity === "warning").length,
+          payee: c.payee,
+          createdAt: now,
+        })),
+      );
     }
     await recordAudit(tx, deps, actor.audit, {
       action: "payroll.run_computed",

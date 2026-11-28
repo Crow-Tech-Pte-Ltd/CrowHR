@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/pglite";
 import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { punch } from "../../testing/attendance.ts";
@@ -8,6 +9,9 @@ import { createLeaveWorld, type LeaveWorld } from "../../testing/leave.ts";
 import { createApp } from "../app.ts";
 import { auditEvents } from "../db/schema/audit.ts";
 import { employees, tenures } from "../db/schema/employees.ts";
+import * as schema from "../db/schema/index.ts";
+import { leaveRequests } from "../db/schema/leave.ts";
+import type { Db } from "../db/types.ts";
 import { readXlsxSheet } from "../export/xlsx-read.ts";
 import { leaveReportSource } from "../leave/reports.ts";
 import { CORE_REPORT_SOURCES } from "./registry.ts";
@@ -134,6 +138,56 @@ describe("reports", () => {
         }),
       ],
     });
+  });
+
+  it("pages scoped leave requests in SQL and uses the same tie order as exports", async () => {
+    const [base] = await w.deps.db.select().from(leaveRequests).where(eq(leaveRequests.employeeId, w.emp.staff));
+    if (!base) throw new Error("Missing test leave request");
+    await w.deps.db.insert(leaveRequests).values(
+      Array.from({ length: 57 }, (_, i) => ({
+        ...base,
+        id: w.deps.ids.newId(),
+        approvalRequestId: null,
+        employeeId: i === 56 ? w.emp.other : w.emp.staff,
+        startDate: "2027-01-04",
+        endDate: "2027-01-05",
+        hundredths: 100 + i,
+      })),
+    );
+    const statements: string[] = [];
+    const db = drizzle({
+      client: w.t.pglite,
+      schema,
+      logger: {
+        logQuery: (statement) => {
+          statements.push(statement);
+        },
+      },
+    }) as unknown as Db;
+    const deps = { ...w.deps, db };
+    const manager = await clientAs(createApp(deps), deps, w.m.manager);
+    const path = "/api/v1/reports/leave.requests";
+    const filters = "from=2027-01-04&to=2027-01-04";
+    for (const sort of ["startDate", "endDate", "amount", "name"]) {
+      const query = `${filters}&sort=${sort}&dir=desc`;
+      statements.length = 0;
+      const firstResponse = await manager.get(`${path}?${query}`);
+      const lastResponse = await manager.get(`${path}?${query}&page=99`);
+      expect(firstResponse.status, await firstResponse.clone().text()).toBe(200);
+      expect(lastResponse.status, await lastResponse.clone().text()).toBe(200);
+      const first = await firstResponse.json();
+      const last = await lastResponse.json();
+      if (sort !== "name") {
+        expect(statements.some((sql) => /order by.+limit.+offset/i.test(sql))).toBe(true);
+      }
+      expect(first).toMatchObject({ page: 1, totalRows: 56, totals: null, sort: { key: sort, dir: "desc" } });
+      expect(last).toMatchObject({ page: 2, totalRows: 56 });
+      expect(first.rows).toHaveLength(50);
+      expect(last.rows).toHaveLength(6);
+      const exported = await (await manager.get(`${path}/export?${query}&format=json`)).json();
+      expect([...first.rows, ...last.rows]).toEqual(exported.rows);
+      expect(exported.rows.every((row: { name: string }) => row.name === "Ravi Kumar")).toBe(true);
+    }
   });
 
   it("exports one timesheet row per employee and day, in the caller's scope", async () => {

@@ -183,6 +183,13 @@
       "when": 1795866043761,
       "tag": "0025_managed_singpass",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1795870619287,
+      "tag": "0026_oidc_transaction_retention",
+      "breakpoints": true
     }
   ]
 }

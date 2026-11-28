@@ -1,6 +1,8 @@
-import { and, gte, isNull, lte } from "drizzle-orm";
+import { and, gte, inArray, isNull, lte } from "drizzle-orm";
 import { singaporeDate } from "../access/scope.ts";
 import { systemAuditContext } from "../audit/audit.ts";
+import { pruneProviderConfigs } from "../auth/oidc/client.ts";
+import { oidcTransactions } from "../db/schema/auth.ts";
 import { delegations } from "../db/schema/workflows.ts";
 import { type DemoCompaniesReport, sweepDemoCompanies } from "../demo-companies/sweep.ts";
 import type { AppDeps } from "../deps.ts";
@@ -91,6 +93,19 @@ export async function tick(deps: AppDeps, now: Date = deps.clock.now()): Promise
   });
   await run("retention", async () => {
     report.notificationsDeleted = await sweepNotificationRetention(pinned, now);
+  });
+  await run("oidc-retention", async () => {
+    pruneProviderConfigs(deps, now.getTime());
+    // A host-wide sweep of temporary state. Lock only a batch so replicas can share the
+    // backlog and valid callbacks never wait on these rows.
+    const expired = deps.db
+      .select({ stateHash: oidcTransactions.stateHash })
+      .from(oidcTransactions)
+      .where(lte(oidcTransactions.expiresAt, now))
+      .orderBy(oidcTransactions.expiresAt)
+      .limit(500)
+      .for("update", { skipLocked: true });
+    await deps.db.delete(oidcTransactions).where(inArray(oidcTransactions.stateHash, expired));
   });
   // Last: refilling the demo-company pool seeds a whole company (seconds of work).
   await run("demo-companies", async () => {

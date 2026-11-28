@@ -13,7 +13,15 @@ import { writeXlsxWorkbook, XLSX_CONTENT_TYPE } from "../export/xlsx.ts";
 import { getCompanyBranding } from "../organisation/profile.ts";
 import { dateLabel, monthLabel } from "../payroll/engine/dates.ts";
 import { findReport, reportDefinitions } from "./registry.ts";
-import type { AnyReportDefinition, ReportColumn, ReportContext, ReportRow, ReportSummaryItem } from "./types.ts";
+import {
+  type AnyReportDefinition,
+  MAX_REPORT_ROWS,
+  type ReportColumn,
+  type ReportContext,
+  type ReportRow,
+  type ReportSummaryItem,
+  reportPageNumber,
+} from "./types.ts";
 
 /**
  * Runs report definitions for a request (add-reporting specs "Permission and sensitivity
@@ -28,9 +36,7 @@ import type { AnyReportDefinition, ReportColumn, ReportContext, ReportRow, Repor
  */
 
 export const PAGE_SIZE = 50;
-export const MAX_EXPORT_ROWS = 50_000;
-/** Rows the runner will hold while sorting; beyond the export limit nothing is shown either. */
-const MAX_ROWS = MAX_EXPORT_ROWS;
+export const MAX_EXPORT_ROWS = MAX_REPORT_ROWS;
 
 export const REPORT_EXPORT_FORMATS = ["csv", "xlsx", "json", "pdf"] as const;
 
@@ -153,38 +159,42 @@ async function prepare(c: AppContext, id: string, query: ReportQuery, purpose: "
     }
     columns.push(col);
   }
+  ctx.visibleColumns = new Set(columns.map((column) => column.key));
   return { def, ctx, params, columns, redactedColumns };
+}
+
+function checkRowLimit(count: number) {
+  if (count <= MAX_REPORT_ROWS) return;
+  throw new AppError(
+    "too_many_rows",
+    `This report has more than ${MAX_EXPORT_ROWS.toLocaleString("en-SG")} rows. Narrow the dates or pick a smaller group, then try again.`,
+    { maxRows: MAX_EXPORT_ROWS },
+  );
+}
+
+function visibleRows(p: Prepared) {
+  const visible = p.ctx.visibleColumns;
+  const hidden = p.def.columns(p.params).filter((c) => !visible?.has(c.key));
+  return (row: ReportRow) => {
+    if (!hidden.length) return row;
+    const copy: ReportRow = { ...row };
+    for (const column of hidden) delete copy[column.key];
+    return copy;
+  };
 }
 
 /** Pulls every scoped row (refusing more than the limit), keeping only the visible columns. */
 async function collect(p: Prepared): Promise<ReportRow[]> {
   const rows: ReportRow[] = [];
-  // Redacted columns and optional columns nobody asked for never leave the runner.
-  const visible = new Set(p.columns.map((c) => c.key));
-  const hidden = new Set(
-    p.def
-      .columns(p.params)
-      .map((c) => c.key)
-      .filter((k) => !visible.has(k)),
-  );
+  const project = visibleRows(p);
   for await (const batch of p.def.run(p.ctx, p.params)) {
-    for (const row of batch) {
-      if (rows.length >= MAX_ROWS) {
-        throw new AppError(
-          "too_many_rows",
-          `This report has more than ${MAX_EXPORT_ROWS.toLocaleString("en-SG")} rows. Narrow the dates or pick a smaller group, then try again.`,
-          { maxRows: MAX_EXPORT_ROWS },
-        );
-      }
-      if (hidden.size) {
-        const copy: ReportRow = { ...row };
-        for (const k of hidden) delete copy[k];
-        rows.push(copy);
-      } else rows.push(row);
-    }
+    checkRowLimit(rows.length + batch.length);
+    for (const row of batch) rows.push(project(row));
   }
   return rows;
 }
+
+const compareText = new Intl.Collator("en-SG", { numeric: true }).compare;
 
 function compare(a: CellValue, b: CellValue): number {
   const an = a === null || a === undefined || a === "";
@@ -192,15 +202,12 @@ function compare(a: CellValue, b: CellValue): number {
   if (an || bn) return an === bn ? 0 : an ? 1 : -1;
   if (typeof a === "number" && typeof b === "number") return a - b;
   if (typeof a === "boolean" && typeof b === "boolean") return Number(a) - Number(b);
-  return String(a).localeCompare(String(b), "en-SG", { numeric: true });
+  return compareText(String(a), String(b));
 }
 
 export function sortRows(rows: ReportRow[], key: string, dir: "asc" | "desc"): ReportRow[] {
   const sign = dir === "desc" ? -1 : 1;
-  return rows
-    .map((row, i) => ({ row, i }))
-    .sort((x, y) => sign * compare(x.row[key], y.row[key]) || x.i - y.i)
-    .map((x) => x.row);
+  return [...rows].sort((a, b) => sign * compare(a[key], b[key]));
 }
 
 /** Column totals over every row; the first text column says "Total". */
@@ -253,12 +260,36 @@ function sortOf(p: Prepared, query: ReportQuery) {
 
 export async function runReport(c: AppContext, id: string, query: ReportQuery): Promise<ReportResult> {
   const p = await prepare(c, id, query, "read");
-  const all = await collect(p);
   const sort = sortOf(p, query);
-  const sorted = sortRows(all, sort.key, sort.dir);
-  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const page = Math.min(Math.max(1, Math.trunc(Number(query.page ?? 1)) || 1), pageCount);
-  const summary = p.def.summary ? await p.def.summary(all, p.ctx, p.params) : [];
+  const requestedPage = Math.trunc(Number(query.page ?? 1)) || 1;
+  const pageResult =
+    !p.def.summary && !p.columns.some((col) => col.total === "sum")
+      ? await p.def.readPage?.(p.ctx, p.params, {
+          sort,
+          page: requestedPage,
+          pageSize: PAGE_SIZE,
+          maxRows: MAX_REPORT_ROWS,
+        })
+      : null;
+  let rows: ReportRow[];
+  let totals: ReportRow | null = null;
+  let summary: ReportSummaryItem[] = [];
+  let totalRows: number;
+  let page: number;
+  if (pageResult) {
+    totalRows = pageResult.totalRows;
+    checkRowLimit(totalRows);
+    page = reportPageNumber(requestedPage, totalRows, PAGE_SIZE);
+    rows = pageResult.rows.map(visibleRows(p));
+  } else {
+    const all = await collect(p);
+    const sorted = sortRows(all, sort.key, sort.dir);
+    totalRows = sorted.length;
+    page = reportPageNumber(requestedPage, totalRows, PAGE_SIZE);
+    rows = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    totals = totalRows ? totalsOf(p.columns, sorted) : null;
+    summary = (await p.def.summary?.(all, p.ctx, p.params)) ?? [];
+  }
   const visible = new Set(p.columns.map((col) => col.key));
   const chart = p.def.chart && visible.has(p.def.chart.label) && visible.has(p.def.chart.value) ? p.def.chart : null;
   if (p.columns.some((col) => col.sensitivity)) {
@@ -291,15 +322,15 @@ export async function runReport(c: AppContext, id: string, query: ReportQuery): 
       .columns(p.params)
       .filter((col) => col.optional && !p.redactedColumns.includes(col.key))
       .map((col) => ({ key: col.key, title: col.title })),
-    rows: sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    totals: sorted.length ? totalsOf(p.columns, sorted) : null,
+    rows,
+    totals,
     summary,
     page,
     pageSize: PAGE_SIZE,
-    totalRows: sorted.length,
+    totalRows,
     sort,
     redactedColumns: p.redactedColumns,
-    emptyMessage: sorted.length ? null : p.def.emptyMessage(p.params),
+    emptyMessage: totalRows ? null : p.def.emptyMessage(p.params),
     notes: [...(p.def.notes ?? [])],
     chart,
     canExport: (await grantFor(c, p.def, p.def.export)) !== null,

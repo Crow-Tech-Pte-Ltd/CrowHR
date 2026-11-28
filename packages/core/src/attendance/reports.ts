@@ -88,6 +88,7 @@ export async function attendanceSummary(db: Db, orgId: string, grant: Grant, fro
       ),
     )
     .groupBy(overtimeClaims.employeeId);
+  const approvedByEmployee = new Map(approved.map((row) => [row.employeeId, Number(row.total)]));
   const rows: SummaryRow[] = [];
   for (const [employeeId, days] of sheet.days) {
     const t = totalsOf(days);
@@ -101,7 +102,7 @@ export async function attendanceSummary(db: Db, orgId: string, grant: Grant, fro
       earlyOutCount: t.earlyOutCount,
       missingPunches: t.missingPunches,
       computedOtMinutes: t.otMinutes,
-      approvedOtMinutes: Number(approved.find((a) => a.employeeId === employeeId)?.total ?? 0),
+      approvedOtMinutes: approvedByEmployee.get(employeeId) ?? 0,
       leaveDays: t.leaveDays,
     });
   }

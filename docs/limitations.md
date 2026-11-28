@@ -271,8 +271,10 @@ How the rules were checked is in `packages/sg-rules/VERIFICATION.md`.
   dependency), and bun supports only top-level overrides, which would force drizzle-kit's and tsx's
   own esbuild outside their declared ranges.
 - **PGlite server mode** (`DATABASE_URL=pglite:…`) is for development and tests only.
-- **Performance** is measured on PGlite in process (`packages/core/scripts/bench-hot-paths.ts`), not on
-  PostgreSQL or under concurrent load.
+- **Performance** has a synthetic PGlite and PostgreSQL 17 benchmark
+  (`packages/core/scripts/bench-hot-paths.ts`), including concurrent reads, payroll, exports and
+  backups. The benchmark calls the API in process. Production network performance and capacity on
+  a particular VPS depend on the installation and need separate measurement.
 
 ## Public demo
 
