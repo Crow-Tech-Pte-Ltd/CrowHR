@@ -173,7 +173,12 @@ test("downloads a report PDF from both report entry points", async ({ page }) =>
   await expect(page.getByTestId("demo-personas")).toBeVisible({ timeout: 20_000 });
   await pickPersona(page, "payroll-admin");
   await go(page, "/reports/payroll.cost?from=2026-07&to=2026-09");
-  const [report] = await Promise.all([page.waitForEvent("download"), page.getByTestId("export-pdf").click()]);
+  await page.getByRole("button", { name: "Download", exact: true }).click();
+  await expect(page.getByRole("menuitem")).toHaveCount(4);
+  const [report] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("menuitem", { name: "PDF (.pdf)", exact: true }).click(),
+  ]);
   expect(report.suggestedFilename()).toMatch(/^payroll-cost-\d{4}-\d{2}-\d{2}\.pdf$/);
   const fileHandle = await open(await report.path(), "r");
   try {

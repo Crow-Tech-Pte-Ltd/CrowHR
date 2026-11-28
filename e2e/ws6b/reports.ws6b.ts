@@ -25,7 +25,11 @@ test("payroll cost exports to XLSX with the totals on screen", async ({ page }) 
   await expect(totals).toContainText(money(api.totals.grossCents as number));
   await expect(totals).toContainText(money(api.totals.employerTotalCents as number));
 
-  const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("export-xlsx").click()]);
+  await page.getByRole("button", { name: "Download", exact: true }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("menuitem", { name: "Excel (.xlsx)", exact: true }).click(),
+  ]);
   expect(download.suggestedFilename()).toMatch(/^payroll-cost-\d{4}-\d{2}-\d{2}\.xlsx$/);
   const sheet = readXlsxSheet(new Uint8Array(readFileSync(await download.path())));
   const header = sheet[0] ?? [];

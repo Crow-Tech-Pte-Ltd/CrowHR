@@ -27,7 +27,7 @@ export function PageHeader({
 }) {
   const t = useT("common");
   return (
-    <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex min-w-0 flex-col gap-1.5">
         {crumbs?.length ? (
           <nav aria-label={t("Breadcrumb")}>

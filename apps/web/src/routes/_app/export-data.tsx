@@ -1,17 +1,7 @@
-import {
-  Button,
-  Card,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  EmptyState,
-  Skeleton,
-  textStyle,
-} from "@crowhr/ui";
+import { Card, EmptyState, Skeleton, textStyle } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, linkOptions } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight, Download } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { can, useMe } from "../../auth/session.ts";
 import { PageHeader } from "../../components/page-header.tsx";
 import { ErrorNote } from "../../components/section.tsx";
@@ -22,9 +12,8 @@ import {
   DATA_EXPORT_FORMATS,
   exportHref,
   MODULE_LABEL,
-  REPORT_EXPORT_FORMATS,
 } from "../../reports/api.ts";
-import { DownloadFeedback, useExportDownload } from "../../reports/download.tsx";
+import { DownloadFeedback, DownloadMenu, useExportDownload } from "../../reports/download.tsx";
 
 export const Route = createFileRoute("/_app/export-data")({
   component: ExportDataPage,
@@ -139,26 +128,12 @@ function ExportDataPage() {
                   >
                     {reportText(report.title)}
                   </Link>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        disabled={download.isPending}
-                        className="shrink-0"
-                        aria-label={t("Download {report}", { report: reportText(report.title) })}
-                      >
-                        <Download aria-hidden /> <span className="hidden sm:inline">{t("Download")}</span>
-                        <ChevronDown aria-hidden />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {REPORT_EXPORT_FORMATS.map(({ id, label }) => (
-                        <DropdownMenuItem key={id} onSelect={() => download.mutate(exportHref(report.id, {}, id))}>
-                          {label} (.{id})
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <DownloadMenu
+                    label={t("Download")}
+                    ariaLabel={t("Download {report}", { report: reportText(report.title) })}
+                    disabled={download.isPending}
+                    onChoose={(format) => download.mutate(exportHref(report.id, {}, format))}
+                  />
                 </div>
               ))}
             </Card>
@@ -175,19 +150,13 @@ function ExportDataPage() {
                   <Link to="/people" search={{}} className="focus-ring rounded-sm font-medium hover:underline">
                     {t("Employee directory")}
                   </Link>
-                  <div className="flex gap-2">
-                    {DATA_EXPORT_FORMATS.map(({ id, label }) => (
-                      <Button
-                        key={id}
-                        size="sm"
-                        disabled={download.isPending}
-                        onClick={() => download.mutate(`/api/v1/employees/export?format=${id}`)}
-                        aria-label={t("Download employee directory as {format}", { format: label })}
-                      >
-                        {label}
-                      </Button>
-                    ))}
-                  </div>
+                  <DownloadMenu
+                    label={t("Download")}
+                    ariaLabel={t("Download {report}", { report: t("Employee directory") })}
+                    disabled={download.isPending}
+                    formats={DATA_EXPORT_FORMATS}
+                    onChoose={(format) => download.mutate(`/api/v1/employees/export?format=${format}`)}
+                  />
                 </div>
               ) : null}
               {workflows.map((file) => (
