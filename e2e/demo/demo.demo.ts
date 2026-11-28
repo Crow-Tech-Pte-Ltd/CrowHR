@@ -1,4 +1,4 @@
-import { open } from "node:fs/promises";
+import { open, readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { go, pickPersona, signOut, startDemo, waitForDemo, watchErrors } from "./helpers.ts";
 
@@ -25,6 +25,19 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
     "Not available in the demo. Self-hosted installs can enable this in Settings → Security.",
   );
   await expect(page.getByTestId("sso-methods").getByRole("button").first()).toBeDisabled();
+
+  // The fictional work pass is a downloadable PDF in the HR document register.
+  await pickPersona(page, "hr-admin");
+  await go(page, "/documents");
+  await page.getByTestId("document-row").filter({ hasText: "Fictional work pass" }).click();
+  const [workPass] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("dialog").getByRole("link", { name: "Download", exact: true }).click(),
+  ]);
+  expect(workPass.suggestedFilename()).toBe("fictional-work-pass.pdf");
+  expect((await readFile(await workPass.path())).subarray(0, 5).toString()).toBe("%PDF-");
+  await page.keyboard.press("Escape");
+  await signOut(page);
 
   // 2. Payroll admin: October's draft run, with warnings, and one employee's CPF working.
   await pickPersona(page, "payroll-admin");
