@@ -14,6 +14,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Laptop, Link2, Smartphone } from "lucide-react";
+import { AssistantSettingsPanel } from "../../../assistant/settings.tsx";
 import { relativeTime } from "../../../auth/format.ts";
 import { useReauth } from "../../../auth/reauth.tsx";
 import { useMe } from "../../../auth/session.ts";
@@ -55,6 +56,7 @@ function MySecurity() {
           >
             <SessionsTable />
           </Section>
+          <AssistantSettingsPanel />
           <Section
             id="identities"
             title="Linked sign-in methods"

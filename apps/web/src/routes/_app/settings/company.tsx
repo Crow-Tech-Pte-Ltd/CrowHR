@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, Building2, ImageUp } from "lucide-react";
 import * as React from "react";
+import { AssistantSettingsPanel } from "../../../assistant/settings.tsx";
 import { canForAll, useMe } from "../../../auth/session.ts";
+import { AppearanceSettings } from "../../../branding/settings.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { api, companyQuery, errorMessage, fieldErrors, invalidatePeople } from "../people/-lib/api.ts";
 import { ErrorPanel, PanelSkeleton, TextInput } from "../people/-lib/ui.tsx";
@@ -57,6 +59,7 @@ function CompanyPage() {
   });
   const errs = fieldErrors(save.error);
   const profile = q.data?.profile;
+  const me = useMe();
 
   return (
     <>
@@ -205,6 +208,18 @@ function CompanyPage() {
           )}
         </form>
       )}
+      {me.roles.includes("owner") && !me.demoCompany ? (
+        <AppearanceSettings
+          {...(profile?.hasLogo
+            ? { documentLogo: `/api/v1/organisation/profile/logo?v=${encodeURIComponent(profile.updatedAt)}` }
+            : {})}
+        />
+      ) : null}
+      {me.roles.includes("owner") ? (
+        <div className="mt-8">
+          <AssistantSettingsPanel company />
+        </div>
+      ) : null}
     </>
   );
 }

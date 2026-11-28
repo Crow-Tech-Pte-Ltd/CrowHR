@@ -17,7 +17,8 @@
  * black on white.
  */
 @layer base {
-  :root {
+  :root,
+  .appearance-preview-light {
     --radius: 0.5rem;
 
     --surface-50: 0 0% 100%; /* #FFFFFF */
@@ -98,7 +99,8 @@
    * become dark tints. kuning-200/300/400 stay yellow, so text on them uses accent-foreground (dark
    * in both themes). The hard offset shadow is light here: an ink shadow would vanish.
    */
-  .dark {
+  .dark,
+  .appearance-preview-dark {
     --surface-50: 0 0% 8%; /* #141414 page and cards */
     --surface-100: 40 6% 11%; /* #1E1C1A sidebar, table footers */
     --surface-200: 0 0% 16%; /* #292929 muted fills */
@@ -152,6 +154,13 @@
     --border: 0 0% 22%;
     --input: 0 0% 36%;
     color-scheme: dark;
+  }
+
+  .appearance-preview-light,
+  .appearance-preview-dark {
+    --brand-action: hsl(var(--kuning-200));
+    --brand-action-hover: hsl(var(--kuning-300));
+    --brand-action-text: hsl(var(--accent-foreground));
   }
 
   * {

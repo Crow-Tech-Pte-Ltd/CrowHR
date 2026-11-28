@@ -1,4 +1,5 @@
 import { isNull, sql } from "drizzle-orm";
+import { setAssistantEnabled } from "../assistant/settings.ts";
 import { type AuditContext, recordAudit } from "../audit/audit.ts";
 import { normaliseEmail } from "../auth/credentials.ts";
 import { passwordProblem } from "../auth/password-policy.ts";
@@ -9,6 +10,7 @@ import { users } from "../db/schema/users.ts";
 import type { Db } from "../db/types.ts";
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
+import { type AppearanceInput, saveAppearance } from "../organisation/appearance.ts";
 import { deleteSystemSetting, getSystemSetting, SYSTEM_KEYS, setSystemSetting } from "../system/settings.ts";
 import { hashSetupCode, timingSafeEqualHex } from "./code.ts";
 
@@ -102,6 +104,8 @@ export interface CompleteSetupInput {
   ownerName: string;
   ownerEmail: string;
   ownerPassword: string;
+  appearance?: AppearanceInput;
+  enableAssistant?: boolean;
 }
 
 /** `Kampong Kopi Pte. Ltd.` → `kampong-kopi`: the org's sign-in slug (`/sign-in/<slug>`). */
@@ -158,6 +162,8 @@ export async function completeSetup(
     await tx.insert(users).values({ id: userId, email, displayName: name, passwordHash, passwordChangedAt: now });
     await tx.insert(memberships).values({ id: membershipId, orgId: organisationId, userId, status: "active" });
     await tx.insert(membershipRoles).values({ orgId: organisationId, membershipId, role: "owner", grantedAt: now });
+    if (input.enableAssistant) await setAssistantEnabled(deps, tx, auditFor(organisationId), true);
+    if (input.appearance) await saveAppearance(deps, tx, auditFor(organisationId), input.appearance);
     await deleteSystemSetting(tx, SYSTEM_KEYS.setupCode);
     await recordAudit(tx, deps, auditFor(organisationId), {
       action: "setup.completed",

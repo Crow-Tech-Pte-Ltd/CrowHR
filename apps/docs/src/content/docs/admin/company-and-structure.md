@@ -20,6 +20,23 @@ One Crow HR organisation is one legal entity, with one UEN and one CSN. A group 
 
 Payroll cannot be submitted until the profile has a UEN, a CSN and an address. Time zone (Asia/Singapore) and currency (SGD) are fixed.
 
+
+## Appearance
+
+The company owner can set the web app logo and accent colour in **Settings → Company → Appearance**, or during first-run setup. Paste a hex colour, upload a PNG (up to 256 KB and 2048 × 2048 pixels), or reuse the logo you uploaded for generated letters. The light and dark previews show how the primary action and logo will look. Select **Save appearance** to apply the change or **Reset appearance** to restore the Crow HR look.
+
+The app logo and accent appear on the company's sign-in page and in the signed-in web app. Anyone with the company sign-in address can see them. An uploaded app logo is separate from the logo on generated letters.
+
+## AI assistants
+
+On an HTTPS install, set `AI_ASSISTANT_ENABLED=1` in `.env` and start the app with `docker compose up -d`. On a new install, opt in on the Company step of setup. On an existing install, go to **Settings → Company → AI assistants** and select **Enable AI assistants**.
+
+1. Copy the company-specific connector URL. Your HTTPS reverse proxy must allow clients to reach `/mcp/*` and the OAuth endpoints under `/.well-known/` on the same domain.
+2. In a [supported ChatGPT workspace](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt), add a custom MCP connector with that URL and OAuth. In [Claude](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp), choose a custom web connector, OAuth and **Register automatically**.
+3. Each person signs in with their normal Crow HR sign-in and approves sharing. Try asking for their available annual leave, next published shift or pending approval count.
+
+Assistant providers receive the results and can retain them with conversations under their workspace settings. The tools are read-only. To disconnect your account, open **Sign-in and devices → AI assistants** in Crow HR. Owners can disconnect every account by disabling the connector for the company. Connections expire after 30 days. The public demos have the connector disabled.
+
 ## Structure
 
 **Settings → Structure** holds four flat lists:

@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { E2E_SETUP_CODE } from "../playwright.config.ts";
 
@@ -41,6 +42,9 @@ test.describe("first-run setup wizard", () => {
     await page.getByRole("button", { name: "Continue" }).click();
 
     await page.getByLabel("Company's registered name").fill("Kampong Kopi Pte. Ltd.");
+    await page.getByLabel("Accent colour").fill("#165E85");
+    await expect(page.getByText("Light preview")).toBeVisible();
+    await expect(page.getByText("Dark preview")).toBeVisible();
     await page.getByRole("button", { name: "Continue" }).click();
 
     await page.getByLabel("Your name").fill("Aisyah Rahman");
@@ -77,6 +81,22 @@ test.describe("first-run setup wizard", () => {
       /First employee/,
     ]);
     await expect(checklist.getByRole("link", { name: "Set up" }).first()).toHaveAttribute("href", "/settings/company");
+
+    await page.goto("/settings/company");
+    await expect(page.getByLabel("Accent colour")).toHaveValue("#165E85");
+    const appearance = page.getByRole("group", { name: "Appearance" });
+    await expect(appearance.getByText("Sign in").first()).toHaveCSS("background-color", "rgb(22, 94, 133)");
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      const { violations } = await new AxeBuilder({ page })
+        .include('fieldset:has(input[placeholder="#165E85"])')
+        .include('[aria-labelledby="ai-assistants-title"]')
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+        .analyze();
+      expect(violations).toEqual([]);
+    }
+    await page.getByRole("button", { name: "Reset appearance" }).click();
+    await expect(page.getByLabel("Accent colour")).toHaveValue("");
 
     // The new owner is signed in, so Settings → System shows real status (read-only).
     await page.goto("/settings");

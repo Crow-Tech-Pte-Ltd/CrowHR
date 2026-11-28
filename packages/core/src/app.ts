@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { membersModule } from "./access/members-routes.ts";
+import { assistantModule } from "./assistant/api.ts";
+import { type AssistantTransport, assistantHttp } from "./assistant/http.ts";
 import { attendanceModule } from "./attendance/routes.ts";
 import { auditModule } from "./audit/routes.ts";
 import { csrfProtection } from "./auth/csrf.ts";
@@ -40,6 +42,7 @@ import { approvalsModule, inboxModule } from "./workflows/routes.ts";
 export const V1_MODULES: readonly ApiModule[] = [
   approvalsModule,
   attendanceModule,
+  assistantModule,
   auditModule,
   authModule,
   claimsModule,
@@ -73,6 +76,7 @@ export function allV1Modules(extra: readonly ApiModule[] = []): ApiModule[] {
 export interface CreateAppOptions {
   /** Extra modules mounted under `/api/v1` after the built-in ones. Tests use this for stub routes. */
   modules?: readonly ApiModule[];
+  assistantTransport?: AssistantTransport;
 }
 
 /** Hooks run by every route after authentication, before the permission check (order matters). */
@@ -118,6 +122,7 @@ export function createApp(deps: AppDeps, options: CreateAppOptions = {}) {
   app.use("/api/v1/*", authenticate(), csrfProtection());
   app.onError(handleError);
   app.route("/api", api);
+  app.route("/", assistantHttp(options.assistantTransport));
   app.all("/api/*", (c) => {
     throw new AppError("not_found", `No API endpoint at ${c.req.method} ${c.req.path}.`);
   });

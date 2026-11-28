@@ -1,9 +1,13 @@
 import type { ErrorEnvelope } from "@crowhr/core";
+import type { AppearanceDraft } from "../branding/appearance.tsx";
 
 /** Header the one-time setup code travels in (core `SETUP_CODE_HEADER`). */
 export const SETUP_CODE_HEADER = "x-setup-code";
 
-export type SetupState = { kind: "required" } | { kind: "done" } | { kind: "error"; message: string };
+export type SetupState =
+  | { kind: "required"; assistantAvailable?: boolean }
+  | { kind: "done" }
+  | { kind: "error"; message: string };
 
 export interface SetupError {
   status: number;
@@ -29,7 +33,10 @@ async function parseError(res: Response): Promise<SetupError> {
 export async function fetchSetupState(): Promise<SetupState> {
   try {
     const res = await fetch("/api/v1/setup", { headers: { accept: "application/json" } });
-    if (res.ok) return { kind: "required" };
+    if (res.ok) {
+      const body = (await res.json()) as { assistantAvailable?: boolean };
+      return { kind: "required", assistantAvailable: body.assistantAvailable === true };
+    }
     if (res.status === 404) return { kind: "done" };
     return { kind: "error", message: (await parseError(res)).message };
   } catch {
@@ -50,6 +57,8 @@ export interface SetupInput {
   ownerName: string;
   ownerEmail: string;
   ownerPassword: string;
+  appearance?: AppearanceDraft;
+  enableAssistant?: boolean;
 }
 
 export async function completeSetup(

@@ -67,6 +67,38 @@ describe("first-run setup", () => {
     expect(await res.json()).toEqual({ required: true });
   });
 
+  it("sets up appearance atomically and exposes it only at the matching sign-in", async () => {
+    await storeSetupCode(testDb.db, CODE, now);
+    const { post, http } = setup();
+    expect((await post("", CODE, { ...body, appearance: { accent: "red" } })).status).toBe(400);
+    expect(await isSetupRequired(testDb.db)).toBe(true);
+    const logo = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9z8AAAAASUVORK5CYII=";
+    expect((await post("", CODE, { ...body, appearance: { accent: "#165E85", logoBase64: logo } })).status).toBe(201);
+    const methods = await http.get("/api/v1/auth/methods?org=kampong-kopi");
+    expect((await methods.json()).appearance).toMatchObject({ accent: "#165E85", logoUrl: expect.any(String) });
+    expect((await http.get("/api/v1/organisation/appearance/logo?org=kampong-kopi")).headers.get("content-type")).toBe(
+      "image/png",
+    );
+    expect((await http.get("/api/v1/organisation/appearance/logo?org=another-org")).status).toBe(404);
+  });
+
+  it("offers the assistant opt-in only on an enabled HTTPS install", async () => {
+    await storeSetupCode(testDb.db, CODE, now);
+    const deps = createTestDeps(testDb.db, { clock, assistantEnabled: true, publicUrl: "https://hr.example.org" });
+    const http = testClient(createApp(deps), deps);
+    expect(await (await http.get("/api/v1/setup")).json()).toEqual({ required: true, assistantAvailable: true });
+    expect(
+      (await http.post("/api/v1/setup", { ...body, enableAssistant: true }, { headers: { [SETUP_CODE_HEADER]: CODE } }))
+        .status,
+    ).toBe(201);
+    const settings = await http.get("/api/v1/assistant/settings");
+    expect(await settings.json()).toEqual({
+      enabled: true,
+      available: true,
+      url: "https://hr.example.org/mcp/kampong-kopi",
+    });
+  });
+
   it("verifies the code, tolerating case, spaces and missing dashes", async () => {
     await storeSetupCode(testDb.db, CODE, now);
     const { post } = setup();

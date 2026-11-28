@@ -8,6 +8,8 @@ export { createStaticReportingScope, noReportingLines, type ReportingScopeResolv
 export { assertNotSelfChange, selfApproval } from "./access/self-change.ts";
 export { type SensitivityClass, sensitive } from "./access/sensitivity.ts";
 export { type App, allV1Modules, createApp, V1_MODULES } from "./app.ts";
+export type { AssistantTransport } from "./assistant/http.ts";
+export { assistantTools, readAssistantTool } from "./assistant/tools.ts";
 export {
   type AuditContext,
   auditContext,

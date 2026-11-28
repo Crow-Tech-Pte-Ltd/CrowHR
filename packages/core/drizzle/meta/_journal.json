@@ -162,6 +162,20 @@
       "when": 1795358844633,
       "tag": "0022_approval_repeat_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795855999487,
+      "tag": "0023_blushing_puma",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795856224670,
+      "tag": "0024_vengeful_black_bird",
+      "breakpoints": true
     }
   ]
 }

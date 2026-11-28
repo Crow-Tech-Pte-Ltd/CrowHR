@@ -228,6 +228,7 @@ export async function markMembershipFormer(
   }
   await revokeMembershipSessions(
     db,
+    input.orgId,
     linked.map((m) => m.id),
     "former",
     now,
@@ -502,7 +503,7 @@ export const membersModule = defineModule({
             .update(memberships)
             .set({ status: "suspended", updatedAt: now })
             .where(orgScope(tx, auth).whereId(memberships, target.id));
-          await revokeMembershipSessions(tx, [target.id], "suspended", now);
+          await revokeMembershipSessions(tx, auth.orgId, [target.id], "suspended", now);
           const ctx = auditContext(c);
           await recordAudit(tx, deps, ctx, {
             action: "member.suspended",
