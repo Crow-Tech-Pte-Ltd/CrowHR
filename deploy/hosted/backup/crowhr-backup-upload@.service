@@ -1,0 +1,16 @@
+[Unit]
+Description=Copy encrypted Crow HR backups off host (%i)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/crowhr/backups/%i.env
+LoadCredential=rclone.conf:/etc/crowhr/backups/%i.rclone.conf
+ExecStart=/usr/local/bin/crowhr-backup-upload ${BACKUP_VOLUME} ${BACKUP_DESTINATION} %d/rclone.conf
+TimeoutStartSec=45min
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true

@@ -15,7 +15,7 @@ Two settings matter:
 | Setup | How it was tested |
 | --- | --- |
 | No proxy (LAN) | Automated: the default compose install. |
-| Caddy | Automated: the shipped `Caddyfile.example` (below) in a `caddy:2-alpine` container on the compose network. Caddy installed on the host was not tested. |
+| Caddy | Automated: the shipped `Caddyfile.example` in a `caddy:2-alpine` container on the Compose network, plus the host-installed example below using host networking. |
 | nginx | Automated: the config below in `nginx:1.30-alpine` on the compose network, and the host variant below (with host networking standing in for nginx installed on the host). Only nginx 1.30. |
 | Traefik | Automated: the labels below with `traefik:v3.7` on the compose network (Docker provider, `exposedByDefault=false`, entrypoint `websecure` on port 443). Also by hand behind Cloudflare Tunnel, with a file-provider route. |
 | Cloudflare Tunnel | By hand: a remote-managed tunnel (token) in front of Traefik. Routing the hostname straight to `http://app:8080`, as below, was not tested. |
@@ -68,7 +68,19 @@ hr.example.sg {
 
 `docker compose up -d` starts Caddy too. Caddy replaces any client-supplied `X-Forwarded-For` with the real client address.
 
-Caddy installed on the host instead of in Docker: `reverse_proxy 127.0.0.1:8080` and still `TRUSTED_PROXIES=private`. Docker's port forwarding hands the app connections from the host via the Docker network's gateway address (e.g. `172.19.0.1`), not `127.0.0.1`, so `loopback` does not match (seen in the test with nginx on the host).
+### Caddy installed on the host
+
+Use this variant when Caddy is already the VPS's HTTPS proxy. Put the hostname in `PUBLIC_URL` and point its DNS at the VPS. Add this site to the host's Caddyfile, using the same port as `HTTP_PORT` for the app.
+
+```txt
+hr.example.sg {
+	reverse_proxy 127.0.0.1:8080
+}
+```
+
+Set `BIND_ADDRESS=127.0.0.1` to publish the app only on loopback. Set `TRUSTED_PROXIES` to the Compose network's IPv4 gateway, such as `172.19.0.1`. Docker port forwarding makes that gateway the proxy peer address that Crow HR sees. The app's **Settings → System → This request** and `crowhr doctor` show the peer and the forwarded client address. Use one site block per hostname if the proxy serves multiple projects, with a different local port per app.
+
+Caddy provisions and renews the public certificate when DNS points to the VPS and TCP 80 and 443 are reachable. Validate and reload the host Caddyfile before checking `/api/health` over HTTPS. [Caddy service and reload instructions](https://caddyserver.com/docs/running#using-the-service).
 
 ## nginx
 

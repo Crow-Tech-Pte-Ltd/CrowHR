@@ -4,6 +4,8 @@ Run one Crow HR installation per customer on a dedicated host. Each installation
 
 ## Start on a VPS with Caddy
 
+For a fresh dedicated VPS, use the included Caddy setup. Caddy serves HTTPS, renews the certificate and starts again with the Compose stack after a reboot. If the host already has an HTTPS proxy, use its existing entry point for Crow HR.
+
 Use a Linux VPS that supports the Crow HR release image (amd64 or arm64) with Docker Engine, the Compose plugin, Bash, GNU coreutils, OpenSSL and curl. Point the hostname at the VPS, allow incoming TCP ports 80 and 443, and leave those ports free for Caddy. If you publish an IPv6 address, it needs to reach the VPS too. [Caddy automatic HTTPS requirements](https://caddyserver.com/docs/automatic-https#overview).
 
 From the Crow HR source checkout, choose a project name prefix and substitute the 64-character digest of the approved Crow HR release image.
@@ -23,7 +25,7 @@ Caddy provisions and renews the certificate. Its state lives in the project's Ca
 ./customer-hr/crowhr-vps backup /path/to/private-backup-directory
 ```
 
-The backup command exports an encrypted archive into an existing directory on a filesystem that supports hard links. Copy the `.tar.gz.age` archive off the VPS and verify the transfer. For uninterrupted nightly copies, configure a transfer using the [backup guide](../../apps/docs/src/content/docs/self-hosting/backups.md#copy-backups-off-the-machine). The installer uses the local Docker context. Run it on the intended VPS.
+The backup command exports an encrypted archive into an existing directory on a filesystem that supports hard links. Copy the `.tar.gz.age` archive off the VPS and verify the transfer. For scheduled copies to an S3-compatible bucket or another server, use the [backup guide](../../apps/docs/src/content/docs/self-hosting/backups.md#copy-backups-off-the-machine). The installer uses the local Docker context. Run it on the intended VPS.
 
 For direct Compose access to a prepared installation, run from its directory:
 
@@ -42,7 +44,7 @@ Use a Docker Compose plugin with support for [`!override`](https://docs.docker.c
 
 1. Create a private installation directory containing this repository's `docker-compose.yml`, `.env.example` and `deploy/hosted/compose.yml`. Choose a unique Compose project name for the customer. Keep the configuration and credentials accessible only to the operators of that instance.
 2. Copy `.env.example` to `.env` with mode 600. Set the customer's HTTPS `PUBLIC_URL`, the app's local `HTTP_PORT`, and `CROWHR_IMAGE_SHA256` to the 64-character digest of the approved Crow HR release that supports this overlay. Store a unique `BACKUP_PASSPHRASE` in the operator vault and configure it on the host. Keep scheduled backups and backup before migrations enabled. The overlay uses the bundled database and a generated key in the customer project's own volumes.
-3. Configure a reverse proxy on the host using the [host proxy instructions](../../apps/docs/src/content/docs/self-hosting/reverse-proxy.md#nginx). Use a certificate for the customer's hostname and set `TRUSTED_PROXIES` to the Docker bridge gateway address the app receives from the host proxy. Allow HTTPS access only to the onboarding operators until the setup wizard is complete. The overlay publishes the app on loopback and PostgreSQL remains on the Compose network.
+3. Use the example for [host-installed Caddy](../../apps/docs/src/content/docs/self-hosting/reverse-proxy.md#caddy-installed-on-the-host) or [host-installed nginx](../../apps/docs/src/content/docs/self-hosting/reverse-proxy.md#nginx). For existing Traefik infrastructure, see [Traefik](../../apps/docs/src/content/docs/self-hosting/reverse-proxy.md#traefik). With a host-installed proxy, set `TRUSTED_PROXIES` to the Docker bridge gateway address the app receives from the proxy. Allow HTTPS access only to the onboarding operators until the setup wizard is complete. The overlay publishes the app on loopback and PostgreSQL remains on the Compose network.
 
 Run these commands from the installation directory. Replace `crowhr-example` with the customer's project name.
 
@@ -61,6 +63,8 @@ If the bridge gateway is unknown, `crowhr_compose create db` creates the project
 
 Open the setup wizard over HTTPS, give the code to the authorised company owner through a private channel, and verify the owner can sign in with two-step verification. Check **Settings → System** and `crowhr_compose exec app crowhr doctor` for the forwarded scheme, client address, database and backup status. Test invitations and password recovery with the pilot account before importing staff. Leave demo features disabled.
 
+For multiple installations sharing an existing host proxy, give each project a distinct hostname and loopback port and route each hostname to its own port. Give each installation its own database, files, key and backups. A host outage affects every project on it.
+
 ## Back up and rehearse recovery
 
 1. Run `crowhr_compose exec app crowhr backup` and verify the archive ends in `.tar.gz.age` and **Settings → System** shows a successful backup.
@@ -68,6 +72,14 @@ Open the setup wizard over HTTPS, give the code to the authorised company owner 
 3. Use the [restore procedure](../../apps/docs/src/content/docs/self-hosting/backups.md#restore) on a fresh, isolated Compose project using the same release and backup passphrase. Keep external mail and integration routing disabled in the rehearsal. Verify owner sign-in, a known document and saved payroll data. Record the backup timestamp and the recovery time. Use fictional data for the initial rehearsal.
 
 Use the same Compose file arguments for every command, including backup and restore. The original install retains its own database and volumes.
+
+## Recover a failed service
+
+The app and database use Docker's `unless-stopped` restart policy. Docker restarts them after a process exits and brings them back after a host reboot unless an operator stopped them. An unhealthy container that keeps running needs separate detection and recovery.
+
+- Monitor each customer's `https://<hostname>/api/health` from outside the VPS and alert on repeated failures. The route checks database reachability and returns 503 during a restore, so treat it as an availability signal.
+- Use `crowhr_compose ps`, app logs and `crowhr_compose exec -T app wget -T 5 -qO- http://127.0.0.1:8080/api/health` to distinguish a hung app from a proxy, migration or database failure. If only the app is hung and the database is healthy, run `crowhr_compose restart app` once and recheck HTTPS health. Investigate further if it stays unhealthy. Avoid restarting PostgreSQL for a proxy or app failure.
+- If the VPS or its disk is lost, start the matching Compose release on a replacement host and follow the restore procedure above with the latest verified off-host archive. Check sign-in and application data before redirecting the customer's hostname.
 
 ## Upgrade
 
