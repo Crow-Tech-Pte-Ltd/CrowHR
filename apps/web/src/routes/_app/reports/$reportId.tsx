@@ -32,10 +32,10 @@ import { ApiError } from "../../../lib/api.ts";
 import {
   type Cell,
   type ColumnType,
-  EXPORT_FORMATS,
   exportHref,
   formatCell,
   isNumeric,
+  REPORT_EXPORT_FORMATS,
   type ReportResult,
   reportQuery,
 } from "../../../reports/api.ts";
@@ -79,7 +79,7 @@ function ReportPage() {
         description={data?.report.description}
         actions={
           data?.canExport
-            ? EXPORT_FORMATS.map(({ id, label }) => (
+            ? REPORT_EXPORT_FORMATS.map(({ id, label }) => (
                 <Button
                   key={id}
                   size="sm"

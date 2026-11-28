@@ -1,3 +1,4 @@
+import { open } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { go, pickPersona, signOut, waitForDemo, watchErrors } from "./helpers.ts";
 
@@ -119,6 +120,31 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
   );
 
   expect(errors).toEqual([]);
+});
+
+test("downloads a report PDF from both report entry points", async ({ page }) => {
+  await go(page, "/");
+  await expect(page.getByTestId("demo-personas")).toBeVisible({ timeout: 20_000 });
+  await pickPersona(page, "payroll-admin");
+  await go(page, "/reports/payroll.cost?from=2026-07&to=2026-09");
+  const [report] = await Promise.all([page.waitForEvent("download"), page.getByTestId("export-pdf").click()]);
+  expect(report.suggestedFilename()).toMatch(/^payroll-cost-\d{4}-\d{2}-\d{2}\.pdf$/);
+  const fileHandle = await open(await report.path(), "r");
+  try {
+    const header = Buffer.alloc(5);
+    await fileHandle.read(header, 0, header.length, 0);
+    expect(header.toString()).toBe("%PDF-");
+  } finally {
+    await fileHandle.close();
+  }
+
+  await go(page, "/export-data");
+  await page.getByRole("button", { name: "Download Payroll cost", exact: true }).click();
+  const [shortcut] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("menuitem", { name: "PDF (.pdf)" }).click(),
+  ]);
+  expect(shortcut.suggestedFilename()).toBe(report.suggestedFilename());
 });
 
 // The fallback remains a working real demo, including after a malformed snapshot reaches PGlite.

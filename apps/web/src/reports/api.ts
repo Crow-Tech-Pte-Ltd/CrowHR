@@ -66,13 +66,19 @@ export function reportQuery(id: string, query: Record<string, string>) {
   });
 }
 
-export const EXPORT_FORMATS = [
+export const DATA_EXPORT_FORMATS = [
   { id: "xlsx", label: "Excel" },
   { id: "csv", label: "CSV" },
   { id: "json", label: "JSON" },
 ] as const;
 
-export function exportHref(id: string, query: Record<string, string>, format: (typeof EXPORT_FORMATS)[number]["id"]) {
+export const REPORT_EXPORT_FORMATS = [...DATA_EXPORT_FORMATS, { id: "pdf", label: "PDF" }] as const;
+
+export function exportHref(
+  id: string,
+  query: Record<string, string>,
+  format: (typeof REPORT_EXPORT_FORMATS)[number]["id"],
+) {
   return `/api/v1/reports/${encodeURIComponent(id)}/export?${new URLSearchParams({ ...query, format })}`;
 }
 

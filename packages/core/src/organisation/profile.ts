@@ -227,13 +227,35 @@ export async function saveCompanyLogo(
   });
 }
 
+async function loadCompanyLogo(deps: AppDeps, key: string | null | undefined) {
+  const file = key ? await deps.fileStore.get(key) : null;
+  // Refuse legacy SVG uploads saved before content sniffing was required.
+  if (file && (sniffType(file.data) !== "image/png" || looksPolyglot(file.data))) {
+    throw new AppError("not_found", "Upload the company logo again as a PNG file.");
+  }
+  return file ? { ...file, contentType: "image/png" } : null;
+}
+
 export async function readCompanyLogo(deps: AppDeps, orgId: string) {
   const profile = await getCompanyProfile(deps, orgId);
-  if (!profile?.logoFileKey) throw new AppError("not_found", "No logo has been uploaded.");
-  const file = await deps.fileStore.get(profile.logoFileKey);
+  const file = await loadCompanyLogo(deps, profile?.logoFileKey);
   if (!file) throw new AppError("not_found", "No logo has been uploaded.");
-  // Also refuse legacy SVG uploads saved before content sniffing was required.
-  if (sniffType(file.data) !== "image/png" || looksPolyglot(file.data))
-    throw new AppError("not_found", "Upload the company logo again as a PNG file.");
-  return { ...file, contentType: "image/png" };
+  return file;
+}
+
+/** Branding for generated reports, scoped to the report's organisation. */
+export async function getCompanyBranding(deps: AppDeps, orgId: string) {
+  const profile = await getCompanyProfile(deps, orgId);
+  if (!profile) {
+    const [org] = await deps.db
+      .select({ name: organisations.name })
+      .from(organisations)
+      .where(eq(organisations.id, orgId));
+    return { companyName: org?.name ?? "Company", logoPng: null };
+  }
+  const logo = await loadCompanyLogo(deps, profile.logoFileKey).catch((err: unknown) => {
+    if (err instanceof AppError && err.code === "not_found") return null;
+    throw err;
+  });
+  return { companyName: profile.legalName, logoPng: logo?.data ?? null };
 }

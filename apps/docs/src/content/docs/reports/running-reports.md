@@ -1,9 +1,9 @@
 ---
 title: Reports
-description: The reports Crow HR ships, who can run each one, the exact formulas behind the numbers, and how to download Excel, CSV, JSON and native files.
+description: The reports Crow HR ships, who can run each one, the exact formulas behind the numbers, and how to download Excel, CSV, JSON, PDF and native files.
 ---
 
-**Reports** lists the reports you may run, grouped by the module that supplies the data. Each report has its parameters at the top, then a dense table (50 rows per page, sortable by any column, a totals row where totals make sense), the rules behind the numbers, and **Excel**, **CSV** and **JSON** download buttons. Where it helps, a simple bar chart follows the table; the table always comes first.
+**Reports** lists the reports you may run, grouped by the module that supplies the data. Each report has its parameters at the top, then a dense table (50 rows per page, sortable by any column, a totals row where totals make sense), the rules behind the numbers, and **Excel**, **CSV**, **JSON** and **PDF** download buttons. Where it helps, a simple bar chart follows the table; the table always comes first.
 
 ## Export data
 
@@ -74,6 +74,8 @@ Report exports contain every matching row, with the selected columns and any red
 - **XLSX**: typed cells, money as numbers formatted `#,##0.00` (123456 cents is the number 1234.56), dates as real dates formatted `dd mmm yyyy`, a bold frozen header row with filters, a totals row, and a second sheet "Parameters" with the report, its parameters, the columns left out, who generated it and when.
 
 - **JSON**: UTF-8 with column keys and types, rows, totals, resolved parameters, generation time and redacted columns. Money is integer cents, hours are integer minutes and percentages are integer tenths of a percent (143 = 14.3%).
+
+- **PDF** includes the company name and the logo set in **Settings → Company**, if uploaded. It shows the selected filters, all matching rows, and any totals, summary figures and notes. Longer tables repeat their headings on each page. Wide reports use landscape pages.
 
 A report export of more than 50,000 rows is refused with `422 too_many_rows`; narrow the dates or pick a smaller group.
 

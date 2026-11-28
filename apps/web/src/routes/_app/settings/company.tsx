@@ -226,8 +226,7 @@ async function isPng(file: File): Promise<boolean> {
 }
 
 /**
- * Company logo, printed on letters generated from templates. PNG only, at most 1 MB. It saves on
- * its own as soon as a file is chosen, apart from the profile form.
+ * Company logo for report PDFs and letters. It saves as soon as a PNG file is chosen.
  */
 function LogoField({ hasLogo, version, editable }: { hasLogo: boolean; version: string; editable: boolean }) {
   const qc = useQueryClient();
@@ -273,7 +272,8 @@ function LogoField({ hasLogo, version, editable }: { hasLogo: boolean; version: 
         </div>
         <div className="flex flex-col gap-1.5">
           <p className="text-ui text-primary-300">
-            Printed on letters generated from templates. PNG only, at most 1 MB; a transparent background works best.
+            Printed on report PDFs and letters generated from templates. Use a PNG up to 1 MB. A transparent background
+            works best.
           </p>
           {editable ? (
             <div>

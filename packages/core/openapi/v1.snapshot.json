@@ -65399,7 +65399,7 @@
     "/api/v1/reports/{id}/export": {
       "get": {
         "operationId": "reports.getByIdExport",
-        "summary": "Export the full report as CSV (UTF-8 with BOM), XLSX or JSON, audit-logged",
+        "summary": "Export the full report as CSV (UTF-8 with BOM), XLSX, JSON or PDF, audit-logged",
         "tags": [
           "Reports"
         ],
@@ -65473,18 +65473,20 @@
               "enum": [
                 "csv",
                 "xlsx",
-                "json"
+                "json",
+                "pdf"
               ]
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "CSV, XLSX or JSON attachment",
+            "description": "CSV, XLSX, JSON or PDF attachment",
             "content": {
               "text/csv": {},
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
-              "application/json": {}
+              "application/json": {},
+              "application/pdf": {}
             }
           },
           "400": {

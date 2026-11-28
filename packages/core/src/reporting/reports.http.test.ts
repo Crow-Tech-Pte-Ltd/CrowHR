@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
+import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { punch } from "../../testing/attendance.ts";
-import { seedMember } from "../../testing/fixtures.ts";
+import { seedMember, seedOrg } from "../../testing/fixtures.ts";
 import { clientAs, type TestClient } from "../../testing/http.ts";
 import { createLeaveWorld, type LeaveWorld } from "../../testing/leave.ts";
 import { createApp } from "../app.ts";
@@ -151,7 +152,7 @@ describe("reports", () => {
     expect(rows.some((row) => String(row.name).includes("Farah"))).toBe(false);
   });
 
-  it.each(["csv", "xlsx", "json"])(
+  it.each(["csv", "xlsx", "json", "pdf"])(
     "salary exports require recent re-auth (%s), ordinary reports remain available",
     async (format) => {
       const stale = await clientAs(w.app, w.deps, w.m.owner, {
@@ -326,6 +327,80 @@ describe("reports", () => {
       expect(long.page).toBe(2);
       expect(long.rows.length).toBe(Math.min(50, long.totalRows - 50));
     }
+  });
+
+  it("downloads a PDF with the caller's company logo, scoped rows and an audit event", async () => {
+    const owner = await w.as("owner");
+    expect(
+      (
+        await owner.put("/api/v1/organisation/profile", {
+          legalName: "Straits Test Company",
+          uen: "201912345K",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await owner.put("/api/v1/organisation/profile/logo", {
+          contentType: "image/png",
+          dataBase64:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+        })
+      ).status,
+    ).toBe(204);
+
+    const url = "/api/v1/reports/leave.requests/export?from=2026-10-01&to=2026-11-13&format=pdf";
+    const manager = await w.as("manager");
+    const res = await manager.get(url);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/pdf");
+    expect(res.headers.get("content-disposition")).toBe('attachment; filename="leave-requests-2026-11-13.pdf"');
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("x-report-rows")).toBe("1");
+    const pdf = await PDFDocument.load(await res.arrayBuffer());
+    expect(pdf.getAuthor()).toBe("Straits Test Company");
+    expect(pdf.getPage(0).node.Resources()?.lookup(PDFName.of("XObject"), PDFDict).keys()).toHaveLength(1);
+
+    const timesheets = "/api/v1/reports/attendance.timesheets";
+    const dates = "from=2026-11-01&to=2026-11-13&page=2";
+    const visible = (await (await manager.get(`${timesheets}?${dates}`)).json()) as {
+      totalRows: number;
+      rows: unknown[];
+    };
+    expect(visible.totalRows).toBeGreaterThan(50);
+    expect(visible.rows.length).toBeLessThan(visible.totalRows);
+    const continued = await manager.get(`${timesheets}/export?${dates}&format=pdf`);
+    expect(continued.status).toBe(200);
+    expect(continued.headers.get("x-report-rows")).toBe(String(visible.totalRows));
+    const pages = (await PDFDocument.load(await continued.arrayBuffer())).getPages();
+    expect(pages.length).toBeGreaterThan(1);
+    for (const page of pages)
+      expect(page.node.Resources()?.lookup(PDFName.of("XObject"), PDFDict).keys()).toHaveLength(1);
+
+    const other = await seedOrg(w.deps, { name: "Other Test Company", slug: "report-pdf-other" });
+    const otherOwner = await clientAs(w.app, w.deps, await seedMember(w.deps, other.id, { roles: ["owner"] }));
+    const otherRes = await otherOwner.get(url);
+    expect(otherRes.status).toBe(200);
+    expect(otherRes.headers.get("x-report-rows")).toBe("0");
+    const otherPdf = await PDFDocument.load(await otherRes.arrayBuffer());
+    expect(otherPdf.getAuthor()).toBe("Other Test Company");
+    expect(otherPdf.getPage(0).node.Resources()?.lookup(PDFName.of("XObject"), PDFDict).keys()).toHaveLength(0);
+    expect((await (await w.as("staff")).get(url)).status).toBe(403);
+
+    const redacted = await (await w.as("hr")).get(
+      "/api/v1/reports/people.headcount/export?asAt=2026-10-31&columns=basicPay&format=pdf",
+    );
+    expect(redacted.status).toBe(200);
+    const events = await w.deps.db.select().from(auditEvents).where(eq(auditEvents.action, "report.exported"));
+    expect(events.map((event) => event.meta)).toContainEqual(
+      expect.objectContaining({
+        report: "people.headcount",
+        format: "pdf",
+        params: { asAt: "2026-10-31", by: "department" },
+        rowCount: 1,
+        redactedColumns: ["basicPay"],
+      }),
+    );
   });
 
   it("exports the full result as CSV and XLSX, audited with parameters, rows and redactions", async () => {
