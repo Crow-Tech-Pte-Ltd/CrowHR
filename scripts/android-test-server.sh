@@ -27,4 +27,4 @@ fi
 # Fixed throwaway key for local tests only (same as playwright.config.ts).
 export CROWHR_SECRET_KEY="ZTJlLW9ubHktdGhyb3dhd2F5LWtleS0zMi1ieXRlcyE"
 node e2e/seed.ts
-exec node apps/server/src/main.ts
+exec bun --no-env-file --no-install --import ./apps/server/src/instrument.ts apps/server/src/main.ts

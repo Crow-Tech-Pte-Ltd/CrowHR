@@ -14,8 +14,8 @@ const MAX_ATTRIBUTE_LENGTH = 2000;
  *
  * This is how unexpected request errors are reported: core logs each one as "Unhandled error"
  * with the Error (AppError and 4xx are answers, not logged, and `shouldReportError` drops them
- * here too). They are captured one tick later, still inside the request's scope, once the Hono
- * integration has named the transaction after the route.
+ * here too). They are captured one tick later, still inside the request's scope, once the
+ * transaction has been named after the route.
  */
 export function withMonitoring(
   logger: Logger,

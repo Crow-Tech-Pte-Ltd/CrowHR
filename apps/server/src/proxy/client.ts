@@ -34,7 +34,7 @@ interface NodeBindings {
 }
 
 /**
- * `AppDeps.resolveClient` for the Node server: TCP peer from the socket, forwarded headers
+ * `AppDeps.resolveClient` for Hono's Node HTTP adapter: TCP peer from the socket, forwarded headers
  * only from TRUSTED_PROXIES. Also tells the operator, once per peer per hour, when a proxy's
  * headers are being ignored, and records the latest request for `crowhr doctor`.
  */

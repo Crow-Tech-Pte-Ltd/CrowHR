@@ -5,17 +5,18 @@
 #   docker build -t crowhr:local .
 #   docker buildx build --platform linux/amd64,linux/arm64 -t crowhr:local .   # multi-arch (see apps/docs/src/content/docs/self-hosting/upgrades.md)
 #
-# Builder: bun installs the workspace and Vite builds the web app. Runtime: Node 24 runs the
-# server's TypeScript directly (type stripping, no transpile step), as a non-root user, with
+# Builder: Bun installs the workspace and Vite builds the web app on Node 24. Runtime: Bun runs
+# the server's TypeScript directly, as a non-root user, with
 # the PostgreSQL 17 client for pg_dump/pg_restore/psql and tini as PID 1.
 
 ARG NODE_IMAGE=node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
-ARG BUN_VERSION=1.3.9
+ARG BUN_IMAGE=oven/bun:1.4.5-alpine@sha256:da816670775f4c2b4e990b6b1847cf5540dcdc721a42033dd331ce7a88ba6a3b
+
+FROM ${BUN_IMAGE} AS bun-base
 
 # ---------------------------------------------------------------------------------------------
 FROM ${NODE_IMAGE} AS build
-ARG BUN_VERSION
-RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}"
+COPY --from=bun-base /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /src
 # Manifests first so the dependency layer is cached until bun.lock changes.
 COPY package.json bun.lock ./
@@ -35,9 +36,7 @@ RUN bun run --cwd apps/web build
 
 # ---------------------------------------------------------------------------------------------
 # Production dependencies of the server only (no Vite, React, test tools).
-FROM ${NODE_IMAGE} AS deps
-ARG BUN_VERSION
-RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}"
+FROM bun-base AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
@@ -73,19 +72,16 @@ RUN find apps packages -name '*.test.ts' -delete \
  && find apps/web/dist -name '*.map' -delete
 
 # ---------------------------------------------------------------------------------------------
-FROM ${NODE_IMAGE} AS runtime
+FROM bun-base AS runtime
 # postgresql17-client: pg_dump/pg_restore/psql matching the postgres:17-alpine server.
-# npm, npx, corepack and yarn are not needed at runtime: removing them saves ~20 MB.
 RUN apk add --no-cache postgresql17-client tini \
- && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
-      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg \
  && addgroup -S -g 10001 crowhr \
  && adduser -S -D -H -u 10001 -G crowhr -s /sbin/nologin crowhr \
  # Named volumes copy the owner and mode of these directories on first use.
  && mkdir -p /data /backups /run/crowhr-secrets \
  && chown 10001:10001 /data /backups /run/crowhr-secrets \
  && chmod 700 /data /backups /run/crowhr-secrets \
- && printf '#!/bin/sh\nexec node /app/apps/server/src/cli/main.ts "$@"\n' > /usr/local/bin/crowhr \
+ && printf '#!/bin/sh\nexec bun --no-env-file --no-install /app/apps/server/src/cli/main.ts "$@"\n' > /usr/local/bin/crowhr \
  && chmod 755 /usr/local/bin/crowhr
 
 WORKDIR /app
@@ -102,8 +98,7 @@ ENV NODE_ENV=production \
     BACKUP_DIR=/backups \
     WEB_DIST_DIR=/app/apps/web/dist \
     CROWHR_CONTAINER=1 \
-    CROWHR_GIT_SHA=${CROWHR_GIT_SHA} \
-    NODE_OPTIONS=--disable-warning=ExperimentalWarning
+    CROWHR_GIT_SHA=${CROWHR_GIT_SHA}
 
 USER 10001:10001
 EXPOSE 8080
@@ -112,7 +107,7 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=4 \
 
 ENTRYPOINT ["/sbin/tini", "--"]
 # instrument.ts starts optional error monitoring (SENTRY_DSN) before the app loads; without it, it does nothing.
-CMD ["node", "--import", "./apps/server/src/instrument.ts", "apps/server/src/main.ts"]
+CMD ["bun", "--no-env-file", "--no-install", "--import", "./apps/server/src/instrument.ts", "apps/server/src/main.ts"]
 
 LABEL org.opencontainers.image.title="Crow HR" \
       org.opencontainers.image.description="Self-hostable HR and payroll for Singapore SMEs" \

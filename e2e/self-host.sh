@@ -106,6 +106,8 @@ echo "healthy after $((SECONDS - start)) s"
 step "Fresh install checks"
 health=$(curl -fsS "$PUBLIC_URL/api/health")
 echo "$health" | has '"status":"ok"' || fail "health: $health"
+bun_version=$(jq -r '.packageManager | sub("^bun@"; "")' "$ROOT/package.json")
+compose logs --no-color app | has -F "\"runtime\":\"bun\",\"runtimeVersion\":\"$bun_version\"" || fail "app did not start under Bun $bun_version"
 [ "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$PUBLIC_URL/")" = "302 ${PUBLIC_URL}/setup" ] || fail "/ does not redirect to /setup"
 curl -fsS "$PUBLIC_URL/setup" | has '<div id="root">' || fail "/setup is not the web app"
 compose logs --no-color app | has "Open ${PUBLIC_URL}/setup" || fail "setup URL not in logs"

@@ -10,7 +10,7 @@ Thanks for helping. Crow HR is MIT-licensed HR and payroll for Singapore SMEs, a
 
 ## Set up
 
-You need [bun](https://bun.sh) 1.3 and Node 24. No Docker or PostgreSQL is needed for development or tests.
+Use Bun 1.4.5 for workspace installs and the app server, and Node 24 for build and test tooling. The default development and test commands use PGlite. [Install Bun](https://bun.sh/docs/installation)
 
 ```sh
 bun install

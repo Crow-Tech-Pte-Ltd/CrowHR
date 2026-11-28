@@ -65,6 +65,10 @@ Open the setup wizard over HTTPS, give the code to the authorised company owner 
 
 For multiple installations sharing an existing host proxy, give each project a distinct hostname and loopback port and route each hostname to its own port. Give each installation its own database, files, key and backups. A host outage affects every project on it.
 
+## Configure GlitchTip for managed installations
+
+Use a dedicated project per customer instance in Crow Tech's GlitchTip, with project access limited to the operators who support that instance. Set `SENTRY_DSN` and `SENTRY_ENVIRONMENT=production` in the private install configuration. Set `SENTRY_BROWSER_DSN` if web errors are in scope. Use the default trace sampling rate of 20% and review error and log retention for the installation. Check that a normal API request produces a transaction in the right project. Add an external uptime check for `/api/health` and route its alerts to the operator. The [monitoring configuration guide](../../apps/docs/src/content/docs/self-hosting/configuration.md#optional-error-monitoring) describes the settings and data redaction.
+
 ## Back up and rehearse recovery
 
 1. Run `crowhr_compose exec app crowhr backup` and verify the archive ends in `.tar.gz.age` and **Settings → System** shows a successful backup.

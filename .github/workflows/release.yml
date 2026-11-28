@@ -150,12 +150,18 @@ jobs:
           echo "health: $health"
           [[ "$health" == *'"status":"ok"'* ]] || { echo "::error::/api/health did not report ok within 3 minutes."; exit 1; }
           [[ "$health" == *"\"version\":\"$VERSION\""* ]] || { echo "::error::/api/health does not report version $VERSION."; exit 1; }
+          bun_version=$(jq -r '.packageManager | sub("^bun@"; "")' package.json)
+          docker logs crowhr-smoke-app 2>&1 | grep -F "\"runtime\":\"bun\",\"runtimeVersion\":\"$bun_version\"" >/dev/null \
+            || { echo "::error::The app did not start under Bun $bun_version."; exit 1; }
           [ "$(docker exec crowhr-smoke-app crowhr --version)" = "$VERSION" ] || { echo "::error::crowhr --version is not $VERSION."; exit 1; }
           curl -fsS http://127.0.0.1:8080/setup | grep '<div id="root">' >/dev/null || { echo "::error::/setup does not serve the web app."; exit 1; }
           docker logs crowhr-smoke-app 2>&1 | grep 'CROW HR SETUP CODE' >/dev/null || { echo "::error::No setup code in the logs."; exit 1; }
           docker exec crowhr-smoke-app sh -c 'test -s /app/LICENSE && test -s /app/THIRD-PARTY-NOTICES.md' \
             || { echo "::error::LICENSE or THIRD-PARTY-NOTICES.md is missing from /app."; exit 1; }
           [ "$(docker exec crowhr-smoke-app id -u)" = "10001" ] || { echo "::error::The app does not run as uid 10001."; exit 1; }
+          docker stop --time 30 crowhr-smoke-app
+          [ "$(docker inspect -f '{{.State.ExitCode}}' crowhr-smoke-app)" = "0" ] \
+            || { echo "::error::The Bun server did not shut down gracefully."; exit 1; }
           echo "Smoke test passed on ${{ matrix.platform }}: $VERSION" >> "$GITHUB_STEP_SUMMARY"
       - name: App logs
         if: failure()

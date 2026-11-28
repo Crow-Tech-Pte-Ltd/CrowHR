@@ -10,6 +10,8 @@ const DEMO_COMPANIES_PORT = PORT + 4;
 /** Fixed one-time code for the setup server only (SETUP_CODE is meant for automated installs). */
 export const E2E_SETUP_CODE = "ACDE-FGHJ-KMNP-QRTU";
 const E2E_SECRET_KEY = "ZTJlLW9ubHktdGhyb3dhd2F5LWtleS0zMi1ieXRlcyE";
+const SERVER_COMMAND =
+  "bun --no-env-file --no-install --import ./apps/server/src/instrument.ts apps/server/src/main.ts";
 
 /**
  * @playwright/test is pinned to 1.64.1, which uses Chromium build 1248 — the
@@ -59,8 +61,8 @@ export default defineConfig({
       // Serves the built web app (`bun run build` first; `bun run e2e` does both). The seed step
       // creates the fictional organisation and members through the normal schema (no backdoor).
       command: process.env.DATABASE_URL
-        ? "node e2e/seed.ts && node apps/server/src/main.ts"
-        : "rm -rf test-results/e2e-db && node e2e/seed.ts && node apps/server/src/main.ts",
+        ? `node e2e/seed.ts && ${SERVER_COMMAND}`
+        : `rm -rf test-results/e2e-db && node e2e/seed.ts && ${SERVER_COMMAND}`,
       url: `http://127.0.0.1:${PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,
@@ -85,7 +87,7 @@ export default defineConfig({
     },
     {
       // First-run setup: always a fresh in-memory database, because setup creates the organisation.
-      command: "node apps/server/src/main.ts",
+      command: SERVER_COMMAND,
       url: `http://127.0.0.1:${SETUP_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,
@@ -103,7 +105,7 @@ export default defineConfig({
     {
       // Demo companies (add-demo-companies 3.3): a fresh in-memory database with no real
       // organisation (so no setup gate), one pooled copy seeded by the first scheduler tick.
-      command: "node apps/server/src/main.ts",
+      command: SERVER_COMMAND,
       url: `http://127.0.0.1:${DEMO_COMPANIES_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,

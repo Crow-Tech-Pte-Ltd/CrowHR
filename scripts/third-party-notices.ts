@@ -255,7 +255,7 @@ function render(entries: Entry[]): string {
     "",
     "Development tools (test runners, linters, type checkers, Vite, the documentation site's Astro build) are not shipped and are not listed.",
     "",
-    "The Docker image is built on the official `node:24-alpine` image (Node.js, MIT, with its bundled third-party licences in the Node.js distribution) and adds two Alpine packages: `postgresql17-client` (PostgreSQL Licence) for backups, and `tini` (MIT). Each published image also carries an SBOM with the full package list.",
+    "The Docker image is built on the official `oven/bun:alpine` image ([Bun and bundled third-party licences](https://github.com/oven-sh/bun/blob/bun-v1.4.5/LICENSE.md)) and adds two Alpine packages: `postgresql17-client` (PostgreSQL Licence) for backups, and `tini` (MIT). Each published image also carries an SBOM with the full package list.",
     "",
     `Licences: ${summary}.`,
     "",

@@ -5,6 +5,8 @@ import { migrationsFolder } from "@crowhr/core/migrations-folder";
 import { drizzle as drizzleNodePg } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { type AdvisoryLock, runMigrations } from "./migrate/runner.ts";
+import { tracingPgClient } from "./monitoring/pg.ts";
+import type { StartDatabaseSpan } from "./monitoring/sentry.ts";
 
 export interface Database {
   db: Db;
@@ -24,7 +26,7 @@ export interface Database {
  * `pglite:memory` / `pglite:<dir>` → in-process PGlite. Development and local
  * e2e only: single process, no connection pooling, no pg_dump backups.
  */
-export async function openDatabase(url: string): Promise<Database> {
+export async function openDatabase(url: string, startSpan?: StartDatabaseSpan): Promise<Database> {
   if (url.startsWith("pglite:")) {
     // Loaded only for development URLs, so the production image can leave PGlite (27 MB) out.
     const { PGlite } = await import("@electric-sql/pglite");
@@ -54,7 +56,12 @@ export async function openDatabase(url: string): Promise<Database> {
     return database;
   }
 
-  const pool = new pg.Pool({ connectionString: url, max: 10, connectionTimeoutMillis: 5000 });
+  const pool = new pg.Pool({
+    connectionString: url,
+    max: 10,
+    connectionTimeoutMillis: 5000,
+    ...(startSpan ? { Client: tracingPgClient(startSpan) } : {}),
+  });
   // An idle client losing its connection (database restart) must not crash the process.
   pool.on("error", () => undefined);
   const db = drizzleNodePg({ client: pool, schema });

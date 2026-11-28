@@ -1,8 +1,7 @@
 /**
- * Preloaded with `node --import ./apps/server/src/instrument.ts` (Dockerfile CMD, `bun run dev`)
- * so error and performance monitoring starts before the app's modules load and Hono,
- * node-postgres and HTTP get instrumented. Does nothing, and loads no SDK, unless SENTRY_DSN
- * is set. Invalid values are left to `loadConfig`, which reports them and stops the app.
+ * Preloaded with `--import ./apps/server/src/instrument.ts` so monitoring starts before the app
+ * loads. The Node SDK uses loader hooks. Bun uses explicit spans around requests and queries.
+ * This loads no SDK unless SENTRY_DSN is set. Invalid settings are reported by `loadConfig`.
  *
  * Must not import `@crowhr/core` (it would load Hono before instrumentation).
  */

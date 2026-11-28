@@ -7,7 +7,7 @@ Crow HR is MIT-licensed and open to contributions. The short version is `CONTRIB
 
 ## Set up
 
-You need [bun](https://bun.sh) 1.3 and Node 24.
+Use Bun 1.4.5 for workspace installs and the app server, and Node 24 for build and test tooling. [Install Bun](https://bun.sh/docs/installation)
 
 ```sh
 git clone https://github.com/Crow-Tech-Pte-Ltd/CrowHR.git
