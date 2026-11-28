@@ -30,7 +30,13 @@ beforeAll(async () => {
   const saved = await owner.post("/api/v1/security/providers", credentials);
   expect(saved.status, await saved.clone().text()).toBe(201);
   const savedMethod = await saved.json();
-  expect(savedMethod).toMatchObject({ kind: "managed_singpass", issuer, jwksUrl: null, displayName: "Singpass" });
+  expect(savedMethod).toMatchObject({
+    kind: "singpass",
+    managed: true,
+    issuer,
+    jwksUrl: null,
+    displayName: "Singpass",
+  });
   providerId = savedMethod.id;
   expect((await owner.patch(`/api/v1/security/providers/${providerId}`, { enabled: true })).status).toBe(200);
 });

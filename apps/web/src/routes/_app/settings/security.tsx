@@ -28,6 +28,8 @@ import {
   type AssignedRole,
   PROVIDER_LABEL,
   type Provider,
+  type ProviderSetupKind,
+  providerSetupKind,
   ROLE_LABEL,
   type SecuritySettings,
 } from "../../../auth/types.ts";
@@ -176,7 +178,7 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
   const t = useT("settings-account");
   const qc = useQueryClient();
   const withReauth = useReauth();
-  const [adding, setAdding] = React.useState<Provider["kind"] | null>(null);
+  const [adding, setAdding] = React.useState<ProviderSetupKind | null>(null);
   const [editing, setEditing] = React.useState<Provider | null>(null);
   const refresh = () => void qc.invalidateQueries({ queryKey: settingsKey });
   const tested = settings.providers.some((p) => p.enabled && p.lastTestOkAt);
@@ -193,7 +195,7 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
   const missingKinds = (["google", "entra", "singpass", "oidc", "managed_singpass"] as const).filter(
     (k) =>
       (k !== "managed_singpass" || settings.managedSingpassAvailable) &&
-      (k === "oidc" || !settings.providers.some((p) => p.kind === k)),
+      (k === "oidc" || !settings.providers.some((p) => providerSetupKind(p) === k)),
   );
 
   return (
@@ -262,18 +264,18 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
             <li
               key={p.id}
               className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-              data-testid={`provider-${p.kind}`}
+              data-testid={`provider-${providerSetupKind(p)}`}
             >
               <span className="flex items-start gap-3">
                 <ShieldCheck className="mt-0.5 size-4" aria-hidden />
                 <span>
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-azeret text-xs font-semibold">{p.displayName}</span>
-                    <span className="text-2xs text-primary-200">{PROVIDER_LABEL[p.kind]}</span>
+                    <span className="text-2xs text-primary-200">{PROVIDER_LABEL[providerSetupKind(p)]}</span>
                     <StatusPill tone={status.tone}>{t(status.label)}</StatusPill>
                   </span>
                   <span className="block text-2xs text-primary-300">
-                    {p.kind === "singpass" && !p.configured ? (
+                    {p.kind === "singpass" && !p.managed && !p.configured ? (
                       <>
                         <span className="break-words">
                           {t(
@@ -306,7 +308,7 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
                     )}
                   </span>
                   {(() => {
-                    const note = p.kind === "singpass" ? singpassNote(p) : null;
+                    const note = p.kind === "singpass" && !p.managed ? singpassNote(p) : null;
                     return note ? (
                       <span
                         className={`block text-2xs ${note.tone === "warning" ? "text-warning-400" : "text-primary-300"}`}

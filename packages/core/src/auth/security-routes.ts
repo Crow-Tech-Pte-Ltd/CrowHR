@@ -7,14 +7,14 @@ import { orgSecuritySettings, type SsoProvider, ssoProviders } from "../db/schem
 import type { AppDeps } from "../deps.ts";
 import { AppError } from "../errors.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
-import { isConfigured } from "./methods.ts";
+import { isConfigured, publicProviderKind } from "./methods.ts";
 import { callbackUrl, discover, jwksUrl } from "./oidc/client.ts";
 import { generateRpKeys, publicOnly } from "./oidc/keys.ts";
 import { ENTRA_FORBIDDEN_TENANTS, entraIssuer, GOOGLE_ISSUER, PRESETS, SINGPASS_ISSUERS } from "./oidc/presets.ts";
 import { noticeSignInSettingsChanged } from "./security-notices.ts";
 import { loadSecuritySettings, sessionCookie } from "./settings.ts";
 
-const kind = z.enum(["google", "entra", "singpass", "managed_singpass", "oidc"]);
+const providerKind = z.enum(["google", "entra", "singpass", "oidc"]);
 const role = z.enum(["owner", "hr_admin", "payroll_admin"]);
 const domain = z
   .string()
@@ -24,7 +24,8 @@ const domain = z
 
 const providerOut = z.object({
   id: z.uuid(),
-  kind,
+  kind: providerKind,
+  managed: z.literal(true).optional(),
   displayName: z.string(),
   issuer: z.string(),
   clientId: z.string(),
@@ -46,7 +47,8 @@ const providerOut = z.object({
 function present(deps: AppDeps, p: SsoProvider): z.input<typeof providerOut> {
   return {
     id: p.id,
-    kind: p.kind,
+    kind: publicProviderKind(p.kind),
+    ...(p.kind === "managed_singpass" ? ({ managed: true } as const) : {}),
     displayName: p.displayName,
     issuer: p.issuer,
     clientId: p.clientId,
@@ -97,7 +99,7 @@ async function settingsView(c: AppContext, orgId: string): Promise<z.input<typeo
 }
 
 const providerInput = z.object({
-  kind,
+  kind: z.enum([...providerKind.options, "managed_singpass"]),
   displayName: z.string().trim().min(1).max(60).optional(),
   /**
    * Required except for Singpass, which may be saved first: the Singpass Developer Portal asks for the

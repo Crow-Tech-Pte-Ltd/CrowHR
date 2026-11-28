@@ -91,7 +91,8 @@ export interface Page<T> {
 
 export interface Provider {
   id: string;
-  kind: ProviderKind | "managed_singpass";
+  kind: ProviderKind;
+  managed?: true;
   displayName: string;
   issuer: string;
   clientId: string;
@@ -146,7 +147,13 @@ export const ROLE_LABEL: Record<string, string> = {
   employee: "Employee",
 };
 
-export const PROVIDER_LABEL: Record<Provider["kind"], string> = {
+export type ProviderSetupKind = ProviderKind | "managed_singpass";
+
+export function providerSetupKind(provider: Provider): ProviderSetupKind {
+  return provider.managed ? "managed_singpass" : provider.kind;
+}
+
+export const PROVIDER_LABEL: Record<ProviderSetupKind, string> = {
   google: "Google Workspace",
   entra: "Microsoft Entra ID",
   singpass: "Singpass",

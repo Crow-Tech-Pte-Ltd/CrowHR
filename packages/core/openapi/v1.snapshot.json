@@ -71489,9 +71489,12 @@
                         "google",
                         "entra",
                         "singpass",
-                        "managed_singpass",
                         "oidc"
                       ]
+                    },
+                    "managed": {
+                      "type": "boolean",
+                      "const": true
                     },
                     "displayName": {
                       "type": "string"
@@ -71660,8 +71663,8 @@
                       "google",
                       "entra",
                       "singpass",
-                      "managed_singpass",
-                      "oidc"
+                      "oidc",
+                      "managed_singpass"
                     ]
                   },
                   "displayName": {
@@ -71790,9 +71793,12 @@
                         "google",
                         "entra",
                         "singpass",
-                        "managed_singpass",
                         "oidc"
                       ]
+                    },
+                    "managed": {
+                      "type": "boolean",
+                      "const": true
                     },
                     "displayName": {
                       "type": "string"
@@ -71993,9 +71999,12 @@
                         "google",
                         "entra",
                         "singpass",
-                        "managed_singpass",
                         "oidc"
                       ]
+                    },
+                    "managed": {
+                      "type": "boolean",
+                      "const": true
                     },
                     "displayName": {
                       "type": "string"
@@ -72435,9 +72444,12 @@
                               "google",
                               "entra",
                               "singpass",
-                              "managed_singpass",
                               "oidc"
                             ]
+                          },
+                          "managed": {
+                            "type": "boolean",
+                            "const": true
                           },
                           "displayName": {
                             "type": "string"
@@ -72663,9 +72675,12 @@
                               "google",
                               "entra",
                               "singpass",
-                              "managed_singpass",
                               "oidc"
                             ]
+                          },
+                          "managed": {
+                            "type": "boolean",
+                            "const": true
                           },
                           "displayName": {
                             "type": "string"
