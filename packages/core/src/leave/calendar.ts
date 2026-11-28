@@ -80,7 +80,7 @@ export interface EmployeeTime {
   tenures: { hireDate: string; lastWorkingDay: string | null }[];
   employment: EmploymentLite[];
   schedules: Map<string, ScheduleLite>;
-  orgHolidays: { date: string; name: string }[];
+  orgHolidays: readonly { date: string; name: string }[];
   settings: LeaveSettingsRow;
   /** Memo: year → (date → holiday name) for this employee. */
   holidayMemo: Map<number, Map<string, string>>;
@@ -126,34 +126,37 @@ export async function loadEmployeesTime(
   const schedules = await loadSchedules(db, orgId);
   const holidays = await db.select().from(leaveHolidays).where(org.where(leaveHolidays));
   const settings = await loadLeaveSettings(db, orgId);
+  const orgHolidays = holidays.map((h) => ({ date: h.date, name: h.name }));
   for (const p of people) {
     out.set(p.id, {
       orgId,
       employeeId: p.id,
       name: displayName(p),
       gender: p.gender ?? null,
-      tenures: tenureRows
-        .filter((t) => t.employeeId === p.id)
-        .map((t) => ({ hireDate: t.hireDate, lastWorkingDay: t.lastWorkingDay })),
-      employment: records
-        .filter((r) => r.employeeId === p.id)
-        .map((r) => ({
-          effectiveFrom: r.effectiveFrom,
-          effectiveTo: r.effectiveTo,
-          employmentType: r.employmentType,
-          workScheduleId: r.workScheduleId,
-          isWorkman: r.isWorkman,
-          isManagerOrExecutive: r.isManagerOrExecutive,
-          eaCovered: r.eaCovered,
-          managerEmployeeId: r.managerEmployeeId,
-          departmentId: r.departmentId,
-          locationId: r.locationId,
-        })),
+      tenures: [],
+      employment: [],
       schedules,
-      orgHolidays: holidays.map((h) => ({ date: h.date, name: h.name })),
+      orgHolidays,
       settings,
       holidayMemo: new Map(),
       warnings: new Set(),
+    });
+  }
+  for (const t of tenureRows) {
+    out.get(t.employeeId)?.tenures.push({ hireDate: t.hireDate, lastWorkingDay: t.lastWorkingDay });
+  }
+  for (const r of records) {
+    out.get(r.employeeId)?.employment.push({
+      effectiveFrom: r.effectiveFrom,
+      effectiveTo: r.effectiveTo,
+      employmentType: r.employmentType,
+      workScheduleId: r.workScheduleId,
+      isWorkman: r.isWorkman,
+      isManagerOrExecutive: r.isManagerOrExecutive,
+      eaCovered: r.eaCovered,
+      managerEmployeeId: r.managerEmployeeId,
+      departmentId: r.departmentId,
+      locationId: r.locationId,
     });
   }
   return out;
@@ -351,9 +354,8 @@ function weekOf(date: string): string {
   return addDays(date, -mondayIndex(date));
 }
 
-export function dayInfo(t: EmployeeTime, date: string): DayInfo {
+export function dayInfo(t: EmployeeTime, date: string, s = scheduleOn(t, date)): DayInfo {
   const employed = tenureOn(t, date) !== null;
-  const s = scheduleOn(t, date);
   const holiday = holidaysFor(t, Number(date.slice(0, 4))).get(date) ?? null;
   if (!s) return { date, employed, scheduleKind: null, dayType: null, minutes: 0, holiday };
   if (!s.version.days) {

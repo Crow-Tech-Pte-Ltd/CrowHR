@@ -86,9 +86,7 @@ function startTimeFor(settings: AttendanceSettings, scheduleId: string | null): 
 /** One day's record (pure). */
 export function computeDay(input: ComputeDayInput): DayRecord {
   const { date, info, settings } = input;
-  const active = [...input.punches]
-    .filter((p) => !p.voidedAt)
-    .sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
+  const punches = [...input.punches].sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
   const fullLeave = input.leave.find((l) => l.session === "full") ?? null;
   const halfLeave = fullLeave ? null : (input.leave[0] ?? null);
   let dayType: DayKind;
@@ -107,22 +105,27 @@ export function computeDay(input: ComputeDayInput): DayRecord {
   // Pair punches in order.
   let worked = 0;
   let missing = 0;
+  let firstIn: AttendancePunch | null = null;
+  let lastOut: AttendancePunch | null = null;
   let openIn: AttendancePunch | null = null;
-  for (const p of active) {
+  const flags = new Set<PunchFlag>();
+  for (const p of punches) {
+    if (p.voidedAt) continue;
+    for (const flag of p.flags) flags.add(flag);
     if (p.kind === "in") {
+      firstIn ??= p;
       if (openIn) missing++;
       openIn = p;
-    } else if (openIn) {
-      worked += Math.max(0, Math.floor((p.recordedAt.getTime() - openIn.recordedAt.getTime()) / MIN));
-      openIn = null;
     } else {
-      missing++;
+      lastOut = p;
+      if (openIn) {
+        worked += Math.max(0, Math.floor((p.recordedAt.getTime() - openIn.recordedAt.getTime()) / MIN));
+        openIn = null;
+      } else missing++;
     }
   }
   const open = openIn !== null && date === input.today;
   if (openIn && !open) missing++;
-  const firstIn = active.find((p) => p.kind === "in") ?? null;
-  const lastOut = [...active].reverse().find((p) => p.kind === "out") ?? null;
   // A rostered shift (published roster, scheduling feed): its own break, start and end.
   const rostered = dayType === "shift" && info.shift ? info.shift : null;
   let breakMinutes = 0;
@@ -151,7 +154,7 @@ export function computeDay(input: ComputeDayInput): DayRecord {
       const diff = Math.floor((rostered.endsAt.getTime() - lastOut.recordedAt.getTime()) / MIN);
       if (diff > settings.earlyOutGraceMinutes) early = diff;
     }
-  } else if (startText) {
+  } else if (startText && (firstIn || lastOut)) {
     const start = new Date(`${date}T${startText}:00+08:00`).getTime();
     if (firstIn && halfLeave?.session !== "am") {
       const diff = Math.floor((firstIn.recordedAt.getTime() - start) / MIN);
@@ -188,9 +191,9 @@ export function computeDay(input: ComputeDayInput): DayRecord {
     earlyOutMinutes: early,
     missingPunches: missing,
     open,
-    flags: [...new Set(active.flatMap((p) => p.flags))],
+    flags: [...flags],
     otMinutes,
-    punches: [...input.punches].sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()).map(toPunchView),
+    punches: punches.map(toPunchView),
     otClaim: null,
     locked: false,
   };
@@ -291,20 +294,30 @@ export async function timesheets(
   for (const c of claims) claimBy.set(key(c.employeeId, c.workDate), c);
   // Approved timesheets lock their days only while the organisation has approval on.
   const locks = settings.timesheetApproval ? await approvedOverlapping(db, orgId, ids, from, to) : [];
+  const locksByEmployee = new Map<string, typeof locks>();
+  for (const lock of locks) {
+    const list = locksByEmployee.get(lock.employeeId);
+    if (list) list.push(lock);
+    else locksByEmployee.set(lock.employeeId, [lock]);
+  }
+  const dates: string[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
   for (const [employeeId, t] of times) {
     const out: DayRecord[] = [];
-    const mine = locks.filter((l) => l.employeeId === employeeId);
-    for (let d = from; d <= to; d = addDays(d, 1)) {
+    const mine = locksByEmployee.get(employeeId);
+    for (const d of dates) {
+      const schedule = scheduleOn(t, d);
+      const employeeDay = key(employeeId, d);
       const record = computeDay({
         date: d,
         today,
-        info: dayInfo(t, d),
-        leave: leaveBy.get(key(employeeId, d)) ?? [],
-        punches: punchesBy.get(key(employeeId, d)) ?? [],
+        info: dayInfo(t, d, schedule),
+        leave: leaveBy.get(employeeDay) ?? [],
+        punches: punchesBy.get(employeeDay) ?? [],
         settings,
-        scheduleId: scheduleOn(t, d)?.schedule.id ?? null,
+        scheduleId: schedule?.schedule.id ?? null,
       });
-      const claim = claimBy.get(key(employeeId, d));
+      const claim = claimBy.get(employeeDay);
       if (claim) {
         record.otClaim = {
           id: claim.id,
@@ -313,7 +326,7 @@ export async function timesheets(
           approvedMinutes: claim.approvedMinutes,
         };
       }
-      record.locked = mine.some((l) => l.periodStart <= d && d <= l.periodEnd);
+      record.locked = mine?.some((l) => l.periodStart <= d && d <= l.periodEnd) ?? false;
       out.push(record);
     }
     days.set(employeeId, out);
@@ -333,16 +346,27 @@ export interface TimesheetTotals {
 }
 
 export function totalsOf(days: readonly DayRecord[]): TimesheetTotals {
-  return {
-    daysWorked: days.filter((d) => d.workedMinutes > 0).length,
-    workedMinutes: days.reduce((s, d) => s + d.workedMinutes, 0),
-    lateCount: days.filter((d) => d.lateMinutes > 0).length,
-    lateMinutes: days.reduce((s, d) => s + d.lateMinutes, 0),
-    earlyOutCount: days.filter((d) => d.earlyOutMinutes > 0).length,
-    missingPunches: days.reduce((s, d) => s + d.missingPunches, 0),
-    otMinutes: days.reduce((s, d) => s + d.otMinutes, 0),
-    leaveDays: days.reduce((s, d) => s + (d.leave ? (d.leave.session === "full" ? 1 : 0.5) : 0), 0),
+  const totals: TimesheetTotals = {
+    daysWorked: 0,
+    workedMinutes: 0,
+    lateCount: 0,
+    lateMinutes: 0,
+    earlyOutCount: 0,
+    missingPunches: 0,
+    otMinutes: 0,
+    leaveDays: 0,
   };
+  for (const day of days) {
+    if (day.workedMinutes > 0) totals.daysWorked++;
+    totals.workedMinutes += day.workedMinutes;
+    if (day.lateMinutes > 0) totals.lateCount++;
+    totals.lateMinutes += day.lateMinutes;
+    if (day.earlyOutMinutes > 0) totals.earlyOutCount++;
+    totals.missingPunches += day.missingPunches;
+    totals.otMinutes += day.otMinutes;
+    if (day.leave) totals.leaveDays += day.leave.session === "full" ? 1 : 0.5;
+  }
+  return totals;
 }
 
 /** Capture the accepted minutes before mutable leave, schedules or settings can change the view. */

@@ -1,19 +1,24 @@
 import { dailyRate, roundHalfUpToCent } from "@crowhr/sg-rules";
-import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { orgScope } from "../access/org-scope.ts";
 import { compensationRecords, employees } from "../db/schema/employees.ts";
 import { leaveRequestDays, leaveRequests, leaveTypes } from "../db/schema/leave.ts";
+import type { Db } from "../db/types.ts";
 import { displayDate, isIsoDate } from "../employees/dates.ts";
 import { asAtMany } from "../employees/effective.ts";
 import { displayName } from "../employees/records.ts";
 import { membersOn } from "../employees/reports/people-data.ts";
 import {
   inBatches,
+  MAX_REPORT_ROWS,
   type ReportColumn,
+  type ReportContext,
   type ReportDefinition,
   type ReportRow,
   type ReportSource,
+  reportPageNumber,
 } from "../reporting/types.ts";
 import { balancesFor, loadBalanceFacts } from "./balances.ts";
 import { loadEmployeesTime, workingDaysPerWeekOn } from "./calendar.ts";
@@ -79,14 +84,19 @@ export const leaveTakenReport: ReportDefinition<z.output<ReturnType<typeof taken
   defaultSort: { key: "taken", dir: "desc" },
   async *run(ctx, p) {
     if (ctx.employeeIds && ctx.employeeIds.size === 0) return;
+    const department = sql<string>`coalesce(${DEPT}, 'No department')`;
+    const group = p.by === "department" ? department : p.by === "employee" ? leaveRequestDays.employeeId : null;
     const rows = await ctx.db
       .select({
-        department: sql<string | null>`${DEPT}`,
-        employeeId: leaveRequestDays.employeeId,
-        typeName: leaveTypes.name,
+        department: p.by === "department" ? department : sql<null>`null`,
+        employeeName:
+          p.by === "employee"
+            ? sql<string>`min((select e.legal_name from employees e where e.org_id = ${leaveRequestDays.orgId} and e.id = ${leaveRequestDays.employeeId}))`
+            : sql<null>`null`,
+        leaveType: leaveTypes.name,
         unit: leaveRequests.unit,
-        hundredths: leaveRequestDays.hundredths,
-        employeeName: sql<string>`(select e.legal_name from employees e where e.org_id = ${leaveRequestDays.orgId} and e.id = ${leaveRequestDays.employeeId})`,
+        people: sql<number>`count(distinct ${leaveRequestDays.employeeId})`.mapWith(Number),
+        hundredths: sql<number>`sum(${leaveRequestDays.hundredths})`.mapWith(Number),
       })
       .from(leaveRequestDays)
       .innerJoin(
@@ -98,35 +108,25 @@ export const leaveTakenReport: ReportDefinition<z.output<ReturnType<typeof taken
         and(eq(leaveTypes.orgId, leaveRequestDays.orgId), eq(leaveTypes.id, leaveRequestDays.leaveTypeId)),
       )
       .where(
-        and(
-          eq(leaveRequestDays.orgId, ctx.orgId),
+        orgScope(ctx.db, ctx.orgId).where(
+          leaveRequestDays,
           inArray(leaveRequests.status, ["approved", "cancellation_pending"]),
-          sql`${leaveRequestDays.date} >= ${p.from}`,
-          sql`${leaveRequestDays.date} <= ${p.to}`,
+          gte(leaveRequestDays.date, p.from),
+          lte(leaveRequestDays.date, p.to),
           ctx.employeeIds ? inArray(leaveRequestDays.employeeId, [...ctx.employeeIds]) : undefined,
         ),
-      );
-    const groups = new Map<string, { row: ReportRow; people: Set<string>; hundredths: number }>();
-    for (const r of rows) {
-      const dept = r.department ?? "No department";
-      const key = [p.by === "department" ? dept : "", p.by === "employee" ? r.employeeId : "", r.typeName, r.unit].join(
-        "|",
-      );
-      const g = groups.get(key) ?? {
-        row: {
-          ...(p.by === "department" ? { department: dept } : {}),
-          ...(p.by === "employee" ? { employee: r.employeeName } : {}),
-          leaveType: r.typeName,
-          unit: r.unit === "hours" ? "Hours" : "Days",
-        },
-        people: new Set<string>(),
-        hundredths: 0,
-      };
-      g.people.add(r.employeeId);
-      g.hundredths += r.hundredths;
-      groups.set(key, g);
-    }
-    yield* inBatches([...groups.values()].map((g) => ({ ...g.row, people: g.people.size, taken: days(g.hundredths) })));
+      )
+      .groupBy(leaveTypes.name, leaveRequests.unit, ...(group ? [group] : []));
+    yield* inBatches(
+      rows.map((r) => ({
+        ...(p.by === "department" ? { department: r.department } : {}),
+        ...(p.by === "employee" ? { employee: r.employeeName } : {}),
+        leaveType: r.leaveType,
+        unit: r.unit === "hours" ? "Hours" : "Days",
+        people: r.people,
+        taken: days(r.hundredths),
+      })),
+    );
   },
   emptyMessage: (p) =>
     `No approved leave was taken between ${displayDate(p.from)} and ${displayDate(p.to)}. Widen the dates.`,
@@ -184,13 +184,16 @@ export const leaveBalancesReport: ReportDefinition<z.output<ReturnType<typeof ba
       ctx.orgId,
       members.map((m) => m.employeeId),
     );
-    const pay = await asAtMany(
-      ctx.db,
-      compensationRecords,
-      ctx.orgId,
-      members.map((m) => m.employeeId),
-      p.asAt,
-    );
+    const pay =
+      (ctx.visibleColumns?.has("liability") ?? true)
+        ? await asAtMany(
+            ctx.db,
+            compensationRecords,
+            ctx.orgId,
+            members.map((m) => m.employeeId),
+            p.asAt,
+          )
+        : null;
     const year = Number(p.asAt.slice(0, 4));
     for (let i = 0; i < members.length; i += 100) {
       const out: ReportRow[] = [];
@@ -207,7 +210,7 @@ export const leaveBalancesReport: ReportDefinition<z.output<ReturnType<typeof ba
         if (!t) continue;
         for (const b of await balancesFor(ctx.db, t, types, year, p.asAt, facts)) {
           if (!b.tracked || !b.eligible) continue;
-          const comp = pay.get(m.employeeId);
+          const comp = pay?.get(m.employeeId);
           let liability: number | null = null;
           if (b.code === "annual" && b.unit === "days" && comp?.payBasis === "monthly" && b.available !== null) {
             // Annual leave liability = available days × daily basic rate (12 × monthly basic ÷ (52 × days per week)).
@@ -263,6 +266,48 @@ const requestColumns: ReportColumn[] = [
   { key: "endDate", title: "End", type: "date" },
 ];
 
+type Period = z.output<ReturnType<typeof periodParams>>;
+const requestSortColumns = new Map<string, AnyPgColumn>([
+  ["startDate", leaveRequests.startDate],
+  ["endDate", leaveRequests.endDate],
+  ["amount", leaveRequests.hundredths],
+]);
+
+function requestFilter(ctx: Pick<ReportContext, "orgId" | "employeeIds">, db: Db, p: Period) {
+  return orgScope(db, ctx.orgId).where(
+    leaveRequests,
+    lte(leaveRequests.startDate, p.to),
+    gte(leaveRequests.endDate, p.from),
+    ctx.employeeIds ? inArray(leaveRequests.employeeId, [...ctx.employeeIds]) : undefined,
+  );
+}
+
+function requestedLeaveRows(db: Db, filter: ReturnType<typeof requestFilter>) {
+  return db
+    .select({
+      legalName: employees.legalName,
+      preferredName: employees.preferredName,
+      employeeNumber: employees.employeeNumber,
+      leaveType: leaveTypes.name,
+      startDate: leaveRequests.startDate,
+      endDate: leaveRequests.endDate,
+      startSession: leaveRequests.startSession,
+      endSession: leaveRequests.endSession,
+      status: leaveRequests.status,
+      unit: leaveRequests.unit,
+      hundredths: leaveRequests.hundredths,
+    })
+    .from(leaveRequests)
+    .innerJoin(employees, and(eq(employees.orgId, leaveRequests.orgId), eq(employees.id, leaveRequests.employeeId)))
+    .innerJoin(leaveTypes, and(eq(leaveTypes.orgId, leaveRequests.orgId), eq(leaveTypes.id, leaveRequests.leaveTypeId)))
+    .where(filter);
+}
+
+type RequestedLeaveRow = Awaited<ReturnType<typeof requestedLeaveRows>>[number];
+function toRequestedLeaveRow({ hundredths, legalName, preferredName, ...row }: RequestedLeaveRow): ReportRow {
+  return { ...row, name: displayName({ legalName, preferredName }), amount: days(hundredths) };
+}
+
 const leaveRequestsReport: ReportDefinition<z.output<ReturnType<typeof periodParams>>> = {
   id: "leave.requests",
   module: "leave",
@@ -282,42 +327,40 @@ const leaveRequestsReport: ReportDefinition<z.output<ReturnType<typeof periodPar
     { key: "unit", title: "Unit", type: "text" },
   ],
   defaultSort: { key: "startDate", dir: "desc" },
-  async *run({ db, orgId, employeeIds }, p) {
-    if (employeeIds?.size === 0) return;
-    const rows = await db
-      .select({
-        legalName: employees.legalName,
-        preferredName: employees.preferredName,
-        employeeNumber: employees.employeeNumber,
-        leaveType: leaveTypes.name,
-        startDate: leaveRequests.startDate,
-        endDate: leaveRequests.endDate,
-        startSession: leaveRequests.startSession,
-        endSession: leaveRequests.endSession,
-        status: leaveRequests.status,
-        unit: leaveRequests.unit,
-        hundredths: leaveRequests.hundredths,
-      })
-      .from(leaveRequests)
-      .innerJoin(employees, and(eq(employees.orgId, leaveRequests.orgId), eq(employees.id, leaveRequests.employeeId)))
-      .innerJoin(
-        leaveTypes,
-        and(eq(leaveTypes.orgId, leaveRequests.orgId), eq(leaveTypes.id, leaveRequests.leaveTypeId)),
-      )
-      .where(
-        orgScope(db, orgId).where(
-          leaveRequests,
-          lte(leaveRequests.startDate, p.to),
-          gte(leaveRequests.endDate, p.from),
-          employeeIds ? inArray(leaveRequests.employeeId, [...employeeIds]) : undefined,
-        ),
-      );
-    yield* inBatches(
-      rows.map(({ hundredths, legalName, preferredName, ...row }) => ({
-        ...row,
-        name: displayName({ legalName, preferredName }),
-        amount: days(hundredths),
-      })),
+  async *run(ctx, p) {
+    if (ctx.employeeIds?.size === 0) return;
+    const rows = await requestedLeaveRows(ctx.db, requestFilter(ctx, ctx.db, p))
+      .orderBy(asc(leaveRequests.id))
+      .limit(MAX_REPORT_ROWS + 1);
+    yield* inBatches(rows.map(toRequestedLeaveRow));
+  },
+  async readPage(ctx, p, { sort, page, pageSize, maxRows }) {
+    const column = requestSortColumns.get(sort.key);
+    if (!column) return null;
+    if (ctx.employeeIds?.size === 0) return { rows: [], totalRows: 0 };
+    const order = sort.dir === "asc" ? asc : desc;
+    // A concurrent edit must not shift rows between the count and the page. Required
+    // employee/type foreign keys make the simpler count equivalent to the joined selection.
+    return ctx.db.transaction(
+      async (db) => {
+        const filter = requestFilter(ctx, db, p);
+        const matching = db
+          .select({ id: leaveRequests.id })
+          .from(leaveRequests)
+          .where(filter)
+          .limit(maxRows + 1)
+          .as("matching");
+        const [result] = await db.select({ totalRows: count() }).from(matching);
+        const totalRows = result?.totalRows ?? 0;
+        if (!totalRows || totalRows > maxRows) return { rows: [], totalRows };
+        const offset = (reportPageNumber(page, totalRows, pageSize) - 1) * pageSize;
+        const rows = await requestedLeaveRows(db, filter)
+          .orderBy(order(column), asc(leaveRequests.id))
+          .limit(pageSize)
+          .offset(offset);
+        return { rows: rows.map(toRequestedLeaveRow), totalRows };
+      },
+      { isolationLevel: "repeatable read", accessMode: "read only" },
     );
   },
   emptyMessage: () => "No leave requests overlap these dates. Widen the date range.",

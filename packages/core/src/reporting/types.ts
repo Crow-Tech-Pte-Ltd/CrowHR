@@ -18,6 +18,7 @@ import type { CellValue, ExportColumn } from "../export/cells.ts";
  */
 
 export type ReportRow = Record<string, CellValue>;
+export const MAX_REPORT_ROWS = 50_000;
 
 export interface ReportColumn extends ExportColumn {
   /** Dropped for readers who may not see this class for every row in scope (listed in `redactedColumns`). */
@@ -49,6 +50,19 @@ export interface ReportContext {
   employeeIds: ReadonlySet<string> | null;
   /** The reader's grant for the report's read permission. */
   grant: Grant;
+  /** Visible columns, after permission and optional-column checks. Sources can skip unused data. */
+  visibleColumns?: ReadonlySet<string>;
+}
+
+export interface ReportPageRequest {
+  sort: { key: string; dir: "asc" | "desc" };
+  page: number;
+  pageSize: number;
+  maxRows: number;
+}
+
+export function reportPageNumber(requestedPage: number, totalRows: number, pageSize: number): number {
+  return Math.min(Math.max(1, requestedPage), Math.max(1, Math.ceil(totalRows / pageSize)));
 }
 
 export interface ReportSummaryItem {
@@ -82,6 +96,15 @@ export interface ReportDefinition<P extends Record<string, unknown> = Record<str
   defaultSort: { key: string; dir: "asc" | "desc" };
   /** Yields rows in batches (about 500 at a time). */
   run(ctx: ReportContext, params: P): AsyncIterable<readonly ReportRow[]>;
+  /**
+   * Optional SQL paging for reports without totals or summaries. Return null for an
+   * unsupported sort, or a count above maxRows with no rows to signal an oversized result.
+   */
+  readPage?(
+    ctx: ReportContext,
+    params: P,
+    request: ReportPageRequest,
+  ): Promise<{ rows: ReportRow[]; totalRows: number } | null>;
   /** Figures computed over every scoped row, e.g. the turnover rate. */
   summary?(
     rows: readonly ReportRow[],

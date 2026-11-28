@@ -261,6 +261,7 @@ export const oidcTransactions = pgTable(
       columns: [t.orgId, t.providerId],
       foreignColumns: [ssoProviders.orgId, ssoProviders.id],
     }).onDelete("cascade"),
+    index("oidc_transactions_expires_idx").on(t.expiresAt),
   ],
 );
 

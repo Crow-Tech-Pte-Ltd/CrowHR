@@ -1,6 +1,12 @@
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/pglite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDb, type TestDb } from "../../testing/index.ts";
 import { decideRun, type PayrollHttp, payrollHttp } from "../../testing/payroll-http.ts";
+import { auditEvents } from "../db/schema/audit.ts";
+import * as schema from "../db/schema/index.ts";
+import { payrollPayslips } from "../db/schema/payroll.ts";
+import type { Db } from "../db/types.ts";
 import { applyEvent, ctxFor } from "../employees/lifecycle.ts";
 import { OWNER } from "../testing/people-harness.ts";
 
@@ -9,6 +15,55 @@ import { OWNER } from "../testing/people-harness.ts";
 let t: TestDb;
 let p: PayrollHttp<"A">;
 const api = "/api/v1/payroll";
+
+it("writes payslips in bounded batches and replaces every slip on recompute", async () => {
+  const t = await createTestDb();
+  try {
+    let inserts = 0;
+    const db = drizzle({
+      client: t.pglite,
+      schema,
+      logger: {
+        logQuery: (query) => {
+          if (query.startsWith('insert into "payroll_payslips"')) inserts++;
+        },
+      },
+    }) as unknown as Db;
+    const people = Array.from({ length: 105 }, (_, i) => ({
+      key: String(i),
+      name: `Employee ${i}`,
+      dob: "1990-04-12",
+      residency: "citizen" as const,
+      hireDate: "2020-01-06",
+      basicCents: 400_000,
+    }));
+    const p = await payrollHttp({ ...t, db }, people);
+    const { id } = await p.ok<{ id: string }>(
+      p.admin.post(`${api}/runs`, { kind: "regular", month: "2026-10", payDate: "2026-10-30" }),
+      201,
+    );
+    const slips = () => db.select().from(payrollPayslips).where(eq(payrollPayslips.runId, id));
+    await p.ok(p.admin.post(`${api}/runs/${id}/compute`));
+    expect(inserts).toBe(2);
+    const first = await slips();
+    expect(first).toHaveLength(105);
+    inserts = 0;
+    await p.ok(p.admin.post(`${api}/runs/${id}/compute`));
+    expect(inserts).toBe(2);
+    const second = await slips();
+    expect(second).toHaveLength(105);
+    expect(new Map(second.map((slip) => [slip.employeeId, slip.resultHash]))).toEqual(
+      new Map(first.map((slip) => [slip.employeeId, slip.resultHash])),
+    );
+    const events = await db.select().from(auditEvents).where(eq(auditEvents.action, "payroll.run_computed"));
+    expect(events.map((event) => event.meta)).toEqual([
+      expect.objectContaining({ headcount: 105 }),
+      expect.objectContaining({ headcount: 105 }),
+    ]);
+  } finally {
+    await t.close();
+  }
+}, 60_000);
 
 beforeAll(async () => {
   t = await createTestDb();

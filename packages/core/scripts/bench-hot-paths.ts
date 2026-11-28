@@ -1,13 +1,15 @@
 /**
- * DEV ONLY: times the hot read paths on an in-memory PGlite organisation of ~200 employees and
+ * DEV ONLY: times the hot read paths on a synthetic organisation of ~200 employees and
  * counts the SQL statements each request runs (an N+1 shows up as a count that grows with the data).
  *
  *   node packages/core/scripts/bench-hot-paths.ts            # 200 employees
  *   BENCH_EMPLOYEES=50 node packages/core/scripts/bench-hot-paths.ts
+ *   BENCH_POSTGRES=1 BENCH_PAYROLL=1 node packages/core/scripts/bench-hot-paths.ts
  *
  * Seeding goes through the real services and API (hires, leave, claims, punches), so it takes a
  * minute or two. Numbers are medians of BENCH_RUNS (default 5) warm runs.
  */
+
 import { drizzle } from "drizzle-orm/pglite";
 import { createApp } from "../src/app.ts";
 import { buildClaimsActor } from "../src/claims/access.ts";
@@ -18,33 +20,59 @@ import { singaporeToday } from "../src/employees/dates.ts";
 import { ctxFor, hire } from "../src/employees/lifecycle.ts";
 import { defaultPeoplePorts } from "../src/employees/ports.ts";
 import { createReportingScopeResolver } from "../src/employees/reports/reporting-scope.ts";
+import { noopLogger } from "../src/logger.ts";
 import { createPeopleHarness, hirePayload, OWNER, seedBasicStructure } from "../src/testing/people-harness.ts";
 import { clientAs, createTestDb, createTestDeps, movableClock, seedMember, type TestClient } from "../testing/index.ts";
+import { type Operation, runWorkload } from "./bench-workload.ts";
 
-const N = Number(process.env.BENCH_EMPLOYEES ?? 200);
-const RUNS = Number(process.env.BENCH_RUNS ?? 5);
+function integer(name: string, fallback: number, min: number): number {
+  const value = Number(process.env[name] ?? fallback);
+  if (!Number.isSafeInteger(value) || value < min) throw new Error(`${name} must be an integer of at least ${min}.`);
+  return value;
+}
+
+const N = integer("BENCH_EMPLOYEES", 200, 13);
+const RUNS = integer("BENCH_RUNS", 5, 1);
 const TEAM = 10;
-
+const soakSeconds = integer("BENCH_SOAK_SECONDS", 0, 0);
+const usePostgres = process.env.BENCH_POSTGRES === "1";
+if (soakSeconds && !usePostgres) throw new Error("Set BENCH_POSTGRES=1 for a sustained workload.");
 const out = (line: string) => process.stdout.write(`${line}\n`);
 let queries = 0;
 let tracing = false;
-const t = await createTestDb();
-// BENCH_TRACE=<ms>: print every statement slower than that during the measured requests.
-const traceMs = Number(process.env.BENCH_TRACE ?? 0);
-if (traceMs > 0) {
-  const proto = Object.getPrototypeOf(t.pglite) as { query: (...a: unknown[]) => Promise<unknown> };
-  const original = proto.query;
-  proto.query = async function (this: unknown, ...args: unknown[]) {
-    const t0 = performance.now();
-    try {
-      return await original.apply(this, args);
-    } finally {
-      const ms = performance.now() - t0;
-      if (tracing && ms >= traceMs) out(`  slow ${ms.toFixed(0)} ms: ${String(args[0]).slice(0, 400)}`);
-    }
+const logger = { logQuery: () => void queries++ };
+const postgres = usePostgres
+  ? await (await import("../../../apps/server/scripts/bench-postgres.ts")).startBenchPostgres(logger)
+  : null;
+
+async function startBenchPglite() {
+  const t = await createTestDb();
+  // BENCH_TRACE=<ms>: print statements slower than that during the measured PGlite requests.
+  const traceMs = Number(process.env.BENCH_TRACE ?? 0);
+  if (traceMs > 0) {
+    const proto = Object.getPrototypeOf(t.pglite) as { query: (...a: unknown[]) => Promise<unknown> };
+    const original = proto.query;
+    proto.query = async function (this: unknown, ...args: unknown[]) {
+      const t0 = performance.now();
+      try {
+        return await original.apply(this, args);
+      } finally {
+        const ms = performance.now() - t0;
+        if (tracing && ms >= traceMs) out(`  slow ${ms.toFixed(0)} ms: ${String(args[0]).slice(0, 400)}`);
+      }
+    };
+  }
+  return {
+    db: drizzle({ client: t.pglite, schema, logger }) as unknown as Db,
+    query: t.pglite.query.bind(t.pglite),
+    close: t.close,
   };
 }
-const db = drizzle({ client: t.pglite, schema, logger: { logQuery: () => void queries++ } }) as unknown as Db;
+
+const database = postgres ?? (await startBenchPglite());
+await using _cleanup = { [Symbol.asyncDispose]: database.close };
+const { db } = database;
+out(`${postgres?.version ?? "PGlite"} | ${N} synthetic employees`);
 // Monday 2 Nov 2026, 09:00 SGT: punches for the previous week are within the 7-day window.
 const clock = movableClock("2026-11-02T01:00:00.000Z");
 const deps = createTestDeps(db, { clock, reportingScope: createReportingScopeResolver(db) });
@@ -177,9 +205,9 @@ for (const [i, p] of people.entries()) {
 }
 // BENCH_AUDIT_ROWS=<n>: older audit history (submissions of other requests), as after a year of use.
 // Inserted raw (outside the hash chain), so don't verify the chain of a bench database.
-const auditRows = Number(process.env.BENCH_AUDIT_ROWS ?? 0);
+const auditRows = integer("BENCH_AUDIT_ROWS", 0, 0);
 for (let i = 0; i < auditRows; i += 1000) {
-  await t.pglite.query(
+  await database.query(
     `insert into audit_events (id, org_id, seq, at, actor_type, actor_membership_id, action, target_type, target_id, prev_hash, hash)
      select gen_random_uuid(), $1::uuid, 1000000 + $2::int + g, now() - interval '200 days', 'member', $3::uuid,
             'approval.submitted', 'approval_request', gen_random_uuid()::text, '', ''
@@ -189,7 +217,7 @@ for (let i = 0; i < auditRows; i += 1000) {
 }
 // The same number of decided approval requests (one approved task each), as after a year of use.
 for (let i = 0; i < auditRows; i += 1000) {
-  await t.pglite.query(
+  await database.query(
     `with r as (
        insert into approval_requests (id, org_id, subject_type, subject_id, requester_membership_id, policy_name, status, title, submitted_at, decided_at)
        select gen_random_uuid(), $1::uuid, 'claim', gen_random_uuid(), $2::uuid, 'Default', 'approved', 'Old claim', now(), now()
@@ -202,7 +230,7 @@ for (let i = 0; i < auditRows; i += 1000) {
 }
 // With history: the rest of October's punches too (weekdays 1–23 Oct, 09:00–18:00 SGT), raw.
 if (auditRows > 0) {
-  await t.pglite.query(
+  await database.query(
     `insert into attendance_punches (id, org_id, employee_id, kind, idempotency_key, source, device_time, sent_at,
             server_time, recorded_at, work_date, skew_seconds, flags, created_by_membership_id)
      select gen_random_uuid(), $1::uuid, m.employee_id, k.kind, 'hist-' || m.id || '-' || d::date || k.kind, 'web',
@@ -214,8 +242,21 @@ if (auditRows > 0) {
     [h.orgId],
   );
 }
+// Historical leave requests for pagination and export, outside the current balance year.
+const leaveHistory = integer("BENCH_LEAVE_HISTORY", 0, 0);
+for (let i = 0; i < leaveHistory; i += 1000) {
+  await database.query(
+    `insert into leave_requests (id, org_id, employee_id, leave_type_id, start_date, end_date,
+        start_session, end_session, unit, hundredths, status, requested_by_membership_id)
+     select gen_random_uuid(), r.org_id, r.employee_id, r.leave_type_id, '2025-11-03', '2025-11-03',
+        'full', 'full', r.unit, 100 + g % 5, 'withdrawn', r.requested_by_membership_id
+     from (select * from leave_requests where org_id = $1 and end_date >= '2026-01-01' limit 1) r
+     cross join generate_series(1, $2::int) g`,
+    [h.orgId, Math.min(1000, leaveHistory - i)],
+  );
+}
 // Planner statistics, as autovacuum keeps them on a real server (PGlite never analyzes by itself).
-if (process.env.BENCH_ANALYZE !== "0") await t.pglite.exec("analyze");
+if (process.env.BENCH_ANALYZE !== "0") await database.query("analyze");
 out(`seeded activity in ${((performance.now() - started) / 1000).toFixed(1)} s`);
 
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0;
@@ -285,8 +326,13 @@ await measure(
   hrC,
   "/api/v1/reports/attendance.exceptions?from=2026-10-26&to=2026-10-30",
 );
+const requestPeriod = leaveHistory ? "from=2025-11-01&to=2025-11-30" : "from=2026-11-01&to=2026-11-30";
+const requestsReport = `/api/v1/reports/leave.requests?${requestPeriod}`;
+await measure("GET /reports/leave.requests (hr)", hrC, requestsReport);
+
+let runId: string | undefined;
 // BENCH_PAYROLL=1: the October regular run for everyone (create, compute twice, submit), one shot each.
-if (process.env.BENCH_PAYROLL === "1") {
+if (process.env.BENCH_PAYROLL === "1" || soakSeconds) {
   const once = async (label: string, run: () => Promise<Response>) => {
     queries = 0;
     tracing = true;
@@ -304,15 +350,16 @@ if (process.env.BENCH_PAYROLL === "1") {
   const run = await once("POST /payroll/runs (owner)", () =>
     ownerC.post("/api/v1/payroll/runs", { kind: "regular", month: "2026-10", payDate: "2026-10-30" }),
   );
+  runId = run.id;
   await once("POST /payroll/runs/:id/compute (first)", () => ownerC.post(`/api/v1/payroll/runs/${run.id}/compute`));
   // BENCH_PAYROLL_HISTORY=<months>: earlier paid regular runs, cloned raw from October's payslips
   // (figures are not meaningful; only the volume of payroll history is).
-  const months = Number(process.env.BENCH_PAYROLL_HISTORY ?? 0);
+  const months = integer("BENCH_PAYROLL_HISTORY", 0, 0);
   for (let i = 1; i <= months; i++) {
     const d = new Date(Date.UTC(2026, 9 - i, 1));
     const month = d.toISOString().slice(0, 7);
     const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
-    await t.pglite.query(
+    await database.query(
       `with r as (
          insert into payroll_runs (id, org_id, kind, month, period_start, period_end, pay_date, status)
          values (gen_random_uuid(), $1::uuid, 'regular', $2, $3::date, $4::date, $4::date, 'paid') returning id)
@@ -326,9 +373,53 @@ if (process.env.BENCH_PAYROLL === "1") {
       [h.orgId, month, `${month}-01`, end, run.id],
     );
   }
-  if (months) await t.pglite.exec("analyze");
+  if (months) await database.query("analyze");
   await once("POST /payroll/runs/:id/compute (again)", () => ownerC.post(`/api/v1/payroll/runs/${run.id}/compute`));
   await once("GET /payroll/runs/:id", () => ownerC.get(`/api/v1/payroll/runs/${run.id}`));
-  await once("POST /payroll/runs/:id/submit", () => ownerC.post(`/api/v1/payroll/runs/${run.id}/submit`));
+  if (!soakSeconds)
+    await once("POST /payroll/runs/:id/submit", () => ownerC.post(`/api/v1/payroll/runs/${run.id}/submit`));
 }
-await t.close();
+if (postgres && soakSeconds) {
+  if (!runId) throw new Error("The synthetic payroll draft could not be created.");
+  // Keep the synthetic logger from retaining entries across a long run.
+  Object.assign(deps, { logger: noopLogger });
+  const request = (name: string, execute: () => Promise<Response>): Operation => ({
+    name,
+    async run() {
+      const response = await execute();
+      await response.arrayBuffer();
+      if (!response.ok) throw new Error(`${name} returned HTTP ${response.status}.`);
+    },
+  });
+  const concurrency = integer("BENCH_CONCURRENCY", 8, 1);
+  const heavyEvery = integer("BENCH_HEAVY_EVERY_SECONDS", 300, 1);
+  out(`Sustained workload: ${soakSeconds}s, ${concurrency} concurrent reads, heavier work every ${heavyEvery}s.`);
+  await runWorkload(
+    {
+      seconds: soakSeconds,
+      concurrency,
+      heavyEvery,
+      resources: postgres.resources,
+      reads: [
+        request("Directory", () => hrC.get("/api/v1/employees?pageSize=200")),
+        request("Inbox", () => ownerC.get("/api/v1/inbox")),
+        request("Month of team attendance", () => hrC.get("/api/v1/attendance/team?from=2026-10-02&to=2026-11-01")),
+        request("Leave balance report", () => hrC.get("/api/v1/reports/leave.balances?asAt=2026-11-02")),
+        request("Leave request report", () => hrC.get(requestsReport)),
+      ],
+      heavy: [
+        request("Payroll recompute", () => ownerC.post(`/api/v1/payroll/runs/${runId}/compute`)),
+        request("Leave request CSV", () =>
+          hrC.get(`/api/v1/reports/leave.requests/export?${requestPeriod}&format=csv`),
+        ),
+        {
+          name: "Encrypted backup",
+          async run() {
+            out(`Backup size: ${await postgres.backup()} bytes`);
+          },
+        },
+      ],
+    },
+    out,
+  );
+}

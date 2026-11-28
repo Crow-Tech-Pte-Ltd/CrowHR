@@ -1,0 +1,1 @@
+CREATE INDEX "oidc_transactions_expires_idx" ON "oidc_transactions" USING btree ("expires_at");
