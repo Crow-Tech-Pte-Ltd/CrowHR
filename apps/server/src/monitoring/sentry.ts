@@ -164,7 +164,7 @@ export function scrubEvent<T extends ErrorEvent | TransactionEvent>(event: T): T
     delete request.data;
     delete request.query_string;
     delete request.env;
-    if (request.url) request.url = withoutQuery(request.url);
+    if (request.url) request.url = redactText(withoutQuery(request.url));
     if (request.headers) {
       request.headers = Object.fromEntries(
         Object.entries(request.headers).filter(([name]) => REQUEST_HEADERS.includes(name.toLowerCase())),
@@ -173,6 +173,7 @@ export function scrubEvent<T extends ErrorEvent | TransactionEvent>(event: T): T
   }
   delete event.user;
   if (typeof event.message === "string") event.message = redactText(event.message);
+  if (event.transaction) event.transaction = redactText(event.transaction);
   if (event.logentry) event.logentry = redactDeep(event.logentry);
   for (const exception of event.exception?.values ?? []) {
     if (exception.value) exception.value = redactText(exception.value);

@@ -67,42 +67,45 @@ describe("browser monitoring", () => {
     expect(event.breadcrumbs?.[0]?.data).toEqual({ from: "/employees", to: "/payroll" });
   });
 
-  it("never sends invitation or password-reset tokens (they are in the path)", () => {
-    // What the TanStack Router integration and browser tracing record for /invite/$token.
-    const url = "https://hr.acme.sg/invite/INVITE-TOKEN-1";
+  it.each(["invite", "reset", "email"])("redacts one-time link tokens from /%s telemetry", (route) => {
+    const token = "ONE-TIME-TEST-TOKEN";
+    const path = `/${route}/${token}`;
+    const template = `/${route}/$token`;
+    const redacted = `/${route}/[token]`;
+    const url = `https://hr.acme.sg${path}`;
     const event = scrubEvent({
       type: "transaction",
-      transaction: "/invite/$token",
+      message: `Error opening ${url}`,
+      transaction: template,
       request: { url, headers: { "User-Agent": "Firefox" } },
       contexts: {
         trace: {
           trace_id: "t",
           span_id: "s",
           data: {
-            "url.path": "/invite/INVITE-TOKEN-1",
+            "url.path": path,
             "url.full": url,
-            "url.template": "/invite/$token",
-            "url.path.parameter.token": "INVITE-TOKEN-1",
-            "params.token": "INVITE-TOKEN-1",
+            "url.template": template,
+            "url.path.parameter.token": token,
+            "params.token": token,
           },
         },
       },
       spans: [
         { span_id: "a", trace_id: "t", start_timestamp: 0, status: "ok", description: url, data: { "url.full": url } },
       ],
-      breadcrumbs: [{ category: "navigation", data: { from: "/reset/RESET-TOKEN-2?x=1", to: "/" } }],
+      breadcrumbs: [{ category: "navigation", data: { from: `${path}?x=1`, to: "/" } }],
     });
     const sent = JSON.stringify(event);
-    expect(sent).not.toContain("INVITE-TOKEN-1");
-    expect(sent).not.toContain("RESET-TOKEN-2");
-    expect(event.request?.url).toBe("https://hr.acme.sg/invite/[token]");
+    expect(sent).not.toContain(token);
+    expect(event.request?.url).toBe(`https://hr.acme.sg${redacted}`);
     expect(event.contexts?.trace?.data).toEqual({
-      "url.path": "/invite/[token]",
-      "url.full": "https://hr.acme.sg/invite/[token]",
-      "url.template": "/invite/$token",
+      "url.path": redacted,
+      "url.full": `https://hr.acme.sg${redacted}`,
+      "url.template": template,
     });
-    expect(event.transaction).toBe("/invite/$token");
-    expect(event.breadcrumbs?.[0]?.data).toEqual({ from: "/reset/[token]", to: "/" });
+    expect(event.transaction).toBe(template);
+    expect(event.breadcrumbs?.[0]?.data).toEqual({ from: redacted, to: "/" });
     // API paths that only contain the word are untouched.
     expect(redactText("/api/v1/auth/password-reset/inspect")).toBe("/api/v1/auth/password-reset/inspect");
   });

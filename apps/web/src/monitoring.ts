@@ -98,6 +98,7 @@ export function scrubEvent<T extends ErrorEvent | TransactionEvent>(event: T): T
     }
   }
   delete event.user;
+  if (typeof event.message === "string") event.message = redactText(event.message);
   if (event.transaction) event.transaction = redactText(event.transaction);
   for (const exception of event.exception?.values ?? []) {
     if (exception.value) exception.value = redactText(exception.value);
@@ -130,10 +131,10 @@ export function scrubBreadcrumb(crumb: Breadcrumb): Breadcrumb | null {
 }
 
 /**
- * Invitation and password-reset tokens in paths (not the route template `/invite/$token`);
+ * One-time account links in paths, while preserving route templates like `/invite/$token`;
  * element labels and titles in CSS selectors.
  */
-const TOKEN_PATH = /\/(invite|reset)\/[^/?#\s"'$][^/?#\s"']*/g;
+const TOKEN_PATH = /\/(invite|reset|email)\/[^/?#\s"'$][^/?#\s"']*/g;
 const LABELLED_SELECTOR = /\[(aria-label|title|alt|name)="[^"]*"\]/g;
 
 export function redactText(text: string): string {

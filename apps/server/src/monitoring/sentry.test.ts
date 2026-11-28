@@ -74,6 +74,24 @@ describe("server monitoring", () => {
     expect(DROPPED_INTEGRATIONS).not.toContain("Hono");
   });
 
+  it.each(["invite", "reset", "email"])("redacts one-time link tokens from /%s telemetry", (route) => {
+    const token = "ONE-TIME-TEST-TOKEN";
+    const path = `/${route}/${token}`;
+    const url = `https://hr.acme.sg${path}?view=1`;
+    const event = scrubEvent({
+      type: "transaction",
+      transaction: `GET ${path}`,
+      request: { url },
+      contexts: { trace: { trace_id: "t", span_id: "s", data: { "url.full": url } } },
+      breadcrumbs: [{ category: "http", data: { url } }],
+    });
+    const redacted = `https://hr.acme.sg/${route}/[token]`;
+    expect(JSON.stringify(event)).not.toContain(token);
+    expect(event.request?.url).toBe(redacted);
+    expect(event.contexts?.trace?.data).toEqual({ "url.full": redacted });
+    expect(event.breadcrumbs?.[0]?.data).toEqual({ url: redacted });
+  });
+
   it("removes a failed query's values, NRIC/FIN and emails from messages, breadcrumbs and spans", () => {
     // What drizzle throws for any failed query: the SQL plus every bound value.
     const failed = new DrizzleQueryError(
