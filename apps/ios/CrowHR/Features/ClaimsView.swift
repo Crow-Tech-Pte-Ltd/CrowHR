@@ -98,7 +98,7 @@ struct CameraCapture: View {
             UIColor.white.setFill()
             ctx.fill(CGRect(origin: .zero, size: size))
             let attrs: [NSAttributedString.Key: Any] = [.font: UIFont.monospacedSystemFont(ofSize: 28, weight: .regular), .foregroundColor: UIColor.black]
-            ("KOPI KAKI CAFE\n\nKopi O        S$1.80\nKaya toast    S$3.20\n\nTOTAL         S$5.00\n\nTEST RECEIPT" as NSString)
+            ("QINGHE FOODS\n\nKopi O        S$1.80\nKaya toast    S$3.20\n\nTOTAL         S$5.00\n\nTEST RECEIPT" as NSString)
                 .draw(in: CGRect(x: 40, y: 60, width: 520, height: 700), withAttributes: attrs)
         }
     }

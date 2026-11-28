@@ -15,7 +15,7 @@ The time recorded is the moment you tapped, corrected to the server's clock: Cro
 
 Punches work without a connection. A punch that can't be sent waits on the device and sends itself when the connection is back: on the next page load, when the browser comes back online, after your next tap, and every 30 seconds while the page is open. The screen says "1 punch waiting to send. Queued — will send when you're back online." Up to 200 punches can wait on one device. The queue is kept in the browser's local storage, so it survives closing the tab, but not clearing the site's data or switching device.
 
-![Attendance on a phone: clocked in since 23:00, with one punch waiting to send while offline (fictional company)](../../../assets/screens/attendance-clock-offline.webp)
+![Attendance on a phone with one punch queued to send when the connection returns (fictional company)](../../../assets/screens/attendance-clock-offline.webp)
 
 A queued punch that the server refuses (for example, one more than 7 days old) moves to a **Not recorded** card with the reason and "Ask your manager to add it if it was right."
 
@@ -107,7 +107,7 @@ On a working day (or a rostered shift), overtime is the time worked beyond the s
 
 Overtime is paid only when it is claimed and approved. On **My timesheet**, a day with overtime has **Claim OT**: enter the minutes (up to what the timesheet shows for that day) and, optionally, what it was for, then **Send for approval**. One claim can be open or approved per day. If the timesheet shows no overtime, fix the punches first.
 
-![Claiming overtime for one day: up to 150 minutes, as worked against the 8 hours scheduled (fictional company)](../../../assets/screens/attendance-claim-ot.webp)
+![The overtime claim form showing the maximum claimable minutes for the workday (fictional company)](../../../assets/screens/attendance-claim-ot.webp)
 
 A claim goes to the employee's **manager** by default (escalating after 3 days); change the chain under **Settings → Approvals** ([approvals](/docs/approvals/approvals/)). The approver sees the date, the claimed and timesheet minutes, the basis and the reason, and approves or rejects the whole claim; partial approval is not possible. A pending claim can be withdrawn from the request in the Inbox.
 

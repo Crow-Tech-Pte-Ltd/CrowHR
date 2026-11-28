@@ -131,6 +131,10 @@ class QaScreenshotTest {
         tap("new-claim")
         waitFor("claim-type-0")
         shot("claim-new")
+        if (variant == "store") {
+            scenario.close()
+            return
+        }
         tap("back")
         tap("back")
         tap("more-schedule")

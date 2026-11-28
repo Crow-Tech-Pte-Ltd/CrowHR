@@ -4,7 +4,7 @@ import { pickDate } from "../leave-helpers.ts";
 /**
  * People e2e (tasks 7.1–7.4). Runs against the DEV-ONLY people server with
  * persona sign-in (see playwright.people.config.ts). The seeded org is the
- * fictional Kopi Kaki Pte. Ltd.; "today" is the real date.
+ * fictional Qinghe Foods Pte. Ltd.; "today" is the real date.
  */
 
 async function as(page: Page, persona: string, to: string) {

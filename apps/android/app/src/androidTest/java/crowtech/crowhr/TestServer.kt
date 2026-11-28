@@ -111,8 +111,11 @@ object TestServer {
 
     /** Legal name, UEN, CSN and address: payroll and the logo need them. */
     fun ensureCompanyProfile() {
-        val reply = call("PUT", "/api/v1/organisation/profile", token(OWNER), buildJsonObject {
-            put("legalName", "Kampong Kopi Pte. Ltd."); put("uen", "202600001K"); put("csn", "202600001KPTE01")
+        val owner = token(OWNER)
+        val organisation = get("/api/v1/me", owner).jsonObject.getValue("organisation").jsonObject
+        val legalName = organisation.getValue("name").jsonPrimitive.content
+        val reply = call("PUT", "/api/v1/organisation/profile", owner, buildJsonObject {
+            put("legalName", legalName); put("uen", "202600001K"); put("csn", "202600001KPTE01")
             put("addressBlock", "1"); put("addressStreet", "Kampong Bahru Road"); put("postalCode", "169341")
         })
         check(reply.status in 200..299) { "company profile → ${reply.status} ${reply.body}" }

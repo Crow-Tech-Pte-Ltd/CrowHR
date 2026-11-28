@@ -42,7 +42,7 @@ async function main() {
   const t = await createTestDb();
   const publicUrl = `http://127.0.0.1:${PORT}`;
   const base = createTestDeps(t.db, { responseValidation: "strip", publicUrl, clock: { now: () => new Date() } });
-  const h = await createPeopleHarness(base, { orgName: "Kopi Kaki Pte. Ltd.", slug: "kopi-kaki" });
+  const h = await createPeopleHarness(base, { orgName: "Qinghe Foods Pte. Ltd.", slug: "qinghe-foods" });
   const seeded = await seedPeople(h.deps, h.ports, h.actor(OWNER));
   // A barista starting today: the KET has to be issued within 14 days.
   const today = singaporeDate(new Date());
