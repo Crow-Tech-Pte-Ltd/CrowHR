@@ -14,6 +14,7 @@ import {
   MODULE_LABEL,
 } from "../../reports/api.ts";
 import { DownloadFeedback, DownloadMenu, useExportDownload } from "../../reports/download.tsx";
+import { ReportGroups } from "../../reports/report-groups.tsx";
 
 export const Route = createFileRoute("/_app/export-data")({
   component: ExportDataPage,
@@ -92,7 +93,7 @@ function ExportDataPage() {
   const hasReports = groups.size > 0;
   const hasFiles = workflows.length > 0 || canExportDirectory;
   return (
-    <div className="[container-type:inline-size]">
+    <>
       <PageHeader
         title={t("Export data")}
         description={
@@ -111,7 +112,7 @@ function ExportDataPage() {
           description={t("Reports and files you have access to appear here.")}
         />
       ) : null}
-      <div className="grid items-start gap-x-5 gap-y-6 [@container(min-width:52rem)]:grid-cols-2 [&>section:only-child]:col-span-full">
+      <ReportGroups>
         {[...groups].map(([module, reports]) => (
           <section key={module} aria-labelledby={`exports-${module}`}>
             <h2 id={`exports-${module}`} className={`mb-2 ${textStyle.section}`}>
@@ -176,7 +177,7 @@ function ExportDataPage() {
             </Card>
           </section>
         ) : null}
-      </div>
-    </div>
+      </ReportGroups>
+    </>
   );
 }

@@ -6,6 +6,7 @@ import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { useT } from "../../../i18n/index.ts";
 import { type CatalogueEntry, catalogueQuery, MODULE_LABEL } from "../../../reports/api.ts";
+import { ReportGroups } from "../../../reports/report-groups.tsx";
 
 export const Route = createFileRoute("/_app/reports/")({
   component: ReportsCatalogue,
@@ -52,7 +53,7 @@ function ReportsCatalogue() {
           )}
         />
       ) : (
-        <div className="flex flex-col gap-8">
+        <ReportGroups>
           {[...groups].map(([module, reports]) => (
             <section key={module} aria-labelledby={`reports-${module}`}>
               <h2 id={`reports-${module}`} className={cn("mb-2", textStyle.section)}>
@@ -81,7 +82,7 @@ function ReportsCatalogue() {
               </Card>
             </section>
           ))}
-        </div>
+        </ReportGroups>
       )}
     </>
   );
