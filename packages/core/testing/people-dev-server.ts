@@ -1,7 +1,7 @@
 /**
  * DEV/TEST ONLY: a local server running the real app (`createApp`: sessions,
  * CSRF, permission matrix, audit) on an in-memory PGlite seeded with the
- * fictional Kopi Kaki staff, plus the built web app.
+ * fictional Qinghe Foods staff, plus the built web app.
  *
  * Signing in: there is no first-run setup wizard yet (self-hosting
  * workstream), so `/__dev/as/<persona>` creates a real session for a seeded
@@ -42,7 +42,7 @@ async function main() {
   const t = await createTestDb();
   const publicUrl = `http://127.0.0.1:${PORT}`;
   const base = createTestDeps(t.db, { responseValidation: "strip", publicUrl, clock: { now: () => new Date() } });
-  const h = await createPeopleHarness(base, { orgName: "Kopi Kaki Pte. Ltd.", slug: "kopi-kaki" });
+  const h = await createPeopleHarness(base, { orgName: "Qinghe Foods Pte. Ltd.", slug: "qinghe-foods" });
   const seeded = await seedPeople(h.deps, h.ports, h.actor(OWNER));
   const deps = { ...h.deps, reportingScope: createReportingScopeResolver(t.db) };
   const members = new Map<string, Awaited<ReturnType<typeof seedMember>>>();

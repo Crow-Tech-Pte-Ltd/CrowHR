@@ -247,6 +247,11 @@ class CrowUITestCase: XCTestCase {
         return true
     }
 
+    var expectedCompanyName: String {
+        let name = ProcessInfo.processInfo.environment["CROWHR_SCREENSHOT_ORG"]
+        return name.flatMap { $0.isEmpty ? nil : $0 } ?? "Kampong Kopi Pte. Ltd."
+    }
+
     func connectAndSignIn(as email: String) {
         app.launch()
         let address = wait(app.textFields["connect.address"])
@@ -261,7 +266,7 @@ class CrowUITestCase: XCTestCase {
         org.tap()
         org.typeText("kampong-kopi")
         app.buttons["connect.continue"].tap()
-        XCTAssertEqual(wait(app.staticTexts["confirm.orgName"]).label, "Kampong Kopi Pte. Ltd.")
+        XCTAssertEqual(wait(app.staticTexts["confirm.orgName"]).label, expectedCompanyName)
         XCTAssertTrue(app.staticTexts["confirm.insecure"].exists || app.otherElements["confirm.insecure"].exists,
                       "Plain-http private address must show the not-encrypted warning")
         // The organisation's logo, served by the same server (meta logoUrl).
@@ -405,7 +410,7 @@ final class EssJourneyUITests: CrowUITestCase {
         let missing = wait(element("claim.missing"))
         XCTAssertFalse(missing.label.contains("claim type"), "New claim asks for a type while one is chosen: \(missing.label)")
         wait(app.textFields["claim.merchant"]).tap()
-        app.textFields["claim.merchant"].typeText("Kopi Kaki Cafe")
+        app.textFields["claim.merchant"].typeText("Qinghe Foods")
         app.textFields["claim.description"].tap()
         app.textFields["claim.description"].typeText("Team breakfast")
         app.textFields["claim.amount"].tap()
@@ -478,7 +483,7 @@ final class EssJourneyUITests: CrowUITestCase {
         let confirm = app.sheets.buttons["Sign out"].exists ? app.sheets.buttons["Sign out"] : app.buttons["Sign out"].firstMatch
         wait(confirm).tap()
         wait(app.buttons["signin.start"])
-        XCTAssertEqual(app.staticTexts["signin.orgName"].label, "Kampong Kopi Pte. Ltd.")
+        XCTAssertEqual(app.staticTexts["signin.orgName"].label, expectedCompanyName)
     }
 
     /// Nurul: a claim with two expenses, the second in ringgit at her card's rate with its SGD
@@ -490,7 +495,7 @@ final class EssJourneyUITests: CrowUITestCase {
 
         let claimsUnderMore = openFromMore("more.claims", sidebar: "Claims")
         wait(app.buttons["claims.new"]).tap()
-        fill(app.textFields["claim.merchant"], "Kopi Kaki Cafe")
+        fill(app.textFields["claim.merchant"], "Qinghe Foods")
         fill(app.textFields["claim.description"], "Team breakfast")
         fill(app.textFields["claim.amount"], "18.40")
         reveal(app.buttons["claim.camera"]).tap()

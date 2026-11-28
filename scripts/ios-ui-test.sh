@@ -28,6 +28,9 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 [[ -f apps/web/dist/index.html ]] || { echo "Build the web app first: bun run --cwd apps/web build" >&2; exit 1; }
+if [[ "${CROWHR_UI_STORE_SEED:-0}" == 1 ]]; then
+  export CROWHR_SCREENSHOT_ORG="Qinghe Foods Pte. Ltd."
+fi
 scripts/ios-ui-server.sh "$STATE" "$PORT" > "$STATE/server.log" 2>&1 &
 SERVER_PID=$!
 for _ in $(seq 1 150); do
@@ -47,9 +50,10 @@ sleep 3
 kill -0 "$TUNNEL_PID" 2>/dev/null || { echo "Tunnel failed (port $PORT busy on the Mac?)" >&2; exit 1; }
 
 scripts/ios-sync.sh
+SCREENSHOT_ORG="$(printf '%q' "${CROWHR_SCREENSHOT_ORG:-}")"
 set +e
 "${SSH[@]}" "$HOST" "cd $REMOTE && CROWHR_SIM_UDID=$UDID CROWHR_NET_ALLOW=127.0.0.1:$PORT CROWHR_STATUS_BAR=${CROWHR_STATUS_BAR:-} \
-  TEST_RUNNER_CROWHR_TEST_SERVER=http://127.0.0.1:$PORT scripts/ios-mac-test.sh ui -only-testing:${CROWHR_UI_ONLY:-CrowHRUITests} $*" | tee "$STATE/mac.log"
+  TEST_RUNNER_CROWHR_SCREENSHOT_ORG=$SCREENSHOT_ORG TEST_RUNNER_CROWHR_TEST_SERVER=http://127.0.0.1:$PORT scripts/ios-mac-test.sh ui -only-testing:${CROWHR_UI_ONLY:-CrowHRUITests} $*" | tee "$STATE/mac.log"
 STATUS=${PIPESTATUS[0]}
 set -e
 

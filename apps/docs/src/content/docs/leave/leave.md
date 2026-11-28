@@ -62,7 +62,7 @@ MOM's guidance is ambiguous on whether one day of no-pay leave removes a whole m
 
 **Apply for leave** on My leave opens the form: the leave type, the dates, the child where needed, an optional reason and the supporting document. For a single day, choose **Full day**, **Morning** or **Afternoon**; over several days, the first day can start **From noon** and the last day end **To noon**.
 
-![Applying for annual leave: four days counted out of five, Monday being Deepavali in lieu, with the balance before and after (fictional company)](../../../assets/screens/leave-apply.webp)
+![An annual leave application showing the selected dates and the balance before and after the request (fictional company)](../../../assets/screens/leave-apply.webp)
 
 As you fill it in, Crow HR shows how many days the request takes from each leave year, what is available and what is left after it. **Show dates** lists each date and why any date is not counted (rest day, off day, public holiday, not rostered). Rest days, off days and public holidays are left out automatically; for maternity, paternity, shared parental and adoption leave, public holidays inside the leave count, as the schemes count weeks.
 
@@ -91,7 +91,7 @@ When leave is approved for a date where the employee already has a shift on a pu
 
 Outpatient sick, hospitalisation, maternity, unpaid infant care, compassionate and no-pay leave are private by default.
 
-![The team calendar for two weeks, with sick, annual and paternity leave and a public holiday (fictional company)](../../../assets/screens/leave-team-calendar.webp)
+![The team leave calendar with employee leave and days off across two weeks (fictional company)](../../../assets/screens/leave-team-calendar.webp)
 
 ## Public holidays and days in lieu
 

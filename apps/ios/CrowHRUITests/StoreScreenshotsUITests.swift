@@ -53,7 +53,7 @@ final class StoreScreenshotsUITests: CrowUITestCase {
         wait(app.textFields["claim.amount"]).tap()
         app.textFields["claim.amount"].typeText("12.50")
         app.textFields["claim.merchant"].tap()
-        app.textFields["claim.merchant"].typeText("Kopi Kaki Cafe")
+        app.textFields["claim.merchant"].typeText("Qinghe Foods")
         app.textFields["claim.description"].tap()
         app.textFields["claim.description"].typeText("Breakfast with a supplier\n")
         app.buttons["claim.camera"].tap()

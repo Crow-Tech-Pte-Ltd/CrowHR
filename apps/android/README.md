@@ -106,7 +106,7 @@ notification itself (the tests send the same intent the notification carries).
   from the signed AAB (`bundletool build-apks --mode=universal`, debug-signed for the emulator)
   run by hand on `CrowHR_QA`: connect, sign in through Chrome, then every tab.
 - Store screenshots: `scripts/android-qa.sh store-shots` (1080 x 1920, demo-mode status bar,
-  real app against the fictional test server). With the e2e seed only four screens look right
+  real app against the test server started with `CROWHR_SCREENSHOT_ORG="Qinghe Foods Pte. Ltd."`). With the e2e seed only four screens look right
   (clock, leave request, approvals, new claim); better ones need a curated demo employee.
 - What was uploaded, verified and approved for each release is recorded in `store/approvals/`
   and `store/receipts/` (public ids and hashes only).

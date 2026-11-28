@@ -2,7 +2,7 @@ import type { APIRequestContext, Page } from "@playwright/test";
 
 /** Fictional e2e data (seeded by e2e/seed.ts). */
 export const E2E = {
-  org: { name: "Kampong Kopi Pte. Ltd.", slug: "kampong-kopi" },
+  org: { name: process.env.CROWHR_SCREENSHOT_ORG ?? "Kampong Kopi Pte. Ltd.", slug: "kampong-kopi" },
   password: "kopi peng siew dai 2026",
   members: {
     owner: { email: "owner@kampongkopi.example", name: "Nur Aisyah", roles: ["owner"] },
