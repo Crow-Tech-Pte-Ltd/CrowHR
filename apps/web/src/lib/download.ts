@@ -13,7 +13,16 @@ export async function downloadApiFile(path: string): Promise<{ fileName: string;
     const body = (await res.json().catch(() => null)) as ErrorEnvelope | null;
     throw new ApiError(res.status, body);
   }
-  const fileName = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "download";
+  const disposition = res.headers.get("content-disposition") ?? "";
+  let fileName = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "download";
+  const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+  if (encodedName) {
+    try {
+      fileName = decodeURIComponent(encodedName) || fileName;
+    } catch {
+      // Keep the ASCII name when the encoded filename is malformed.
+    }
+  }
   const excluded = JSON.parse(decodeURIComponent(res.headers.get("x-crowhr-excluded") ?? "%5B%5D")) as Excluded[];
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");

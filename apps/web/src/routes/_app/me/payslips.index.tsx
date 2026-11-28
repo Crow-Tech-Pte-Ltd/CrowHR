@@ -5,6 +5,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Download } from "lucide-react";
 import * as React from "react";
 import { useMe } from "../../../auth/session.ts";
+import { ApiDownloadLink } from "../../../components/api-download-link.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { type Locale, type Translate, useLocale, useT } from "../../../i18n/index.ts";
@@ -62,9 +63,9 @@ function translatedColumns(t: Translate, locale: Locale): ColumnDef<PayslipSumma
           variant="ghost"
           aria-label={t("Download {title} as PDF", { title: payslipTitle(row.original, row.original.month, locale) })}
         >
-          <a href={`/api/v1/payslips/${row.original.id}/pdf`} download onClick={(e) => e.stopPropagation()}>
+          <ApiDownloadLink href={`/api/v1/payslips/${row.original.id}/pdf`} onClick={(e) => e.stopPropagation()}>
             <Download aria-hidden /> <span className="hidden sm:inline">PDF</span>
-          </a>
+          </ApiDownloadLink>
         </Button>
       ),
       meta: { numeric: true },

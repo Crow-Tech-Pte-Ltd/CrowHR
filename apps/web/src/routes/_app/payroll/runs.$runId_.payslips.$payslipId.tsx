@@ -7,7 +7,7 @@ import { useLocale, useT } from "../../../i18n/index.ts";
 import { adminPayslipQuery, runQuery, runTitle } from "./-lib/api.ts";
 import { PayslipDocument } from "./-lib/ui.tsx";
 
-export const Route = createFileRoute("/_app/payroll/runs/$runId/payslips/$payslipId")({
+export const Route = createFileRoute("/_app/payroll/runs/$runId_/payslips/$payslipId")({
   component: AdminPayslip,
 });
 

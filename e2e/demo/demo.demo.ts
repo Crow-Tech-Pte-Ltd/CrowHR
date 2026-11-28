@@ -28,7 +28,7 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
 
   // The fictional work pass is a downloadable PDF in the HR document register.
   await pickPersona(page, "hr-admin");
-  await go(page, "/documents");
+  await go(page, "/documents?tab=expiring");
   await page.getByTestId("document-row").filter({ hasText: "Fictional work pass" }).click();
   const [workPass] = await Promise.all([
     page.waitForEvent("download"),
@@ -66,6 +66,21 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
   await expect(page.getByRole("heading", { level: 1, name: "Payroll cost" })).toBeVisible();
   await expect(page.getByRole("table").locator("tbody tr").first()).toBeVisible();
   await expect(page.getByText("Operations", { exact: true }).first()).toBeVisible();
+
+  await go(page, "/payroll");
+  await page
+    .getByRole("link", { name: /September 2026/ })
+    .first()
+    .click();
+  await page
+    .getByRole("table", { name: "Pay per employee" })
+    .getByRole("row")
+    .filter({ hasText: "Goh Jun Jie" })
+    .click();
+  await page.getByRole("dialog").getByRole("link", { name: "View payslip", exact: true }).click();
+  const adminPayslip = page.getByRole("article", { name: "Payslip, September 2026" });
+  await expect(adminPayslip).toContainText("Goh Jun Jie");
+  await expect(adminPayslip.getByRole("link", { name: "PDF", exact: true })).toBeVisible();
   await signOut(page);
 
   // 3. Manager: approve Maria's taxi claim from the Inbox.
@@ -122,6 +137,17 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
   await doc.getByTestId("acknowledge").click();
   await expect(doc.getByTestId("ack-status")).toContainText("Acknowledged");
   await page.keyboard.press("Escape");
+
+  await go(page, "/me/payslips");
+  await page.getByRole("link", { name: "Payslip, September 2026", exact: true }).click();
+  const employeePayslip = page.getByRole("article", { name: "Payslip, September 2026" });
+  await expect(employeePayslip).toContainText("Goh Jun Jie");
+  const [payslipPdf] = await Promise.all([
+    page.waitForEvent("download"),
+    employeePayslip.getByRole("link", { name: "PDF", exact: true }).click(),
+  ]);
+  expect(payslipPdf.suggestedFilename()).toMatch(/^payslip-2026-09-.+\.pdf$/);
+  expect((await readFile(await payslipPdf.path())).subarray(0, 5).toString()).toBe("%PDF-");
 
   // 4. Reset: back to the seeded company, the claim is waiting again.
   await page.getByTestId("demo-options").click();
