@@ -15,7 +15,14 @@ import { ChevronDown, ChevronRight, Download } from "lucide-react";
 import { can, useMe } from "../../auth/session.ts";
 import { PageHeader } from "../../components/page-header.tsx";
 import { ErrorNote } from "../../components/section.tsx";
-import { type CatalogueEntry, catalogueQuery, EXPORT_FORMATS, exportHref, MODULE_LABEL } from "../../reports/api.ts";
+import {
+  type CatalogueEntry,
+  catalogueQuery,
+  DATA_EXPORT_FORMATS,
+  exportHref,
+  MODULE_LABEL,
+  REPORT_EXPORT_FORMATS,
+} from "../../reports/api.ts";
 import { DownloadFeedback, useExportDownload } from "../../reports/download.tsx";
 
 export const Route = createFileRoute("/_app/export-data")({
@@ -139,7 +146,7 @@ function ExportDataPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {EXPORT_FORMATS.map(({ id, label }) => (
+                      {REPORT_EXPORT_FORMATS.map(({ id, label }) => (
                         <DropdownMenuItem key={id} onSelect={() => download.mutate(exportHref(report.id, {}, id))}>
                           {label} (.{id})
                         </DropdownMenuItem>
@@ -163,7 +170,7 @@ function ExportDataPage() {
                     Employee directory
                   </Link>
                   <div className="flex gap-2">
-                    {EXPORT_FORMATS.map(({ id, label }) => (
+                    {DATA_EXPORT_FORMATS.map(({ id, label }) => (
                       <Button
                         key={id}
                         size="sm"

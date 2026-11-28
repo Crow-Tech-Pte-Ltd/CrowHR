@@ -1,6 +1,15 @@
 /// <reference path="./regenerator.d.ts" />
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, type PDFFont, type PDFPage, rgb } from "pdf-lib";
+import {
+  PDFArray,
+  PDFContentStream,
+  PDFDocument,
+  type PDFFont,
+  type PDFPage,
+  PDFRawStream,
+  PDFRef,
+  rgb,
+} from "pdf-lib";
 import { AzeretMono_Regular, AzeretMono_SemiBold, Ubuntu_Medium, Ubuntu_Regular } from "./fonts.generated.ts";
 
 /**
@@ -94,6 +103,7 @@ export interface PdfMeta {
   createdAt: Date;
   /** All variable text, used to load optional script fonts before synchronous layout. */
   text?: string;
+  pageSize?: { width: number; height: number };
 }
 
 export async function createPdf(meta: PdfMeta): Promise<PdfCanvas> {
@@ -150,7 +160,8 @@ export async function createPdf(meta: PdfMeta): Promise<PdfCanvas> {
   };
   const width = (text: string, role: FontRole, size: number) =>
     runs(text, role).reduce((w, r) => w + r.font.widthOfTextAtSize(r.text, size), 0);
-  let page = doc.addPage([A4.width, A4.height]);
+  const { width: pageWidth, height: pageHeight } = meta.pageSize ?? A4;
+  let page = doc.addPage([pageWidth, pageHeight]);
   const canvas: PdfCanvas = {
     doc,
     missingGlyphs,
@@ -188,10 +199,25 @@ export async function createPdf(meta: PdfMeta): Promise<PdfCanvas> {
       });
     },
     addPage() {
-      page = doc.addPage([A4.width, A4.height]);
+      page = doc.addPage([pageWidth, pageHeight]);
     },
   };
   return canvas;
+}
+
+/** Compress a completed page so a long report only keeps one page's drawing operators in memory. */
+export function sealPdfPage(page: PDFPage): void {
+  const contents = page.node.Contents();
+  if (!(contents instanceof PDFArray)) return;
+  for (const ref of contents.asArray()) {
+    if (!(ref instanceof PDFRef)) continue;
+    const stream = page.doc.context.lookup(ref);
+    if (stream instanceof PDFContentStream) {
+      page.doc.context.assign(ref, PDFRawStream.of(stream.dict, stream.getContents()));
+    }
+  }
+  // Release the previous drawing stream and leave a fresh one for the page-number footer.
+  page.resetPosition();
 }
 
 export async function finishPdf(canvas: PdfCanvas): Promise<Uint8Array> {
@@ -201,7 +227,7 @@ export async function finishPdf(canvas: PdfCanvas): Promise<Uint8Array> {
       canvas.text(`Warning: unsupported characters (${codes}). Verify names in Crow HR.`, 48, 20, {
         page,
         size: 7,
-        maxWidth: A4.width - 96,
+        maxWidth: page.getWidth() - 96,
         color: rgb(0.7, 0.1, 0.1),
       });
   }

@@ -10,6 +10,8 @@ import { AppError } from "../errors.ts";
 import type { CellValue } from "../export/cells.ts";
 import { CSV_CONTENT_TYPE, csvStream } from "../export/csv.ts";
 import { writeXlsxWorkbook, XLSX_CONTENT_TYPE } from "../export/xlsx.ts";
+import { getCompanyBranding } from "../organisation/profile.ts";
+import { dateLabel, monthLabel } from "../payroll/engine/dates.ts";
 import { findReport, reportDefinitions } from "./registry.ts";
 import type { AnyReportDefinition, ReportColumn, ReportContext, ReportRow, ReportSummaryItem } from "./types.ts";
 
@@ -30,7 +32,7 @@ export const MAX_EXPORT_ROWS = 50_000;
 /** Rows the runner will hold while sorting; beyond the export limit nothing is shown either. */
 const MAX_ROWS = MAX_EXPORT_ROWS;
 
-export type ReportExportFormat = "csv" | "xlsx" | "json";
+export const REPORT_EXPORT_FORMATS = ["csv", "xlsx", "json", "pdf"] as const;
 
 export interface ReportQuery {
   page?: number;
@@ -308,18 +310,61 @@ function paramText(v: unknown): string {
   return v === null || v === undefined ? "" : String(v);
 }
 
+async function exportPdf(p: Prepared, rows: ReportRow[], totals: ReportRow | null) {
+  const { renderReportPdf } = await import("./pdf.ts");
+  const branding = await getCompanyBranding(p.ctx.deps, p.ctx.orgId);
+  const fields = new Map(p.def.fields.map((field) => [field.key, field]));
+  const parameters = Object.entries(p.params).flatMap(([key, param]) => {
+    const value = paramText(param);
+    if (!value) return [];
+    const field = fields.get(key);
+    const selected = field?.options?.find((option) => option.value === value)?.label ?? value;
+    const formatted =
+      field?.kind === "date" ? dateLabel(value) : field?.kind === "month" ? monthLabel(value) : selected;
+    const label = field?.label ?? (key === "runId" ? "Payroll run ID" : key);
+    return [`${label}: ${formatted}`];
+  });
+  parameters.push(`${rows.length.toLocaleString("en-SG")} ${rows.length === 1 ? "row" : "rows"}`);
+  const notes = [...(p.def.notes ?? [])];
+  if (p.redactedColumns.length) {
+    const titles = p.def
+      .columns(p.params)
+      .filter((col) => p.redactedColumns.includes(col.key))
+      .map((col) => col.title);
+    notes.unshift(`Columns left out: ${titles.join(", ")}.`);
+  }
+  return renderReportPdf({
+    ...branding,
+    title: p.def.title,
+    generatedAt: p.ctx.now,
+    columns: p.columns,
+    parameters,
+    rows,
+    totals,
+    summary: (await p.def.summary?.(rows, p.ctx, p.params)) ?? [],
+    emptyMessage: rows.length ? null : p.def.emptyMessage(p.params),
+    notes,
+  });
+}
+
 /**
  * Export of the full result (not the page) with the same columns and redactions. The CSV body is
  * streamed in 500-row chunks; the XLSX is encoded batch by batch. Audited with the report ID,
  * parameters, row count and redacted columns.
  */
-export async function exportReport(c: AppContext, id: string, query: ReportQuery, format: ReportExportFormat) {
+export async function exportReport(
+  c: AppContext,
+  id: string,
+  query: ReportQuery,
+  format: (typeof REPORT_EXPORT_FORMATS)[number],
+) {
   const deps: AppDeps = c.var.deps;
   const p = await prepare(c, id, query, "export");
   if (p.columns.some((col) => col.sensitivity === "salary")) requireRecentAuth(c);
   const sort = sortOf(p, query);
   const rows = sortRows(await collect(p), sort.key, sort.dir);
   const totals = rows.length ? totalsOf(p.columns, rows) : null;
+  const pdf = format === "pdf" ? await exportPdf(p, rows, totals) : null;
   await deps.db.transaction(async (tx) => {
     await recordAudit(tx, deps, auditContext(c), {
       action: "report.exported",
@@ -336,6 +381,11 @@ export async function exportReport(c: AppContext, id: string, query: ReportQuery
     "x-content-type-options": "nosniff",
     "x-report-rows": String(rows.length),
   };
+  if (pdf) {
+    return new Response(pdf as BodyInit, {
+      headers: { ...headers, "content-type": "application/pdf", "content-length": String(pdf.length) },
+    });
+  }
   async function* batches() {
     for (let i = 0; i < rows.length; i += 500) yield rows.slice(i, i + 500);
   }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { XLSX_CONTENT_TYPE } from "../export/xlsx.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
-import { catalogue, exportReport, type ReportExportFormat, type ReportQuery, runReport } from "./runner.ts";
+import { catalogue, exportReport, REPORT_EXPORT_FORMATS, type ReportQuery, runReport } from "./runner.ts";
 
 const cell = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 const columnType = z.enum([
@@ -72,7 +72,7 @@ const runQuery = z
 
 const reportId = z.object({ id: z.string().regex(/^[a-z_]+\.[a-z_]+$/, "Use a report ID such as people.headcount.") });
 
-/** Reports (openspec/changes/add-reporting): the catalogue, one report, and its CSV/XLSX/JSON export. */
+/** Reports (openspec/changes/add-reporting): the catalogue, one report, and its CSV/XLSX/JSON/PDF export. */
 export const reportsModule = defineModule({
   name: "reports",
   basePath: "/reports",
@@ -102,23 +102,23 @@ export const reportsModule = defineModule({
     defineRoute({
       method: "get",
       path: "/:id/export",
-      summary: "Export the full report as CSV (UTF-8 with BOM), XLSX or JSON, audit-logged",
+      summary: "Export the full report as CSV (UTF-8 with BOM), XLSX, JSON or PDF, audit-logged",
       access: "authenticated",
       request: {
         params: reportId,
-        query: runQuery.extend({ format: z.enum(["csv", "xlsx", "json"]).default("csv") }),
+        query: runQuery.extend({ format: z.enum(REPORT_EXPORT_FORMATS).default("csv") }),
       },
       responses: {
         200: {
-          description: "CSV, XLSX or JSON attachment",
-          contentType: ["text/csv", XLSX_CONTENT_TYPE, "application/json"],
+          description: "CSV, XLSX, JSON or PDF attachment",
+          contentType: ["text/csv", XLSX_CONTENT_TYPE, "application/json", "application/pdf"],
         },
       },
       errors: ["forbidden", "not_found", "too_many_rows", "reauth_required"],
       crossOrgExempt: "The path holds a report ID, not a record ID; rows are always the caller's organisation.",
       handler: async ({ c, params, query }) => {
-        const { format, ...rest } = query as ReportQuery & { format: ReportExportFormat };
-        return exportReport(c, params.id, rest, format);
+        const { format, ...rest } = query;
+        return exportReport(c, params.id, rest as ReportQuery, format);
       },
     }),
   ],
