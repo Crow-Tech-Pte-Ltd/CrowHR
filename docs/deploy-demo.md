@@ -1,9 +1,10 @@
 # Deploying the public demo to hr.crow.sg
 
 The live site is the Cloudflare Pages project `crowhr-demo`, custom domain `hr.crow.sg` (a proxied
-CNAME to `crowhr-demo.pages.dev`). Nothing in the repository deploys automatically: a maintainer
-builds and uploads it, and every step that touches Cloudflare or DNS needs the maintainer's approval
-(AGENTS.md hard rule 1).
+CNAME to `crowhr-demo.pages.dev`). After every change merged to Crow HR, build the demo and docs
+from the latest verified `main`, publish the build, and verify the live site before closing the work.
+Daniel authorized these routine uploads on 28 Nov 2026. The project uses Direct Upload. A merge
+alone leaves the upload to the agent responsible for the change.
 
 hr.crow.sg is one static Cloudflare Pages site: the in-browser demo at `/` and the documentation
 (apps/docs) at `/docs`. There is no backend, no Pages Function, no binding, no environment variable
@@ -52,22 +53,19 @@ The demo can offer a real Singpass login (then HR admin or Employee; nothing abo
    http://127.0.0.1:5181: first load, a persona, `/payroll`, `/about-demo`, `/docs/`, Reset.
    The preview server applies `_headers` and `_redirects` like Pages does.
 
-## Deploying (needs approval)
+## Deploying
 
-These use Crow Tech's Cloudflare account. Do not run them with any other account, and do not run
-them without approval.
+Use Crow Tech's main Cloudflare account. Standing authorization covers uploads to the existing
+`crowhr-demo` project. Get separate approval to create the project, change its settings or change DNS.
 
 1. **Create the Pages project** (once): in the Cloudflare dashboard, Workers & Pages → Create →
    Pages → "Upload assets" (Direct Upload), project name `crowhr-demo`, production branch `main`.
-   Or with Wrangler, logged in to that account: `bunx wrangler pages project create crowhr-demo --production-branch main`.
-   **Wrangler 4.159+** sends `pages` commands to the new Workers-based Pages and fails on this
-   folder ("Missing entry-point to Worker script or to assets directory"). Add `--force` to use
-   classic Pages, which this site is built for (`_headers`, `_redirects`). The project was created
-   with the API: `POST /accounts/<id>/pages/projects {"name":"crowhr-demo","production_branch":"main"}`.
-   Do not connect the GitHub repository (Git integration would build on Cloudflare with a
-   different toolchain and deploy without approval).
-2. **Upload**: from `apps/demo/`, `bunx wrangler pages deploy dist-site --project-name crowhr-demo --branch main --force`
-   (with `CLOUDFLARE_ACCOUNT_ID` and the account's key from the vault). Check the `*.crowhr-demo.pages.dev` preview URL first:
+   Use the existing project for routine uploads. Keep its Direct Upload setup so the build and tests
+   run with the Crow HR toolchain.
+2. **Upload**: use the account's key from the vault and set `CLOUDFLARE_ACCOUNT_ID`. From `apps/demo/`,
+   run `npx wrangler@4.169.0 pages deploy dist-site --project-name crowhr-demo --branch main --commit-hash "$(git rev-parse HEAD)"`.
+   Upload and verify the same artifact on a non-`main` branch first, then publish it to `main`.
+   Check the preview and the custom domain:
    - the demo loads its snapshot and signs in; no console errors; DevTools → Network shows requests to
      this origin only;
    - response headers on `/` include the CSP from `_headers`; `/docs/` has the docs CSP;
@@ -85,8 +83,10 @@ them without approval.
 
 ## Updating
 
-Run steps 1–4 of "Before deploying", then `bunx wrangler pages deploy` again. Visitors keep their
-data unless the data version changes, in which case their next visit starts from a fresh copy.
+Run steps 1–4 of "Before deploying", publish the resulting build, then check the workflows affected
+by the change and confirm the documented pages open on `hr.crow.sg`. Record the Git commit and Pages
+deployment ID. Visitors keep their data unless the data version changes, in which case their next
+visit starts from a fresh copy.
 `apps/demo/scripts/data-version.ts` hashes demo source, core's shared people seed and migrations,
 with `packages/demo/src/version.ts`'s release label as a prefix. Seed edits automatically change
 the asset URL and IndexedDB name; a manual version bump is optional.

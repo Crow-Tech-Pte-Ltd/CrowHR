@@ -5,7 +5,7 @@ QuickHR is the functional benchmark; we do not copy its UI, code, assets or bran
 
 ## Hard rules
 
-1. **Nothing goes live without explicit approval from Daniel**: no deploys (hr.crow.sg, servers), no DNS or Cloudflare changes, no store releases or submissions, no paid services. Pull requests are the exception: push a branch, open the PR, wait for green CI and squash-merge it yourself (standing approval, 10 Nov 2026). Merging doesn't deploy anything here.
+1. **Merge and publish the public demo after every change.** Push a branch, open the PR, wait for green CI and squash-merge it. Build the public demo and docs from the latest verified `main`, publish to `hr.crow.sg`, and verify the live site before calling the work complete ([runbook](docs/deploy-demo.md)). Daniel gave standing approval for these uploads to the existing `crowhr-demo` Pages project on 28 Nov 2026. Server deploys, DNS or Cloudflare settings changes, store releases and submissions, and paid services require separate approval.
 2. **Never mark placeholder or mocked functionality as done.** If something is stubbed, say so in code (`// NOT IMPLEMENTED:`), in the OpenSpec task list, and in `docs/limitations.md`.
 3. **Statutory numbers come from cited sources.** Every CPF/SDL/FWL/leave/overtime constant in `packages/sg-rules` carries an effective date and a source URL comment. No uncited magic numbers.
 4. **Money is integer cents** (`number`, must stay a safe integer). Never floats for money. Rounding is explicit and named (e.g. `roundHalfUpToDollar`).
