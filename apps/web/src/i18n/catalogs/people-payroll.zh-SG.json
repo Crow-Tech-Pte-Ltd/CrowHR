@@ -730,6 +730,7 @@
   "Show": "显示",
   "Show all {count}": "显示全部 {count} 项",
   "Show fewer": "收起",
+  "Show all columns": "显示所有列",
   "Show {column}": "显示{column}",
   "Showing the first 200 rows.": "显示前 200 行。",
   "Since": "生效日期",

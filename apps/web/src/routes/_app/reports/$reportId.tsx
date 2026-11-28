@@ -1,4 +1,5 @@
 import {
+  Button,
   Card,
   Checkbox,
   cn,
@@ -25,6 +26,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp, Info } from "lucide-react";
+import { useState } from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
 import { useT } from "../../../i18n/index.ts";
@@ -42,6 +44,18 @@ import { DownloadFeedback, DownloadMenu, useExportDownload } from "../../../repo
 
 type Search = Record<string, string>;
 
+const REGISTER_REVIEW_COLUMNS = new Set([
+  "payDate",
+  "employeeNumber",
+  "name",
+  "department",
+  "gross",
+  "employeeCpf",
+  "deductions",
+  "reimbursements",
+  "netPayable",
+]);
+
 export const Route = createFileRoute("/_app/reports/$reportId")({
   validateSearch: (s: Record<string, unknown>): Search =>
     Object.fromEntries(Object.entries(s).flatMap(([k, v]) => (v === undefined || v === null ? [] : [[k, String(v)]]))),
@@ -55,6 +69,7 @@ function ReportPage() {
   const navigate = Route.useNavigate();
   const q = useQuery(reportQuery(reportId, search));
   const download = useExportDownload();
+  const [allColumns, setAllColumns] = useState(false);
   const set = (patch: Search) => {
     const next: Search = { ...search, ...patch };
     for (const k of Object.keys(next)) if (next[k] === "") delete next[k];
@@ -62,6 +77,7 @@ function ReportPage() {
     void navigate({ search: next, replace: true });
   };
   const data = q.data;
+  const isRegister = data?.report.id === "payroll.register";
   const err = q.error instanceof ApiError ? q.error : null;
   const title = translate(data?.report.title ?? (q.isPending ? "Loading…" : "Report"));
   // Echo the resolved parameters (defaults filled by the server) into the export links.
@@ -78,13 +94,28 @@ function ReportPage() {
         title={title}
         description={data && translate(data.report.description)}
         actions={
-          data?.canExport ? (
-            <DownloadMenu
-              label={translate("Download")}
-              disabled={download.isPending || q.isPlaceholderData}
-              onChoose={(format) => download.mutate(exportHref(reportId, params, format))}
-            />
-          ) : null
+          isRegister || data?.canExport ? (
+            <>
+              {isRegister ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-pressed={allColumns}
+                  className={cn(allColumns && "bg-ink/5")}
+                  onClick={() => setAllColumns(!allColumns)}
+                >
+                  {translate("Show all columns")}
+                </Button>
+              ) : null}
+              {data?.canExport ? (
+                <DownloadMenu
+                  label={translate("Download")}
+                  disabled={download.isPending || q.isPlaceholderData}
+                  onChoose={(format) => download.mutate(exportHref(reportId, params, format))}
+                />
+              ) : null}
+            </>
+          ) : undefined
         }
       />
       <DownloadFeedback download={download} />
@@ -110,6 +141,9 @@ function ReportPage() {
       ) : (
         <ReportBody
           data={data}
+          columns={
+            isRegister && !allColumns ? data.columns.filter((c) => REGISTER_REVIEW_COLUMNS.has(c.key)) : data.columns
+          }
           search={search}
           onChange={set}
           stale={q.isFetching}
@@ -183,12 +217,14 @@ function Parameters({ data, search, onChange }: { data: ReportResult; search: Se
 
 function ReportBody({
   data,
+  columns,
   search,
   onChange,
   stale,
   error,
 }: {
   data: ReportResult;
+  columns: ReportResult["columns"];
   search: Search;
   onChange: (p: Search) => void;
   stale: boolean;
@@ -242,7 +278,7 @@ function ReportBody({
           >
             <TableHeader className="sticky top-0 z-10 bg-surface-50 shadow-[0_1px_0_0_hsl(var(--ink)/0.1)]">
               <TableRow>
-                {data.columns.map((c) => {
+                {columns.map((c) => {
                   const active = data.sort.key === c.key;
                   return (
                     <TableHead
@@ -277,8 +313,15 @@ function ReportBody({
               {data.rows.map((r, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: report rows have no ID; the page is the identity.
                 <TableRow key={`${data.page}-${i}`} data-testid="report-row">
-                  {data.columns.map((c) => (
-                    <TableCell key={c.key} numeric={isNumeric(c.type)} className="h-9 py-1.5">
+                  {columns.map((c) => (
+                    <TableCell
+                      key={c.key}
+                      numeric={isNumeric(c.type)}
+                      className={cn(
+                        "h-9 py-1.5",
+                        (c.key === "runId" || c.key === "supersededBy") && "[overflow-wrap:anywhere]",
+                      )}
+                    >
                       {formatCell(r[c.key], c.type, c.key)}
                     </TableCell>
                   ))}
@@ -288,7 +331,7 @@ function ReportBody({
             {data.totals ? (
               <TableFooter className="sticky bottom-0 bg-surface-100">
                 <TableRow data-testid="report-totals" className="font-semibold">
-                  {data.columns.map((c) => (
+                  {columns.map((c) => (
                     <TableCell key={c.key} numeric={isNumeric(c.type)} className="h-9 py-1.5">
                       {data.totals?.[c.key] === undefined ? "" : formatCell(data.totals[c.key] as Cell, c.type)}
                     </TableCell>

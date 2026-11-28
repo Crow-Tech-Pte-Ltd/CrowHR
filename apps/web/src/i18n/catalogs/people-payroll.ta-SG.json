@@ -730,6 +730,7 @@
   "Show": "காட்டு",
   "Show all {count}": "அனைத்து {count} உருப்படிகளையும் காட்டு",
   "Show fewer": "குறைவாகக் காட்டு",
+  "Show all columns": "எல்லா நெடுவரிசைகளையும் காட்டு",
   "Show {column}": "{column} காட்டு",
   "Showing the first 200 rows.": "முதல் 200 வரிகள் காட்டப்படுகின்றன.",
   "Since": "முதல்",

@@ -196,6 +196,16 @@ test("downloads a report PDF from both report entry points", async ({ page }) =>
     page.getByRole("menuitem", { name: "PDF (.pdf)" }).click(),
   ]);
   expect(shortcut.suggestedFilename()).toBe(report.suggestedFilename());
+
+  await go(page, "/reports/payroll.register?from=2026-09&to=2026-09");
+  const register = page.getByRole("table", { name: "Payroll register", exact: true });
+  await expect(register.getByRole("columnheader", { name: /^Net payable/ })).toBeVisible();
+  await expect(register.getByRole("columnheader", { name: "Run ID", exact: true })).toHaveCount(0);
+  const allColumns = page.getByRole("button", { name: "Show all columns", exact: true });
+  await allColumns.click();
+  await expect(register.getByRole("columnheader", { name: "Run ID", exact: true })).toBeVisible();
+  await allColumns.click();
+  await expect(register.getByRole("columnheader", { name: "Run ID", exact: true })).toHaveCount(0);
 });
 
 // The fallback remains a working real demo, including after a malformed snapshot reaches PGlite.
