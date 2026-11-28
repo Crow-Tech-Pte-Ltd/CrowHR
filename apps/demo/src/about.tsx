@@ -81,9 +81,8 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
               On your phone
             </h2>
             <p className="max-w-2xl text-ui leading-6 text-primary-300">
-              The Crow HR mobile apps need a real server, so they can't use this in-browser demo. Get your own demo
-              company on Crow Tech's demo server instead: the same Kopi Kaki, private to you, signed in by picking a
-              person in the app and in the browser, and deleted with everything in it after a few days.{" "}
+              Start a private company on Crow Tech's demo server to try the mobile apps. Pick a person to sign in on
+              your phone or in the browser. Your copy expires after a few days.{" "}
               <a
                 href={tryUrl() ?? undefined}
                 className="focus-ring rounded-sm font-medium text-biru-400 underline-offset-2 hover:underline"
@@ -117,7 +116,7 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
 
         <section className="mt-10" aria-labelledby="company">
           <h2 id="company" className="mb-2 font-azeret text-sm font-semibold">
-            The company: Kopi Kaki Pte. Ltd.
+            The company: Qinghe Foods Pte. Ltd.
           </h2>
           <p className="mb-3 max-w-2xl text-ui leading-6 text-primary-300">
             A fictional café group with an office, a central kitchen and three outlets. 25 people work there (one starts

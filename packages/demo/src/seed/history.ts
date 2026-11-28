@@ -8,7 +8,7 @@ import type { DemoPeople } from "./people.ts";
 import { receiptPng } from "./receipt.ts";
 
 /**
- * July to October 2026 at Kopi Kaki, step by step, as the people involved. Each month the payroll
+ * July to October 2026 at Qinghe Foods, step by step, as the people involved. Each month the payroll
  * admin prepares the run with that month's items, the owner approves it in her Inbox, payslips are
  * released and the run is marked paid. Claims are filed, approved (manager, then HR) and reimbursed
  * by the next run. October ends with a computed draft run and work waiting for every persona.
@@ -55,7 +55,7 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
     fwlSkill: "BASIC_SKILLED",
     debitBankBic: "DBSSSGSG",
     debitAccountNumber: "0720123456",
-    debitAccountName: "Kopi Kaki Pte. Ltd.",
+    debitAccountName: "Qinghe Foods Pte. Ltd.",
   });
   // Payroll → Allowance treatment, set once: the fixed shift allowance is part of the gross rate of
   // pay, the transport allowance (a travelling allowance) is not. Unset, every run would warn.
@@ -156,7 +156,7 @@ export async function seedHistory(h: HistoryInput): Promise<Record<string, strin
   };
 
   /**
-   * Kopi Kaki moved to Crow HR in July 2026, so its January to June figures come from the previous
+   * Qinghe Foods moved to Crow HR in July 2026, so its January to June figures come from the previous
    * payroll system, through People → Import → Year-to-date balances (the import an install uses).
    * The figures are fictional: each person's July pay (ordinary wages, CPF, SHG) for every month
    * they were employed from January to June, with no bonuses. With them in place, payroll has the

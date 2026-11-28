@@ -23,7 +23,7 @@ import { assertOrganisationIsNew, type CopyOptions, type CopyReport, copyOrganis
 
 /**
  * The sample company for a real Crow HR server (App Store / Google Play review, sales demos):
- * the public demo's fictional café group Kopi Kaki Pte. Ltd., seeded by the demo's own seed
+ * the public demo's fictional café group Qinghe Foods Pte. Ltd., seeded by the demo's own seed
  * (people through the people services, four months of history through the public API), then
  * brought up to the real date the same way: October's payroll is approved and released, rosters
  * are published for the coming weeks, last week's shifts are clocked, and fresh requests wait for
@@ -37,7 +37,8 @@ import { assertOrganisationIsNew, type CopyOptions, type CopyReport, copyOrganis
  * if the slug or any of its email addresses already exists.
  */
 
-export const SAMPLE_ORG = DEMO_ORG;
+// The standalone sample company's ID and reviewer email domain are used by existing installs.
+export const SAMPLE_ORG = { name: DEMO_ORG.name, slug: "kopi-kaki", emailDomain: "kopikaki.example" } as const;
 
 /**
  * The two accounts store reviewers use: Hafiz, a barista at Jurong Point, and his line manager
@@ -75,7 +76,7 @@ export interface PrepareInput {
   newPassword?: () => string;
   /**
    * The copy's organisation: its slug, the domain of its people's emails and its name. Default:
-   * SAMPLE_ORG (`kopi-kaki`) at `kopikaki.example`, as the store-review script installs it.
+   * SAMPLE_ORG, using the existing store-review organisation ID and email domain.
    */
   org?: { slug: string; emailDomain: string; name?: string };
   /**
@@ -154,7 +155,7 @@ function recordingFileStore() {
   return { store, files };
 }
 
-/** Seeds Kopi Kaki into `scratch` and brings it up to `now`. Touches nothing else. */
+/** Seeds Qinghe Foods into `scratch` and brings it up to `now`. Touches nothing else. */
 export async function prepareSampleCompany(input: PrepareInput): Promise<PreparedSampleCompany> {
   const now = input.now ?? new Date();
   const today = singaporeDate(now);
@@ -185,14 +186,14 @@ export async function prepareSampleCompany(input: PrepareInput): Promise<Prepare
   const org = {
     slug: input.org?.slug ?? SAMPLE_ORG.slug,
     name: input.org?.name ?? SAMPLE_ORG.name,
-    emailDomain: input.org?.emailDomain,
+    emailDomain: input.org?.emailDomain ?? SAMPLE_ORG.emailDomain,
   };
-  progress("Seeding Kopi Kaki's history (June to October 2026)");
+  progress("Seeding company history (June to October 2026)");
   const seed = await seedDemo(deps, clock, input.publicUrl, { org, emailDomain: org.emailDomain });
   if (org.emailDomain) {
     // Work emails on the employee records match the sign-in emails (not unique, so no clash).
     await scratch.execute(
-      sql`update employees set work_email = regexp_replace(work_email, '@kopikaki\\.example$', ${`@${org.emailDomain}`}) where org_id = ${seed.orgId} and work_email is not null`,
+      sql`update employees set work_email = regexp_replace(work_email, '@qinghefoods\\.example$', ${`@${org.emailDomain}`}) where org_id = ${seed.orgId} and work_email is not null`,
     );
   }
   const app = createApp(deps);

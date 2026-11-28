@@ -72,7 +72,7 @@ export async function openDemo(input: OpenDemoInput) {
     input.onStage?.("migrate", "Creating the database");
     await applyMigrations(db, input.migrations);
     stage("migrate");
-    input.onStage?.("seed", "Seeding Kopi Kaki's payroll history");
+    input.onStage?.("seed", "Seeding payroll history for Qinghe Foods");
     const secretKey = crypto.getRandomValues(new Uint8Array(32));
     const seedClock = movableSeedClock("2026-06-22T01:00:00.000Z");
     const seedMailer = createOutboxMailer(sql, { now: seedClock.now });

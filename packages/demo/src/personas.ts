@@ -4,7 +4,7 @@
  */
 
 /** The password of every seeded account (shown on the sign-in page and the About page). */
-export const DEMO_PASSWORD = "kopi-kaki-demo";
+export const DEMO_PASSWORD = "qinghe-foods-demo";
 
 export interface PersonaDef {
   key: "owner" | "hr" | "payroll" | "manager" | "employee";
@@ -23,7 +23,7 @@ export const PERSONAS: readonly PersonaDef[] = [
     key: "owner",
     label: "Owner",
     employee: "owner",
-    email: "kahhui@kopikaki.example",
+    email: "kahhui@qinghefoods.example",
     roles: ["owner"],
     name: "Lim Kah Hui",
     blurb: "Managing director. Approves payroll and her direct reports' claims.",
@@ -32,7 +32,7 @@ export const PERSONAS: readonly PersonaDef[] = [
     key: "hr",
     label: "HR admin",
     employee: "hr",
-    email: "aisyah@kopikaki.example",
+    email: "aisyah@qinghefoods.example",
     roles: ["hr_admin"],
     name: "Nur Aisyah binte Rahman",
     blurb: "People records, change requests and the second claims step.",
@@ -41,7 +41,7 @@ export const PERSONAS: readonly PersonaDef[] = [
     key: "payroll",
     label: "Payroll admin",
     employee: "fin",
-    email: "chloe@kopikaki.example",
+    email: "chloe@qinghefoods.example",
     roles: ["payroll_admin"],
     name: "Chloe de Souza",
     blurb: "Prepares the monthly run, bank file and CPF file.",
@@ -50,7 +50,7 @@ export const PERSONAS: readonly PersonaDef[] = [
     key: "manager",
     label: "Manager",
     employee: "jp_lead",
-    email: "siti@kopikaki.example",
+    email: "siti@qinghefoods.example",
     roles: [],
     name: "Siti Nurhaliza binte Osman",
     blurb: "Jurong Point outlet supervisor. Approves her team's claims.",
@@ -59,7 +59,7 @@ export const PERSONAS: readonly PersonaDef[] = [
     key: "employee",
     label: "Employee",
     employee: "barista1",
-    email: "junjie@kopikaki.example",
+    email: "junjie@qinghefoods.example",
     roles: [],
     name: "Goh Jun Jie",
     blurb: "Barista at Tanjong Pagar. Payslips, claims and his own profile.",
@@ -68,12 +68,12 @@ export const PERSONAS: readonly PersonaDef[] = [
 
 /** Other members (so their managers and claims are real), listed under the personas. */
 export const OTHER_MEMBERS: readonly { employee: string; email: string }[] = [
-  { employee: "pt1", email: "huimin@kopikaki.example" },
-  { employee: "tb_lead", email: "meixuan@kopikaki.example" },
-  { employee: "joiner", email: "darren@kopikaki.example" },
-  { employee: "leaver_oct", email: "priyanka@kopikaki.example" },
-  { employee: "opsmgr", email: "rajesh@kopikaki.example" },
-  { employee: "tp_lead", email: "weiming@kopikaki.example" },
-  { employee: "barista2", email: "hafiz@kopikaki.example" },
-  { employee: "spass", email: "maria@kopikaki.example" },
+  { employee: "pt1", email: "huimin@qinghefoods.example" },
+  { employee: "tb_lead", email: "meixuan@qinghefoods.example" },
+  { employee: "joiner", email: "darren@qinghefoods.example" },
+  { employee: "leaver_oct", email: "priyanka@qinghefoods.example" },
+  { employee: "opsmgr", email: "rajesh@qinghefoods.example" },
+  { employee: "tp_lead", email: "weiming@qinghefoods.example" },
+  { employee: "barista2", email: "hafiz@qinghefoods.example" },
+  { employee: "spass", email: "maria@qinghefoods.example" },
 ];

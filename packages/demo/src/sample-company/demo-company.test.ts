@@ -23,7 +23,7 @@ import { createDemoCompanyProvisioner, demoCompanyPersonaInfo } from "./demo-com
 
 /**
  * Demo companies with the real sample company (openspec add-demo-companies 1.4): two visitors'
- * copies on a server that also hosts a real organisation. Each copy is the whole Kopi Kaki, with
+ * copies on a server that also hosts a real organisation. Each copy is the whole Qinghe Foods, with
  * its own short name and email domain, no passwords and the demo flag set on insert; and the
  * people the try page promises work end to end: Hafiz applies for leave, Siti approves it.
  */
@@ -94,7 +94,7 @@ describe("demo companies with the real sample company", () => {
     for (const s of [a, b]) {
       const org = await orgOf(s.slug);
       // The seed saves the company profile, which names the organisation by its trading name.
-      expect(org.name).toBe("Kopi Kaki");
+      expect(org.name).toBe("Qinghe Foods");
       expect(org.demoExpiresAt?.toISOString()).toBe(s.expiresAt);
       expect(org.demoClaimedAt?.toISOString()).toBe(NOW.toISOString());
       // organisations.uen is unique on the server: copies never take the sample company's UEN.
@@ -108,14 +108,14 @@ describe("demo companies with the real sample company", () => {
       expect(userIds).toHaveLength(13);
       const users = await target.db.select().from(schema.users).where(inArray(schema.users.id, userIds));
       for (const u of users) {
-        expect(u.email.endsWith(`@${s.slug}.kopikaki.example`), u.email).toBe(true);
+        expect(u.email.endsWith(`@${s.slug}.qinghefoods.example`), u.email).toBe(true);
         expect(u.passwordHash).toBeNull();
       }
       const employees = await target.db
         .select({ workEmail: schema.employees.workEmail })
         .from(schema.employees)
         .where(eq(schema.employees.orgId, org.id));
-      expect(employees.filter((e) => e.workEmail?.endsWith("@kopikaki.example"))).toEqual([]);
+      expect(employees.filter((e) => e.workEmail?.endsWith("@qinghefoods.example"))).toEqual([]);
       expect((await verifyChain(target.db, org.id)).ok).toBe(true);
       const payslips = await target.db
         .select({ id: schema.payrollPayslips.id })

@@ -95,7 +95,7 @@ Invitations and password-reset emails are currently sent directly by the sign-in
 | `SETUP_GATE` | `true` | Redirect every page to `/setup` until setup is done. Tests only. |
 | `NODE_ENV` | `production` in the image | Outside the image (development) `PUBLIC_URL` defaults to `http://localhost:8080` and the database to `pglite:./data/pglite`. |
 | `DEMO_SINGPASS_PROVIDER_ID` | unset | Only for hosting the public demo's Singpass login: the id of this server's Singpass method (as in its redirect URI). Set together with `DEMO_SINGPASS_RETURN_URL`. Nobody is signed in on this server and nothing about the person is kept. See [Singpass login](/docs/admin/sso/singpass/#public-demo). |
-| `DEMO_SINGPASS_RETURN_URL` | unset | The demo sign-in page (full `https://` address, for example `https://hr.crow.sg/sign-in/kopi-kaki`) that demo visitors return to after Singpass. Set together with `DEMO_SINGPASS_PROVIDER_ID`. |
+| `DEMO_SINGPASS_RETURN_URL` | unset | The demo sign-in page (full `https://` address, for example `https://hr.crow.sg/sign-in/qinghe-foods`) that demo visitors return to after Singpass. Set together with `DEMO_SINGPASS_PROVIDER_ID`. |
 
 ## Set by the image or compose file
 
@@ -123,7 +123,7 @@ Requests default to a 1 MB body limit. Dedicated receipt/document uploads, CSV i
 
 ## Demo companies
 
-Only for a public demo server, such as the one Crow Tech runs for people who want to try the apps. Never turn this on for a company's own install. With `DEMO_COMPANIES=1`, anyone can open `/try` on the server, get a private copy of the fictional sample company Kopi Kaki in one tap, and sign in by picking a person (owner, HR admin, payroll admin, manager, employee), on the web and in the Crow HR mobile apps. Each copy is deleted with everything in it after `DEMO_COMPANY_TTL_HOURS`. The server stays a normal server for its other organisations.
+Only for a public demo server, such as the one Crow Tech runs for people who want to try the apps. Never turn this on for a company's own install. With `DEMO_COMPANIES=1`, anyone can open `/try` on the server, get a private copy of the fictional sample company Qinghe Foods in one tap, and sign in by picking a person (owner, HR admin, payroll admin, manager, employee), on the web and in the Crow HR mobile apps. Each copy is deleted with everything in it after `DEMO_COMPANY_TTL_HOURS`. The server stays a normal server for its other organisations.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |

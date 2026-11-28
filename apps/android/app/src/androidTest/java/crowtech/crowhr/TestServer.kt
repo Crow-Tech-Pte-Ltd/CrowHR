@@ -313,7 +313,7 @@ object TestServer {
     fun demoCompaniesOn(): Boolean = call("GET", "/api/v1/demo-companies/config", null).status == 200
 
     /**
-     * A new private copy of Kopi Kaki, as the try page starts one. With no ready copies
+     * A new private demo company, as the try page starts one. With no ready copies
      * (DEMO_COMPANY_POOL_SIZE=0) the server seeds it there and then: about 20 s on a workstation.
      */
     fun startDemoCompany(): JsonObject {

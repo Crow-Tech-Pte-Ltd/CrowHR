@@ -39,7 +39,7 @@ export function rememberedTryCompany(now = Date.now()): TryCompany | null {
       localStorage.removeItem(KEY);
       return null;
     }
-    return { name: "Kopi Kaki", ...parsed } as TryCompany;
+    return { name: "Qinghe Foods", ...parsed } as TryCompany;
   } catch {
     return null;
   }

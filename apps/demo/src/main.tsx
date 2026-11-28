@@ -166,6 +166,10 @@ async function runApp() {
 
 async function startApp(t0: number) {
   const { client, timings, info } = await bootDemo();
+  // Keep bookmarked sign-in links and configured Singpass return URLs working after the rename.
+  if (/^\/sign-in\/kopi-kaki\/?$/.test(location.pathname)) {
+    history.replaceState(history.state, "", `/sign-in/${info.orgSlug}${location.search}${location.hash}`);
+  }
   interceptFetch(client);
   serveServiceWorker(client);
   startTicking(client);

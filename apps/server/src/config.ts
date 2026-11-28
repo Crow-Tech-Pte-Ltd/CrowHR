@@ -305,7 +305,7 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     }
     if (!ok) {
       fail(
-        `DEMO_SINGPASS_RETURN_URL must be a full http:// or https:// address of the demo's sign-in page, without a #fragment, for example DEMO_SINGPASS_RETURN_URL=https://hr.crow.sg/sign-in/kopi-kaki (got "${DEMO_SINGPASS_RETURN_URL}"). Set it in .env.`,
+        `DEMO_SINGPASS_RETURN_URL must be a full http:// or https:// address of the demo's sign-in page, without a #fragment, for example DEMO_SINGPASS_RETURN_URL=https://hr.crow.sg/sign-in/qinghe-foods (got "${DEMO_SINGPASS_RETURN_URL}"). Set it in .env.`,
       );
     }
   }

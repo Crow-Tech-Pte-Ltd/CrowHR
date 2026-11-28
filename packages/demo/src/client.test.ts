@@ -33,7 +33,7 @@ const okResponse = (status: number, body: unknown): WireResponse => ({
 
 const BOOT = {
   timings: { stages: [], totalMs: 1, seeded: true },
-  info: { dataVersion: "v", orgSlug: "kopi-kaki", today: "2026-10-31", clockOffsetMs: 0, seededAt: "x" },
+  info: { dataVersion: "v", orgSlug: "qinghe-foods", today: "2026-10-31", clockOffsetMs: 0, seededAt: "x" },
 };
 
 describe("demo client (page side of the worker bridge)", () => {
@@ -56,7 +56,7 @@ describe("demo client (page side of the worker bridge)", () => {
     await expect(client.send({ method: "GET", url: "/api/v1/me", headers: [], body: null })).rejects.toThrow(/boot/);
     const boot = client.boot("https://hr.crow.sg", "v");
     expect(client.boot("https://hr.crow.sg", "v")).toBe(boot);
-    expect((await boot).info.orgSlug).toBe("kopi-kaki");
+    expect((await boot).info.orgSlug).toBe("qinghe-foods");
 
     const res = await client.fetch(
       new Request("https://hr.crow.sg/api/v1/claims?mine=true", {

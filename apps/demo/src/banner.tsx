@@ -135,7 +135,7 @@ function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset the demo?</AlertDialogTitle>
             <AlertDialogDescription>
-              This deletes everything you changed in this browser and loads Kopi Kaki's data fresh, as it was on{" "}
+              This deletes everything you changed in this browser and restores the Qinghe Foods demo as it was on{" "}
               {formatDate(info.today)}. Other visitors are never affected: each browser has its own copy.
             </AlertDialogDescription>
           </AlertDialogHeader>

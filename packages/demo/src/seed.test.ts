@@ -69,7 +69,7 @@ describe("demo seed", () => {
 
   it("seeds on first open, and a second open finds the data (no re-seed)", async () => {
     expect(demo.timings.seeded).toBe(true);
-    expect(demo.info).toMatchObject({ dataVersion: "test", orgSlug: "kopi-kaki", today: "2026-10-31" });
+    expect(demo.info).toMatchObject({ dataVersion: "test", orgSlug: "qinghe-foods", today: "2026-10-31" });
     const again = await openDemo({
       pglite,
       origin: ORIGIN,
@@ -89,10 +89,10 @@ describe("demo seed", () => {
     expect(employees).toHaveLength(27);
     for (const e of employees) {
       expect(e.idNumberMasked).toMatch(/^[STFGM]\*{4}\d{3}[A-Z]$/);
-      if (e.workEmail) expect(e.workEmail).toMatch(/@kopikaki\.example$/);
+      if (e.workEmail) expect(e.workEmail).toMatch(/@qinghefoods\.example$/);
     }
     const users = await demo.deps.db.select().from(schema.users);
-    for (const u of users) expect(u.email).toMatch(/@kopikaki\.example$/);
+    for (const u of users) expect(u.email).toMatch(/@qinghefoods\.example$/);
     expect(new Set(employees.map((e) => e.residencyStatus))).toEqual(new Set(["citizen", "pr", "foreigner"]));
   });
 
@@ -262,7 +262,7 @@ describe("demo seed", () => {
   });
 
   it("lists Google, Microsoft and Singpass on the sign-in page (Singpass has generated keys, so it counts as set up)", async () => {
-    const res = await demo.app.request("/api/v1/auth/methods?org=kopi-kaki");
+    const res = await demo.app.request("/api/v1/auth/methods?org=qinghe-foods");
     const methods = (await res.json()) as { providers: { kind: string }[]; demoMode: boolean };
     expect(methods.demoMode).toBe(true);
     expect(methods.providers.map((p) => p.kind).sort()).toEqual(["entra", "google", "singpass"]);
@@ -271,6 +271,6 @@ describe("demo seed", () => {
   it("sent its emails to the Demo outbox", async () => {
     const outbox = await demo.outbox();
     expect(outbox.length).toBeGreaterThan(0);
-    for (const m of outbox) expect(m.to).toMatch(/@kopikaki\.example$/);
+    for (const m of outbox) expect(m.to).toMatch(/@qinghefoods\.example$/);
   });
 });
