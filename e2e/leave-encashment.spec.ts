@@ -58,9 +58,14 @@ test("policy-gated employee request, HR employee tab, approval and payroll chang
     expect(decision.status(), await decision.text()).toBe(200);
     await page.reload();
     await expect(page.getByText("Awaiting payroll", { exact: true })).toBeVisible();
-    const month = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 7);
+    const singaporeNow = new Date(Date.now() + 8 * 3_600_000);
+    const month = singaporeNow.toISOString().slice(0, 7);
+    // Payroll includes encashments approved by its pay date, even when CI runs after the 28th.
+    const payDate = new Date(Date.UTC(singaporeNow.getUTCFullYear(), singaporeNow.getUTCMonth() + 1, 0))
+      .toISOString()
+      .slice(0, 10);
     const created = await payroll.request.post("/api/v1/payroll/runs", {
-      data: { kind: "regular", month, payDate: `${month}-28` },
+      data: { kind: "regular", month, payDate },
     });
     expect(created.status(), await created.text()).toBe(201);
     const run = await created.json();
