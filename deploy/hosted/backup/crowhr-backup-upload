@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+die() { printf '%s\n' "$*" >&2; exit 1; }
+
+[[ $# == 3 ]] || die 'Usage: crowhr-backup-upload VOLUME REMOTE:BUCKET/PREFIX RCLONE_CONFIG'
+volume=$1
+destination=$2
+config=$3
+
+[[ "$volume" =~ ^[a-z0-9][a-z0-9_-]*_backups$ ]] || die 'Use the Compose project backups volume name.'
+[[ "$destination" =~ ^[A-Za-z0-9_][A-Za-z0-9_-]*:[A-Za-z0-9][A-Za-z0-9.-]*(/[A-Za-z0-9][A-Za-z0-9_.-]*)+$ ]] ||
+  die 'Use an rclone remote with a dedicated backup prefix, such as r2:private-bucket/client-a.'
+[[ "$config" == /* && -f "$config" && -r "$config" ]] || die 'Give the absolute path to a readable rclone configuration file.'
+
+# This job runs on the same Linux host as Docker and reads an existing local volume.
+# An invalid or missing volume must fail here rather than create an empty one by accident.
+metadata=$(docker --host unix:///var/run/docker.sock volume inspect \
+  --format '{{.Driver}}:{{index .Labels "com.docker.compose.volume"}}:{{.Mountpoint}}' "$volume")
+[[ "$metadata" == local:backups:/* ]] || die 'Expected the app’s local Compose backups volume.'
+source_dir=${metadata#local:backups:}
+[[ -d "$source_dir" && -r "$source_dir" && -x "$source_dir" ]] || die 'Cannot read the backup volume on this host.'
+
+shopt -s nullglob
+archives=()
+for archive in "$source_dir"/crowhr-backup-*.tar.gz.age; do
+  name=${archive##*/}
+  [[ "$name" =~ ^crowhr-backup-[0-9]{8}T[0-9]{6}Z(-[a-z0-9-]+)?\.tar\.gz\.age$ ]] || continue
+  [[ -f "$archive" && ! -L "$archive" ]] || die "Expected a regular backup archive: $name"
+  # A suffix alone does not guarantee that the archive is encrypted. Read only the age header.
+  cmp --silent --bytes=22 -- "$archive" <(printf 'age-encryption.org/v1\n') || die "Invalid age header: $name"
+  archives+=("$name")
+done
+(( ${#archives[@]} > 0 )) || die 'There are no encrypted backups to upload. Run crowhr backup with a passphrase first.'
+
+# `copy` retains remote objects after local retention removes them. `--immutable` detects differing
+# objects with the same name instead of replacing them. The bucket holds its own retention policy.
+printf '%s\n' "${archives[@]}" | rclone --config "$config" copy "$source_dir" "$destination" \
+  --files-from-raw - --immutable --checksum --s3-no-check-bucket --transfers 1 --stats-one-line --log-level INFO

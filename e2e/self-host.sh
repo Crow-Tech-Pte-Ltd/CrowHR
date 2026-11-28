@@ -9,7 +9,7 @@
 #
 # Steps: install with only PUBLIC_URL set → healthy → setup wizard in a real browser → backup →
 # wipe everything → fresh install → restore → data, files, key and sign-in back → lost data volume
-# refused and recovered with --secrets-only → behind Caddy, nginx (in Docker and on the host) and
+# refused and recovered with --secrets-only → behind Caddy and nginx (in Docker and on the host) and
 # Traefik, configured as on the reverse-proxy docs page, with and without TRUSTED_PROXIES.
 #
 # Needs docker (compose v2), curl, jq and openssl. Traefik's Docker provider gets the Docker socket
@@ -23,7 +23,7 @@ has() { grep "$@" >/dev/null; }
 PROJECT="${PROJECT:-crowhr-selfhost-test}"
 IMAGE="${CROWHR_IMAGE:-crowhr:selfhost-test}"
 HTTP_PORT="${HTTP_PORT:-18080}"
-# The proxies publish 127.0.0.1:PROXY_PORT_BASE+1 … +7 (see "Behind reverse proxies").
+# The proxies use 127.0.0.1:PROXY_PORT_BASE+1 … +8 (see "Behind reverse proxies").
 PROXY_PORT_BASE="${PROXY_PORT_BASE:-18440}"
 # The versions the reverse-proxy docs page names.
 CADDY_IMAGE="${CADDY_IMAGE:-caddy:2-alpine}"
@@ -38,7 +38,7 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/crowhr-selfhost.XXXXXX")"
 # for the reverse-proxy checks.
 APP_URL="http://127.0.0.1:${HTTP_PORT}"
 PUBLIC_URL="$APP_URL"
-EXTRA_CONTAINERS=("${PROJECT}-caddy" "${PROJECT}-nginx" "${PROJECT}-nginx-host" "${PROJECT}-traefik" "${PROJECT}-placeholder")
+EXTRA_CONTAINERS=("${PROJECT}-caddy" "${PROJECT}-caddy-host" "${PROJECT}-nginx" "${PROJECT}-nginx-host" "${PROJECT}-traefik" "${PROJECT}-placeholder")
 OWNER_EMAIL="aisyah@kampongkopi.example"
 OWNER_PASSWORD="kopi-o kosong peng, siew dai"
 
@@ -135,18 +135,22 @@ compose exec -T app cat "$ARCHIVE" > "$WORK/backup.tar.gz"
 tar -tzf "$WORK/backup.tar.gz" | sort | tr '\n' ' '
 echo
 tar -tzf "$WORK/backup.tar.gz" | has '^files/blobs/receipts/r-001.pdf$' || fail "file missing from archive"
-encrypted_out=$(compose exec -T app crowhr backup --passphrase "correct horse battery staple" 2>&1) || fail "encrypted backup: $encrypted_out"
-echo "$encrypted_out" | has 'tar.gz.age' || fail "encrypted backup not .age"
+FIXTURE_PASSPHRASE="correct horse battery staple"
+encrypted_out=$(compose exec -T -e "BACKUP_PASSPHRASE=$FIXTURE_PASSPHRASE" app crowhr backup 2>&1) || fail "encrypted backup: $encrypted_out"
+ENCRYPTED_ARCHIVE=$(printf '%s\n' "$encrypted_out" | grep -oE '/backups/crowhr-backup-[0-9TZ]+\.tar\.gz\.age' | head -1)
+[ -n "$ENCRYPTED_ARCHIVE" ] || fail "no encrypted archive path"
+compose exec -T app cat "$ENCRYPTED_ARCHIVE" > "$WORK/backup.tar.gz.age"
 
-step "Disaster: delete everything (docker compose down -v), install fresh, restore"
+step "Disaster: delete the fixture installation, install fresh, restore the encrypted backup"
 compose down -v
 compose up -d --no-build
 wait_healthy 120
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_URL/api/v1/setup")" = "200" ] || fail "fresh install not in setup mode"
 NEW_KEY_SUM=$(compose exec -T app sha256sum /data/secrets/crowhr.key | cut -d' ' -f1)
 [ "$NEW_KEY_SUM" != "$KEY_SUM" ] || fail "fresh install reused the old key"
-compose exec -T app sh -c 'cat > /backups/restore-me.tar.gz' < "$WORK/backup.tar.gz"
-restore_out=$(compose exec -T app crowhr restore /backups/restore-me.tar.gz 2>&1) || fail "crowhr restore: $restore_out"
+RESTORE_ARCHIVE=/backups/restore-me.tar.gz.age
+compose exec -T app sh -c 'cat > "$1"' sh "$RESTORE_ARCHIVE" < "$WORK/backup.tar.gz.age"
+restore_out=$(compose exec -T -e "BACKUP_PASSPHRASE=$FIXTURE_PASSPHRASE" app crowhr restore "$RESTORE_ARCHIVE" 2>&1) || fail "crowhr restore: $restore_out"
 echo "$restore_out"
 echo "$restore_out" | has "Restarting the app" || fail "restore did not restart the app"
 sleep 3
@@ -158,7 +162,7 @@ wait_healthy 120
 signin=$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' -H "origin: ${PUBLIC_URL}" \
   -d "{\"org\":\"kampong-kopi\",\"email\":\"${OWNER_EMAIL}\",\"password\":\"${OWNER_PASSWORD}\"}" "$PUBLIC_URL/api/v1/auth/sign-in")
 [ "$signin" = "200" ] || fail "owner cannot sign in after restore ($signin)"
-again=$(compose exec -T app crowhr restore /backups/restore-me.tar.gz --no-restart 2>&1) && fail "restore over data without --force succeeded"
+again=$(compose exec -T -e "BACKUP_PASSPHRASE=$FIXTURE_PASSPHRASE" app crowhr restore "$RESTORE_ARCHIVE" --no-restart 2>&1) && fail "restore over data without --force succeeded"
 echo "$again" | has -- "--force" || fail "no --force hint: $again"
 
 step "Lost data volume: the app refuses to generate a new key; --secrets-only recovers"
@@ -173,7 +177,7 @@ until compose logs --no-color app 2>/dev/null | has "does not match this databas
 done
 compose logs --no-color app | has "crowhr restore --secrets-only" || fail "no --secrets-only hint"
 compose stop app >/dev/null
-compose run --rm --no-deps -T app crowhr restore --secrets-only /backups/restore-me.tar.gz
+compose run --rm --no-deps -T -e "BACKUP_PASSPHRASE=$FIXTURE_PASSPHRASE" app crowhr restore --secrets-only "$RESTORE_ARCHIVE"
 compose up -d --no-build app
 wait_healthy 120
 
@@ -194,7 +198,7 @@ P="$WORK/proxies"
 mkdir -p "$P/letsencrypt/live/$PROXY_HOST"
 port() { echo $((PROXY_PORT_BASE + $1)); }
 CADDY_TLS=$(port 1) CADDY_HTTP=$(port 2) NGINX_TLS=$(port 3) NGINX_HTTP=$(port 4)
-NGINXH_TLS=$(port 5) NGINXH_HTTP=$(port 6) TRAEFIK_TLS=$(port 7)
+NGINXH_TLS=$(port 5) NGINXH_HTTP=$(port 6) TRAEFIK_TLS=$(port 7) CADDYH_TLS=$(port 8)
 
 # docs_block HEADING LANG: the first ```LANG code block in the docs section whose heading starts with HEADING.
 docs_block() {
@@ -276,6 +280,15 @@ http_redirects() {
   cat "$ROOT/deploy/caddy/Caddyfile.example"
 } >"$P/Caddyfile"
 
+# Host Caddy uses the documented loopback backend. Host networking reproduces the network path.
+# Turn off its redirect and admin listeners for this test, because the host may already use them.
+{
+  printf '{\n\tlocal_certs\n\tskip_install_trust\n\tadmin off\n\tauto_https disable_redirects\n\thttps_port %s\n}\n\n' "$CADDYH_TLS"
+  docs_block "### Caddy installed on the host" txt
+} >"$P/Caddyfile.host"
+replace "$P/Caddyfile.host" "127.0.0.1:8080" "127.0.0.1:${HTTP_PORT}"
+replace "$P/Caddyfile.host" "${PROXY_HOST} {" "$PROXY_HOST {"$'\n\tbind 127.0.0.1'
+
 # nginx: the docs' config with the docs' certificate paths; a self-signed certificate is put there.
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=${PROXY_HOST}" -addext "subjectAltName=DNS:${PROXY_HOST}" \
   -keyout "$P/letsencrypt/live/$PROXY_HOST/privkey.pem" -out "$P/letsencrypt/live/$PROXY_HOST/fullchain.pem" 2>/dev/null
@@ -303,6 +316,8 @@ wait_healthy 120
 
 docker run -d --name "${PROJECT}-caddy" --network "$NET" -p "127.0.0.1:${CADDY_TLS}:443" -p "127.0.0.1:${CADDY_HTTP}:80" \
   -v "$P/Caddyfile:/etc/caddy/Caddyfile:ro" "$CADDY_IMAGE" >/dev/null
+docker run -d --name "${PROJECT}-caddy-host" --network host \
+  -v "$P/Caddyfile.host:/etc/caddy/Caddyfile:ro" "$CADDY_IMAGE" >/dev/null
 docker run -d --name "${PROJECT}-nginx" --network "$NET" -p "127.0.0.1:${NGINX_TLS}:443" -p "127.0.0.1:${NGINX_HTTP}:80" \
   -v "$P/nginx.conf:/etc/nginx/conf.d/default.conf:ro" -v "$P/letsencrypt:/etc/letsencrypt:ro" "$NGINX_IMAGE" >/dev/null
 docker run -d --name "${PROJECT}-nginx-host" --network host \
@@ -320,7 +335,7 @@ docker run -d --name "${PROJECT}-traefik" --network "$NET" -p "127.0.0.1:${TRAEF
   --providers.docker.exposedByDefault=false \
   "--providers.docker.constraints=Label(\`com.docker.compose.project\`,\`${PROJECT}\`)" >/dev/null
 
-for proxy in "caddy $CADDY_TLS" "nginx $NGINX_TLS" "nginx-host $NGINXH_TLS" "traefik $TRAEFIK_TLS"; do
+for proxy in "caddy $CADDY_TLS" "caddy-host $CADDYH_TLS" "nginx $NGINX_TLS" "nginx-host $NGINXH_TLS" "traefik $TRAEFIK_TLS"; do
   wait_proxy $proxy
 done
 echo "  versions: $(docker exec "${PROJECT}-caddy" caddy version | cut -d' ' -f1), $(docker exec "${PROJECT}-nginx" nginx -v 2>&1),"\
@@ -338,8 +353,9 @@ docker logs "${PROJECT}-traefik" 2>&1 | has "Router uses a nonexistent certifica
 
 GATEWAY=$(docker network inspect "$NET" | jq -r '[.[0].IPAM.Config[].Gateway // empty | select(test("^[0-9.]+$"))][0] // empty')
 [ -n "$GATEWAY" ] || fail "no IPv4 gateway on $NET"
-echo "TRUSTED_PROXIES=private. Client: this host, which the containers see as $GATEWAY; the host nginx sees 127.0.0.1."
+echo "TRUSTED_PROXIES=private. Client: this host, which the bridge containers see as $GATEWAY; host proxies see 127.0.0.1."
 check_proxy caddy "$CADDY_TLS" "$GATEWAY" "$(ip_of "${PROJECT}-caddy")" true
+check_proxy caddy-host "$CADDYH_TLS" 127.0.0.1 "$GATEWAY" true
 check_proxy nginx "$NGINX_TLS" "$GATEWAY" "$(ip_of "${PROJECT}-nginx")" true
 check_proxy nginx-host "$NGINXH_TLS" 127.0.0.1 "$GATEWAY" true
 check_proxy traefik "$TRAEFIK_TLS" "$GATEWAY" "$(ip_of "${PROJECT}-traefik")" true
@@ -356,10 +372,11 @@ wait_healthy 120
 new_app_ip=$(ip_of "$(compose ps -q app)")
 [ "$new_app_ip" != "$app_ip" ] || fail "the recreated app kept $app_ip, so following a new address was not tested"
 echo "TRUSTED_PROXIES empty. The app container was recreated and moved: $app_ip → $new_app_ip"
-for proxy in "caddy $CADDY_TLS" "nginx $NGINX_TLS" "nginx-host $NGINXH_TLS" "traefik $TRAEFIK_TLS"; do
+for proxy in "caddy $CADDY_TLS" "caddy-host $CADDYH_TLS" "nginx $NGINX_TLS" "nginx-host $NGINXH_TLS" "traefik $TRAEFIK_TLS"; do
   wait_proxy $proxy "after the app container was recreated"
 done
 check_proxy caddy "$CADDY_TLS" "$(ip_of "${PROJECT}-caddy")" "$(ip_of "${PROJECT}-caddy")" false
+check_proxy caddy-host "$CADDYH_TLS" "$GATEWAY" "$GATEWAY" false
 check_proxy nginx "$NGINX_TLS" "$(ip_of "${PROJECT}-nginx")" "$(ip_of "${PROJECT}-nginx")" false
 check_proxy nginx-host "$NGINXH_TLS" "$GATEWAY" "$GATEWAY" false
 check_proxy traefik "$TRAEFIK_TLS" "$(ip_of "${PROJECT}-traefik")" "$(ip_of "${PROJECT}-traefik")" false
