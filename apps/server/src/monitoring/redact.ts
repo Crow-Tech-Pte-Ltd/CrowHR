@@ -7,6 +7,7 @@
  *   values (names, salaries, emails, encrypted identifiers). The SQL stays, the values go.
  * - PostgreSQL errors that quote the rejected input (`invalid input syntax for type integer: "…"`).
  * - NRIC/FIN numbers and email addresses anywhere in the text.
+ * - One-time account links, while preserving route templates like `/invite/$token`.
  *
  * No SDK or `@crowhr/core` imports: the logger bridge and `sentry.ts` both use it.
  */
@@ -17,6 +18,7 @@ const PG_QUOTED_INPUT =
 const PG_VALUE_OUT_OF_RANGE = /\bvalue "[^"]*"( is out of range)/gi;
 const NRIC_FIN = /\b[STFGM]\d{7}[A-Z]\b/gi;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const TOKEN_PATH = /\/(invite|reset|email)\/[^/?#\s"'$][^/?#\s"']*/g;
 
 export function redactText(text: string): string {
   return text
@@ -24,7 +26,8 @@ export function redactText(text: string): string {
     .replace(PG_QUOTED_INPUT, '$1"[redacted]"')
     .replace(PG_VALUE_OUT_OF_RANGE, 'value "[redacted]"$1')
     .replace(NRIC_FIN, "[nric]")
-    .replace(EMAIL, "[email]");
+    .replace(EMAIL, "[email]")
+    .replace(TOKEN_PATH, "/$1/[token]");
 }
 
 /** `redactText` on every string inside a JSON-like value (event extra, breadcrumb and span data). */
