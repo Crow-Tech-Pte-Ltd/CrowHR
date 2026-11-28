@@ -35,7 +35,7 @@ permissions:
   contents: read
 
 env:
-  BUN_VERSION: 1.3.9
+  BUN_VERSION: 1.4.5
   NODE_VERSION: 24
 
 jobs:
@@ -269,7 +269,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
-      - name: Build web app and run smoke tests against Postgres
+      - name: Build web app and smoke-test the Bun server against Postgres
         run: bun run e2e
       - name: Upload Playwright traces
         if: failure()
@@ -314,12 +314,16 @@ jobs:
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y -q postgresql-client-17
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
-      - name: Migration, approval concurrency and backup/restore against real Postgres
+      - name: Migration, approval concurrency, backup/restore and Bun monitoring against real Postgres
         env:
           CROWHR_TEST_POSTGRES_URL: postgres://crowhr:crowhr@localhost:5432/crowhr_lock_test
         # One file at a time: these tests reset and migrate the same disposable database.
         run: |
-          bunx vitest run --no-file-parallelism apps/server/src/migrate/migrate.test.ts apps/server/src/backup/restore.test.ts apps/server/src/workflow-concurrency.test.ts
+          bunx vitest run --no-file-parallelism \
+            apps/server/src/migrate/migrate.test.ts \
+            apps/server/src/backup/restore.test.ts \
+            apps/server/src/workflow-concurrency.test.ts \
+            apps/server/src/monitoring/bun-integration.test.ts
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
       - name: Validate the dedicated hosted Compose overlay

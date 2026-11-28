@@ -66,7 +66,7 @@ export async function startServer(options: StartOptions = {}) {
   }
 
   const consoleLogger = createJsonConsoleLogger({ level: config.LOG_LEVEL, base: { service: "crowhr" } });
-  // Normally already started by instrument.ts (node --import); started here otherwise.
+  // Normally already started by instrument.ts (--import). Start here if the preload was omitted.
   const preloaded = activeMonitoring() !== null;
   const monitoring: Monitoring | null = config.monitoring?.dsn
     ? (activeMonitoring() ?? (await startMonitoring(config.monitoring)))
@@ -75,7 +75,12 @@ export async function startServer(options: StartOptions = {}) {
     monitoring && config.monitoring
       ? withMonitoring(consoleLogger, monitoring, { logs: config.monitoring.logs, minLevel: config.LOG_LEVEL })
       : consoleLogger;
-  logger.info("Crow HR starting", { version: VERSION, publicUrl: config.PUBLIC_URL, node: process.version });
+  logger.info("Crow HR starting", {
+    version: VERSION,
+    publicUrl: config.PUBLIC_URL,
+    runtime: process.versions.bun ? "bun" : "node",
+    runtimeVersion: process.versions.bun ?? process.versions.node,
+  });
   if (config.monitoring) {
     logger.info("Error monitoring is on", {
       server: monitoring !== null,
@@ -85,7 +90,7 @@ export async function startServer(options: StartOptions = {}) {
       tracesSampleRate: config.monitoring.tracesSampleRate,
       logs: config.monitoring.logs,
     });
-    if (monitoring && !preloaded) {
+    if (monitoring && !preloaded && !monitoring.traceRequest) {
       logger.warn(
         "Monitoring started late: requests and database queries are not traced. Start the server with node --import ./apps/server/src/instrument.ts (the Docker image does).",
       );
@@ -133,7 +138,7 @@ export async function startServer(options: StartOptions = {}) {
   try {
     // A restore finished (or crashed) before this start: the new process serves the restored data.
     await clearMaintenance(config.DATA_DIR);
-    database = await openDatabase(config.DATABASE_URL);
+    database = await openDatabase(config.DATABASE_URL, monitoring?.startDatabaseSpan);
     if (database.driver === "pglite") {
       logger.warn("Using in-process PGlite. Fine for development; use PostgreSQL in production.");
     }
@@ -197,7 +202,9 @@ export async function startServer(options: StartOptions = {}) {
       onApiRoute: monitoring ? (method, route) => monitoring.nameRequest(method, route) : null,
       ...(config.SETUP_GATE ? { setupGate: createSetupGate(database.db) } : {}),
     });
-    handler = app.fetch as Fetch;
+    const traceRequest = monitoring?.traceRequest;
+    const respond = app.fetch as Fetch;
+    handler = traceRequest ? (request, env) => traceRequest(request, () => respond(request, env)) : respond;
     logger.info("Crow HR is ready", { publicUrl: config.PUBLIC_URL });
 
     // One in-process scheduler (every 60 s, and once now): the workflows sweep (escalations,

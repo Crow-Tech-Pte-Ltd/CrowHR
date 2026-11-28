@@ -398,7 +398,7 @@ export function formatBytes(n: number): string {
   return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
 }
 
-// Entry point: `crowhr <command>` (see Dockerfile) or `node apps/server/src/cli/main.ts`.
+// Entry point: `crowhr <command>` (see Dockerfile) or `bun --no-env-file apps/server/src/cli/main.ts`.
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const code = await runCli(process.argv.slice(2), process.env);
   process.exit(code);

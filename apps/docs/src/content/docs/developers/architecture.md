@@ -3,7 +3,7 @@ title: Architecture
 description: How the Crow HR codebase is organised - bun workspace packages, the runtime-agnostic core, the request lifecycle, tenancy, RBAC and audit.
 ---
 
-Crow HR is a TypeScript monorepo (bun workspaces). Source is the artefact: packages export `src/*.ts` directly, Node 24 runs the server with native type stripping, and Vite and Vitest consume the same files. There is no per-package build step, so imports use explicit `.ts` extensions and enums and namespaces are not allowed (`erasableSyntaxOnly`).
+Crow HR is a TypeScript monorepo using Bun workspaces. Packages export `src/*.ts` directly. Bun 1.4.5 runs the server and CLI, and Vite and Vitest consume the same files on Node 24. Imports use explicit `.ts` extensions and TypeScript's `erasableSyntaxOnly` rule excludes enums and namespaces.
 
 The contributor-facing version of this page, with more code, is `docs/architecture.md` in the repository.
 
@@ -22,7 +22,7 @@ packages/sg-rules ──► nothing (pure, zero-dependency)
 | `packages/core` | Hono app factory `createApp(deps)`, request context, error envelope, validation, services, permissions, Drizzle schema and migrations, the OpenAPI generator, a PGlite test harness (`testing/`). |
 | `packages/sg-rules` | Effective-dated, cited statutory tables and calculators: CPF, SDL, SHG, FWL, Employment Act coverage, overtime, incomplete-month salary, leave entitlements, public holidays, deduction limits, payment deadlines. |
 | `packages/ui` | Crow Tech tokens, Tailwind preset, self-hosted fonts, components, Singapore formatting (`formatMoney`, `formatDate`, `maskNric`). |
-| `apps/server` | The Node host: configuration, node-postgres (or PGlite in development), argon2id hashing, disk file storage, security headers, migrations, backups, the scheduler, the `crowhr` CLI, and serving the built web app. |
+| `apps/server` | Bun server with Hono's Node HTTP adapter, configuration, node-postgres (or PGlite in development), argon2id hashing, disk file storage, security headers, migrations, backups, the scheduler, the `crowhr` CLI, and the built web app. |
 | `apps/web` | The React app (Vite, React 19, TanStack Router and Query, Tailwind 3.4). |
 | `apps/docs` | This documentation site (Astro Starlight). |
 
@@ -72,4 +72,4 @@ Money is integer cents (`number`, always a safe integer), stored as `bigint` col
 
 ## Background work
 
-Escalations, reminders, the email outbox and date-triggered transitions run in `tick(deps, now)`, called by the server every 60 seconds. Work is claimed with `FOR UPDATE SKIP LOCKED` or de-duplicated with unique keys, so two replicas never double-process. Core never uses timers. Scheduled backups run on the same scheduler in `apps/server` because `pg_dump` is Node-only.
+Escalations, reminders, the email outbox and date-triggered transitions run in `tick(deps, now)`, called by the server every 60 seconds. Work is claimed with `FOR UPDATE SKIP LOCKED` or de-duplicated with unique keys, so two replicas never double-process. Core never uses timers. The same scheduler in `apps/server` runs scheduled backups using the PostgreSQL `pg_dump` executable.

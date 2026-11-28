@@ -107,7 +107,6 @@ You do not set these in `.env`; they are listed so nothing the app reads is undo
 | --- | --- | --- |
 | `CROWHR_IMAGE` | `docker-compose.yml` | Image to run, default `ghcr.io/crow-tech-pte-ltd/crowhr:1` (the newest 1.x release). The one exception to this table: set it in `.env` to stay on one release (`…:1.0.0`) or to run your own build (`crowhr:local`, see [build the image yourself](/docs/self-hosting/install/#build-the-image-yourself)). |
 | `CROWHR_CONTAINER` | Dockerfile (`1`) | Tells `crowhr restore` it runs inside the container, so it can restart the app afterwards by signalling PID 1. Outside Docker it prints "restart the app" instead. |
-| `NODE_OPTIONS` | Dockerfile | Silences Node's experimental-feature warnings in the logs. |
 | `CROWHR_GIT_SHA` | build argument (Dockerfile) | Commit the image was built from, added to the error-monitoring release (`crowhr@<version>+<commit>`). Set in the published images; empty in your own build unless you run `docker build --build-arg CROWHR_GIT_SHA=$(git rev-parse HEAD) -t crowhr:local .`. |
 
 ## Optional virus scanning
@@ -144,11 +143,11 @@ Each copy is seeded in its own in-memory database, one at a time (measured in No
 
 ## Optional error monitoring
 
-Off by default: without a DSN no monitoring code is loaded and nothing is sent anywhere. Set a DSN to report errors and slow requests to **your own** [GlitchTip](https://glitchtip.com) or Sentry project (any Sentry-compatible service). Crow Tech receives nothing.
+Monitoring is off by default. For self-hosting, we recommend sending errors and performance traces to your own GlitchTip project. Sentry and other Sentry-compatible services also work. Crow Tech receives no telemetry from a self-hosted install unless its operator configures a DSN for a service Crow Tech operates. [GlitchTip setup guide](https://glitchtip.com/documentation/install/)
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `SENTRY_DSN` | empty (off) | The server project's DSN (GlitchTip: project settings, *Client keys (DSN)*). Reports unhandled errors and every `error` log entry (for example a failed scheduled backup) as issues, traces API requests, and forwards the app's log entries. |
+| `SENTRY_DSN` | empty (off) | The server project's DSN (GlitchTip: project settings, *Client keys (DSN)*). Reports unexpected server errors and forwards enabled app logs. Sampled API traces include timings for PostgreSQL queries without the SQL text or bound values on those spans. |
 | `SENTRY_BROWSER_DSN` | empty (off) | DSN for the web app; may be the same project or a separate browser project. Browsers can read it (that is how browser reporting works), so use a DSN whose only right is sending events. The server puts it in the page at runtime (no rebuild) and allows its origin in the page's Content-Security-Policy. |
 | `SENTRY_ENVIRONMENT` | `production` in the image | Environment name shown in the monitoring service, for example `staging`. At most 64 characters, no spaces or slashes. |
 | `SENTRY_RELEASE` | `crowhr@<version>` (`+<commit>` with `CROWHR_GIT_SHA`) | Release name for both server and browser events. |
@@ -157,4 +156,4 @@ Off by default: without a DSN no monitoring code is loaded and nothing is sent a
 
 Crow HR holds NRIC/FIN, salaries, bank and medical details, so events carry no request or response bodies, cookies, query strings, IP addresses, user details, database query values or local variables, and no session replay. Request headers are limited to `User-Agent`, `Accept`, `Content-Type`, `Content-Length` and `X-Request-Id` (the ID shown to users with an error, also in the app's logs). Before anything is sent, error messages, log entries and breadcrumbs lose the values of a failed database query, and NRIC/FIN numbers and email addresses in them are masked; invitation and password-reset tokens are removed from page addresses, and element labels from click records. Console output is not attached. Expected failures (validation, permission, not found) are not reported; 4xx answers in the browser are not either. Error messages and log entries can still name records (IDs, file names, names of categories or shifts), so keep the monitoring service as private as the app.
 
-Set the variables in `.env` and run `docker compose up -d`: a restart applies them, no rebuild is needed. A wrong value stops the app with a message, like every other setting.
+Set the variables in `.env` and run `docker compose up -d` to apply them. To check wiring, make an ordinary API request, then look for its transaction in the monitoring project's Performance view. With a fractional sample rate it may take several requests. A wrong value stops the app with a message naming the setting.

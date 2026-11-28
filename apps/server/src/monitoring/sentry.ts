@@ -1,7 +1,7 @@
 /**
  * The Sentry SDK (works with GlitchTip) for the server, loaded only when SENTRY_DSN is set.
- * Started by `instrument.ts` (`node --import`) so Hono, node-postgres and HTTP are
- * instrumented before the app loads; `main.ts` only uses the handle.
+ * Started by `instrument.ts` before the app loads. Node uses SDK instrumentation.
+ * Bun uses explicit request and PostgreSQL spans with the same event redaction.
  *
  * Personal data: Crow HR holds NRIC, salaries, bank and medical details, so the SDK collects
  * no request bodies, cookies, query strings, IP addresses, user info, database parameters or
@@ -27,11 +27,15 @@ export interface Monitoring {
   tagRequest(requestId: string): void;
   /** Names the current request's transaction after its route (`GET /api/v1/employees/:id`). */
   nameRequest(method: string, route: string): void;
+  traceRequest?(request: Request, respond: () => Response | Promise<Response>): Response | Promise<Response>;
+  startDatabaseSpan?: StartDatabaseSpan;
   captureMessage(message: string, extra?: Record<string, unknown>): void;
   log(level: LogLevel, message: string, attributes: Record<string, unknown>): void;
   /** Sends what is queued; resolves false if `timeoutMs` passed first. */
   flush(timeoutMs?: number): Promise<boolean>;
 }
+
+export type StartDatabaseSpan = () => ((failed: boolean) => void) | undefined;
 
 /** Request headers worth keeping on events; everything else (cookie, authorization, forwarding) is dropped. */
 const REQUEST_HEADERS = ["user-agent", "accept", "content-type", "content-length", "x-request-id"];
@@ -68,7 +72,10 @@ export function activeMonitoring(): Monitoring | null {
 /** Loads and starts the SDK once. No-op (null) without a server DSN. */
 export async function startMonitoring(config: MonitoringConfig): Promise<Monitoring | null> {
   if (active || !config.dsn) return active;
-  const Sentry = await import("@sentry/node");
+  const bun = Boolean(process.versions.bun);
+  const Sentry = bun ? await import("@sentry/bun") : await import("@sentry/node");
+  // The Node SDK's loader hooks cannot instrument the Hono HTTP adapter or pg reliably on Bun.
+  const manualIntegrations = ["HttpServerSpans", "BunServer", "Hono", "Postgres"];
   Sentry.init({
     dsn: config.dsn,
     environment: config.environment,
@@ -86,8 +93,12 @@ export async function startMonitoring(config: MonitoringConfig): Promise<Monitor
     // or `baggage` headers, which carry this DSN's public key, the release and the route.
     tracePropagationTargets: [],
     integrations: (defaults) => [
-      ...defaults.filter((i) => !DROPPED_INTEGRATIONS.includes(i.name)),
-      Sentry.httpIntegration({ trackIncomingRequestsAsSessions: false, maxIncomingRequestBodySize: "none" }),
+      ...defaults.filter(
+        (i) => !DROPPED_INTEGRATIONS.includes(i.name) && !(bun && manualIntegrations.includes(i.name)),
+      ),
+      ...(bun
+        ? []
+        : [Sentry.httpIntegration({ trackIncomingRequestsAsSessions: false, maxIncomingRequestBodySize: "none" })]),
       // Report, then exit like Node does without the SDK ("warn", the SDK default, would keep a
       // process running after an unhandled rejection only because monitoring is on).
       Sentry.onUnhandledRejectionIntegration({ mode: "strict" }),
@@ -97,6 +108,42 @@ export async function startMonitoring(config: MonitoringConfig): Promise<Monitor
     beforeBreadcrumb: (crumb) => scrubBreadcrumb(crumb),
   });
   active = {
+    ...(bun
+      ? {
+          traceRequest: (request, respond) => {
+            const path = new URL(request.url).pathname;
+            if (!path.startsWith("/api/") || path === "/api/health") return respond();
+            return Sentry.withIsolationScope(() => {
+              if (config.tracesSampleRate === 0) return respond();
+              return Sentry.startSpan(
+                { name: `${request.method} /api/*`, op: "http.server", forceTransaction: true },
+                async (span) => {
+                  const response = await respond();
+                  Sentry.setHttpStatus(span, response.status);
+                  return response;
+                },
+              );
+            });
+          },
+          ...(config.tracesSampleRate > 0
+            ? {
+                startDatabaseSpan: (): ReturnType<StartDatabaseSpan> => {
+                  if (!Sentry.getActiveSpan()?.isRecording()) return;
+                  const span = Sentry.startInactiveSpan({
+                    name: "PostgreSQL query",
+                    op: "db",
+                    onlyIfParent: true,
+                    attributes: { "db.system": "postgresql" },
+                  });
+                  return (failed) => {
+                    if (failed) Sentry.setHttpStatus(span, 500);
+                    span.end();
+                  };
+                },
+              }
+            : {}),
+        }
+      : {}),
     captureException: (err, extra) => {
       Sentry.captureException(err, extra ? { extra } : undefined);
     },
@@ -105,10 +152,18 @@ export async function startMonitoring(config: MonitoringConfig): Promise<Monitor
     },
     nameRequest: (method, route) => {
       try {
+        const name = `${method} ${route}`;
         // `http.route` on the server span is what names the transaction (source "route").
-        const span = Sentry.getActiveSpan();
-        if (span) Sentry.getRootSpan(span).setAttribute("http.route", route);
-        Sentry.getIsolationScope().setTransactionName(`${method} ${route}`);
+        const current = Sentry.getActiveSpan();
+        if (current) {
+          const root = Sentry.getRootSpan(current);
+          root.setAttribute("http.route", route);
+          if (bun) {
+            Sentry.updateSpanName(root, name);
+            root.setAttribute(Sentry.SEMANTIC_ATTRIBUTE_SENTRY_SOURCE, "route");
+          }
+        }
+        Sentry.getIsolationScope().setTransactionName(name);
       } catch {
         // Naming is best effort.
       }

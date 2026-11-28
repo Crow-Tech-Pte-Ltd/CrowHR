@@ -13,14 +13,16 @@ Crow HR is licensed under the [MIT licence](LICENSE). It ships with the open-sou
 
 Development tools (test runners, linters, type checkers, Vite, the documentation site's Astro build) are not shipped and are not listed.
 
-The Docker image is built on the official `node:24-alpine` image (Node.js, MIT, with its bundled third-party licences in the Node.js distribution) and adds two Alpine packages: `postgresql17-client` (PostgreSQL Licence) for backups, and `tini` (MIT). Each published image also carries an SBOM with the full package list.
+The Docker image is built on the official `oven/bun:alpine` image ([Bun and bundled third-party licences](https://github.com/oven-sh/bun/blob/bun-v1.4.5/LICENSE.md)) and adds two Alpine packages: `postgresql17-client` (PostgreSQL Licence) for backups, and `tini` (MIT). Each published image also carries an SBOM with the full package list.
 
-Licences: MIT (251), Apache-2.0 (21), ISC (17), BSD-3-Clause (3), 0BSD (2), (MIT AND Zlib) (1), BSD-2-Clause (1), MIT-0 (1), OFL-1.1 (1), UFL-1.0 (1), Unlicense (1).
+Licences: MIT (258), Apache-2.0 (23), ISC (18), BSD-3-Clause (5), 0BSD (2), BSD-2-Clause (2), (MIT AND Zlib) (1), MIT-0 (1), OFL-1.1 (1), UFL-1.0 (1), Unlicense (1).
 
 ## Packages
 
 | Package | Version | Licence | Used in | Repository |
 | --- | --- | --- | --- | --- |
+| `@apm-js-collab/code-transformer` | 0.19.0 | Apache-2.0 | server | <https://github.com/nodejs/orchestrion-js> |
+| `@apm-js-collab/code-transformer-bundler-plugins` | 0.7.6 | MIT | server | <https://github.com/apm-js-collab/code-transformer-bundler-plugins> |
 | `@date-fns/tz` | 1.5.0 | MIT | web, demo | <https://github.com/date-fns/date-fns> |
 | `@electric-sql/pglite` | 0.5.13 | Apache-2.0 | server, demo | <https://github.com/electric-sql/pglite/tree/HEAD/packages/pglite> |
 | `@floating-ui/core` | 1.8.0 | MIT | web, demo | <https://github.com/floating-ui/floating-ui/tree/HEAD/packages/core> |
@@ -30,6 +32,7 @@ Licences: MIT (251), Apache-2.0 (21), ISC (17), BSD-3-Clause (3), 0BSD (2), (MIT
 | `@fontsource/azeret-mono` | 5.3.0 | OFL-1.1 | web, demo | <https://github.com/fontsource/font-files/tree/HEAD/fonts/google/azeret-mono> |
 | `@fontsource/ubuntu` | 5.3.0 | UFL-1.0 | web, demo | <https://github.com/fontsource/font-files/tree/HEAD/fonts/google/ubuntu> |
 | `@hono/node-server` | 2.1.11 | MIT | server | <https://github.com/honojs/node-server> |
+| `@jridgewell/sourcemap-codec` | 1.6.0 | MIT | server | <https://github.com/jridgewell/sourcemaps/tree/HEAD/packages/sourcemap-codec> |
 | `@modelcontextprotocol/sdk` | 1.32.2 | MIT | server | <https://github.com/modelcontextprotocol/typescript-sdk> |
 | `@noble/ciphers` | 2.4.0 | MIT | server | <https://github.com/paulmillr/noble-ciphers> |
 | `@noble/curves` | 2.0.1 | MIT | server | <https://github.com/paulmillr/noble-curves> |
@@ -94,6 +97,7 @@ Licences: MIT (251), Apache-2.0 (21), ISC (17), BSD-3-Clause (3), 0BSD (2), (MIT
 | `@scure/base` | 2.4.0 | MIT | server | <https://github.com/paulmillr/scure-base> |
 | `@sentry/browser` | 10.78.0 | MIT | web, demo | <https://github.com/getsentry/sentry-javascript> |
 | `@sentry/browser-utils` | 10.78.0 | MIT | web, demo | <https://github.com/getsentry/sentry-javascript> |
+| `@sentry/bun` | 10.78.0 | MIT | server | <https://github.com/getsentry/sentry-javascript> |
 | `@sentry/conventions` | 0.16.0 | MIT | server, web, demo | <https://github.com/getsentry/sentry-conventions> |
 | `@sentry/core` | 10.78.0 | MIT | server, web, demo | <https://github.com/getsentry/sentry-javascript> |
 | `@sentry/feedback` | 10.78.0 | MIT | web, demo | <https://github.com/getsentry/sentry-javascript> |
@@ -114,6 +118,7 @@ Licences: MIT (251), Apache-2.0 (21), ISC (17), BSD-3-Clause (3), 0BSD (2), (MIT
 | `@tanstack/router-core` | 1.171.39 | MIT | web, demo | <https://github.com/TanStack/router/tree/HEAD/packages/router-core> |
 | `@tanstack/store` | 0.11.2 | MIT | web, demo | <https://github.com/TanStack/store/tree/HEAD/packages/store> |
 | `@tanstack/table-core` | 8.21.3 | MIT | web, demo | <https://github.com/TanStack/table/tree/HEAD/packages/table-core> |
+| `@types/estree` | 1.0.10 | MIT | server | <https://github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/estree> |
 | `accepts` | 1.3.8 | MIT | managed-login | <https://github.com/jshttp/accepts> |
 | `accepts` | 2.0.0 | MIT | server | <https://github.com/jshttp/accepts> |
 | `age-encryption` | 0.3.1 | BSD-3-Clause | server | <https://github.com/FiloSottile/typage> |
@@ -122,6 +127,7 @@ Licences: MIT (251), Apache-2.0 (21), ISC (17), BSD-3-Clause (3), 0BSD (2), (MIT
 | `ansi-regex` | 5.0.1 | MIT | web, demo | <https://github.com/chalk/ansi-regex> |
 | `ansi-styles` | 4.3.0 | MIT | web, demo | <https://github.com/chalk/ansi-styles> |
 | `aria-hidden` | 1.2.6 | MIT | web, demo | <https://github.com/theKashey/aria-hidden> |
+| `astring` | 1.9.0 | MIT | server | <https://github.com/davidbonnet/astring> |
 | `b4a` | 1.9.0 | Apache-2.0 | server | <https://github.com/holepunchto/b4a> |
 | `bare-events` | 2.9.2 | Apache-2.0 | server | <https://github.com/holepunchto/bare-events> |
 | `bare-fs` | 4.8.4 | Apache-2.0 | server | <https://github.com/holepunchto/bare-fs> |
@@ -168,9 +174,12 @@ Licences: MIT (251), Apache-2.0 (21), ISC (17), BSD-3-Clause (3), 0BSD (2), (MIT
 | `encodeurl` | 2.0.3 | MIT | server, managed-login | <https://github.com/pillarjs/encodeurl> |
 | `es-define-property` | 1.0.1 | MIT | server | <https://github.com/ljharb/es-define-property> |
 | `es-errors` | 1.3.0 | MIT | server | <https://github.com/ljharb/es-errors> |
+| `es-module-lexer` | 2.3.2 | MIT | server | <https://github.com/guybedford/es-module-lexer> |
 | `es-module-lexer` | 3.0.4 | MIT | server | <https://github.com/guybedford/es-module-lexer> |
 | `es-object-atoms` | 1.1.2 | MIT | server | <https://github.com/ljharb/es-object-atoms> |
 | `escape-html` | 1.0.3 | MIT | server, managed-login | <https://github.com/component/escape-html> |
+| `esquery` | 1.7.0 | BSD-3-Clause | server | <https://github.com/estools/esquery> |
+| `estraverse` | 5.3.0 | BSD-2-Clause | server | http://github.com/estools/estraverse |
 | `etag` | 1.8.1 | MIT | server | <https://github.com/jshttp/etag> |
 | `events-universal` | 1.0.1 | Apache-2.0 | server | <https://github.com/holepunchto/events-universal> |
 | `eventsource` | 3.0.7 | MIT | server | <https://git@github.com/EventSource/eventsource> |
@@ -215,9 +224,11 @@ Licences: MIT (251), Apache-2.0 (21), ISC (17), BSD-3-Clause (3), 0BSD (2), (MIT
 | `koa-compose` | 4.1.0 | MIT | managed-login | <https://github.com/koajs/compose> |
 | `locate-path` | 5.0.0 | MIT | web, demo | <https://github.com/sindresorhus/locate-path> |
 | `lucide-react` | 1.66.0 | ISC | web, demo | <https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react> |
+| `magic-string` | 0.30.21 | MIT | server | <https://github.com/Rich-Harris/magic-string> |
 | `math-intrinsics` | 1.1.0 | MIT | server | <https://github.com/es-shims/math-intrinsics> |
 | `media-typer` | 1.1.1 | MIT | server, managed-login | <https://github.com/jshttp/media-typer> |
 | `merge-descriptors` | 2.0.0 | MIT | server | <https://github.com/sindresorhus/merge-descriptors> |
+| `meriyah` | 6.1.4 | ISC | server | <https://github.com/meriyah/meriyah> |
 | `mime-db` | 1.52.0 | MIT | managed-login | <https://github.com/jshttp/mime-db> |
 | `mime-db` | 1.54.0 | MIT | server, managed-login | <https://github.com/jshttp/mime-db> |
 | `mime-types` | 2.1.35 | MIT | managed-login | <https://github.com/jshttp/mime-types> |
@@ -276,6 +287,7 @@ Licences: MIT (251), Apache-2.0 (21), ISC (17), BSD-3-Clause (3), 0BSD (2), (MIT
 | `router` | 2.3.0 | MIT | server | <https://github.com/pillarjs/router> |
 | `safer-buffer` | 2.1.2 | MIT | server | <https://github.com/ChALkeR/safer-buffer> |
 | `scheduler` | 0.28.0 | MIT | web, demo | <https://github.com/react/react/tree/HEAD/packages/scheduler> |
+| `semifies` | 1.0.0 | Apache-2.0 | server | <https://github.com/holepunchto/semifies> |
 | `send` | 1.2.1 | MIT | server | <https://github.com/pillarjs/send> |
 | `seroval` | 1.7.5 | MIT | web, demo | <https://github.com/lxsmnsyc/seroval> |
 | `seroval-plugins` | 1.7.6 | MIT | web, demo | <https://github.com/lxsmnsyc/seroval> |
@@ -289,6 +301,7 @@ Licences: MIT (251), Apache-2.0 (21), ISC (17), BSD-3-Clause (3), 0BSD (2), (MIT
 | `side-channel-map` | 1.0.1 | MIT | server | <https://github.com/ljharb/side-channel-map> |
 | `side-channel-weakmap` | 1.0.2 | MIT | server | <https://github.com/ljharb/side-channel-weakmap> |
 | `sonner` | 2.0.8 | MIT | web, demo | <https://github.com/emilkowalski/sonner> |
+| `source-map` | 0.6.1 | BSD-3-Clause | server | http://github.com/mozilla/source-map |
 | `split2` | 4.2.0 | ISC | server, managed-login | <https://github.com/mcollina/split2> |
 | `statuses` | 1.5.0 | MIT | managed-login | <https://github.com/jshttp/statuses> |
 | `statuses` | 2.0.2 | MIT | server, managed-login | <https://github.com/jshttp/statuses> |

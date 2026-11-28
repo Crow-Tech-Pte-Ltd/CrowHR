@@ -1,6 +1,6 @@
 # Architecture
 
-Crow HR is a bun workspace. TypeScript source is the artefact: packages export `src/*.ts` directly, Node 24 runs the server with native type stripping, and Vite/Vitest consume the same files. There is no per-package build step (so: explicit `.ts` import extensions, no enums/namespaces — `erasableSyntaxOnly` enforces it).
+Crow HR is a Bun workspace. Packages export `src/*.ts` directly. Bun 1.4.5 runs the server and CLI, and Vite and Vitest consume the same files on Node 24. Imports use explicit `.ts` extensions and TypeScript's `erasableSyntaxOnly` rule excludes enums and namespaces.
 
 ## Packages and dependency direction
 
@@ -20,7 +20,7 @@ Arrows point at dependencies. Nothing depends on `apps/*`. `packages/ui` knows n
 | `packages/core` | Hono app factory `createApp(deps)`, request context, error envelope, validation, services, RBAC (later), Drizzle schema + migrations (`drizzle/`), PGlite test harness (`testing/`) |
 | `packages/sg-rules` | Effective-dated, cited statutory rule tables and calculators (CPF, SDL, SHG, FWL, Employment Act leave, overtime, salary). Verification record in `packages/sg-rules/VERIFICATION.md`; ≥ 95% line coverage enforced by `bun run check` |
 | `packages/ui` | Crow Tech tokens, Tailwind preset, fonts, components, SG formatting (`formatMoney`, `formatDate`, `maskNric`) |
-| `apps/server` | Node host: env config, node-postgres (or PGlite for dev), argon2id, disk file store, security headers, static web app + SPA fallback |
+| `apps/server` | Bun server with Hono's Node HTTP adapter, env config, node-postgres (or PGlite for dev), argon2id, disk file store, security headers, static web app + SPA fallback |
 | `apps/web` | The React app: shell, routes, screens |
 
 ## Runtime-agnostic core — and why

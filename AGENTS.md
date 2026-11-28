@@ -20,11 +20,11 @@ QuickHR is the functional benchmark; we do not copy its UI, code, assets or bran
 | Concern | Choice |
 | --- | --- |
 | Language | TypeScript (strict) everywhere |
-| Package manager | bun workspaces (`bun install`); runtime for server/tests is Node 24 |
+| Package manager and runtimes | Bun 1.4.5 workspaces (`bun install`) and Crow HR server; Node 24 for Vitest, Playwright, build tooling and the separate managed-login service |
 | Web app | `apps/web`: Vite + React 19 + TanStack Router + TanStack Query + Tailwind 3.4 |
 | UI kit | `packages/ui`: Crow Tech component library (Radix + CVA, ported from `crow-tech-landing`) |
 | API | `packages/core`: Hono app factory + services + RBAC + Drizzle schema. **Runtime-agnostic**: no Node-only imports; DB driver, password hasher, file storage, clock and ID generator are injected |
-| Server | `apps/server`: Node entry, node-postgres driver, argon2id hasher, local-disk file storage, serves `/api/*` and the built web app |
+| Server | `apps/server`: Bun entry using Hono's Node HTTP adapter, node-postgres driver, argon2id hasher, local-disk file storage, serves `/api/*` and the built web app |
 | DB | PostgreSQL 17 via Drizzle ORM + drizzle-kit migrations. Tests use PGlite (in-process Postgres) — no Docker needed for tests |
 | Statutory rules | `packages/sg-rules`: pure, zero-dependency, effective-dated rule tables + calculators (CPF, SDL, FWL, leave, OT). Country interface allows a future `my-rules` |
 | Demo | `packages/demo` + `apps/demo`: the **same** web app + the **same** `core` Hono app running in the browser against PGlite (IndexedDB), seeded with fictional data. Static, deployable to Cloudflare Pages at hr.crow.sg. Per-visitor isolated, resettable |
