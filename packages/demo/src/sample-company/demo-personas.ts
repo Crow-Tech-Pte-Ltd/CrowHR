@@ -39,5 +39,5 @@ export function demoCompanyPersonaInfo(email: string): DemoPersonaInfo | null {
 
 /** The sign-in email domain of a demo company: unique per copy, under the reserved `.example`. */
 export function demoCompanyEmailDomain(slug: string): string {
-  return `${slug}.kopikaki.example`;
+  return `${slug}.qinghefoods.example`;
 }

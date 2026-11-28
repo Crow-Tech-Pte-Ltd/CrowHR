@@ -7,7 +7,7 @@ import { seedHttp } from "./http.ts";
 import { DEMO_ORG, type DemoPeople, PREFERRED_NAMES, resignLeaver, seedDemoPeople } from "./people.ts";
 
 /**
- * Seeds the demo database: Kopi Kaki's people through the people services, then four months of
+ * Seeds the people at Qinghe Foods through the people services, then four months of
  * the company's life through the public API as the people who would do each step. Payroll is
  * computed by the real engine (nothing is inserted as numbers), approvals go through the real
  * workflows engine, and notifications and Home items are whatever those produce.
@@ -21,18 +21,18 @@ export interface SeedResult {
 }
 
 export interface SeedOptions {
-  /** The organisation's name and slug (default: DEMO_ORG, Kopi Kaki Pte. Ltd. / kopi-kaki). */
+  /** The organisation's name and slug (default: DEMO_ORG, Qinghe Foods Pte. Ltd. / qinghe-foods). */
   org?: { name: string; slug: string };
   /**
-   * The domain of the people's sign-in emails instead of `kopikaki.example` (users.email is unique
-   * on a server, so each demo company has its own, e.g. `demo-x7….kopikaki.example`).
+   * The domain of the people's sign-in emails instead of `qinghefoods.example` (users.email is unique
+   * on a server, so each demo company has its own, e.g. `demo-x7….qinghefoods.example`).
    */
   emailDomain?: string;
 }
 
-/** `local@kopikaki.example` at another domain (unchanged without one). */
+/** `local@qinghefoods.example` at another domain (unchanged without one). */
 export function atDomain(email: string, domain: string | undefined): string {
-  return domain ? email.replace(/@kopikaki\.example$/, `@${domain}`) : email;
+  return domain ? email.replace(/@qinghefoods\.example$/, `@${domain}`) : email;
 }
 
 export async function seedDemo(
@@ -135,7 +135,7 @@ async function seedSsoProviders(deps: AppDeps, orgId: string) {
       kind: "google" as const,
       displayName: "Google",
       issuer: "https://accounts.google.com",
-      allowedDomains: ["kopikaki.example"],
+      allowedDomains: ["qinghefoods.example"],
     },
     {
       kind: "entra" as const,

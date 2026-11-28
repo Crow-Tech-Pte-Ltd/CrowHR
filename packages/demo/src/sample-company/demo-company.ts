@@ -11,7 +11,7 @@ import { installSampleCompany, prepareSampleCompany } from "./seed.ts";
 
 /**
  * Demo companies on a server (openspec add-demo-companies): each visitor's private copy of the
- * sample company Kopi Kaki. The server (apps/server) wires `createDemoCompanyProvisioner` into
+ * sample company Qinghe Foods. The server (apps/server) wires `createDemoCompanyProvisioner` into
  * core's `deps.demoCompanies.provision`; core decides when to seed and hands copies out.
  */
 
@@ -30,7 +30,7 @@ export interface DemoCompanyProvisionerInput {
 }
 
 /**
- * Seeds one demo company per call: Kopi Kaki's history in a scratch database (the sweeps there run
+ * Seeds one demo company per call, using the history of Qinghe Foods in a scratch database (the sweeps there run
  * with a seed clock, which must never touch the server's other organisations), brought up to
  * `now`, with no passwords, then copied into the server in one transaction with the demo flag set
  * on insert. The organisation's UEN is left empty (`organisations.uen` is unique on the server).

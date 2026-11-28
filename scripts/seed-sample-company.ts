@@ -1,5 +1,5 @@
 /**
- * Adds the fictional sample company Kopi Kaki Pte. Ltd. (slug `kopi-kaki`, the public demo's
+ * Adds the fictional sample company Qinghe Foods Pte. Ltd. (with the existing reviewer ID `kopi-kaki`, the public demo's
  * company) to a running Crow HR server as an additional organisation, for App Store / Google Play
  * review and sales demos. See docs/sample-company.md.
  *

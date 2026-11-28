@@ -5,7 +5,7 @@ description: How Crow HR's in-browser demo works - the real app and API running 
 
 Crow HR has an in-browser demo: the same web app and the same API code that a self-hosted install runs, started inside the visitor's browser instead of on a server. Try it at **[hr.crow.sg](https://hr.crow.sg/)**, next to these docs. You can also build and open it on your own machine (see [running it locally](#running-it-locally)) or [install Crow HR](/docs/quick-start/).
 
-![The demo's sign-in page: a banner saying it runs entirely in your browser, and five personas to sign in as with one click (fictional company)](../../assets/screens/demo-personas.webp)
+![The Qinghe Foods sign-in page with the demo controls and five one-click personas](../../assets/screens/demo-personas.webp)
 
 ## How it works
 
@@ -16,11 +16,11 @@ Crow HR has an in-browser demo: the same web app and the same API code that a se
 
 ## The demo company
 
-Kopi Kaki Pte. Ltd. is a fictional café group with an office, a central kitchen and three outlets. 25 people work there (one starts in November) and two left this year. They include citizens, permanent residents in their first, second and later years, Employment Pass, S Pass and Work Permit holders, every self-help group fund, part-timers and employees on each CPF age boundary. Every name, NRIC/FIN, bank account and email address is invented.
+Qinghe Foods Pte. Ltd. is a fictional café group with an office, a central kitchen and three outlets. 25 people work there (one starts in November) and two left this year. They include citizens, permanent residents in their first, second and later years, Employment Pass, S Pass and Work Permit holders, every self-help group fund, part-timers and employees on each CPF age boundary. Every name, NRIC/FIN, bank account and email address is invented.
 
 Payroll for July to September 2026 is approved and paid. October is a draft run with warnings, and it already includes the overtime that managers approved from October's clock-ins. Rosters are published for October and the following week at the three outlets.
 
-Sign in with one click as one of five personas, or type any seeded account's email with the shared password `kopi-kaki-demo`:
+Sign in with one click as one of five personas, or type any seeded account's email with the shared password `qinghe-foods-demo`:
 
 | Persona | Name | What they do in the demo |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ Three things to try:
 
 ## Known differences
 
-- Kopi Kaki moved to Crow HR in July 2026: its January–June opening balances were imported with **Year-to-date balances**, so July to September show no issues and October only its real one (a leaver's final pay).
+- Qinghe Foods moved to Crow HR in July 2026: its January–June opening balances were imported with **Year-to-date balances**, so July to September show no issues and October only its real one (a leaver's final pay).
 - Receipt previews and PDF or CSV downloads go through a service worker. Where service workers are unavailable (some private-browsing modes), those previews and downloads fail; everything else works.
 - A tab closed in the middle of a request can lose that one request.
 - Nothing is filed with CPF Board, IRAS or a bank, here or in the product: Crow HR produces the files for you to upload.

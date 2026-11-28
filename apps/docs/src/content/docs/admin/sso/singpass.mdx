@@ -68,7 +68,7 @@ Without the file, the button shows the plain text "Log in with Singpass". **Do n
 The [in-browser demo](/docs/demo/) runs entirely in the visitor's browser, so it cannot hold Singpass keys. To let visitors of a demo you host log in with Singpass for real, a Crow HR server acts as the relying party for it. You only need this to host a public demo; a normal install never does.
 
 1. On that server, add a Singpass method as above (in its own organisation) and register it with Singpass. It does not need to be switched on.
-2. Set `DEMO_SINGPASS_PROVIDER_ID` (the method's id, as in its redirect URI) and `DEMO_SINGPASS_RETURN_URL` (the demo's sign-in page, for example `https://hr.crow.sg/sign-in/kopi-kaki`) and restart.
+2. Set `DEMO_SINGPASS_PROVIDER_ID` (the method's id, as in its redirect URI) and `DEMO_SINGPASS_RETURN_URL` (the demo's sign-in page, for example `https://hr.crow.sg/sign-in/qinghe-foods`) and restart.
 3. Build the demo with `VITE_DEMO_SINGPASS_START_URL=<server>/api/v1/auth/oidc/<id>/start?purpose=demo` and, for the logo, `VITE_SINGPASS_LOGO_SRC`.
 
 The visitor logs in with Singpass, the server checks Singpass's answer and then forgets the person: no account, session, link or Singpass ID is stored (the audit log records only that a demo login happened). Back in the demo, they choose **HR admin** or **Employee** and look around their own fictional copy. Each network can start 20 demo logins an hour and the server 1,000 a day. Real visitors need a **production** Singpass app; Singpass staging accepts only its test accounts.

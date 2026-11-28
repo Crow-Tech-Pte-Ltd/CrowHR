@@ -6,7 +6,7 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
   const errors = watchErrors(page);
 
   // 1. First visit: the loader, then the sign-in page with personas and disabled SSO.
-  await page.goto("/");
+  await page.goto("/sign-in/kopi-kaki?from=bookmark#sign-in");
   const boot = await waitForDemo(page);
   expect(boot.timings.seeded).toBe(true);
   expect(boot.timings.restored).toBe(true);
@@ -14,8 +14,11 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
     `first load: navigation to app ${boot.readyMs} ms (worker ${boot.timings.totalMs} ms)`,
     JSON.stringify(boot.timings.stages),
   );
-  await expect(page).toHaveURL(/\/sign-in\/kopi-kaki$/);
-  await expect(page.getByTestId("demo-banner")).toContainText("runs entirely in your browser");
+  await expect(page).toHaveURL(/\/sign-in\/qinghe-foods\?from=bookmark#sign-in$/);
+  await expect(page.getByText("Qinghe Foods", { exact: true })).toBeVisible();
+  const banner = page.getByTestId("demo-banner");
+  await expect(banner.getByRole("navigation", { name: "Demo controls" })).toBeVisible();
+  await expect(banner).not.toContainText(/runs (entirely )?in your browser/i);
   await expect(page.getByTestId("sso-methods")).toContainText(
     "Not available in the demo. Self-hosted installs can enable this in Settings → Security.",
   );

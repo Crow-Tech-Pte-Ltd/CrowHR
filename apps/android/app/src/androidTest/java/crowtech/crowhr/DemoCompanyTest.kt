@@ -61,7 +61,7 @@ class DemoCompanyTest {
 
     private fun confirmAndSignIn(browser: PersonaBrowser) {
         j.waitFor("confirm-connect")
-        compose.onNodeWithText("Kopi Kaki", substring = true).assertExists()
+        compose.onNodeWithText(company()["name"]!!.jsonPrimitive.content, substring = true).assertExists()
         j.waitFor("demo-label")
         j.tap("confirm-connect")
         j.waitFor("sign-in")

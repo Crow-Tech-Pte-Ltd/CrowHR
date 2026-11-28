@@ -23,9 +23,8 @@ import { tryUrl } from "./try-url.ts";
 import { OPEN_OUTBOX } from "./web-extensions.tsx";
 
 /**
- * The persistent demo banner above the app: what this is, where the data lives, and the
- * demo-only controls (Outbox, About, Docs, Self-hosting, Reset). Rendered outside apps/web's
- * router so it is on every screen, including sign-in.
+ * The persistent demo banner identifies the demo and provides its controls. Rendered outside
+ * apps/web's router so it is on every screen, including sign-in.
  */
 interface BannerProps {
   client: DemoClient;
@@ -93,13 +92,7 @@ function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
         <span className="rounded-[4px] border-2 border-ink bg-kuning-200 px-1 py-px font-azeret text-[10px] font-bold leading-none tracking-wider text-accent-foreground">
           DEMO
         </span>
-        <p className="min-w-0 flex-1 truncate text-2xs leading-4 text-primary-300">
-          <span className="sm:hidden">Runs in your browser</span>
-          <span className="hidden sm:inline">
-            Demo — runs entirely in your browser. Nothing you enter leaves this device.
-          </span>
-        </p>
-        <nav aria-label="Demo controls" className="-mr-1.5 flex shrink-0 items-center">
+        <nav aria-label="Demo controls" className="-mr-1.5 ml-auto flex shrink-0 items-center">
           <button type="button" className={linkClass} onClick={() => setOutboxOpen(true)} data-testid="demo-outbox">
             <Mail className="size-3.5" aria-hidden />
             <span className="sr-only sm:not-sr-only">Outbox</span>
@@ -142,7 +135,7 @@ function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset the demo?</AlertDialogTitle>
             <AlertDialogDescription>
-              This deletes everything you changed in this browser and loads Kopi Kaki's data fresh, as it was on{" "}
+              This deletes everything you changed in this browser and restores the Qinghe Foods demo as it was on{" "}
               {formatDate(info.today)}. Other visitors are never affected: each browser has its own copy.
             </AlertDialogDescription>
           </AlertDialogHeader>

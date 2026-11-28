@@ -165,9 +165,9 @@ function TryContent({ config }: { config: TryConfig }) {
     <>
       <h1 className="mb-2 text-2xl font-semibold leading-8">Your own demo company, on your phone and the web</h1>
       <p className="mb-6 text-ui text-primary-300">
-        Get a private copy of Kopi Kaki, a fictional café group with three outlets: payroll since July, leave, claims,
-        rosters and approvals waiting. Sign in by picking a person, no password. It is yours alone and is deleted{" "}
-        {lifetime(config.ttlHours)} after you start it.
+        Get a private copy of Qinghe Foods, a fictional café group with three outlets: payroll since July, leave,
+        claims, rosters and approvals waiting. Sign in by picking a person, no password. It is yours alone and is
+        deleted {lifetime(config.ttlHours)} after you start it.
       </p>
 
       <ol className="flex flex-col">

@@ -15,7 +15,7 @@ import {
 import { singaporeDate } from "./dates.ts";
 
 /**
- * The demo company: Kopi Kaki Pte. Ltd., a café group with a central kitchen, an office and three
+ * The demo company: Qinghe Foods Pte. Ltd., a café group with a central kitchen, an office and three
  * outlets. `seedPeople` (core's shared fictional seed, 24 people covering every residency, pass
  * type, race/SHG fund and the CPF 55/60/65/70 age boundaries) plus a third outlet with its
  * supervisor, a joiner who starts this month and a leaver whose last day is this month.
@@ -23,7 +23,7 @@ import { singaporeDate } from "./dates.ts";
  * Every name, NRIC/FIN, bank account and email is invented. ID numbers carry valid check letters
  * so the real validation accepts them; email domains are `.example` (RFC 2606).
  */
-export const DEMO_ORG = { name: "Kopi Kaki Pte. Ltd.", slug: "kopi-kaki" } as const;
+export const DEMO_ORG = { name: "Qinghe Foods Pte. Ltd.", slug: "qinghe-foods" } as const;
 
 /** Extra people on top of core's SEED_PEOPLE (keys must not clash with it). */
 const EXTRA = [
@@ -126,7 +126,7 @@ export async function seedDemoPeople(deps: AppDeps, orgId: string, ownerUserId: 
         residencyStatus: "citizen",
         race: p.race,
         religion: p.religion,
-        workEmail: `${p.preferredName.toLowerCase().replace(/\s+/g, "")}.tb@kopikaki.example`,
+        workEmail: `${p.preferredName.toLowerCase().replace(/\s+/g, "")}.tb@qinghefoods.example`,
         mobile: `8${String(3_100_000 + n * 5_119).slice(0, 7)}`,
         address: { block: String(20 + n), street: "Tiong Bahru Road", unit: `#0${n}-0${n}`, postalCode: "160020" },
       },

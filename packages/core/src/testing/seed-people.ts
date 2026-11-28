@@ -635,8 +635,8 @@ export const SEED_PEOPLE: Seed[] = [
 
 export async function seedPeople(deps: AppDeps, ports: PeoplePorts, owner: Actor): Promise<SeededPeople> {
   await saveCompanyProfile(deps, ports, owner, {
-    legalName: "Kopi Kaki Pte. Ltd.",
-    tradingName: "Kopi Kaki",
+    legalName: "Qinghe Foods Pte. Ltd.",
+    tradingName: "Qinghe Foods",
     uen: "201912345K",
     csn: "201912345KPTE01",
     addressBlock: "10",
@@ -717,7 +717,7 @@ export async function seedPeople(deps: AppDeps, ports: PeoplePorts, owner: Actor
         race: p.race ?? null,
         religion: p.religion ?? null,
         shgOptOutOn: p.shgOptOutOn ?? null,
-        workEmail: `${p.legalName.split(" ")[0]?.toLowerCase()}.${n}@kopikaki.example`,
+        workEmail: `${p.legalName.split(" ")[0]?.toLowerCase()}.${n}@qinghefoods.example`,
         mobile: `9${String(1_000_000 + n * 7_331).slice(0, 7)}`,
         address: {
           block: String(100 + n),

@@ -276,7 +276,7 @@ How the rules were checked is in `packages/sg-rules/VERIFICATION.md`.
 The demo (https://hr.crow.sg) is the real web app and API running in the visitor's browser; see
 `docs/architecture.md`. What differs from a real install:
 
-- **Sign-in** is one click per persona, or the shared password `kopi-kaki-demo`, without two-step
+- **Sign-in** is one click per persona, or the shared password `qinghe-foods-demo`, without two-step
   verification. The SSO buttons explain they're unavailable, and Singpass works only when the build
   is configured for the demo's Singpass round trip.
 - **Email** goes to the demo outbox; nothing is sent.

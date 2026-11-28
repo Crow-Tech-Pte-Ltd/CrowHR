@@ -1,8 +1,9 @@
 # The sample company on a real server
 
-`scripts/seed-sample-company.ts` adds Kopi Kaki Pte. Ltd., the public demo's fictional café group
-(short name `kopi-kaki`), to a running Crow HR server as an extra organisation, for app store
-reviewers and sales demos. The server's other organisations are never read or written.
+`scripts/seed-sample-company.ts` adds Qinghe Foods Pte. Ltd., the public demo's fictional café group,
+to a running Crow HR server for app store reviewers and sales demos. It uses the existing
+organisation ID `kopi-kaki` so the reviewer connection instructions still work. The server's other
+organisations are never read or written.
 
 ## What's in it
 

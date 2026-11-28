@@ -62,11 +62,11 @@ describe("demo Singpass round trip settings", () => {
       loadConfig({
         PUBLIC_URL: "https://hr.example.sg",
         DEMO_SINGPASS_PROVIDER_ID: id,
-        DEMO_SINGPASS_RETURN_URL: "https://hr.crow.sg/sign-in/kopi-kaki",
+        DEMO_SINGPASS_RETURN_URL: "https://hr.crow.sg/sign-in/qinghe-foods",
       }),
     ).toMatchObject({
       DEMO_SINGPASS_PROVIDER_ID: id,
-      DEMO_SINGPASS_RETURN_URL: "https://hr.crow.sg/sign-in/kopi-kaki",
+      DEMO_SINGPASS_RETURN_URL: "https://hr.crow.sg/sign-in/qinghe-foods",
     });
   });
 
@@ -78,14 +78,14 @@ describe("demo Singpass round trip settings", () => {
       loadConfig({
         PUBLIC_URL: "https://hr.example.sg",
         DEMO_SINGPASS_PROVIDER_ID: "not-a-uuid",
-        DEMO_SINGPASS_RETURN_URL: "https://hr.crow.sg/sign-in/kopi-kaki",
+        DEMO_SINGPASS_RETURN_URL: "https://hr.crow.sg/sign-in/qinghe-foods",
       }),
     ).toThrow(/DEMO_SINGPASS_PROVIDER_ID must be the id of a Singpass method/);
     expect(() =>
       loadConfig({
         PUBLIC_URL: "https://hr.example.sg",
         DEMO_SINGPASS_PROVIDER_ID: id,
-        DEMO_SINGPASS_RETURN_URL: "/sign-in/kopi-kaki",
+        DEMO_SINGPASS_RETURN_URL: "/sign-in/qinghe-foods",
       }),
     ).toThrow(/DEMO_SINGPASS_RETURN_URL must be a full http:\/\/ or https:\/\/ address/);
   });
