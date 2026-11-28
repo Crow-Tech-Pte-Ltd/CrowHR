@@ -30,6 +30,7 @@ This page is checked by a test (`apps/docs/tests/env-vars.test.ts`) that reads e
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `CROWHR_HOSTED` | `false` | Enabled by the dedicated hosting Compose overlay. Requires HTTPS, a configured trusted proxy, PostgreSQL, the setup gate, scheduled encrypted backups and a backup before migration. Demo features must be off. |
+| `MANAGED_SINGPASS_ISSUER` | unset | Optional HTTPS origin of the shared login service for Crow Tech-hosted employee sign-in, with no path or trailing slash. Requires `CROWHR_HOSTED=1`. Leave unset to use your own Singpass registration. See the [Singpass guide](/docs/admin/sso/singpass/). |
 | `CROWHR_IMAGE_SHA256` | unset | Required by the dedicated hosting overlay. Set this to the approved release image's 64-character SHA-256 digest, without the `sha256:` prefix. |
 
 ## Backups
