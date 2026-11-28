@@ -59,6 +59,11 @@ async function findResource(c: AppContext, value: string) {
 
 function consentPage(c: AppContext, title: string, content: ReturnType<typeof html>, status: 200 | 400 | 403 = 200) {
   c.header("referrer-policy", "no-referrer");
+  // Browsers also apply form-action to the redirect after this same-origin consent POST.
+  c.header(
+    "content-security-policy",
+    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://chatgpt.com https://claude.ai; base-uri 'none'; frame-ancestors 'none'",
+  );
   return c.html(
     html`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

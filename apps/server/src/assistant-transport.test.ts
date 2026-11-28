@@ -88,6 +88,9 @@ describe("remote MCP authorization", () => {
     expect(landing.headers.get("location")).toMatch(/^\/sign-in\/first-company\?assistant=/);
     const consent = await owner.get(`${authorize}?${req}`);
     expect(consent.status).toBe(200);
+    expect(consent.headers.get("content-security-policy")).toContain(
+      "form-action 'self' https://chatgpt.com https://claude.ai",
+    );
     expect(await consent.text()).toContain("Allow read-only access");
     const post = (client: typeof owner, path: string, values: URLSearchParams) =>
       client.request(path, { method: "POST", body: values });
