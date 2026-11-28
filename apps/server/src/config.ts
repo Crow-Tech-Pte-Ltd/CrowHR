@@ -16,6 +16,7 @@ export interface ServerConfig {
   PUBLIC_URL: string;
   /** Cookies get `Secure` (and the `__Host-` prefix) when PUBLIC_URL is https, even behind a TLS-terminating proxy. */
   secureCookies: boolean;
+  assistantEnabled: boolean;
   HOST: string;
   PORT: number;
   /** Final connection string: DATABASE_URL, or built from DATABASE_HOST/... and the password file. */
@@ -408,6 +409,7 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     DEMO_SINGPASS_PROVIDER_ID,
     DEMO_SINGPASS_RETURN_URL,
     demoCompanies,
+    assistantEnabled: bool("AI_ASSISTANT_ENABLED", false),
     monitoring: monitoring.config,
   };
   if (bool("CROWHR_HOSTED", false)) {

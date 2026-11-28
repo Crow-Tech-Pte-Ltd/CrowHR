@@ -19,6 +19,7 @@ The code is 16 characters from an alphabet without look-alikes (no `0`/`O`, `1`/
 
 1. **Setup code.** Paste the code from the log. Five wrong codes from one IP address block that address for 15 minutes.
 2. **Company's registered name**, as on ACRA BizFile (for example `Kampong Kopi Pte. Ltd.`). The UEN, CPF submission number and address come later in [company and structure](/docs/admin/company-and-structure/).
+   You can preview an app logo and accent colour here. On an HTTPS server with the AI assistant connector available, you can also opt in here. Both are optional and can be changed in **Settings → Company**.
 3. **The owner account**: your name, work email and a password. Passwords are 12 to 128 characters, must not be on the common-password list and must not equal the email. There are no character-class rules: a few random words work well.
 
 The organisation and the owner are created in one transaction, the code stops working, `setup.completed` is written to the audit log and you are signed in. `/setup` then answers 404.

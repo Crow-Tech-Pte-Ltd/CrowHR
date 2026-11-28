@@ -2,10 +2,12 @@ import { and, eq, gt, inArray, isNull, ne, type SQL } from "drizzle-orm";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import type { AssignedRole } from "../access/matrix.ts";
+import { orgScope } from "../access/org-scope.ts";
 import { clientIp } from "../audit/audit.ts";
 import type { AppContext, AppEnv, AuthContext, AuthMethod } from "../context.ts";
 import { newToken, sha256Hex } from "../crypto/tokens.ts";
 import { membershipRoles, memberships } from "../db/schema/access.ts";
+import { assistantGrants } from "../db/schema/assistant.ts";
 import { deviceSessions, sessions, userIdentities } from "../db/schema/auth.ts";
 import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
@@ -359,8 +361,14 @@ export async function activeDeviceSessions(db: Db, userId: string, orgId: string
     );
 }
 
-/** Revokes every session and device of the given memberships (suspension, former). */
-export async function revokeMembershipSessions(db: Db, membershipIds: string[], reason: string, now: Date) {
+/** Revokes sessions, devices and assistant connections of suspended or former members. */
+export async function revokeMembershipSessions(
+  db: Db,
+  orgId: string,
+  membershipIds: string[],
+  reason: string,
+  now: Date,
+) {
   if (!membershipIds.length) return;
   await db
     .update(sessions)
@@ -370,4 +378,7 @@ export async function revokeMembershipSessions(db: Db, membershipIds: string[], 
     .update(deviceSessions)
     .set({ revokedAt: now, revokedReason: reason })
     .where(and(inArray(deviceSessions.membershipId, membershipIds), isNull(deviceSessions.revokedAt)));
+  await db
+    .delete(assistantGrants)
+    .where(orgScope(db, orgId).where(assistantGrants, inArray(assistantGrants.membershipId, membershipIds)));
 }

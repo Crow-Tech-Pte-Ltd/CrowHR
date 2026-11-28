@@ -46,6 +46,7 @@ export function createServerDeps(
     // Cookie security (`Secure`, `__Host-`) and the CSRF origin derive from PUBLIC_URL, never from
     // request headers, so https works behind a TLS-terminating proxy.
     publicUrl: config.PUBLIC_URL,
+    assistantEnabled: config.assistantEnabled,
     // Manager scope from employment records (people module).
     reportingScope: createReportingScopeResolver(database.db),
     // Approvals: line managers, work-pass expiry and probation dates from the people module.

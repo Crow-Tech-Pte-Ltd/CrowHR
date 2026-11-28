@@ -1,0 +1,3 @@
+## Decisions
+
+A server environment switch makes the connector available on HTTPS installs. Each company independently opts in and has a distinct MCP resource identified by its slug. Browser OAuth consent uses the existing Crow HR session and MFA policies. OAuth access and rotating refresh credentials are opaque, audience-bound and stored as hashes. Allow provider callback URIs explicitly and enforce PKCE. Revalidate active membership and existing Crow HR permissions at each call. Expose only selected fields for own leave, own published shifts and a pending approval count. Audit connection changes and tool names without recording HR results or credentials.

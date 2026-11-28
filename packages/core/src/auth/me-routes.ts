@@ -12,6 +12,7 @@ import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
 import { AppError } from "../errors.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
+import { appearanceView, companyAppearance } from "../organisation/appearance.ts";
 import { audit, regenerateRecoveryCodes, remainingRecoveryCodes, verifyPasswordOrDummy } from "./credentials.ts";
 import { emailChangeMeRoutes } from "./email-change.ts";
 import { mfaPolicyStatus } from "./mfa-policy.ts";
@@ -134,6 +135,7 @@ const meResponse = z.object({
     fullName: z.string(),
   }),
   organisation: z.object({ id: z.uuid(), name: z.string(), slug: z.string().nullable() }),
+  appearance: appearanceView,
   membershipId: z.uuid(),
   membershipStatus: z.enum(["active", "former"]),
   employeeId: z.uuid().nullable(),
@@ -206,6 +208,7 @@ export const meModule = defineModule({
             fullName: emp?.legalName || auth.user.displayName,
           },
           organisation: { id: auth.orgId, name: org?.name ?? "", slug: org?.slug ?? null },
+          appearance: await companyAppearance(deps, org ?? null),
           membershipId: auth.membershipId,
           membershipStatus: auth.membershipStatus,
           employeeId: auth.employeeId,

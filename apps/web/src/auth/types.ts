@@ -1,3 +1,5 @@
+import type { Appearance } from "../branding/appearance.tsx";
+
 /** Wire shapes of the identity endpoints (mirrors packages/core response schemas). */
 export type ProviderKind = "google" | "entra" | "singpass" | "oidc";
 export type AssignedRole = "owner" | "hr_admin" | "payroll_admin";
@@ -6,6 +8,7 @@ export interface Me {
   /** Greet with `greetingName(user)`: preferred name, else full name. Never split a name into first/last. */
   user: { id: string; email: string; displayName: string; preferredName: string | null; fullName: string };
   organisation: { id: string; name: string; slug: string | null };
+  appearance?: Appearance;
   membershipId: string;
   membershipStatus: "active" | "former";
   employeeId: string | null;
@@ -31,6 +34,7 @@ export interface Me {
 }
 
 export interface SignInMethods {
+  appearance?: Appearance;
   orgSlugRequired: boolean;
   organisation: { name: string; slug: string | null } | null;
   password: { enabled: boolean };

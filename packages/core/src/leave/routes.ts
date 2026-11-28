@@ -126,7 +126,7 @@ const quoteView = z.object({
 
 const toHundredthsView = (n: number | null) => (n === null ? null : n / 100);
 
-async function balancesView(
+export async function balancesView(
   c: AppContext,
   auth: AuthContext,
   grant: Grant,

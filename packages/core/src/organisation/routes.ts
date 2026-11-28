@@ -1,9 +1,14 @@
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { auditContext } from "../audit/audit.ts";
+import { organisations } from "../db/schema/organisations.ts";
+import { findSignInOrg } from "../demo-companies/service.ts";
 import { actorFrom } from "../employees/access.ts";
 import { createTemplate, listTemplates, templateInput } from "../employees/checklists.ts";
 import { allowanceTypeInput, createAllowanceType, listAllowanceTypes } from "../employees/profile.ts";
 import { AppError } from "../errors.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
+import { appearanceInput, appearanceLogo, appearanceView, companyAppearance, saveAppearance } from "./appearance.ts";
 import {
   companyProfileInput,
   getCompanyProfile,
@@ -100,6 +105,43 @@ export const organisationModule = defineModule({
   basePath: "/organisation",
   tag: "Organisation",
   routes: [
+    defineRoute({
+      method: "put",
+      path: "/appearance",
+      summary: "Save company appearance (owner only)",
+      access: "authenticated",
+      request: { body: appearanceInput },
+      responses: { 200: appearanceView },
+      errors: ["forbidden"],
+      handler: async ({ c, deps, auth, body }) => {
+        const [org] = await deps.db.select().from(organisations).where(eq(organisations.id, auth.orgId));
+        if (!org || !auth.roles.includes("owner") || org.demoExpiresAt) {
+          throw new AppError("forbidden", "Only a company owner can change the app appearance.");
+        }
+        await deps.db.transaction((tx) => saveAppearance(deps, tx, auditContext(c, org.id), body));
+        return companyAppearance(deps, org);
+      },
+    }),
+    defineRoute({
+      method: "get",
+      path: "/appearance/logo",
+      summary: "Get the public sign-in logo for the specified company",
+      access: "public",
+      request: { query: z.object({ org: z.string().min(1).max(100) }) },
+      responses: { 200: { description: "Sign-in logo", contentType: "image/png" } },
+      errors: ["not_found"],
+      handler: async ({ deps, query }) => {
+        const org = await findSignInOrg(deps, query.org, deps.clock.now());
+        return new Response((await appearanceLogo(deps, org)) as BodyInit, {
+          headers: {
+            "content-type": "image/png",
+            "cache-control": "no-store",
+            "x-content-type-options": "nosniff",
+            "content-security-policy": "default-src 'none'; sandbox",
+          },
+        });
+      },
+    }),
     defineRoute({
       method: "get",
       path: "/profile",

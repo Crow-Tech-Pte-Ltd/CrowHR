@@ -73,6 +73,7 @@ export interface AppDeps {
    * Drives the CSRF origin check, the cookie name (`__Host-` only over https) and SSO redirect URIs.
    */
   publicUrl: string;
+  assistantEnabled?: boolean;
   mailer?: Mailer;
   /** Outbound HTTP for OIDC discovery and token calls. Defaults to global `fetch`; tests inject the mock IdP. */
   httpFetch?: typeof fetch;

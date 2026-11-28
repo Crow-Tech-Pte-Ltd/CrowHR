@@ -14,7 +14,7 @@ Development tools (test runners, linters, type checkers, Vite, the documentation
 
 The Docker image is built on the official `node:24-alpine` image (Node.js, MIT, with its bundled third-party licences in the Node.js distribution) and adds two Alpine packages: `postgresql17-client` (PostgreSQL Licence) for backups, and `tini` (MIT). Each published image also carries an SBOM with the full package list.
 
-Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BSD-3-Clause (1), MIT-0 (1), OFL-1.1 (1), UFL-1.0 (1), Unlicense (1).
+Licences: MIT (231), Apache-2.0 (21), ISC (17), BSD-3-Clause (3), 0BSD (2), (MIT AND Zlib) (1), BSD-2-Clause (1), MIT-0 (1), OFL-1.1 (1), UFL-1.0 (1), Unlicense (1).
 
 ## Packages
 
@@ -29,6 +29,7 @@ Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `@fontsource/azeret-mono` | 5.3.0 | OFL-1.1 | web, demo | <https://github.com/fontsource/font-files/tree/HEAD/fonts/google/azeret-mono> |
 | `@fontsource/ubuntu` | 5.3.0 | UFL-1.0 | web, demo | <https://github.com/fontsource/font-files/tree/HEAD/fonts/google/ubuntu> |
 | `@hono/node-server` | 2.1.11 | MIT | server | <https://github.com/honojs/node-server> |
+| `@modelcontextprotocol/sdk` | 1.32.2 | MIT | server | <https://github.com/modelcontextprotocol/typescript-sdk> |
 | `@noble/ciphers` | 2.4.0 | MIT | server | <https://github.com/paulmillr/noble-ciphers> |
 | `@noble/curves` | 2.0.1 | MIT | server | <https://github.com/paulmillr/noble-curves> |
 | `@noble/curves` | 2.4.0 | MIT | server | <https://github.com/paulmillr/noble-curves> |
@@ -112,7 +113,10 @@ Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `@tanstack/router-core` | 1.171.39 | MIT | web, demo | <https://github.com/TanStack/router/tree/HEAD/packages/router-core> |
 | `@tanstack/store` | 0.11.2 | MIT | web, demo | <https://github.com/TanStack/store/tree/HEAD/packages/store> |
 | `@tanstack/table-core` | 8.21.3 | MIT | web, demo | <https://github.com/TanStack/table/tree/HEAD/packages/table-core> |
+| `accepts` | 2.0.0 | MIT | server | <https://github.com/jshttp/accepts> |
 | `age-encryption` | 0.3.1 | BSD-3-Clause | server | <https://github.com/FiloSottile/typage> |
+| `ajv` | 8.20.0 | MIT | server | <https://github.com/ajv-validator/ajv> |
+| `ajv-formats` | 3.0.1 | MIT | server | <https://github.com/ajv-validator/ajv-formats> |
 | `ansi-regex` | 5.0.1 | MIT | web, demo | <https://github.com/chalk/ansi-regex> |
 | `ansi-styles` | 4.3.0 | MIT | web, demo | <https://github.com/chalk/ansi-styles> |
 | `aria-hidden` | 1.2.6 | MIT | web, demo | <https://github.com/theKashey/aria-hidden> |
@@ -122,6 +126,10 @@ Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `bare-path` | 3.1.2 | Apache-2.0 | server | <https://github.com/holepunchto/bare-path> |
 | `bare-stream` | 2.13.4 | Apache-2.0 | server | <https://github.com/holepunchto/bare-stream> |
 | `bare-url` | 2.5.5 | Apache-2.0 | server | <https://github.com/holepunchto/bare-url> |
+| `body-parser` | 2.4.0 | MIT | server | <https://github.com/expressjs/body-parser> |
+| `bytes` | 3.1.2 | MIT | server | <https://github.com/visionmedia/bytes.js> |
+| `call-bind-apply-helpers` | 1.0.2 | MIT | server | <https://github.com/ljharb/call-bind-apply-helpers> |
+| `call-bound` | 1.0.4 | MIT | server | <https://github.com/ljharb/call-bound> |
 | `camelcase` | 5.3.1 | MIT | web, demo | <https://github.com/sindresorhus/camelcase> |
 | `cjs-module-lexer` | 2.3.0 | MIT | server | <https://github.com/nodejs/cjs-module-lexer> |
 | `class-variance-authority` | 0.7.1 | Apache-2.0 | web, demo | <https://github.com/joe-bell/cva> |
@@ -130,38 +138,91 @@ Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `cmdk` | 1.1.1 | MIT | web, demo | <https://github.com/pacocoursey/cmdk/tree/HEAD/cmdk> |
 | `color-convert` | 2.0.1 | MIT | web, demo | <https://github.com/Qix-/color-convert> |
 | `color-name` | 1.1.4 | MIT | web, demo | <https://github.com/colorjs/color-name> |
+| `content-disposition` | 2.0.1 | MIT | server | <https://github.com/jshttp/content-disposition> |
+| `content-type` | 1.0.5 | MIT | server | <https://github.com/jshttp/content-type> |
+| `content-type` | 2.1.0 | MIT | server | <https://github.com/jshttp/content-type> |
+| `cookie` | 0.7.2 | MIT | server | <https://github.com/jshttp/cookie> |
 | `cookie-es` | 3.1.1 | MIT | web, demo | <https://github.com/unjs/cookie-es> |
+| `cookie-signature` | 1.2.2 | MIT | server | <https://github.com/visionmedia/node-cookie-signature> |
+| `cors` | 2.8.6 | MIT | server | <https://github.com/expressjs/cors> |
+| `cross-spawn` | 7.0.6 | MIT | server | <https://github.com/moxystudio/node-cross-spawn> |
 | `date-fns` | 4.4.0 | MIT | web, demo | <https://github.com/date-fns/date-fns> |
 | `date-fns-jalali` | 4.1.0-0 | MIT | web, demo | <https://github.com/date-fns-jalali/date-fns-jalali> |
 | `debug` | 4.4.3 | MIT | server | <https://github.com/debug-js/debug> |
 | `decamelize` | 1.2.0 | MIT | web, demo | <https://github.com/sindresorhus/decamelize> |
+| `depd` | 2.0.0 | MIT | server | <https://github.com/dougwilson/nodejs-depd> |
 | `detect-node-es` | 1.1.0 | MIT | web, demo | <https://github.com/thekashey/detect-node> |
 | `dijkstrajs` | 1.0.3 | MIT | web, demo | <https://github.com/tcort/dijkstrajs> |
 | `drizzle-orm` | 0.45.4 | Apache-2.0 | server, demo | <https://github.com/drizzle-team/drizzle-orm> |
+| `dunder-proto` | 1.0.1 | MIT | server | <https://github.com/es-shims/dunder-proto> |
+| `ee-first` | 1.1.1 | MIT | server | <https://github.com/jonathanong/ee-first> |
 | `emoji-regex` | 8.0.0 | MIT | web, demo | <https://github.com/mathiasbynens/emoji-regex> |
+| `encodeurl` | 2.0.3 | MIT | server | <https://github.com/pillarjs/encodeurl> |
+| `es-define-property` | 1.0.1 | MIT | server | <https://github.com/ljharb/es-define-property> |
+| `es-errors` | 1.3.0 | MIT | server | <https://github.com/ljharb/es-errors> |
 | `es-module-lexer` | 3.0.4 | MIT | server | <https://github.com/guybedford/es-module-lexer> |
+| `es-object-atoms` | 1.1.2 | MIT | server | <https://github.com/ljharb/es-object-atoms> |
+| `escape-html` | 1.0.3 | MIT | server | <https://github.com/component/escape-html> |
+| `etag` | 1.8.1 | MIT | server | <https://github.com/jshttp/etag> |
 | `events-universal` | 1.0.1 | Apache-2.0 | server | <https://github.com/holepunchto/events-universal> |
+| `eventsource` | 3.0.7 | MIT | server | <https://git@github.com/EventSource/eventsource> |
+| `eventsource-parser` | 3.1.1 | MIT | server | <https://github.com/rexxars/eventsource-parser> |
+| `express` | 5.3.0 | MIT | server | <https://github.com/expressjs/express> |
+| `express-rate-limit` | 8.7.5 | MIT | server | <https://github.com/express-rate-limit/express-rate-limit> |
+| `fast-deep-equal` | 3.1.3 | MIT | server | <https://github.com/epoberezkin/fast-deep-equal> |
 | `fast-fifo` | 1.3.2 | MIT | server | <https://github.com/mafintosh/fast-fifo> |
+| `fast-uri` | 3.1.9 | BSD-3-Clause | server | <https://github.com/fastify/fast-uri> |
+| `finalhandler` | 2.1.1 | MIT | server | <https://github.com/pillarjs/finalhandler> |
 | `find-up` | 4.1.0 | MIT | web, demo | <https://github.com/sindresorhus/find-up> |
+| `forwarded` | 0.2.0 | MIT | server | <https://github.com/jshttp/forwarded> |
+| `fresh` | 2.0.0 | MIT | server | <https://github.com/jshttp/fresh> |
+| `function-bind` | 1.1.2 | MIT | server | <https://github.com/Raynos/function-bind> |
 | `get-caller-file` | 2.0.5 | ISC | web, demo | <https://github.com/stefanpenner/get-caller-file> |
+| `get-intrinsic` | 1.3.0 | MIT | server | <https://github.com/ljharb/get-intrinsic> |
 | `get-nonce` | 1.0.1 | MIT | web, demo | <https://github.com/theKashey/get-nonce> |
+| `get-proto` | 1.0.1 | MIT | server | <https://github.com/ljharb/get-proto> |
+| `gopd` | 1.2.0 | MIT | server | <https://github.com/ljharb/gopd> |
+| `has-symbols` | 1.1.0 | MIT | server | <https://github.com/inspect-js/has-symbols> |
+| `hasown` | 2.0.4 | MIT | server | <https://github.com/inspect-js/hasOwn> |
 | `hono` | 4.13.20 | MIT | server, demo | <https://github.com/honojs/hono> |
+| `http-errors` | 2.0.1 | MIT | server | <https://github.com/jshttp/http-errors> |
+| `iconv-lite` | 0.7.3 | MIT | server | <https://github.com/pillarjs/iconv-lite> |
 | `import-in-the-middle` | 3.6.0 | Apache-2.0 | server | <https://github.com/nodejs/import-in-the-middle> |
+| `inherits` | 2.0.4 | ISC | server | <https://github.com/isaacs/inherits> |
+| `ip-address` | 10.7.7 | MIT | server | <https://github.com/beaugunderson/ip-address> |
+| `ipaddr.js` | 1.9.1 | MIT | server | <https://github.com/whitequark/ipaddr.js> |
 | `is-fullwidth-code-point` | 3.0.0 | MIT | web, demo | <https://github.com/sindresorhus/is-fullwidth-code-point> |
+| `is-promise` | 4.0.0 | MIT | server | <https://github.com/then/is-promise> |
 | `isbot` | 5.2.2 | Unlicense | web, demo | <https://github.com/omrilotan/isbot> |
+| `isexe` | 2.0.0 | ISC | server | <https://github.com/isaacs/isexe> |
 | `jose` | 6.2.14 | MIT | server, demo | <https://github.com/panva/jose> |
+| `json-schema-traverse` | 1.0.0 | MIT | server | <https://github.com/epoberezkin/json-schema-traverse> |
+| `json-schema-typed` | 8.0.2 | BSD-2-Clause | server | <https://github.com/RemyRylan/json-schema-typed> |
 | `locate-path` | 5.0.0 | MIT | web, demo | <https://github.com/sindresorhus/locate-path> |
 | `lucide-react` | 1.66.0 | ISC | web, demo | <https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react> |
+| `math-intrinsics` | 1.1.0 | MIT | server | <https://github.com/es-shims/math-intrinsics> |
+| `media-typer` | 1.1.1 | MIT | server | <https://github.com/jshttp/media-typer> |
+| `merge-descriptors` | 2.0.0 | MIT | server | <https://github.com/sindresorhus/merge-descriptors> |
+| `mime-db` | 1.54.0 | MIT | server | <https://github.com/jshttp/mime-db> |
+| `mime-types` | 3.0.2 | MIT | server | <https://github.com/jshttp/mime-types> |
 | `module-details-from-path` | 1.0.4 | MIT | server | <https://github.com/watson/module-details-from-path> |
 | `ms` | 2.1.3 | MIT | server | <https://github.com/vercel/ms> |
+| `negotiator` | 1.1.0 | MIT | server | <https://github.com/jshttp/negotiator> |
 | `nodemailer` | 10.3.1 | MIT-0 | server | <https://github.com/nodemailer/nodemailer> |
 | `oauth4webapi` | 3.8.8 | MIT | server, demo | <https://github.com/panva/oauth4webapi> |
+| `object-assign` | 4.1.1 | MIT | server | <https://github.com/sindresorhus/object-assign> |
+| `object-inspect` | 1.14.0 | MIT | server | ssh://github.com/inspect-js/object-inspect |
+| `on-finished` | 2.4.2 | MIT | server | <https://github.com/jshttp/on-finished> |
+| `once` | 1.4.0 | ISC | server | <https://github.com/isaacs/once> |
 | `openid-client` | 6.8.8 | MIT | server, demo | <https://github.com/panva/openid-client> |
 | `p-limit` | 2.3.0 | MIT | web, demo | <https://github.com/sindresorhus/p-limit> |
 | `p-locate` | 4.1.0 | MIT | web, demo | <https://github.com/sindresorhus/p-locate> |
 | `p-try` | 2.2.0 | MIT | web, demo | <https://github.com/sindresorhus/p-try> |
 | `pako` | 1.0.11 | (MIT AND Zlib) | server, demo | <https://github.com/nodeca/pako> |
+| `parseurl` | 1.3.3 | MIT | server | <https://github.com/pillarjs/parseurl> |
 | `path-exists` | 4.0.0 | MIT | web, demo | <https://github.com/sindresorhus/path-exists> |
+| `path-key` | 3.1.1 | MIT | server | <https://github.com/sindresorhus/path-key> |
+| `path-to-regexp` | 8.4.2 | MIT | server | <https://github.com/pillarjs/path-to-regexp> |
 | `pdf-lib` | 1.17.1 | MIT | server, demo | <https://github.com/Hopding/pdf-lib> |
 | `pg` | 8.23.1 | MIT | server | <https://github.com/brianc/node-postgres/tree/HEAD/packages/pg> |
 | `pg-cloudflare` | 1.4.1 | MIT | server | <https://github.com/brianc/node-postgres/tree/HEAD/packages/pg-cloudflare> |
@@ -171,12 +232,17 @@ Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `pg-protocol` | 1.16.1 | MIT | server | <https://github.com/brianc/node-postgres/tree/HEAD/packages/pg-protocol> |
 | `pg-types` | 2.2.0 | MIT | server | <https://github.com/brianc/node-pg-types> |
 | `pgpass` | 1.0.5 | MIT | server | <https://github.com/hoegaarden/pgpass> |
+| `pkce-challenge` | 5.0.2 | MIT | server | <https://github.com/crouchcd/pkce-challenge> |
 | `pngjs` | 5.0.0 | MIT | web, demo | <https://github.com/lukeapage/pngjs> |
 | `postgres-array` | 2.0.0 | MIT | server | <https://github.com/bendrucker/postgres-array> |
 | `postgres-bytea` | 1.0.1 | MIT | server | <https://github.com/bendrucker/postgres-bytea> |
 | `postgres-date` | 1.0.7 | MIT | server | <https://github.com/bendrucker/postgres-date> |
 | `postgres-interval` | 1.2.0 | MIT | server | <https://github.com/bendrucker/postgres-interval> |
+| `proxy-addr` | 2.0.8 | MIT | server | <https://github.com/jshttp/proxy-addr> |
 | `qrcode` | 1.5.4 | MIT | web, demo | <https://github.com/soldair/node-qrcode> |
+| `qs` | 6.17.1 | BSD-3-Clause | server | <https://github.com/ljharb/qs> |
+| `range-parser` | 1.3.0 | MIT | server | <https://github.com/jshttp/range-parser> |
+| `raw-body` | 3.0.2 | MIT | server | <https://github.com/stream-utils/raw-body> |
 | `react` | 19.3.1 | MIT | web, demo | <https://github.com/react/react/tree/HEAD/packages/react> |
 | `react-day-picker` | 9.14.0 | MIT | web, demo | <https://github.com/gpbl/react-day-picker> |
 | `react-dom` | 19.3.1 | MIT | web, demo | <https://github.com/react/react/tree/HEAD/packages/react-dom> |
@@ -185,14 +251,27 @@ Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `react-style-singleton` | 2.2.3 | MIT | web, demo | <https://github.com/theKashey/react-style-singleton> |
 | `regenerator-runtime` | 0.14.1 | MIT | server, demo | <https://github.com/facebook/regenerator/tree/main/packages/runtime> |
 | `require-directory` | 2.1.1 | MIT | web, demo | <https://github.com/troygoode/node-require-directory> |
+| `require-from-string` | 2.0.2 | MIT | server | <https://github.com/floatdrop/require-from-string> |
 | `require-in-the-middle` | 8.0.1 | MIT | server | <https://github.com/nodejs/require-in-the-middle> |
 | `require-main-filename` | 2.0.0 | ISC | web, demo | <https://github.com/yargs/require-main-filename> |
+| `router` | 2.3.0 | MIT | server | <https://github.com/pillarjs/router> |
+| `safer-buffer` | 2.1.2 | MIT | server | <https://github.com/ChALkeR/safer-buffer> |
 | `scheduler` | 0.28.0 | MIT | web, demo | <https://github.com/react/react/tree/HEAD/packages/scheduler> |
+| `send` | 1.2.1 | MIT | server | <https://github.com/pillarjs/send> |
 | `seroval` | 1.7.5 | MIT | web, demo | <https://github.com/lxsmnsyc/seroval> |
 | `seroval-plugins` | 1.7.6 | MIT | web, demo | <https://github.com/lxsmnsyc/seroval> |
+| `serve-static` | 2.2.1 | MIT | server | <https://github.com/expressjs/serve-static> |
 | `set-blocking` | 2.0.0 | ISC | web, demo | <https://github.com/yargs/set-blocking> |
+| `setprototypeof` | 1.2.0 | ISC | server | <https://github.com/wesleytodd/setprototypeof> |
+| `shebang-command` | 2.0.0 | MIT | server | <https://github.com/kevva/shebang-command> |
+| `shebang-regex` | 3.0.0 | MIT | server | <https://github.com/sindresorhus/shebang-regex> |
+| `side-channel` | 1.1.1 | MIT | server | <https://github.com/ljharb/side-channel> |
+| `side-channel-list` | 1.0.1 | MIT | server | <https://github.com/ljharb/side-channel-list> |
+| `side-channel-map` | 1.0.1 | MIT | server | <https://github.com/ljharb/side-channel-map> |
+| `side-channel-weakmap` | 1.0.2 | MIT | server | <https://github.com/ljharb/side-channel-weakmap> |
 | `sonner` | 2.0.8 | MIT | web, demo | <https://github.com/emilkowalski/sonner> |
 | `split2` | 4.2.0 | ISC | server | <https://github.com/mcollina/split2> |
+| `statuses` | 2.0.2 | MIT | server | <https://github.com/jshttp/statuses> |
 | `streamx` | 2.28.1 | MIT | server | <https://github.com/mafintosh/streamx> |
 | `string-width` | 4.2.3 | MIT | web, demo | <https://github.com/sindresorhus/string-width> |
 | `strip-ansi` | 6.0.1 | MIT | web, demo | <https://github.com/chalk/strip-ansi> |
@@ -202,18 +281,25 @@ Licences: MIT (155), Apache-2.0 (21), ISC (10), 0BSD (2), (MIT AND Zlib) (1), BS
 | `tar-stream` | 3.1.9 | MIT | server | <https://github.com/mafintosh/tar-stream> |
 | `teex` | 1.0.1 | MIT | server | <https://github.com/mafintosh/teex> |
 | `text-decoder` | 1.2.7 | Apache-2.0 | server | <https://github.com/holepunchto/text-decoder> |
+| `toidentifier` | 1.0.1 | MIT | server | <https://github.com/component/toidentifier> |
 | `tslib` | 1.14.1 | 0BSD | server, demo | <https://github.com/Microsoft/tslib> |
 | `tslib` | 2.9.1 | 0BSD | web, demo | <https://github.com/Microsoft/tslib> |
+| `type-is` | 2.1.0 | MIT | server | <https://github.com/jshttp/type-is> |
+| `unpipe` | 1.0.0 | MIT | server | <https://github.com/stream-utils/unpipe> |
 | `use-callback-ref` | 1.3.3 | MIT | web, demo | <https://github.com/theKashey/use-callback-ref/> |
 | `use-sidecar` | 1.1.3 | MIT | web, demo | <https://github.com/theKashey/use-sidecar> |
 | `use-sync-external-store` | 1.7.0 | MIT | web, demo | <https://github.com/react/react/tree/HEAD/packages/use-sync-external-store> |
+| `vary` | 1.1.2 | MIT | server | <https://github.com/jshttp/vary> |
+| `which` | 2.0.2 | ISC | server | <https://github.com/isaacs/node-which> |
 | `which-module` | 2.0.1 | ISC | web, demo | <https://github.com/nexdrew/which-module> |
 | `wrap-ansi` | 6.2.0 | MIT | web, demo | <https://github.com/chalk/wrap-ansi> |
+| `wrappy` | 1.0.2 | ISC | server | <https://github.com/npm/wrappy> |
 | `xtend` | 4.0.2 | MIT | server | <https://github.com/Raynos/xtend> |
 | `y18n` | 4.0.3 | ISC | web, demo | <https://github.com/yargs/y18n> |
 | `yargs` | 15.4.1 | MIT | web, demo | <https://github.com/yargs/yargs> |
 | `yargs-parser` | 18.1.3 | ISC | web, demo | <https://github.com/yargs/yargs-parser> |
 | `zod` | 4.6.7 | MIT | server, demo | <https://github.com/colinhacks/zod> |
+| `zod-to-json-schema` | 3.25.2 | ISC | server | <https://github.com/StefanTerdell/zod-to-json-schema> |
 
 ### Notes
 

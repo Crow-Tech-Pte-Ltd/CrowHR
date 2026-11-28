@@ -2,6 +2,8 @@ import { Alert, AlertDescription, AlertTitle, Button, FormField, Input, Skeleton
 import { Link } from "@tanstack/react-router";
 import { CircleAlert, CircleCheck, KeyRound, ShieldCheck } from "lucide-react";
 import * as React from "react";
+import { AssistantDisclosure } from "../assistant/settings.tsx";
+import { AppearanceEditor } from "../branding/editor.tsx";
 import { Wordmark } from "../components/wordmark.tsx";
 import { completeSetup, fetchSetupState, type SetupInput, type SetupState, verifySetupCode } from "./api.ts";
 
@@ -80,6 +82,10 @@ export function SetupWizard() {
       return;
     }
     setFieldErrors({});
+    if (input.appearance?.accent && !/^#[\da-f]{6}$/i.test(input.appearance.accent)) {
+      setFieldErrors({ "appearance.accent": "Enter a hex colour like #165E85." });
+      return;
+    }
     setStep("owner");
   };
 
@@ -110,7 +116,11 @@ export function SetupWizard() {
       setState({ kind: "done" });
     } else if (Object.keys(result.error.fields).length) {
       setFieldErrors(result.error.fields);
-      if (result.error.fields.organisationName) setStep("organisation");
+      if (
+        result.error.fields.organisationName ||
+        Object.keys(result.error.fields).some((key) => key.startsWith("appearance."))
+      )
+        setStep("organisation");
     } else {
       setFormError(result.error.message);
     }
@@ -213,6 +223,26 @@ export function SetupWizard() {
                       autoFocus
                     />
                   </FormField>
+                  <AppearanceEditor
+                    name={input.organisationName || "Company"}
+                    value={input.appearance ?? { accent: null, useDocumentLogo: false }}
+                    onChange={(appearance) => setInput((input) => ({ ...input, appearance }))}
+                    error={fieldErrors["appearance.accent"]}
+                  />
+                  {state.kind === "required" && state.assistantAvailable ? (
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center gap-2 text-ui font-medium">
+                        <input
+                          type="checkbox"
+                          className="focus-ring size-4 accent-ink"
+                          checked={input.enableAssistant ?? false}
+                          onChange={(e) => setInput((input) => ({ ...input, enableAssistant: e.target.checked }))}
+                        />
+                        Enable AI assistant connections
+                      </label>
+                      <AssistantDisclosure />
+                    </div>
+                  ) : null}
                   <div className="flex gap-2">
                     <Button type="button" variant="secondary" size="lg" onClick={() => setStep("code")}>
                       Back

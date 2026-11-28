@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { assistantAvailable } from "../assistant/settings.ts";
 import { auditContext, clientIp } from "../audit/audit.ts";
 import { startBrowserSession } from "../auth/sessions.ts";
 import { AppError } from "../errors.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
+import { appearanceInput } from "../organisation/appearance.ts";
 import { checkSetupCode, completeSetup, isSetupRequired } from "./service.ts";
 
 /** The one-time code travels in this header, never in a URL (it would land in proxy logs). */
@@ -33,6 +35,8 @@ const setupBody = z.object({
     .pipe(z.email({ error: "Enter a valid email address, for example aisyah@acme.sg." })),
   // Length and strength rules come from the identity password policy (checked in the service).
   ownerPassword: z.string().max(1024, { error: "Use at most 128 characters." }),
+  appearance: appearanceInput.optional(),
+  enableAssistant: z.boolean().optional(),
 });
 
 export const setupModule = defineModule({
@@ -47,12 +51,12 @@ export const setupModule = defineModule({
       description: "200 while the install has no organisation; 404 once setup is complete.",
       access: "public",
       responses: {
-        200: z.object({ required: z.literal(true) }),
+        200: z.object({ required: z.literal(true), assistantAvailable: z.literal(true).optional() }),
       },
       errors: ["not_found"],
       handler: async ({ deps }) => {
         await assertSetupOpen(deps.db);
-        return { required: true as const };
+        return { required: true as const, ...(assistantAvailable(deps) ? { assistantAvailable: true as const } : {}) };
       },
     }),
     defineRoute({

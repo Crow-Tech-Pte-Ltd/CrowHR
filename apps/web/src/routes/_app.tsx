@@ -1,8 +1,10 @@
 import { Alert, AlertDescription, AlertTitle, Button, formatDate } from "@crowhr/ui";
 import { createFileRoute, isRedirect, Link, Outlet, redirect } from "@tanstack/react-router";
 import { ShieldAlert } from "lucide-react";
+import { takeAssistantAuthorization } from "../assistant/continuation.ts";
 import { ReauthProvider } from "../auth/reauth.tsx";
 import { meQuery, reasonFor, rememberOrg, useMe } from "../auth/session.ts";
+import { Brand } from "../branding/appearance.tsx";
 import { DemoCompanyBanner } from "../demo-company/notices.tsx";
 import { ApiError } from "../lib/api.ts";
 import { AppShell } from "../shell/app-shell.tsx";
@@ -17,6 +19,8 @@ export const Route = createFileRoute("/_app")({
       if (me.mfa.blocked && location.pathname !== "/me/sessions") {
         throw redirect({ to: "/me/sessions", search: { enrol: "1" } });
       }
+      const assistant = takeAssistantAuthorization(me.organisation.slug);
+      if (assistant) throw redirect({ href: assistant, reloadDocument: true });
       return { me };
     } catch (err) {
       if (isRedirect(err)) throw err;
@@ -34,11 +38,13 @@ function SignedInLayout() {
   const me = useMe();
   return (
     <ReauthProvider>
-      <AppShell>
-        {me.demoCompany ? <DemoCompanyBanner expiresAt={me.demoCompany.expiresAt} /> : null}
-        <MfaBanner />
-        <Outlet />
-      </AppShell>
+      <Brand {...(me.appearance ? { appearance: me.appearance } : {})} name={me.organisation.name}>
+        <AppShell>
+          {me.demoCompany ? <DemoCompanyBanner expiresAt={me.demoCompany.expiresAt} /> : null}
+          <MfaBanner />
+          <Outlet />
+        </AppShell>
+      </Brand>
     </ReauthProvider>
   );
 }

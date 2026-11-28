@@ -6,6 +6,7 @@ import { type Context, Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { routePath } from "hono/route";
 import { secureHeaders } from "hono/secure-headers";
+import { serveAssistant } from "./assistant-transport.ts";
 import { type MaintenanceInfo, maintenanceMessage } from "./backup/maintenance.ts";
 import { SINGPASS_LOGO_PATH, singpassLogoHandler } from "./branding.ts";
 import { type BrowserMonitoring, connectSrc, injectMonitoringMeta } from "./monitoring/browser.ts";
@@ -99,7 +100,7 @@ export function createServerApp(deps: AppDeps, options: ServerAppOptions) {
   }
   if (options.maintenance) app.use("*", maintenanceGuard(options.maintenance));
   if (options.setupGate) app.use("*", setupGateMiddleware(options.setupGate));
-  app.route("/", createApp(deps, { modules: options.modules ?? [] }));
+  app.route("/", createApp(deps, { modules: options.modules ?? [], assistantTransport: serveAssistant }));
   if (options.brandingDir) app.get(SINGPASS_LOGO_PATH, singpassLogoHandler(options.brandingDir));
 
   if (!existsSync(join(webDistDir, "index.html"))) {

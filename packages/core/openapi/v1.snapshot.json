@@ -2627,6 +2627,372 @@
         }
       }
     },
+    "/api/v1/assistant/connections": {
+      "get": {
+        "operationId": "assistant.getConnections",
+        "summary": "List my AI assistant connections",
+        "tags": [
+          "AI assistants"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connections": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "connectedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "provider",
+                          "connectedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "connections"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: mfa_enrolment_required.",
+            "x-error-codes": [
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assistant/connections/{id}": {
+      "delete": {
+        "operationId": "assistant.deleteConnectionsById",
+        "summary": "Disconnect one of my AI assistants",
+        "tags": [
+          "AI assistants"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content."
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: csrf_rejected.",
+            "x-error-codes": [
+              "csrf_rejected"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assistant/settings": {
+      "get": {
+        "operationId": "assistant.getSettings",
+        "summary": "AI assistant status for the signed-in company",
+        "tags": [
+          "AI assistants"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "available",
+                    "enabled",
+                    "url"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: mfa_enrolment_required.",
+            "x-error-codes": [
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "assistant.putSettings",
+        "summary": "Turn the connector on or off for the company (owner only)",
+        "tags": [
+          "AI assistants"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "available",
+                    "enabled",
+                    "url"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "csrf_rejected",
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/attendance/corrections": {
       "post": {
         "operationId": "attendance.postCorrections",
@@ -9892,6 +10258,42 @@
                   "properties": {
                     "orgSlugRequired": {
                       "type": "boolean"
+                    },
+                    "appearance": {
+                      "type": "object",
+                      "properties": {
+                        "accent": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^#[0-9a-f]{6}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "logoUrl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logoSource": {
+                          "type": "string",
+                          "enum": [
+                            "custom",
+                            "document",
+                            "none"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "accent",
+                        "logoUrl",
+                        "logoSource"
+                      ],
+                      "additionalProperties": false
                     },
                     "organisation": {
                       "anyOf": [
@@ -38796,6 +39198,42 @@
                       ],
                       "additionalProperties": false
                     },
+                    "appearance": {
+                      "type": "object",
+                      "properties": {
+                        "accent": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^#[0-9a-f]{6}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "logoUrl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "logoSource": {
+                          "type": "string",
+                          "enum": [
+                            "custom",
+                            "document",
+                            "none"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "accent",
+                        "logoUrl",
+                        "logoSource"
+                      ],
+                      "additionalProperties": false
+                    },
                     "membershipId": {
                       "type": "string",
                       "format": "uuid",
@@ -38955,6 +39393,7 @@
                   "required": [
                     "user",
                     "organisation",
+                    "appearance",
                     "membershipId",
                     "membershipStatus",
                     "employeeId",
@@ -44512,6 +44951,210 @@
                   "code",
                   "name"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisation/appearance": {
+      "put": {
+        "operationId": "organisation.putAppearance",
+        "summary": "Save company appearance (owner only)",
+        "tags": [
+          "Organisation"
+        ],
+        "security": [
+          {
+            "cookieSession": []
+          },
+          {
+            "bearerToken": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accent": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^#[0-9a-f]{6}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "logoUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "logoSource": {
+                      "type": "string",
+                      "enum": [
+                        "custom",
+                        "document",
+                        "none"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "accent",
+                    "logoUrl",
+                    "logoSource"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: session_expired, session_revoked, unauthenticated.",
+            "x-error-codes": [
+              "session_expired",
+              "session_revoked",
+              "unauthenticated"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: csrf_rejected, forbidden, mfa_enrolment_required.",
+            "x-error-codes": [
+              "csrf_rejected",
+              "forbidden",
+              "mfa_enrolment_required"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "accent": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "logoBase64": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 350000,
+                        "format": "base64",
+                        "contentEncoding": "base64",
+                        "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "useDocumentLogo": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organisation/appearance/logo": {
+      "get": {
+        "operationId": "organisation.getAppearanceLogo",
+        "summary": "Get the public sign-in logo for the specified company",
+        "tags": [
+          "Organisation"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "org",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sign-in logo",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "400": {
+            "description": "Error: validation_failed.",
+            "x-error-codes": [
+              "validation_failed"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: not_found.",
+            "x-error-codes": [
+              "not_found"
+            ],
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
               }
             }
           }
@@ -72245,6 +72888,10 @@
                     "required": {
                       "type": "boolean",
                       "const": true
+                    },
+                    "assistantAvailable": {
+                      "type": "boolean",
+                      "const": true
                     }
                   },
                   "required": [
@@ -72401,6 +73048,44 @@
                   "ownerPassword": {
                     "type": "string",
                     "maxLength": 1024
+                  },
+                  "appearance": {
+                    "type": "object",
+                    "properties": {
+                      "accent": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^#[0-9a-f]{6}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "logoBase64": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 350000,
+                            "format": "base64",
+                            "contentEncoding": "base64",
+                            "pattern": "^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "useDocumentLogo": {
+                        "default": false,
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "enableAssistant": {
+                    "type": "boolean"
                   }
                 },
                 "required": [

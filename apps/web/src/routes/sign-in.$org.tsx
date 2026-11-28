@@ -1,15 +1,18 @@
 import { Alert, AlertDescription, AlertTitle, Button } from "@crowhr/ui";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
+import { rememberAssistantAuthorization } from "../assistant/continuation.ts";
 import { AuthLayout } from "../auth/auth-layout.tsx";
 import { meQuery } from "../auth/session.ts";
 import type { SignInMethods } from "../auth/types.ts";
+import { Brand } from "../branding/appearance.tsx";
 import { RoutePending } from "../components/route-states.tsx";
 import { DemoCompanyEndedPage } from "../demo-company/notices.tsx";
 import { ApiError, apiGet } from "../lib/api.ts";
 import { noticeFor, SignInPage } from "../sign-in/sign-in-page.tsx";
 
 type Search = {
+  assistant?: string;
   mfa?: string;
   native?: string;
   reason?: string;
@@ -24,10 +27,15 @@ export const Route = createFileRoute("/sign-in/$org")({
     Object.fromEntries(
       Object.entries(s).filter(
         ([k, v]) =>
-          ["mfa", "native", "reason", "error", "provider", "reset", "singpass"].includes(k) && typeof v === "string",
+          ["assistant", "mfa", "native", "reason", "error", "provider", "reset", "singpass"].includes(k) &&
+          typeof v === "string",
       ),
     ) as Search,
-  beforeLoad: async ({ context, search }) => {
+  beforeLoad: async ({ context, params, search }) => {
+    if (search.assistant) {
+      rememberAssistantAuthorization(params.org, search.assistant);
+      return;
+    }
     if (search.mfa || search.native || search.reason || search.error || search.singpass) return;
     // Already signed in: go home instead of showing the form.
     const me = await context.queryClient.fetchQuery(meQuery).catch(() => null);
@@ -71,14 +79,16 @@ function SignInRoute() {
   const { org } = Route.useParams();
   const search = Route.useSearch();
   return (
-    <SignInPage
-      key={org}
-      methods={methods}
-      orgSlug={org}
-      nativeRequestId={search.native}
-      ssoMfaPending={search.mfa === "1"}
-      demoSingpassOk={search.singpass === "ok"}
-      initialNotice={noticeFor(search, methods.organisation?.name ?? org)}
-    />
+    <Brand {...(methods.appearance ? { appearance: methods.appearance } : {})} name={methods.organisation?.name ?? org}>
+      <SignInPage
+        key={org}
+        methods={methods}
+        orgSlug={org}
+        nativeRequestId={search.native}
+        ssoMfaPending={search.mfa === "1"}
+        demoSingpassOk={search.singpass === "ok"}
+        initialNotice={noticeFor(search, methods.organisation?.name ?? org)}
+      />
+    </Brand>
   );
 }

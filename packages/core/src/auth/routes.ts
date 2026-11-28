@@ -2,6 +2,7 @@ import { z } from "zod";
 import { defaultSignInOrg, demoCompanyEnded, findSignInOrg } from "../demo-companies/service.ts";
 import { AppError } from "../errors.ts";
 import { defineModule, defineRoute } from "../http/route.ts";
+import { appearanceView, companyAppearance } from "../organisation/appearance.ts";
 import { accountRoutes } from "./account-routes.ts";
 import { demoRoutes } from "./demo.ts";
 import { emailChangeAuthRoutes } from "./email-change.ts";
@@ -12,6 +13,7 @@ import { signInRoutes } from "./sign-in-routes.ts";
 const methodsResponse = z.object({
   /** True on a multi-organisation install when no `org` was given: ask the user which one. */
   orgSlugRequired: z.boolean(),
+  appearance: appearanceView.optional(),
   organisation: z.object({ name: z.string(), slug: z.string().nullable() }).nullable(),
   password: z.object({ enabled: z.boolean() }),
   providers: z.array(
@@ -86,6 +88,7 @@ export const authModule = defineModule({
           orgSlugRequired: false,
           organisation: { name: org.name, slug: org.slug },
           ...methods,
+          appearance: await companyAppearance(deps, org),
           demoMode: !!deps.demoMode,
           demoCompany: null,
           singpassLogoUrl: deps.singpassLogoUrl?.() ?? null,
