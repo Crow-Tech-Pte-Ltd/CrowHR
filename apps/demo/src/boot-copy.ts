@@ -6,8 +6,10 @@ export function demoText(message: string, values?: MessageValues): string {
 
 export function localiseBoot() {
   for (const element of document.querySelectorAll<HTMLElement>("[data-demo-message]")) {
-    const source = element.textContent?.trim().replace(/\s+/g, " ");
-    if (source) element.textContent = demoText(source);
+    const source = element.dataset.demoMessage || element.textContent?.trim().replace(/\s+/g, " ");
+    if (!source) continue;
+    element.dataset.demoMessage = source;
+    element.textContent = demoText(source);
   }
 }
 

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { startDemo } from "./helpers.ts";
 
 /**
  * A boot that stalls (here: Postgres's WebAssembly never arrives) must not leave the visitor on a
@@ -8,6 +9,7 @@ test("a stalled boot offers a reload and a fresh copy after 30 seconds", async (
   await page.clock.install();
   await page.route(/\.wasm(\.gz)?$/, () => undefined);
   await page.goto("/");
+  await startDemo(page);
   const slow = page.locator("#demo-boot-slow");
   await expect(page.getByTestId("demo-loading")).toBeVisible();
   await expect(slow).toBeHidden();

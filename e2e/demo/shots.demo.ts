@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import { go, type Persona, pickPersona, signOut, waitForDemo } from "./helpers.ts";
+import { go, type Persona, pickPersona, signOut, startDemo, waitForDemo } from "./helpers.ts";
 
 /**
  * Screenshots of the demo at 1440 and 390 wide: loading state, persona picker, Home for each
@@ -27,6 +27,9 @@ for (const w of WIDTHS) {
 
     // Loading state: captured while the worker boots (first visit seeds, so it is on screen for a while).
     await page.goto("/");
+    await expect(page.getByTestId("demo-entry")).toBeVisible();
+    await shot(page, `entry-${w.name}`);
+    await startDemo(page);
     await expect(page.getByTestId("demo-loading")).toBeVisible();
     await page.waitForFunction(() =>
       [...document.querySelectorAll("#demo-boot-steps li")].some((li) => (li as HTMLElement).dataset.state === "done"),
@@ -69,6 +72,7 @@ for (const w of WIDTHS) {
     }
 
     await go(page, "/sign-in");
+    await page.getByTestId("demo-options").click();
     await page.getByTestId("demo-outbox").click();
     await expect(page.getByTestId("demo-outbox-sheet")).toBeVisible();
     await shot(page, `outbox-${w.name}`);

@@ -20,9 +20,13 @@ export function NavSections({ collapsed = false, onNavigate }: { collapsed?: boo
               <p className={cn("mb-1 px-2.5", textStyle.column)}>{t(group.label)}</p>
             )
           ) : null}
-          {group.items.map((id) => (
-            <NavLink key={id} id={id} collapsed={collapsed} onNavigate={onNavigate} />
-          ))}
+          <ul aria-label={group.label ? t(group.label) : undefined} className="flex flex-col gap-0.5">
+            {group.items.map((id) => (
+              <li key={id}>
+                <NavLink id={id} collapsed={collapsed} onNavigate={onNavigate} />
+              </li>
+            ))}
+          </ul>
         </div>
       ))}
     </div>

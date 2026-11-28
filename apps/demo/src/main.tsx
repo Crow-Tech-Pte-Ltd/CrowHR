@@ -10,7 +10,7 @@ import { configureWebForDemo } from "./web-extensions.tsx";
 
 /**
  * Boot sequence of the public demo:
- * 1. Take the per-browser lock (one tab owns the database; others offer to take over).
+ * 1. Ask for a language on the first visit in this tab, then take the per-browser database lock.
  * 2. Start the worker: PGlite on IndexedDB, a snapshot on first visit (real seed fallback), the real core app.
  * 3. Route `/api/*` from this page (patched fetch) and from the service worker (images,
  *    downloads) to the worker.
@@ -20,9 +20,8 @@ import { configureWebForDemo } from "./web-extensions.tsx";
 declare const __DEMO_DATA_VERSION__: string;
 export const DATA_VERSION = __DEMO_DATA_VERSION__;
 const LOCK = "crowhr-demo-database";
+const STARTED_KEY = "crowhr.demoStarted";
 const STAGES: BootStage[] = ["wasm", "open", "migrate", "seed", "app"];
-/** "count" events (detail: number) when the worker's Demo outbox receives mail. */
-const outboxEvents = new EventTarget();
 
 const bootEl = document.getElementById("demo-boot") as HTMLElement;
 const bar = document.getElementById("demo-boot-bar") as HTMLElement;
@@ -113,7 +112,6 @@ async function bootDemo(): Promise<{ client: DemoClient; timings: BootTimings; i
   worker = new DemoWorker();
   const client = createDemoClient(worker, {
     onProgress: (stage) => showStage(stage),
-    onOutbox: (count) => outboxEvents.dispatchEvent(new CustomEvent("count", { detail: count })),
   });
   showStage("wasm");
   const { timings, info } = await client.boot(location.origin, DATA_VERSION);
@@ -188,10 +186,9 @@ async function startApp(t0: number) {
   // apps/web's entry renders into #root as soon as it is imported.
   await import("../../web/src/main.tsx");
   const { mountBanner } = await import("./banner.tsx");
-  mountBanner({ client, info, outboxEvents, resetCopy: () => resetCopy(client) });
+  mountBanner({ client, info, resetCopy: () => resetCopy(client) });
   bootEl.hidden = true;
-  // Navigation start → app on screen (performance.now() counts from navigation start).
-  record.readyMs = Math.round(performance.now());
+  record.readyMs = Math.round(performance.now() - t0);
 }
 
 function otherTab(take: () => void) {
@@ -203,16 +200,35 @@ function otherTab(take: () => void) {
   bar.style.width = "0%";
 }
 
+async function startInThisTab(): Promise<boolean> {
+  try {
+    if (sessionStorage.getItem(STARTED_KEY) === "1") return false;
+  } catch {
+    // The demo can still start if session storage is unavailable.
+  }
+  const entry = document.getElementById("demo-entry");
+  if (!entry) return false;
+  const { waitForDemoStart } = await import("./entry.tsx");
+  await waitForDemoStart(entry);
+  try {
+    sessionStorage.setItem(STARTED_KEY, "1");
+  } catch {
+    // Keep the start decision for this page.
+  }
+  return true;
+}
+
 async function main() {
-  // Let the database boot while the visitor's language pack downloads.
-  void localeReady.then(localiseBoot);
+  await localeReady;
   if (location.pathname === "/about-demo") {
     const { mountAboutPage } = await import("./about.tsx");
-    await localeReady;
-    bootEl.hidden = true;
     mountAboutPage(DATA_VERSION);
     return;
   }
+  const started = await startInThisTab();
+  localiseBoot();
+  bootEl.hidden = false;
+  if (started) bootEl.querySelector("h1")?.focus();
   if (!("indexedDB" in window) || !("Worker" in window)) {
     showError(
       demoText(
