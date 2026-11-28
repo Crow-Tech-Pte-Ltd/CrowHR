@@ -1,22 +1,16 @@
 import type { SystemStatus } from "@crowhr/core";
-import { Alert, AlertDescription, AlertTitle, Skeleton, StatusPill, textStyle } from "@crowhr/ui";
+import { Alert, AlertDescription, AlertTitle, Button, Skeleton, StatusPill, textStyle } from "@crowhr/ui";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { CircleAlert, Lock, TriangleAlert } from "lucide-react";
 import type * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
-import { ApiError, apiGet } from "../../../lib/api.ts";
+import { systemStatusQuery } from "../../../help/system-status.ts";
+import { ApiError } from "../../../lib/api.ts";
 
 export const Route = createFileRoute("/_app/settings/system")({
   component: SystemPage,
 });
-
-const statusQuery = {
-  queryKey: ["system", "status"] as const,
-  queryFn: () => apiGet<SystemStatus>("/api/v1/system/status"),
-  refetchInterval: 60_000,
-  retry: false,
-};
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -60,13 +54,20 @@ function ago(iso: string, now: string): string {
 
 /** Read-only: Settings → System (self-hosting spec, M3). Owners only; the API enforces it. */
 function SystemPage() {
-  const q = useQuery(statusQuery);
+  const q = useQuery(systemStatusQuery);
   return (
     <>
       <PageHeader
         crumbs={[{ label: "Settings", to: "/settings" }]}
         title="System"
-        description="Version, database, backups, disk space and how requests reach this server. Read-only."
+        description="Version, database, backups, disk space and how requests reach this server."
+        actions={
+          <Button asChild size="sm">
+            <Link to="/help" search={{ topic: "service" }}>
+              Troubleshoot this server
+            </Link>
+          </Button>
+        }
       />
       {q.isPending ? (
         <div className="grid gap-4 md:grid-cols-2" role="status" aria-busy="true" aria-label="Loading system status">

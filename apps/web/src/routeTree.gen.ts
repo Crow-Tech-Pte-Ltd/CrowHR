@@ -15,6 +15,7 @@ import { Route as TryRouteImport } from './routes/try'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppDocumentsRouteImport } from './routes/_app/documents'
 import { Route as AppExportDataRouteImport } from './routes/_app/export-data'
+import { Route as AppHelpRouteImport } from './routes/_app/help'
 import { Route as AppInboxRouteImport } from './routes/_app/inbox'
 import { Route as EmailTokenRouteImport } from './routes/email.$token'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
@@ -90,6 +91,11 @@ const AppDocumentsRoute = AppDocumentsRouteImport.update({
 const AppExportDataRoute = AppExportDataRouteImport.update({
   id: '/export-data',
   path: '/export-data',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHelpRoute = AppHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInboxRoute = AppInboxRouteImport.update({
@@ -337,6 +343,7 @@ export interface FileRoutesByFullPath {
   '/try': typeof TryRoute
   '/documents': typeof AppDocumentsRoute
   '/export-data': typeof AppExportDataRoute
+  '/help': typeof AppHelpRoute
   '/inbox': typeof AppInboxRoute
   '/email/$token': typeof EmailTokenRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -390,6 +397,7 @@ export interface FileRoutesByTo {
   '/try': typeof TryRoute
   '/documents': typeof AppDocumentsRoute
   '/export-data': typeof AppExportDataRoute
+  '/help': typeof AppHelpRoute
   '/inbox': typeof AppInboxRoute
   '/email/$token': typeof EmailTokenRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -446,6 +454,7 @@ export interface FileRoutesById {
   '/try': typeof TryRoute
   '/_app/documents': typeof AppDocumentsRoute
   '/_app/export-data': typeof AppExportDataRoute
+  '/_app/help': typeof AppHelpRoute
   '/_app/inbox': typeof AppInboxRoute
   '/email/$token': typeof EmailTokenRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -503,6 +512,7 @@ export interface FileRouteTypes {
     | '/try'
     | '/documents'
     | '/export-data'
+    | '/help'
     | '/inbox'
     | '/email/$token'
     | '/invite/$token'
@@ -556,6 +566,7 @@ export interface FileRouteTypes {
     | '/try'
     | '/documents'
     | '/export-data'
+    | '/help'
     | '/inbox'
     | '/email/$token'
     | '/invite/$token'
@@ -611,6 +622,7 @@ export interface FileRouteTypes {
     | '/try'
     | '/_app/documents'
     | '/_app/export-data'
+    | '/_app/help'
     | '/_app/inbox'
     | '/email/$token'
     | '/invite/$token'
@@ -714,6 +726,13 @@ declare module '@tanstack/react-router' {
       path: '/export-data'
       fullPath: '/export-data'
       preLoaderRoute: typeof AppExportDataRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/help': {
+      id: '/_app/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof AppHelpRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/inbox': {
@@ -1063,6 +1082,7 @@ const AppPayrollRunsRunIdRouteWithChildren =
 interface AppRouteChildren {
   AppDocumentsRoute: typeof AppDocumentsRoute
   AppExportDataRoute: typeof AppExportDataRoute
+  AppHelpRoute: typeof AppHelpRoute
   AppInboxRoute: typeof AppInboxRoute
   AppIndexRoute: typeof AppIndexRoute
   AppAttendanceSummaryRoute: typeof AppAttendanceSummaryRoute
@@ -1110,6 +1130,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppDocumentsRoute: AppDocumentsRoute,
   AppExportDataRoute: AppExportDataRoute,
+  AppHelpRoute: AppHelpRoute,
   AppInboxRoute: AppInboxRoute,
   AppIndexRoute: AppIndexRoute,
   AppAttendanceSummaryRoute: AppAttendanceSummaryRoute,

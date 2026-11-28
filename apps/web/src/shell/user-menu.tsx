@@ -12,7 +12,7 @@ import {
 } from "@crowhr/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Download, FileText, LogOut, MonitorSmartphone, Settings, UserRound } from "lucide-react";
+import { CircleHelp, Download, FileText, LogOut, MonitorSmartphone, Settings, UserRound } from "lucide-react";
 import { useMe } from "../auth/session.ts";
 import { useSignOut } from "../auth/sign-out.ts";
 import { ROLE_LABEL } from "../auth/types.ts";
@@ -91,6 +91,10 @@ export function UserMenu() {
         <DropdownMenuItem onSelect={() => navigate({ to: "/me/sessions" })}>
           <MonitorSmartphone />
           Sign-in and devices
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => navigate({ to: "/help", search: {} })}>
+          <CircleHelp />
+          Help
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => navigate({ to: "/settings" })}>
           <Settings />

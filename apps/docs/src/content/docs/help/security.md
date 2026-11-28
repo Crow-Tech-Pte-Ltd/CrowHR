@@ -8,7 +8,7 @@ description: How to report a vulnerability in Crow HR, and the security measures
 Please **do not open a public issue** for a security problem.
 
 - Use GitHub's private vulnerability reporting on the repository ([**Security → Report a vulnerability**](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/security/advisories/new)), or
-- email **hello@crow.sg**.
+- email [hello@crow.sg](mailto:hello@crow.sg?subject=%5BCrow%20HR%5D%20Security%20report).
 
 Include what you found, the version or commit, steps to reproduce and the impact you expect. Do not include real personal data. We aim to acknowledge reports within 5 working days and will tell you when a fix is released. Please give us reasonable time to fix the issue before disclosing it. The same policy is in [`SECURITY.md`](https://github.com/Crow-Tech-Pte-Ltd/CrowHR/blob/main/SECURITY.md) in the repository.
 

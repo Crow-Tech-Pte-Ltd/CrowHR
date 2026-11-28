@@ -1,5 +1,7 @@
 import { Card, textStyle } from "@crowhr/ui";
+import { Link } from "@tanstack/react-router";
 import type * as React from "react";
+import { requestReference } from "../help/diagnostics.ts";
 import { ApiError } from "../lib/api.ts";
 
 /** A titled settings section: heading + one-line description + content card. */
@@ -35,6 +37,13 @@ export function Section({
 export function ErrorNote({ error, retry }: { error: unknown; retry?: () => void }) {
   // Retrying a 404 can't help.
   const gone = error instanceof ApiError && error.status === 404;
+  const topic =
+    error instanceof ApiError && error.status >= 500
+      ? "service"
+      : error instanceof ApiError && error.code === "forbidden"
+        ? "permissions"
+        : null;
+  const reference = error instanceof ApiError ? requestReference(error.envelope?.error.requestId) : undefined;
   return (
     <div
       role="alert"
@@ -42,16 +51,29 @@ export function ErrorNote({ error, retry }: { error: unknown; retry?: () => void
     >
       <span>
         {error instanceof Error ? error.message : "This didn't load."}
-        {gone ? null : " Try again; if it keeps failing, tell your administrator."}
+        {gone || topic ? null : " Try again. If it keeps failing, tell your administrator."}
       </span>
-      {retry && !gone ? (
-        <button
-          type="button"
-          className="focus-ring self-start rounded-sm font-azeret text-2xs font-semibold text-ink underline"
-          onClick={retry}
-        >
-          Try again
-        </button>
+      {(retry && !gone) || topic ? (
+        <div className="flex shrink-0 flex-wrap gap-x-3 gap-y-2">
+          {retry && !gone ? (
+            <button
+              type="button"
+              className="focus-ring rounded-sm font-azeret text-2xs font-semibold text-ink underline"
+              onClick={retry}
+            >
+              Try again
+            </button>
+          ) : null}
+          {topic ? (
+            <Link
+              to="/help"
+              search={{ topic, reference }}
+              className="focus-ring rounded-sm font-azeret text-2xs font-semibold text-ink underline"
+            >
+              Help with this error
+            </Link>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
