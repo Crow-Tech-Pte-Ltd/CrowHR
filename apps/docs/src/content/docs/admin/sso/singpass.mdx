@@ -1,15 +1,13 @@
 ---
 title: Singpass login
-description: What Crow HR's Singpass login does, what your company must do to become a Singpass relying party, and how to configure and test it. Tested against Singpass staging; not yet against production.
+description: Set up Singpass Login for a self-hosted Crow HR installation and link it to existing employee accounts.
 ---
 
-:::caution[Tested against Singpass staging only]
-Crow HR's Singpass login follows Singpass's FAPI 2.0 login profile. It has been tested end to end against **Singpass staging** (PAR with DPoP, `private_key_jwt`, token exchange and the encrypted ID token, with a staging test account). It has **not** been run against Singpass production, and the button meets Singpass's design specification only once you add the official logo ([below](#the-singpass-button)). Run your own staging test before you go live.
-:::
+Singpass Login lets employees sign in to their existing Crow HR accounts. Follow this guide to connect a Singpass Login app to a self-hosted installation.
 
 ## What your company has to do first
 
-Singpass login is only available to organisations that Singpass has onboarded as a **relying party**. Crow HR cannot do this for you, and Crow Tech does not hold a Singpass client you can share.
+For a self-hosted installation, your company registers with Singpass as the **relying party**, the organisation responsible for the Login app.
 
 - Your company applies through the [Singpass developer documentation and portal](https://docs.developer.singpass.gov.sg/) and goes through Singpass's own onboarding, review and testing. Eligibility, agreements, fees and timelines are set by Singpass and can change; read their current documentation before you start.
 - You register Crow HR as your application, with the **redirect URI** and **JWKS URL** that Crow HR shows after saving the provider (steps 1 and 2 below). Singpass requires HTTPS, so `PUBLIC_URL` must be your final HTTPS address.
