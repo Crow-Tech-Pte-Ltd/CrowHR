@@ -88,6 +88,14 @@ test.describe("first-run setup wizard", () => {
     await expect(appearance.getByText("Sign in").first()).toHaveCSS("background-color", "rgb(22, 94, 133)");
     for (const colorScheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme });
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.classList.contains("dark")))
+        .toBe(colorScheme === "dark");
+      await appearance.evaluate((section) =>
+        Promise.all(
+          section.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)),
+        ),
+      );
       const { violations } = await new AxeBuilder({ page })
         .include('fieldset:has(input[placeholder="#165E85"])')
         .include('[aria-labelledby="ai-assistants-title"]')

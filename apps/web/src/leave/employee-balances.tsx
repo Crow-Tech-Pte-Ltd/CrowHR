@@ -186,7 +186,7 @@ function BalanceAdjustment({ employeeId, balance, label }: { employeeId: string;
           }}
         >
           <FormField
-            label={tWorkflow("Adjustment ({arg1})", { arg1: tWorkflow(unit === "days" ? "Days" : "Hours") })}
+            label={tWorkflow(unit === "days" ? "Adjustment (days)" : "Adjustment (hours)")}
             hint={tWorkflow(
               "Use a positive amount to add leave or a negative amount to subtract it. Enter multiples of {arg1}.",
               { arg1: step },
