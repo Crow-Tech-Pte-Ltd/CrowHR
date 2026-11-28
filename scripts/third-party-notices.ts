@@ -1,6 +1,7 @@
 /**
  * Third-party licences of what Crow HR ships: the production dependency closure of the server
- * image (apps/server), the web app bundle (apps/web) and the in-browser demo (apps/demo), with
+ * image (apps/server), the managed login service (apps/managed-login), the web app bundle
+ * (apps/web) and the in-browser demo (apps/demo), with
  * every workspace package they pull in (packages/*). Reads the installed node_modules (run
  * `bun install` first); no network.
  *
@@ -22,6 +23,7 @@ const OUTPUT = path.join(ROOT, "THIRD-PARTY-NOTICES.md");
 /** Workspaces whose production closure ships, and the label used in the "Used in" column. */
 const SHIPPED: { dir: string; label: string }[] = [
   { dir: "apps/server", label: "server" },
+  { dir: "apps/managed-login", label: "managed-login" },
   { dir: "apps/web", label: "web" },
   { dir: "apps/demo", label: "demo" },
 ];
@@ -247,6 +249,7 @@ function render(entries: Entry[]): string {
     "## What is covered",
     "",
     "- **server**: the production dependencies of `apps/server` and the workspace packages it uses (`packages/core`, `packages/sg-rules`). They are in the Docker image under `/app/node_modules`, each package with its own licence file.",
+    "- **managed-login**: the production dependencies of the shared Singpass login service in `apps/managed-login`.",
     "- **web**: the dependencies of `apps/web` and `packages/ui`, bundled into the web app the server serves.",
     "- **demo**: the in-browser demo (`apps/demo`, `packages/demo`), which runs the web app and the core API in the browser.",
     "",

@@ -2,8 +2,7 @@ import * as oidc from "openid-client";
 import { SECRET_PURPOSES } from "../../crypto/secret-box.ts";
 import type { SsoProvider } from "../../db/schema/auth.ts";
 import type { AppDeps } from "../../deps.ts";
-import { importDecryptionKey, importSigningKey } from "./keys.ts";
-import { PRESETS } from "./presets.ts";
+import { singpassConfiguration } from "./singpass.ts";
 
 /** The fixed callback URL of a provider (design decision 9). Register this at the IdP. */
 export function callbackUrl(publicUrl: string, providerId: string): string {
@@ -46,49 +45,25 @@ export async function providerConfig(deps: AppDeps, provider: SsoProvider): Prom
   const now = deps.clock.now().getTime();
   if (hit && now - hit.at < CACHE_MS) return hit.config;
 
-  const preset = PRESETS[provider.kind];
-  let auth: oidc.ClientAuth;
-  const metadata: Partial<oidc.ClientMetadata> = {};
-  let privateJwks: { keys: JsonWebKey[] } | null = null;
-  if (preset.privateKeyJwt) {
+  const options = fetchOptions(deps, provider.issuer);
+  let config: oidc.Configuration;
+  if (provider.kind === "singpass") {
     if (!provider.privateJwksEnc) throw new Error("Provider has no relying-party keys.");
-    privateJwks = JSON.parse(await deps.secretBox.decrypt(SECRET_PURPOSES.ssoPrivateJwks, provider.privateJwksEnc));
-    const { key, kid } = await importSigningKey(privateJwks as { keys: JsonWebKey[] });
-    auth = oidc.PrivateKeyJwt(key, {
-      [oidc.modifyAssertion]: (header: Record<string, unknown>) => {
-        header.kid = kid;
-        // Singpass: the client assertion header "Must be the string `JWT`" (oauth4webapi sets none).
-        header.typ = "JWT";
-      },
-    });
-    metadata.token_endpoint_auth_method = "private_key_jwt";
+    const privateJwks = JSON.parse(
+      await deps.secretBox.decrypt(SECRET_PURPOSES.ssoPrivateJwks, provider.privateJwksEnc),
+    );
+    config = await singpassConfiguration(provider.issuer, provider.clientId, privateJwks, options);
   } else {
     if (!provider.clientSecretEnc) throw new Error("Provider has no client secret.");
     const secret = await deps.secretBox.decrypt(SECRET_PURPOSES.ssoClientSecret, provider.clientSecretEnc);
-    auth = oidc.ClientSecretPost(secret);
-  }
-  if (preset.idTokenEncrypted) {
-    metadata.id_token_encrypted_response_alg = "ECDH-ES+A256KW";
-    metadata.id_token_encrypted_response_enc = "A256CBC-HS512";
-  }
-  const config = await oidc.discovery(
-    new URL(provider.issuer),
-    provider.clientId,
-    metadata,
-    auth,
-    fetchOptions(deps, provider.issuer),
-  );
-  // openid-client trusts TLS for ID tokens from the token endpoint by default; the spec requires
-  // the signature itself to be verified against the IdP's JWKS.
-  oidc.enableNonRepudiationChecks(config);
-  if (preset.idTokenEncrypted && privateJwks) {
-    const dec = await importDecryptionKey(privateJwks);
-    if (dec)
-      oidc.enableDecryptingResponses(config, ["A256CBC-HS512", "A256GCM", "A128CBC-HS256"], {
-        key: dec.key,
-        kid: dec.kid,
-        alg: dec.alg,
-      });
+    config = await oidc.discovery(
+      new URL(provider.issuer),
+      provider.clientId,
+      undefined,
+      oidc.ClientSecretPost(secret),
+      options,
+    );
+    oidc.enableNonRepudiationChecks(config);
   }
   cache.set(key, { at: now, config });
   return config;

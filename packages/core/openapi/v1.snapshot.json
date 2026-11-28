@@ -71492,6 +71492,10 @@
                         "oidc"
                       ]
                     },
+                    "managed": {
+                      "type": "boolean",
+                      "const": true
+                    },
                     "displayName": {
                       "type": "string"
                     },
@@ -71659,7 +71663,8 @@
                       "google",
                       "entra",
                       "singpass",
-                      "oidc"
+                      "oidc",
+                      "managed_singpass"
                     ]
                   },
                   "displayName": {
@@ -71790,6 +71795,10 @@
                         "singpass",
                         "oidc"
                       ]
+                    },
+                    "managed": {
+                      "type": "boolean",
+                      "const": true
                     },
                     "displayName": {
                       "type": "string"
@@ -71992,6 +72001,10 @@
                         "singpass",
                         "oidc"
                       ]
+                    },
+                    "managed": {
+                      "type": "boolean",
+                      "const": true
                     },
                     "displayName": {
                       "type": "string"
@@ -72412,6 +72425,9 @@
                     "demoMode": {
                       "type": "boolean"
                     },
+                    "managedSingpassAvailable": {
+                      "type": "boolean"
+                    },
                     "providers": {
                       "type": "array",
                       "items": {
@@ -72430,6 +72446,10 @@
                               "singpass",
                               "oidc"
                             ]
+                          },
+                          "managed": {
+                            "type": "boolean",
+                            "const": true
                           },
                           "displayName": {
                             "type": "string"
@@ -72636,6 +72656,9 @@
                     "demoMode": {
                       "type": "boolean"
                     },
+                    "managedSingpassAvailable": {
+                      "type": "boolean"
+                    },
                     "providers": {
                       "type": "array",
                       "items": {
@@ -72654,6 +72677,10 @@
                               "singpass",
                               "oidc"
                             ]
+                          },
+                          "managed": {
+                            "type": "boolean",
+                            "const": true
                           },
                           "displayName": {
                             "type": "string"

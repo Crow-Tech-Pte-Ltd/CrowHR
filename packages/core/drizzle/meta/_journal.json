@@ -176,6 +176,13 @@
       "when": 1795856224670,
       "tag": "0024_vengeful_black_bird",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795866043761,
+      "tag": "0025_managed_singpass",
+      "breakpoints": true
     }
   ]
 }

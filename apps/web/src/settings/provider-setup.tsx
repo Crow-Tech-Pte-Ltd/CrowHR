@@ -21,13 +21,13 @@ import {
 import { Info } from "lucide-react";
 import * as React from "react";
 import { useReauth } from "../auth/reauth.tsx";
-import { PROVIDER_LABEL, type Provider, type ProviderKind } from "../auth/types.ts";
+import { PROVIDER_LABEL, type Provider, type ProviderSetupKind, providerSetupKind } from "../auth/types.ts";
 import { CopyField } from "../components/copy-field.tsx";
 import { useT } from "../i18n/index.ts";
 import { ApiError, apiPatch, apiPost } from "../lib/api.ts";
 
 /** Where to find each value at the identity provider. Shown next to the form. */
-const GUIDE: Record<ProviderKind, { steps: string[]; link?: { href: string; label: string } }> = {
+const GUIDE: Record<ProviderSetupKind, { steps: string[]; link?: { href: string; label: string } }> = {
   google: {
     steps: [
       "In Google Cloud Console, open APIs & Services → Credentials and create an OAuth client ID of type Web application.",
@@ -61,6 +61,11 @@ const GUIDE: Record<ProviderKind, { steps: string[]; link?: { href: string; labe
     ],
     link: { href: "https://docs.developer.singpass.gov.sg/", label: "Singpass developer documentation" },
   },
+  managed_singpass: {
+    steps: [
+      "Use your hosted instance's client ID and secret. Share the callback shown after saving with your hosting operator.",
+    ],
+  },
   oidc: {
     steps: [
       "In your identity provider (Okta, Keycloak, Authentik…), create an OpenID Connect web application using the authorization code flow.",
@@ -78,14 +83,14 @@ export function ProviderDialog({
   onOpenChange,
   onSaved,
 }: {
-  kind: ProviderKind | null;
+  kind: ProviderSetupKind | null;
   existing: Provider | null;
   onOpenChange: (o: boolean) => void;
   onSaved: (p: Provider) => void;
 }) {
   const t = useT("settings-account");
   const withReauth = useReauth();
-  const k = existing?.kind ?? kind;
+  const k = existing ? providerSetupKind(existing) : kind;
   const [form, setForm] = React.useState({
     displayName: "",
     issuer: "",
@@ -106,7 +111,7 @@ export function ProviderDialog({
     setSaved(null);
     setForm({
       displayName: existing?.displayName ?? "",
-      issuer: existing?.kind === "oidc" || existing?.kind === "singpass" ? existing.issuer : "",
+      issuer: existing?.kind === "oidc" || (existing?.kind === "singpass" && !existing.managed) ? existing.issuer : "",
       clientId: existing?.clientId ?? "",
       clientSecret: "",
       tenantId: existing?.tenantId ?? "",
@@ -149,7 +154,7 @@ export function ProviderDialog({
       ...(k === "singpass"
         ? { environment: form.environment, ...(form.issuer.trim() ? { issuer: form.issuer.trim() } : {}) }
         : {}),
-      ...(k !== "singpass" ? { allowedDomains: domains, jitEnabled: form.jit } : {}),
+      ...(k !== "singpass" && k !== "managed_singpass" ? { allowedDomains: domains, jitEnabled: form.jit } : {}),
     };
     setBusy(true);
     setFailure(null);
@@ -297,7 +302,7 @@ export function ProviderDialog({
                   />
                 </FormField>
               ) : null}
-              {k !== "singpass" ? (
+              {k !== "singpass" && k !== "managed_singpass" ? (
                 <>
                   <FormField
                     label={k === "google" ? t("Allowed Workspace domains") : t("Allowed email domains")}

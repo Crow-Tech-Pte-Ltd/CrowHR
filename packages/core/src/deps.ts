@@ -77,6 +77,8 @@ export interface AppDeps {
   mailer?: Mailer;
   /** Outbound HTTP for OIDC discovery and token calls. Defaults to global `fetch`; tests inject the mock IdP. */
   httpFetch?: typeof fetch;
+  /** Exact trusted issuer for Singpass on dedicated Crow Tech-hosted instances. */
+  managedSingpassIssuer?: string;
   /** Browser demo: SSO disabled with an explanation, persona sign-in offered. */
   demoMode?: boolean;
   /**

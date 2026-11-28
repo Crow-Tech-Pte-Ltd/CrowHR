@@ -180,7 +180,7 @@ export const ssoProviders = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organisations.id),
-    kind: text("kind", { enum: ["google", "entra", "singpass", "oidc"] }).notNull(),
+    kind: text("kind", { enum: ["google", "entra", "singpass", "managed_singpass", "oidc"] }).notNull(),
     displayName: text("display_name").notNull(),
     issuer: text("issuer").notNull(),
     clientId: text("client_id").notNull(),
@@ -201,7 +201,7 @@ export const ssoProviders = pgTable(
   },
   (t) => [
     unique("sso_providers_org_id_unique").on(t.orgId, t.id),
-    check("sso_providers_kind_check", sql`${t.kind} in ('google', 'entra', 'singpass', 'oidc')`),
+    check("sso_providers_kind_check", sql`${t.kind} in ('google', 'entra', 'singpass', 'managed_singpass', 'oidc')`),
   ],
 );
 

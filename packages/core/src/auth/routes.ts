@@ -83,7 +83,7 @@ export const authModule = defineModule({
             singpassLogoUrl: null,
           };
         }
-        const methods = await publicSignInMethods(deps.db, org.id);
+        const methods = await publicSignInMethods(deps.db, org.id, deps.managedSingpassIssuer);
         return {
           orgSlugRequired: false,
           organisation: { name: org.name, slug: org.slug },

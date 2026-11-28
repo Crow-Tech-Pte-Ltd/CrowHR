@@ -6,7 +6,7 @@
  * passed on 9 Nov 2026; production has not been tried. Check the current docs at
  * https://docs.developer.singpass.gov.sg before onboarding.
  */
-export type ProviderKind = "google" | "entra" | "singpass" | "oidc";
+export type ProviderKind = "google" | "entra" | "singpass" | "managed_singpass" | "oidc";
 
 export interface ProviderPreset {
   kind: ProviderKind;
@@ -62,6 +62,18 @@ export const PRESETS: Record<ProviderKind, ProviderPreset> = {
     // "Mandatory and only allowed for Login apps"; the Developer Portal shows this value for the
     // "General Authentication" scenario (Singpass authorization request docs, checked 9 Nov 2026).
     authParams: { authentication_context_type: "APP_AUTHENTICATION_DEFAULT" },
+    emailLinking: false,
+    jitAllowed: false,
+  },
+  managed_singpass: {
+    kind: "managed_singpass",
+    label: "Singpass",
+    scopes: "openid",
+    par: false,
+    dpop: false,
+    privateKeyJwt: false,
+    idTokenEncrypted: false,
+    authParams: { prompt: "login" },
     emailLinking: false,
     jitAllowed: false,
   },

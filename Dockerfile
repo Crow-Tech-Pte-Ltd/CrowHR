@@ -20,6 +20,7 @@ WORKDIR /src
 # Manifests first so the dependency layer is cached until bun.lock changes.
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
+COPY apps/managed-login/package.json apps/managed-login/
 COPY apps/web/package.json apps/web/
 # Every workspace manifest must be present for --frozen-lockfile; docs and demo are not built here.
 COPY apps/docs/package.json apps/docs/
@@ -40,6 +41,7 @@ RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}"
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
+COPY apps/managed-login/package.json apps/managed-login/
 COPY apps/web/package.json apps/web/
 # Every workspace manifest must be present for --frozen-lockfile; docs and demo are not built here.
 COPY apps/docs/package.json apps/docs/

@@ -28,7 +28,7 @@ This page describes the current Crow HR source. See the [release notes](https://
 
 | Item | State |
 | --- | --- |
-| Singpass login | Implemented to Singpass's FAPI 2.0 login profile and tested against **Singpass staging**; not yet against Singpass production. The official Singpass logo for the button has to be added by whoever runs the server, because it can't ship in the repository. See the [Singpass guide](/docs/admin/sso/singpass/). |
+| Singpass login | Implements the Singpass FAPI 2.0 login profile and has passed an end-to-end Singpass staging test. Crow Tech has an active production registration for the public demo. The shared app for Crow Tech-hosted employee sign-in is pending staging verification and production approval. Self-hosted installations use their own registration and add the official Singpass button logo. See the [Singpass guide](/docs/admin/sso/singpass/). |
 | Virus scanning | Receipts, documents and medical certificates are scanned by your own ClamAV when you set `CLAMAV_HOST` ([configuration](/docs/self-hosting/configuration/#optional-virus-scanning)). No scanner ships with Crow HR, so without one uploads are stored unscanned. |
 | Payroll inputs from other modules | Approved timesheets can feed regular hourly work. Exceptions such as incomplete approvals, overtime or special-day work may require manual hours. Rest-day and public-holiday work premiums and some overtime amounts are entered by hand. See [payroll limitations](/docs/payroll/limitations/#payroll-inputs). |
 

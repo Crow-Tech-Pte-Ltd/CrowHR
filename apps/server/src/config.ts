@@ -52,6 +52,7 @@ export interface ServerConfig {
    */
   DEMO_SINGPASS_PROVIDER_ID: string | null;
   DEMO_SINGPASS_RETURN_URL: string | null;
+  MANAGED_SINGPASS_ISSUER: string | null;
   /**
    * Demo companies (DEMO_COMPANIES=1, openspec add-demo-companies): any visitor gets a private
    * copy of the fictional sample company at /try, deleted after DEMO_COMPANY_TTL_HOURS. Null = off.
@@ -379,6 +380,17 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
   const monitoring = readMonitoringConfig(env, { version: VERSION, production });
   for (const problem of monitoring.problems) fail(problem);
 
+  const hosted = bool("CROWHR_HOSTED", false);
+  const managedSingpassIssuer = get("MANAGED_SINGPASS_ISSUER") ?? null;
+  if (managedSingpassIssuer) {
+    if (!hosted) fail("MANAGED_SINGPASS_ISSUER requires CROWHR_HOSTED=1.");
+    try {
+      const url = new URL(managedSingpassIssuer);
+      if (url.protocol !== "https:" || url.origin !== managedSingpassIssuer) throw new Error();
+    } catch {
+      fail("MANAGED_SINGPASS_ISSUER must be an HTTPS origin without a path or trailing slash.");
+    }
+  }
   const config: ServerConfig = {
     NODE_ENV,
     PUBLIC_URL,
@@ -408,11 +420,12 @@ export function loadConfig(env: Record<string, string | undefined>, options: Loa
     CLAMAV_PORT: int("CLAMAV_PORT", 3310, 1, 65535),
     DEMO_SINGPASS_PROVIDER_ID,
     DEMO_SINGPASS_RETURN_URL,
+    MANAGED_SINGPASS_ISSUER: managedSingpassIssuer,
     demoCompanies,
     assistantEnabled: bool("AI_ASSISTANT_ENABLED", false),
     monitoring: monitoring.config,
   };
-  if (bool("CROWHR_HOSTED", false)) {
+  if (hosted) {
     if (!config.secureCookies) fail("PUBLIC_URL must use HTTPS for dedicated hosting. Set it in .env.");
     if (
       trusted.ok &&

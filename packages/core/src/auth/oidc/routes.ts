@@ -25,6 +25,7 @@ import { hitWindow } from "../throttle.ts";
 import { callbackUrl, providerConfig } from "./client.ts";
 import { entraEmailVerified, idpAssertsMfa } from "./mfa.ts";
 import { PRESETS, singpassSubject } from "./presets.ts";
+import { createDpopProof, type DpopKeys, restoreDpopProof } from "./singpass.ts";
 
 export const OIDC_TRANSACTION_TTL_MS = 10 * MINUTE;
 
@@ -47,6 +48,7 @@ const AUTH_METHOD: Record<SsoProvider["kind"], AuthMethod> = {
   google: "google",
   entra: "entra",
   singpass: "singpass",
+  managed_singpass: "singpass",
   oidc: "oidc",
 };
 
@@ -189,7 +191,8 @@ export const oidcRoutes = [
         );
       }
       const provider = await loadProvider(c, params.providerId);
-      if (!provider || !isConfigured(provider)) throw new AppError("not_found", "That sign-in method isn't set up.");
+      if (!provider || !isConfigured(provider, deps.managedSingpassIssuer))
+        throw new AppError("not_found", "That sign-in method isn't set up.");
       const demo = deps.demoSingpass;
       if (query.purpose === "demo") {
         if (!demo || demo.providerId !== provider.id || provider.kind !== "singpass")
@@ -239,13 +242,9 @@ export const oidcRoutes = [
       let dpopJwkEnc: string | null = null;
       let dpop: oidc.DPoPHandle | undefined;
       if (preset.dpop) {
-        const pair = await oidc.randomDPoPKeyPair("ES256", { extractable: true });
-        const jwk = {
-          private: await crypto.subtle.exportKey("jwk", pair.privateKey),
-          public: await crypto.subtle.exportKey("jwk", pair.publicKey),
-        };
-        dpopJwkEnc = await deps.secretBox.encrypt(SECRET_PURPOSES.oidcTransaction, JSON.stringify(jwk));
-        dpop = oidc.getDPoPHandle(config, pair);
+        const proof = await createDpopProof(config);
+        dpopJwkEnc = await deps.secretBox.encrypt(SECRET_PURPOSES.oidcTransaction, JSON.stringify(proof.keys));
+        dpop = proof.handle;
       }
       const now = deps.clock.now();
       setCookie(c, TX_COOKIE, state, { ...txCookieOptions(c), maxAge: OIDC_TRANSACTION_TTL_MS / 1000 });
@@ -308,7 +307,9 @@ export const oidcRoutes = [
     errors: ["not_found", "forbidden", "reauth_required"],
     handler: async ({ c, deps, params, query }) => {
       const provider = await loadProvider(c, params.providerId);
-      if (!provider) throw new AppError("not_found", "That sign-in method isn't set up.");
+      if (!provider || (provider.kind === "managed_singpass" && !isConfigured(provider, deps.managedSingpassIssuer))) {
+        throw new AppError("not_found", "That sign-in method isn't set up.");
+      }
       const { db, clock, secretBox } = deps;
       const now = clock.now();
       const stateHash = query.state ? await sha256Hex(query.state) : "";
@@ -323,6 +324,9 @@ export const oidcRoutes = [
         : [];
       if (!tx) return fail(c, provider, "state_mismatch", "sign_in");
       if (tx.expiresAt <= now) return fail(c, provider, "expired", tx.purpose);
+      if (provider.kind === "managed_singpass" && !provider.enabled && ["invite", "sign_in"].includes(tx.purpose)) {
+        return fail(c, provider, "expired", tx.purpose);
+      }
       if (tx.purpose === "link" || tx.purpose === "test") {
         const auth = c.var.auth;
         if (
@@ -350,16 +354,8 @@ export const oidcRoutes = [
         const config = await providerConfig(deps, provider);
         let dpop: oidc.DPoPHandle | undefined;
         if (tx.dpopJwkEnc) {
-          const jwk = JSON.parse(await secretBox.decrypt(SECRET_PURPOSES.oidcTransaction, tx.dpopJwkEnc)) as {
-            private: JsonWebKey;
-            public: JsonWebKey;
-          };
-          const alg = { name: "ECDSA", namedCurve: "P-256" };
-          const pair = {
-            privateKey: await crypto.subtle.importKey("jwk", jwk.private, alg, false, ["sign"]),
-            publicKey: await crypto.subtle.importKey("jwk", jwk.public, alg, true, ["verify"]),
-          };
-          dpop = oidc.getDPoPHandle(config, pair);
+          const keys = JSON.parse(await secretBox.decrypt(SECRET_PURPOSES.oidcTransaction, tx.dpopJwkEnc)) as DpopKeys;
+          dpop = await restoreDpopProof(config, keys);
         }
         const tokens = await oidc.authorizationCodeGrant(
           config,

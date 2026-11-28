@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auditContext, clientIp, recordAudit } from "../audit/audit.ts";
 import { newToken, sha256Hex } from "../crypto/tokens.ts";
 import { invitations, memberships } from "../db/schema/access.ts";
-import { passwordResets, ssoProviders } from "../db/schema/auth.ts";
+import { passwordResets } from "../db/schema/auth.ts";
 import { organisations } from "../db/schema/organisations.ts";
 import { users } from "../db/schema/users.ts";
 import { NOT_IN_DEMO_COMPANY } from "../demo-companies/config.ts";
@@ -20,6 +20,7 @@ import {
   verifyPasswordOrDummy,
 } from "./credentials.ts";
 import { isKnownDevice, rememberDevice } from "./known-device.ts";
+import { publicSignInMethods } from "./methods.ts";
 import { passwordProblem } from "./password-policy.ts";
 import { sendSecurityNotice } from "./security-notices.ts";
 import { removeLinkedIdentities, revokeUserSessions, startBrowserSession } from "./sessions.ts";
@@ -227,11 +228,7 @@ export const accountRoutes = [
           : row.invite.expiresAt <= clock.now()
             ? "expired"
             : "valid";
-      const settings = await loadSecuritySettings(db, row.org.id);
-      const providers = await db
-        .select({ id: ssoProviders.id, kind: ssoProviders.kind, displayName: ssoProviders.displayName })
-        .from(ssoProviders)
-        .where(and(eq(ssoProviders.orgId, row.org.id), eq(ssoProviders.enabled, true)));
+      const methods = await publicSignInMethods(db, row.org.id, deps.managedSingpassIssuer);
       return {
         status,
         organisation: { name: row.org.name, slug: row.org.slug },
@@ -239,8 +236,9 @@ export const accountRoutes = [
         displayName: status === "valid" ? row.user.displayName : null,
         existingAccount: !!row.user.passwordHash,
         mfaRequired: status === "valid" && !!row.user.mfaEnrolledAt,
-        passwordAllowed: settings.passwordEnabled,
-        providers: status === "valid" ? providers : [],
+        passwordAllowed: methods.password.enabled,
+        providers:
+          status === "valid" ? methods.providers.map(({ id, kind, displayName }) => ({ id, kind, displayName })) : [],
       };
     },
   }),

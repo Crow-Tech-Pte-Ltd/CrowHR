@@ -72,7 +72,7 @@ export function createMetaModule(features: () => readonly string[]) {
           const entries = [];
           const demoCompany = !!org && isLiveDemoCompany(deps, org, now);
           if (org?.slug) {
-            const methods = demoCompany ? null : await publicSignInMethods(deps.db, org.id);
+            const methods = demoCompany ? null : await publicSignInMethods(deps.db, org.id, deps.managedSingpassIssuer);
             entries.push({
               slug: org.slug,
               displayName: org.name,

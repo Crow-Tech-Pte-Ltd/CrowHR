@@ -15,6 +15,7 @@ import { defineModule, defineRoute } from "../http/route.ts";
 import { appearanceView, companyAppearance } from "../organisation/appearance.ts";
 import { audit, regenerateRecoveryCodes, remainingRecoveryCodes, verifyPasswordOrDummy } from "./credentials.ts";
 import { emailChangeMeRoutes } from "./email-change.ts";
+import { publicProviderKind } from "./methods.ts";
 import { mfaPolicyStatus } from "./mfa-policy.ts";
 import { passwordProblem } from "./password-policy.ts";
 import { sendSecurityNotice, sgDateTimePhrase } from "./security-notices.ts";
@@ -529,7 +530,7 @@ export const meModule = defineModule({
             id: identity.id,
             providerId: provider.id,
             providerName: provider.displayName,
-            kind: provider.kind,
+            kind: publicProviderKind(provider.kind),
             linkedAt: identity.linkedAt.toISOString(),
             lastUsedAt: identity.lastUsedAt?.toISOString() ?? null,
           })),
