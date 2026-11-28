@@ -15,7 +15,9 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
     JSON.stringify(boot.timings.stages),
   );
   await expect(page).toHaveURL(/\/sign-in\/kopi-kaki$/);
-  await expect(page.getByTestId("demo-banner")).toContainText("runs entirely in your browser");
+  const banner = page.getByTestId("demo-banner");
+  await expect(banner.getByRole("navigation", { name: "Demo controls" })).toBeVisible();
+  await expect(banner).not.toContainText(/runs (entirely )?in your browser/i);
   await expect(page.getByTestId("sso-methods")).toContainText(
     "Not available in the demo. Self-hosted installs can enable this in Settings → Security.",
   );
