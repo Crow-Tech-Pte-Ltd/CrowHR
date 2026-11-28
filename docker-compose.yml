@@ -30,7 +30,7 @@ services:
     restart: "no"
 
   db:
-    image: postgres:17-alpine
+    image: postgres:19-alpine
     environment:
       POSTGRES_USER: crowhr
       POSTGRES_DB: crowhr
