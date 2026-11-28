@@ -41,7 +41,7 @@ jobs:
           image-ref: ghcr.io/crow-tech-pte-ltd/crowhr:latest
           scanners: vuln
           severity: CRITICAL,HIGH
-          exit-code: '1'
+          exit-code: "1"
 
   audit:
     name: bun audit, reported in one issue
