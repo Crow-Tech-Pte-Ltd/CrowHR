@@ -59,7 +59,7 @@ jobs:
       - id: filter
         # Nightly and manual runs run everything; they have no diff to filter.
         if: github.event_name == 'pull_request' || github.event_name == 'push'
-        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: |
             # Playwright (e2e/*.spec.ts) runs the built web app against the real server on Postgres.
