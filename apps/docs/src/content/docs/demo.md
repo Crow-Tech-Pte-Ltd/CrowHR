@@ -7,13 +7,13 @@ Crow HR has an in-browser demo: the same web app and the same API code that a se
 
 ![The Qinghe Foods sign-in page with the demo controls and five one-click personas](../../assets/screens/demo-personas.webp)
 
-Use the language picker on the sign-in page, or open **Account menu → Language** after signing in. The web app and demo offer English, Simplified Chinese, Malay and Tamil. The browser remembers your choice, including after a demo reset.
+Choose English, Simplified Chinese, Malay or Tamil, then select **Start demo**. You can also switch languages on the sign-in page or through **Account menu → Language**. The browser remembers your choice, including after a demo reset.
 
 ## How it works
 
 - **No backend.** The site is static files. The Crow HR API runs in a Web Worker in your tab, against PostgreSQL compiled to WebAssembly (PGlite), saved in your browser's IndexedDB. Nothing you type reaches a server, and there are no analytics or third-party requests.
 - **The real code.** Payroll is calculated by the real engine with the cited Singapore rules, approvals go through the real workflow engine, and permissions are enforced by the same server code as a self-hosted install.
-- **Your own copy.** Each browser gets its own database, restored from a pre-built database snapshot on the first visit; if that download is missing or corrupt, the same seed runs in your browser. **Reset** in the demo banner wipes your copy, restores the snapshot and re-anchors the clock; clearing the site's data in your browser does the same. When a new version of the demo changes its data, your next visit starts from a fresh copy automatically.
+- **Your own copy.** Each browser gets its own database, restored from a pre-built database snapshot on the first visit; if that download is missing or corrupt, the same seed runs in your browser. **Demo options → Reset demo** wipes your copy, restores the snapshot and re-anchors the clock; clearing the site's data in your browser does the same. When a new version of the demo changes its data, your next visit starts from a fresh copy automatically.
 - **One tab at a time.** Two tabs writing the same local database would corrupt it, so a second tab offers to take over instead.
 
 ## The demo company
@@ -38,13 +38,15 @@ Three things to try:
 - As **Manager**, approve the shift swap waiting in the Inbox. The two shifts then move on the Jurong Point roster in **Schedules**.
 - As **Employee**, acknowledge the updated terms waiting on Home, then open a payslip.
 
+Use **Demo options → Switch demo user** to return to the sign-in page and try another role in the same sample company. **About this demo** has links to the mobile-app demo, docs and self-hosting guide.
+
 ## What differs from a self-hosted install
 
 | Area | In the demo | Self-hosted |
 | --- | --- | --- |
 | Signing in | One click on a persona, or the shared password. Two-step verification is not required. | Email and password, two-step verification (required for admin roles by default), SSO. |
 | Google, Microsoft, Singpass | Buttons are shown but disabled; no request is made to any identity provider. (A demo can be built with a real Singpass login that keeps nothing about the visitor, see [Singpass login](/docs/admin/sso/singpass/#public-demo); hr.crow.sg does not offer it.) | Work once an owner configures them. |
-| Email | Nothing is sent. Messages appear in the **Demo outbox** (from the banner), so invitation and reset links still work. | Sent over SMTP if configured. |
+| Email | Invitation and password-reset messages stay in your browser. Find them under **Demo options → Test emails**. | Sent over SMTP if configured. |
 | Passwords | PBKDF2 in a demo-only format that a real server refuses. | argon2id. |
 | Encryption at rest | NRIC/FIN and bank numbers are encrypted with a throwaway key included with the fictional snapshot and stored next to the database. The fallback seed creates a fresh key. Fine for invented data, never a pattern for real data. | Encrypted with the server's `CROWHR_SECRET_KEY`. |
 | Date | The company lives on Saturday 31 Oct 2026: every visit starts there at 11:30 Singapore time, after the outlets' morning crews have clocked in, and the clock then runs normally. Reset re-anchors it. | The real date. |

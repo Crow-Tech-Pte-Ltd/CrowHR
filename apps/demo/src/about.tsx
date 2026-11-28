@@ -37,7 +37,7 @@ const DIFFERENCES: [string, string, string][] = [
   ],
   [
     "Email",
-    "Nothing is sent. Messages appear in the Demo outbox, so invitation and reset links still work.",
+    "Invitations and reset links appear in Test emails under Demo options. Messages stay in this browser.",
     "Sent over SMTP if configured; otherwise invitations show a copyable link.",
   ],
   ["Passwords", "PBKDF2 (Web Crypto, 10,000 rounds) in a demo-only format that a real server refuses.", "argon2id."],
@@ -125,7 +125,7 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
             </li>
             <li>
               {t(
-                "Use Reset in the banner to wipe your copy and reload the company. Clearing this site’s data in your browser has the same effect.",
+                "Choose Demo options → Reset demo to restore the sample company. Clearing this site’s data in your browser also resets it.",
               )}
             </li>
           </ul>

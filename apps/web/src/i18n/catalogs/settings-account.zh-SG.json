@@ -605,7 +605,7 @@
   "Policies": "政策",
   "Polling Day": "投票日",
   "Postal code": "邮政编码",
-  "Prefer typing? Every demo account's password is {password}. Emails the app would send appear in the Demo outbox.": "想手动登录？所有演示账户的密码均为 {password}。应用生成的电邮会显示在演示发件箱中。",
+  "Prefer typing? Every demo account's password is {password}.": "想要手动登录？所有演示账户的密码都是 {password}。",
   "Preferred name": "常用名",
   "Prepares the monthly run, bank file and CPF file.": "准备每月薪资批次、银行付款文件和 CPF 文件。",
   "Preview": "预览",

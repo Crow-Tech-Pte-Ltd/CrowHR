@@ -1,6 +1,6 @@
 import { open } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
-import { go, pickPersona, signOut, waitForDemo, watchErrors } from "./helpers.ts";
+import { go, pickPersona, signOut, startDemo, waitForDemo, watchErrors } from "./helpers.ts";
 
 /** Real demo: snapshot → attendance-fed payroll and reports → manager approvals → PDF acknowledgement → reset. */
 test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async ({ page, context }) => {
@@ -8,6 +8,7 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
 
   // 1. First visit: the loader, then the sign-in page with personas and disabled SSO.
   await page.goto("/sign-in/kopi-kaki?from=bookmark#sign-in");
+  await startDemo(page);
   const boot = await waitForDemo(page);
   expect(boot.timings.seeded).toBe(true);
   expect(boot.timings.restored).toBe(true);
@@ -19,7 +20,7 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
   await expect(page.getByText("Qinghe Foods", { exact: true })).toBeVisible();
   const banner = page.getByTestId("demo-banner");
   await expect(banner.getByRole("navigation", { name: "Demo controls" })).toBeVisible();
-  await expect(banner).not.toContainText(/runs (entirely )?in your browser/i);
+  await expect(banner.getByRole("button")).toHaveCount(1);
   await expect(page.getByTestId("sso-methods")).toContainText(
     "Not available in the demo. Self-hosted installs can enable this in Settings → Security.",
   );
@@ -29,6 +30,9 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
   await pickPersona(page, "payroll-admin");
   await go(page, "/payroll");
   await expect(page.getByRole("heading", { level: 1, name: "Payroll" })).toBeVisible();
+  const reporting = page.getByRole("complementary").getByRole("list", { name: "Reporting" });
+  await expect(reporting.getByRole("link", { name: "Reports", exact: true })).toBeVisible();
+  await expect(reporting.getByRole("link", { name: "Export data", exact: true })).toBeVisible();
   await page
     .getByRole("link", { name: /October 2026/ })
     .first()
@@ -107,6 +111,7 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
   await page.keyboard.press("Escape");
 
   // 4. Reset: back to the seeded company, the claim is waiting again.
+  await page.getByTestId("demo-options").click();
   await page.getByTestId("demo-reset").click();
   await page.getByTestId("demo-reset-confirm").click();
   await expect(page).toHaveURL(/\/sign-in/, { timeout: 60_000 });
@@ -123,7 +128,9 @@ test("snapshot, fed OT, reports, shift swap, acknowledgement and reset", async (
 });
 
 test("downloads a report PDF from both report entry points", async ({ page }) => {
-  await go(page, "/");
+  await page.goto("/");
+  await startDemo(page);
+  await waitForDemo(page);
   await expect(page.getByTestId("demo-personas")).toBeVisible({ timeout: 20_000 });
   await pickPersona(page, "payroll-admin");
   await go(page, "/reports/payroll.cost?from=2026-07&to=2026-09");
@@ -160,6 +167,7 @@ for (const mode of ["missing", "corrupt"] as const) {
       }),
     );
     await page.goto("/");
+    await startDemo(page);
     const boot = await waitForDemo(page, 120_000);
     expect(boot.timings.seeded).toBe(true);
     expect(boot.timings.restored).toBe(false);
@@ -172,3 +180,34 @@ for (const mode of ["missing", "corrupt"] as const) {
     expect(errors).toEqual([]);
   });
 }
+
+test("test emails explains the sandbox and opens from password reset", async ({ page }) => {
+  await page.goto("/");
+  await startDemo(page);
+  await waitForDemo(page);
+  const options = page.getByTestId("demo-options");
+  await options.click();
+  await page.getByRole("menuitem", { name: "Test emails" }).click();
+  const emails = page.getByRole("dialog", { name: "Test emails" });
+  await expect(emails).toContainText("These emails stay in this browser");
+  await expect(emails.getByRole("list")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(options).toBeFocused();
+
+  await page.getByRole("button", { name: "Forgot password?" }).click();
+  const reset = page.getByRole("dialog", { name: "Reset your password" });
+  await reset.getByRole("textbox", { name: "Work email" }).fill("junjie@qinghefoods.example");
+  await reset.getByRole("button", { name: "Send reset link" }).click();
+  await expect(reset).toContainText("its reset link appears in Test emails");
+  await reset.getByRole("button", { name: "Open test emails" }).click();
+  await expect(emails).toBeVisible();
+  await emails.getByRole("button", { name: /password reset|reset your/i }).click();
+  await expect(emails.getByRole("link", { name: /\/reset\// })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await pickPersona(page, "owner");
+  await options.click();
+  await page.getByRole("menuitem", { name: "Switch demo user" }).click();
+  await expect(page.getByTestId("demo-personas")).toBeVisible();
+  await expect(page.getByTestId("demo-entry")).toBeHidden();
+});

@@ -182,7 +182,7 @@ export const NAV_GROUPS: NavGroup[] = [
   { label: "People", items: ["people", "documents"] },
   { label: "Time", items: ["leave", "attendance", "schedules"] },
   { label: "Pay", items: ["payroll", "claims"] },
-  { label: null, items: ["reports", "export-data"] },
+  { label: "Reporting", items: ["reports", "export-data"] },
 ];
 
 /** Employee bottom tab bar on mobile (< 768px). */

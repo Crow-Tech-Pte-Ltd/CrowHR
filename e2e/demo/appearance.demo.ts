@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { go, pickPersona, waitForDemo } from "./helpers.ts";
+import { go, pickPersona, startDemo, waitForDemo } from "./helpers.ts";
 
 test("owners can preview branding while AI assistants stay disabled in the public demo", async ({ page, request }) => {
   await page.goto("/");
+  await startDemo(page);
   await waitForDemo(page);
   await pickPersona(page, "owner");
   await go(page, "/settings/company");

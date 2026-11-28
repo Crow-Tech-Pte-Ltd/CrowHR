@@ -9,31 +9,32 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  cn,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   formatDate,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetTitle,
 } from "@crowhr/ui";
-import { BookOpen, Info, Mail, RotateCcw, Server, Smartphone, Users } from "lucide-react";
+import { ChevronDown, Info, Mail, RotateCcw, Users } from "lucide-react";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { LOCALE_STORAGE_KEY, useT } from "../../web/src/i18n/index.ts";
 import { UiLocalisation } from "../../web/src/i18n/ui-localisation.tsx";
-import { tryUrl } from "./try-url.ts";
+import { localiseBoot } from "./boot-copy.ts";
 import { OPEN_OUTBOX } from "./web-extensions.tsx";
 
 /**
- * The persistent demo banner above the app: what this is, where the data lives, and the
- * demo-only controls (Outbox, About, Docs, Self-hosting, Reset). Rendered outside apps/web's
- * router so it is on every screen, including sign-in.
+ * Demo-only tools, available above the app and its sign-in page.
  */
 interface BannerProps {
   client: DemoClient;
   info: DemoInfo;
-  /** Fires "count" events (detail: number) when the Demo outbox receives mail. */
-  outboxEvents: EventTarget;
   /** Discards this browser's copy; the next load restores the snapshot (main.tsx). */
   resetCopy: () => Promise<void>;
 }
@@ -48,28 +49,22 @@ export function mountBanner(props: BannerProps) {
   );
 }
 
-const linkClass =
-  "focus-ring inline-flex h-7 items-center gap-1.5 rounded-sm px-1.5 font-azeret text-[11px] font-medium text-ink hover:bg-ink/[0.06]";
-
-function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
+function DemoBanner({ client, info, resetCopy }: BannerProps) {
   const t = useT("demo");
   const [outboxOpen, setOutboxOpen] = React.useState(false);
   const [resetOpen, setResetOpen] = React.useState(false);
-  const [count, setCount] = React.useState<number | null>(null);
   const [resetting, setResetting] = React.useState(false);
-  const phoneTry = tryUrl();
+  const menu = React.useRef<HTMLButtonElement>(null);
+  const restoreFocus = (e: Event) => {
+    e.preventDefault();
+    menu.current?.focus();
+  };
 
   React.useEffect(() => {
     const open = () => setOutboxOpen(true);
     window.addEventListener(OPEN_OUTBOX, open);
-    const onCount = (e: Event) => setCount((e as CustomEvent<number>).detail);
-    outboxEvents.addEventListener("count", onCount);
-    void client.outbox().then((m) => setCount(m.length));
-    return () => {
-      window.removeEventListener(OPEN_OUTBOX, open);
-      outboxEvents.removeEventListener("count", onCount);
-    };
-  }, [client, outboxEvents]);
+    return () => window.removeEventListener(OPEN_OUTBOX, open);
+  }, []);
 
   /** Persona switcher: sign out (a normal sign-out through the API) and back to the picker. */
   const switchPersona = async () => {
@@ -79,6 +74,7 @@ function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
 
   const reset = async () => {
     setResetting(true);
+    localiseBoot();
     const boot = document.getElementById("demo-boot");
     if (boot) boot.hidden = false;
     document.getElementById("root")?.setAttribute("hidden", "");
@@ -99,49 +95,43 @@ function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
         data-testid="demo-banner"
         className="flex min-h-9 items-center gap-x-3 border-b border-ink/15 bg-kuning-50 px-3 py-1 md:px-5"
       >
-        <span className="rounded-[4px] border-2 border-ink bg-kuning-200 px-1 py-px font-azeret text-[10px] font-bold leading-none tracking-wider text-accent-foreground">
-          {t("DEMO")}
-        </span>
-        <nav aria-label={t("Demo controls")} className="-mr-1.5 ml-auto flex shrink-0 items-center">
-          <button type="button" className={linkClass} onClick={() => setOutboxOpen(true)} data-testid="demo-outbox">
-            <Mail className="size-3.5" aria-hidden />
-            <span className="sr-only sm:not-sr-only">{t("Outbox")}</span>
-            {count ? <span className="num">{count}</span> : null}
-          </button>
-          <button type="button" className={linkClass} onClick={() => void switchPersona()} data-testid="demo-switch">
-            <Users className="size-3.5" aria-hidden />
-            <span className="sr-only sm:not-sr-only">{t("Switch persona")}</span>
-          </button>
-          {phoneTry ? (
-            <a className={linkClass} href={phoneTry} data-testid="demo-try-phone">
-              <Smartphone className="size-3.5" aria-hidden />
-              <span className="sr-only lg:not-sr-only">{t("Try it on your phone")}</span>
-            </a>
-          ) : null}
-          <a className={linkClass} href="/about-demo" data-testid="demo-about">
-            <Info className="size-3.5" aria-hidden />
-            <span className="hidden md:inline">{t("About this demo")}</span>
-            <span className="sr-only sm:not-sr-only md:hidden">{t("About")}</span>
-          </a>
-          <a className={cn(linkClass, "hidden sm:inline-flex")} href="/docs/">
-            <BookOpen className="size-3.5" aria-hidden />
-            {t("Docs")}
-          </a>
-          <a className={cn(linkClass, "hidden sm:inline-flex")} href="/docs/self-hosting/install/">
-            <Server className="size-3.5" aria-hidden />
-            {t("Self-host")}
-          </a>
-          <button type="button" className={linkClass} onClick={() => setResetOpen(true)} data-testid="demo-reset">
-            <RotateCcw className="size-3.5" aria-hidden />
-            <span className="sr-only sm:not-sr-only">{t("Reset")}</span>
-          </button>
+        <nav aria-label={t("Demo controls")}>
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button ref={menu} variant="ghost" size="sm" data-testid="demo-options">
+                {t("Demo options")}
+                <ChevronDown aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-w-[calc(100vw-1.5rem)]">
+              <DropdownMenuItem onSelect={() => void switchPersona()} data-testid="demo-switch">
+                <Users aria-hidden />
+                {t("Switch demo user")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setOutboxOpen(true)} data-testid="demo-outbox">
+                <Mail aria-hidden />
+                {t("Test emails")}
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href="/about-demo" data-testid="demo-about">
+                  <Info aria-hidden />
+                  {t("About this demo")}
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem destructive onSelect={() => setResetOpen(true)} data-testid="demo-reset">
+                <RotateCcw aria-hidden />
+                {t("Reset demo")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </nav>
       </section>
 
-      <OutboxSheet open={outboxOpen} onOpenChange={setOutboxOpen} client={client} />
+      <OutboxSheet open={outboxOpen} onOpenChange={setOutboxOpen} client={client} onCloseAutoFocus={restoreFocus} />
 
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent onCloseAutoFocus={restoreFocus}>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("Reset the demo?")}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -196,10 +186,12 @@ function OutboxSheet({
   open,
   onOpenChange,
   client,
+  onCloseAutoFocus,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   client: DemoClient;
+  onCloseAutoFocus: (event: Event) => void;
 }) {
   const t = useT("demo");
   const [items, setItems] = React.useState<OutboxMessage[] | null>(null);
@@ -211,12 +203,17 @@ function OutboxSheet({
   }, [open, client]);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[min(30rem,100vw)] p-0" data-testid="demo-outbox-sheet">
+      <SheetContent
+        side="right"
+        className="w-[min(30rem,100vw)] p-0"
+        data-testid="demo-outbox-sheet"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <div className="border-b border-border px-4 py-3 pr-10">
-          <SheetTitle className="font-azeret text-sm font-semibold">{t("Demo outbox")}</SheetTitle>
+          <SheetTitle className="font-azeret text-sm font-semibold">{t("Test emails")}</SheetTitle>
           <SheetDescription className="mt-1 text-ui text-primary-300">
             {t(
-              "The demo sends no email. Everything Crow HR would have emailed lands here instead, so invitation and password-reset links still work.",
+              "Preview invitations, password reset links and notifications generated by the demo. These emails stay in this browser.",
             )}
           </SheetDescription>
         </div>
@@ -225,7 +222,7 @@ function OutboxSheet({
             <p className="p-4 text-ui text-primary-300">{t("Loading…")}</p>
           ) : items.length === 0 ? (
             <p className="p-4 text-ui text-primary-300">
-              {t("Nothing yet. Invite someone in Settings → Members, or use “Forgot password?” on the sign-in page.")}
+              {t("No test emails yet. Request a password reset or send a demo invitation to see one here.")}
             </p>
           ) : (
             <ul className="divide-y divide-border">

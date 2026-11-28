@@ -37,7 +37,7 @@ The demo can offer a real Singpass login (then HR admin or Employee; nothing abo
 | --- | --- | --- |
 | `VITE_SINGPASS_LOGO_SRC` | `/branding/singpass-logo.svg` | The Singpass button shows the official logo. Copy Singpass's full-colour logo (from their button specification download) to `apps/demo/dist-site/branding/singpass-logo.svg` after building. It is never committed. |
 | `VITE_DEMO_SINGPASS_START_URL` | `https://hr-demo.crow.sg/api/v1/auth/oidc/<production method id>/start?purpose=demo` | Turns the demo's Singpass button on. Only set it once that method has a **production** client ID: Singpass staging accepts test accounts only. Unset, the button is shown disabled. |
-| `VITE_TRY_URL` | `https://hr-demo.crow.sg/try` | The demo banner ("Try it on your phone") and About this demo link to a server's try page, where visitors get their own demo company for the mobile apps (openspec add-demo-companies). hr-demo.crow.sg runs with `DEMO_COMPANIES=1` since 1.1.0. Set it only for a server that does. Unset, no link is shown. |
+| `VITE_TRY_URL` | `https://hr-demo.crow.sg/try` | About this demo ("On your phone") links to a server's try page, where visitors get their own demo company for the mobile apps (openspec add-demo-companies). hr-demo.crow.sg runs with `DEMO_COMPANIES=1` since 1.1.0. Set it only for a server that does. Unset, no link is shown. |
 
 ## Before deploying (local, no approval needed)
 
@@ -50,7 +50,7 @@ The demo can offer a real Singpass login (then HR admin or Employee; nothing abo
 4. `bun run demo:e2e` twice (the second run proves a fresh visitor gets a fresh copy; it runs in
    Chromium and WebKit, so install both once with `bunx playwright install chromium webkit`), then
    `node apps/demo/scripts/serve.ts apps/demo/dist-site` and check by hand at
-   http://127.0.0.1:5181: first load, a persona, `/payroll`, `/about-demo`, `/docs/`, Reset.
+   http://127.0.0.1:5181: language selection before launch, a demo user, `/payroll`, `/about-demo`, `/docs/`, then Reset demo.
    The preview server applies `_headers` and `_redirects` like Pages does.
 
 ## Deploying
@@ -111,7 +111,7 @@ DEMO_PERFORMANCE=1 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium \
   bunx playwright test -c e2e/demo/playwright.demo.config.ts performance.demo.ts
 ```
 
-Each sample uses a fresh browser context and IndexedDB. The metric is navigation start to the
+Each sample uses a fresh browser context and IndexedDB. The metric is the start of database boot to the
 app/banner being mounted (`window.__crowhrDemo.readyMs`), without network or CPU throttling.
 Measurements are local observations, not a hosted-network service level. With the build-time
 snapshot, three fresh visits took about 1.2 s each (median 1,199 ms, worker startup about 1 s),

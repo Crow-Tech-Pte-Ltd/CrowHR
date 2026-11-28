@@ -383,6 +383,8 @@ function ResetRequestDialog({
   defaultEmail: string;
 }) {
   const t = useT("settings-account");
+  const tDemo = useT("demo");
+  const openDemoEmails = shellExtensions.openDemoEmails;
   const [email, setEmail] = React.useState(defaultEmail);
   const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<{ emailConfigured: boolean } | null>(null);
@@ -420,7 +422,9 @@ function ResetRequestDialog({
         <DialogHeader>
           <DialogTitle>{t("Reset your password")}</DialogTitle>
           <DialogDescription>
-            {t("We'll send a link that lets you choose a new password. It works once, for 60 minutes.")}
+            {openDemoEmails
+              ? tDemo("Request a password reset link for a demo account.")
+              : t("We'll send a link that lets you choose a new password. It works once, for 60 minutes.")}
           </DialogDescription>
         </DialogHeader>
         {result ? (
@@ -428,9 +432,11 @@ function ResetRequestDialog({
             <KeyRound aria-hidden />
             <AlertDescription>
               {result.emailConfigured
-                ? t(
-                    "If that email belongs to an account here, a reset link is on its way. Check your inbox and spam folder.",
-                  )
+                ? openDemoEmails
+                  ? tDemo("If the address matches a demo account, its reset link appears in Test emails.")
+                  : t(
+                      "If that email belongs to an account here, a reset link is on its way. Check your inbox and spam folder.",
+                    )
                 : t(
                     "Email isn't set up on this server, so no link can be sent. Ask an owner to create a reset link for you in Settings → Members and roles.",
                   )}
@@ -447,7 +453,17 @@ function ResetRequestDialog({
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             {result ? t("Close") : t("Cancel")}
           </Button>
-          {result ? null : (
+          {result?.emailConfigured && openDemoEmails ? (
+            <Button
+              variant="primary"
+              onClick={() => {
+                onOpenChange(false);
+                openDemoEmails();
+              }}
+            >
+              {tDemo("Open test emails")}
+            </Button>
+          ) : result ? null : (
             <Button variant="primary" type="submit" form="reset-request" disabled={busy}>
               {busy ? t("Sending…") : t("Send reset link")}
             </Button>

@@ -1,5 +1,9 @@
 import { expect, type Page } from "@playwright/test";
 
+export async function startDemo(page: Page) {
+  await page.getByTestId("demo-start").click();
+}
+
 /** Waits for the in-browser runtime to boot (loader gone, banner up) and returns its timings. */
 export async function waitForDemo(page: Page, timeout = 60_000) {
   await expect(page.getByTestId("demo-banner")).toBeVisible({ timeout });

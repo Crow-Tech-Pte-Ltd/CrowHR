@@ -179,10 +179,7 @@ export function DemoPersonaPicker({
       ) : null}
       {shellExtensions.demoPassword && !only && !org ? (
         <p className="mt-3 text-2xs text-primary-300">
-          {t(
-            "Prefer typing? Every demo account's password is {password}. Emails the app would send appear in the Demo outbox.",
-            { password: shellExtensions.demoPassword },
-          )}
+          {t("Prefer typing? Every demo account's password is {password}.", { password: shellExtensions.demoPassword })}
         </p>
       ) : null}
     </section>

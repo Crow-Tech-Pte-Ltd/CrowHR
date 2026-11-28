@@ -605,7 +605,7 @@
   "Policies": "கொள்கைகள்",
   "Polling Day": "வாக்குப்பதிவு நாள்",
   "Postal code": "அஞ்சல் குறியீடு",
-  "Prefer typing? Every demo account's password is {password}. Emails the app would send appear in the Demo outbox.": "தட்டச்சு செய்து உள்நுழைய விரும்புகிறீர்களா? எல்லாச் செயல்விளக்கக் கணக்குகளுக்கும் கடவுச்சொல் {password}. செயலி அனுப்ப வேண்டிய மின்னஞ்சல்கள் செயல்விளக்க அனுப்பல் பெட்டியில் தோன்றும்.",
+  "Prefer typing? Every demo account's password is {password}.": "கையால் உள்ளிட்டு உள்நுழைய விரும்புகிறீர்களா? அனைத்து செயல்விளக்கக் கணக்குகளின் கடவுச்சொல் {password}.",
   "Preferred name": "விரும்பும் பெயர்",
   "Prepares the monthly run, bank file and CPF file.": "மாதாந்திரச் சம்பளச் செயலாக்கம், வங்கிக் கோப்பு, CPF கோப்பு ஆகியவற்றைத் தயாரிப்பவர்.",
   "Preview": "முன்னோட்டம்",
