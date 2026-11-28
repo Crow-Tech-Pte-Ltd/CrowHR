@@ -27,11 +27,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import * as React from "react";
 import { canForEmployee, useMe } from "../auth/session.ts";
 import { ErrorNote } from "../components/section.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiPost } from "../lib/api.ts";
 import { type Balance, balancesQuery, childrenQuery, typesQuery, useLeaveInvalidate } from "./api.ts";
 import { todaySg } from "./format.ts";
 
 export function EmployeeBalances({ employeeId }: { employeeId: string }) {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const canRead = canForEmployee(me, "leave:read", employeeId);
   const canAdjust = employeeId !== me.employeeId && canForEmployee(me, "leave:update", employeeId);
@@ -51,8 +53,8 @@ export function EmployeeBalances({ employeeId }: { employeeId: string }) {
   return (
     <Card>
       <CardHeader className="flex-wrap items-start">
-        <CardTitle>Leave balances</CardTitle>
-        <FormField label="Leave year" error={validYear ? undefined : "Enter a year from 2000 to 2100."}>
+        <CardTitle>{tWorkflow("Leave balances")}</CardTitle>
+        <FormField label={tWorkflow("Leave year")} error={validYear ? undefined : "Enter a year from 2000 to 2100."}>
           <Input
             className="num w-28"
             type="number"
@@ -77,15 +79,15 @@ export function EmployeeBalances({ employeeId }: { employeeId: string }) {
           <Skeleton className="h-12 w-full" />
         </div>
       ) : (
-        <Table aria-label="Leave balances">
+        <Table aria-label={tWorkflow("Leave balances")}>
           <TableHeader>
             <TableRow>
-              <TableHead>Leave</TableHead>
-              <TableHead className="text-right">Available</TableHead>
-              <TableHead className="text-right">Pending</TableHead>
+              <TableHead>{tWorkflow("Leave")}</TableHead>
+              <TableHead className="text-right">{tWorkflow("Available")}</TableHead>
+              <TableHead className="text-right">{tWorkflow("Pending")}</TableHead>
               {canAdjust ? (
                 <TableHead>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{tWorkflow("Actions")}</span>
                 </TableHead>
               ) : null}
             </TableRow>
@@ -114,7 +116,9 @@ export function EmployeeBalances({ employeeId }: { employeeId: string }) {
                 );
               })
             ) : (
-              <TableEmptyRow colSpan={canAdjust ? 4 : 3}>No tracked leave balances for this year.</TableEmptyRow>
+              <TableEmptyRow colSpan={canAdjust ? 4 : 3}>
+                {tWorkflow("No tracked leave balances for this year.")}
+              </TableEmptyRow>
             )}
           </TableBody>
         </Table>
@@ -124,6 +128,7 @@ export function EmployeeBalances({ employeeId }: { employeeId: string }) {
 }
 
 function BalanceAdjustment({ employeeId, balance, label }: { employeeId: string; balance: Balance; label: string }) {
+  const tWorkflow = useT("workflows");
   const invalidate = useLeaveInvalidate();
   const [open, setOpen] = React.useState(false);
   const [amount, setAmount] = React.useState("");
@@ -141,7 +146,7 @@ function BalanceAdjustment({ employeeId, balance, label }: { employeeId: string;
     onSuccess: () => {
       invalidate();
       setOpen(false);
-      toast.success("Leave adjustment recorded.");
+      toast.success(tWorkflow("Leave adjustment recorded."));
     },
   });
   const errors = save.error instanceof ApiError ? save.error.fieldErrors : {};
@@ -161,16 +166,16 @@ function BalanceAdjustment({ employeeId, balance, label }: { employeeId: string;
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" aria-label={`Adjust ${label}`}>
-          Adjust
+        <Button size="sm" variant="ghost" aria-label={tWorkflow("Adjust {arg1}", { arg1: label })}>
+          {tWorkflow("Adjust")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Adjust leave balance</DialogTitle>
+          <DialogTitle>{tWorkflow("Adjust leave balance")}</DialogTitle>
           <DialogDescription>
-            {label} · <span className="num">{balance.year}</span>. This change and its reason are recorded in the audit
-            log.
+            {label} · <span className="num">{balance.year}</span>.{" "}
+            {tWorkflow("This change and its reason are recorded in the audit log.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -181,8 +186,11 @@ function BalanceAdjustment({ employeeId, balance, label }: { employeeId: string;
           }}
         >
           <FormField
-            label={`Adjustment (${unit})`}
-            hint={`Use a positive amount to add leave or a negative amount to subtract it. Enter multiples of ${step}.`}
+            label={tWorkflow("Adjustment ({arg1})", { arg1: tWorkflow(unit === "days" ? "Days" : "Hours") })}
+            hint={tWorkflow(
+              "Use a positive amount to add leave or a negative amount to subtract it. Enter multiples of {arg1}.",
+              { arg1: step },
+            )}
             error={errors.amount}
             required
           >
@@ -202,7 +210,7 @@ function BalanceAdjustment({ employeeId, balance, label }: { employeeId: string;
               force at year end.
             </p>
           ) : null}
-          <FormField label="Reason" error={errors.reason} required>
+          <FormField label={tWorkflow("Reason")} error={errors.reason} required>
             <Textarea
               rows={2}
               minLength={3}
@@ -218,14 +226,14 @@ function BalanceAdjustment({ employeeId, balance, label }: { employeeId: string;
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={save.isPending}>
-              Cancel
+              {tWorkflow("Cancel")}
             </Button>
             <Button
               type="submit"
               variant="primary"
               disabled={!Number(amount) || reason.trim().length < 3 || save.isPending}
             >
-              Save adjustment
+              {tWorkflow("Save adjustment")}
             </Button>
           </DialogFooter>
         </form>

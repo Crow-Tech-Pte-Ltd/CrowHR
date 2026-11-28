@@ -18,6 +18,7 @@ import { PeriodNav, TimesheetStatusCard } from "../../../attendance/timesheet-ap
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useLocale, useT } from "../../../i18n/index.ts";
 import { addDays, dateRange, mondayOf, todaySg } from "../../../leave/format.ts";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -32,12 +33,13 @@ export const Route = createFileRoute("/_app/attendance/timesheet")({
 
 /** With timesheet approval on, My timesheet shows a period and its approval; otherwise a week. */
 function TimesheetRoute() {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const status = useQuery({ ...statusQuery, refetchInterval: false });
   if (status.isPending) {
     return (
       <>
-        <PageHeader title="Attendance" />
+        <PageHeader title={tWorkflow("Attendance")} />
         <AttendanceNav current="timesheet" />
         <Skeleton className="h-64 w-full" />
       </>
@@ -48,6 +50,7 @@ function TimesheetRoute() {
 }
 
 function MyPeriodPage() {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/attendance/timesheet" });
@@ -64,8 +67,10 @@ function MyPeriodPage() {
   return (
     <>
       <PageHeader
-        title="Attendance"
-        description="Your timesheet for the period: check the days, claim overtime, then submit it for approval."
+        title={tWorkflow("Attendance")}
+        description={tWorkflow(
+          "Your timesheet for the period: check the days, claim overtime, then submit it for approval.",
+        )}
       />
       <AttendanceNav current="timesheet" />
       {overview.isError ? (
@@ -103,7 +108,7 @@ function MyPeriodPage() {
             ) : (
               <>
                 <DayTable
-                  label={`My timesheet ${period.label}`}
+                  label={tWorkflow("My timesheet {arg1}", { arg1: period.label })}
                   days={q.data.days}
                   today={today}
                   action={(d) => (
@@ -145,6 +150,8 @@ function TotalsRow({ totals: t }: { totals: Totals }) {
 }
 
 function MyTimesheetPage() {
+  const locale = useLocale();
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/attendance/timesheet" });
@@ -157,29 +164,29 @@ function MyTimesheetPage() {
   return (
     <>
       <PageHeader
-        title="Attendance"
-        description="Your week: hours, lateness and overtime. Claim overtime for a day here."
+        title={tWorkflow("Attendance")}
+        description={tWorkflow("Your week: hours, lateness and overtime. Claim overtime for a day here.")}
       />
       <AttendanceNav current="timesheet" />
       <div className="mb-4 flex items-center gap-2">
         <Button
           size="icon-sm"
-          aria-label="Previous week"
+          aria-label={tWorkflow("Previous week")}
           onClick={() => void navigate({ search: { week: addDays(from, -7) } })}
         >
           <ChevronLeft />
         </Button>
         <Button
           size="icon-sm"
-          aria-label="Next week"
+          aria-label={tWorkflow("Next week")}
           onClick={() => void navigate({ search: { week: addDays(from, 7) } })}
         >
           <ChevronRight />
         </Button>
         <Button size="sm" variant="ghost" onClick={() => void navigate({ search: {} })}>
-          This week
+          {tWorkflow("This week")}
         </Button>
-        <span className="num ml-1 text-ui font-medium">{dateRange(from, to)}</span>
+        <span className="num ml-1 text-ui font-medium">{dateRange(from, to, "full", "full", locale)}</span>
       </div>
       <Card>
         {q.isError ? (
@@ -193,7 +200,7 @@ function MyTimesheetPage() {
         ) : (
           <>
             <DayTable
-              label="My timesheet"
+              label={tWorkflow("My timesheet")}
               days={q.data.days}
               today={today}
               action={(d) => (

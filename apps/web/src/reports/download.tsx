@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useReauth } from "../auth/reauth.tsx";
 import { ErrorNote } from "../components/section.tsx";
+import { useT } from "../i18n/index.ts";
 import { downloadApiFile } from "../lib/download.ts";
 
 export function useExportDownload() {
@@ -9,6 +10,7 @@ export function useExportDownload() {
 }
 
 export function DownloadFeedback({ download }: { download: ReturnType<typeof useExportDownload> }) {
+  const t = useT("people-payroll");
   return (
     <>
       <p
@@ -16,7 +18,7 @@ export function DownloadFeedback({ download }: { download: ReturnType<typeof use
         className={download.isPending || download.isSuccess ? "mb-4 text-ui text-primary-300" : "sr-only"}
       >
         {download.isPending
-          ? "Preparing download…"
+          ? t("Preparing download…")
           : download.data
             ? `Download started for ${download.data.fileName}.`
             : ""}

@@ -21,6 +21,7 @@ import * as React from "react";
 import { useMe } from "../../auth/session.ts";
 import { PageHeader } from "../../components/page-header.tsx";
 import { ErrorNote } from "../../components/section.tsx";
+import { useLocale, useT } from "../../i18n/index.ts";
 import { canUseAdminLayout } from "../../shell/view-mode.tsx";
 import {
   allMyRequestsQuery,
@@ -61,6 +62,7 @@ function isTyping(target: EventTarget | null) {
 }
 
 function InboxPage() {
+  const tWorkflow = useT("workflows");
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/inbox" });
   const me = useMe();
@@ -75,24 +77,27 @@ function InboxPage() {
   return (
     <>
       <PageHeader
-        title="Inbox"
+        title={tWorkflow("Inbox")}
         description={
           approver ? (
             <>
-              Requests waiting for your decision.
+              {tWorkflow("Requests waiting for your decision.")}
               <span className="hidden md:inline">
                 {" "}
-                Keys: <Kbd>j</Kbd> <Kbd>k</Kbd> move, <Kbd>a</Kbd> approve, <Kbd>r</Kbd> reject, <Kbd>x</Kbd> select.
+                {tWorkflow("Keys:")} <Kbd>j</Kbd> <Kbd>k</Kbd> {tWorkflow("move,")} <Kbd>a</Kbd> {tWorkflow("approve,")}{" "}
+                <Kbd>r</Kbd> {tWorkflow("reject,")} <Kbd>x</Kbd> {tWorkflow("select.")}
               </span>
             </>
           ) : (
-            "Your requests and where they are. Anything you're asked to decide, such as a shift swap, shows under To decide."
+            tWorkflow(
+              "Your requests and where they are. Anything you're asked to decide, such as a shift swap, shows under To decide.",
+            )
           )
         }
         actions={
           approver ? (
             <Button variant="secondary" onClick={() => setOooOpen(true)}>
-              <Plane /> Out of office
+              <Plane /> {tWorkflow("Out of office")}
             </Button>
           ) : undefined
         }
@@ -103,9 +108,10 @@ function InboxPage() {
       >
         <TabsList className="mb-4">
           <TabsTrigger value="decide">
-            To decide{count ? <span className="num ml-1.5 text-primary-300">{count}</span> : null}
+            {tWorkflow("To decide")}
+            {count ? <span className="num ml-1.5 text-primary-300">{count}</span> : null}
           </TabsTrigger>
-          <TabsTrigger value="mine">My requests</TabsTrigger>
+          <TabsTrigger value="mine">{tWorkflow("My requests")}</TabsTrigger>
         </TabsList>
         <TabsContent value="decide" className="pt-0">
           <DecideView selectedTaskId={search.task} />
@@ -120,6 +126,8 @@ function InboxPage() {
 }
 
 function DecideView({ selectedTaskId }: { selectedTaskId?: string }) {
+  const locale = useLocale();
+  const tWorkflow = useT("workflows");
   const navigate = useNavigate({ from: "/inbox" });
   const tasks = useQuery(tasksQuery);
   const inbox = useQuery(inboxQuery);
@@ -190,7 +198,7 @@ function DecideView({ selectedTaskId }: { selectedTaskId?: string }) {
 
   if (tasks.isPending) {
     return (
-      <Card className="p-4" role="status" aria-label="Loading tasks">
+      <Card className="p-4" role="status" aria-label={tWorkflow("Loading tasks")}>
         <Skeleton className="mb-2 h-10 w-full" />
         <Skeleton className="h-10 w-full" />
       </Card>
@@ -206,8 +214,10 @@ function DecideView({ selectedTaskId }: { selectedTaskId?: string }) {
   if (!items.length) {
     return (
       <EmptyState
-        title="Nothing is waiting for your decision."
-        description="When someone needs your approval, or you're covering for a colleague, their request shows here."
+        title={tWorkflow("Nothing is waiting for your decision.")}
+        description={tWorkflow(
+          "When someone needs your approval, or you're covering for a colleague, their request shows here.",
+        )}
       />
     );
   }
@@ -223,23 +233,31 @@ function DecideView({ selectedTaskId }: { selectedTaskId?: string }) {
             <Checkbox
               checked={allChecked}
               onCheckedChange={(c) => setChecked(c ? new Set(inlineIds) : new Set())}
-              aria-label="Select all that can be approved in bulk"
+              aria-label={tWorkflow("Select all that can be approved in bulk")}
               disabled={!inlineIds.length}
             />
-            {checked.size ? <span className="num">{checked.size} selected</span> : "Select"}
+            {checked.size ? (
+              <span className="num">{tWorkflow("{count} selected", { count: checked.size })}</span>
+            ) : (
+              tWorkflow("Select")
+            )}
           </div>
           {checked.size ? (
             <div className="flex gap-1" data-testid="bulk-actions">
               <Button size="sm" variant="ghost" onClick={() => setRejecting([...checked])} disabled={decide.isPending}>
-                Reject…
+                {tWorkflow("Reject…")}
               </Button>
               <Button size="sm" variant="secondary" onClick={() => approve([...checked])} disabled={decide.isPending}>
-                Approve {checked.size}
+                {tWorkflow("Approve {count}", { count: checked.size })}
               </Button>
             </div>
           ) : null}
         </div>
-        <ul ref={listRef} className="max-h-[70vh] divide-y divide-border overflow-y-auto" aria-label="Tasks to decide">
+        <ul
+          ref={listRef}
+          className="max-h-[70vh] divide-y divide-border overflow-y-auto"
+          aria-label={tWorkflow("Tasks to decide")}
+        >
           {items.map((t, i) => (
             <li
               key={t.taskId}
@@ -254,7 +272,11 @@ function DecideView({ selectedTaskId }: { selectedTaskId?: string }) {
                 className="mt-1"
                 checked={checked.has(t.taskId)}
                 disabled={!t.inline}
-                aria-label={t.inline ? `Select ${t.requester.name}'s request` : "Review this one on its own"}
+                aria-label={
+                  t.inline
+                    ? tWorkflow("Select {arg1}'s request", { arg1: t.requester.name })
+                    : tWorkflow("Review this one on its own")
+                }
                 onCheckedChange={(c) =>
                   setChecked((prev) => {
                     const next = new Set(prev);
@@ -280,14 +302,14 @@ function DecideView({ selectedTaskId }: { selectedTaskId?: string }) {
                     <DuePill dueOn={t.dueOn} today={today} short />
                   </span>
                   <span className="block truncate text-ui text-primary-300">
-                    {t.subjectLabel} · {t.title}
+                    {tWorkflow(t.subjectLabel)} · {t.title}
                   </span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-2xs text-primary-200">
                     <span className="num">
-                      Step {t.step.position} of {t.step.of}
+                      {tWorkflow("Step {position} of {total}", { position: t.step.position, total: t.step.of })}
                     </span>
                     <span aria-hidden>·</span>
-                    <span className="num">{ageLabel(t.submittedAt, today)}</span>
+                    <span className="num">{ageLabel(t.submittedAt, today, locale)}</span>
                     <OriginBadge origin={t.origin} onBehalfOf={t.onBehalfOf} />
                   </span>
                 </span>
@@ -303,8 +325,12 @@ function DecideView({ selectedTaskId }: { selectedTaskId?: string }) {
             actions={() => (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-2xs text-primary-300">
-                  {current.onBehalfOf ? `You're covering for ${current.onBehalfOf}. ` : ""}
-                  {current.origin === "escalated" ? "Escalated to you from step " : "Your step: "}
+                  {current.onBehalfOf
+                    ? `${tWorkflow("You're covering for {arg1}.", { arg1: current.onBehalfOf })} `
+                    : ""}
+                  {current.origin === "escalated"
+                    ? `${tWorkflow("Escalated to you from step")} `
+                    : `${tWorkflow("Your step:")} `}
                   <span className="font-medium text-ink">
                     {current.origin === "escalated"
                       ? `${current.step.position} (${current.step.label})`
@@ -335,6 +361,8 @@ function DecideView({ selectedTaskId }: { selectedTaskId?: string }) {
 }
 
 function MineView({ selectedId }: { selectedId?: string }) {
+  const locale = useLocale();
+  const tWorkflow = useT("workflows");
   const navigate = useNavigate({ from: "/inbox" });
   const mine = useQuery(allMyRequestsQuery);
   const items: MyRequest[] = mine.data?.items ?? [];
@@ -357,15 +385,15 @@ function MineView({ selectedId }: { selectedId?: string }) {
   if (!items.length && !selectedId) {
     return (
       <EmptyState
-        title="You haven't sent any requests."
-        description="Leave, claims and other requests you submit show here with who they're waiting on."
+        title={tWorkflow("You haven't sent any requests.")}
+        description={tWorkflow("Leave, claims and other requests you submit show here with who they're waiting on.")}
       />
     );
   }
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
       <Card className="self-start">
-        <ul className="divide-y divide-border" aria-label="My requests">
+        <ul className="divide-y divide-border" aria-label={tWorkflow("My requests")}>
           {items.map((r) => (
             <li key={r.id}>
               <button
@@ -378,16 +406,18 @@ function MineView({ selectedId }: { selectedId?: string }) {
                 )}
               >
                 <span className="min-w-0">
-                  <span className="block truncate font-medium leading-5">{requestName(r.subjectLabel, r.title)}</span>
+                  <span className="block truncate font-medium leading-5">
+                    {requestName(r.subjectLabel, r.title, tWorkflow)}
+                  </span>
                   <span className="block truncate text-2xs text-primary-300">
                     {r.status === "pending" && r.waitingOn
-                      ? `Waiting for ${r.waitingOn}`
-                      : `Sent ${ageLabel(r.submittedAt, today)}`}
+                      ? tWorkflow("Waiting for {arg1}", { arg1: r.waitingOn })
+                      : tWorkflow("Sent {arg1}", { arg1: ageLabel(r.submittedAt, today, locale) })}
                   </span>
                 </span>
                 {/* "Waiting for …" already says a pending request is pending. */}
                 {r.status === "pending" && r.waitingOn ? null : (
-                  <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+                  <StatusPill tone={STATUS_TONE[r.status]}>{tWorkflow(STATUS_LABEL[r.status])}</StatusPill>
                 )}
               </button>
             </li>

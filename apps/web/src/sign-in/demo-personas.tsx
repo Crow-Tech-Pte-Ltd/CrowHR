@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import * as React from "react";
 import { meQuery } from "../auth/session.ts";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiGet, apiPost } from "../lib/api.ts";
 import { shellExtensions } from "../shell/extensions.ts";
 
@@ -33,14 +34,15 @@ export const DEMO_SINGPASS_PERSONAS = ["hr", "employee"] as const;
 export function DemoPersonaPicker({
   only,
   demoCompany,
-  title = "Pick someone to be",
-  intro = "One click signs you in. Each person sees what their role allows.",
+  title,
+  intro,
 }: {
   only?: readonly string[];
   demoCompany?: { orgSlug: string; nativeRequestId?: string };
   title?: string;
   intro?: string;
 } = {}) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -81,9 +83,9 @@ export function DemoPersonaPicker({
       setError(
         err instanceof ApiError
           ? err.status === 404 && org
-            ? "This demo company has ended or no longer has that person. Start a new one on the try page."
+            ? t("This demo company has ended or no longer has that person. Start a new one on the try page.")
             : err.message
-          : "Couldn't sign in. Reload the page and try again.",
+          : t("Couldn't sign in. Reload the page and try again."),
       );
     } finally {
       setBusy(null);
@@ -93,9 +95,11 @@ export function DemoPersonaPicker({
   return (
     <section aria-labelledby="demo-personas-title" className="mb-8" data-testid="demo-personas">
       <h2 id="demo-personas-title" className="mb-1 font-azeret text-ui font-semibold">
-        {title}
+        {title ?? t("Pick someone to be")}
       </h2>
-      <p className="mb-3 text-ui text-primary-300">{intro}</p>
+      <p className="mb-3 text-ui text-primary-300">
+        {intro ?? t("One click signs you in. Each person sees what their role allows.")}
+      </p>
       {q.isPending ? (
         <div className="flex flex-col gap-2">
           {(only ?? ["0", "1", "2", "3", "4"]).map((k) => (
@@ -104,7 +108,7 @@ export function DemoPersonaPicker({
         </div>
       ) : q.isError ? (
         <p className="text-ui text-danger-300" role="alert">
-          The people didn't load. Reload the page to try again.
+          {t("The people didn't load. Reload the page to try again.")}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -126,13 +130,16 @@ export function DemoPersonaPicker({
                     {/* "Owner · Kah Hui": the role first, in sentence case, then who it is. */}
                     <span className="block text-ui">
                       <span className="font-semibold">
-                        {meta?.label ??
-                          (p.roles.length ? p.roles.map((r) => ROLE_LABEL[r] ?? r).join(" + ") : "Employee")}
+                        {meta
+                          ? t(meta.label)
+                          : p.roles.length
+                            ? p.roles.map((r) => t(ROLE_LABEL[r] ?? r)).join(" + ")
+                            : t("Employee")}
                       </span>
                       <span className="text-primary-300"> · </span>
                       <span className="font-medium">{p.displayName}</span>
                     </span>
-                    {meta ? <span className="block text-2xs text-primary-300">{meta.blurb}</span> : null}
+                    {meta ? <span className="block text-2xs text-primary-300">{t(meta.blurb)}</span> : null}
                   </span>
                   <ArrowRight
                     className="size-4 shrink-0 text-primary-200 transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
@@ -147,7 +154,7 @@ export function DemoPersonaPicker({
       {featured.length && others.length ? (
         <details className="mt-3">
           <summary className="focus-ring cursor-pointer rounded-sm text-2xs font-medium text-primary-300 hover:text-ink">
-            More team members ({others.length})
+            {t("More team members ({count})", { count: others.length })}
           </summary>
           <ul className="mt-2 flex flex-wrap gap-2">
             {others.map((p) => (
@@ -170,8 +177,13 @@ export function DemoPersonaPicker({
           {error}
         </p>
       ) : null}
-      {shellExtensions.demoSignInNote && !only && !org ? (
-        <p className="mt-3 text-2xs text-primary-300">{shellExtensions.demoSignInNote}</p>
+      {shellExtensions.demoPassword && !only && !org ? (
+        <p className="mt-3 text-2xs text-primary-300">
+          {t(
+            "Prefer typing? Every demo account's password is {password}. Emails the app would send appear in the Demo outbox.",
+            { password: shellExtensions.demoPassword },
+          )}
+        </p>
       ) : null}
     </section>
   );

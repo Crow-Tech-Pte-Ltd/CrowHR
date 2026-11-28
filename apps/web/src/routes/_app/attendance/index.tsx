@@ -29,6 +29,7 @@ import { usePunchQueue } from "../../../attendance/use-punch-queue.ts";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { todaySg, weekdayOf } from "../../../leave/format.ts";
 
 export const Route = createFileRoute("/_app/attendance/")({
@@ -87,6 +88,7 @@ function acked(orgId: string): boolean {
 }
 
 function ClockPage() {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const status = useQuery({ ...statusQuery, enabled: !!me.employeeId });
   const { state, tap, dismiss } = usePunchQueue();
@@ -99,11 +101,13 @@ function ClockPage() {
     if (scopes.includes("all") || scopes.includes("team")) return <Navigate to="/attendance/team" replace />;
     return (
       <>
-        <PageHeader title="Attendance" />
+        <PageHeader title={tWorkflow("Attendance")} />
         <AttendanceNav current="clock" />
         <EmptyState
-          title="Your sign-in isn't linked to an employee record, so there's no clock for you."
-          description="There's nothing to clock in to. Ask HR to link your sign-in to your employee record."
+          title={tWorkflow("Your sign-in isn't linked to an employee record, so there's no clock for you.")}
+          description={tWorkflow(
+            "There's nothing to clock in to. Ask HR to link your sign-in to your employee record.",
+          )}
         />
       </>
     );
@@ -117,7 +121,7 @@ function ClockPage() {
       const location = locationMode === "off" ? null : await getLocation();
       await tap(kind, location);
     } catch (err) {
-      toast.error(err instanceof QueueFullError ? err.message : "That punch couldn't be saved. Try again.");
+      toast.error(err instanceof QueueFullError ? err.message : tWorkflow("That punch couldn't be saved. Try again."));
     } finally {
       setBusy(false);
     }
@@ -131,15 +135,15 @@ function ClockPage() {
   return (
     <>
       <PageHeader
-        title="Attendance"
-        description="Clock in and out. It works offline: punches wait on this device and send themselves."
+        title={tWorkflow("Attendance")}
+        description={tWorkflow("Clock in and out. It works offline: punches wait on this device and send themselves.")}
       />
       <AttendanceNav current="clock" />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card className="flex flex-col items-center gap-5 px-5 py-8 text-center" data-testid="clock-card">
           <div>
             <p className={textStyle.field}>
-              Singapore time ·{" "}
+              {tWorkflow("Singapore time ·")}{" "}
               <span className="num">
                 {formatDate(new Date(now.getTime() + 8 * 3_600_000).toISOString().slice(0, 10))}
               </span>
@@ -157,10 +161,11 @@ function ClockPage() {
               <p className="text-ui text-primary-300" data-testid="clock-state">
                 {kind === "out" && sinceIso ? (
                   <>
-                    Clocked in since <span className="num font-semibold text-ink">{sgTime(sinceIso)}</span>
+                    {tWorkflow("Clocked in since")}{" "}
+                    <span className="num font-semibold text-ink">{sgTime(sinceIso)}</span>
                   </>
                 ) : (
-                  "You're not clocked in."
+                  tWorkflow("You're not clocked in.")
                 )}
               </p>
               <Button
@@ -173,22 +178,22 @@ function ClockPage() {
                 {kind === "in" ? <LogIn /> : <LogOut />}
                 {busy
                   ? locationMode === "off"
-                    ? "Saving…"
-                    : "Getting location…"
+                    ? tWorkflow("Saving…")
+                    : tWorkflow("Getting location…")
                   : kind === "in"
-                    ? "Clock in"
-                    : "Clock out"}
+                    ? tWorkflow("Clock in")
+                    : tWorkflow("Clock out")}
               </Button>
               {locationMode !== "off" ? (
                 <p className="flex items-center gap-1.5 text-2xs text-primary-300">
                   <MapPin className="size-3.5" aria-hidden />
-                  Your location is recorded with each punch.{" "}
+                  {tWorkflow("Your location is recorded with each punch.")}{" "}
                   <button
                     type="button"
                     className="focus-ring rounded-sm text-biru-400 hover:underline"
                     onClick={() => setNotice(true)}
                   >
-                    Why?
+                    {tWorkflow("Why?")}
                   </button>
                 </p>
               ) : null}
@@ -205,19 +210,24 @@ function ClockPage() {
                 {state.pending.length ? (
                   <>
                     <span className="font-semibold">
-                      {state.pending.length} {state.pending.length === 1 ? "punch" : "punches"} waiting to send.
+                      {tWorkflow(
+                        state.pending.length === 1
+                          ? "{count} punch waiting to send."
+                          : "{count} punches waiting to send.",
+                        { count: state.pending.length },
+                      )}
                     </span>{" "}
                     {online
-                      ? (state.pending[0]?.lastError ?? "Sending…")
-                      : "Queued — will send when you're back online."}
+                      ? (state.pending[0]?.lastError ?? tWorkflow("Sending…"))
+                      : tWorkflow("Queued — will send when you're back online.")}
                     <span className="mt-1 block text-2xs">
                       {state.pending
-                        .map((p) => `${p.kind === "in" ? "In" : "Out"} ${sgTime(p.deviceTime)}`)
+                        .map((p) => `${tWorkflow(p.kind === "in" ? "In" : "Out")} ${sgTime(p.deviceTime)}`)
                         .join(" · ")}
                     </span>
                   </>
                 ) : (
-                  "You're offline. You can still clock in; it will send when you're back online."
+                  tWorkflow("You're offline. You can still clock in; it will send when you're back online.")
                 )}
               </span>
             </div>
@@ -227,7 +237,7 @@ function ClockPage() {
           {state.history.some((h) => h.outcome === "rejected") ? (
             <Card aria-labelledby="refused-title" className="border-danger-200/50">
               <CardHeader>
-                <CardTitle id="refused-title">Not recorded</CardTitle>
+                <CardTitle id="refused-title">{tWorkflow("Not recorded")}</CardTitle>
               </CardHeader>
               <ul className="divide-y divide-border border-t border-border" data-testid="punch-rejections">
                 {state.history
@@ -236,16 +246,16 @@ function ClockPage() {
                     <li key={h.idempotencyKey} className="flex items-start justify-between gap-3 px-4 py-2.5 text-ui">
                       <span>
                         <span className="num font-semibold">
-                          {h.kind === "in" ? "In" : "Out"} {sgTime(h.deviceTime)}
+                          {h.kind === "in" ? tWorkflow("In") : tWorkflow("Out")} {sgTime(h.deviceTime)}
                         </span>{" "}
                         <span className="text-danger-300">{h.message}</span>
                         <span className="block text-2xs text-primary-200">
-                          Ask your manager to add it if it was right.
+                          {tWorkflow("Ask your manager to add it if it was right.")}
                         </span>
                       </span>
                       <button
                         type="button"
-                        aria-label="Dismiss"
+                        aria-label={tWorkflow("Dismiss")}
                         className="focus-ring rounded-sm p-0.5 text-primary-200 hover:text-ink"
                         onClick={() => dismiss(h.idempotencyKey)}
                       >
@@ -258,14 +268,16 @@ function ClockPage() {
           ) : null}
           <Card aria-labelledby="today-title">
             <CardHeader>
-              <CardTitle id="today-title">Today’s punches</CardTitle>
+              <CardTitle id="today-title">{tWorkflow("Today’s punches")}</CardTitle>
             </CardHeader>
             {status.isPending ? (
               <div className="border-t border-border p-4">
                 <Skeleton className="h-6 w-full" />
               </div>
             ) : (s?.today.length ?? 0) === 0 ? (
-              <p className="border-t border-border px-4 py-3 text-ui text-primary-300">No punches yet today.</p>
+              <p className="border-t border-border px-4 py-3 text-ui text-primary-300">
+                {tWorkflow("No punches yet today.")}
+              </p>
             ) : (
               <ul className="divide-y divide-border border-t border-border" data-testid="today-punches">
                 {s?.today.map((p) => (
@@ -279,20 +291,23 @@ function ClockPage() {
       <Dialog open={notice} onOpenChange={setNotice}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Your location and clocking in</DialogTitle>
-            <DialogDescription>Personal Data Protection Act notice from {me.organisation.name}.</DialogDescription>
+            <DialogTitle>{tWorkflow("Your location and clocking in")}</DialogTitle>
+            <DialogDescription>
+              {tWorkflow("Personal Data Protection Act notice from {name}", { name: me.organisation.name })}.
+            </DialogDescription>
           </DialogHeader>
           <p className="whitespace-pre-line text-ui" data-testid="pdpa-notice">
             {s?.location.pdpaNotice}
           </p>
           {s?.location.offices.length ? (
             <p className="text-2xs text-primary-300">
-              Checked against: {s.location.offices.map((o) => `${o.name} (${o.radiusMetres} m)`).join(", ")}.
+              {tWorkflow("Checked against:")}{" "}
+              {s.location.offices.map((o) => `${o.name} (${o.radiusMetres} m)`).join(", ")}.
             </p>
           ) : null}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setNotice(false)}>
-              Not now
+              {tWorkflow("Not now")}
             </Button>
             <Button
               variant="primary"
@@ -306,7 +321,7 @@ function ClockPage() {
                 void go();
               }}
             >
-              I understand, clock {kind}
+              {tWorkflow(kind === "in" ? "I understand, clock in" : "I understand, clock out")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -316,6 +331,7 @@ function ClockPage() {
 }
 
 function PunchRow({ p }: { p: Punch }) {
+  const tWorkflow = useT("workflows");
   return (
     <li
       className={cn(
@@ -325,13 +341,19 @@ function PunchRow({ p }: { p: Punch }) {
     >
       <span className="flex min-w-0 flex-col gap-0.5">
         <span>
-          {p.workDate !== todaySg() ? <span className="text-primary-300">{weekdayOf(p.workDate)} </span> : null}
+          {p.workDate !== todaySg() ? (
+            <span className="text-primary-300">{tWorkflow(weekdayOf(p.workDate))} </span>
+          ) : null}
           <span className="num font-semibold">{sgTime(p.recordedAt)}</span>{" "}
-          {p.kind === "in" ? "Clocked in" : "Clocked out"}
-          {p.source === "correction" ? <span className="text-primary-300"> · added by your manager</span> : null}
+          {p.kind === "in" ? tWorkflow("Clocked in") : tWorkflow("Clocked out")}
+          {p.source === "correction" ? (
+            <span className="text-primary-300"> {tWorkflow("· added by your manager")}</span>
+          ) : null}
         </span>
         {p.flags.length ? (
-          <span className="text-2xs text-warning-400">{p.flags.map((f) => FLAG_TEXT[f as PunchFlag]).join(" · ")}</span>
+          <span className="text-2xs text-warning-400">
+            {p.flags.map((f) => tWorkflow(FLAG_TEXT[f as PunchFlag])).join(" · ")}
+          </span>
         ) : null}
         {p.queued ? (
           <span className="num text-2xs text-primary-200">
@@ -340,7 +362,7 @@ function PunchRow({ p }: { p: Punch }) {
         ) : null}
       </span>
       {/* A punch that went through is the normal case; only one to check is marked. */}
-      {p.status === "flagged" ? <StatusPill tone="warning">Check</StatusPill> : null}
+      {p.status === "flagged" ? <StatusPill tone="warning">{tWorkflow("Check")}</StatusPill> : null}
     </li>
   );
 }

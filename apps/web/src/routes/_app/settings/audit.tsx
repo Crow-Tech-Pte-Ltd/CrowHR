@@ -24,6 +24,7 @@ import { can, useMe } from "../../../auth/session.ts";
 import type { AuditEvent, Page } from "../../../auth/types.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useLocale, useT } from "../../../i18n/index.ts";
 import { apiGet } from "../../../lib/api.ts";
 import { ACTION_OPTIONS, actionFilterValue, actionLabel, targetTypeLabel } from "../../../settings/audit-labels.ts";
 
@@ -34,6 +35,8 @@ export const Route = createFileRoute("/_app/settings/audit")({
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function AuditLogPage() {
+  const locale = useLocale();
+  const t = useT("settings-account");
   const me = useMe();
   const [draft, setDraft] = React.useState({ action: "", targetType: "", from: "", to: "" });
   const [filters, setFilters] = React.useState(draft);
@@ -53,10 +56,10 @@ function AuditLogPage() {
   if (!can(me, "audit_log:read")) {
     return (
       <>
-        <PageHeader crumbs={[{ label: "Settings", to: "/settings" }]} title="Audit log" />
+        <PageHeader crumbs={[{ label: t("Settings"), to: "/settings" }]} title={t("Audit log")} />
         <EmptyState
-          title="You can't see the audit log."
-          description="Owners, HR admins and payroll admins can read the parts of the log that concern them."
+          title={t("You can't see the audit log.")}
+          description={t("Owners, HR admins and payroll admins can read the parts of the log that concern them.")}
         />
       </>
     );
@@ -88,15 +91,18 @@ function AuditLogPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Audit log"
-        description={`Every sign-in, permission change and sensitive action, in order. Entries can't be edited or deleted. ${scopeNote}`}
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Audit log")}
+        description={t(
+          "Every sign-in, permission change and sensitive action, in order. Entries can't be edited or deleted. {scopeNote}",
+          { scopeNote },
+        )}
         actions={
           can(me, "audit_log:export") ? (
             <Button asChild variant="secondary">
               <a href={`/api/v1/audit-events/export.csv?${exportParams}`} download>
                 <Download />
-                Export CSV
+                {t("Export CSV")}
               </a>
             </Button>
           ) : null
@@ -106,13 +112,13 @@ function AuditLogPage() {
         onSubmit={apply}
         noValidate
         className="mb-4 grid gap-3 sm:grid-cols-5 sm:items-end"
-        aria-label="Filter audit log"
+        aria-label={t("Filter audit log")}
       >
-        <FormField label="Action or prefix">
+        <FormField label={t("Action or prefix")}>
           <Input
             value={draft.action}
             onChange={(e) => setDraft({ ...draft, action: e.target.value })}
-            placeholder="Signed in, or auth."
+            placeholder={t("Signed in, or auth.")}
             list="audit-action-options"
           />
         </FormField>
@@ -123,14 +129,14 @@ function AuditLogPage() {
             </option>
           ))}
         </datalist>
-        <FormField label="Target type">
+        <FormField label={t("Target type")}>
           <Input
             value={draft.targetType}
             onChange={(e) => setDraft({ ...draft, targetType: e.target.value })}
             placeholder="membership"
           />
         </FormField>
-        <FormField label="From" error={errors.from}>
+        <FormField label={t("From")} error={errors.from}>
           <Input
             value={draft.from}
             onChange={(e) => setDraft({ ...draft, from: e.target.value })}
@@ -138,7 +144,7 @@ function AuditLogPage() {
             inputMode="numeric"
           />
         </FormField>
-        <FormField label="To" error={errors.to}>
+        <FormField label={t("To")} error={errors.to}>
           <Input
             value={draft.to}
             onChange={(e) => setDraft({ ...draft, to: e.target.value })}
@@ -146,11 +152,11 @@ function AuditLogPage() {
             inputMode="numeric"
           />
         </FormField>
-        <Button type="submit">Apply filters</Button>
+        <Button type="submit">{t("Apply filters")}</Button>
       </form>
       <div className="rounded-lg border border-border">
         {list.isPending ? (
-          <div className="flex flex-col gap-2 p-4" role="status" aria-busy="true" aria-label="Loading audit log">
+          <div className="flex flex-col gap-2 p-4" role="status" aria-busy="true" aria-label={t("Loading audit log")}>
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-9 w-full" />
             ))}
@@ -158,16 +164,20 @@ function AuditLogPage() {
         ) : list.isError ? (
           <ErrorNote error={list.error} retry={() => void list.refetch()} />
         ) : list.data.items.length === 0 ? (
-          <EmptyState variant="plain" title="No events match." description="Widen the dates or clear the filters." />
+          <EmptyState
+            variant="plain"
+            title={t("No events match.")}
+            description={t("Widen the dates or clear the filters.")}
+          />
         ) : (
           <Table data-testid="audit-table">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-44">Time (SGT)</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead className="hidden md:table-cell">By</TableHead>
-                <TableHead className="hidden lg:table-cell">Target</TableHead>
-                <TableHead className="hidden lg:table-cell">IP</TableHead>
+                <TableHead className="w-44">{t("Time (SGT)")}</TableHead>
+                <TableHead>{t("Action")}</TableHead>
+                <TableHead className="hidden md:table-cell">{t("By")}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t("Target")}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t("IP")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -180,13 +190,17 @@ function AuditLogPage() {
                         type="button"
                         className="focus-ring rounded-sm text-left"
                         aria-expanded={open === e.id}
-                        aria-label={`${formatDateTime(e.at)}, ${actionLabel(e.action)}: ${open === e.id ? "hide" : "show"} details`}
+                        aria-label={t("{value}, {value2}: {value3} details", {
+                          value: formatDateTime(e.at, locale),
+                          value2: actionLabel(e.action),
+                          value3: open === e.id ? "hide" : "show",
+                        })}
                         onClick={(ev) => {
                           ev.stopPropagation();
                           setOpen(open === e.id ? null : e.id);
                         }}
                       >
-                        {formatDateTime(e.at)}
+                        {formatDateTime(e.at, locale)}
                       </button>
                     </TableCell>
                     <TableCell>
@@ -198,7 +212,7 @@ function AuditLogPage() {
                       </Tooltip>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {e.actorLabel ?? (e.actorType === "anonymous" ? "Not signed in" : e.actorType)}
+                      {e.actorLabel ?? (e.actorType === "anonymous" ? t("Not signed in") : e.actorType)}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       <AuditTarget event={e} />

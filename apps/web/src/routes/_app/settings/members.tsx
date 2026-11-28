@@ -34,6 +34,7 @@ import { can, useMe } from "../../../auth/session.ts";
 import { type AssignedRole, type Member, type Page, ROLE_LABEL } from "../../../auth/types.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useLocale, useT } from "../../../i18n/index.ts";
 import { ApiError, apiDelete, apiGet, apiPost, apiPut } from "../../../lib/api.ts";
 import { InviteDialog, LinkDialog, RolesDialog } from "../../../settings/members-dialogs.tsx";
 
@@ -45,6 +46,8 @@ const STATUS_TONE = { active: "success", invited: "info", suspended: "warning", 
 const STATUS_LABEL = { active: "Active", invited: "Invited", suspended: "Suspended", former: "Former" } as const;
 
 function MembersPage() {
+  const locale = useLocale();
+  const t = useT("settings-account");
   const me = useMe();
   const qc = useQueryClient();
   const withReauth = useReauth();
@@ -75,17 +78,23 @@ function MembersPage() {
       refresh();
     } catch (err) {
       if (err instanceof ApiError && err.code === "reauth_required") return;
-      toast.error(err instanceof Error ? `${label}: ${err.message}` : `${label} failed.`);
+      toast.error(
+        err instanceof Error
+          ? t("{label}: {message}", { label, message: err.message })
+          : t("{label} failed.", { label }),
+      );
     }
   };
 
   if (!canRead) {
     return (
       <>
-        <PageHeader crumbs={[{ label: "Settings", to: "/settings" }]} title="Members and roles" />
+        <PageHeader crumbs={[{ label: t("Settings"), to: "/settings" }]} title={t("Members and roles")} />
         <EmptyState
-          title="You can't see members."
-          description="Owners, HR admins and payroll admins manage who has access. Ask one of them if you need a change."
+          title={t("You can't see members.")}
+          description={t(
+            "Owners, HR admins and payroll admins manage who has access. Ask one of them if you need a change.",
+          )}
         />
       </>
     );
@@ -94,28 +103,30 @@ function MembersPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Members and roles"
-        description="Who can sign in to your organisation and what they can do. Roles combine: one person can be both HR admin and payroll admin."
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Members and roles")}
+        description={t(
+          "Who can sign in to your organisation and what they can do. Roles combine: one person can be both HR admin and payroll admin.",
+        )}
         actions={
           can(me, "members:create") ? (
             <Button variant="primary" onClick={() => setInviteOpen(true)}>
               <UserPlus />
-              Invite someone
+              {t("Invite someone")}
             </Button>
           ) : null
         }
       />
       <div className="mb-3 flex flex-col gap-2 sm:flex-row">
         <Input
-          placeholder="Search by name or email"
+          placeholder={t("Search by name or email")}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
             setPage(1);
           }}
           className="sm:max-w-xs"
-          aria-label="Search members"
+          aria-label={t("Search members")}
         />
         <Select
           value={status}
@@ -124,21 +135,21 @@ function MembersPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="sm:w-44" aria-label="Filter by status">
+          <SelectTrigger className="sm:w-44" aria-label={t("Filter by status")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="invited">Invited</SelectItem>
-            <SelectItem value="suspended">Suspended</SelectItem>
-            <SelectItem value="former">Former</SelectItem>
+            <SelectItem value="all">{t("All statuses")}</SelectItem>
+            <SelectItem value="active">{t("Active")}</SelectItem>
+            <SelectItem value="invited">{t("Invited")}</SelectItem>
+            <SelectItem value="suspended">{t("Suspended")}</SelectItem>
+            <SelectItem value="former">{t("Former")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <div className="rounded-lg border border-border">
         {list.isPending ? (
-          <div className="flex flex-col gap-2 p-4" role="status" aria-busy="true" aria-label="Loading members">
+          <div className="flex flex-col gap-2 p-4" role="status" aria-busy="true" aria-label={t("Loading members")}>
             {[0, 1, 2].map((i) => (
               <Skeleton key={i} className="h-9 w-full" />
             ))}
@@ -148,24 +159,24 @@ function MembersPage() {
         ) : list.data.items.length === 0 ? (
           <EmptyState
             variant="plain"
-            title={q || status !== "all" ? "No members match." : "You're the only member so far."}
+            title={q || status !== "all" ? t("No members match.") : t("You're the only member so far.")}
             description={
               q || status !== "all"
-                ? "Try a different search or status."
-                : "Invite your HR, payroll and team members with Invite someone, so they can sign in."
+                ? t("Try a different search or status.")
+                : t("Invite your HR, payroll and team members with Invite someone, so they can sign in.")
             }
           />
         ) : (
           <Table data-testid="members-table">
             <TableHeader>
               <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Roles</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden md:table-cell">Two-step</TableHead>
-                <TableHead className="hidden md:table-cell">Last active</TableHead>
+                <TableHead>{t("Member")}</TableHead>
+                <TableHead>{t("Roles")}</TableHead>
+                <TableHead>{t("Status")}</TableHead>
+                <TableHead className="hidden md:table-cell">{t("Two-step")}</TableHead>
+                <TableHead className="hidden md:table-cell">{t("Last active")}</TableHead>
                 <TableHead className="w-0">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t("Actions")}</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -180,9 +191,11 @@ function MembersPage() {
                         <span className="font-medium">
                           {m.displayName}
                           {m.preferredName && m.preferredName !== m.displayName ? (
-                            <span className="ml-1 font-normal text-primary-200">· goes by {m.preferredName}</span>
+                            <span className="ml-1 font-normal text-primary-200">
+                              {t("· goes by {name}", { name: m.preferredName })}
+                            </span>
                           ) : null}
-                          {self ? <span className="ml-1 text-2xs text-primary-200">(you)</span> : null}
+                          {self ? <span className="ml-1 text-2xs text-primary-200">{t("(you)")}</span> : null}
                         </span>
                         <span className="text-2xs text-primary-200">{m.email}</span>
                       </span>
@@ -192,11 +205,11 @@ function MembersPage() {
                         {m.roles.length ? (
                           m.roles.map((r) => (
                             <Badge key={r} variant={r === "owner" ? "ink" : "default"}>
-                              {ROLE_LABEL[r]}
+                              {t(ROLE_LABEL[r] ?? r)}
                             </Badge>
                           ))
                         ) : (
-                          <span className="text-2xs text-primary-200">Member</span>
+                          <span className="text-2xs text-primary-200">{t("Member")}</span>
                         )}
                       </span>
                     </TableCell>
@@ -204,38 +217,44 @@ function MembersPage() {
                       <span className="flex flex-col gap-0.5">
                         {/* Active is the normal state: plain text. A list filtered to one status doesn't repeat it. */}
                         {status === m.status ? null : m.status === "active" ? (
-                          <span className="text-ui text-primary-300">Active</span>
+                          <span className="text-ui text-primary-300">{t("Active")}</span>
                         ) : (
                           <StatusPill tone={STATUS_TONE[m.status]} className="self-start">
-                            {STATUS_LABEL[m.status]}
+                            {t(STATUS_LABEL[m.status])}
                           </StatusPill>
                         )}
                         {m.invitation?.expired ? (
-                          <span className="text-2xs text-warning-400">Invitation expired</span>
+                          <span className="text-2xs text-warning-400">{t("Invitation expired")}</span>
                         ) : null}
                         {m.lockedUntil ? (
-                          <span className="text-2xs text-danger-300">Locked after failed sign-ins</span>
+                          <span className="text-2xs text-danger-300">{t("Locked after failed sign-ins")}</span>
                         ) : null}
                       </span>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {m.mfaEnrolled ? (
-                        <span className="text-ui text-primary-300">On</span>
+                        <span className="text-ui text-primary-300">{t("On")}</span>
                       ) : (
-                        <span className="text-ui text-primary-200">Not set up</span>
+                        <span className="text-ui text-primary-200">{t("Not set up")}</span>
                       )}
                     </TableCell>
-                    <TableCell className="num hidden md:table-cell">{relativeTime(m.lastActiveAt)}</TableCell>
+                    <TableCell className="num hidden md:table-cell">
+                      {relativeTime(m.lastActiveAt, undefined, locale)}
+                    </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button size="icon-sm" variant="ghost" aria-label={`Actions for ${m.displayName}`}>
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label={t("Actions for {displayName}", { displayName: m.displayName })}
+                          >
                             <MoreHorizontal />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {isOwner ? (
-                            <DropdownMenuItem onSelect={() => setEditing(m)}>Change roles…</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setEditing(m)}>{t("Change roles…")}</DropdownMenuItem>
                           ) : null}
                           {m.status === "invited" && manageable ? (
                             <>
@@ -249,8 +268,8 @@ function MembersPage() {
                                       );
                                       if (r.inviteUrl)
                                         setLink({
-                                          title: "New invitation link",
-                                          body: "The old link no longer works. Send this one; it lasts 7 days.",
+                                          title: t("New invitation link"),
+                                          body: t("The old link no longer works. Send this one; it lasts 7 days."),
                                           url: r.inviteUrl,
                                         });
                                     },
@@ -258,7 +277,7 @@ function MembersPage() {
                                   )
                                 }
                               >
-                                Resend invitation
+                                {t("Resend invitation")}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onSelect={() =>
@@ -269,7 +288,7 @@ function MembersPage() {
                                   )
                                 }
                               >
-                                Withdraw invitation
+                                {t("Withdraw invitation")}
                               </DropdownMenuItem>
                             </>
                           ) : null}
@@ -286,8 +305,10 @@ function MembersPage() {
                                       `/api/v1/members/${m.id}/password-reset-link`,
                                     );
                                     setLink({
-                                      title: `Password reset link for ${m.displayName}`,
-                                      body: "Works once, for 60 minutes. It's shown only now and the action is recorded in the audit log.",
+                                      title: t("Password reset link for {displayName}", { displayName: m.displayName }),
+                                      body: t(
+                                        "Works once, for 60 minutes. It's shown only now and the action is recorded in the audit log.",
+                                      ),
                                       url: r.url,
                                     });
                                   },
@@ -295,7 +316,7 @@ function MembersPage() {
                                 )
                               }
                             >
-                              Create password reset link
+                              {t("Create password reset link")}
                             </DropdownMenuItem>
                           ) : null}
                           {isOwner && m.lockedUntil ? (
@@ -304,7 +325,7 @@ function MembersPage() {
                                 void act("Unlock", () => apiPost(`/api/v1/members/${m.id}/unlock`), "Lockout cleared.")
                               }
                             >
-                              Clear sign-in lockout
+                              {t("Clear sign-in lockout")}
                             </DropdownMenuItem>
                           ) : null}
                           {isOwner && m.mfaEnrolled ? (
@@ -317,7 +338,7 @@ function MembersPage() {
                                 )
                               }
                             >
-                              Reset two-step verification
+                              {t("Reset two-step verification")}
                             </DropdownMenuItem>
                           ) : null}
                           {isOwner ? (
@@ -330,7 +351,7 @@ function MembersPage() {
                                 )
                               }
                             >
-                              Sign out everywhere
+                              {t("Sign out everywhere")}
                             </DropdownMenuItem>
                           ) : null}
                           {manageable && !self ? <DropdownMenuSeparator /> : null}
@@ -345,7 +366,7 @@ function MembersPage() {
                                 )
                               }
                             >
-                              Suspend
+                              {t("Suspend")}
                             </DropdownMenuItem>
                           ) : null}
                           {manageable && m.status === "suspended" ? (
@@ -358,7 +379,7 @@ function MembersPage() {
                                 )
                               }
                             >
-                              Reactivate
+                              {t("Reactivate")}
                             </DropdownMenuItem>
                           ) : null}
                         </DropdownMenuContent>
@@ -388,7 +409,7 @@ function MembersPage() {
         onSave={async (roles: AssignedRole[]) => {
           if (!editing) return;
           await withReauth(() => apiPut(`/api/v1/members/${editing.id}/roles`, { roles }));
-          toast.success("Roles saved.");
+          toast.success(t("Roles saved."));
           refresh();
         }}
       />

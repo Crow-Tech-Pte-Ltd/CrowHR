@@ -1,8 +1,11 @@
+import { useT } from "../../web/src/i18n/index.ts";
 import "@crowhr/ui/fonts.css";
 import "@crowhr/ui/styles.css";
 import { DEMO_PASSWORD, PERSONAS } from "@crowhr/demo/personas";
 import { ArrowLeft, BookOpen, Server } from "lucide-react";
+import { useEffect } from "react";
 import { createRoot } from "react-dom/client";
+import { LanguagePicker } from "../../web/src/i18n/language-picker.tsx";
 import { tryUrl } from "./try-url.ts";
 
 /**
@@ -12,7 +15,6 @@ import { tryUrl } from "./try-url.ts";
 export function mountAboutPage(dataVersion: string) {
   const root = document.getElementById("root");
   if (!root) return;
-  document.title = "About the Crow HR demo";
   createRoot(root).render(<AboutPage dataVersion={dataVersion} />);
 }
 
@@ -59,35 +61,45 @@ const DIFFERENCES: [string, string, string][] = [
 ];
 
 function AboutPage({ dataVersion }: { dataVersion: string }) {
+  const t = useT("demo");
+  const personaText = useT("settings-account");
+  useEffect(() => {
+    document.title = t("About the Crow HR demo");
+  }, [t]);
   return (
     <div className="min-h-dvh bg-surface-100/50">
       <main className="mx-auto w-full max-w-[880px] px-4 pb-16 pt-8 md:px-8 md:pt-12" data-testid="about-demo">
-        <a
-          href="/"
-          className="focus-ring mb-8 inline-flex items-center gap-1.5 rounded-sm font-azeret text-2xs font-medium text-ink hover:underline"
-        >
-          <ArrowLeft className="size-3.5" aria-hidden />
-          Back to the demo
-        </a>
-        <h1 className="mb-3 font-azeret text-2xl font-semibold leading-tight tracking-tight">About this demo</h1>
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+          <a
+            href="/"
+            className="focus-ring inline-flex items-center gap-1.5 rounded-sm font-azeret text-2xs font-medium text-ink hover:underline"
+          >
+            <ArrowLeft className="size-3.5" aria-hidden />
+            {t("Back to the demo")}
+          </a>
+          <LanguagePicker />
+        </div>
+        <h1 className="mb-3 font-azeret text-2xl font-semibold leading-tight tracking-tight">{t("About this demo")}</h1>
         <p className="max-w-2xl text-sm leading-6 text-primary-300">
-          The same web app and API code as a self-hosted install, running in your browser instead of on a server.
-          Payroll, approvals and permissions use the same engine and the same cited Singapore rules.
+          {t(
+            "The same web app and API code as a self-hosted install, running in your browser instead of on a server. Payroll, approvals and permissions use the same engine and the same cited Singapore rules.",
+          )}
         </p>
 
         {tryUrl() ? (
           <section className="mt-10" aria-labelledby="phone" data-testid="about-try-phone">
             <h2 id="phone" className="mb-2 font-azeret text-sm font-semibold">
-              On your phone
+              {t("On your phone")}
             </h2>
             <p className="max-w-2xl text-ui leading-6 text-primary-300">
-              Start a private company on Crow Tech's demo server to try the mobile apps. Pick a person to sign in on
-              your phone or in the browser. Your copy expires after a few days.{" "}
+              {t(
+                "Start a private company on Crow Tech's demo server to try the mobile apps. Pick a person to sign in on your phone or in the browser. Your copy expires after a few days.",
+              )}{" "}
               <a
                 href={tryUrl() ?? undefined}
                 className="focus-ring rounded-sm font-medium text-biru-400 underline-offset-2 hover:underline"
               >
-                Start a demo company
+                {t("Start a demo company")}
               </a>
             </p>
           </section>
@@ -95,39 +107,41 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
 
         <section className="mt-10" aria-labelledby="privacy">
           <h2 id="privacy" className="mb-2 font-azeret text-sm font-semibold">
-            Nothing leaves this device
+            {t("Nothing leaves this device")}
           </h2>
           <ul className="list-disc space-y-1 pl-5 text-ui leading-6 text-primary-300">
-            <li>There is no backend. The site is static files; your data lives only in this browser's IndexedDB.</li>
             <li>
-              No analytics, no tracking, no third-party scripts, fonts or requests. The page's security policy only
-              allows its own origin.
+              {t("There is no backend. The site is static files; your data lives only in this browser's IndexedDB.")}
             </li>
             <li>
-              Never type real personal data here anyway: it is a demo, and anyone with access to this browser can open
-              it.
+              {t(
+                "No analytics, no tracking, no third-party scripts, fonts or requests. The page's security policy only allows its own origin.",
+              )}
             </li>
             <li>
-              <strong className="font-medium text-ink">Reset</strong> in the banner wipes your copy and loads the
-              company fresh. Clearing this site's data in your browser does the same.
+              {t(
+                "Never type real personal data here anyway: it is a demo, and anyone with access to this browser can open it.",
+              )}
+            </li>
+            <li>
+              {t(
+                "Use Reset in the banner to wipe your copy and reload the company. Clearing this site’s data in your browser has the same effect.",
+              )}
             </li>
           </ul>
         </section>
 
         <section className="mt-10" aria-labelledby="company">
           <h2 id="company" className="mb-2 font-azeret text-sm font-semibold">
-            The company: Qinghe Foods Pte. Ltd.
+            {t("The company: Qinghe Foods Pte. Ltd.")}
           </h2>
           <p className="mb-3 max-w-2xl text-ui leading-6 text-primary-300">
-            A fictional café group with an office, a central kitchen and three outlets. 25 people work there (one starts
-            in November) and two left this year. They include citizens, permanent residents in their first, second and
-            later years, Employment Pass, S Pass and Work Permit holders, every self-help group fund, part-timers and
-            employees on each CPF age boundary. July to September 2026 payroll is approved and paid; October is a
-            computed draft with warnings. Claims, leave, change requests and approvals are waiting for each persona.
-            Every name, NRIC/FIN, bank account and email address is invented.
+            {t(
+              "A fictional café group with an office, a central kitchen and three outlets. 25 people work there (one starts in November) and two left this year. They include citizens, permanent residents in their first, second and later years, Employment Pass, S Pass and Work Permit holders, every self-help group fund, part-timers and employees on each CPF age boundary. July to September 2026 payroll is approved and paid; October is a computed draft with warnings. Claims, leave, change requests and approvals are waiting for each persona. Every name, NRIC/FIN, bank account and email address is invented.",
+            )}
           </p>
           <section
-            aria-label="Demo personas"
+            aria-label={t("Demo personas")}
             // biome-ignore lint/a11y/noNoninteractiveTabindex: a table wider than a phone scrolls; keyboard users must reach it (WCAG 2.1.1).
             tabIndex={0}
             className="focus-ring overflow-x-auto rounded-md border border-border bg-surface-50"
@@ -135,36 +149,36 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
             <table className="w-full min-w-[520px] text-left text-ui">
               <thead className="border-b border-border bg-surface-100/60 font-azeret text-2xs uppercase tracking-wider text-primary-300">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Persona</th>
-                  <th className="px-3 py-2 font-medium">Name</th>
-                  <th className="px-3 py-2 font-medium">What they do here</th>
+                  <th className="px-3 py-2 font-medium">{t("Persona")}</th>
+                  <th className="px-3 py-2 font-medium">{t("Name")}</th>
+                  <th className="px-3 py-2 font-medium">{t("What they do here")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {PERSONAS.map((p) => (
                   <tr key={p.key}>
-                    <td className="whitespace-nowrap px-3 py-2 font-medium">{p.label}</td>
+                    <td className="whitespace-nowrap px-3 py-2 font-medium">{personaText(p.label)}</td>
                     <td className="whitespace-nowrap px-3 py-2">{p.name}</td>
-                    <td className="px-3 py-2 text-primary-300">{p.blurb}</td>
+                    <td className="px-3 py-2 text-primary-300">{personaText(p.blurb)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </section>
           <p className="mt-2 text-2xs text-primary-300">
-            Shared password for typing it in: <span className="num text-ink">{DEMO_PASSWORD}</span>
+            {t("Shared password for typing it in:")} <span className="num text-ink">{DEMO_PASSWORD}</span>
           </p>
         </section>
 
         <section className="mt-10" aria-labelledby="differences">
           <h2 id="differences" className="mb-2 font-azeret text-sm font-semibold">
-            Demo-only behaviour
+            {t("Demo-only behaviour")}
           </h2>
           <p className="mb-3 max-w-2xl text-ui leading-6 text-primary-300">
-            Everything below exists only in the demo. A self-hosted install behaves as in the right-hand column.
+            {t("Everything below exists only in the demo. A self-hosted install behaves as in the right-hand column.")}
           </p>
           <section
-            aria-label="Demo compared with a self-hosted install"
+            aria-label={t("Demo compared with a self-hosted install")}
             // biome-ignore lint/a11y/noNoninteractiveTabindex: a table wider than a phone scrolls; keyboard users must reach it (WCAG 2.1.1).
             tabIndex={0}
             className="focus-ring overflow-x-auto rounded-md border border-border bg-surface-50"
@@ -172,17 +186,17 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
             <table className="w-full min-w-[640px] text-left text-ui" data-testid="demo-differences">
               <thead className="border-b border-border bg-surface-100/60 font-azeret text-2xs uppercase tracking-wider text-primary-300">
                 <tr>
-                  <th className="w-[22%] px-3 py-2 font-medium">Area</th>
-                  <th className="px-3 py-2 font-medium">In the demo</th>
-                  <th className="px-3 py-2 font-medium">Self-hosted</th>
+                  <th className="w-[22%] px-3 py-2 font-medium">{t("Area")}</th>
+                  <th className="px-3 py-2 font-medium">{t("In the demo")}</th>
+                  <th className="px-3 py-2 font-medium">{t("Self-hosted")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border align-top">
                 {DIFFERENCES.map(([area, demo, real]) => (
                   <tr key={area}>
-                    <td className="px-3 py-2 font-medium">{area}</td>
-                    <td className="px-3 py-2">{demo}</td>
-                    <td className="px-3 py-2 text-primary-300">{real}</td>
+                    <td className="px-3 py-2 font-medium">{t(area)}</td>
+                    <td className="px-3 py-2">{t(demo)}</td>
+                    <td className="px-3 py-2 text-primary-300">{t(real)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -192,22 +206,24 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
 
         <section className="mt-10" aria-labelledby="missing">
           <h2 id="missing" className="mb-2 font-azeret text-sm font-semibold">
-            Demo limits
+            {t("Demo limits")}
           </h2>
           <ul className="list-disc space-y-1 pl-5 text-ui leading-6 text-primary-300">
             <li>
-              January–June 2026 opening balances are imported as for a company that moved to Crow HR mid-year, so runs
-              warn only about real issues.
+              {t(
+                "January–June 2026 opening balances are imported as for a company that moved to Crow HR mid-year, so runs warn only about real issues.",
+              )}
             </li>
             <li>
-              July–September overtime was entered on the historical payroll runs. October uses approved clocked
-              overtime. Part-month joiner and leaver payroll uses a full-month denominator counted from the outlet
-              roster.
+              {t(
+                "July–September overtime was entered on the historical payroll runs. October uses approved clocked overtime. Part-month joiner and leaver payroll uses a full-month denominator counted from the outlet roster.",
+              )}
             </li>
-            <li>The demo runs in one tab at a time (two tabs would write the same local database).</li>
+            <li>{t("The demo runs in one tab at a time (two tabs would write the same local database).")}</li>
             <li>
-              Nothing is filed with CPF Board, IRAS or a bank, here or in the product: Crow HR produces the files for
-              you to upload.
+              {t(
+                "Nothing is filed with CPF Board, IRAS or a bank, here or in the product: Crow HR produces the files for you to upload.",
+              )}
             </li>
           </ul>
         </section>
@@ -217,25 +233,25 @@ function AboutPage({ dataVersion }: { dataVersion: string }) {
             href="/"
             className="focus-ring inline-flex h-10 items-center gap-2 rounded-md border-2 border-ink bg-kuning-200 px-5 font-azeret text-ui font-semibold text-accent-foreground shadow-brutal-sm hover:bg-kuning-300"
           >
-            Open the demo
+            {t("Open the demo")}
           </a>
           <a
             href="/docs/self-hosting/install/"
             className="focus-ring inline-flex h-10 items-center gap-2 rounded-md border border-ink/20 bg-surface-50 px-4 font-azeret text-xs font-semibold hover:border-ink/40"
           >
             <Server className="size-4" aria-hidden />
-            Host it yourself
+            {t("Host it yourself")}
           </a>
           <a
             href="/docs/"
             className="focus-ring inline-flex h-10 items-center gap-2 rounded-md border border-ink/20 bg-surface-50 px-4 font-azeret text-xs font-semibold hover:border-ink/40"
           >
             <BookOpen className="size-4" aria-hidden />
-            Read the docs
+            {t("Read the docs")}
           </a>
         </div>
         <p className="num mt-10 text-2xs text-primary-200">
-          Demo data version {dataVersion} · MIT licensed · Crow Tech Pte. Ltd.
+          {t("Demo data version")} {dataVersion} {t("· MIT licensed · Crow Tech Pte. Ltd.")}
         </p>
       </main>
     </div>

@@ -37,6 +37,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Download, Eye, Upload } from "lucide-react";
 import * as React from "react";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiDelete, apiPost } from "../lib/api.ts";
 import {
   type Block,
@@ -70,19 +71,35 @@ const dateTime = (iso: string) =>
 
 /** "Expired 20 Oct 2026" or "Expires 19 Nov 2026" as a chip when it needs someone; a later date is plain text. */
 export function ExpiryPill({ doc }: { doc: Pick<Doc, "expiry" | "expiresOn"> }) {
+  const t = useT("people-payroll");
   if (!doc.expiry || !doc.expiresOn) return <span className="text-primary-200">—</span>;
   const date = <span className="num">{formatDate(doc.expiresOn)}</span>;
-  if (doc.expiry === "expired") return <StatusPill tone="danger">Expired {date}</StatusPill>;
-  if (doc.expiry === "expiring") return <StatusPill tone="warning">Expires {date}</StatusPill>;
-  return <span className="whitespace-nowrap text-ui text-primary-300">Expires {date}</span>;
+  if (doc.expiry === "expired")
+    return (
+      <StatusPill tone="danger">
+        {t("Expired")} {date}
+      </StatusPill>
+    );
+  if (doc.expiry === "expiring")
+    return (
+      <StatusPill tone="warning">
+        {t("Expires")} {date}
+      </StatusPill>
+    );
+  return (
+    <span className="whitespace-nowrap text-ui text-primary-300">
+      {t("Expires")} {date}
+    </span>
+  );
 }
 
 export function AckPill({ doc }: { doc: Doc }) {
+  const t = useT("people-payroll");
   const a = doc.acknowledgement;
   if (!a) return null;
-  if (a.status === "acknowledged" && a.current) return <StatusPill tone="success">Acknowledged</StatusPill>;
-  if (a.status === "requested") return <StatusPill tone="info">To acknowledge</StatusPill>;
-  return <StatusPill tone="warning">New version</StatusPill>;
+  if (a.status === "acknowledged" && a.current) return <StatusPill tone="success">{t("Acknowledged")}</StatusPill>;
+  if (a.status === "requested") return <StatusPill tone="info">{t("To acknowledge")}</StatusPill>;
+  return <StatusPill tone="warning">{t("New version")}</StatusPill>;
 }
 
 /** Page controls under a document list, shown only when there is more than one page. */
@@ -119,16 +136,17 @@ export function DocumentTable({
   showEmployee?: boolean;
   label: string;
 }) {
+  const t = useT("people-payroll");
   return (
     <div className="overflow-x-auto">
       <Table aria-label={label}>
         <TableHeader>
           <TableRow>
-            <TableHead>Document</TableHead>
-            {showEmployee ? <TableHead>Employee</TableHead> : null}
-            <TableHead className="hidden sm:table-cell">Category</TableHead>
-            <TableHead>Expiry</TableHead>
-            <TableHead className="hidden md:table-cell">Added</TableHead>
+            <TableHead>{t("Document")}</TableHead>
+            {showEmployee ? <TableHead>{t("Employee")}</TableHead> : null}
+            <TableHead className="hidden sm:table-cell">{t("Category")}</TableHead>
+            <TableHead>{t("Expiry")}</TableHead>
+            <TableHead className="hidden md:table-cell">{t("Added")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -146,7 +164,7 @@ export function DocumentTable({
               <TableCell className="h-10 py-1.5">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{d.title}</span>
-                  {d.source === "generated" ? <StatusPill tone="neutral">Generated</StatusPill> : null}
+                  {d.source === "generated" ? <StatusPill tone="neutral">{t("Generated")}</StatusPill> : null}
                   <AckPill doc={d} />
                 </span>
               </TableCell>
@@ -166,6 +184,7 @@ export function DocumentTable({
 
 /** One document: open, acknowledge (employee), and the HR actions. */
 export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () => void }) {
+  const translate = useT("people-payroll");
   const qc = useQueryClient();
   const [opened, setOpened] = React.useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset when another document opens.
@@ -173,7 +192,7 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
   const ack = useMutation({
     mutationFn: (id: string) => apiPost<Doc>(`/api/v1/documents/${id}/acknowledge`),
     onSuccess: async () => {
-      toast.success("Acknowledged. Thank you.");
+      toast.success(translate("Acknowledged. Thank you."));
       await invalidateDocuments(qc);
       await qc.invalidateQueries({ queryKey: ["inbox"] });
     },
@@ -182,7 +201,7 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
   const requestAck = useMutation({
     mutationFn: (id: string) => apiPost<Doc>(`/api/v1/documents/${id}/acknowledgements`),
     onSuccess: async () => {
-      toast.success("Acknowledgement requested. The employee sees it on Home.");
+      toast.success(translate("Acknowledgement requested. The employee sees it on Home."));
       await invalidateDocuments(qc);
     },
     onError: (e) => toast.error(errorText(e)),
@@ -190,7 +209,7 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
   const remove = useMutation({
     mutationFn: (id: string) => apiDelete(`/api/v1/documents/${id}?reason=${encodeURIComponent("Deleted by HR")}`),
     onSuccess: async () => {
-      toast.success("Document deleted. An owner can still purge it permanently.");
+      toast.success(translate("Document deleted. An owner can still purge it permanently."));
       await invalidateDocuments(qc);
       onClose();
     },
@@ -202,7 +221,7 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
     mutationFn: async (file: File) =>
       uploadFile(`/api/v1/documents/${doc?.id}/versions`, file, replaceExpiry ? { expiresOn: replaceExpiry } : {}),
     onSuccess: async () => {
-      toast.success("New version uploaded. The previous one is kept.");
+      toast.success(translate("New version uploaded. The previous one is kept."));
       await invalidateDocuments(qc);
     },
     onError: (e) => toast.error(errorText(e)),
@@ -220,26 +239,26 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
           </SheetDescription>
         </div>
         <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2 text-ui">
-          <dt className="text-primary-300">Expiry</dt>
+          <dt className="text-primary-300">{translate("Expiry")}</dt>
           <dd>
             <ExpiryPill doc={doc} />
           </dd>
-          <dt className="text-primary-300">File</dt>
+          <dt className="text-primary-300">{translate("File")}</dt>
           <dd className="truncate">
             {doc.current?.fileName ?? "—"}{" "}
             <span className="num text-2xs text-primary-300">{fileSize(doc.current?.sizeBytes ?? null)}</span>
           </dd>
-          <dt className="text-primary-300">Version</dt>
+          <dt className="text-primary-300">{translate("Version")}</dt>
           <dd className="num">{doc.current?.version ?? "—"}</dd>
           {doc.notes ? (
             <>
-              <dt className="text-primary-300">Notes</dt>
+              <dt className="text-primary-300">{translate("Notes")}</dt>
               <dd>{doc.notes}</dd>
             </>
           ) : null}
           {doc.acknowledgement ? (
             <>
-              <dt className="text-primary-300">Acknowledgement</dt>
+              <dt className="text-primary-300">{translate("Acknowledgement")}</dt>
               <dd data-testid="ack-status">
                 {doc.acknowledgement.status === "acknowledged"
                   ? `Acknowledged ${dateTime(doc.acknowledgement.acknowledgedAt as string)}${doc.acknowledgement.current ? "" : " (an earlier version)"}`
@@ -261,19 +280,20 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
               rel="noreferrer"
               onClick={() => setOpened(true)}
             >
-              <Eye aria-hidden /> Open
+              <Eye aria-hidden /> {translate("Open")}
             </a>
           </Button>
           <Button asChild size="sm" variant="ghost">
             <a href={fileHref(doc.id)} download onClick={() => setOpened(true)}>
-              <Download aria-hidden /> Download
+              <Download aria-hidden /> {translate("Download")}
             </a>
           </Button>
         </div>
         {needsAck ? (
           <div className="rounded-md border border-ink/15 bg-surface-100 p-3">
             <p className="mb-2 text-ui">
-              HR asked you to read this document and confirm you have. {viewed ? "" : "Open it first."}
+              {translate("HR asked you to read this document and confirm you have.")}{" "}
+              {viewed ? "" : translate("Open it first.")}
             </p>
             <Button
               variant="primary"
@@ -282,29 +302,31 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
               onClick={() => ack.mutate(doc.id)}
               data-testid="acknowledge"
             >
-              <CheckCircle2 aria-hidden /> I acknowledge
+              <CheckCircle2 aria-hidden /> {translate("I acknowledge")}
             </Button>
             <p className="mt-2 text-2xs text-primary-300">
-              We record the time, your device and a fingerprint of the exact file. Acknowledging is not a signature.
+              {translate(
+                "We record the time, your device and a fingerprint of the exact file. Acknowledging is not a signature.",
+              )}
             </p>
           </div>
         ) : null}
         {doc.canManage ? (
-          <section className="flex flex-col gap-3 border-t border-ink/10 pt-4" aria-label="HR actions">
+          <section className="flex flex-col gap-3 border-t border-ink/10 pt-4" aria-label={translate("HR actions")}>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={() => requestAck.mutate(doc.id)} disabled={requestAck.isPending}>
-                Request acknowledgement
+                {translate("Request acknowledgement")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => remove.mutate(doc.id)} disabled={remove.isPending}>
-                Delete
+                {translate("Delete")}
               </Button>
             </div>
             <div className="flex flex-wrap items-end gap-2">
-              <FormField label="New expiry (optional)">
+              <FormField label={translate("New expiry (optional)")}>
                 <DatePicker value={replaceExpiry} onChange={setReplaceExpiry} className="w-40" />
               </FormField>
               <Button size="sm" onClick={() => replaceRef.current?.click()} disabled={replace.isPending}>
-                <Upload aria-hidden /> Replace file
+                <Upload aria-hidden /> {translate("Replace file")}
               </Button>
               <input
                 ref={replaceRef}
@@ -329,7 +351,7 @@ export function DocumentSheet({ doc, onClose }: { doc: Doc | null; onClose: () =
                         {v.expiresOn ? ` · expires ${formatDate(v.expiresOn)}` : ""}
                       </span>
                       <a className="text-biru-400 underline" href={fileHref(doc.id, { version: v.id })} download>
-                        Download
+                        {translate("Download")}
                       </a>
                     </li>
                   ))}
@@ -355,6 +377,7 @@ export function UploadDialog({
   employeeId: string;
   self: boolean;
 }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const cats = useQuery(categoriesQuery);
   const options = (cats.data?.items ?? []).filter((c) => !self || c.employeeUploadable);
@@ -373,7 +396,7 @@ export function UploadDialog({
         ...(expiresOn ? { expiresOn } : {}),
       }),
     onSuccess: async () => {
-      toast.success("Document uploaded");
+      toast.success(t("Document uploaded"));
       await invalidateDocuments(qc);
       onOpenChange(false);
       setTitle("");
@@ -386,8 +409,10 @@ export function UploadDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent aria-describedby="upload-desc">
         <DialogHeader>
-          <DialogTitle>Upload a document</DialogTitle>
-          <DialogDescription id="upload-desc">PDF, JPEG, PNG, WebP, DOCX or XLSX, up to 20 MB.</DialogDescription>
+          <DialogTitle>{t("Upload a document")}</DialogTitle>
+          <DialogDescription id="upload-desc">
+            {t("PDF, JPEG, PNG, WebP, DOCX or XLSX, up to 20 MB.")}
+          </DialogDescription>
         </DialogHeader>
         <form
           className="flex flex-col gap-3"
@@ -397,10 +422,10 @@ export function UploadDialog({
             save.mutate();
           }}
         >
-          <FormField label="Category" required>
+          <FormField label={t("Category")} required>
             <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger aria-label="Category">
-                <SelectValue placeholder="Pick a category" />
+              <SelectTrigger aria-label={t("Category")}>
+                <SelectValue placeholder={t("Pick a category")} />
               </SelectTrigger>
               <SelectContent>
                 {options.map((c) => (
@@ -411,17 +436,17 @@ export function UploadDialog({
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Title" required>
+          <FormField label={t("Title")} required>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} />
           </FormField>
           <FormField
-            label="Expiry date"
+            label={t("Expiry date")}
             required={category?.expiryRequired}
-            hint="For passes, licences and certificates."
+            hint={t("For passes, licences and certificates.")}
           >
             <DatePicker value={expiresOn} onChange={setExpiresOn} />
           </FormField>
-          <FormField label="File" required>
+          <FormField label={t("File")} required>
             <Input
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
@@ -435,7 +460,7 @@ export function UploadDialog({
           ) : null}
           <DialogFooter>
             <Button type="submit" variant="primary" disabled={!file || !categoryId || !title.trim() || save.isPending}>
-              Upload
+              {t("Upload")}
             </Button>
           </DialogFooter>
         </form>
@@ -466,6 +491,7 @@ export function GenerateDialog({
   employeeId: string;
   defaultKind?: string;
 }) {
+  const translate = useT("people-payroll");
   const qc = useQueryClient();
   const templates = useQuery({ ...templatesQuery, enabled: open });
   const fields = useQuery({ ...fieldsQuery, enabled: open });
@@ -502,7 +528,9 @@ export function GenerateDialog({
       setPreview(r);
       if (!dryRun) {
         toast.success(
-          ackRequest && !hiddenFromEmployee ? "Letter generated and sent for acknowledgement" : "Letter generated",
+          ackRequest && !hiddenFromEmployee
+            ? translate("Letter generated and sent for acknowledgement")
+            : translate("Letter generated"),
         );
         await invalidateDocuments(qc);
         onOpenChange(false);
@@ -527,18 +555,19 @@ export function GenerateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl" aria-describedby="generate-desc">
         <DialogHeader>
-          <DialogTitle>Generate a letter</DialogTitle>
+          <DialogTitle>{translate("Generate a letter")}</DialogTitle>
           <DialogDescription id="generate-desc">
-            Merge fields come from the employee's record as at the date. Values you enter here are kept on this document
-            only.
+            {translate(
+              "Merge fields come from the employee's record as at the date. Values you enter here are kept on this document only.",
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 md:grid-cols-[minmax(0,18rem)_1fr]">
           <div className="flex flex-col gap-3">
-            <FormField label="Template">
+            <FormField label={translate("Template")}>
               <Select value={templateId} onValueChange={(v) => setTemplateId(v)}>
-                <SelectTrigger aria-label="Template">
-                  <SelectValue placeholder="Pick a template" />
+                <SelectTrigger aria-label={translate("Template")}>
+                  <SelectValue placeholder={translate("Pick a template")} />
                 </SelectTrigger>
                 <SelectContent>
                   {active.map((t) => (
@@ -555,7 +584,7 @@ export function GenerateDialog({
                 {template.usesSalary ? " · uses salary fields (payroll admin or owner)" : ""}
               </p>
             ) : null}
-            <FormField label="As at" hint="Defaults to today.">
+            <FormField label={translate("As at")} hint={translate("Defaults to today.")}>
               <DatePicker value={asAt} onChange={setAsAt} />
             </FormField>
             {missing.length ? (
@@ -579,7 +608,7 @@ export function GenerateDialog({
                   </FormField>
                 ))}
                 <Button size="sm" onClick={() => run.mutate(true)} disabled={run.isPending}>
-                  Update preview
+                  {translate("Update preview")}
                 </Button>
               </fieldset>
             ) : null}
@@ -592,7 +621,7 @@ export function GenerateDialog({
                   aria-describedby={hiddenFromEmployee ? "generate-ack-note" : undefined}
                   onCheckedChange={(v) => setAckRequest(!!v)}
                 />
-                <label htmlFor="generate-ack">Ask the employee to acknowledge it</label>
+                <label htmlFor="generate-ack">{translate("Ask the employee to acknowledge it")}</label>
               </div>
               {hiddenFromEmployee ? (
                 <p id="generate-ack-note" className="text-2xs text-primary-300">
@@ -611,7 +640,7 @@ export function GenerateDialog({
             {preview ? (
               <LetterPreview blocks={preview.blocks} />
             ) : (
-              <p className="text-ui text-primary-300">Pick a template to preview the letter.</p>
+              <p className="text-ui text-primary-300">{translate("Pick a template to preview the letter.")}</p>
             )}
           </div>
         </div>
@@ -622,7 +651,7 @@ export function GenerateDialog({
             onClick={() => run.mutate(false)}
             data-testid="generate"
           >
-            Generate PDF
+            {translate("Generate PDF")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -631,12 +660,13 @@ export function GenerateDialog({
 }
 
 export function RequestLetterDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const [purpose, setPurpose] = React.useState("");
   const send = useMutation({
     mutationFn: () => apiPost("/api/v1/documents/requests", { kind: "employment_certificate", purpose }),
     onSuccess: async () => {
-      toast.success("Request sent to HR. The letter appears here once they approve it.");
+      toast.success(t("Request sent to HR. The letter appears here once they approve it."));
       await invalidateDocuments(qc);
       onOpenChange(false);
       setPurpose("");
@@ -647,17 +677,17 @@ export function RequestLetterDialog({ open, onOpenChange }: { open: boolean; onO
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent aria-describedby="request-desc">
         <DialogHeader>
-          <DialogTitle>Request an employment letter</DialogTitle>
+          <DialogTitle>{t("Request an employment letter")}</DialogTitle>
           <DialogDescription id="request-desc">
-            HR approves the request and the letter is generated from your employment record.
+            {t("HR approves the request and the letter is generated from your employment record.")}
           </DialogDescription>
         </DialogHeader>
-        <FormField label="What is it for?" required hint="For example a visa application or a bank loan.">
+        <FormField label={t("What is it for?")} required hint={t("For example a visa application or a bank loan.")}>
           <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} maxLength={200} />
         </FormField>
         <DialogFooter>
           <Button variant="primary" disabled={!purpose.trim() || send.isPending} onClick={() => send.mutate()}>
-            Send request
+            {t("Send request")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -30,6 +30,7 @@ import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { allowanceTypesQuery, createAllowanceType } from "../people/-lib/api.ts";
 import {
   type AllowanceSettingDto,
@@ -56,6 +57,7 @@ function AllowancesPage() {
 }
 
 function Allowances({ editable, canAdd }: { editable: boolean; canAdd: boolean }) {
+  const translate = useT("people-payroll");
   const q = useQuery(allowanceSettingsQuery);
   const [add, setAdd] = React.useState(false);
   const { highlight } = Route.useSearch();
@@ -64,13 +66,15 @@ function Allowances({ editable, canAdd }: { editable: boolean; canAdd: boolean }
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Payroll", to: "/payroll" }]}
-        title="Allowance treatment"
-        description="How each recurring allowance counts: for CPF, in a month someone joins or leaves, and in the Employment Act's gross rate of pay (one day's pay for a public holiday on an off day, and leave encashment)."
+        crumbs={[{ label: translate("Payroll"), to: "/payroll" }]}
+        title={translate("Allowance treatment")}
+        description={translate(
+          "How each recurring allowance counts: for CPF, in a month someone joins or leaves, and in the Employment Act's gross rate of pay (one day's pay for a public holiday on an off day, and leave encashment).",
+        )}
         actions={
           canAdd ? (
             <Button size="sm" variant="primary" onClick={() => setAdd(true)}>
-              <Plus aria-hidden /> Add allowance type
+              <Plus aria-hidden /> {translate("Add allowance type")}
             </Button>
           ) : null
         }
@@ -81,19 +85,24 @@ function Allowances({ editable, canAdd }: { editable: boolean; canAdd: boolean }
           <AlertTriangle aria-hidden />
           <div>
             <AlertTitle>
-              {unset.length === 1 ? "1 allowance has" : `${unset.length} allowances have`} no answer for the gross rate
-              yet
+              {translate(
+                unset.length === 1
+                  ? "{count} allowance has no answer for the gross rate yet"
+                  : "{count} allowances have no answer for the gross rate yet",
+                { count: unset.length },
+              )}
             </AlertTitle>
             <AlertDescription>
-              Until it is set, a public holiday on an off day blocks payroll for staff who get the allowance, and their
-              leave encashment can't be requested.
+              {translate(
+                "Until it is set, a public holiday on an off day blocks payroll for staff who get the allowance, and their leave encashment can't be requested.",
+              )}
             </AlertDescription>
           </div>
         </Alert>
       ) : null}
       <Guidance />
       {q.isPending ? (
-        <div role="status" aria-label="Loading allowances" className="flex flex-col gap-2">
+        <div role="status" aria-label={translate("Loading allowances")} className="flex flex-col gap-2">
           <Skeleton className="h-14 w-full" />
           <Skeleton className="h-14 w-full" />
         </div>
@@ -103,8 +112,10 @@ function Allowances({ editable, canAdd }: { editable: boolean; canAdd: boolean }
         </Card>
       ) : q.data.items.length === 0 ? (
         <EmptyState
-          title="No allowance types yet."
-          description="Allowance types appear here once they are created. You can then assign them on an employee’s Pay tab."
+          title={translate("No allowance types yet.")}
+          description={translate(
+            "Allowance types appear here once they are created. You can then assign them on an employee’s Pay tab.",
+          )}
         />
       ) : (
         <Card>
@@ -115,10 +126,10 @@ function Allowances({ editable, canAdd }: { editable: boolean; canAdd: boolean }
               textStyle.column,
             )}
           >
-            <span>Allowance</span>
+            <span>{translate("Allowance")}</span>
             <span>CPF</span>
-            <span>Incomplete month</span>
-            <span>Gross rate of pay</span>
+            <span>{translate("Incomplete month")}</span>
+            <span>{translate("Gross rate of pay")}</span>
             <span />
           </div>
           <ul className="divide-y divide-border">
@@ -133,6 +144,7 @@ function Allowances({ editable, canAdd }: { editable: boolean; canAdd: boolean }
 }
 
 function AddAllowanceType({ onClose }: { onClose: () => void }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const [name, setName] = React.useState("");
   const [code, setCode] = React.useState("");
@@ -143,7 +155,7 @@ function AddAllowanceType({ onClose }: { onClose: () => void }) {
         qc.invalidateQueries({ queryKey: allowanceTypesQuery.queryKey }),
         qc.invalidateQueries({ queryKey: allowanceSettingsQuery.queryKey }),
       ]);
-      toast.success(`${created.name} added. Set its payroll treatment before assigning it.`);
+      toast.success(t("{name} added. Set its payroll treatment before assigning it.", { name: created.name }));
       onClose();
     },
   });
@@ -152,9 +164,9 @@ function AddAllowanceType({ onClose }: { onClose: () => void }) {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add allowance type</DialogTitle>
+          <DialogTitle>{t("Add allowance type")}</DialogTitle>
           <DialogDescription>
-            Create a type you can assign to employees as a recurring monthly allowance.
+            {t("Create a type you can assign to employees as a recurring monthly allowance.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -164,19 +176,24 @@ function AddAllowanceType({ onClose }: { onClose: () => void }) {
             if (name.trim() && code.trim()) save.mutate();
           }}
         >
-          <FormField label="Name" required error={errors.name}>
+          <FormField label={t("Name")} required error={errors.name}>
             <Input value={name} onChange={(event) => setName(event.target.value)} maxLength={80} />
           </FormField>
-          <FormField label="Code" required error={errors.code} hint="Use a short, unique code, such as TRANSPORT.">
+          <FormField
+            label={t("Code")}
+            required
+            error={errors.code}
+            hint={t("Use a short, unique code, such as TRANSPORT.")}
+          >
             <Input className="num" value={code} onChange={(event) => setCode(event.target.value)} maxLength={30} />
           </FormField>
           {save.isError && !Object.keys(errors).length ? <ErrorNote error={save.error} /> : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending || !name.trim() || !code.trim()}>
-              Create type
+              {t("Create type")}
             </Button>
           </DialogFooter>
         </form>
@@ -186,31 +203,38 @@ function AddAllowanceType({ onClose }: { onClose: () => void }) {
 }
 
 function Guidance() {
+  const t = useT("people-payroll");
   return (
     <details className="group mb-5 rounded-md border border-border bg-card px-4 py-3 text-ui">
-      <summary className="focus-ring cursor-pointer rounded-sm font-medium">How to decide</summary>
+      <summary className="focus-ring cursor-pointer rounded-sm font-medium">{t("How to decide")}</summary>
       <dl className="mt-3 flex flex-col gap-3 text-primary-300">
         <div>
-          <dt className="font-medium text-ink">Gross rate of pay</dt>
+          <dt className="font-medium text-ink">{t("Gross rate of pay")}</dt>
           <dd>
-            Include fixed allowances paid as part of salary (a fixed shift or responsibility allowance). Exclude
-            travelling, food and housing allowances, reimbursements, productivity incentives and other variable
-            payments. Overtime, bonuses and AWS never count.{" "}
-            <SourceLink href={MOM_GROSS_RATE}>MOM: monthly and daily salary</SourceLink>
+            {t(
+              "Include fixed allowances paid as part of salary (a fixed shift or responsibility allowance). Exclude travelling, food and housing allowances, reimbursements, productivity incentives and other variable payments. Overtime, bonuses and AWS never count.",
+            )}{" "}
+            <SourceLink href={MOM_GROSS_RATE}>{t("MOM: monthly and daily salary")}</SourceLink>
           </dd>
         </div>
         <div>
           <dt className="font-medium text-ink">CPF</dt>
           <dd>
-            Allowances are ordinary wages for CPF unless they are a reimbursement of an actual expense.{" "}
-            <SourceLink href={CPF_WAGES}>CPF: what counts as wages</SourceLink>
+            {t("Allowances are ordinary wages for CPF unless they are a reimbursement of an actual expense.")}{" "}
+            <SourceLink href={CPF_WAGES}>{t("CPF: what counts as wages")}</SourceLink>
           </dd>
         </div>
         <div>
-          <dt className="font-medium text-ink">Incomplete month</dt>
-          <dd>Pro-rated allowances are paid for the days employed, like basic pay; the others are paid in full.</dd>
+          <dt className="font-medium text-ink">{t("Incomplete month")}</dt>
+          <dd>
+            {t("Pro-rated allowances are paid for the days employed, like basic pay; the others are paid in full.")}
+          </dd>
         </div>
-        <p>A change applies the next time a draft run is computed. Encashment requests already made keep their rate.</p>
+        <p>
+          {t(
+            "A change applies the next time a draft run is computed. Encashment requests already made keep their rate.",
+          )}
+        </p>
       </dl>
     </details>
   );
@@ -236,6 +260,7 @@ const GROSS: Record<"null" | "true" | "false", string> = {
 };
 
 function AllowanceRow({ a, editable, marked }: { a: AllowanceSettingDto; editable: boolean; marked: boolean }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const ref = React.useRef<HTMLLIElement>(null);
   const [cpf, setCpf] = React.useState(a.cpfLiable);
@@ -284,7 +309,7 @@ function AllowanceRow({ a, editable, marked }: { a: AllowanceSettingDto; editabl
         ]}
       />
       <Choice
-        label="Incomplete month"
+        label={t("Incomplete month")}
         name={name}
         editable={editable}
         value={String(prorate)}
@@ -295,7 +320,7 @@ function AllowanceRow({ a, editable, marked }: { a: AllowanceSettingDto; editabl
         ]}
       />
       <Choice
-        label="Gross rate of pay"
+        label={t("Gross rate of pay")}
         name={name}
         editable={editable}
         value={gross}
@@ -316,7 +341,7 @@ function AllowanceRow({ a, editable, marked }: { a: AllowanceSettingDto; editabl
             onClick={() => save.mutate()}
             aria-label={`Save ${a.name}`}
           >
-            Save
+            {t("Save")}
           </Button>
         ) : null}
       </div>

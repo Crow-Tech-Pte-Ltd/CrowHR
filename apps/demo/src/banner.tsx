@@ -19,12 +19,15 @@ import {
 import { BookOpen, Info, Mail, RotateCcw, Server, Smartphone, Users } from "lucide-react";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
+import { LOCALE_STORAGE_KEY, useT } from "../../web/src/i18n/index.ts";
+import { UiLocalisation } from "../../web/src/i18n/ui-localisation.tsx";
 import { tryUrl } from "./try-url.ts";
 import { OPEN_OUTBOX } from "./web-extensions.tsx";
 
 /**
- * The persistent demo banner identifies the demo and provides its controls. Rendered outside
- * apps/web's router so it is on every screen, including sign-in.
+ * The persistent demo banner above the app: what this is, where the data lives, and the
+ * demo-only controls (Outbox, About, Docs, Self-hosting, Reset). Rendered outside apps/web's
+ * router so it is on every screen, including sign-in.
  */
 interface BannerProps {
   client: DemoClient;
@@ -38,13 +41,18 @@ interface BannerProps {
 export function mountBanner(props: BannerProps) {
   const el = document.getElementById("demo-banner");
   if (!el) return;
-  createRoot(el).render(<DemoBanner {...props} />);
+  createRoot(el).render(
+    <UiLocalisation>
+      <DemoBanner {...props} />
+    </UiLocalisation>,
+  );
 }
 
 const linkClass =
   "focus-ring inline-flex h-7 items-center gap-1.5 rounded-sm px-1.5 font-azeret text-[11px] font-medium text-ink hover:bg-ink/[0.06]";
 
 function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
+  const t = useT("demo");
   const [outboxOpen, setOutboxOpen] = React.useState(false);
   const [resetOpen, setResetOpen] = React.useState(false);
   const [count, setCount] = React.useState<number | null>(null);
@@ -76,7 +84,9 @@ function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
     document.getElementById("root")?.setAttribute("hidden", "");
     try {
       await resetCopy();
-      for (const key of Object.keys(localStorage)) if (key.startsWith("crowhr.")) localStorage.removeItem(key);
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith("crowhr.") && key !== LOCALE_STORAGE_KEY) localStorage.removeItem(key);
+      }
     } finally {
       location.assign("/sign-in");
     }
@@ -85,45 +95,45 @@ function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
   return (
     <>
       <section
-        aria-label="Demo"
+        aria-label={t("Demo")}
         data-testid="demo-banner"
         className="flex min-h-9 items-center gap-x-3 border-b border-ink/15 bg-kuning-50 px-3 py-1 md:px-5"
       >
         <span className="rounded-[4px] border-2 border-ink bg-kuning-200 px-1 py-px font-azeret text-[10px] font-bold leading-none tracking-wider text-accent-foreground">
-          DEMO
+          {t("DEMO")}
         </span>
-        <nav aria-label="Demo controls" className="-mr-1.5 ml-auto flex shrink-0 items-center">
+        <nav aria-label={t("Demo controls")} className="-mr-1.5 ml-auto flex shrink-0 items-center">
           <button type="button" className={linkClass} onClick={() => setOutboxOpen(true)} data-testid="demo-outbox">
             <Mail className="size-3.5" aria-hidden />
-            <span className="sr-only sm:not-sr-only">Outbox</span>
+            <span className="sr-only sm:not-sr-only">{t("Outbox")}</span>
             {count ? <span className="num">{count}</span> : null}
           </button>
           <button type="button" className={linkClass} onClick={() => void switchPersona()} data-testid="demo-switch">
             <Users className="size-3.5" aria-hidden />
-            <span className="sr-only sm:not-sr-only">Switch persona</span>
+            <span className="sr-only sm:not-sr-only">{t("Switch persona")}</span>
           </button>
           {phoneTry ? (
             <a className={linkClass} href={phoneTry} data-testid="demo-try-phone">
               <Smartphone className="size-3.5" aria-hidden />
-              <span className="sr-only lg:not-sr-only">Try it on your phone</span>
+              <span className="sr-only lg:not-sr-only">{t("Try it on your phone")}</span>
             </a>
           ) : null}
           <a className={linkClass} href="/about-demo" data-testid="demo-about">
             <Info className="size-3.5" aria-hidden />
-            <span className="hidden md:inline">About this demo</span>
-            <span className="sr-only sm:not-sr-only md:hidden">About</span>
+            <span className="hidden md:inline">{t("About this demo")}</span>
+            <span className="sr-only sm:not-sr-only md:hidden">{t("About")}</span>
           </a>
           <a className={cn(linkClass, "hidden sm:inline-flex")} href="/docs/">
             <BookOpen className="size-3.5" aria-hidden />
-            Docs
+            {t("Docs")}
           </a>
           <a className={cn(linkClass, "hidden sm:inline-flex")} href="/docs/self-hosting/install/">
             <Server className="size-3.5" aria-hidden />
-            Self-host
+            {t("Self-host")}
           </a>
           <button type="button" className={linkClass} onClick={() => setResetOpen(true)} data-testid="demo-reset">
             <RotateCcw className="size-3.5" aria-hidden />
-            <span className="sr-only sm:not-sr-only">Reset</span>
+            <span className="sr-only sm:not-sr-only">{t("Reset")}</span>
           </button>
         </nav>
       </section>
@@ -133,14 +143,16 @@ function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reset the demo?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Reset the demo?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This deletes everything you changed in this browser and restores the Qinghe Foods demo as it was on{" "}
-              {formatDate(info.today)}. Other visitors are never affected: each browser has its own copy.
+              {t(
+                "This deletes everything you changed in this browser and restores the Qinghe Foods demo as it was on {date}. Other visitors are never affected: each browser has its own copy.",
+                { date: formatDate(info.today) },
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={resetting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={resetting}>{t("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               data-testid="demo-reset-confirm"
               disabled={resetting}
@@ -149,7 +161,7 @@ function DemoBanner({ client, info, outboxEvents, resetCopy }: BannerProps) {
                 void reset();
               }}
             >
-              {resetting ? "Resetting…" : "Reset demo"}
+              {resetting ? t("Resetting…") : t("Reset demo")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -189,6 +201,7 @@ function OutboxSheet({
   onOpenChange: (o: boolean) => void;
   client: DemoClient;
 }) {
+  const t = useT("demo");
   const [items, setItems] = React.useState<OutboxMessage[] | null>(null);
   const [openId, setOpenId] = React.useState<number | null>(null);
   React.useEffect(() => {
@@ -200,18 +213,19 @@ function OutboxSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-[min(30rem,100vw)] p-0" data-testid="demo-outbox-sheet">
         <div className="border-b border-border px-4 py-3 pr-10">
-          <SheetTitle className="font-azeret text-sm font-semibold">Demo outbox</SheetTitle>
+          <SheetTitle className="font-azeret text-sm font-semibold">{t("Demo outbox")}</SheetTitle>
           <SheetDescription className="mt-1 text-ui text-primary-300">
-            The demo sends no email. Everything Crow HR would have emailed lands here instead, so invitation and
-            password-reset links still work.
+            {t(
+              "The demo sends no email. Everything Crow HR would have emailed lands here instead, so invitation and password-reset links still work.",
+            )}
           </SheetDescription>
         </div>
         <div className="flex-1 overflow-y-auto">
           {items === null ? (
-            <p className="p-4 text-ui text-primary-300">Loading…</p>
+            <p className="p-4 text-ui text-primary-300">{t("Loading…")}</p>
           ) : items.length === 0 ? (
             <p className="p-4 text-ui text-primary-300">
-              Nothing yet. Invite someone in Settings → Members, or use “Forgot password?” on the sign-in page.
+              {t("Nothing yet. Invite someone in Settings → Members, or use “Forgot password?” on the sign-in page.")}
             </p>
           ) : (
             <ul className="divide-y divide-border">
@@ -225,7 +239,7 @@ function OutboxSheet({
                   >
                     <span className="text-ui font-medium leading-5">{m.subject}</span>
                     <span className="num text-2xs text-primary-200">
-                      To {m.to} · {formatDate(sgDay(m.sentAt))}
+                      {t("To {recipient}", { recipient: m.to })} · {formatDate(sgDay(m.sentAt))}
                     </span>
                   </button>
                   {openId === m.id ? (

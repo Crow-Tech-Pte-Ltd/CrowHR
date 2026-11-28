@@ -6,6 +6,7 @@ import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import {
   type AppendixEntry,
   AppendixEntryDialog,
@@ -30,6 +31,7 @@ function YearEndPage() {
 const num = (n: number) => <span className="num">{n.toLocaleString("en-SG")}</span>;
 
 function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
+  const translate = useT("people-payroll");
   const q = useQuery(appendixQuery(year));
   const [dialog, setDialog] = React.useState<{ entry: AppendixEntry | null; kind: AppendixKind } | null>(null);
   const entries = q.data?.entries ?? [];
@@ -39,17 +41,17 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
     canEdit ? setDialog({ entry, kind: entry?.kind ?? kind }) : undefined;
   const addBenefit = canEdit ? (
     <Button size="sm" onClick={() => open(null, "residence")}>
-      <Plus aria-hidden /> Add benefit
+      <Plus aria-hidden /> {translate("Add benefit")}
     </Button>
   ) : null;
   const addGain = canEdit ? (
     <Button size="sm" onClick={() => open(null, "share_gain")}>
-      <Plus aria-hidden /> Add share gain
+      <Plus aria-hidden /> {translate("Add share gain")}
     </Button>
   ) : null;
 
   const benefitColumns: ColumnDef<AppendixEntry, unknown>[] = [
-    { id: "employee", header: "Employee", accessorFn: (e) => e.employeeName },
+    { id: "employee", header: translate("Employee"), accessorFn: (e) => e.employeeName },
     {
       id: "item",
       header: "Item",
@@ -57,13 +59,13 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
       cell: ({ row }) => (
         <span className="whitespace-nowrap">
           <span className="font-azeret text-2xs text-primary-200">{row.original.computed?.item ?? "–"}</span>{" "}
-          {KIND_LABEL[row.original.kind]}
+          {translate(KIND_LABEL[row.original.kind])}
         </span>
       ),
     },
     {
       id: "detail",
-      header: "Details",
+      header: translate("Details"),
       accessorFn: (e) => entrySummary(e),
       cell: ({ row }) => (
         <span className="block max-w-[22rem] truncate text-primary-300">{entrySummary(row.original)}</span>
@@ -72,43 +74,43 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
     },
     {
       id: "period",
-      header: "Period",
+      header: translate("Period"),
       accessorFn: (e) => entryPeriod(e) ?? "",
       cell: ({ row }) => <span className="num whitespace-nowrap">{entryPeriod(row.original) ?? "–"}</span>,
       meta: { headerClassName: "hidden lg:table-cell", cellClassName: "hidden lg:table-cell" },
     },
     {
       id: "value",
-      header: "Taxable value",
+      header: translate("Taxable value"),
       accessorFn: (e) => e.computed?.valueCents ?? -1,
       cell: ({ row }) =>
         row.original.computed ? (
           <span className="num">{formatMoney(row.original.computed.valueCents)}</span>
         ) : (
-          <span className="text-danger-300">Fix this record</span>
+          <span className="text-danger-300">{translate("Fix this record")}</span>
         ),
       meta: { numeric: true },
     },
   ];
 
   const gainColumns: ColumnDef<AppendixEntry, unknown>[] = [
-    { id: "employee", header: "Employee", accessorFn: (e) => e.employeeName },
+    { id: "employee", header: translate("Employee"), accessorFn: (e) => e.employeeName },
     {
       id: "plan",
-      header: "Plan",
+      header: translate("Plan"),
       accessorFn: (e) => entrySummary(e),
       cell: ({ row }) => <span className="whitespace-nowrap">{entrySummary(row.original)}</span>,
     },
     {
       id: "accrued",
-      header: "Accrued",
+      header: translate("Accrued"),
       accessorFn: (e) => (e.details.kind === "share_gain" ? e.details.eventDate : ""),
       cell: ({ row }) => <span className="num whitespace-nowrap">{entryPeriod(row.original)}</span>,
       meta: { numeric: true, headerClassName: "hidden sm:table-cell", cellClassName: "hidden sm:table-cell" },
     },
     {
       id: "shares",
-      header: "Shares",
+      header: translate("Shares"),
       accessorFn: (e) => (e.details.kind === "share_gain" ? Number(e.details.shares) : 0),
       cell: ({ row }) => (
         <span className="num">{row.original.details.kind === "share_gain" ? row.original.details.shares : ""}</span>
@@ -127,13 +129,13 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
     },
     {
       id: "gain",
-      header: "Gross gain",
+      header: translate("Gross gain"),
       accessorFn: (e) => e.computed?.valueCents ?? -1,
       cell: ({ row }) =>
         row.original.computed ? (
           <span className="num">{formatMoney(row.original.computed.valueCents)}</span>
         ) : (
-          <span className="text-danger-300">Fix this record</span>
+          <span className="text-danger-300">{translate("Fix this record")}</span>
         ),
       meta: { numeric: true },
     },
@@ -141,10 +143,10 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
 
   type Totals = NonNullable<typeof q.data>["employees"][number];
   const totalColumns: ColumnDef<Totals, unknown>[] = [
-    { id: "employee", header: "Employee", accessorFn: (t) => t.employeeName },
+    { id: "employee", header: translate("Employee"), accessorFn: (t) => t.employeeName },
     {
       id: "d8",
-      header: "d8 Benefits-in-kind",
+      header: translate("d8 Benefits-in-kind"),
       accessorFn: (t) => t.benefitsInKind,
       cell: ({ getValue }) => num(getValue() as number),
       meta: { numeric: true },
@@ -168,16 +170,19 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Payroll", to: "/payroll" }]}
-        title={`Year end ${year}`}
-        description={`Benefits-in-kind (Appendix 8A) and share-plan gains (Appendix 8B) for the IR8A of income year ${year}, Year of Assessment ${year + 1}. Crow HR works out the values IRAS gives a formula for; you enter the rest.`}
+        crumbs={[{ label: translate("Payroll"), to: "/payroll" }]}
+        title={translate("Year end {year}", { year })}
+        description={translate(
+          "Benefits-in-kind (Appendix 8A) and share-plan gains (Appendix 8B) for the IR8A of income year {year}, Year of Assessment {assessment}. Crow HR works out the values IRAS gives a formula for; you enter the rest.",
+          { year, assessment: year + 1 },
+        )}
         actions={
-          <nav aria-label="Income year" className="flex gap-1">
+          <nav aria-label={translate("Income year")} className="flex gap-1">
             <Button asChild size="sm" variant="ghost">
               <Link
                 to="/payroll/year-end/$year"
                 params={{ year: String(year - 1) }}
-                aria-label={`Year end ${year - 1}`}
+                aria-label={translate("Year end {year}", { year: year - 1 })}
               >
                 <ChevronLeft aria-hidden /> {year - 1}
               </Link>
@@ -186,7 +191,7 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
               <Link
                 to="/payroll/year-end/$year"
                 params={{ year: String(year + 1) }}
-                aria-label={`Year end ${year + 1}`}
+                aria-label={translate("Year end {year}", { year: year + 1 })}
               >
                 {year + 1} <ChevronRight aria-hidden />
               </Link>
@@ -202,18 +207,18 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
         <>
           <section aria-labelledby="totals-title" className="mb-8">
             <h2 id="totals-title" className={`mb-1 ${textStyle.section}`}>
-              IR8A totals
+              {translate("IR8A totals")}
             </h2>
             <p className="mb-3 max-w-2xl text-ui text-primary-300">
-              Whole dollars, decimals dropped. myTax computes d7 and d8 from the appendix sheets after import: check
-              them against these. Download the sheets from the IR8A panel on the{" "}
+              {translate(
+                "Whole dollars, decimals dropped. myTax computes d7 and d8 from the appendix sheets after import: check them against these.",
+              )}{" "}
               <Link to="/payroll" className="focus-ring rounded-sm font-medium underline">
-                Payroll
-              </Link>{" "}
-              page.
+                {translate("Download the sheets from the IR8A panel on the Payroll page.")}
+              </Link>
             </p>
             <DataTable
-              label="IR8A totals per employee"
+              label={translate("IR8A totals per employee")}
               columns={totalColumns}
               data={q.data?.employees ?? []}
               loading={q.isPending}
@@ -221,8 +226,8 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
               empty={
                 <EmptyState
                   variant="plain"
-                  title={`No appendix records in ${year} yet.`}
-                  description="Each employee with a benefit or share gain below gets a row here."
+                  title={translate("No appendix records in {year} yet.", { year })}
+                  description={translate("Each employee with a benefit or share gain below gets a row here.")}
                 />
               }
             />
@@ -231,17 +236,18 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h2 id="a8a-title" className={textStyle.section}>
-                  Appendix 8A: benefits-in-kind
+                  {translate("Appendix 8A: benefits-in-kind")}
                 </h2>
                 <p className="mt-1 max-w-2xl text-ui text-primary-300">
-                  Housing, hotel stays, cars, home leave passages and other non-cash benefits. Leave out benefits IRAS
-                  exempts.
+                  {translate(
+                    "Housing, hotel stays, cars, home leave passages and other non-cash benefits. Leave out benefits IRAS exempts.",
+                  )}
                 </p>
               </div>
               {addBenefit}
             </div>
             <DataTable
-              label="Appendix 8A benefits-in-kind"
+              label={translate("Appendix 8A benefits-in-kind")}
               columns={benefitColumns}
               data={benefits}
               loading={q.isPending}
@@ -250,11 +256,15 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
               empty={
                 <EmptyState
                   variant="plain"
-                  title={`No benefits-in-kind recorded for ${year}.`}
+                  title={translate("No benefits-in-kind recorded for {year}.", { year })}
                   description={
                     canEdit
-                      ? "Add each place of residence, hotel stay, car or other benefit the employer provided with Add benefit. Crow HR values housing and cars with IRAS's formulas."
-                      : "A payroll admin records each place of residence, hotel stay, car or other benefit here."
+                      ? translate(
+                          "Add each place of residence, hotel stay, car or other benefit the employer provided with Add benefit. Crow HR values housing and cars with IRAS's formulas.",
+                        )
+                      : translate(
+                          "A payroll admin records each place of residence, hotel stay, car or other benefit here.",
+                        )
                   }
                 />
               }
@@ -264,17 +274,18 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h2 id="a8b-title" className={textStyle.section}>
-                  Appendix 8B: share-plan gains
+                  {translate("Appendix 8B: share-plan gains")}
                 </h2>
                 <p className="mt-1 max-w-2xl text-ui text-primary-300">
-                  ESOP and ESOW gains in the year they accrue: (market value − price paid) × shares. Gains of leaving
-                  foreigners under the deemed exercise rule go in their IR21, not here.
+                  {translate(
+                    "ESOP and ESOW gains in the year they accrue: (market value − price paid) × shares. Gains of leaving foreigners under the deemed exercise rule go in their IR21, not here.",
+                  )}
                 </p>
               </div>
               {addGain}
             </div>
             <DataTable
-              label="Appendix 8B share-plan gains"
+              label={translate("Appendix 8B share-plan gains")}
               columns={gainColumns}
               data={gains}
               loading={q.isPending}
@@ -283,11 +294,15 @@ function YearEnd({ year, canEdit }: { year: number; canEdit: boolean }) {
               empty={
                 <EmptyState
                   variant="plain"
-                  title={`No share-plan gains recorded for ${year}.`}
+                  title={translate("No share-plan gains recorded for {year}.", { year })}
                   description={
                     canEdit
-                      ? "Add each exercise of an option, or each vesting or grant of shares, with Add share gain and the prices in S$."
-                      : "A payroll admin records each exercise of an option, or each vesting or grant of shares, here."
+                      ? translate(
+                          "Add each exercise of an option, or each vesting or grant of shares, with Add share gain and the prices in S$.",
+                        )
+                      : translate(
+                          "A payroll admin records each exercise of an option, or each vesting or grant of shares, here.",
+                        )
                   }
                 />
               }

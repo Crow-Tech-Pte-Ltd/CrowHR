@@ -6,6 +6,7 @@ import { CircleAlert, Lock, TriangleAlert } from "lucide-react";
 import type * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { systemStatusQuery } from "../../../help/system-status.ts";
+import { useT } from "../../../i18n/index.ts";
 import { ApiError } from "../../../lib/api.ts";
 
 export const Route = createFileRoute("/_app/settings/system")({
@@ -54,23 +55,29 @@ function ago(iso: string, now: string): string {
 
 /** Read-only: Settings → System (self-hosting spec, M3). Owners only; the API enforces it. */
 function SystemPage() {
+  const t = useT("settings-account");
   const q = useQuery(systemStatusQuery);
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="System"
-        description="Version, database, backups, disk space and how requests reach this server."
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("System")}
+        description={t("Version, database, backups, disk space and how requests reach this server.")}
         actions={
           <Button asChild size="sm">
             <Link to="/help" search={{ topic: "service" }}>
-              Troubleshoot this server
+              {t("Troubleshoot this server")}
             </Link>
           </Button>
         }
       />
       {q.isPending ? (
-        <div className="grid gap-4 md:grid-cols-2" role="status" aria-busy="true" aria-label="Loading system status">
+        <div
+          className="grid gap-4 md:grid-cols-2"
+          role="status"
+          aria-busy="true"
+          aria-label={t("Loading system status")}
+        >
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-36" />
           ))}
@@ -129,6 +136,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 const mono = "num break-all";
 
 function StatusView({ s }: { s: SystemStatus }) {
+  const t = useT("settings-account");
   const last = s.backups.last;
   const ok = s.backups.lastSuccessful;
   const pending =
@@ -142,7 +150,7 @@ function StatusView({ s }: { s: SystemStatus }) {
           <TriangleAlert aria-hidden />
           <div>
             <AlertTitle>
-              {ok ? "The last successful backup is more than 48 hours old" : "No successful backup yet"}
+              {ok ? t("The last successful backup is more than 48 hours old") : t("No successful backup yet")}
             </AlertTitle>
             <AlertDescription>
               Run one now with <code className="num">docker compose exec app crowhr backup</code>, then check the server
@@ -155,7 +163,7 @@ function StatusView({ s }: { s: SystemStatus }) {
         <Alert variant="warning" role="status" data-testid="backup-unencrypted">
           <TriangleAlert aria-hidden />
           <div>
-            <AlertTitle>Scheduled backups require encryption</AlertTitle>
+            <AlertTitle>{t("Scheduled backups require encryption")}</AlertTitle>
             <AlertDescription>
               Scheduled backups are disabled until encryption is configured. Backups include the master key needed to
               restore NRIC, bank and SSO data. Set <code className="num">BACKUP_PASSPHRASE</code> in .env, keep the
@@ -166,50 +174,51 @@ function StatusView({ s }: { s: SystemStatus }) {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Section title="Server">
-          <Row label="Version">
+        <Section title={t("Server")}>
+          <Row label={t("Version")}>
             <span className={mono}>{s.version}</span>
           </Row>
-          <Row label="Address">
-            <span className={mono}>{s.publicUrl ?? "Not reported"}</span>
+          <Row label={t("Address")}>
+            <span className={mono}>{s.publicUrl ?? t("Not reported")}</span>
           </Row>
-          <Row label="HTTPS cookies">
+          <Row label={t("HTTPS cookies")}>
             {s.secureCookies === null ? (
-              "Not reported"
+              t("Not reported")
             ) : s.secureCookies ? (
-              <StatusPill tone="success">Secure</StatusPill>
+              <StatusPill tone="success">{t("Secure")}</StatusPill>
             ) : (
-              <StatusPill tone="warning">Plain http</StatusPill>
+              <StatusPill tone="warning">{t("Plain http")}</StatusPill>
             )}
           </Row>
-          <Row label="Server time">
+          <Row label={t("Server time")}>
             <span className="num">{formatSgDateTime(s.time)}</span>
           </Row>
         </Section>
 
         <Section
-          title="Database"
+          title={t("Database")}
           aside={
             <StatusPill tone={s.database.status === "ok" ? "success" : "danger"}>
-              {s.database.status === "ok" ? "Connected" : "Unreachable"}
+              {s.database.status === "ok" ? t("Connected") : t("Unreachable")}
             </StatusPill>
           }
         >
-          <Row label="Engine">
+          <Row label={t("Engine")}>
             <span className="num">
-              {s.database.driver === "pglite" ? "PGlite (development)" : "PostgreSQL"} {s.database.serverVersion ?? ""}
+              {s.database.driver === "pglite" ? t("PGlite (development)") : "PostgreSQL"}{" "}
+              {s.database.serverVersion ?? ""}
             </span>
           </Row>
-          <Row label="Schema">
+          <Row label={t("Schema")}>
             <span className={mono}>{s.schema.tag ?? "—"}</span>
           </Row>
-          <Row label="Migrations">
+          <Row label={t("Migrations")}>
             <span className="num">
               {s.schema.appliedMigrations ?? "—"} applied
               {pending ? `, ${pending} pending` : ""}
             </span>
           </Row>
-          <Row label="Last migrated">
+          <Row label={t("Last migrated")}>
             <span className="num">
               {s.schema.migratedAt ? formatSgDateTime(s.schema.migratedAt) : "—"}
               {s.schema.migratedByVersion ? ` by ${s.schema.migratedByVersion}` : ""}
@@ -218,51 +227,59 @@ function StatusView({ s }: { s: SystemStatus }) {
         </Section>
 
         <Section
-          title="Backups"
+          title={t("Backups")}
           aside={
             last ? (
               <StatusPill
                 tone={last.status === "succeeded" ? "success" : last.status === "failed" ? "danger" : "info"}
                 data-testid="last-backup-status"
               >
-                {last.status === "succeeded" ? "OK" : last.status === "failed" ? "Failed" : "Running"}
+                {last.status === "succeeded" ? t("OK") : last.status === "failed" ? t("Failed") : t("Running")}
               </StatusPill>
             ) : null
           }
         >
-          <Row label="Last backup">
+          <Row label={t("Last backup")}>
             {last ? (
               <span className="num" data-testid="last-backup">
                 {formatSgDateTime(last.startedAt)} ({ago(last.startedAt, s.time)})
               </span>
             ) : (
-              "None yet"
+              t("None yet")
             )}
           </Row>
           {last?.status === "failed" ? (
-            <Row label="Error">
+            <Row label={t("Error")}>
               <span className="text-danger-300">{last.error}</span>
             </Row>
           ) : null}
-          <Row label="Last successful">
+          <Row label={t("Last successful")}>
             {ok ? (
-              <span className="num">{`${formatSgDateTime(ok.startedAt)} · ${formatBytes(ok.sizeBytes)}`}</span>
+              <span className="num">
+                {t("{value} · {value2}", { value: formatSgDateTime(ok.startedAt), value2: formatBytes(ok.sizeBytes) })}
+              </span>
             ) : (
-              "None yet"
+              t("None yet")
             )}
           </Row>
-          <Row label="Schedule">
-            {s.backups.schedule ? <span className="num">Daily {s.backups.schedule}</span> : "Off"}
+          <Row label={t("Schedule")}>
+            {s.backups.schedule ? (
+              <span className="num">
+                {t("Daily")} {s.backups.schedule}
+              </span>
+            ) : (
+              t("Off")
+            )}
           </Row>
-          <Row label="Kept">{s.backups.keep ? <span className="num">{s.backups.keep} newest</span> : "—"}</Row>
-          <Row label="Stored in">
+          <Row label={t("Kept")}>{s.backups.keep ? <span className="num">{s.backups.keep} newest</span> : "—"}</Row>
+          <Row label={t("Stored in")}>
             <span className={mono}>{s.backups.directory ?? "—"}</span>
           </Row>
         </Section>
 
-        <Section title="Disk">
+        <Section title={t("Disk")}>
           {s.disk.length === 0 ? (
-            <Row label="Disk space">Not reported</Row>
+            <Row label={t("Disk space")}>{t("Not reported")}</Row>
           ) : (
             s.disk.map((d) => {
               const pct = d.totalBytes ? Math.round((d.freeBytes / d.totalBytes) * 100) : 0;
@@ -273,7 +290,7 @@ function StatusView({ s }: { s: SystemStatus }) {
                   </span>
                   {pct < 10 ? (
                     <StatusPill tone="warning" className="ml-2">
-                      Low
+                      {t("Low")}
                     </StatusPill>
                   ) : null}
                 </Row>
@@ -283,31 +300,31 @@ function StatusView({ s }: { s: SystemStatus }) {
         </Section>
 
         <Section
-          title="This request"
+          title={t("This request")}
           aside={
             <StatusPill tone={s.request.viaTrustedProxy ? "success" : "neutral"} data-testid="proxy-trust">
-              {s.request.viaTrustedProxy ? "Trusted proxy" : "Direct"}
+              {s.request.viaTrustedProxy ? t("Trusted proxy") : t("Direct")}
             </StatusPill>
           }
         >
-          <Row label="Your IP as seen">
+          <Row label={t("Your IP as seen")}>
             <span className={mono} data-testid="client-ip">
-              {s.request.clientIp ?? "Unknown"}
+              {s.request.clientIp ?? t("Unknown")}
             </span>
           </Row>
-          <Row label="Scheme">
+          <Row label={t("Scheme")}>
             <span className="num">{s.request.scheme}</span>
           </Row>
-          <Row label="Connected from">
-            <span className={mono}>{s.request.peerIp ?? "Unknown"}</span>
+          <Row label={t("Connected from")}>
+            <span className={mono}>{s.request.peerIp ?? t("Unknown")}</span>
           </Row>
-          <Row label="Trusted proxies">
+          <Row label={t("Trusted proxies")}>
             <span className={mono}>
               {s.trustedProxies === null
-                ? "Not reported"
+                ? t("Not reported")
                 : s.trustedProxies.length
                   ? s.trustedProxies.join(", ")
-                  : "None"}
+                  : t("None")}
             </span>
           </Row>
         </Section>

@@ -1,10 +1,11 @@
 import { appNowMs } from "@crowhr/ui/clock";
+import { type Locale, translate } from "../i18n/index.ts";
 
 /** `31 Oct 2026, 09:05` in Singapore time (AGENTS.md conventions). */
-export function formatDateTime(iso: string | null | undefined): string {
+export function formatDateTime(iso: string | null | undefined, locale: Locale = "en-SG"): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return new Intl.DateTimeFormat("en-SG", {
+  return new Intl.DateTimeFormat(locale, {
     timeZone: "Asia/Singapore",
     day: "numeric",
     month: "short",
@@ -27,11 +28,17 @@ export function greetingName(user: { preferredName?: string | null; fullName?: s
 }
 
 /** "3 min ago", "2 h ago", or the date. */
-export function relativeTime(iso: string | null | undefined, now = appNowMs()): string {
-  if (!iso) return "Never";
+export function relativeTime(iso: string | null | undefined, now = appNowMs(), locale: Locale = "en-SG"): string {
+  if (!iso) return translate(locale, "settings-account", "Never");
   const diff = Math.max(0, now - new Date(iso).getTime());
-  if (diff < 60_000) return "Just now";
+  if (diff < 60_000) return translate(locale, "settings-account", "Just now");
+  if (locale !== "en-SG" && diff < 86_400_000) {
+    const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "always", style: "short" });
+    return diff < 3_600_000
+      ? formatter.format(-Math.floor(diff / 60_000), "minute")
+      : formatter.format(-Math.floor(diff / 3_600_000), "hour");
+  }
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} min ago`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} h ago`;
-  return formatDateTime(iso);
+  return formatDateTime(iso, locale);
 }

@@ -29,6 +29,7 @@ import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { ApiError, apiDelete, apiPost, apiPut } from "../../../lib/api.ts";
 import {
   COLOUR_BAR,
@@ -57,6 +58,7 @@ function paidOf(f: Pick<TemplateInput, "startTime" | "endTime" | "breakMinutes">
 }
 
 function ShiftTemplatesPage() {
+  const t = useT("settings-account");
   const me = useMe();
   const editable = can(me, "shift_templates:update");
   const [showArchived, setShowArchived] = React.useState(false);
@@ -65,16 +67,20 @@ function ShiftTemplatesPage() {
   const qc = useQueryClient();
   const archive = useMutation({
     mutationFn: (t: Template) => apiPost(`/api/v1/scheduling/templates/${t.id}/${t.archived ? "restore" : "archive"}`),
-    onSuccess: (_r, t) => {
-      toast.success(t.archived ? `${t.name} restored` : `${t.name} archived`);
+    onSuccess: (_r, template) => {
+      toast.success(
+        template.archived
+          ? t("{name} restored", { name: template.name })
+          : t("{name} archived", { name: template.name }),
+      );
       void qc.invalidateQueries({ queryKey: schedKeys.all });
     },
     onError: (err) => toast.error(errorText(err)),
   });
   const remove = useMutation({
     mutationFn: (t: Template) => apiDelete(`/api/v1/scheduling/templates/${t.id}`),
-    onSuccess: (_r, t) => {
-      toast.success(`${t.name} deleted`);
+    onSuccess: (_r, template) => {
+      toast.success(t("{name} deleted", { name: template.name }));
       void qc.invalidateQueries({ queryKey: schedKeys.all });
     },
     onError: (err) => toast.error(errorText(err)),
@@ -83,51 +89,55 @@ function ShiftTemplatesPage() {
   const columns: ColumnDef<Template, unknown>[] = [
     {
       id: "name",
-      header: "Shift",
+      header: t("Shift"),
       accessorFn: (t) => t.name,
       cell: ({ row }) => (
         <span className="flex items-center gap-2 whitespace-nowrap">
           <span aria-hidden className={cn("h-4 w-1 rounded-full", COLOUR_BAR[row.original.colour])} />
           <span className="font-medium">{row.original.name}</span>
           <span className="num text-2xs text-primary-200">{row.original.code}</span>
-          {row.original.archived ? <StatusPill tone="neutral">Archived</StatusPill> : null}
+          {row.original.archived ? <StatusPill tone="neutral">{t("Archived")}</StatusPill> : null}
         </span>
       ),
     },
     {
       id: "time",
-      header: "Time",
+      header: t("Time"),
       accessorFn: (t) => `${t.startTime}–${t.endTime}`,
       cell: ({ row }) => (
         <span className="num whitespace-nowrap">
           {row.original.startTime}–{row.original.endTime}
-          {row.original.overnight ? <span className="ml-1 text-2xs text-primary-300">next day</span> : null}
+          {row.original.overnight ? <span className="ml-1 text-2xs text-primary-300">{t("next day")}</span> : null}
         </span>
       ),
     },
     {
       id: "break",
-      header: () => <span className="block text-right">Break</span>,
+      header: () => <span className="block text-right">{t("Break")}</span>,
       accessorFn: (t) => t.breakMinutes,
-      cell: ({ row }) => <span className="num block text-right">{row.original.breakMinutes} min</span>,
+      cell: ({ row }) => (
+        <span className="num block text-right">
+          {row.original.breakMinutes} {t("min")}
+        </span>
+      ),
     },
     {
       id: "paid",
-      header: () => <span className="block text-right">Paid</span>,
+      header: () => <span className="block text-right">{t("Paid")}</span>,
       accessorFn: (t) => t.paidMinutes,
       cell: ({ row }) => <span className="num block text-right">{hm(row.original.paidMinutes)}</span>,
     },
     {
       id: "location",
-      header: "Location",
-      accessorFn: (t) => t.locationName ?? "All locations",
+      header: t("Location"),
+      accessorFn: (shift) => shift.locationName ?? "All locations",
       meta: { headerClassName: "hidden md:table-cell", cellClassName: "hidden md:table-cell" },
     },
     ...(editable
       ? [
           {
             id: "actions",
-            header: () => <span className="sr-only">Actions</span>,
+            header: () => <span className="sr-only">{t("Actions")}</span>,
             cell: ({ row }: { row: { original: Template } }) => (
               <span className="flex justify-end gap-1">
                 {!row.original.archived ? (
@@ -135,9 +145,9 @@ function ShiftTemplatesPage() {
                     size="sm"
                     variant="ghost"
                     onClick={() => setEditing(row.original)}
-                    aria-label={`Edit ${row.original.name}`}
+                    aria-label={t("Edit {name}", { name: row.original.name })}
                   >
-                    <Pencil aria-hidden /> Edit
+                    <Pencil aria-hidden /> {t("Edit")}
                   </Button>
                 ) : null}
                 {row.original.inUse || row.original.archived ? (
@@ -145,19 +155,22 @@ function ShiftTemplatesPage() {
                     size="sm"
                     variant="ghost"
                     onClick={() => archive.mutate(row.original)}
-                    aria-label={`${row.original.archived ? "Restore" : "Archive"} ${row.original.name}`}
+                    aria-label={t("{value} {name}", {
+                      value: row.original.archived ? t("Restore") : t("Archive"),
+                      name: row.original.name,
+                    })}
                   >
                     {row.original.archived ? <RotateCcw aria-hidden /> : <Archive aria-hidden />}
-                    {row.original.archived ? "Restore" : "Archive"}
+                    {row.original.archived ? t("Restore") : t("Archive")}
                   </Button>
                 ) : (
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => remove.mutate(row.original)}
-                    aria-label={`Delete ${row.original.name}`}
+                    aria-label={t("Delete {name}", { name: row.original.name })}
                   >
-                    Delete
+                    {t("Delete")}
                   </Button>
                 )}
               </span>
@@ -169,13 +182,15 @@ function ShiftTemplatesPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Shift templates"
-        description="The shifts managers pick from when they build a roster. Changing a template doesn't move shifts already on a roster."
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Shift templates")}
+        description={t(
+          "The shifts managers pick from when they build a roster. Changing a template doesn't move shifts already on a roster.",
+        )}
         actions={
           editable ? (
             <Button variant="primary" size="sm" onClick={() => setEditing("new")}>
-              <Plus aria-hidden /> Add shift
+              <Plus aria-hidden /> {t("Add shift")}
             </Button>
           ) : null
         }
@@ -185,11 +200,13 @@ function ShiftTemplatesPage() {
         <Skeleton className="h-40 w-full" />
       ) : (list.data?.items ?? []).length === 0 ? (
         <EmptyState
-          title="No shift templates yet."
+          title={t("No shift templates yet.")}
           description={
             editable
-              ? "Add the shifts you run with Add shift, like Morning 07:00–15:00 or Close 15:00–23:00. Managers can still type custom times on the roster."
-              : "Managers type each shift's times on the roster. Ask an owner or HR admin to add shift templates."
+              ? t(
+                  "Add the shifts you run with Add shift, like Morning 07:00–15:00 or Close 15:00–23:00. Managers can still type custom times on the roster.",
+                )
+              : t("Managers type each shift's times on the roster. Ask an owner or HR admin to add shift templates.")
           }
         />
       ) : (
@@ -197,10 +214,10 @@ function ShiftTemplatesPage() {
           <div className="mb-3 flex items-center gap-2 text-ui">
             <Switch id="show-archived" checked={showArchived} onCheckedChange={setShowArchived} />
             <label htmlFor="show-archived" className="text-primary-300">
-              Show archived
+              {t("Show archived")}
             </label>
           </div>
-          <DataTable label="Shift templates" columns={columns} data={items} getRowId={(t) => t.id} />
+          <DataTable label={t("Shift templates")} columns={columns} data={items} getRowId={(t) => t.id} />
         </>
       )}
       {editing ? (
@@ -211,6 +228,7 @@ function ShiftTemplatesPage() {
 }
 
 function TemplateDialog({ template, onClose }: { template: Template | null; onClose: () => void }) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const scopes = useQuery(scopesQuery);
   const [form, setForm] = React.useState<TemplateInput>(() =>
@@ -242,7 +260,7 @@ function TemplateDialog({ template, onClose }: { template: Template | null; onCl
         ? apiPut(`/api/v1/scheduling/templates/${template.id}`, form)
         : apiPost<{ id: string }>("/api/v1/scheduling/templates", form),
     onSuccess: () => {
-      toast.success(`${form.name} saved`);
+      toast.success(t("{name} saved", { name: form.name }));
       void qc.invalidateQueries({ queryKey: schedKeys.all });
       onClose();
     },
@@ -256,11 +274,11 @@ function TemplateDialog({ template, onClose }: { template: Template | null; onCl
     <Dialog open onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{template ? `Edit ${template.name}` : "New shift"}</DialogTitle>
+          <DialogTitle>{template ? t("Edit {name}", { name: template.name }) : t("New shift")}</DialogTitle>
           <DialogDescription>
             {template?.inUse
-              ? "New shifts use the new times. Shifts already on a roster keep theirs."
-              : "Managers see the code on the roster grid."}
+              ? t("New shifts use the new times. Shifts already on a roster keep theirs.")
+              : t("Managers see the code on the roster grid.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -271,10 +289,10 @@ function TemplateDialog({ template, onClose }: { template: Template | null; onCl
             save.mutate();
           }}
         >
-          <FormField label="Name" error={errors.name} required>
-            <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Morning" />
+          <FormField label={t("Name")} error={errors.name} required>
+            <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={t("Morning")} />
           </FormField>
-          <FormField label="Code" hint="1 to 6 letters or digits." error={errors.code} required>
+          <FormField label={t("Code")} hint={t("1 to 6 letters or digits.")} error={errors.code} required>
             <Input
               className="num uppercase"
               maxLength={6}
@@ -283,7 +301,7 @@ function TemplateDialog({ template, onClose }: { template: Template | null; onCl
               placeholder="AM"
             />
           </FormField>
-          <FormField label="Starts" error={errors.startTime} required>
+          <FormField label={t("Starts")} error={errors.startTime} required>
             <Input
               type="time"
               className="num"
@@ -292,14 +310,14 @@ function TemplateDialog({ template, onClose }: { template: Template | null; onCl
             />
           </FormField>
           <FormField
-            label="Ends"
-            hint={form.endTime <= form.startTime ? "Ends the next day." : undefined}
+            label={t("Ends")}
+            hint={form.endTime <= form.startTime ? t("Ends the next day.") : undefined}
             error={errors.endTime}
             required
           >
             <Input type="time" className="num" value={form.endTime} onChange={(e) => set("endTime", e.target.value)} />
           </FormField>
-          <FormField label="Unpaid break (minutes)" error={errors.breakMinutes}>
+          <FormField label={t("Unpaid break (minutes)")} error={errors.breakMinutes}>
             <Input
               className="num text-right"
               inputMode="numeric"
@@ -308,18 +326,18 @@ function TemplateDialog({ template, onClose }: { template: Template | null; onCl
             />
           </FormField>
           <div className="flex flex-col justify-end gap-1.5 pb-2 text-ui">
-            <span className="text-2xs text-primary-300">Paid time</span>
+            <span className="text-2xs text-primary-300">{t("Paid time")}</span>
             <span className="num font-semibold" data-testid="paid-preview">
               {paid !== null && paid > 0 ? hm(paid) : "—"}
             </span>
           </div>
-          <FormField label="Location" hint="Leave as all locations unless only one outlet runs it.">
+          <FormField label={t("Location")} hint={t("Leave as all locations unless only one outlet runs it.")}>
             <Select value={form.locationId ?? "all"} onValueChange={(v) => set("locationId", v === "all" ? null : v)}>
-              <SelectTrigger aria-label="Location">
+              <SelectTrigger aria-label={t("Location")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All locations</SelectItem>
+                <SelectItem value="all">{t("All locations")}</SelectItem>
                 {(scopes.data?.locations ?? []).map((l) => (
                   <SelectItem key={l.id} value={l.id}>
                     {l.name}
@@ -329,7 +347,7 @@ function TemplateDialog({ template, onClose }: { template: Template | null; onCl
             </Select>
           </FormField>
           <fieldset>
-            <legend className="mb-1.5 text-ui font-medium">Marker</legend>
+            <legend className="mb-1.5 text-ui font-medium">{t("Marker")}</legend>
             <div className="flex gap-1.5">
               {SHIFT_COLOURS.map((c) => (
                 <button
@@ -352,10 +370,10 @@ function TemplateDialog({ template, onClose }: { template: Template | null; onCl
         </form>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button variant="primary" type="submit" form="template-form" disabled={save.isPending}>
-            {save.isPending ? "Saving…" : "Save shift"}
+            {save.isPending ? t("Saving…") : t("Save shift")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -13,6 +13,7 @@ import {
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { RadioRow, SwitchRow } from "../../../leave/choice.tsx";
 import { ApiError, apiPut } from "../../../lib/api.ts";
 import { schedulesQuery } from "../people/-lib/api.ts";
@@ -33,14 +34,17 @@ interface OfficeDraft {
 let seq = 0;
 
 function AttendanceSettingsPage() {
+  const t = useT("settings-account");
   const me = useMe();
   const q = useQuery(settingsQuery);
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Attendance"
-        description="How clocking in works: location and network checks, the working day, lateness and overtime rounding, and timesheet approval."
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Attendance")}
+        description={t(
+          "How clocking in works: location and network checks, the working day, lateness and overtime rounding, and timesheet approval.",
+        )}
       />
       {q.isError ? (
         <ErrorNote error={q.error} retry={() => void q.refetch()} />
@@ -65,14 +69,15 @@ function TimesheetApprovalCard({
   error?: string;
   onChange: (v: TimesheetSettings) => void;
 }) {
+  const t = useT("settings-account");
   return (
     <Card className="flex flex-col gap-4 p-4" data-testid="timesheet-approval-settings">
       <div>
-        <h2 className="font-azeret text-xs font-semibold">Timesheet approval</h2>
+        <h2 className="font-azeret text-xs font-semibold">{t("Timesheet approval")}</h2>
         <p className="mt-1 text-ui text-primary-300">
-          Off by default: managers and HR correct attendance directly. When on, each period's timesheet is submitted and
-          approved under Settings → Approvals (default: the employee's manager). An approved period is locked; only HR
-          can change it, and that reopens it.
+          {t(
+            "Off by default: managers and HR correct attendance directly. When on, each period's timesheet is submitted and approved under Settings → Approvals (default: the employee's manager). An approved period is locked; only HR can change it, and that reopens it.",
+          )}
         </p>
       </div>
       <SwitchRow
@@ -82,11 +87,11 @@ function TimesheetApprovalCard({
           onChange({ ...value, approval, payrollApprovedOnly: approval ? value.payrollApprovedOnly : false })
         }
       >
-        Submit timesheets for approval
+        {t("Submit timesheets for approval")}
       </SwitchRow>
       {value.approval ? (
         <>
-          <FormField label="Period">
+          <FormField label={t("Period")}>
             <RadioGroup
               disabled={!editable}
               value={value.period}
@@ -100,28 +105,32 @@ function TimesheetApprovalCard({
               ))}
             </RadioGroup>
           </FormField>
-          <FormField label="Who submits">
+          <FormField label={t("Who submits")}>
             <RadioGroup
               disabled={!editable}
               value={value.submittedBy}
               onValueChange={(v) => onChange({ ...value, submittedBy: v as TimesheetSettings["submittedBy"] })}
               className="flex flex-col gap-2"
             >
-              <RadioRow value="employee">The employee (HR can submit on their behalf)</RadioRow>
-              <RadioRow value="manager">Their manager or HR; the manager can't approve what they submitted</RadioRow>
+              <RadioRow value="employee">{t("The employee (HR can submit on their behalf)")}</RadioRow>
+              <RadioRow value="manager">
+                {t("Their manager or HR; the manager can't approve what they submitted")}
+              </RadioRow>
             </RadioGroup>
           </FormField>
           <FormField
-            label="Payroll"
+            label={t("Payroll")}
             error={error}
-            hint="Payroll uses approved timesheets for overtime, rostered days worked and eligible hourly staff's regular hours. Overtime approved later is paid by the next run."
+            hint={t(
+              "Payroll uses approved timesheets for overtime, rostered days worked and eligible hourly staff's regular hours. Overtime approved later is paid by the next run.",
+            )}
           >
             <SwitchRow
               checked={value.payrollApprovedOnly}
               disabled={!editable}
               onChange={(payrollApprovedOnly) => onChange({ ...value, payrollApprovedOnly })}
             >
-              Payroll uses approved timesheets only
+              {t("Payroll uses approved timesheets only")}
             </SwitchRow>
           </FormField>
         </>
@@ -131,6 +140,7 @@ function TimesheetApprovalCard({
 }
 
 function SettingsForm({ initial, editable }: { initial: AttendanceSettings; editable: boolean }) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const [s, setS] = React.useState<AttendanceSettings>(initial);
   const [offices, setOffices] = React.useState<OfficeDraft[]>(() =>
@@ -168,11 +178,11 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
       setS(r);
       setErrors({});
       void qc.invalidateQueries({ queryKey: attKeys.all });
-      toast.success("Attendance settings saved.");
+      toast.success(t("Attendance settings saved."));
     },
     onError: (err) => {
       if (err instanceof ApiError) setErrors(err.fieldErrors);
-      toast.error(err instanceof Error ? err.message : "That didn't save.");
+      toast.error(err instanceof Error ? err.message : t("That didn't save."));
     },
   });
   const num = (k: keyof AttendanceSettings) => ({
@@ -193,10 +203,11 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
     >
       <Card className="flex flex-col gap-4 p-4">
         <div>
-          <h2 className="font-azeret text-xs font-semibold">Location</h2>
+          <h2 className="font-azeret text-xs font-semibold">{t("Location")}</h2>
           <p className="mt-1 text-ui text-primary-300">
-            Off by default. When on, the phone's location is stored with each punch and staff see your PDPA notice
-            first.
+            {t(
+              "Off by default. When on, the phone's location is stored with each punch and staff see your PDPA notice first.",
+            )}
           </p>
         </div>
         <RadioGroup
@@ -205,14 +216,14 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
           onValueChange={(v) => setS({ ...s, locationMode: v as AttendanceSettings["locationMode"] })}
           className="flex flex-col gap-2"
         >
-          <RadioRow value="off">Don't collect location</RadioRow>
-          <RadioRow value="optional">Collect it when the device allows</RadioRow>
-          <RadioRow value="required">Require it for every punch</RadioRow>
+          <RadioRow value="off">{t("Don't collect location")}</RadioRow>
+          <RadioRow value="optional">{t("Collect it when the device allows")}</RadioRow>
+          <RadioRow value="required">{t("Require it for every punch")}</RadioRow>
         </RadioGroup>
         {errors.locationMode ? <p className="text-2xs text-danger-300">{errors.locationMode}</p> : null}
         {s.locationMode !== "off" ? (
           <>
-            <FormField label="PDPA notice" hint="Leave blank to use the standard notice below.">
+            <FormField label={t("PDPA notice")} hint={t("Leave blank to use the standard notice below.")}>
               <Textarea
                 rows={3}
                 disabled={!editable}
@@ -222,15 +233,15 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
               />
             </FormField>
             <fieldset className="flex flex-col gap-2">
-              <legend className={cn("mb-1", textStyle.group)}>Offices</legend>
+              <legend className={cn("mb-1", textStyle.group)}>{t("Offices")}</legend>
               {offices.length === 0 ? (
-                <p className="text-ui text-primary-300">No offices: location is stored but not checked.</p>
+                <p className="text-ui text-primary-300">{t("No offices: location is stored but not checked.")}</p>
               ) : null}
               {offices.map((o, i) => (
                 <div key={o.key} className="grid grid-cols-2 gap-2 sm:grid-cols-[2fr_1fr_1fr_6rem_auto]">
                   <Input
-                    aria-label={`Office ${i + 1} name`}
-                    placeholder="Tanjong Pagar outlet"
+                    aria-label={t("Office {value} name", { value: i + 1 })}
+                    placeholder={t("Tanjong Pagar outlet")}
                     value={o.name}
                     disabled={!editable}
                     onChange={(e) =>
@@ -238,7 +249,7 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
                     }
                   />
                   <Input
-                    aria-label={`Office ${i + 1} latitude`}
+                    aria-label={t("Office {value} latitude", { value: i + 1 })}
                     className="num"
                     placeholder="1.2764"
                     value={o.latitude}
@@ -248,7 +259,7 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
                     }
                   />
                   <Input
-                    aria-label={`Office ${i + 1} longitude`}
+                    aria-label={t("Office {value} longitude", { value: i + 1 })}
                     className="num"
                     placeholder="103.8457"
                     value={o.longitude}
@@ -258,7 +269,7 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
                     }
                   />
                   <Input
-                    aria-label={`Office ${i + 1} radius in metres`}
+                    aria-label={t("Office {value} radius in metres", { value: i + 1 })}
                     className="num"
                     placeholder="200"
                     value={o.radiusMetres}
@@ -272,7 +283,7 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
                       type="button"
                       size="icon-sm"
                       variant="ghost"
-                      aria-label={`Remove office ${i + 1}`}
+                      aria-label={t("Remove office {value}", { value: i + 1 })}
                       onClick={() => setOffices(offices.filter((x) => x.key !== o.key))}
                     >
                       <Trash2 />
@@ -298,19 +309,19 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
                     ])
                   }
                 >
-                  <Plus /> Add office (name, latitude, longitude, radius m)
+                  <Plus /> {t("Add office (name, latitude, longitude, radius m)")}
                 </Button>
               ) : null}
             </fieldset>
-            <FormField label="Outside every office">
+            <FormField label={t("Outside every office")}>
               <RadioGroup
                 disabled={!editable}
                 value={s.locationEnforcement}
                 onValueChange={(v) => setS({ ...s, locationEnforcement: v as "flag" | "block" })}
                 className="flex gap-4"
               >
-                <RadioRow value="flag">Record and flag it</RadioRow>
-                <RadioRow value="block">Refuse the punch</RadioRow>
+                <RadioRow value="flag">{t("Record and flag it")}</RadioRow>
+                <RadioRow value="block">{t("Refuse the punch")}</RadioRow>
               </RadioGroup>
             </FormField>
           </>
@@ -318,13 +329,15 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
       </Card>
       <Card className="flex flex-col gap-4 p-4">
         <div>
-          <h2 className="font-azeret text-xs font-semibold">Office network</h2>
+          <h2 className="font-azeret text-xs font-semibold">{t("Office network")}</h2>
           <p className="mt-1 text-ui text-primary-300">
-            Optional. Only accept punches from these IP addresses or ranges, one per line. Leave empty for any network.
+            {t(
+              "Optional. Only accept punches from these IP addresses or ranges, one per line. Leave empty for any network.",
+            )}
           </p>
         </div>
         <FormField
-          label="Allowed IP ranges"
+          label={t("Allowed IP ranges")}
           error={errors.allowedIps ?? Object.entries(errors).find(([k]) => k.startsWith("allowedIps."))?.[1]}
         >
           <Textarea
@@ -336,22 +349,22 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
             onChange={(e) => setIps(e.target.value)}
           />
         </FormField>
-        <FormField label="From another network">
+        <FormField label={t("From another network")}>
           <RadioGroup
             disabled={!editable}
             value={s.ipEnforcement}
             onValueChange={(v) => setS({ ...s, ipEnforcement: v as "flag" | "block" })}
             className="flex gap-4"
           >
-            <RadioRow value="flag">Record and flag it</RadioRow>
-            <RadioRow value="block">Refuse the punch</RadioRow>
+            <RadioRow value="flag">{t("Record and flag it")}</RadioRow>
+            <RadioRow value="block">{t("Refuse the punch")}</RadioRow>
           </RadioGroup>
         </FormField>
       </Card>
       <Card className="flex flex-col gap-4 p-4">
-        <h2 className="font-azeret text-xs font-semibold">Working day and overtime</h2>
+        <h2 className="font-azeret text-xs font-semibold">{t("Working day and overtime")}</h2>
         <div className="grid gap-4 sm:grid-cols-3">
-          <FormField label="Usual start (SGT)" error={errors.defaultStartTime}>
+          <FormField label={t("Usual start (SGT)")} error={errors.defaultStartTime}>
             <Input
               type="time"
               className="num w-32"
@@ -360,23 +373,23 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
               onChange={(e) => setS({ ...s, defaultStartTime: e.target.value })}
             />
           </FormField>
-          <FormField label="Unpaid break (min)" hint="Taken off days over 6 hours.">
+          <FormField label={t("Unpaid break (min)")} hint={t("Taken off days over 6 hours.")}>
             <Input {...num("breakMinutes")} />
           </FormField>
-          <FormField label="Clock skew allowed (s)" hint="Device clock error before flagging.">
+          <FormField label={t("Clock skew allowed (s)")} hint={t("Device clock error before flagging.")}>
             <Input {...num("skewThresholdSeconds")} />
           </FormField>
-          <FormField label="Late after (min)" hint="Grace after the start.">
+          <FormField label={t("Late after (min)")} hint={t("Grace after the start.")}>
             <Input {...num("lateGraceMinutes")} />
           </FormField>
-          <FormField label="Early out grace (min)">
+          <FormField label={t("Early out grace (min)")}>
             <Input {...num("earlyOutGraceMinutes")} />
           </FormField>
           <div />
-          <FormField label="OT in blocks of (min)" hint="Rounded down.">
+          <FormField label={t("OT in blocks of (min)")} hint={t("Rounded down.")}>
             <Input {...num("otBlockMinutes")} />
           </FormField>
-          <FormField label="Minimum OT (min)" hint="Less than this isn't OT.">
+          <FormField label={t("Minimum OT (min)")} hint={t("Less than this isn't OT.")}>
             <Input {...num("otMinimumMinutes")} />
           </FormField>
         </div>
@@ -396,7 +409,7 @@ function SettingsForm({ initial, editable }: { initial: AttendanceSettings; edit
       />
       {editable ? (
         <Button type="submit" variant="primary" className="self-start" disabled={save.isPending}>
-          Save attendance settings
+          {t("Save attendance settings")}
         </Button>
       ) : null}
     </form>
@@ -416,6 +429,7 @@ function ScheduleStarts({
   errors: Record<string, string>;
   onChange: (starts: AttendanceSettings["scheduleStartTimes"]) => void;
 }) {
+  const t = useT("settings-account");
   const query = useQuery(schedulesQuery);
   const schedules = query.data?.items.filter((schedule) => !schedule.archived && schedule.kind === "fixed") ?? [];
   function setStart(id: string, time: string) {
@@ -427,7 +441,7 @@ function ScheduleStarts({
   return (
     <Card className="flex flex-col gap-4 p-4" data-testid="attendance-schedule-starts">
       <div>
-        <h2 className={textStyle.section}>Start times by work schedule</h2>
+        <h2 className={textStyle.section}>{t("Start times by work schedule")}</h2>
         <p className="mt-1 text-ui text-primary-300">
           Set a start time for lateness and early departure checks. With a blank entry the usual start applies,
           currently <span className="num">{defaultStartTime}</span>. Published shifts use the rostered time.
@@ -442,7 +456,7 @@ function ScheduleStarts({
           {schedules.map((schedule) => (
             <FormField
               key={schedule.id}
-              label={`${schedule.name} start (SGT)`}
+              label={t("{name} start (SGT)", { name: schedule.name })}
               error={errors[`scheduleStartTimes.${schedule.id}`]}
             >
               <Input
@@ -456,7 +470,7 @@ function ScheduleStarts({
           ))}
         </div>
       ) : (
-        <p className="text-ui text-primary-300">Fixed work schedules from Settings → Structure appear here.</p>
+        <p className="text-ui text-primary-300">{t("Fixed work schedules from Settings → Structure appear here.")}</p>
       )}
     </Card>
   );

@@ -2,11 +2,13 @@ import { cn, textStyle } from "@crowhr/ui";
 import { Link } from "@tanstack/react-router";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Wordmark } from "../components/wordmark.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiStatus } from "./api-status.tsx";
 import { NAV_GROUPS } from "./nav.ts";
 import { NavLink } from "./nav-link.tsx";
 
 export function NavSections({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
+  const t = useT("common");
   return (
     <div className="flex flex-col gap-5">
       {NAV_GROUPS.map((group) => (
@@ -15,7 +17,7 @@ export function NavSections({ collapsed = false, onNavigate }: { collapsed?: boo
             collapsed ? (
               <div className="mx-auto mb-1 h-px w-5 bg-border" aria-hidden />
             ) : (
-              <p className={cn("mb-1 px-2.5", textStyle.column)}>{group.label}</p>
+              <p className={cn("mb-1 px-2.5", textStyle.column)}>{t(group.label)}</p>
             )
           ) : null}
           {group.items.map((id) => (
@@ -28,11 +30,12 @@ export function NavSections({ collapsed = false, onNavigate }: { collapsed?: boo
 }
 
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  const t = useT("common");
   return (
     // The outer column stretches to the full page height, so the background and border never stop
     // at the first viewport on long pages; the inner panel stays pinned to the viewport.
     <aside
-      aria-label="Main navigation"
+      aria-label={t("Main navigation")}
       className={cn(
         "hidden shrink-0 self-stretch border-r border-border bg-surface-100/60 md:block",
         collapsed ? "w-[60px]" : "w-[232px]",
@@ -42,7 +45,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         <div className={cn("flex h-14 items-center border-b border-border", collapsed ? "justify-center" : "px-4")}>
           <Link to="/" className="focus-ring rounded-sm">
             <Wordmark compact={collapsed} />
-            <span className="sr-only"> home</span>
+            <span className="sr-only"> {t("home")}</span>
           </Link>
         </div>
         <nav className={cn("flex-1 overflow-y-auto py-4", collapsed ? "px-3" : "px-3")}>
@@ -58,7 +61,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             <button
               type="button"
               onClick={onToggle}
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
               aria-expanded={!collapsed}
               className="focus-ring rounded-sm p-1 text-primary-200 hover:bg-ink/5 hover:text-ink"
             >

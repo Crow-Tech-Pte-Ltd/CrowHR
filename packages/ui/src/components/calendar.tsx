@@ -1,8 +1,10 @@
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import type * as React from "react";
 import { DayPicker } from "react-day-picker";
+import { ms, ta, zhCN } from "react-day-picker/locale";
 import { appNowMs } from "../lib/clock.ts";
 import { cn } from "../lib/cn.ts";
+import { useUiLocale } from "../lib/locale.ts";
 import { buttonVariants } from "./button.tsx";
 
 /** Ported from crow-tech-landing calendar.tsx, updated to react-day-picker v9. Weeks start Monday. */
@@ -48,10 +50,22 @@ export function dayButtonLabel(date: Date, modifiers: { today?: boolean; selecte
   return `${modifiers.today ? "Today, " : ""}${name}${modifiers.selected ? ", selected" : ""}`;
 }
 
+const calendarLocales = { "ms-SG": ms, "ta-SG": ta, "zh-SG": zhCN };
+
 export function Calendar({ className, classNames, showOutsideDays = true, today, labels, ...props }: CalendarProps) {
+  const { locale, t } = useUiLocale();
+  const calendarLocale = calendarLocales[locale as keyof typeof calendarLocales];
+  const localizedLabel: typeof dayButtonLabel = (date, modifiers) => {
+    const name = new Intl.DateTimeFormat(locale, { dateStyle: "full" }).format(date);
+    if (modifiers.today && modifiers.selected) return t("Today, {date}, selected", { date: name });
+    if (modifiers.today) return t("Today, {date}", { date: name });
+    if (modifiers.selected) return t("{date}, selected", { date: name });
+    return name;
+  };
   return (
     <DayPicker
-      labels={{ labelDayButton: dayButtonLabel, ...labels }}
+      locale={calendarLocale}
+      labels={{ labelDayButton: calendarLocale ? localizedLabel : dayButtonLabel, ...labels }}
       today={today ?? singaporeToday()}
       showOutsideDays={showOutsideDays}
       weekStartsOn={1}

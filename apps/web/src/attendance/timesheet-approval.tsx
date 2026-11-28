@@ -16,6 +16,7 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import * as React from "react";
+import { type Translate, useT } from "../i18n/index.ts";
 import { ApiError, apiPost } from "../lib/api.ts";
 import { attKeys, type PeriodRef, TIMESHEET_STATUS, type Timesheet, type TimesheetRow } from "./api.ts";
 
@@ -26,10 +27,11 @@ import { attKeys, type PeriodRef, TIMESHEET_STATUS, type Timesheet, type Timeshe
  */
 
 export function TimesheetStatusPill({ status }: { status: TimesheetRow["status"] }) {
+  const tWorkflow = useT("workflows");
   const s = TIMESHEET_STATUS[status];
   return (
     <StatusPill tone={s.tone} data-testid="timesheet-status">
-      {s.label}
+      {tWorkflow(s.label)}
     </StatusPill>
   );
 }
@@ -49,17 +51,26 @@ export function PeriodNav({
   current: boolean;
   onGo: (start: string | undefined) => void;
 }) {
+  const tWorkflow = useT("workflows");
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
-      <Button size="icon-sm" aria-label={`Previous period, ${previous.label}`} onClick={() => onGo(previous.start)}>
+      <Button
+        size="icon-sm"
+        aria-label={tWorkflow("Previous period, {arg1}", { arg1: previous.label })}
+        onClick={() => onGo(previous.start)}
+      >
         <ChevronLeft />
       </Button>
-      <Button size="icon-sm" aria-label={`Next period, ${next.label}`} onClick={() => onGo(next.start)}>
+      <Button
+        size="icon-sm"
+        aria-label={tWorkflow("Next period, {arg1}", { arg1: next.label })}
+        onClick={() => onGo(next.start)}
+      >
         <ChevronRight />
       </Button>
       {!current ? (
         <Button size="sm" variant="ghost" onClick={() => onGo(undefined)}>
-          This period
+          {tWorkflow("This period")}
         </Button>
       ) : null}
       <span className="num ml-1 text-ui font-medium" data-testid="period-label">
@@ -70,24 +81,43 @@ export function PeriodNav({
 }
 
 /** One line on what happened to the timesheet and what comes next. */
-export function statusText(row: TimesheetRow, opts: { over: boolean; submittableFrom: string; mine: boolean }) {
+export function statusText(
+  row: TimesheetRow,
+  opts: { over: boolean; submittableFrom: string; mine: boolean },
+  tr: Translate,
+) {
   const t = row.timesheet;
   const from = formatDate(new Date(opts.submittableFrom));
   switch (row.status) {
     case "submitted":
-      return `Sent ${formatDate(new Date(t?.submittedAt ?? Date.now()))}${t?.submittedBy && !opts.mine && t.submittedBy !== row.employee.name ? ` by ${t.submittedBy}` : ""}. Waiting for approval; corrections can still be made.`;
+      return tr("Sent {arg1}{arg2}. Waiting for approval; corrections can still be made.", {
+        arg1: formatDate(new Date(t?.submittedAt ?? Date.now())),
+        arg2:
+          t?.submittedBy && !opts.mine && t.submittedBy !== row.employee.name
+            ? ` ${tr("by {name}", { name: t.submittedBy })}`
+            : "",
+      });
     case "approved":
-      return `Approved by ${t?.decidedBy ?? "the approver"} on ${formatDate(new Date(t?.decidedAt ?? Date.now()))}. The period is locked: only HR can change it, and that reopens it.`;
+      return tr("Approved by {arg1} on {arg2}. The period is locked: only HR can change it, and that reopens it.", {
+        arg1: t?.decidedBy ?? tr("the approver"),
+        arg2: formatDate(new Date(t?.decidedAt ?? Date.now())),
+      });
     case "returned":
-      return `Returned by ${t?.decidedBy ?? "the approver"}${t?.comment ? `: "${t.comment}"` : ""}. Fix it, then submit it again.`;
+      return tr("Returned by {arg1}{arg2}. Fix it, then submit it again.", {
+        arg1: t?.decidedBy ?? tr("the approver"),
+        arg2: t?.comment ? `: "${t.comment}"` : "",
+      });
     case "reopened":
-      return `Reopened by ${t?.reopenedBy ?? "HR"}${t?.reopenReason ? `: "${t.reopenReason}"` : ""}. Submit it again once it's right.`;
+      return tr("Reopened by {arg1}{arg2}. Submit it again once it's right.", {
+        arg1: t?.reopenedBy ?? "HR",
+        arg2: t?.reopenReason ? `: "${t.reopenReason}"` : "",
+      });
     case "withdrawn":
-      return "Withdrawn. Submit it again when it's ready.";
+      return tr("Withdrawn. Submit it again when it's ready.");
     default:
       return opts.over
-        ? "Not submitted yet. Check the days, then send it for approval."
-        : `This period isn't over yet. It can be submitted from ${from}.`;
+        ? tr("Not submitted yet. Check the days, then send it for approval.")
+        : tr("This period isn't over yet. It can be submitted from {arg1}.", { arg1: from });
   }
 }
 
@@ -97,6 +127,7 @@ function errorText(err: unknown, fallback: string) {
 
 /** Submit, withdraw, reopen and decide, refreshing attendance, approvals and Home afterwards. */
 export function useTimesheetActions() {
+  const tWorkflow = useT("workflows");
   const qc = useQueryClient();
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: attKeys.all });
@@ -109,26 +140,26 @@ export function useTimesheetActions() {
     onSuccess: (r) => {
       refresh();
       for (const w of r.warnings) toast.warning(w);
-      toast.success(`Timesheet for ${r.timesheet.periodLabel} sent for approval.`);
+      toast.success(tWorkflow("Timesheet for {arg1} sent for approval.", { arg1: r.timesheet.periodLabel }));
     },
-    onError: (err) => toast.error(errorText(err, "That didn't send. Try again.")),
+    onError: (err) => toast.error(errorText(err, tWorkflow("That didn't send. Try again."))),
   });
   const withdraw = useMutation({
     mutationFn: (id: string) => apiPost<Timesheet>(`/api/v1/attendance/timesheets/${id}/withdraw`, {}),
     onSuccess: () => {
       refresh();
-      toast.success("Timesheet withdrawn. Submit it again when it's ready.");
+      toast.success(tWorkflow("Timesheet withdrawn. Submit it again when it's ready."));
     },
-    onError: (err) => toast.error(errorText(err, "That didn't withdraw. Try again.")),
+    onError: (err) => toast.error(errorText(err, tWorkflow("That didn't withdraw. Try again."))),
   });
   const reopen = useMutation({
     mutationFn: (vars: { id: string; reason: string }) =>
       apiPost<Timesheet>(`/api/v1/attendance/timesheets/${vars.id}/reopen`, { reason: vars.reason }),
     onSuccess: () => {
       refresh();
-      toast.success("Timesheet reopened. The employee has been told to submit it again.");
+      toast.success(tWorkflow("Timesheet reopened. The employee has been told to submit it again."));
     },
-    onError: (err) => toast.error(errorText(err, "That didn't reopen. Try again.")),
+    onError: (err) => toast.error(errorText(err, tWorkflow("That didn't reopen. Try again."))),
   });
   const decide = useMutation({
     mutationFn: (vars: { taskId: string; decision: "approve" | "reject"; comment?: string }) =>
@@ -140,11 +171,11 @@ export function useTimesheetActions() {
       refresh();
       toast.success(
         vars.decision === "approve"
-          ? "Timesheet approved. The period is now locked."
-          : "Timesheet returned. The employee has been told what to fix.",
+          ? tWorkflow("Timesheet approved. The period is now locked.")
+          : tWorkflow("Timesheet returned. The employee has been told what to fix."),
       );
     },
-    onError: (err) => toast.error(errorText(err, "Nothing was changed. Try again.")),
+    onError: (err) => toast.error(errorText(err, tWorkflow("Nothing was changed. Try again."))),
   });
   return { submit, withdraw, reopen, decide };
 }
@@ -175,6 +206,7 @@ export function ReasonDialog({
   pending?: boolean;
   onConfirm: (text: string) => void;
 }) {
+  const tWorkflow = useT("workflows");
   const [text, setText] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   React.useEffect(() => {
@@ -191,8 +223,12 @@ export function ReasonDialog({
           onSubmit={(e) => {
             e.preventDefault();
             const v = text.trim();
-            if (v.length < min) return setError(`Say why in at least ${min} characters, so they know what to fix.`);
-            if (v.length > max) return setError(`Shorten this to ${max} characters or fewer.`);
+            if (v.length < min)
+              return setError(
+                tWorkflow("Say why in at least {arg1} characters, so they know what to fix.", { arg1: min }),
+              );
+            if (v.length > max)
+              return setError(tWorkflow("Shorten this to {arg1} characters or fewer.", { arg1: max }));
             onConfirm(v);
           }}
         >
@@ -205,7 +241,7 @@ export function ReasonDialog({
           </FormField>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {tWorkflow("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={pending}>
               {confirm}
@@ -219,10 +255,14 @@ export function ReasonDialog({
 
 /** Shown in the action column of a locked day. */
 export function LockedMark() {
+  const tWorkflow = useT("workflows");
   return (
-    <span className="inline-flex items-center gap-1 text-2xs text-primary-300" title="In an approved timesheet">
+    <span
+      className="inline-flex items-center gap-1 text-2xs text-primary-300"
+      title={tWorkflow("In an approved timesheet")}
+    >
       <Lock className="size-3.5" aria-hidden />
-      <span>Locked</span>
+      <span>{tWorkflow("Locked")}</span>
     </span>
   );
 }
@@ -247,11 +287,12 @@ export function TimesheetStatusCard({
   submittedBy: "employee" | "manager";
   periodStart: string;
 }) {
+  const tWorkflow = useT("workflows");
   const actions = useTimesheetActions();
   const [returning, setReturning] = React.useState(false);
   const [reopening, setReopening] = React.useState(false);
   const t = row.timesheet;
-  const label = t?.periodLabel ?? "this period";
+  const label = t?.periodLabel ?? tWorkflow("this period");
   return (
     <div
       className="mb-4 flex flex-col gap-3 rounded-md border border-border bg-surface-50 p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -259,15 +300,19 @@ export function TimesheetStatusCard({
     >
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className={textStyle.group}>Timesheet</span>
+          <span className={textStyle.group}>{tWorkflow("Timesheet")}</span>
           <TimesheetStatusPill status={row.status} />
-          {row.status === "approved" ? <Lock className="size-3.5 text-primary-300" aria-label="Locked" /> : null}
+          {row.status === "approved" ? (
+            <Lock className="size-3.5 text-primary-300" aria-label={tWorkflow("Locked")} />
+          ) : null}
         </div>
         <p className="text-ui text-primary-300" data-testid="timesheet-status-text">
-          {statusText(row, { over, submittableFrom, mine })}
+          {statusText(row, { over, submittableFrom, mine }, tWorkflow)}
         </p>
         {mine && submittedBy === "manager" && !row.canSubmit && row.status !== "approved" ? (
-          <p className="text-2xs text-primary-200">In your organisation, your manager submits your timesheet.</p>
+          <p className="text-2xs text-primary-200">
+            {tWorkflow("In your organisation, your manager submits your timesheet.")}
+          </p>
         ) : null}
       </div>
       <div className="flex shrink-0 flex-wrap gap-2">
@@ -279,10 +324,10 @@ export function TimesheetStatusCard({
               disabled={actions.decide.isPending}
               onClick={() => actions.decide.mutate({ taskId: row.taskId as string, decision: "approve" })}
             >
-              Approve
+              {tWorkflow("Approve")}
             </Button>
             <Button size="sm" variant="secondary" onClick={() => setReturning(true)}>
-              Return
+              {tWorkflow("Return")}
             </Button>
           </>
         ) : null}
@@ -295,7 +340,7 @@ export function TimesheetStatusCard({
               actions.submit.mutate({ date: periodStart, ...(mine ? {} : { employeeId: row.employee.id }) })
             }
           >
-            {row.status === "not_submitted" ? "Submit for approval" : "Submit again"}
+            {row.status === "not_submitted" ? tWorkflow("Submit for approval") : tWorkflow("Submit again")}
           </Button>
         ) : null}
         {row.canWithdraw && t ? (
@@ -305,22 +350,22 @@ export function TimesheetStatusCard({
             disabled={actions.withdraw.isPending}
             onClick={() => actions.withdraw.mutate(t.id)}
           >
-            Withdraw
+            {tWorkflow("Withdraw")}
           </Button>
         ) : null}
         {row.canReopen && t ? (
           <Button size="sm" variant="secondary" onClick={() => setReopening(true)}>
-            Reopen
+            {tWorkflow("Reopen")}
           </Button>
         ) : null}
       </div>
       <ReasonDialog
         open={returning}
         onOpenChange={setReturning}
-        title={`Return ${row.employee.name}'s timesheet`}
-        description={`For ${label}. They see your comment, fix the days and submit it again.`}
-        label="What needs fixing?"
-        placeholder="Missing clock-out on 14 Oct"
+        title={tWorkflow("Return {arg1}'s timesheet", { arg1: row.employee.name })}
+        description={tWorkflow("For {arg1}. They see your comment, fix the days and submit it again.", { arg1: label })}
+        label={tWorkflow("What needs fixing?")}
+        placeholder={tWorkflow("Missing clock-out on 14 Oct")}
         confirm="Return timesheet"
         min={1}
         max={500}
@@ -335,10 +380,13 @@ export function TimesheetStatusCard({
       <ReasonDialog
         open={reopening}
         onOpenChange={setReopening}
-        title={`Reopen ${row.employee.name}'s timesheet`}
-        description={`For ${label}. The period unlocks, and it must be submitted and approved again. This is audit-logged and ${row.employee.name} is told.`}
-        label="Reason"
-        placeholder="Missing clock-out on 14 Oct"
+        title={tWorkflow("Reopen {arg1}'s timesheet", { arg1: row.employee.name })}
+        description={tWorkflow(
+          "For {arg1}. The period unlocks, and it must be submitted and approved again. This is audit-logged and {arg2} is told.",
+          { arg1: label, arg2: row.employee.name },
+        )}
+        label={tWorkflow("Reason")}
+        placeholder={tWorkflow("Missing clock-out on 14 Oct")}
         confirm="Reopen timesheet"
         min={3}
         max={300}

@@ -2,6 +2,7 @@ import { CalendarDays } from "lucide-react";
 import * as React from "react";
 import { cn } from "../lib/cn.ts";
 import { formatDate, fromIsoDate, toIsoDate } from "../lib/format.ts";
+import { useUiLocale } from "../lib/locale.ts";
 import { Calendar } from "./calendar.tsx";
 import { inputBase } from "./input.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover.tsx";
@@ -32,7 +33,9 @@ export interface DatePickerProps {
 
 /** Button showing "31 Oct 2026" that opens a calendar. */
 export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
-  ({ value, onChange, placeholder = "Pick a date", disabled, min, max, yearPicker, id, className, ...aria }, ref) => {
+  ({ value, onChange, placeholder, disabled, min, max, yearPicker, id, className, ...aria }, ref) => {
+    const { t } = useUiLocale();
+    const datePlaceholder = placeholder ?? t("Pick a date");
     const [open, setOpen] = React.useState(false);
     const selected = value ? fromIsoDate(value) : undefined;
     const outside = [...(min ? [{ before: fromIsoDate(min) }] : []), ...(max ? [{ after: fromIsoDate(max) }] : [])];
@@ -48,7 +51,7 @@ export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
             aria-invalid={aria["aria-invalid"]}
             // The visible date stays part of the name (WCAG 2.5.3): "Day, 31 Oct 2026".
             aria-label={
-              aria["aria-label"] ? `${aria["aria-label"]}, ${value ? formatDate(value) : placeholder}` : undefined
+              aria["aria-label"] ? `${aria["aria-label"]}, ${value ? formatDate(value) : datePlaceholder}` : undefined
             }
             className={cn(
               inputBase,
@@ -57,11 +60,11 @@ export const DatePicker = React.forwardRef<HTMLButtonElement, DatePickerProps>(
               className,
             )}
           >
-            <span className={cn(value && "num")}>{value ? formatDate(value) : placeholder}</span>
+            <span className={cn(value && "num")}>{value ? formatDate(value) : datePlaceholder}</span>
             <CalendarDays className="size-4 text-primary-200" aria-hidden />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-2" align="start" aria-label="Choose a date">
+        <PopoverContent className="w-auto p-2" align="start" aria-label={t("Choose a date")}>
           <Calendar
             mode="single"
             selected={selected}

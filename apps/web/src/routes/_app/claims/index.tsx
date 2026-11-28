@@ -6,6 +6,7 @@ import * as React from "react";
 import { can, canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { type Translate, useT } from "../../../i18n/index.ts";
 import { type ClaimDto, type ClaimRowDto, claimListQuery, myTotalsQuery } from "./-lib/api.ts";
 import { compareClaimNumbers } from "./-lib/claim-number.ts";
 import { ClaimSheet } from "./-lib/claim-sheet.tsx";
@@ -40,70 +41,76 @@ function dates(r: ClaimRowDto) {
     : `${formatDate(r.expenseFrom)} – ${formatDate(r.expenseTo ?? r.expenseFrom)}`;
 }
 
-const what = (r: ClaimRowDto) => r.title ?? (r.typeNames.join(", ") || "Claim");
+const what = (r: ClaimRowDto, t: Translate) => r.title ?? (r.typeNames.join(", ") || t("Claim"));
 
 /** Filters that list one status: there a status chip would say the same thing on every row. */
 const ONE_STATUS = new Set(["submitted", "approved", "paid", "draft"]);
 
-const columns: ColumnDef<ClaimRowDto, unknown>[] = [
+const claimColumns = (tWorkflow: Translate): ColumnDef<ClaimRowDto, unknown>[] => [
   {
     id: "claim",
-    header: "Claim",
+    header: tWorkflow("Claim"),
     accessorFn: (r) => r.claimNumber ?? undefined,
     // Numeric (C-9999 before C-10000); drafts have no number and stay last either way.
     sortUndefined: "last",
     sortingFn: (a, b) => compareClaimNumbers(a.original.claimNumber, b.original.claimNumber),
     cell: ({ row }) => (
       <span className="num whitespace-nowrap">
-        {row.original.claimNumber ?? <span className="text-primary-200">Draft</span>}
+        {row.original.claimNumber ?? <span className="text-primary-200">{tWorkflow("Draft")}</span>}
       </span>
     ),
   },
   {
     id: "what",
-    header: "For",
-    accessorFn: what,
+    header: tWorkflow("For"),
+    accessorFn: (r) => what(r, tWorkflow),
     cell: ({ row }) => (
       <span className="block max-w-[18rem] truncate">
-        {what(row.original)}
+        {what(row.original, tWorkflow)}
         {row.original.lineCount > 1 ? (
-          <span className="num text-primary-200"> · {row.original.lineCount} items</span>
+          <span className="num text-primary-200">
+            {" "}
+            · {tWorkflow("{count} items", { count: row.original.lineCount })}
+          </span>
         ) : null}
       </span>
     ),
   },
   {
     id: "dates",
-    header: "Expense dates",
+    header: tWorkflow("Expense dates"),
     accessorFn: (r) => r.expenseFrom ?? "",
     cell: ({ row }) => <span className="num whitespace-nowrap">{dates(row.original)}</span>,
   },
   {
     id: "amount",
-    header: "Amount",
+    header: tWorkflow("Amount"),
     accessorFn: (r) => r.totalCents,
     cell: ({ row }) => <span className="num">{formatMoney(row.original.totalCents)}</span>,
     meta: { numeric: true },
   },
   {
     id: "status",
-    header: "Status",
+    header: tWorkflow("Status"),
     accessorFn: (r) => r.status,
     cell: ({ row }) => <ClaimStatusPill status={row.original.status} />,
   },
   {
     id: "paid",
-    header: "Paid",
+    header: tWorkflow("Paid"),
     accessorFn: (r) => r.paidOn ?? "",
     cell: ({ row }) =>
       row.original.paidOn ? (
         <span className="num whitespace-nowrap">
           {formatDate(row.original.paidOn)}
-          <span className="text-primary-200"> · {row.original.paidVia === "payroll" ? "payslip" : "bank"}</span>
+          <span className="text-primary-200">
+            {" "}
+            · {tWorkflow(row.original.paidVia === "payroll" ? "payslip" : "bank")}
+          </span>
         </span>
       ) : row.original.status === "approved" ? (
         <span className="text-primary-200">
-          {row.original.payoutMethod === "payroll" ? "Next payroll" : "By transfer"}
+          {tWorkflow(row.original.payoutMethod === "payroll" ? "Next payroll" : "By transfer")}
         </span>
       ) : (
         "—"
@@ -113,6 +120,7 @@ const columns: ColumnDef<ClaimRowDto, unknown>[] = [
 ];
 
 function MyClaimsPage() {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -139,7 +147,7 @@ function MyClaimsPage() {
   const reviewLink = reviewer ? (
     <Button asChild variant="ghost" size="sm">
       <Link to="/claims/admin">
-        <Users aria-hidden /> {scopes.includes("all") ? "All claims" : "Team claims"}
+        <Users aria-hidden /> {scopes.includes("all") ? tWorkflow("All claims") : tWorkflow("Team claims")}
       </Link>
     </Button>
   ) : null;
@@ -147,20 +155,24 @@ function MyClaimsPage() {
   if (!me.employeeId) {
     return (
       <>
-        <PageHeader title="Claims" description="Expense claims, approvals and reimbursements." actions={reviewLink} />
+        <PageHeader
+          title={tWorkflow("Claims")}
+          description={tWorkflow("Expense claims, approvals and reimbursements.")}
+          actions={reviewLink}
+        />
         <EmptyState
-          title="Your account isn't linked to an employee record, so you have no claims of your own."
+          title={tWorkflow("Your account isn't linked to an employee record, so you have no claims of your own.")}
           description={
             onBehalf
-              ? "You can file a claim for an employee, and review everyone's claims in All claims."
+              ? tWorkflow("You can file a claim for an employee, and review everyone's claims in All claims.")
               : can(me, "claims:read")
-                ? "You can review everyone's claims, mark them paid and export reports in All claims."
-                : "Ask HR to link your account to your employee record to submit claims."
+                ? tWorkflow("You can review everyone's claims, mark them paid and export reports in All claims.")
+                : tWorkflow("Ask HR to link your account to your employee record to submit claims.")
           }
           actions={
             onBehalf ? (
               <Button variant="primary" onClick={() => setSheet(true)} data-testid="new-claim">
-                <Plus aria-hidden /> New claim for an employee
+                <Plus aria-hidden /> {tWorkflow("New claim for an employee")}
               </Button>
             ) : undefined
           }
@@ -171,44 +183,47 @@ function MyClaimsPage() {
   }
 
   const rows = list.data?.items ?? [];
+  const columns = claimColumns(tWorkflow);
   const oneStatus = ONE_STATUS.has(search.status ?? "");
   const filter = FILTERS.find((f) => f.value === (search.status ?? ""));
   const emptyCopy = search.status
     ? {
-        title: `No claims under ${filter?.label ?? "this filter"}.`,
-        description: "The other tabs above have the rest of your claims.",
+        title: tWorkflow("No claims under {arg1}.", { arg1: tWorkflow(filter?.label ?? "this filter") }),
+        description: tWorkflow("The other tabs above have the rest of your claims."),
       }
     : {
-        title: "No claims yet.",
-        description:
+        title: tWorkflow("No claims yet."),
+        description: tWorkflow(
           "Snap a receipt with New claim and send it for approval. Approved claims are paid with your next payslip or by transfer.",
+        ),
       };
   return (
     <>
       <PageHeader
-        title="My claims"
+        title={tWorkflow("My claims")}
         description={
           totals.data && (totals.data.submittedCents || totals.data.approvedCents || totals.data.paidThisYearCents) ? (
             // A sentence in body type; only the amounts are mono. Hidden while all three are zero.
             <span data-testid="claims-totals">
-              <span className="num">{formatMoney(totals.data.submittedCents)}</span> waiting for approval ·{" "}
-              <span className="num">{formatMoney(totals.data.approvedCents)}</span> to be paid ·{" "}
-              <span className="num">{formatMoney(totals.data.paidThisYearCents)}</span> paid this year
+              <span className="num">{formatMoney(totals.data.submittedCents)}</span>{" "}
+              {tWorkflow("waiting for approval ·")}{" "}
+              <span className="num">{formatMoney(totals.data.approvedCents)}</span> {tWorkflow("to be paid ·")}{" "}
+              <span className="num">{formatMoney(totals.data.paidThisYearCents)}</span> {tWorkflow("paid this year")}
             </span>
           ) : (
-            "Expense claims and reimbursements."
+            tWorkflow("Expense claims and reimbursements.")
           )
         }
         actions={
           <>
             {reviewLink}
             <Button variant="primary" onClick={() => setSheet(true)} data-testid="new-claim">
-              <Plus aria-hidden /> New claim
+              <Plus aria-hidden /> {tWorkflow("New claim")}
             </Button>
           </>
         }
       />
-      <div className="mb-3 flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label="Filter claims">
+      <div className="mb-3 flex gap-1 overflow-x-auto pb-1" role="tablist" aria-label={tWorkflow("Filter claims")}>
         {FILTERS.map((f) => {
           const active = (search.status ?? "") === f.value;
           return (
@@ -225,7 +240,7 @@ function MyClaimsPage() {
                   : "border-transparent text-primary-300 hover:bg-ink/5",
               )}
             >
-              {f.label}
+              {tWorkflow(f.label)}
             </button>
           );
         })}
@@ -233,7 +248,7 @@ function MyClaimsPage() {
       {list.isError ? <ErrorNote error={list.error} retry={() => void list.refetch()} /> : null}
 
       {/* Phones: cards. */}
-      <ul className="flex flex-col gap-2 md:hidden" aria-label="My claims" data-testid="my-claims-cards">
+      <ul className="flex flex-col gap-2 md:hidden" aria-label={tWorkflow("My claims")} data-testid="my-claims-cards">
         {list.isPending
           ? [0, 1, 2].map((i) => (
               <li key={i}>
@@ -249,7 +264,7 @@ function MyClaimsPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate font-medium">{what(r)}</span>
+                      <span className="truncate font-medium">{what(r, tWorkflow)}</span>
                       <span className="num shrink-0 font-semibold">{formatMoney(r.totalCents)}</span>
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2">
@@ -268,7 +283,7 @@ function MyClaimsPage() {
       {/* Desktop: a dense table. */}
       <div className="hidden md:block">
         <DataTable
-          label="My claims"
+          label={tWorkflow("My claims")}
           columns={oneStatus ? columns.filter((c) => c.id !== "status") : columns}
           data={rows}
           getRowId={(r) => r.id}

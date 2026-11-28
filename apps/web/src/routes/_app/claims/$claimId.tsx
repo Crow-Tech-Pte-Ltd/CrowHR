@@ -26,6 +26,7 @@ import * as React from "react";
 import { isNotFound, NotFoundPage } from "../../../components/not-found.tsx";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { type Translate, useT } from "../../../i18n/index.ts";
 import { api, type ClaimDto, type ClaimFileDto, claimKeys, claimQuery, errorMessage } from "./-lib/api.ts";
 import { ClaimSheet } from "./-lib/claim-sheet.tsx";
 import { formatBasisPoints } from "./-lib/money.ts";
@@ -44,19 +45,24 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function payoutText(c: ClaimDto): string {
+function payoutText(c: ClaimDto, tWorkflow: Translate): string {
   if (c.status === "paid")
-    return `Paid ${c.paidOn ? formatDate(c.paidOn) : ""} ${c.paidVia === "payroll" ? "with payroll" : "by transfer"}${c.paidReference ? ` (${c.paidReference})` : ""}`;
+    return tWorkflow("Paid {date} {method}{reference}", {
+      date: c.paidOn ? formatDate(c.paidOn) : "",
+      method: tWorkflow(c.paidVia === "payroll" ? "with payroll" : "by transfer"),
+      reference: c.paidReference ? ` (${c.paidReference})` : "",
+    });
   if (c.status === "approved")
     return c.payoutMethod === "payroll"
       ? c.reservedByPayrollRun
-        ? "In the current payroll run"
-        : "With the next payroll"
-      : "By transfer, outside payroll";
-  return "After approval";
+        ? tWorkflow("In the current payroll run")
+        : tWorkflow("With the next payroll")
+      : tWorkflow("By transfer, outside payroll");
+  return tWorkflow("After approval");
 }
 
 function ClaimPage() {
+  const tWorkflow = useT("workflows");
   const { claimId } = Route.useParams();
   const q = useQuery(claimQuery(claimId));
   const qc = useQueryClient();
@@ -73,13 +79,14 @@ function ClaimPage() {
     onSuccess: (res, action) => {
       void qc.invalidateQueries({ queryKey: claimKeys.all });
       if (action === "delete") {
-        toast.success("Draft deleted");
+        toast.success(tWorkflow("Draft deleted"));
         void navigate({ to: "/claims" });
       } else if (action === "copy" && res) {
-        toast.success("Copied into a new draft");
+        toast.success(tWorkflow("Copied into a new draft"));
         void navigate({ to: "/claims/$claimId", params: { claimId: res.id } });
-      } else if (action === "submit") toast.success(`Claim ${res?.claimNumber ?? ""} sent for approval`);
-      else if (action === "withdraw") toast.success("Claim withdrawn");
+      } else if (action === "submit")
+        toast.success(tWorkflow("Claim {arg1} sent for approval", { arg1: res?.claimNumber ?? "" }));
+      else if (action === "withdraw") toast.success(tWorkflow("Claim withdrawn"));
     },
     onError: (err) => toast.error(errorMessage(err)),
   });
@@ -94,9 +101,9 @@ function ClaimPage() {
   if (q.isError)
     return isNotFound(q.error) ? (
       <NotFoundPage
-        title="Claim not found"
-        crumbs={[{ label: "Claims", to: "/claims" }]}
-        back={{ to: "/claims", label: "Back to claims" }}
+        title={tWorkflow("Claim not found")}
+        crumbs={[{ label: tWorkflow("Claims"), to: "/claims" }]}
+        back={{ to: "/claims", label: tWorkflow("Back to claims") }}
       />
     ) : (
       <ErrorNote error={q.error} retry={() => void q.refetch()} />
@@ -107,8 +114,13 @@ function ClaimPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Claims", to: "/claims" }]}
-        title={c.title ?? (c.lines.length === 1 ? (c.lines[0]?.typeName ?? "Claim") : `${c.lines.length} expenses`)}
+        crumbs={[{ label: tWorkflow("Claims"), to: "/claims" }]}
+        title={
+          c.title ??
+          (c.lines.length === 1
+            ? (c.lines[0]?.typeName ?? tWorkflow("Claim"))
+            : tWorkflow("{count} expenses", { count: c.lines.length }))
+        }
         trailing={c.claimNumber ? <span className="num text-ui text-primary-200">{c.claimNumber}</span> : null}
         description={
           <span className="flex flex-wrap items-center gap-2">
@@ -123,27 +135,27 @@ function ClaimPage() {
           <>
             {c.actions.edit ? (
               <Button onClick={() => setEditing(true)}>
-                <Pencil aria-hidden /> Edit
+                <Pencil aria-hidden /> {tWorkflow("Edit")}
               </Button>
             ) : null}
             {c.actions.delete ? (
               <Button variant="ghost" onClick={() => setConfirmDelete(true)}>
-                <Trash2 aria-hidden /> Delete
+                <Trash2 aria-hidden /> {tWorkflow("Delete")}
               </Button>
             ) : null}
             {c.actions.withdraw ? (
               <Button onClick={() => act.mutate("withdraw")} disabled={act.isPending}>
-                <Undo2 aria-hidden /> Withdraw
+                <Undo2 aria-hidden /> {tWorkflow("Withdraw")}
               </Button>
             ) : null}
             {c.actions.copy ? (
               <Button onClick={() => act.mutate("copy")} disabled={act.isPending}>
-                <Copy aria-hidden /> Copy to new draft
+                <Copy aria-hidden /> {tWorkflow("Copy to new draft")}
               </Button>
             ) : null}
             {c.actions.submit ? (
               <Button variant="primary" onClick={() => act.mutate("submit")} disabled={act.isPending}>
-                <Send aria-hidden /> Submit
+                <Send aria-hidden /> {tWorkflow("Submit")}
               </Button>
             ) : null}
           </>
@@ -153,7 +165,7 @@ function ClaimPage() {
       {c.status === "rejected" && c.decisionComment ? (
         <Alert variant="danger" className="mb-4">
           <AlertDescription>
-            <span className="font-medium">Not approved:</span> {c.decisionComment}
+            <span className="font-medium">{tWorkflow("Not approved:")}</span> {c.decisionComment}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -161,19 +173,23 @@ function ClaimPage() {
         <Alert variant="warning" className="mb-4" data-testid="fx-warning">
           <AlertTriangle aria-hidden />
           <AlertDescription>
-            <span className="block font-medium">Check the exchange rate.</span>
+            <span className="block font-medium">{tWorkflow("Check the exchange rate.")}</span>
             {c.lines.map((l, i) =>
               l.fxWarning ? (
                 <span key={l.id} className="block">
-                  {c.lines.length > 1 ? `Expense ${i + 1}: ` : ""}
-                  <span className="num">
-                    {l.currency} {l.rate}
-                  </span>{" "}
-                  is {formatBasisPoints(l.fxWarning.deviationBasisPoints)}{" "}
-                  {l.fxWarning.deviationBasisPoints >= 0 ? "above" : "below"} the last {l.currency} rate used in your
-                  organisation, <span className="num">{l.fxWarning.lastRate}</span> on{" "}
-                  <span className="num">{formatDate(l.fxWarning.lastRateOn)}</span>. Compare it with the receipt or card
-                  statement.
+                  {c.lines.length > 1 ? `${tWorkflow("Expense {arg1}", { arg1: i + 1 })}: ` : ""}
+                  {tWorkflow(
+                    l.fxWarning.deviationBasisPoints >= 0
+                      ? "{currency} {rate} is {deviation} above the last {currency} rate used in your organisation, {lastRate} on {date}. Compare it with the receipt or card statement."
+                      : "{currency} {rate} is {deviation} below the last {currency} rate used in your organisation, {lastRate} on {date}. Compare it with the receipt or card statement.",
+                    {
+                      currency: l.currency,
+                      rate: l.rate ?? "",
+                      deviation: formatBasisPoints(l.fxWarning.deviationBasisPoints),
+                      lastRate: l.fxWarning.lastRate,
+                      date: formatDate(l.fxWarning.lastRateOn),
+                    },
+                  )}
                 </span>
               ) : null,
             )}
@@ -188,11 +204,11 @@ function ClaimPage() {
               .flatMap((l) => l.duplicates)
               .map((d) => (
                 <span key={`${d.fileId}-${d.claimId}`} className="block">
-                  Possible duplicate of claim{" "}
+                  {tWorkflow("Possible duplicate of claim")}{" "}
                   <Link to="/claims/$claimId" params={{ claimId: d.claimId }} className="num font-medium underline">
                     {d.claimNumber ?? "draft"}
                   </Link>
-                  : the same receipt image is attached there.
+                  {tWorkflow(": the same receipt image is attached there.")}
                 </span>
               ))}
           </AlertDescription>
@@ -211,8 +227,10 @@ function ClaimPage() {
                   </div>
                   {l.redactedFields?.length ? (
                     <p className="mt-1 flex items-center gap-1 text-ui text-primary-200">
-                      <Lock className="size-3.5" aria-hidden /> {CATEGORY_LABEL[l.category]} details are only shown to
-                      HR, the employee and the current approver.
+                      <Lock className="size-3.5" aria-hidden />{" "}
+                      {tWorkflow("{category} details are only shown to HR, the employee and the current approver.", {
+                        category: tWorkflow(CATEGORY_LABEL[l.category] ?? "Other"),
+                      })}
                     </p>
                   ) : (
                     <p className="mt-0.5 text-ui text-primary-300">
@@ -233,7 +251,9 @@ function ClaimPage() {
                       ))}
                     </div>
                   ) : l.receiptRequired && !l.redactedFields?.length ? (
-                    <p className="mt-2 text-2xs text-danger-300">A receipt is required for this expense.</p>
+                    <p className="mt-2 text-2xs text-danger-300">
+                      {tWorkflow("A receipt is required for this expense.")}
+                    </p>
                   ) : null}
                 </div>
                 <div className="text-right">
@@ -250,18 +270,21 @@ function ClaimPage() {
                     >
                       <AlertTriangle className="size-3" aria-hidden />
                       {formatBasisPoints(l.fxWarning.deviationBasisPoints)}{" "}
-                      {l.fxWarning.deviationBasisPoints >= 0 ? "above" : "below"} last rate {l.fxWarning.lastRate}
+                      {l.fxWarning.deviationBasisPoints >= 0 ? "above" : "below"} {tWorkflow("last rate")}{" "}
+                      {l.fxWarning.lastRate}
                     </p>
                   ) : null}
                   {l.gstCents ? (
-                    <p className="num text-2xs text-primary-200">incl. GST {formatMoney(l.gstCents)}</p>
+                    <p className="num text-2xs text-primary-200">
+                      {tWorkflow("incl. GST")} {formatMoney(l.gstCents)}
+                    </p>
                   ) : null}
                 </div>
               </li>
             ))}
           </ol>
           <div className="flex items-center justify-between border-t border-border bg-surface-100/60 px-4 py-3">
-            <span className={textStyle.group}>Total</span>
+            <span className={textStyle.group}>{tWorkflow("Total")}</span>
             <span className="num text-base font-semibold" data-testid="claim-detail-total">
               {formatMoney(c.totalCents)}
             </span>
@@ -271,16 +294,16 @@ function ClaimPage() {
         <aside className="flex flex-col gap-4">
           <Card className="p-4">
             <dl className="grid gap-3">
-              <Fact label="Payout">{payoutText(c)}</Fact>
+              <Fact label={tWorkflow("Payout")}>{payoutText(c, tWorkflow)}</Fact>
               {c.submittedAt ? (
-                <Fact label="Submitted">{formatDate(singaporeTodayIso(Date.parse(c.submittedAt)))}</Fact>
+                <Fact label={tWorkflow("Submitted")}>{formatDate(singaporeTodayIso(Date.parse(c.submittedAt)))}</Fact>
               ) : null}
-              {c.approvedOn ? <Fact label="Approved">{formatDate(c.approvedOn)}</Fact> : null}
-              {c.gstCents ? <Fact label="GST included">{formatMoney(c.gstCents)}</Fact> : null}
+              {c.approvedOn ? <Fact label={tWorkflow("Approved")}>{formatDate(c.approvedOn)}</Fact> : null}
+              {c.gstCents ? <Fact label={tWorkflow("GST included")}>{formatMoney(c.gstCents)}</Fact> : null}
               {c.approvalRequestId && c.status === "submitted" ? (
-                <Fact label="Approval">
+                <Fact label={tWorkflow("Approval")}>
                   <Link to="/inbox" search={{ request: c.approvalRequestId }} className="text-biru-400 hover:underline">
-                    See who needs to approve
+                    {tWorkflow("See who needs to approve")}
                   </Link>
                 </Fact>
               ) : null}
@@ -288,15 +311,17 @@ function ClaimPage() {
           </Card>
           {c.capUsage.length ? (
             <Card className="p-4" data-testid="cap-usage">
-              <h2 className={cn(textStyle.group, "mb-2")}>Caps</h2>
+              <h2 className={cn(textStyle.group, "mb-2")}>{tWorkflow("Caps")}</h2>
               <ul className="flex flex-col gap-2">
                 {c.capUsage.map((u) => (
                   <li key={`${u.typeId}-${u.periodLabel}`} className="text-ui">
                     <span className="font-medium">{u.typeName}</span>{" "}
-                    <span className="text-primary-200">({u.period === "per_claim" ? "per claim" : u.periodLabel})</span>
+                    <span className="text-primary-200">
+                      ({u.period === "per_claim" ? tWorkflow("per claim") : u.periodLabel})
+                    </span>
                     <span className="block text-2xs text-primary-300">
-                      <span className="num">{formatMoney(u.usedCents)}</span> approved ·{" "}
-                      <span className="num">{formatMoney(u.pendingCents)}</span> pending · this claim{" "}
+                      <span className="num">{formatMoney(u.usedCents)}</span> {tWorkflow("approved ·")}{" "}
+                      <span className="num">{formatMoney(u.pendingCents)}</span> {tWorkflow("pending · this claim")}{" "}
                       <span className="num">{formatMoney(u.claimCents)}</span> of{" "}
                       <span className="num">{formatMoney(u.capCents)}</span>
                     </span>
@@ -318,15 +343,16 @@ function ClaimPage() {
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this draft?</AlertDialogTitle>
+            <AlertDialogTitle>{tWorkflow("Delete this draft?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              The draft and its lines are removed. Its receipts are deleted once they are 7 days old, unless they are on
-              another claim.
+              {tWorkflow(
+                "The draft and its lines are removed. Its receipts are deleted once they are 7 days old, unless they are on another claim.",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
-            <AlertDialogAction onClick={() => act.mutate("delete")}>Delete draft</AlertDialogAction>
+            <AlertDialogCancel>{tWorkflow("Keep it")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => act.mutate("delete")}>{tWorkflow("Delete draft")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

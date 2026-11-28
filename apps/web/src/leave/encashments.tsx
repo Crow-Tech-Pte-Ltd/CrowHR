@@ -32,6 +32,7 @@ import { Link } from "@tanstack/react-router";
 import * as React from "react";
 import { can, useMe } from "../auth/session.ts";
 import { ErrorNote } from "../components/section.tsx";
+import { useT } from "../i18n/index.ts";
 import { apiGet, apiPost } from "../lib/api.ts";
 import { balancesQuery, leaveKeys, typesQuery, useLeaveInvalidate } from "./api.ts";
 
@@ -63,6 +64,7 @@ const LABEL = {
 
 /** Used by employee self-service and HR's employee leave tab; all access is checked again by core. */
 export function Encashments({ employeeId }: { employeeId?: string }) {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const isHr = me.roles.includes("owner") || me.roles.includes("hr_admin");
   const own = !employeeId || employeeId === me.employeeId;
@@ -99,16 +101,17 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
     onSuccess: () => {
       invalidate();
       setOpen(false);
-      toast.success("Encashment sent for approval. You can follow its status here.");
+      toast.success(tWorkflow("Encashment sent for approval. You can follow its status here."));
     },
   });
   const withdraw = useMutation({
     mutationFn: (id: string) => apiPost(`/api/v1/leave/encashments/${id}/withdraw`, {}),
     onSuccess: () => {
       invalidate();
-      toast.success("Encashment withdrawn. The leave is available again.");
+      toast.success(tWorkflow("Encashment withdrawn. The leave is available again."));
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Couldn't withdraw. Refresh and try again."),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : tWorkflow("Couldn't withdraw. Refresh and try again.")),
   });
   function start(c: Candidate | null = null) {
     setWorkdays("");
@@ -121,7 +124,7 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
   if (!allowed)
     return (
       <p className="text-ui text-primary-300">
-        Leave encashment details are available to the employee, HR and payroll.
+        {tWorkflow("Leave encashment details are available to the employee, HR and payroll.")}
       </p>
     );
   if (q.isError || types.isError || balances.isError)
@@ -145,26 +148,28 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
     <>
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-3">
-          <CardTitle>Leave encashment</CardTitle>
+          <CardTitle>{tWorkflow("Leave encashment")}</CardTitle>
           {eligible.length && can(me, "leave:create") ? (
             <Button size="sm" onClick={() => start()}>
-              Encash leave
+              {tWorkflow("Encash leave")}
             </Button>
           ) : null}
         </CardHeader>
         <p className="border-t border-border px-4 py-3 text-ui text-primary-300">
-          Approved requests are paid through regular payroll or final pay. Pending requests reserve leave until decided.
+          {tWorkflow(
+            "Approved requests are paid through regular payroll or final pay. Pending requests reserve leave until decided.",
+          )}
         </p>
         {q.data.items.length ? (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Leave</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Payout</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{tWorkflow("Leave")}</TableHead>
+                <TableHead className="text-right">{tWorkflow("Quantity")}</TableHead>
+                <TableHead className="text-right">{tWorkflow("Payout")}</TableHead>
+                <TableHead>{tWorkflow("Status")}</TableHead>
                 <TableHead>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{tWorkflow("Actions")}</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -172,10 +177,10 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
               {q.data.items.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>
-                    <span>{types.data.items.find((t) => t.id === r.leaveTypeId)?.name ?? "Leave"}</span>
+                    <span>{types.data.items.find((t) => t.id === r.leaveTypeId)?.name ?? tWorkflow("Leave")}</span>
                     <div className="num text-2xs text-primary-300">{r.leaveYear}</div>
                     <details className="mt-1 max-w-64 text-2xs text-primary-300">
-                      <summary className="focus-ring cursor-pointer">Rate working</summary>
+                      <summary className="focus-ring cursor-pointer">{tWorkflow("Rate working")}</summary>
                       {r.rateText}
                     </details>
                   </TableCell>
@@ -193,7 +198,7 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
                             : "neutral"
                       }
                     >
-                      {LABEL[r.status]}
+                      {tWorkflow(LABEL[r.status])}
                     </StatusPill>
                   </TableCell>
                   <TableCell>
@@ -204,7 +209,7 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
                         disabled={withdraw.isPending}
                         onClick={() => withdraw.mutate(r.id)}
                       >
-                        Withdraw
+                        {tWorkflow("Withdraw")}
                       </Button>
                     ) : null}
                   </TableCell>
@@ -214,15 +219,15 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
           </Table>
         ) : (
           <p className="border-t border-border px-4 py-6 text-ui text-primary-300">
-            No encashment requests yet.
+            {tWorkflow("No encashment requests yet.")}
             {!eligible.length
-              ? " HR can review whether your leave policy allows encashment."
-              : " Choose Encash leave to submit a request."}
+              ? ` ${tWorkflow("HR can review whether your leave policy allows encashment.")}`
+              : ` ${tWorkflow("Choose Encash leave to submit a request.")}`}
           </p>
         )}
         {isHr && q.data.candidates.length ? (
           <div className="border-t border-border p-4">
-            <h3 className="mb-2 font-azeret text-xs">Year-end leave awaiting a payout request</h3>
+            <h3 className="mb-2 font-azeret text-xs">{tWorkflow("Year-end leave awaiting a payout request")}</h3>
             {q.data.candidates.map((c) => (
               <div key={c.ledgerEntryId} className="flex items-center justify-between gap-2 py-2 text-ui">
                 <span>
@@ -232,7 +237,7 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
                   </span>
                 </span>
                 <Button size="sm" onClick={() => start(c)}>
-                  Request payout
+                  {tWorkflow("Request payout")}
                 </Button>
               </div>
             ))}
@@ -242,10 +247,11 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Encash leave</DialogTitle>
+            <DialogTitle>{tWorkflow("Encash leave")}</DialogTitle>
             <DialogDescription>
-              Request a payout at the gross rate, including eligible fixed allowances. HR or payroll must approve it
-              before payroll includes it. CPF applies as Additional Wages, including final pay.
+              {tWorkflow(
+                "Request a payout at the gross rate, including eligible fixed allowances. HR or payroll must approve it before payroll includes it. CPF applies as Additional Wages, including final pay.",
+              )}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -255,10 +261,10 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
             }}
             className="flex flex-col gap-4"
           >
-            <FormField label="Leave type">
+            <FormField label={tWorkflow("Leave type")}>
               <Select value={typeId} onValueChange={setTypeId} disabled={!!candidate}>
-                <SelectTrigger aria-label="Leave type">
-                  <SelectValue placeholder="Choose leave" />
+                <SelectTrigger aria-label={tWorkflow("Leave type")}>
+                  <SelectValue placeholder={tWorkflow("Choose leave")} />
                 </SelectTrigger>
                 <SelectContent>
                   {(candidate ? types.data.items.filter((t) => t.id === candidate.leaveTypeId) : eligible).map((t) => (
@@ -270,11 +276,14 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
               </Select>
             </FormField>
             <FormField
-              label={`Quantity (${candidate?.unit ?? balance?.unit ?? "days"})`}
+              label={tWorkflow("Quantity ({arg1})", { arg1: candidate?.unit ?? balance?.unit ?? "days" })}
               hint={
                 candidate
-                  ? "Already deducted at year end; approval won't deduct it again."
-                  : `${balance?.available ?? 0} ${balance?.unit ?? "days"} available. Uses basic salary plus included fixed allowances and the effective work schedule; rounded once to cents.`
+                  ? tWorkflow("Already deducted at year end; approval won't deduct it again.")
+                  : tWorkflow(
+                      "{arg1} {arg2} available. Uses basic salary plus included fixed allowances and the effective work schedule; rounded once to cents.",
+                      { arg1: balance?.available ?? 0, arg2: balance?.unit ?? "days" },
+                    )
               }
             >
               <Input
@@ -290,8 +299,10 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
               />
             </FormField>
             <FormField
-              label="Average workdays per week (shift staff)"
-              hint="Leave blank for a fixed week. For shift staff, enter the contractual average for the approver to verify."
+              label={tWorkflow("Average workdays per week (shift staff)")}
+              hint={tWorkflow(
+                "Leave blank for a fixed week. For shift staff, enter the contractual average for the approver to verify.",
+              )}
             >
               <Input
                 className="num"
@@ -310,7 +321,7 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
                   <>
                     {" "}
                     <Link to="/payroll/allowances" className="focus-ring rounded-sm text-biru-400 underline">
-                      Open Allowance treatment
+                      {tWorkflow("Open Allowance treatment")}
                     </Link>
                   </>
                 ) : null}
@@ -318,10 +329,10 @@ export function Encashments({ employeeId }: { employeeId?: string }) {
             ) : null}
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-                Cancel
+                {tWorkflow("Cancel")}
               </Button>
               <Button type="submit" variant="primary" disabled={submit.isPending || !typeId}>
-                {submit.isPending ? "Submitting…" : "Send for approval"}
+                {submit.isPending ? tWorkflow("Submitting…") : tWorkflow("Send for approval")}
               </Button>
             </DialogFooter>
           </form>

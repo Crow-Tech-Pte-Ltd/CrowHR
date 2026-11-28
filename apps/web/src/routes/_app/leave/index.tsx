@@ -22,6 +22,7 @@ import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useLocale, useT } from "../../../i18n/index.ts";
 import { type Balance, balancesQuery, childrenQuery, type LeaveRequest, requestsQuery } from "../../../leave/api.ts";
 import { ApplySheet } from "../../../leave/apply-sheet.tsx";
 import { ChildRecords } from "../../../leave/child-records.tsx";
@@ -44,6 +45,7 @@ export const Route = createFileRoute("/_app/leave/")({
 });
 
 function MyLeavePage() {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/leave/" });
@@ -54,12 +56,12 @@ function MyLeavePage() {
   return (
     <>
       <PageHeader
-        title="Leave"
-        description="Your balances and requests. Approved leave goes to payroll automatically."
+        title={tWorkflow("Leave")}
+        description={tWorkflow("Your balances and requests. Approved leave goes to payroll automatically.")}
         actions={
           can(me, "leave:create") ? (
             <Button variant="primary" onClick={() => setApply(true)} data-testid="apply-leave">
-              <CalendarPlus /> Apply for leave
+              <CalendarPlus /> {tWorkflow("Apply for leave")}
             </Button>
           ) : null
         }
@@ -76,11 +78,13 @@ function MyLeavePage() {
         </div>
       ) : (
         <EmptyState
-          title="Your sign-in isn't linked to an employee record."
+          title={tWorkflow("Your sign-in isn't linked to an employee record.")}
           description={
             onBehalf
-              ? "You can still apply for leave on behalf of employees, and see everyone's leave on the calendar."
-              : "Ask HR to link your sign-in to your employee record to apply for leave."
+              ? tWorkflow(
+                  "You can still apply for leave on behalf of employees, and see everyone's leave on the calendar.",
+                )
+              : tWorkflow("Ask HR to link your sign-in to your employee record to apply for leave.")
           }
         />
       )}
@@ -98,6 +102,7 @@ function MyLeavePage() {
 const FAMILY = new Set(["maternity", "paternity", "shared_parental", "adoption"]);
 
 function Balances() {
+  const tWorkflow = useT("workflows");
   const q = useQuery(balancesQuery());
   const kids = useQuery(childrenQuery());
   const [more, setMore] = React.useState(false);
@@ -114,7 +119,8 @@ function Balances() {
     <Card aria-labelledby="balances-title" data-testid="leave-balances">
       <CardHeader>
         <CardTitle id="balances-title">
-          Balances{year ? <span className="num ml-2 font-normal text-primary-200">{year}</span> : null}
+          {tWorkflow("Balances")}
+          {year ? <span className="num ml-2 font-normal text-primary-200">{year}</span> : null}
         </CardTitle>
       </CardHeader>
       {q.isError ? (
@@ -130,7 +136,9 @@ function Balances() {
           <BalanceTable rows={more ? [...primary, ...secondary] : primary} childName={childName} />
           <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-ui sm:flex-row sm:items-center sm:justify-between">
             <p className="text-primary-300">
-              {unlimited.length ? `No fixed allowance: ${unlimited.map((u) => u.name).join(", ")}.` : null}
+              {unlimited.length
+                ? tWorkflow("No fixed allowance: {arg1}.", { arg1: unlimited.map((u) => u.name).join(", ") })
+                : null}
             </p>
             {secondary.length ? (
               <button
@@ -139,7 +147,7 @@ function Balances() {
                 aria-expanded={more}
                 onClick={() => setMore((m) => !m)}
               >
-                {more ? "Fewer types" : `${secondary.length} more types`}
+                {more ? tWorkflow("Fewer types") : tWorkflow("{arg1} more types", { arg1: secondary.length })}
                 <ChevronDown className={cn("size-3.5 transition-transform", more && "rotate-180")} aria-hidden />
               </button>
             ) : null}
@@ -151,20 +159,23 @@ function Balances() {
 }
 
 function BalanceTable({ rows, childName }: { rows: Balance[]; childName: (id: string | null) => string | undefined }) {
+  const tWorkflow = useT("workflows");
   const [open, setOpen] = React.useState<string | null>(null);
   if (!rows.length) {
-    return <p className="border-t border-border p-4 text-ui text-primary-300">No leave types are set up.</p>;
+    return (
+      <p className="border-t border-border p-4 text-ui text-primary-300">{tWorkflow("No leave types are set up.")}</p>
+    );
   }
   return (
-    <Table aria-label="Leave balances">
+    <Table aria-label={tWorkflow("Leave balances")}>
       <TableHeader>
         <TableRow>
-          <TableHead>Type</TableHead>
-          <TableHead className="text-right">Available</TableHead>
-          <TableHead className="hidden text-right sm:table-cell">Entitled</TableHead>
-          <TableHead className="hidden text-right md:table-cell">Carried</TableHead>
-          <TableHead className="hidden text-right sm:table-cell">Taken</TableHead>
-          <TableHead className="hidden text-right sm:table-cell">Pending</TableHead>
+          <TableHead>{tWorkflow("Type")}</TableHead>
+          <TableHead className="text-right">{tWorkflow("Available")}</TableHead>
+          <TableHead className="hidden text-right sm:table-cell">{tWorkflow("Entitled")}</TableHead>
+          <TableHead className="hidden text-right md:table-cell">{tWorkflow("Carried")}</TableHead>
+          <TableHead className="hidden text-right sm:table-cell">{tWorkflow("Taken")}</TableHead>
+          <TableHead className="hidden text-right sm:table-cell">{tWorkflow("Pending")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -184,16 +195,18 @@ function BalanceTable({ rows, childName }: { rows: Balance[]; childName: (id: st
                     <span className="font-medium">
                       {b.name}
                       {b.childId ? (
-                        <span className="text-primary-300"> · {childName(b.childId) ?? "Child"}</span>
+                        <span className="text-primary-300"> · {childName(b.childId) ?? tWorkflow("Child")}</span>
                       ) : null}
                     </span>
                     {!b.eligible ? (
                       <span className="text-2xs text-primary-200">
-                        {b.eligibleFrom ? `From ${dateLabel(b.eligibleFrom)}` : "Not eligible"}
+                        {b.eligibleFrom
+                          ? tWorkflow("From {arg1}", { arg1: dateLabel(b.eligibleFrom) })
+                          : tWorkflow("Not eligible")}
                       </span>
                     ) : b.carryExpiresOn && b.carriedForward > 0 ? (
                       <span className="text-2xs text-primary-200">
-                        Carried days expire {dateLabel(b.carryExpiresOn)}
+                        {tWorkflow("Carried days expire")} {dateLabel(b.carryExpiresOn)}
                       </span>
                     ) : null}
                   </button>
@@ -223,14 +236,17 @@ function BalanceTable({ rows, childName }: { rows: Balance[]; childName: (id: st
               {expanded ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={6} className="bg-surface-100 py-3">
-                    <p className={cn("mb-1", textStyle.group)}>How this is worked out</p>
+                    <p className={cn("mb-1", textStyle.group)}>{tWorkflow("How this is worked out")}</p>
                     <ul className="flex list-disc flex-col gap-0.5 pl-4 text-ui text-primary-300">
                       {b.explanation.map((e) => (
                         <li key={e}>{e}</li>
                       ))}
                       {b.taken || b.pending ? (
                         <li>
-                          {qty(b.taken, b.unit)} taken, {qty(b.pending, b.unit)} waiting for approval.
+                          {tWorkflow("{taken} taken, {pending} waiting for approval.", {
+                            taken: qty(b.taken, b.unit, tWorkflow),
+                            pending: qty(b.pending, b.unit, tWorkflow),
+                          })}
                         </li>
                       ) : null}
                     </ul>
@@ -250,13 +266,14 @@ function dateLabel(iso: string) {
 }
 
 function MyRequests({ onOpen }: { onOpen: (id: string) => void }) {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const q = useQuery(requestsQuery({ employeeId: me.employeeId ?? undefined }));
   const items = q.data?.items ?? [];
   return (
     <Card aria-labelledby="mine-title" data-testid="my-leave-requests">
       <CardHeader>
-        <CardTitle id="mine-title">My requests</CardTitle>
+        <CardTitle id="mine-title">{tWorkflow("My requests")}</CardTitle>
       </CardHeader>
       {q.isError ? (
         <ErrorNote error={q.error} retry={() => void q.refetch()} />
@@ -268,8 +285,10 @@ function MyRequests({ onOpen }: { onOpen: (id: string) => void }) {
         <div className="border-t border-border">
           <EmptyState
             variant="plain"
-            title="You haven't applied for leave yet."
-            description="Requests you send appear here with their status. Approved ones are on the team calendar."
+            title={tWorkflow("You haven't applied for leave yet.")}
+            description={tWorkflow(
+              "Requests you send appear here with their status. Approved ones are on the team calendar.",
+            )}
           />
         </div>
       ) : (
@@ -284,6 +303,8 @@ function MyRequests({ onOpen }: { onOpen: (id: string) => void }) {
 }
 
 function RequestRow({ r, onOpen }: { r: LeaveRequest; onOpen: (id: string) => void }) {
+  const tWorkflow = useT("workflows");
+  const locale = useLocale();
   return (
     <li>
       <button
@@ -293,15 +314,15 @@ function RequestRow({ r, onOpen }: { r: LeaveRequest; onOpen: (id: string) => vo
         className="focus-ring flex w-full flex-col gap-1 px-4 py-2.5 text-left hover:bg-surface-100 sm:flex-row sm:items-center sm:gap-4"
       >
         <span className="num min-w-0 flex-1 truncate text-ui">
-          {dateRange(r.startDate, r.endDate, r.startSession, r.endSession)}
+          {dateRange(r.startDate, r.endDate, r.startSession, r.endSession, locale)}
         </span>
         <span className="flex items-center justify-between gap-3 sm:contents">
           <span className="min-w-0 truncate text-ui sm:w-44">{r.type.name}</span>
           <span className="num whitespace-nowrap text-ui text-primary-300 sm:w-20 sm:text-right">
-            {qty(r.quantity, r.unit)}
+            {qty(r.quantity, r.unit, tWorkflow)}
           </span>
           <span className="sm:w-28 sm:text-right">
-            <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+            <StatusPill tone={STATUS_TONE[r.status]}>{tWorkflow(STATUS_LABEL[r.status])}</StatusPill>
           </span>
         </span>
       </button>

@@ -23,6 +23,7 @@ import * as React from "react";
 import { useReauth } from "../auth/reauth.tsx";
 import { PROVIDER_LABEL, type Provider, type ProviderKind } from "../auth/types.ts";
 import { CopyField } from "../components/copy-field.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiPatch, apiPost } from "../lib/api.ts";
 
 /** Where to find each value at the identity provider. Shown next to the form. */
@@ -82,6 +83,7 @@ export function ProviderDialog({
   onOpenChange: (o: boolean) => void;
   onSaved: (p: Provider) => void;
 }) {
+  const t = useT("settings-account");
   const withReauth = useReauth();
   const k = existing?.kind ?? kind;
   const [form, setForm] = React.useState({
@@ -172,25 +174,29 @@ export function ProviderDialog({
     <Dialog open={!!k} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{existing ? `Edit ${existing.displayName}` : `Connect ${PROVIDER_LABEL[k]}`}</DialogTitle>
-          <DialogDescription>Saved disabled. Turn it on after a successful test sign-in.</DialogDescription>
+          <DialogTitle>
+            {existing
+              ? t("Edit {displayName}", { displayName: existing.displayName })
+              : t("Connect {value}", { value: PROVIDER_LABEL[k] })}
+          </DialogTitle>
+          <DialogDescription>{t("Saved disabled. Turn it on after a successful test sign-in.")}</DialogDescription>
         </DialogHeader>
         {saved ? (
           <div className="flex flex-col gap-4" data-testid="provider-saved">
             <Alert variant="success">
               <Info aria-hidden />
               <div>
-                <AlertTitle>Saved. Now register Crow HR at the provider</AlertTitle>
+                <AlertTitle>{t("Saved. Now register Crow HR at the provider")}</AlertTitle>
                 <AlertDescription>
-                  Copy these values into your identity provider, then use "Test sign-in" on the Security page.
+                  {t('Copy these values into your identity provider, then use "Test sign-in" on the Security page.')}
                 </AlertDescription>
               </div>
             </Alert>
-            <FormField label="Redirect URI (callback)">
-              <CopyField value={saved.callbackUrl} label="redirect URI" />
+            <FormField label={t("Redirect URI (callback)")}>
+              <CopyField value={saved.callbackUrl} label={t("redirect URI")} />
             </FormField>
             {saved.jwksUrl ? (
-              <FormField label="JWKS URL (public keys for Singpass)">
+              <FormField label={t("JWKS URL (public keys for Singpass)")}>
                 <CopyField value={saved.jwksUrl} label="JWKS URL" />
               </FormField>
             ) : null}
@@ -205,14 +211,14 @@ export function ProviderDialog({
               ) : null}
               {k === "oidc" ? (
                 <>
-                  <FormField label="Button label" hint='Shown as "Sign in with …", e.g. Okta.'>
+                  <FormField label={t("Button label")} hint={t('Shown as "Sign in with …", e.g. Okta.')}>
                     <Input
                       value={form.displayName}
                       onChange={(e) => set({ displayName: e.target.value })}
                       placeholder="Okta"
                     />
                   </FormField>
-                  <FormField label="Issuer URL" error={errors.issuer}>
+                  <FormField label={t("Issuer URL")} error={errors.issuer}>
                     <Input
                       value={form.issuer}
                       onChange={(e) => set({ issuer: e.target.value })}
@@ -223,9 +229,9 @@ export function ProviderDialog({
               ) : null}
               {k === "entra" ? (
                 <FormField
-                  label="Tenant (directory) ID"
+                  label={t("Tenant (directory) ID")}
                   error={errors.tenantId}
-                  hint="A GUID. Multi-tenant values like common or organizations are not allowed."
+                  hint={t("A GUID. Multi-tenant values like common or organizations are not allowed.")}
                 >
                   <Input value={form.tenantId} onChange={(e) => set({ tenantId: e.target.value })} className="num" />
                 </FormField>
@@ -233,7 +239,7 @@ export function ProviderDialog({
               {k === "singpass" ? (
                 <>
                   <fieldset className="flex flex-col gap-2">
-                    <legend className="mb-1 text-ui font-medium">Environment</legend>
+                    <legend className="mb-1 text-ui font-medium">{t("Environment")}</legend>
                     <RadioGroup
                       value={form.environment}
                       onValueChange={(v) => set({ environment: v })}
@@ -243,26 +249,26 @@ export function ProviderDialog({
                         <div key={env} className="flex items-center gap-2">
                           <RadioGroupItem id={`env-${env}`} value={env} />
                           <Label htmlFor={`env-${env}`} className="font-sans font-normal">
-                            {env === "staging" ? "Staging" : "Production"}
+                            {env === "staging" ? t("Staging") : t("Production")}
                           </Label>
                         </div>
                       ))}
                     </RadioGroup>
                   </fieldset>
                   <FormField
-                    label="Issuer override (optional)"
-                    hint="Leave empty to use the Singpass default for the environment."
+                    label={t("Issuer override (optional)")}
+                    hint={t("Leave empty to use the Singpass default for the environment.")}
                   >
                     <Input value={form.issuer} onChange={(e) => set({ issuer: e.target.value })} />
                   </FormField>
                 </>
               ) : null}
               <FormField
-                label={k === "singpass" ? "Client ID (optional until Singpass issues it)" : "Client ID"}
+                label={k === "singpass" ? t("Client ID (optional until Singpass issues it)") : t("Client ID")}
                 error={errors.clientId}
                 hint={
                   k === "singpass"
-                    ? "Singpass issues it after you register the redirect URI and JWKS URL shown when you save."
+                    ? t("Singpass issues it after you register the redirect URI and JWKS URL shown when you save.")
                     : undefined
                 }
               >
@@ -275,12 +281,12 @@ export function ProviderDialog({
               </FormField>
               {k !== "singpass" ? (
                 <FormField
-                  label="Client secret"
+                  label={t("Client secret")}
                   error={errors.clientSecret}
                   hint={
                     existing?.clientSecretSet
-                      ? "A secret is saved. Leave empty to keep it."
-                      : "Stored encrypted; never shown again."
+                      ? t("A secret is saved. Leave empty to keep it.")
+                      : t("Stored encrypted; never shown again.")
                   }
                 >
                   <Input
@@ -294,12 +300,12 @@ export function ProviderDialog({
               {k !== "singpass" ? (
                 <>
                   <FormField
-                    label={k === "google" ? "Allowed Workspace domains" : "Allowed email domains"}
+                    label={k === "google" ? t("Allowed Workspace domains") : t("Allowed email domains")}
                     error={errors.allowedDomains}
                     hint={
                       k === "google"
-                        ? "Only accounts from these domains can sign in (checked against Google's hd claim)."
-                        : "Used to limit automatic account creation."
+                        ? t("Only accounts from these domains can sign in (checked against Google's hd claim).")
+                        : t("Used to limit automatic account creation.")
                     }
                   >
                     <Input
@@ -311,10 +317,11 @@ export function ProviderDialog({
                   <div className="flex items-start gap-3">
                     <Switch id="jit" checked={form.jit} onCheckedChange={(c) => set({ jit: c })} />
                     <Label htmlFor="jit" className="flex flex-col gap-0.5 font-sans font-normal">
-                      <span className="font-medium">Create accounts on first sign-in</span>
+                      <span className="font-medium">{t("Create accounts on first sign-in")}</span>
                       <span className="text-2xs text-primary-300">
-                        Off by default. When on, anyone with a verified email in the allowed domains gets a member
-                        account with no role.
+                        {t(
+                          "Off by default. When on, anyone with a verified email in the allowed domains gets a member account with no role.",
+                        )}
                       </span>
                     </Label>
                   </div>
@@ -322,7 +329,7 @@ export function ProviderDialog({
               ) : null}
             </form>
             <aside className="rounded-md bg-surface-100 p-3 text-2xs leading-5 text-primary-300">
-              <p className={cn("mb-2", textStyle.group)}>Where to find these</p>
+              <p className={cn("mb-2", textStyle.group)}>{t("Where to find these")}</p>
               <ol className="list-decimal space-y-1.5 pl-4">
                 {guide.steps.map((s) => (
                   <li key={s}>{s}</li>
@@ -343,11 +350,11 @@ export function ProviderDialog({
         )}
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            {saved ? "Done" : "Cancel"}
+            {saved ? t("Done") : t("Cancel")}
           </Button>
           {saved ? null : (
             <Button variant="primary" type="submit" form="provider-form" disabled={busy}>
-              {busy ? "Checking the provider…" : "Save"}
+              {busy ? t("Checking the provider…") : t("Save")}
             </Button>
           )}
         </DialogFooter>

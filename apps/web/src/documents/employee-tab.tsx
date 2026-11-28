@@ -4,11 +4,13 @@ import { FileSignature, Upload } from "lucide-react";
 import * as React from "react";
 import { can, useMe } from "../auth/session.ts";
 import { ErrorNote } from "../components/section.tsx";
+import { useT } from "../i18n/index.ts";
 import { type Doc, documentsQuery } from "./api.ts";
 import { DocumentSheet, DocumentsEmpty, DocumentsPager, DocumentTable, GenerateDialog, UploadDialog } from "./ui.tsx";
 
 /** The employee profile's Documents tab: their files by category, upload, generate a letter. */
 export function EmployeeDocuments({ employeeId, employeeName }: { employeeId: string; employeeName: string }) {
+  const t = useT("people-payroll");
   const me = useMe();
   const hr = can(me, "documents:update");
   const [page, setPage] = React.useState(1);
@@ -23,10 +25,10 @@ export function EmployeeDocuments({ employeeId, employeeName }: { employeeId: st
       {hr ? (
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={() => setUpload(true)}>
-            <Upload aria-hidden /> Upload
+            <Upload aria-hidden /> {t("Upload")}
           </Button>
           <Button size="sm" variant="primary" onClick={() => setGenerate(true)} data-testid="open-generate">
-            <FileSignature aria-hidden /> Generate letter
+            <FileSignature aria-hidden /> {t("Generate letter")}
           </Button>
         </div>
       ) : null}
@@ -43,7 +45,7 @@ export function EmployeeDocuments({ employeeId, employeeName }: { employeeId: st
             description={
               hr
                 ? `Upload ${employeeName}'s contract, pass copies and certificates, or generate a letter such as their KETs.`
-                : "Documents you may see for this person appear here."
+                : t("Documents you may see for this person appear here.")
             }
           />
         ) : (

@@ -25,11 +25,13 @@ import { Baby, Pencil } from "lucide-react";
 import * as React from "react";
 import { canForEmployee, useMe } from "../auth/session.ts";
 import { ErrorNote } from "../components/section.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiPost, apiPut } from "../lib/api.ts";
 import { type Child, childrenQuery, useLeaveInvalidate } from "./api.ts";
 import { CheckRow, RadioRow } from "./choice.tsx";
 
 export function ChildRecords({ employeeId }: { employeeId?: string }) {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const target = employeeId ?? me.employeeId;
   const canRead =
@@ -42,9 +44,9 @@ export function ChildRecords({ employeeId }: { employeeId?: string }) {
     <Card aria-labelledby={titleId} className="self-start" data-testid="leave-children">
       <CardHeader>
         <div>
-          <CardTitle id={titleId}>Children</CardTitle>
+          <CardTitle id={titleId}>{tWorkflow("Children")}</CardTitle>
           <p className="mt-1 text-ui text-primary-300">
-            For maternity, paternity, shared parental and childcare leave.
+            {tWorkflow("For maternity, paternity, shared parental and childcare leave.")}
           </p>
         </div>
         <ChildDialog employeeId={employeeId} />
@@ -57,7 +59,7 @@ export function ChildRecords({ employeeId }: { employeeId?: string }) {
         </div>
       ) : q.data.items.length === 0 ? (
         <p className="border-t border-border px-4 py-3 text-ui text-primary-300">
-          No children recorded. Add a child or an expected baby to calculate family leave.
+          {tWorkflow("No children recorded. Add a child or an expected baby to calculate family leave.")}
         </p>
       ) : (
         <ul className="divide-y divide-border border-t border-border">
@@ -71,6 +73,7 @@ export function ChildRecords({ employeeId }: { employeeId?: string }) {
 }
 
 function ChildRow({ child }: { child: Child }) {
+  const tWorkflow = useT("workflows");
   const date = child.adoptionIntentDate ?? child.birthDate ?? child.expectedDeliveryDate;
   const what = child.adoptionIntentDate ? "Adoption from" : child.birthDate ? "Born" : "Due";
   return (
@@ -78,8 +81,10 @@ function ChildRow({ child }: { child: Child }) {
       <div className="min-w-0">
         <span className="block break-words font-medium">{child.name}</span>
         <div className="text-2xs text-primary-200">
-          {what} <span className="num">{date ? formatDate(date) : "—"}</span> · Child {child.birthOrder}
-          <span className="block text-primary-300">{child.isCitizen ? "Singapore citizen" : "Not a citizen"}</span>
+          {what} <span className="num">{date ? formatDate(date) : "—"}</span> {tWorkflow("· Child")} {child.birthOrder}
+          <span className="block text-primary-300">
+            {child.isCitizen ? tWorkflow("Singapore citizen") : tWorkflow("Not a citizen")}
+          </span>
         </div>
       </div>
       <ChildDialog child={child} />
@@ -96,6 +101,7 @@ function childStatus(child?: Child): ChildStatus {
 }
 
 function ChildDialog({ child, employeeId }: { child?: Child; employeeId?: string }) {
+  const tWorkflow = useT("workflows");
   const invalidate = useLeaveInvalidate();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
@@ -136,7 +142,9 @@ function ChildDialog({ child, employeeId }: { child?: Child; employeeId?: string
     },
     onSuccess: () => {
       invalidate();
-      toast.success(child ? "Child details updated." : "Child added. Family leave balances are updated.");
+      toast.success(
+        child ? tWorkflow("Child details updated.") : tWorkflow("Child added. Family leave balances are updated."),
+      );
       setOpen(false);
     },
   });
@@ -153,19 +161,19 @@ function ChildDialog({ child, employeeId }: { child?: Child; employeeId?: string
     >
       <DialogTrigger asChild>
         {child ? (
-          <Button size="sm" variant="ghost" aria-label={`Edit ${child.name}`}>
-            <Pencil aria-hidden /> Edit
+          <Button size="sm" variant="ghost" aria-label={tWorkflow("Edit {arg1}", { arg1: child.name })}>
+            <Pencil aria-hidden /> {tWorkflow("Edit")}
           </Button>
         ) : (
           <Button size="sm">
-            <Baby aria-hidden /> Add child
+            <Baby aria-hidden /> {tWorkflow("Add child")}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{child ? "Edit child" : "Add a child"}</DialogTitle>
-          <DialogDescription>Used only to work out parental and childcare leave.</DialogDescription>
+          <DialogTitle>{child ? tWorkflow("Edit child") : tWorkflow("Add a child")}</DialogTitle>
+          <DialogDescription>{tWorkflow("Used only to work out parental and childcare leave.")}</DialogDescription>
         </DialogHeader>
         <form
           className="flex flex-col gap-4"
@@ -174,11 +182,16 @@ function ChildDialog({ child, employeeId }: { child?: Child; employeeId?: string
             if (valid && !save.isPending) save.mutate();
           }}
         >
-          <FormField label="Name" required error={errors.name} hint='Use "Baby" before the birth.'>
+          <FormField
+            label={tWorkflow("Name")}
+            required
+            error={errors.name}
+            hint={tWorkflow('Use "Baby" before the birth.')}
+          >
             <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
           </FormField>
           <fieldset className="flex flex-col gap-2">
-            <legend className={cn("mb-1", textStyle.group)}>This child</legend>
+            <legend className={cn("mb-1", textStyle.group)}>{tWorkflow("This child")}</legend>
             <RadioGroup
               value={how}
               onValueChange={(v) => {
@@ -196,17 +209,25 @@ function ChildDialog({ child, employeeId }: { child?: Child; employeeId?: string
               }}
               className="flex flex-col gap-2"
             >
-              <RadioRow value="born">Has been born</RadioRow>
-              <RadioRow value="expected">Is expected (not born yet)</RadioRow>
-              <RadioRow value="adopting">Is being adopted</RadioRow>
+              <RadioRow value="born">{tWorkflow("Has been born")}</RadioRow>
+              <RadioRow value="expected">{tWorkflow("Is expected (not born yet)")}</RadioRow>
+              <RadioRow value="adopting">{tWorkflow("Is being adopted")}</RadioRow>
             </RadioGroup>
           </fieldset>
           <div className="grid grid-cols-2 gap-3">
             <FormField
               label={
-                how === "born" ? "Date of birth" : how === "expected" ? "Expected delivery" : "Formal intent to adopt"
+                how === "born"
+                  ? tWorkflow("Date of birth")
+                  : how === "expected"
+                    ? tWorkflow("Expected delivery")
+                    : tWorkflow("Formal intent to adopt")
               }
-              hint={how === "adopting" ? "The date of the formal intent to adopt, as on the MSF records." : undefined}
+              hint={
+                how === "adopting"
+                  ? tWorkflow("The date of the formal intent to adopt, as on the MSF records.")
+                  : undefined
+              }
               required
               error={
                 how === "expected"
@@ -218,7 +239,12 @@ function ChildDialog({ child, employeeId }: { child?: Child; employeeId?: string
             >
               <DatePicker value={date} onChange={setDate} yearPicker />
             </FormField>
-            <FormField label="Child number" hint="1 for the first child." error={errors.birthOrder} required>
+            <FormField
+              label={tWorkflow("Child number")}
+              hint={tWorkflow("1 for the first child.")}
+              error={errors.birthOrder}
+              required
+            >
               <Input
                 type="number"
                 min={1}
@@ -231,8 +257,8 @@ function ChildDialog({ child, employeeId }: { child?: Child; employeeId?: string
           </div>
           {how === "adopting" ? (
             <FormField
-              label="Child's date of birth (optional)"
-              hint="Adoption leave is for a child below 12 months old at the formal intent to adopt."
+              label={tWorkflow("Child's date of birth (optional)")}
+              hint={tWorkflow("Adoption leave is for a child below 12 months old at the formal intent to adopt.")}
               error={errors.birthDate}
             >
               <DatePicker value={adoptedBirthDate} onChange={setAdoptedBirthDate} yearPicker />
@@ -241,20 +267,20 @@ function ChildDialog({ child, employeeId }: { child?: Child; employeeId?: string
           {how === "born" ? (
             <div className="flex flex-col gap-1">
               <CheckRow checked={stillborn} onChange={setStillborn}>
-                The baby was stillborn
+                {tWorkflow("The baby was stillborn")}
               </CheckRow>
               {stillborn ? (
                 <p className="pl-6 text-2xs text-primary-300">
-                  This record helps work out the parental leave that applies.
+                  {tWorkflow("This record helps work out the parental leave that applies.")}
                 </p>
               ) : null}
             </div>
           ) : null}
           <CheckRow checked={isCitizen} onChange={setCitizen}>
-            Singapore citizen (or will be within 12 months)
+            {tWorkflow("Singapore citizen (or will be within 12 months)")}
           </CheckRow>
           <CheckRow checked={married === true} onChange={setMarried}>
-            Father is married to the child's mother (needed for paternity leave)
+            {tWorkflow("Father is married to the child's mother (needed for paternity leave)")}
           </CheckRow>
           {save.error && !Object.keys(errors).length ? (
             <p className="text-ui text-danger-300" role="alert">
@@ -263,10 +289,10 @@ function ChildDialog({ child, employeeId }: { child?: Child; employeeId?: string
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={save.isPending}>
-              Cancel
+              {tWorkflow("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={!valid || save.isPending}>
-              {child ? "Save child" : "Add child"}
+              {child ? tWorkflow("Save child") : tWorkflow("Add child")}
             </Button>
           </DialogFooter>
         </form>

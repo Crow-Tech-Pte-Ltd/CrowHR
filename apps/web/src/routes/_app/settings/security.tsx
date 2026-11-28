@@ -34,6 +34,7 @@ import {
 } from "../../../auth/types.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote, Section } from "../../../components/section.tsx";
+import { useLocale, useT } from "../../../i18n/index.ts";
 import { ApiError, apiDelete, apiGet, apiPatch } from "../../../lib/api.ts";
 import { ProviderDialog } from "../../../settings/provider-setup.tsx";
 import { singpassNote } from "../../../settings/singpass-note.ts";
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/_app/settings/security")({
 const settingsKey = ["security", "settings"] as const;
 
 function SecurityPage() {
+  const t = useT("settings-account");
   const me = useMe();
   const search = Route.useSearch();
   const q = useQuery({
@@ -60,10 +62,12 @@ function SecurityPage() {
   if (!me.roles.includes("owner")) {
     return (
       <>
-        <PageHeader crumbs={[{ label: "Settings", to: "/settings" }]} title="Security" />
+        <PageHeader crumbs={[{ label: t("Settings"), to: "/settings" }]} title={t("Security")} />
         <EmptyState
-          title="Only owners can change security settings."
-          description="Sign-in methods, two-step verification policy and session timeouts are managed by your organisation's owners."
+          title={t("Only owners can change security settings.")}
+          description={t(
+            "Sign-in methods, two-step verification policy and session timeouts are managed by your organisation's owners.",
+          )}
         />
       </>
     );
@@ -71,9 +75,11 @@ function SecurityPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Security"
-        description="How people sign in, who must use two-step verification, and how long sessions last. Every change is recorded in the audit log."
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Security")}
+        description={t(
+          "How people sign in, who must use two-step verification, and how long sessions last. Every change is recorded in the audit log.",
+        )}
       />
       {search.test ? (
         <TestResult
@@ -84,7 +90,7 @@ function SecurityPage() {
         />
       ) : null}
       {q.isPending ? (
-        <div className="flex flex-col gap-3" role="status" aria-busy="true" aria-label="Loading security settings">
+        <div className="flex flex-col gap-3" role="status" aria-busy="true" aria-label={t("Loading security settings")}>
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-24 w-full" />
         </div>
@@ -96,11 +102,11 @@ function SecurityPage() {
             <Alert variant="warning" className="mb-6" data-testid="insecure-transport">
               <AlertTriangle aria-hidden />
               <div>
-                <AlertTitle>Not using HTTPS</AlertTitle>
+                <AlertTitle>{t("Not using HTTPS")}</AlertTitle>
                 <AlertDescription>
-                  PUBLIC_URL starts with http://, so session cookies aren't protected in transit. That's acceptable on a
-                  trusted office network only. Put Crow HR behind HTTPS (see the reverse-proxy guide) before using it
-                  over the internet.
+                  {t(
+                    "PUBLIC_URL starts with http://, so session cookies aren't protected in transit. That's acceptable on a trusted office network only. Put Crow HR behind HTTPS (see the reverse-proxy guide) before using it over the internet.",
+                  )}
                 </AlertDescription>
               </div>
             </Alert>
@@ -108,7 +114,7 @@ function SecurityPage() {
           {q.data.demoMode ? (
             <Alert variant="info" className="mb-6">
               <AlertDescription>
-                Not available in the demo. Self-hosted installs can enable single sign-on here.
+                {t("Not available in the demo. Self-hosted installs can enable single sign-on here.")}
               </AlertDescription>
             </Alert>
           ) : null}
@@ -132,14 +138,15 @@ function TestResult({
   providers: Provider[];
   providerId?: string;
 }) {
-  const name = providers.find((p) => p.id === providerId)?.displayName ?? "the provider";
+  const t = useT("settings-account");
+  const name = providers.find((p) => p.id === providerId)?.displayName ?? t("the provider");
   return ok ? (
     <Alert variant="success" className="mb-6" data-testid="test-result">
       <CheckCircle2 aria-hidden />
       <div>
-        <AlertTitle>Test sign-in with {name} worked</AlertTitle>
+        <AlertTitle>{t("Test sign-in with {name} worked", { name })}</AlertTitle>
         <AlertDescription>
-          You can now turn it on for everyone, and, once staff can sign in with it, turn off passwords.
+          {t("You can now turn it on for everyone, and, once staff can sign in with it, turn off passwords.")}
         </AlertDescription>
       </div>
     </Alert>
@@ -147,11 +154,12 @@ function TestResult({
     <Alert variant="danger" className="mb-6" data-testid="test-result">
       <AlertTriangle aria-hidden />
       <div>
-        <AlertTitle>Test sign-in with {name} failed</AlertTitle>
+        <AlertTitle>{t("Test sign-in with {name} failed", { name })}</AlertTitle>
         <AlertDescription>
-          Reason: <span className="font-azeret">{reason ?? "unknown"}</span>. Check the client ID and secret, that the
-          redirect URI is registered exactly, and for Google/Entra the allowed domain or tenant. Details are in the
-          audit log.
+          {t(
+            "Reason: {reason}. Check the client ID and secret, the registered redirect URI, and for Google or Entra, the allowed domain or tenant. Details are in the audit log.",
+            { reason: reason ?? t("Unknown") },
+          )}
         </AlertDescription>
       </div>
     </Alert>
@@ -165,6 +173,8 @@ function providerStatus(p: Provider): { tone: "neutral" | "success" | "warning" 
 }
 
 function SignInMethods({ settings }: { settings: SecuritySettings }) {
+  const locale = useLocale();
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const withReauth = useReauth();
   const [adding, setAdding] = React.useState<ProviderKind | null>(null);
@@ -178,7 +188,7 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
       refresh();
     } catch (err) {
       if (!(err instanceof ApiError && err.code === "reauth_required"))
-        toast.error(err instanceof Error ? err.message : "Couldn't save.");
+        toast.error(err instanceof Error ? err.message : t("Couldn't save."));
     }
   };
   const missingKinds = (["google", "entra", "singpass", "oidc"] as const).filter(
@@ -188,15 +198,15 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
   return (
     <Section
       id="methods"
-      title="Sign-in methods"
-      description="Only methods that are on and fully configured appear on the sign-in page."
+      title={t("Sign-in methods")}
+      description={t("Only methods that are on and fully configured appear on the sign-in page.")}
       actions={
         settings.demoMode ? null : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="secondary">
                 <Plus />
-                Add a method
+                {t("Add a method")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -215,19 +225,19 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
           <span className="flex items-start gap-3">
             <KeyRound className="mt-0.5 size-4" aria-hidden />
             <span>
-              <span className="block font-azeret text-xs font-semibold">Email and password</span>
+              <span className="block font-azeret text-xs font-semibold">{t("Email and password")}</span>
               <span className="block text-ui text-primary-300">
                 {settings.passwordEnabled
-                  ? "Everyone can sign in with a password (plus two-step verification where required)."
-                  : "Off for staff. Owners can still sign in with a password as a break-glass route."}
+                  ? t("Everyone can sign in with a password (plus two-step verification where required).")
+                  : t("Off for staff. Owners can still sign in with a password as a break-glass route.")}
                 {!settings.passwordEnabled || tested
                   ? null
-                  : " To turn it off, first turn on a single sign-on method and complete a test sign-in."}
+                  : t(" To turn it off, first turn on a single sign-on method and complete a test sign-in.")}
               </span>
             </span>
           </span>
           <Switch
-            aria-label="Email and password sign-in"
+            aria-label={t("Email and password sign-in")}
             checked={settings.passwordEnabled}
             disabled={settings.passwordEnabled && !tested}
             onCheckedChange={(c) =>
@@ -240,7 +250,9 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
         </li>
         {settings.providers.length === 0 ? (
           <li className="p-4 text-ui text-primary-300">
-            No single sign-on yet. Add Google Workspace, Microsoft Entra ID, Singpass or any OpenID Connect provider.
+            {t(
+              "No single sign-on yet. Add Google Workspace, Microsoft Entra ID, Singpass or any OpenID Connect provider.",
+            )}
           </li>
         ) : null}
         {settings.providers.map((p) => {
@@ -257,30 +269,38 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-azeret text-xs font-semibold">{p.displayName}</span>
                     <span className="text-2xs text-primary-200">{PROVIDER_LABEL[p.kind]}</span>
-                    <StatusPill tone={status.tone}>{status.label}</StatusPill>
+                    <StatusPill tone={status.tone}>{t(status.label)}</StatusPill>
                   </span>
                   <span className="block text-2xs text-primary-300">
                     {p.kind === "singpass" && !p.configured ? (
                       <>
-                        Waiting for the client ID from Singpass. In the Singpass Developer Portal, enter the redirect
-                        URI <span className="num break-all">{p.callbackUrl}</span> and the JWKS URL{" "}
-                        <span className="num break-all">{p.jwksUrl}</span>, then edit this method to add the client ID
-                        Singpass issues.{" "}
+                        <span className="break-words">
+                          {t(
+                            "Waiting for the Singpass client ID. Register the redirect URI {redirectUri} and JWKS URL {jwksUrl} in the Singpass Developer Portal, then add the issued client ID here.",
+                            { redirectUri: p.callbackUrl ?? "—", jwksUrl: p.jwksUrl ?? "—" },
+                          )}
+                        </span>{" "}
                         <a
                           className="text-biru-400 underline"
                           href="https://docs.developer.singpass.gov.sg/"
                           target="_blank"
                           rel="noreferrer"
                         >
-                          Setup guide
+                          {t("Setup guide")}
                         </a>
                       </>
                     ) : (
                       <>
-                        {p.allowedDomains.length ? `Domains: ${p.allowedDomains.join(", ")} · ` : ""}
-                        {p.kind === "entra" && p.tenantId ? `Tenant ${p.tenantId.slice(0, 8)}… · ` : ""}
-                        {p.lastTestOkAt ? `Last test ${formatDateTime(p.lastTestOkAt)}` : "Not tested yet"}
-                        {p.jitEnabled ? " · Creates accounts on first sign-in" : ""}
+                        {p.allowedDomains.length
+                          ? t("Domains: {value} · ", { value: p.allowedDomains.join(", ") })
+                          : ""}
+                        {p.kind === "entra" && p.tenantId
+                          ? t("Tenant {value}… · ", { value: p.tenantId.slice(0, 8) })
+                          : ""}
+                        {p.lastTestOkAt
+                          ? t("Last test {value}", { value: formatDateTime(p.lastTestOkAt, locale) })
+                          : t("Not tested yet")}
+                        {p.jitEnabled ? t(" · Creates accounts on first sign-in") : ""}
                       </>
                     )}
                   </span>
@@ -303,10 +323,10 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
                   disabled={!p.configured || settings.demoMode}
                   onClick={() => window.location.assign(`/api/v1/auth/oidc/${p.id}/start?purpose=test`)}
                 >
-                  Test sign-in
+                  {t("Test sign-in")}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>
-                  Edit
+                  {t("Edit")}
                 </Button>
                 <Button
                   size="sm"
@@ -315,10 +335,10 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
                     void run(() => apiDelete(`/api/v1/security/providers/${p.id}`), `${p.displayName} removed.`)
                   }
                 >
-                  Remove
+                  {t("Remove")}
                 </Button>
                 <Switch
-                  aria-label={`${p.displayName} sign-in`}
+                  aria-label={t("{displayName} sign-in", { displayName: p.displayName })}
                   checked={p.enabled}
                   disabled={!p.configured || settings.demoMode}
                   onCheckedChange={(c) =>
@@ -350,6 +370,7 @@ function SignInMethods({ settings }: { settings: SecuritySettings }) {
 }
 
 function MfaPolicy({ settings }: { settings: SecuritySettings }) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const withReauth = useReauth();
   const [roles, setRoles] = React.useState<AssignedRole[]>(settings.mfaRequiredRoles);
@@ -358,8 +379,10 @@ function MfaPolicy({ settings }: { settings: SecuritySettings }) {
   return (
     <Section
       id="mfa-policy"
-      title="Two-step verification policy"
-      description="Members holding these roles must use an authenticator app with password sign-in. They get 7 days from the role grant to set it up. Single sign-on is exempt: your identity provider handles it there."
+      title={t("Two-step verification policy")}
+      description={t(
+        "Members holding these roles must use an authenticator app with password sign-in. They get 7 days from the role grant to set it up. Single sign-on is exempt: your identity provider handles it there.",
+      )}
     >
       <div className="flex flex-col gap-3 p-4">
         {(["owner", "hr_admin", "payroll_admin"] as const).map((r) => (
@@ -370,13 +393,13 @@ function MfaPolicy({ settings }: { settings: SecuritySettings }) {
               onCheckedChange={(c) => setRoles(c ? [...roles, r] : roles.filter((x) => x !== r))}
             />
             <Label htmlFor={`mfa-${r}`} className="font-sans font-normal">
-              {ROLE_LABEL[r]}
+              {t(ROLE_LABEL[r] ?? r)}
             </Label>
           </div>
         ))}
         {!roles.includes("owner") ? (
           <p className="text-2xs text-warning-400">
-            Owners can change every setting. Requiring two-step verification for them is strongly recommended.
+            {t("Owners can change every setting. Requiring two-step verification for them is strongly recommended.")}
           </p>
         ) : null}
         <div>
@@ -387,17 +410,17 @@ function MfaPolicy({ settings }: { settings: SecuritySettings }) {
               setBusy(true);
               try {
                 await withReauth(() => apiPatch("/api/v1/security/settings", { mfaRequiredRoles: roles }));
-                toast.success("Two-step verification policy saved.");
+                toast.success(t("Two-step verification policy saved."));
                 void qc.invalidateQueries({ queryKey: settingsKey });
               } catch (err) {
                 if (!(err instanceof ApiError && err.code === "reauth_required"))
-                  toast.error(err instanceof Error ? err.message : "Couldn't save.");
+                  toast.error(err instanceof Error ? err.message : t("Couldn't save."));
               } finally {
                 setBusy(false);
               }
             }}
           >
-            Save policy
+            {t("Save policy")}
           </Button>
         </div>
       </div>
@@ -406,6 +429,7 @@ function MfaPolicy({ settings }: { settings: SecuritySettings }) {
 }
 
 function Timeouts({ settings }: { settings: SecuritySettings }) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const withReauth = useReauth();
   const [form, setForm] = React.useState({
@@ -438,23 +462,23 @@ function Timeouts({ settings }: { settings: SecuritySettings }) {
           deviceIdleDays: device,
         }),
       );
-      toast.success("Session timeouts saved. They apply to sessions from now on.");
+      toast.success(t("Session timeouts saved. They apply to sessions from now on."));
       void qc.invalidateQueries({ queryKey: settingsKey });
     } catch (err) {
       if (err instanceof ApiError && err.code === "validation_failed") setErrors(err.fieldErrors);
       else if (!(err instanceof ApiError && err.code === "reauth_required"))
-        toast.error(err instanceof Error ? err.message : "Couldn't save.");
+        toast.error(err instanceof Error ? err.message : t("Couldn't save."));
     } finally {
       setBusy(false);
     }
   };
   return (
-    <Section id="timeouts" title="Sessions" description="How long people stay signed in.">
+    <Section id="timeouts" title={t("Sessions")} description={t("How long people stay signed in.")}>
       <form onSubmit={save} noValidate className="grid gap-4 p-4 sm:grid-cols-3">
         <FormField
-          label="Sign out after inactivity (minutes)"
+          label={t("Sign out after inactivity (minutes)")}
           error={errors.idleTimeoutMin}
-          hint="15 to 240. Default 30."
+          hint={t("15 to 240. Default 30.")}
         >
           <Input
             className="num"
@@ -463,7 +487,11 @@ function Timeouts({ settings }: { settings: SecuritySettings }) {
             onChange={(e) => setForm({ ...form, idle: e.target.value })}
           />
         </FormField>
-        <FormField label="Always sign out after (hours)" error={errors.absoluteTimeoutH} hint="1 to 24. Default 12.">
+        <FormField
+          label={t("Always sign out after (hours)")}
+          error={errors.absoluteTimeoutH}
+          hint={t("1 to 24. Default 12.")}
+        >
           <Input
             className="num"
             inputMode="numeric"
@@ -472,9 +500,9 @@ function Timeouts({ settings }: { settings: SecuritySettings }) {
           />
         </FormField>
         <FormField
-          label="Mobile app: sign out after unused (days)"
+          label={t("Mobile app: sign out after unused (days)")}
           error={errors.deviceIdleDays}
-          hint="1 to 90. Default 30."
+          hint={t("1 to 90. Default 30.")}
         >
           <Input
             className="num"
@@ -485,7 +513,7 @@ function Timeouts({ settings }: { settings: SecuritySettings }) {
         </FormField>
         <div className="sm:col-span-3">
           <Button size="sm" type="submit" disabled={busy}>
-            Save timeouts
+            {t("Save timeouts")}
           </Button>
         </div>
       </form>

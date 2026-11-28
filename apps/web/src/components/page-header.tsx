@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import type * as React from "react";
+import { useT } from "../i18n/index.ts";
 
 export interface Crumb {
   label: string;
@@ -24,11 +25,12 @@ export function PageHeader({
   crumbs?: Crumb[];
   actions?: React.ReactNode;
 }) {
+  const t = useT("common");
   return (
     <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex min-w-0 flex-col gap-1.5">
         {crumbs?.length ? (
-          <nav aria-label="Breadcrumb">
+          <nav aria-label={t("Breadcrumb")}>
             <ol className="flex flex-wrap items-center gap-1 font-azeret text-2xs text-primary-200">
               {crumbs.map((c) => (
                 <li key={c.label} className="flex items-center gap-1">

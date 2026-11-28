@@ -6,6 +6,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { reasonFor } from "./auth/session.ts";
 import { RouteError, RouteNotFound, RoutePending } from "./components/route-states.tsx";
+import { localeReady } from "./i18n/index.ts";
+import { UiLocalisation } from "./i18n/ui-localisation.tsx";
 import { ApiError } from "./lib/api.ts";
 import { readMonitoringConfig, rootErrorOptions, startMonitoring } from "./monitoring.ts";
 import { routeTree } from "./routeTree.gen.ts";
@@ -52,12 +54,16 @@ declare module "@tanstack/react-router" {
 const monitoring = readMonitoringConfig();
 if (monitoring) await startMonitoring(monitoring, router);
 
+await localeReady;
+
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root element");
 createRoot(root, rootErrorOptions()).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <UiLocalisation>
+        <RouterProvider router={router} />
+      </UiLocalisation>
     </QueryClientProvider>
   </StrictMode>,
 );

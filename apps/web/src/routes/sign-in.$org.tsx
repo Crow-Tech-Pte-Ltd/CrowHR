@@ -8,6 +8,7 @@ import type { SignInMethods } from "../auth/types.ts";
 import { Brand } from "../branding/appearance.tsx";
 import { RoutePending } from "../components/route-states.tsx";
 import { DemoCompanyEndedPage } from "../demo-company/notices.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiGet } from "../lib/api.ts";
 import { noticeFor, SignInPage } from "../sign-in/sign-in-page.tsx";
 
@@ -47,34 +48,41 @@ export const Route = createFileRoute("/sign-in/$org")({
       <RoutePending />
     </div>
   ),
-  errorComponent: ({ error }) =>
-    error instanceof ApiError &&
-    (error.envelope?.error.details as { demoCompanyEnded?: boolean } | undefined)?.demoCompanyEnded ? (
-      <DemoCompanyEndedPage message={error.message} />
-    ) : (
-      <AuthLayout title="Can't show the sign-in page">
-        <Alert variant="danger">
-          <AlertTriangle aria-hidden />
-          <div>
-            <AlertTitle>
-              {error instanceof ApiError && error.status === 404 ? "Organisation not found" : "Something went wrong"}
-            </AlertTitle>
-            <AlertDescription>
-              {error instanceof ApiError && error.status === 404
-                ? `${error.message}`
-                : "The server didn't answer. Check your connection and try again."}
-            </AlertDescription>
-          </div>
-        </Alert>
-        <Button asChild variant="secondary" className="mt-4 self-start">
-          <Link to="/sign-in">Choose another organisation</Link>
-        </Button>
-      </AuthLayout>
-    ),
+  errorComponent: SignInError,
   component: SignInRoute,
 });
 
+function SignInError({ error }: { error: unknown }) {
+  const t = useT("settings-account");
+  return error instanceof ApiError &&
+    (error.envelope?.error.details as { demoCompanyEnded?: boolean } | undefined)?.demoCompanyEnded ? (
+    <DemoCompanyEndedPage message={error.message} />
+  ) : (
+    <AuthLayout title={t("Can't show the sign-in page")}>
+      <Alert variant="danger">
+        <AlertTriangle aria-hidden />
+        <div>
+          <AlertTitle>
+            {error instanceof ApiError && error.status === 404
+              ? t("Organisation not found")
+              : t("Something went wrong")}
+          </AlertTitle>
+          <AlertDescription>
+            {error instanceof ApiError && error.status === 404
+              ? `${error.message}`
+              : t("The server didn't answer. Check your connection and try again.")}
+          </AlertDescription>
+        </div>
+      </Alert>
+      <Button asChild variant="secondary" className="mt-4 self-start">
+        <Link to="/sign-in">{t("Choose another organisation")}</Link>
+      </Button>
+    </AuthLayout>
+  );
+}
+
 function SignInRoute() {
+  const t = useT("settings-account");
   const methods = Route.useLoaderData();
   const { org } = Route.useParams();
   const search = Route.useSearch();
@@ -87,7 +95,7 @@ function SignInRoute() {
         nativeRequestId={search.native}
         ssoMfaPending={search.mfa === "1"}
         demoSingpassOk={search.singpass === "ok"}
-        initialNotice={noticeFor(search, methods.organisation?.name ?? org)}
+        initialNotice={noticeFor(search, methods.organisation?.name ?? org, t)}
       />
     </Brand>
   );

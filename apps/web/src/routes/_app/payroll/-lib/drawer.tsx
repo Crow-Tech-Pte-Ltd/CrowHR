@@ -25,6 +25,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, ExternalLink, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
+import { useT } from "../../../../i18n/index.ts";
 import {
   addItem,
   deleteItem,
@@ -103,6 +104,7 @@ export function EmployeeDrawer({
   task: DrawerTask | null;
   onTask: (task: DrawerTask | null) => void;
 }) {
+  const translate = useT("people-payroll");
   const index = rows.findIndex((r) => r.employeeId === employeeId);
   const prev = index > 0 ? rows[index - 1] : undefined;
   const next = index >= 0 && index < rows.length - 1 ? rows[index + 1] : undefined;
@@ -125,7 +127,7 @@ export function EmployeeDrawer({
         <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-background px-4 py-3 pr-12">
           <div className="min-w-0">
             <SheetTitle className="truncate text-base font-semibold">
-              {row?.name ?? detail.data?.employeeName ?? "Employee"}
+              {row?.name ?? detail.data?.employeeName ?? translate("Employee")}
             </SheetTitle>
             <SheetDescription className="text-2xs text-primary-200">
               <span className="num">{row?.employeeNumber}</span> {row?.department ? `· ${row.department}` : ""}
@@ -137,7 +139,7 @@ export function EmployeeDrawer({
               size="icon-sm"
               disabled={!prev}
               onClick={() => prev && onNavigate(prev.employeeId)}
-              aria-label="Previous employee ([)"
+              aria-label={translate("Previous employee ([)")}
             >
               <ChevronLeft />
             </Button>
@@ -146,7 +148,7 @@ export function EmployeeDrawer({
               size="icon-sm"
               disabled={!next}
               onClick={() => next && onNavigate(next.employeeId)}
-              aria-label="Next employee (])"
+              aria-label={translate("Next employee (])")}
             >
               <ChevronRight />
             </Button>
@@ -154,7 +156,7 @@ export function EmployeeDrawer({
         </div>
         <div className="px-4 py-4">
           {detail.isPending ? (
-            <div className="flex flex-col gap-3" role="status" aria-label="Loading">
+            <div className="flex flex-col gap-3" role="status" aria-label={translate("Loading")}>
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-40 w-full" />
             </div>
@@ -238,6 +240,7 @@ function DrawerBody({
   onTask: (task: DrawerTask | null) => void;
   period: { start: string; end: string };
 }) {
+  const translate = useT("people-payroll");
   const r = d.result;
   const input = d.input as Record<string, unknown> | null;
   const fed = (input?.items as InputItem[] | undefined) ?? [];
@@ -255,7 +258,7 @@ function DrawerBody({
     <div>
       {r?.issues.length ? (
         <>
-          <H>Issues</H>
+          <H>{translate("Issues")}</H>
           <div className="rounded-md border border-border">
             <IssueList
               issues={r.issues.filter((i) => i.severity !== "info")}
@@ -269,7 +272,7 @@ function DrawerBody({
       ) : null}
       {r ? (
         <>
-          <H>Pay</H>
+          <H>{translate("Pay")}</H>
           <table className="w-full text-ui">
             <tbody>
               {r.lines.map((l) => (
@@ -280,11 +283,11 @@ function DrawerBody({
                   </td>
                   <td className="whitespace-nowrap py-1.5 pr-2 text-2xs text-primary-200">
                     {l.kind === "employer"
-                      ? "Employer"
+                      ? translate("Employer")
                       : l.wageClass
                         ? `${l.wageClass}${l.cpfLiable ? "" : " · no CPF"}`
                         : l.kind === "reimbursement"
-                          ? "Not wages"
+                          ? translate("Not wages")
                           : ""}
                   </td>
                   <td className={cn("num py-1.5 text-right", l.kind === "employer" && "text-primary-300")}>
@@ -295,14 +298,15 @@ function DrawerBody({
               ))}
               <tr className="border-t-2 border-ink">
                 <td className="py-2 font-medium" colSpan={2}>
-                  Net pay{d.run.kind === "adjustment" ? " (revised)" : ""}
+                  {translate("Net pay")}
+                  {d.run.kind === "adjustment" ? translate("(revised)") : ""}
                 </td>
                 <td className="num py-2 text-right font-semibold">{formatMoney(r.totals.netCents as number)}</td>
               </tr>
               {d.run.kind === "adjustment" ? (
                 <tr>
                   <td className="py-1 text-primary-300" colSpan={2}>
-                    To pay now (after what was already paid)
+                    {translate("To pay now (after what was already paid)")}
                   </td>
                   <td className="num py-1 text-right">{formatMoney(r.totals.netPayableCents as number)}</td>
                 </tr>
@@ -312,14 +316,14 @@ function DrawerBody({
           {d.payslipId ? (
             <Button asChild variant="link" size="sm" className="mt-2">
               <Link to="/payroll/runs/$runId/payslips/$payslipId" params={{ runId, payslipId: d.payslipId }}>
-                <FileText aria-hidden /> View payslip
+                <FileText aria-hidden /> {translate("View payslip")}
               </Link>
             </Button>
           ) : null}
 
           {r.cpf ? (
             <>
-              <H>CPF summary</H>
+              <H>{translate("CPF summary")}</H>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-ui sm:grid-cols-3">
                 <Fact k="Category" v={cpfCategoryLabel(r.cpf.residencyCategory)} />
                 <Fact k="Age band" v={r.cpf.ageBandLabel ?? "–"} />
@@ -342,7 +346,7 @@ function DrawerBody({
             </>
           ) : null}
 
-          <H>Working</H>
+          <H>{translate("Working")}</H>
           <div className="flex flex-col gap-3">
             {SECTION_ORDER.filter((s) => r.working.some((w) => w.section === s)).map((s) => (
               <div key={s} className="rounded-md border border-border">
@@ -367,13 +371,13 @@ function DrawerBody({
             ))}
           </div>
 
-          <H>Rules used</H>
+          <H>{translate("Rules used")}</H>
           <table className="w-full text-ui">
             <thead>
               <tr className={cn("border-b border-border text-left", textStyle.column)}>
-                <th className="py-1 pr-2 font-medium">Rule</th>
-                <th className="py-1 pr-2 font-medium">In force</th>
-                <th className="py-1 font-medium">Source</th>
+                <th className="py-1 pr-2 font-medium">{translate("Rule")}</th>
+                <th className="py-1 pr-2 font-medium">{translate("In force")}</th>
+                <th className="py-1 font-medium">{translate("Source")}</th>
               </tr>
             </thead>
             <tbody>
@@ -404,7 +408,9 @@ function DrawerBody({
             </tbody>
           </table>
           <details className="mt-2 text-2xs text-primary-300">
-            <summary className="focus-ring w-fit cursor-pointer rounded-sm">Rule IDs, for support</summary>
+            <summary className="focus-ring w-fit cursor-pointer rounded-sm">
+              {translate("Rule IDs, for support")}
+            </summary>
             <p className="mt-1 break-words font-azeret">
               {[
                 ...new Set([
@@ -416,10 +422,12 @@ function DrawerBody({
           </details>
         </>
       ) : (
-        <p className="text-ui text-primary-300">Not computed yet. Compute the run to see the pay and its working.</p>
+        <p className="text-ui text-primary-300">
+          {translate("Not computed yet. Compute the run to see the pay and its working.")}
+        </p>
       )}
 
-      <H>Inputs</H>
+      <H>{translate("Inputs")}</H>
       {emp && employment ? (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-ui sm:grid-cols-3">
           <Fact k="NRIC/FIN" v={emp.idMasked} mono />
@@ -450,7 +458,7 @@ function DrawerBody({
         </p>
       ) : null}
 
-      <H>Items in this run</H>
+      <H>{translate("Items in this run")}</H>
       <ItemList
         items={d.items}
         runId={runId}
@@ -469,7 +477,7 @@ function DrawerBody({
         />
       ) : editable ? (
         <Button size="sm" className="mt-2" onClick={() => onTask({ kind: "add", itemKind: "bonus" })}>
-          <Plus aria-hidden /> Add item
+          <Plus aria-hidden /> {translate("Add item")}
         </Button>
       ) : null}
     </div>
@@ -523,6 +531,7 @@ function ItemList({
   editable: boolean;
   onEdit: (itemId: string) => void;
 }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const del = useMutation({
     mutationFn: (id: string) => deleteItem(runId, id),
@@ -530,7 +539,7 @@ function ItemList({
     onError: (e) => toast.error(errorMessage(e)),
   });
   if (!items.length)
-    return <p className="text-ui text-primary-300">No items. Basic pay and allowances come from People.</p>;
+    return <p className="text-ui text-primary-300">{t("No items. Basic pay and allowances come from People.")}</p>;
   return (
     <ul className="divide-y divide-border rounded-md border border-border">
       {items.map((i) => (
@@ -587,6 +596,7 @@ function FedItems({
   editable: boolean;
   onTask: (t: DrawerTask) => void;
 }) {
+  const t = useT("people-payroll");
   const fed = items.filter(
     (i) =>
       i.id.includes(":") &&
@@ -595,7 +605,7 @@ function FedItems({
   if (!fed.length) return null;
   return (
     <>
-      <H>From other modules</H>
+      <H>{t("From other modules")}</H>
       <ul className="divide-y divide-border rounded-md border border-border">
         {fed.map((i) => {
           const source = FED_SOURCE.find(([p]) => i.id.startsWith(p))?.[1] ?? "";
@@ -628,7 +638,11 @@ function FedItems({
                     )
                   }
                 >
-                  {priced ? "Change amount" : i.amountCents === null ? "Enter amount" : "Use a contract amount"}
+                  {priced
+                    ? t("Change amount")
+                    : i.amountCents === null
+                      ? t("Enter amount")
+                      : t("Use a contract amount")}
                 </Button>
               ) : null}
             </li>
@@ -763,6 +777,7 @@ function ItemForm({
   /** The run's salary period: a date worked falls inside it. */
   period?: { start: string; end: string };
 }) {
+  const t = useT("people-payroll");
   const qc = useQueryClient();
   const [f, setF] = React.useState(initial);
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }));
@@ -796,7 +811,7 @@ function ItemForm({
     },
     onSuccess: async () => {
       await invalidateRun(qc, runId);
-      toast.success(f.editId ? "Item saved. Recompute to apply it." : "Item added. Recompute to apply it.");
+      toast.success(f.editId ? t("Item saved. Recompute to apply it.") : t("Item added. Recompute to apply it."));
       if (fixed) onClose();
       else setF((s) => ({ ...blank(s.kind), wageClass: s.wageClass, category: s.category }));
     },
@@ -829,7 +844,7 @@ function ItemForm({
       ) : null}
       {f.overtimeSourceId ? (
         <p className="text-2xs text-primary-300 sm:col-span-2">
-          {f.hours ? `${f.hours} h approved` : "Approved"}
+          {f.hours ? `${f.hours} h approved` : t("Approved")}
           {f.periodStart && f.periodEnd
             ? ` for ${formatDate(f.periodStart)}${f.periodEnd !== f.periodStart ? ` – ${formatDate(f.periodEnd)}` : ""}`
             : ""}
@@ -859,21 +874,21 @@ function ItemForm({
           </Select>
         </FormField>
       )}
-      <FormField label="Label on payslip" error={errors.label}>
+      <FormField label={t("Label on payslip")} error={errors.label}>
         <Input value={f.label} onChange={(e) => set("label", e.target.value)} placeholder={ITEM_KIND[f.kind]} />
       </FormField>
       {earning || f.kind === "deduction" || f.kind === "overtime" || f.kind === "cpf_aw_recovery" ? (
         <FormField
-          label={f.holidayDate ? "Day's gross pay" : "Amount"}
+          label={f.holidayDate ? t("Day's gross pay") : t("Amount")}
           error={errors.amountCents}
           required={!!(f.holidayDate || f.overtimeSourceId)}
           hint={
             f.overtimeSourceId
               ? undefined
               : f.kind === "overtime"
-                ? "Leave empty to use the statutory 1.5× rate."
+                ? t("Leave empty to use the statutory 1.5× rate.")
                 : f.kind === "cpf_aw_recovery"
-                  ? "Leave empty to recover all that CPF Act s 7(9) allows."
+                  ? t("Leave empty to recover all that CPF Act s 7(9) allows.")
                   : undefined
           }
         >
@@ -882,25 +897,25 @@ function ItemForm({
       ) : null}
       {earning && !f.holidayDate ? (
         <FormField
-          label="CPF class"
-          hint="AW: bonus, AWS, non-monthly commission. OW: earned for this month, payable by the 14th."
+          label={t("CPF class")}
+          hint={t("AW: bonus, AWS, non-monthly commission. OW: earned for this month, payable by the 14th.")}
         >
           <Select value={f.wageClass} onValueChange={(v) => set("wageClass", v as "OW" | "AW")}>
-            <SelectTrigger aria-label="CPF class">
+            <SelectTrigger aria-label={t("CPF class")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="OW">Ordinary wages (OW)</SelectItem>
-              <SelectItem value="AW">Additional wages (AW)</SelectItem>
+              <SelectItem value="OW">{t("Ordinary wages (OW)")}</SelectItem>
+              <SelectItem value="AW">{t("Additional wages (AW)")}</SelectItem>
             </SelectContent>
           </Select>
         </FormField>
       ) : null}
       {earning && f.wageClass === "AW" && !f.holidayDate ? (
         <FormField
-          label="AW payable on"
+          label={t("AW payable on")}
           error={errors.awPayableDate}
-          hint="The date it became due and payable (CPF keys the AW ceiling to it)."
+          hint={t("The date it became due and payable (CPF keys the AW ceiling to it).")}
           required
         >
           <DatePicker value={f.payable || null} onChange={(v) => set("payable", v ?? "")} />
@@ -908,10 +923,12 @@ function ItemForm({
       ) : null}
       {(f.kind === "overtime" && !f.overtimeSourceId) || f.kind === "hours" ? (
         <FormField
-          label="Hours"
+          label={t("Hours")}
           error={errors.minutes}
           hint={
-            f.kind === "hours" ? "Manual hours replace all timesheet hours for this employee in this run." : undefined
+            f.kind === "hours"
+              ? t("Manual hours replace all timesheet hours for this employee in this run.")
+              : undefined
           }
         >
           <Input
@@ -924,9 +941,11 @@ function ItemForm({
       ) : null}
       {f.kind === "hours" ? (
         <FormField
-          label="Date worked (optional)"
+          label={t("Date worked (optional)")}
           error={errors.date}
-          hint="When the hourly rate changes, add a separate item for hours at each rate, with a date when that rate applied."
+          hint={t(
+            "When the hourly rate changes, add a separate item for hours at each rate, with a date when that rate applied.",
+          )}
         >
           <DatePicker
             value={f.workedOn || null}
@@ -938,26 +957,30 @@ function ItemForm({
       ) : null}
       {f.kind === "scheduled_days" || f.kind === "days_worked" ? (
         <FormField
-          label="Days"
+          label={t("Days")}
           error={errors.days}
           hint={
             f.kind === "scheduled_days"
-              ? "Working days the roster required this month, including public holidays."
-              : "Days worked, including public holidays and paid leave, excluding no-pay leave."
+              ? t("Working days the roster required this month, including public holidays.")
+              : t("Days worked, including public holidays and paid leave, excluding no-pay leave.")
           }
         >
           <Input inputMode="decimal" value={f.days} onChange={(e) => set("days", e.target.value)} />
         </FormField>
       ) : null}
       {f.kind === "unpaid_leave" ? (
-        <FormField label="Days" error={errors.days} hint="Half days allowed, e.g. 1.5.">
+        <FormField label={t("Days")} error={errors.days} hint={t("Half days allowed, e.g. 1.5.")}>
           <Input inputMode="decimal" value={f.days} onChange={(e) => set("days", e.target.value)} />
         </FormField>
       ) : null}
       {f.kind === "deduction" ? (
-        <FormField label="Category" error={errors.deductionCategory} hint="Employment Act limits apply per category.">
+        <FormField
+          label={t("Category")}
+          error={errors.deductionCategory}
+          hint={t("Employment Act limits apply per category.")}
+        >
           <Select value={f.category} onValueChange={(v) => set("category", v)}>
-            <SelectTrigger aria-label="Category">
+            <SelectTrigger aria-label={t("Category")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -977,10 +1000,10 @@ function ItemForm({
       ) : null}
       <div className="flex gap-2 sm:col-span-2">
         <Button type="submit" size="sm" variant="primary" disabled={save.isPending}>
-          {f.editId ? "Save item" : "Add item"}
+          {f.editId ? t("Save item") : t("Add item")}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onClose}>
-          {fixed ? "Cancel" : "Done"}
+          {fixed ? t("Cancel") : t("Done")}
         </Button>
       </div>
     </form>

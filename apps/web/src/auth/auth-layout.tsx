@@ -1,5 +1,6 @@
 import type * as React from "react";
 import { Wordmark } from "../components/wordmark.tsx";
+import { LanguagePicker } from "../i18n/language-picker.tsx";
 
 /** Single-column layout for invitation, reset and organisation-chooser pages. */
 export function AuthLayout({
@@ -13,7 +14,10 @@ export function AuthLayout({
 }) {
   return (
     <main className="flex min-h-dvh flex-col px-5 py-6 sm:px-10">
-      <Wordmark />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Wordmark />
+        <LanguagePicker />
+      </div>
       <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center py-10">
         <h1 className="mb-1 text-2xl font-semibold leading-8">{title}</h1>
         {description ? <p className="mb-7 text-ui text-primary-300">{description}</p> : null}

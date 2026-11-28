@@ -8,6 +8,7 @@ import {
   cn,
   DatePicker,
   FormField,
+  formatDate,
   Input,
   Label,
   Select,
@@ -22,6 +23,7 @@ import {
 } from "@crowhr/ui";
 import { AlertTriangle } from "lucide-react";
 import type * as React from "react";
+import { type Translate, useT } from "../../../../i18n/index.ts";
 import { errorMessage } from "./api.ts";
 
 /** Human labels for enum values. */
@@ -64,9 +66,10 @@ export const LABELS: Record<string, string> = {
   employee: "Employee",
 };
 
-export function label(v: string | null | undefined): string {
+export function label(v: string | null | undefined, t?: Translate): string {
   if (!v) return "—";
-  return LABELS[v] ?? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, " ");
+  const text = LABELS[v] ?? v.charAt(0).toUpperCase() + v.slice(1).replace(/_/g, " ");
+  return t ? t(text) : text;
 }
 
 export function statusTone(code: DirectoryRowDto["status"]["code"]) {
@@ -74,13 +77,23 @@ export function statusTone(code: DirectoryRowDto["status"]["code"]) {
 }
 
 export function EmployeeStatus({ status }: { status: DirectoryRowDto["status"] }) {
-  return <StatusPill tone={statusTone(status.code)}>{status.label}</StatusPill>;
+  const t = useT("people-payroll");
+  return (
+    <StatusPill tone={statusTone(status.code)}>
+      {status.code === "leaving" && status.lastWorkingDay
+        ? t("Leaving {date}", { date: formatDate(status.lastWorkingDay) })
+        : status.code === "not_started" && status.since
+          ? t("Starts {date}", { date: formatDate(status.since) })
+          : t(status.label)}
+    </StatusPill>
+  );
 }
 
 /** Directory rows: a chip only when the work pass needs someone (expired or expiring). */
 export function PassPill({ state }: { state: DirectoryRowDto["workPassState"] }) {
-  if (state === "expired") return <StatusPill tone="danger">Work pass expired</StatusPill>;
-  if (state === "expiring") return <StatusPill tone="warning">Work pass expiring</StatusPill>;
+  const t = useT("people-payroll");
+  if (state === "expired") return <StatusPill tone="danger">{t("Work pass expired")}</StatusPill>;
+  if (state === "expiring") return <StatusPill tone="warning">{t("Work pass expiring")}</StatusPill>;
   return null;
 }
 
@@ -117,16 +130,17 @@ export function Section({
 }
 
 export function ErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  const translate = useT("people-payroll");
   return (
     <Alert variant="danger" className="max-w-2xl">
       <AlertTriangle aria-hidden />
       <div className="flex flex-col gap-2">
-        <AlertTitle>Couldn't load this</AlertTitle>
+        <AlertTitle>{translate("Couldn't load this")}</AlertTitle>
         <AlertDescription>{errorMessage(error)}</AlertDescription>
         {onRetry ? (
           <div>
             <Button size="sm" onClick={onRetry}>
-              Try again
+              {translate("Try again")}
             </Button>
           </div>
         ) : null}
@@ -136,8 +150,9 @@ export function ErrorPanel({ error, onRetry }: { error: unknown; onRetry?: () =>
 }
 
 export function PanelSkeleton({ rows = 4 }: { rows?: number }) {
+  const t = useT("people-payroll");
   return (
-    <div role="status" aria-busy="true" aria-label="Loading" className="flex flex-col gap-3">
+    <div role="status" aria-busy="true" aria-label={t("Loading")} className="flex flex-col gap-3">
       {Array.from({ length: rows }, (_, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: static placeholders.
         <Skeleton key={i} className="h-9 w-full" />
@@ -303,9 +318,10 @@ export function Part4Fields({
   isManagerOrExecutive: boolean;
   onChange: (v: { isWorkman: boolean; isManagerOrExecutive: boolean }) => void;
 }) {
+  const t = useT("people-payroll");
   return (
     <fieldset className="flex flex-col gap-2 sm:col-span-2">
-      <legend className={cn(textStyle.group, "mb-1")}>Employment Act Part 4</legend>
+      <legend className={cn(textStyle.group, "mb-1")}>{t("Employment Act Part 4")}</legend>
       <div className="flex items-start gap-2">
         <Checkbox
           id="part4-workman"
@@ -313,9 +329,9 @@ export function Part4Fields({
           onCheckedChange={(c) => onChange({ isWorkman: !!c, isManagerOrExecutive })}
         />
         <Label htmlFor="part4-workman" className="flex flex-col gap-0.5 font-sans text-ui font-normal">
-          <span className="font-medium">Workman</span>
+          <span className="font-medium">{t("Workman")}</span>
           <span className="text-2xs text-primary-300">
-            Mainly manual work, e.g. cleaners, drivers, kitchen and production crew.
+            {t("Mainly manual work, e.g. cleaners, drivers, kitchen and production crew.")}
           </span>
         </Label>
       </div>
@@ -326,15 +342,16 @@ export function Part4Fields({
           onCheckedChange={(c) => onChange({ isWorkman, isManagerOrExecutive: !!c })}
         />
         <Label htmlFor="part4-manager" className="flex flex-col gap-0.5 font-sans text-ui font-normal">
-          <span className="font-medium">Manager or executive</span>
+          <span className="font-medium">{t("Manager or executive")}</span>
           <span className="text-2xs text-primary-300">
-            Executive or supervisory duties, such as hiring, appraisals or running a team. Never covered by Part 4, so
-            overtime follows the contract, not the statutory 1.5× rate.
+            {t(
+              "Executive or supervisory duties, such as hiring, appraisals or running a team. Never covered by Part 4, so overtime follows the contract, not the statutory 1.5× rate.",
+            )}
           </span>
         </Label>
       </div>
       <p className="text-2xs text-primary-300">
-        The duties decide this, not the job title. <MomCoverageLink />
+        {t("The duties decide this, not the job title.")} <MomCoverageLink />
       </p>
     </fieldset>
   );

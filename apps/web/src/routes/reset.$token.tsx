@@ -4,6 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import * as React from "react";
 import { AuthLayout } from "../auth/auth-layout.tsx";
 import { RoutePending } from "../components/route-states.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiPost } from "../lib/api.ts";
 
 export const Route = createFileRoute("/reset/$token")({
@@ -16,18 +17,24 @@ export const Route = createFileRoute("/reset/$token")({
       <RoutePending />
     </div>
   ),
-  errorComponent: () => (
-    <AuthLayout title="Couldn't open this link">
-      <Alert variant="danger">
-        <AlertTriangle aria-hidden />
-        <AlertDescription>The server didn't answer. Check your connection and reload the page.</AlertDescription>
-      </Alert>
-    </AuthLayout>
-  ),
+  errorComponent: ResetLinkError,
   component: ResetPassword,
 });
 
+function ResetLinkError() {
+  const t = useT("settings-account");
+  return (
+    <AuthLayout title={t("Couldn't open this link")}>
+      <Alert variant="danger">
+        <AlertTriangle aria-hidden />
+        <AlertDescription>{t("The server didn't answer. Check your connection and reload the page.")}</AlertDescription>
+      </Alert>
+    </AuthLayout>
+  );
+}
+
 function ResetPassword() {
+  const t = useT("settings-account");
   const info = Route.useLoaderData();
   const { token } = Route.useParams();
   const navigate = useNavigate();
@@ -39,11 +46,13 @@ function ResetPassword() {
 
   if (failure === "expired") {
     return (
-      <AuthLayout title="This link has expired or was already used">
+      <AuthLayout title={t("This link has expired or was already used")}>
         <Alert variant="warning" data-testid="reset-state">
           <AlertTriangle aria-hidden />
           <AlertDescription>
-            Reset links work once, for 60 minutes. Request a new one from the sign-in page with "Forgot password?".
+            {t(
+              'Reset links work once, for 60 minutes. Request a new one from the sign-in page with "Forgot password?".',
+            )}
           </AlertDescription>
         </Alert>
         <Button
@@ -55,7 +64,7 @@ function ResetPassword() {
               : navigate({ to: "/sign-in" })
           }
         >
-          Request a new link
+          {t("Request a new link")}
         </Button>
       </AuthLayout>
     );
@@ -89,23 +98,23 @@ function ResetPassword() {
 
   return (
     <AuthLayout
-      title="Choose a new password"
-      description="You'll be signed out on every device and can then sign in with the new password."
+      title={t("Choose a new password")}
+      description={t("You'll be signed out on every device and can then sign in with the new password.")}
     >
       {failure ? (
         <Alert variant="danger" className="mb-5">
           <AlertTriangle aria-hidden />
           <div>
-            <AlertTitle>Not changed</AlertTitle>
+            <AlertTitle>{t("Not changed")}</AlertTitle>
             <AlertDescription>{failure}</AlertDescription>
           </div>
         </Alert>
       ) : null}
       <form noValidate onSubmit={submit} className="flex flex-col gap-4">
         <FormField
-          label="New password"
+          label={t("New password")}
           error={errors.password}
-          hint="At least 12 characters. Avoid common passwords and your email address."
+          hint={t("At least 12 characters. Avoid common passwords and your email address.")}
         >
           <Input
             type="password"
@@ -115,7 +124,7 @@ function ResetPassword() {
             autoFocus
           />
         </FormField>
-        <FormField label="Type it again" error={errors.confirm}>
+        <FormField label={t("Type it again")} error={errors.confirm}>
           <Input
             type="password"
             autoComplete="new-password"
@@ -124,7 +133,7 @@ function ResetPassword() {
           />
         </FormField>
         <Button type="submit" variant="primary" size="lg" disabled={busy}>
-          {busy ? "Saving…" : "Change password"}
+          {busy ? t("Saving…") : t("Change password")}
         </Button>
       </form>
     </AuthLayout>

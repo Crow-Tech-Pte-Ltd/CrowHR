@@ -21,6 +21,7 @@ import { MailWarning } from "lucide-react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote, Section } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { apiGet, apiPut } from "../../../lib/api.ts";
 import { sgDate } from "../../../workflows/format.ts";
 
@@ -46,6 +47,7 @@ const prefsQuery = {
 };
 
 function NotificationSettingsPage() {
+  const t = useT("settings-account");
   const me = useMe();
   const qc = useQueryClient();
   const prefs = useQuery(prefsQuery);
@@ -71,7 +73,7 @@ function NotificationSettingsPage() {
     },
     onError: (err, _v, ctx) => {
       if (ctx?.before) qc.setQueryData(prefsQuery.queryKey, ctx.before);
-      toast.error("Not saved", { description: err instanceof Error ? err.message : "Try again." });
+      toast.error(t("Not saved"), { description: err instanceof Error ? err.message : t("Try again.") });
     },
     onSettled: () => void qc.invalidateQueries({ queryKey: prefsQuery.queryKey }),
   });
@@ -79,14 +81,18 @@ function NotificationSettingsPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Notifications"
-        description="Everything shows in Crow HR under the bell, top right. Choose what is also emailed to you."
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Notifications")}
+        description={t("Everything shows in Crow HR under the bell, top right. Choose what is also emailed to you.")}
       />
 
       {isOwner ? <DeliverySection delivery={delivery} /> : null}
 
-      <Section id="email-prefs" title="Email me about" description="Your own choice; other members choose theirs.">
+      <Section
+        id="email-prefs"
+        title={t("Email me about")}
+        description={t("Your own choice; other members choose theirs.")}
+      >
         {prefs.isPending ? (
           <div className="flex flex-col gap-3 p-4">
             <Skeleton className="h-6 w-full" />
@@ -98,16 +104,17 @@ function NotificationSettingsPage() {
           <>
             {!prefs.data.emailConfigured ? (
               <p className="border-b border-border px-4 py-3 text-ui text-primary-300">
-                This server doesn't send email yet, so these apply once an owner sets it up. You still get every
-                notification in Crow HR.
+                {t(
+                  "This server doesn't send email yet, so these apply once an owner sets it up. You still get every notification in Crow HR.",
+                )}
               </p>
             ) : null}
             <ul className="divide-y divide-border">
               {prefs.data.categories.map((c) => (
                 <li key={c.category} className="flex items-center justify-between gap-4 px-4 py-3">
                   <Label htmlFor={`pref-${c.category}`} className="flex flex-col gap-0.5 font-sans font-normal">
-                    <span className="font-azeret text-xs font-semibold">{c.label}</span>
-                    <span className="text-ui text-primary-300">{c.description}</span>
+                    <span className="font-azeret text-xs font-semibold">{t(c.label)}</span>
+                    <span className="text-ui text-primary-300">{t(c.description)}</span>
                   </Label>
                   <Switch
                     id={`pref-${c.category}`}
@@ -126,6 +133,7 @@ function NotificationSettingsPage() {
 }
 
 function DeliverySection({ delivery }: { delivery: ReturnType<typeof useQuery<Delivery>> }) {
+  const t = useT("settings-account");
   if (delivery.isPending) {
     return (
       <div className="mb-8">
@@ -146,7 +154,7 @@ function DeliverySection({ delivery }: { delivery: ReturnType<typeof useQuery<De
       <Alert variant="warning" className="mb-8" data-testid="email-not-configured">
         <MailWarning aria-hidden />
         <div className="flex flex-col gap-1.5">
-          <AlertTitle>Email is not configured</AlertTitle>
+          <AlertTitle>{t("Email is not configured")}</AlertTitle>
           <AlertDescription>
             Crow HR works fully without email: notifications appear in the app, and invitations and password resets give
             you a link to copy. To also send email, {d.setupHelp?.replace(/^Set /, "set ")}
@@ -158,8 +166,10 @@ function DeliverySection({ delivery }: { delivery: ReturnType<typeof useQuery<De
   return (
     <Section
       id="delivery"
-      title="Email delivery"
-      description="Emails are retried for about 15 hours (after 1, 5, 30, 120 and 720 minutes) before they count as failed."
+      title={t("Email delivery")}
+      description={t(
+        "Emails are retried for about 15 hours (after 1, 5, 30, 120 and 720 minutes) before they count as failed.",
+      )}
     >
       <dl className="grid grid-cols-3 gap-4 border-b border-border px-4 py-3">
         {(
@@ -176,16 +186,16 @@ function DeliverySection({ delivery }: { delivery: ReturnType<typeof useQuery<De
         ))}
       </dl>
       {d.failed.length === 0 ? (
-        <p className="px-4 py-3 text-ui text-primary-300">No failed emails.</p>
+        <p className="px-4 py-3 text-ui text-primary-300">{t("No failed emails.")}</p>
       ) : (
-        <Table aria-label="Failed emails">
+        <Table aria-label={t("Failed emails")}>
           <TableHeader>
             <TableRow>
-              <TableHead>To</TableHead>
-              <TableHead>Kind</TableHead>
-              <TableHead className="text-right">Attempts</TableHead>
-              <TableHead>Last error</TableHead>
-              <TableHead className="text-right">Queued</TableHead>
+              <TableHead>{t("To")}</TableHead>
+              <TableHead>{t("Kind")}</TableHead>
+              <TableHead className="text-right">{t("Attempts")}</TableHead>
+              <TableHead>{t("Last error")}</TableHead>
+              <TableHead className="text-right">{t("Queued")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

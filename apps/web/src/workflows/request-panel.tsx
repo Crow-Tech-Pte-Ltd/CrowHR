@@ -5,6 +5,7 @@ import { ArrowUpRight, Check, CircleDashed, CircleSlash, Clock, MessageSquare, U
 import * as React from "react";
 import { NumText } from "../components/num-text.tsx";
 import { ErrorNote } from "../components/section.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiPost } from "../lib/api.ts";
 import { type RequestDetail, requestQuery, STATUS_LABEL, STATUS_TONE } from "./api.ts";
 import { OriginBadge } from "./decision-controls.tsx";
@@ -33,10 +34,11 @@ export function RequestPanel({
   actions?: (detail: RequestDetail) => React.ReactNode;
   className?: string;
 }) {
+  const tWorkflow = useT("workflows");
   const q = useQuery(requestQuery(requestId));
   if (q.isPending) {
     return (
-      <div className={cn("flex flex-col gap-3 p-5", className)} role="status" aria-label="Loading request">
+      <div className={cn("flex flex-col gap-3 p-5", className)} role="status" aria-label={tWorkflow("Loading request")}>
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-6 w-64" />
         <Skeleton className="mt-2 h-24 w-full" />
@@ -48,7 +50,9 @@ export function RequestPanel({
       <div className={className}>
         {q.error instanceof ApiError && q.error.status === 404 ? (
           <p className="p-5 text-ui text-primary-300">
-            This request no longer needs you, or you can no longer see it (for example, cover for someone has ended).
+            {tWorkflow(
+              "This request no longer needs you, or you can no longer see it (for example, cover for someone has ended).",
+            )}
           </p>
         ) : (
           <ErrorNote error={q.error} retry={() => void q.refetch()} />
@@ -64,7 +68,7 @@ export function RequestPanel({
           <h2 id={`req-${d.id}`} className="text-lg font-semibold leading-6">
             {d.summary?.title ?? d.title}
           </h2>
-          <StatusPill tone={STATUS_TONE[d.status]}>{STATUS_LABEL[d.status]}</StatusPill>
+          <StatusPill tone={STATUS_TONE[d.status]}>{tWorkflow(STATUS_LABEL[d.status])}</StatusPill>
         </div>
         <p className="text-2xs text-primary-200">
           {d.subjectLabel} from <span className="text-primary-300">{d.requester.name}</span> · sent{" "}
@@ -90,11 +94,11 @@ export function RequestPanel({
       </header>
 
       {d.summary && (d.summary.lines.length || d.summary.context.length) ? (
-        <section className="grid gap-4 border-b border-border p-5 sm:grid-cols-2" aria-label="Details">
+        <section className="grid gap-4 border-b border-border p-5 sm:grid-cols-2" aria-label={tWorkflow("Details")}>
           {d.summary.lines.length ? <Facts items={d.summary.lines} /> : null}
           {d.summary.context.length ? (
             <div className="rounded-md border border-border bg-surface-100/60 p-3">
-              <p className={cn("mb-2", textStyle.group)}>Context for your decision</p>
+              <p className={cn("mb-2", textStyle.group)}>{tWorkflow("Context for your decision")}</p>
               <Facts items={d.summary.context} />
             </div>
           ) : null}
@@ -103,7 +107,7 @@ export function RequestPanel({
 
       <section className="border-b border-border p-5" aria-labelledby={`chain-${d.id}`}>
         <h3 id={`chain-${d.id}`} className={cn("mb-3", textStyle.group)}>
-          Approval chain
+          {tWorkflow("Approval chain")}
         </h3>
         <ol className="flex flex-col gap-3">
           {d.steps.map((s) => {
@@ -125,7 +129,7 @@ export function RequestPanel({
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 text-ui font-medium">
                     <span className="num text-primary-200">{s.position}.</span> {s.label}
-                    {s.escalated ? <StatusPill tone="warning">Escalated</StatusPill> : null}
+                    {s.escalated ? <StatusPill tone="warning">{tWorkflow("Escalated")}</StatusPill> : null}
                   </p>
                   {s.skipReason ? <p className="text-2xs text-primary-300">{s.skipReason}</p> : null}
                   {s.tasks.length ? (
@@ -138,7 +142,10 @@ export function RequestPanel({
                           <span className="text-ink">
                             {t.assignee}
                             {t.onBehalfOf ? (
-                              <span className="text-primary-300"> on behalf of {t.onBehalfOf}</span>
+                              <span className="text-primary-300">
+                                {" "}
+                                {tWorkflow("on behalf of")} {t.onBehalfOf}
+                              </span>
                             ) : null}
                           </span>
                           {t.origin !== "resolved" && t.origin !== "delegated" ? (
@@ -148,10 +155,12 @@ export function RequestPanel({
                             {t.status === "pending"
                               ? "waiting"
                               : t.status === "superseded"
-                                ? "moved to someone else"
+                                ? tWorkflow("moved to someone else")
                                 : `${t.status}${t.decidedAt ? ` ${when(t.decidedAt)}` : ""}`}
-                            {t.selfApproved ? " (self-approved: no one else could decide)" : ""}
-                            {t.repeatApproval ? " (also approved an earlier step: no one else could decide)" : ""}
+                            {t.selfApproved ? ` ${tWorkflow("(self-approved: no one else could decide)")}` : ""}
+                            {t.repeatApproval
+                              ? ` ${tWorkflow("(also approved an earlier step: no one else could decide)")}`
+                              : ""}
                           </span>
                           {t.comment ? <q className="basis-full text-ink">{t.comment}</q> : null}
                         </li>
@@ -186,6 +195,7 @@ function Facts({ items }: { items: { label: string; value: string }[] }) {
 }
 
 function Comments({ detail }: { detail: RequestDetail }) {
+  const tWorkflow = useT("workflows");
   const qc = useQueryClient();
   const [body, setBody] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -195,26 +205,29 @@ function Comments({ detail }: { detail: RequestDetail }) {
       setBody("");
       void qc.invalidateQueries({ queryKey: ["approvals", "request", detail.id] });
     },
-    onError: (err) => setError(err instanceof Error ? err.message : "The comment wasn't saved. Try again."),
+    onError: (err) => setError(err instanceof Error ? err.message : tWorkflow("The comment wasn't saved. Try again.")),
   });
   const withdraw = useMutation({
     mutationFn: () => apiPost(`/api/v1/approvals/requests/${detail.id}/withdraw`),
     onSuccess: () => {
-      toast.success("Request withdrawn", { description: "Approvers were told it no longer needs them." });
+      toast.success(tWorkflow("Request withdrawn"), {
+        description: tWorkflow("Approvers were told it no longer needs them."),
+      });
       void qc.invalidateQueries({ queryKey: ["approvals"] });
       void qc.invalidateQueries({ queryKey: ["inbox"] });
     },
-    onError: (err) => toast.error("Not withdrawn", { description: err instanceof Error ? err.message : undefined }),
+    onError: (err) =>
+      toast.error(tWorkflow("Not withdrawn"), { description: err instanceof Error ? err.message : undefined }),
   });
   return (
     <section className="flex flex-col gap-3 p-5" aria-labelledby={`comments-${detail.id}`}>
       <div className="flex items-center justify-between">
         <h3 id={`comments-${detail.id}`} className={cn("flex items-center gap-1.5", textStyle.group)}>
-          <MessageSquare className="size-3.5" aria-hidden /> Comments
+          <MessageSquare className="size-3.5" aria-hidden /> {tWorkflow("Comments")}
         </h3>
         {detail.viewer.canWithdraw ? (
           <Button size="sm" variant="ghost" onClick={() => withdraw.mutate()} disabled={withdraw.isPending}>
-            <Undo2 /> Withdraw request
+            <Undo2 /> {tWorkflow("Withdraw request")}
           </Button>
         ) : null}
       </div>
@@ -231,23 +244,23 @@ function Comments({ detail }: { detail: RequestDetail }) {
           ))}
         </ul>
       ) : (
-        <p className="text-ui text-primary-300">No comments yet.</p>
+        <p className="text-ui text-primary-300">{tWorkflow("No comments yet.")}</p>
       )}
       {detail.viewer.canComment ? (
         <form
           className="flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!body.trim()) return setError("Write something first.");
+            if (!body.trim()) return setError(tWorkflow("Write something first."));
             post.mutate();
           }}
         >
           <Textarea
-            aria-label="Add a comment"
+            aria-label={tWorkflow("Add a comment")}
             rows={2}
             value={body}
             maxLength={500}
-            placeholder="Ask a question or add context"
+            placeholder={tWorkflow("Ask a question or add context")}
             onChange={(e) => {
               setBody(e.target.value);
               setError(null);
@@ -260,7 +273,7 @@ function Comments({ detail }: { detail: RequestDetail }) {
           ) : null}
           <div>
             <Button size="sm" type="submit" disabled={post.isPending}>
-              Comment
+              {tWorkflow("Comment")}
             </Button>
           </div>
         </form>

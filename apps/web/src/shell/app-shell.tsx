@@ -1,6 +1,7 @@
 import { cn, Toaster, TooltipProvider } from "@crowhr/ui";
 import * as React from "react";
 import { useMe } from "../auth/session.ts";
+import { useT } from "../i18n/index.ts";
 import { CommandPalette } from "./command-palette.tsx";
 import { BottomTabBar, NavDrawer } from "./mobile-nav.tsx";
 import { Sidebar } from "./sidebar.tsx";
@@ -8,6 +9,7 @@ import { TopBar } from "./top-bar.tsx";
 import { useLayoutMode, usePersistentBoolean } from "./view-mode.tsx";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const t = useT("common");
   const [collapsed, setCollapsed] = usePersistentBoolean("crowhr.sidebarCollapsed", false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -19,7 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         href="#main"
         className="focus-ring sr-only z-50 rounded-md bg-ink px-3 py-2 font-azeret text-xs text-surface-50 focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
       >
-        Skip to content
+        {t("Skip to content")}
       </a>
       <div className="flex min-h-dvh">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />

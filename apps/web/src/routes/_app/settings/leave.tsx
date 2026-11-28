@@ -38,6 +38,7 @@ import * as React from "react";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import {
   type Entitlement,
   governmentPaidCsvHref,
@@ -65,6 +66,7 @@ export const Route = createFileRoute("/_app/settings/leave")({
 });
 
 function LeaveSettingsPage() {
+  const t = useT("settings-account");
   const me = useMe();
   const navigate = useNavigate({ from: "/settings/leave" });
   const canPolicies = can(me, "policies:read");
@@ -74,16 +76,18 @@ function LeaveSettingsPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "Settings", to: "/settings" }]}
-        title="Leave"
-        description="Statutory leave is set up for you from the Employment Act and the Government-paid leave schemes. Make it more generous, add company leave, and keep holidays up to date."
+        crumbs={[{ label: t("Settings"), to: "/settings" }]}
+        title={t("Leave")}
+        description={t(
+          "Statutory leave is set up for you from the Employment Act and the Government-paid leave schemes. Make it more generous, add company leave, and keep holidays up to date.",
+        )}
       />
       <Tabs value={tab} onValueChange={(v) => void navigate({ search: { tab: v as Tab } })}>
         <TabsList className="mb-5 max-w-full overflow-x-auto">
-          {canPolicies ? <TabsTrigger value="policies">Policies</TabsTrigger> : null}
-          {canPolicies ? <TabsTrigger value="holidays">Holidays</TabsTrigger> : null}
-          {canPolicies ? <TabsTrigger value="rules">Rules</TabsTrigger> : null}
-          {canClaims ? <TabsTrigger value="claims">Government-paid</TabsTrigger> : null}
+          {canPolicies ? <TabsTrigger value="policies">{t("Policies")}</TabsTrigger> : null}
+          {canPolicies ? <TabsTrigger value="holidays">{t("Holidays")}</TabsTrigger> : null}
+          {canPolicies ? <TabsTrigger value="rules">{t("Rules")}</TabsTrigger> : null}
+          {canClaims ? <TabsTrigger value="claims">{t("Government-paid")}</TabsTrigger> : null}
         </TabsList>
         {canPolicies ? (
           <>
@@ -113,6 +117,7 @@ function LeaveSettingsPage() {
 // ---------------------------------------------------------------------------------------------
 
 function Policies({ editable }: { editable: boolean }) {
+  const t = useT("settings-account");
   const q = useQuery(policiesQuery);
   const [editing, setEditing] = React.useState<PolicyView | "new" | null>(null);
   const items = q.data?.items ?? [];
@@ -121,16 +126,17 @@ function Policies({ editable }: { editable: boolean }) {
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 id="policies-title" className={textStyle.section}>
-            Leave types
+            {t("Leave types")}
           </h2>
           <p className="mt-1 max-w-2xl text-ui text-primary-300">
-            Nothing here needs setting up. Statutory minimums can't be lowered; you'll be told if a change goes below
-            the law.
+            {t(
+              "Nothing here needs setting up. Statutory minimums can't be lowered; you'll be told if a change goes below the law.",
+            )}
           </p>
         </div>
         {editable ? (
           <Button onClick={() => setEditing("new")}>
-            <Plus /> Company leave type
+            <Plus /> {t("Company leave type")}
           </Button>
         ) : null}
       </div>
@@ -143,13 +149,13 @@ function Policies({ editable }: { editable: boolean }) {
             <Skeleton className="h-6 w-full" />
           </div>
         ) : (
-          <Table aria-label="Leave types">
+          <Table aria-label={t("Leave types")}>
             <TableHeader>
               <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Entitlement</TableHead>
-                <TableHead className="hidden lg:table-cell">Carry forward</TableHead>
-                <TableHead className="hidden md:table-cell">Rules</TableHead>
+                <TableHead>{t("Type")}</TableHead>
+                <TableHead>{t("Entitlement")}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t("Carry forward")}</TableHead>
+                <TableHead className="hidden md:table-cell">{t("Rules")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -168,8 +174,8 @@ function Policies({ editable }: { editable: boolean }) {
                     <span className="flex flex-wrap items-center gap-1.5">
                       <span className="font-medium">{p.name}</span>
                       {/* Statutory is the normal case; only the company's own types are marked. */}
-                      {p.kind === "statutory" ? null : <Badge>Company</Badge>}
-                      {p.archived ? <Badge variant="muted">Archived</Badge> : null}
+                      {p.kind === "statutory" ? null : <Badge>{t("Company")}</Badge>}
+                      {p.archived ? <Badge variant="muted">{t("Archived")}</Badge> : null}
                     </span>
                   </TableCell>
                   <TableCell className="text-primary-300">{entitlementText(p)}</TableCell>
@@ -205,6 +211,7 @@ const blankPolicy: Policy = {
 };
 
 function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: () => void }) {
+  const t = useT("settings-account");
   const invalidate = useLeaveInvalidate();
   const isNew = policy === null;
   const statutory = policy?.kind === "statutory";
@@ -240,12 +247,12 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
           }),
     onSuccess: (r) => {
       invalidate();
-      toast.success(`${r.name} saved.`);
+      toast.success(t("{name} saved.", { name: r.name }));
       onClose();
     },
     onError: (err) =>
       setError({
-        message: err instanceof Error ? err.message : "That didn't save.",
+        message: err instanceof Error ? err.message : t("That didn't save."),
         fields: err instanceof ApiError ? err.fieldErrors : {},
       }),
   });
@@ -256,7 +263,7 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
       invalidate();
       onClose();
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "That didn't work."),
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("That didn't work.")),
   });
   const e = p.entitlement;
   const setEnt = (ent: Entitlement) => setP({ ...p, entitlement: ent });
@@ -274,12 +281,12 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
         >
           <div className="border-b border-border px-5 pb-4 pt-5">
             <SheetTitle className="font-azeret text-sm font-semibold">
-              {isNew ? "New company leave type" : policy.name}
+              {isNew ? t("New company leave type") : policy.name}
             </SheetTitle>
             <SheetDescription className="mt-1 text-ui text-primary-300">
               {statutory
-                ? "Statutory leave: you can make it more generous, never less than the law."
-                : "Company leave is up to you, such as birthday, marriage or volunteering leave."}
+                ? t("Statutory leave: you can make it more generous, never less than the law.")
+                : t("Company leave is up to you, such as birthday, marriage or volunteering leave.")}
             </SheetDescription>
           </div>
           <div className="flex flex-col gap-4 px-5 py-4">
@@ -293,16 +300,16 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
               </p>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
-              <FormField label="Name" required error={error?.fields.name}>
+              <FormField label={t("Name")} required error={error?.fields.name}>
                 <Input value={name} onChange={(ev) => setName(ev.target.value)} maxLength={60} />
               </FormField>
               {isNew ? (
-                <FormField label="Code" required hint="Lower case, like birthday." error={error?.fields.code}>
+                <FormField label={t("Code")} required hint={t("Lower case, like birthday.")} error={error?.fields.code}>
                   <Input value={code} onChange={(ev) => setCode(ev.target.value.toLowerCase())} maxLength={31} />
                 </FormField>
               ) : null}
             </div>
-            <FormField label="Entitlement">
+            <FormField label={t("Entitlement")}>
               <Select
                 value={e.basis}
                 disabled={lockedBasis}
@@ -316,24 +323,25 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
                   )
                 }
               >
-                <SelectTrigger aria-label="Entitlement">
+                <SelectTrigger aria-label={t("Entitlement")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {statutory ? <SelectItem value="statutory">Statutory minimum</SelectItem> : null}
-                  <SelectItem value="fixed">Same days every year</SelectItem>
-                  <SelectItem value="by_service">By years of service</SelectItem>
-                  {!statutory ? <SelectItem value="unlimited">No fixed allowance</SelectItem> : null}
+                  {statutory ? <SelectItem value="statutory">{t("Statutory minimum")}</SelectItem> : null}
+                  <SelectItem value="fixed">{t("Same days every year")}</SelectItem>
+                  <SelectItem value="by_service">{t("By years of service")}</SelectItem>
+                  {!statutory ? <SelectItem value="unlimited">{t("No fixed allowance")}</SelectItem> : null}
                 </SelectContent>
               </Select>
             </FormField>
             {lockedBasis ? (
               <p className="text-ui text-primary-300">
-                Government-paid and statutory family leave follows the law: {entitlementText(policy as PolicyView)}.
+                {t("Government-paid and statutory family leave follows the law:")}{" "}
+                {entitlementText(policy as PolicyView)}.
               </p>
             ) : null}
             {e.basis === "fixed" ? (
-              <FormField label="Days a year" error={error?.fields["policy.entitlement.days"]}>
+              <FormField label={t("Days a year")} error={error?.fields["policy.entitlement.days"]}>
                 <Input
                   className="num w-28"
                   inputMode="decimal"
@@ -344,15 +352,15 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
             ) : null}
             {e.basis === "by_service" ? (
               <fieldset className="flex flex-col gap-2">
-                <legend className={cn("mb-1", textStyle.group)}>Days by service year</legend>
+                <legend className={cn("mb-1", textStyle.group)}>{t("Days by service year")}</legend>
                 {e.steps.map((s, i) => (
                   <div
                     key={`step-${s.fromServiceYear}-${s.days}-${e.steps.length}`}
                     className="flex items-center gap-2 text-ui"
                   >
-                    <span className="w-16 text-primary-300">From year</span>
+                    <span className="w-16 text-primary-300">{t("From year")}</span>
                     <Input
-                      aria-label={`Step ${i + 1} service year`}
+                      aria-label={t("Step {value} service year", { value: i + 1 })}
                       className="num w-16"
                       value={String(s.fromServiceYear)}
                       onChange={(ev) =>
@@ -363,7 +371,7 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
                       }
                     />
                     <Input
-                      aria-label={`Step ${i + 1} days`}
+                      aria-label={t("Step {value} days", { value: i + 1 })}
                       className="num w-20"
                       value={String(s.days)}
                       onChange={(ev) =>
@@ -373,13 +381,13 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
                         })
                       }
                     />
-                    <span className="text-primary-300">days</span>
+                    <span className="text-primary-300">{t("days")}</span>
                     {e.steps.length > 1 ? (
                       <Button
                         type="button"
                         size="icon-sm"
                         variant="ghost"
-                        aria-label="Remove step"
+                        aria-label={t("Remove step")}
                         onClick={() => setEnt({ basis: "by_service", steps: e.steps.filter((_, j) => j !== i) })}
                       >
                         <Trash2 />
@@ -400,13 +408,16 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
                     });
                   }}
                 >
-                  <Plus /> Add a step
+                  <Plus /> {t("Add a step")}
                 </Button>
               </fieldset>
             ) : null}
             {!lockedBasis && e.basis !== "unlimited" ? (
               <>
-                <FormField label="Months of service before it can be used" hint="The Employment Act needs at most 3.">
+                <FormField
+                  label={t("Months of service before it can be used")}
+                  hint={t("The Employment Act needs at most 3.")}
+                >
                   <Input
                     className="num w-20"
                     inputMode="numeric"
@@ -417,22 +428,22 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
                 {policy?.statutoryCode !== "sick_outpatient" && policy?.statutoryCode !== "hospitalisation" ? (
                   <>
                     <ToggleRow
-                      label="Pro-rate in the first year and the year of leaving"
+                      label={t("Pro-rate in the first year and the year of leaving")}
                       checked={p.prorate}
                       onChange={(v) => setP({ ...p, prorate: v })}
                     />
-                    <FormField label="Earned">
+                    <FormField label={t("Earned")}>
                       <RadioGroup
                         value={p.accrual}
                         onValueChange={(v) => setP({ ...p, accrual: v as Policy["accrual"] })}
                         className="flex gap-4"
                       >
-                        <RadioRow value="upfront">All on 1 January</RadioRow>
-                        <RadioRow value="monthly">Month by month</RadioRow>
+                        <RadioRow value="upfront">{t("All on 1 January")}</RadioRow>
+                        <RadioRow value="monthly">{t("Month by month")}</RadioRow>
                       </RadioGroup>
                     </FormField>
                     <ToggleRow
-                      label="Carry unused days into next year"
+                      label={t("Carry unused days into next year")}
                       checked={p.carryForward !== null}
                       onChange={(v) =>
                         setP({ ...p, carryForward: v ? { maxDays: null, expiresAfterMonths: 12 } : null })
@@ -440,7 +451,7 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
                     />
                     {p.carryForward ? (
                       <div className="grid grid-cols-2 gap-3 pl-11">
-                        <FormField label="Up to (days)" hint="Blank: all unused days.">
+                        <FormField label={t("Up to (days)")} hint={t("Blank: all unused days.")}>
                           <Input
                             className="num"
                             inputMode="decimal"
@@ -456,7 +467,7 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
                             }
                           />
                         </FormField>
-                        <FormField label="Use within (months)" hint="Blank: never expires.">
+                        <FormField label={t("Use within (months)")} hint={t("Blank: never expires.")}>
                           <Input
                             className="num"
                             inputMode="numeric"
@@ -479,13 +490,13 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
                       </div>
                     ) : null}
                     <ToggleRow
-                      label="Allow leave encashment (including unused year-end days)"
+                      label={t("Allow leave encashment (including unused year-end days)")}
                       checked={p.encashable}
                       onChange={(v) => setP({ ...p, encashable: v })}
                     />
                     {p.encashable ? (
                       <ToggleRow
-                        label="Allow employees to request encashment"
+                        label={t("Allow employees to request encashment")}
                         checked={p.employeeEncashmentRequests ?? false}
                         onChange={(v) => setP({ ...p, employeeEncashmentRequests: v })}
                       />
@@ -495,18 +506,22 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
               </>
             ) : null}
             <div className="flex flex-col gap-3 border-t border-border pt-4">
-              {!statutory ? <ToggleRow label="Paid leave" checked={paid} onChange={setPaid} /> : null}
-              <ToggleRow label="Allow half days" checked={halfDays} onChange={setHalfDays} />
-              <ToggleRow label="Private: colleagues see only 'On leave'" checked={sensitive} onChange={setSensitive} />
-              <FormField label="Supporting document">
+              {!statutory ? <ToggleRow label={t("Paid leave")} checked={paid} onChange={setPaid} /> : null}
+              <ToggleRow label={t("Allow half days")} checked={halfDays} onChange={setHalfDays} />
+              <ToggleRow
+                label={t("Private: colleagues see only 'On leave'")}
+                checked={sensitive}
+                onChange={setSensitive}
+              />
+              <FormField label={t("Supporting document")}>
                 <Select value={attachment} onValueChange={(v) => setAttachment(v as typeof attachment)}>
-                  <SelectTrigger aria-label="Supporting document">
+                  <SelectTrigger aria-label={t("Supporting document")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Not asked for</SelectItem>
-                    <SelectItem value="optional">Optional</SelectItem>
-                    <SelectItem value="required">Required</SelectItem>
+                    <SelectItem value="none">{t("Not asked for")}</SelectItem>
+                    <SelectItem value="optional">{t("Optional")}</SelectItem>
+                    <SelectItem value="required">{t("Required")}</SelectItem>
                   </SelectContent>
                 </Select>
               </FormField>
@@ -515,21 +530,21 @@ function PolicySheet({ policy, onClose }: { policy: PolicyView | null; onClose: 
           <div className="sticky bottom-0 mt-auto flex items-center justify-between gap-2 border-t border-border bg-background px-5 py-3">
             {!isNew && !statutory ? (
               <Button type="button" variant="ghost" size="sm" onClick={() => archive.mutate(!policy.archived)}>
-                {policy.archived ? "Restore" : "Archive"}
+                {policy.archived ? t("Restore") : t("Archive")}
               </Button>
             ) : (
               <span />
             )}
             <div className="flex gap-2">
               <Button type="button" variant="ghost" onClick={onClose}>
-                Cancel
+                {t("Cancel")}
               </Button>
               <Button
                 type="submit"
                 variant="primary"
                 disabled={save.isPending || !name.trim() || (isNew && !code.trim())}
               >
-                Save
+                {t("Save")}
               </Button>
             </div>
           </div>
@@ -552,6 +567,7 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
 // ---------------------------------------------------------------------------------------------
 
 function Holidays({ editable }: { editable: boolean }) {
+  const t = useT("settings-account");
   const thisYear = Number(todaySg().slice(0, 4));
   const [year, setYear] = React.useState(thisYear);
   const q = useQuery(holidaysQuery(year));
@@ -566,14 +582,14 @@ function Holidays({ editable }: { editable: boolean }) {
       setDate(null);
       setName("");
       setErr(null);
-      toast.success("Holiday added. Leave on that day is no longer counted.");
+      toast.success(t("Holiday added. Leave on that day is no longer counted."));
     },
     onError: (e) => setErr(e instanceof Error ? e.message : "That didn't save."),
   });
   const remove = useMutation({
     mutationFn: (id: string) => apiDelete(`/api/v1/leave/holidays/${id}`),
     onSuccess: () => invalidate(),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "That didn't work."),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("That didn't work.")),
   });
   const items = q.data?.items ?? [];
   return (
@@ -582,15 +598,16 @@ function Holidays({ editable }: { editable: boolean }) {
         <div className="mb-3 flex items-end justify-between gap-2">
           <div>
             <h2 id="holidays-title" className={textStyle.section}>
-              Public holidays
+              {t("Public holidays")}
             </h2>
             <p className="mt-1 text-ui text-primary-300">
-              Gazetted by MOM. A Sunday holiday moves to Monday for Sunday rest days; other rest days get the next
-              working day.
+              {t(
+                "Gazetted by MOM. A Sunday holiday moves to Monday for Sunday rest days; other rest days get the next working day.",
+              )}
             </p>
           </div>
           <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-            <SelectTrigger aria-label="Year" className="num w-24">
+            <SelectTrigger aria-label={t("Year")} className="num w-24">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -612,17 +629,17 @@ function Holidays({ editable }: { editable: boolean }) {
           ) : items.length === 0 ? (
             <EmptyState
               variant="plain"
-              title={`There are no public holidays for ${year} yet.`}
-              description="MOM usually publishes next year's public holidays in June."
+              title={t("There are no public holidays for {year} yet.", { year })}
+              description={t("MOM usually publishes next year's public holidays in June.")}
             />
           ) : (
-            <Table aria-label={`Public holidays ${year}`}>
+            <Table aria-label={t("Public holidays {year}", { year })}>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-36">Date</TableHead>
-                  <TableHead>Holiday</TableHead>
+                  <TableHead className="w-36">{t("Date")}</TableHead>
+                  <TableHead>{t("Holiday")}</TableHead>
                   <TableHead className="w-16 text-right">
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t("Actions")}</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -637,7 +654,7 @@ function Holidays({ editable }: { editable: boolean }) {
                       {h.name}
                       {h.source === "organisation" ? (
                         <Badge variant="muted" className="ml-2">
-                          Added by you
+                          {t("Added by you")}
                         </Badge>
                       ) : null}
                     </TableCell>
@@ -646,7 +663,7 @@ function Holidays({ editable }: { editable: boolean }) {
                         <Button
                           size="icon-sm"
                           variant="ghost"
-                          aria-label={`Remove ${h.name}`}
+                          aria-label={t("Remove {name}", { name: h.name })}
                           onClick={() => remove.mutate(h.id as string)}
                         >
                           <Trash2 />
@@ -662,9 +679,9 @@ function Holidays({ editable }: { editable: boolean }) {
       </div>
       {editable ? (
         <Card className="self-start p-4">
-          <h3 className="font-azeret text-xs font-semibold">Add an extra holiday</h3>
+          <h3 className="font-azeret text-xs font-semibold">{t("Add an extra holiday")}</h3>
           <p className="mt-1 text-ui text-primary-300">
-            For Polling Day or a holiday announced at short notice. Leave on that day stops counting.
+            {t("For Polling Day or a holiday announced at short notice. Leave on that day stops counting.")}
           </p>
           <form
             className="mt-3 flex flex-col gap-3"
@@ -673,14 +690,19 @@ function Holidays({ editable }: { editable: boolean }) {
               add.mutate();
             }}
           >
-            <FormField label="Date" required>
+            <FormField label={t("Date")} required>
               <DatePicker value={date} onChange={setDate} />
             </FormField>
-            <FormField label="Name" required error={err ?? undefined}>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Polling Day" maxLength={80} />
+            <FormField label={t("Name")} required error={err ?? undefined}>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("Polling Day")}
+                maxLength={80}
+              />
             </FormField>
             <Button type="submit" className="self-start" disabled={!date || !name.trim() || add.isPending}>
-              <Plus /> Add holiday
+              <Plus /> {t("Add holiday")}
             </Button>
           </form>
         </Card>
@@ -694,6 +716,7 @@ function Holidays({ editable }: { editable: boolean }) {
 // ---------------------------------------------------------------------------------------------
 
 function Rules({ editable }: { editable: boolean }) {
+  const t = useT("settings-account");
   const q = useQuery(settingsQuery);
   const schedules = useQuery(schedulesQuery);
   const invalidate = useLeaveInvalidate();
@@ -705,9 +728,9 @@ function Rules({ editable }: { editable: boolean }) {
     mutationFn: (s: LeaveSettings) => saveSettings(s),
     onSuccess: () => {
       invalidate();
-      toast.success("Leave rules saved.");
+      toast.success(t("Leave rules saved."));
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "That didn't save."),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("That didn't save.")),
   });
   if (q.isError) return <ErrorNote error={q.error} retry={() => void q.refetch()} />;
   if (!draft) return <Skeleton className="h-48 w-full max-w-2xl" />;
@@ -721,9 +744,11 @@ function Rules({ editable }: { editable: boolean }) {
       }}
     >
       <Card className="p-4">
-        <h2 className="font-azeret text-xs font-semibold">A public holiday on an off day</h2>
+        <h2 className="font-azeret text-xs font-semibold">{t("A public holiday on an off day")}</h2>
         <p className="mt-1 text-ui text-primary-300">
-          For example a Saturday holiday for a Monday–Friday week. MOM: give another day off or one extra day's pay.
+          {t(
+            "For example a Saturday holiday for a Monday–Friday week. MOM: give another day off or one extra day's pay.",
+          )}
         </p>
         <RadioGroup
           className="mt-3 flex flex-col gap-2"
@@ -731,14 +756,14 @@ function Rules({ editable }: { editable: boolean }) {
           value={draft.offDayHoliday}
           onValueChange={(v) => setDraft({ ...draft, offDayHoliday: v as LeaveSettings["offDayHoliday"] })}
         >
-          <RadioRow value="extra_pay">Pay an extra day (payroll); no day off</RadioRow>
-          <RadioRow value="next_working_day">Give the next working day off</RadioRow>
+          <RadioRow value="extra_pay">{t("Pay an extra day (payroll); no day off")}</RadioRow>
+          <RadioRow value="next_working_day">{t("Give the next working day off")}</RadioRow>
         </RadioGroup>
       </Card>
       <Card className="p-4">
-        <h2 className="font-azeret text-xs font-semibold">No-pay leave and service</h2>
+        <h2 className="font-azeret text-xs font-semibold">{t("No-pay leave and service")}</h2>
         <p className="mt-1 text-ui text-primary-300">
-          MOM doesn't count unpaid leave as service for annual leave. Choose which months stop counting.
+          {t("MOM doesn't count unpaid leave as service for annual leave. Choose which months stop counting.")}
         </p>
         <RadioGroup
           className="mt-3 flex flex-col gap-2"
@@ -746,15 +771,15 @@ function Rules({ editable }: { editable: boolean }) {
           value={draft.unpaidServiceRule}
           onValueChange={(v) => setDraft({ ...draft, unpaidServiceRule: v as LeaveSettings["unpaidServiceRule"] })}
         >
-          <RadioRow value="whole_month">Only months that are entirely no-pay leave</RadioRow>
-          <RadioRow value="any_day">Any month with a day of no-pay leave</RadioRow>
-          <RadioRow value="none">Keep counting service</RadioRow>
+          <RadioRow value="whole_month">{t("Only months that are entirely no-pay leave")}</RadioRow>
+          <RadioRow value="any_day">{t("Any month with a day of no-pay leave")}</RadioRow>
+          <RadioRow value="none">{t("Keep counting service")}</RadioRow>
         </RadioGroup>
       </Card>
       <Card className="p-4">
-        <h2 className="font-azeret text-xs font-semibold">Comparable full-timer</h2>
+        <h2 className="font-azeret text-xs font-semibold">{t("Comparable full-timer")}</h2>
         <p className="mt-1 text-ui text-primary-300">
-          Part-timers get annual, sick and hospitalisation leave in hours, pro-rated against this schedule.
+          {t("Part-timers get annual, sick and hospitalisation leave in hours, pro-rated against this schedule.")}
         </p>
         <div className="mt-3 max-w-xs">
           <Select
@@ -762,11 +787,11 @@ function Rules({ editable }: { editable: boolean }) {
             value={draft.fullTimeScheduleId ?? "default"}
             onValueChange={(v) => setDraft({ ...draft, fullTimeScheduleId: v === "default" ? null : v })}
           >
-            <SelectTrigger aria-label="Full-time schedule">
+            <SelectTrigger aria-label={t("Full-time schedule")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="default">The default work schedule</SelectItem>
+              <SelectItem value="default">{t("The default work schedule")}</SelectItem>
               {fixed.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name} ({fmt((s.current?.weeklyMinutes ?? 0) / 60)} h a week)
@@ -778,7 +803,7 @@ function Rules({ editable }: { editable: boolean }) {
       </Card>
       {editable ? (
         <Button type="submit" variant="primary" className="self-start" disabled={save.isPending}>
-          Save rules
+          {t("Save rules")}
         </Button>
       ) : null}
     </form>
@@ -790,6 +815,7 @@ function Rules({ editable }: { editable: boolean }) {
 // ---------------------------------------------------------------------------------------------
 
 function GovernmentPaid() {
+  const t = useT("settings-account");
   const year = todaySg().slice(0, 4);
   const [from, setFrom] = React.useState<string | null>(`${year}-01-01`);
   const [to, setTo] = React.useState<string | null>(`${year}-12-31`);
@@ -805,30 +831,31 @@ function GovernmentPaid() {
       <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 id="gov-title" className={textStyle.section}>
-            Government-paid leave to claim
+            {t("Government-paid leave to claim")}
           </h2>
           <p className="mt-1 max-w-2xl text-ui text-primary-300">
-            You pay these days and claim them back on the MSF Government-Paid Leave portal with Corppass, within 3
-            months of the last day of leave. There's no API, so use this list to fill in the claims.
+            {t(
+              "You pay these days and claim them back on the MSF Government-Paid Leave portal with Corppass, within 3 months of the last day of leave. There's no API, so use this list to fill in the claims.",
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
-          <FormField label="From">
+          <FormField label={t("From")}>
             <DatePicker value={from} onChange={setFrom} className="w-36" />
           </FormField>
-          <FormField label="To">
+          <FormField label={t("To")}>
             <DatePicker value={to} onChange={setTo} min={from} className="w-36" />
           </FormField>
           <Button asChild disabled={!ok}>
             <a href={ok ? governmentPaidCsvHref(from, to) : undefined} download>
-              <Download /> CSV
+              <Download /> {t("CSV")}
             </a>
           </Button>
         </div>
       </div>
       <Card>
         {!ok ? (
-          <p className="p-4 text-ui text-danger-300">Pick a start date on or before the end date.</p>
+          <p className="p-4 text-ui text-danger-300">{t("Pick a start date on or before the end date.")}</p>
         ) : q.isError ? (
           <ErrorNote error={q.error} retry={() => void q.refetch()} />
         ) : q.isPending ? (
@@ -838,20 +865,22 @@ function GovernmentPaid() {
         ) : items.length === 0 ? (
           <EmptyState
             variant="plain"
-            title="Nothing to claim back in this period."
-            description="Approved maternity, paternity, shared parental, adoption, childcare and NS leave appears here."
+            title={t("Nothing to claim back in this period.")}
+            description={t(
+              "Approved maternity, paternity, shared parental, adoption, childcare and NS leave appears here.",
+            )}
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table aria-label="Government-paid leave">
+            <Table aria-label={t("Government-paid leave")}>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Scheme</TableHead>
-                  <TableHead className="hidden lg:table-cell">Dates</TableHead>
-                  <TableHead className="text-right">Employer</TableHead>
-                  <TableHead className="text-right">Government</TableHead>
-                  <TableHead className="hidden md:table-cell">Claim by</TableHead>
+                  <TableHead>{t("Employee")}</TableHead>
+                  <TableHead>{t("Scheme")}</TableHead>
+                  <TableHead className="hidden lg:table-cell">{t("Dates")}</TableHead>
+                  <TableHead className="text-right">{t("Employer")}</TableHead>
+                  <TableHead className="text-right">{t("Government")}</TableHead>
+                  <TableHead className="hidden md:table-cell">{t("Claim by")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -871,13 +900,13 @@ function GovernmentPaid() {
                     <TableCell className="num text-right">{fmt(r.employerDays)}</TableCell>
                     <TableCell className="num text-right font-semibold">{fmt(r.governmentDays)}</TableCell>
                     <TableCell className="num hidden whitespace-nowrap md:table-cell">
-                      {r.claimBy ? dateRange(r.claimBy, r.claimBy) : "Automatic"}
+                      {r.claimBy ? dateRange(r.claimBy, r.claimBy) : t("Automatic")}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={2} className="font-azeret text-xs font-semibold">
-                    Total days
+                    {t("Total days")}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell" />
                   <TableCell className="num text-right font-semibold">{fmt(totals.employer)}</TableCell>

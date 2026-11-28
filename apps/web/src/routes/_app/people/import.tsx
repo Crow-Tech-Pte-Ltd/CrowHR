@@ -18,6 +18,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, Download, FileUp, RotateCcw } from "lucide-react";
 import * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { api, errorMessage, type ImportPreviewDto, invalidatePeople } from "./-lib/api.ts";
 
 type Kind = "employees" | "compensation" | "ytd";
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/_app/people/import")({ component: ImportP
 const MAX_BYTES = 5 * 1024 * 1024;
 
 function ImportPage() {
+  const translate = useT("people-payroll");
   const qc = useQueryClient();
   const [kind, setKind] = React.useState<Kind>("employees");
   const [fileName, setFileName] = React.useState<string | null>(null);
@@ -70,7 +72,7 @@ function ImportPage() {
     commit.reset();
     if (!file) return;
     if (file.size > MAX_BYTES) {
-      setLocalError("The file is larger than 5 MB. Split it into smaller files and import each.");
+      setLocalError(translate("The file is larger than 5 MB. Split it into smaller files and import each."));
       return;
     }
     setFileName(file.name);
@@ -90,18 +92,20 @@ function ImportPage() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: "People", to: "/people" }]}
-        title="Import from CSV"
-        description="Nothing is saved until you confirm. Every row is checked with the same rules as the forms, then all rows go in together or none do."
+        crumbs={[{ label: translate("People"), to: "/people" }]}
+        title={translate("Import from CSV")}
+        description={translate(
+          "Nothing is saved until you confirm. Every row is checked with the same rules as the forms, then all rows go in together or none do.",
+        )}
       />
       <p className="mb-5 text-ui text-primary-300" aria-live="polite" data-testid="import-step">
-        <span className="num">Step {step} of 3</span> · {STEPS[step - 1]}
+        {translate("Step {step} of 3", { step })} · {translate(STEPS[step - 1] ?? "")}
       </p>
 
       {step === 1 ? (
         <div className="flex max-w-4xl flex-col gap-5">
           <fieldset className="grid gap-3 sm:grid-cols-3">
-            <legend className={cn(textStyle.section, "mb-2")}>What are you importing?</legend>
+            <legend className={cn(textStyle.section, "mb-2")}>{translate("What are you importing?")}</legend>
             {KINDS.map((k) => (
               <label
                 key={k.kind}
@@ -118,30 +122,32 @@ function ImportPage() {
                     checked={kind === k.kind}
                     onChange={() => setKind(k.kind)}
                   />
-                  <span className="font-azeret text-xs font-semibold">{k.title}</span>
+                  <span className="font-azeret text-xs font-semibold">{translate(k.title)}</span>
                 </span>
-                <span className="text-ui text-primary-300">{k.body}</span>
-                <span className="text-2xs text-primary-200">{k.who}</span>
+                <span className="text-ui text-primary-300">{translate(k.body)}</span>
+                <span className="text-2xs text-primary-200">{translate(k.who)}</span>
               </label>
             ))}
           </fieldset>
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-50 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className={textStyle.group}>Start from the template</h2>
+              <h2 className={textStyle.group}>{translate("Start from the template")}</h2>
               <p className="text-ui text-primary-300">
-                One column per field, with an example row. Dates as YYYY-MM-DD or DD/MM/YYYY; money in dollars.
+                {translate(
+                  "One column per field, with an example row. Dates as YYYY-MM-DD or DD/MM/YYYY; money in dollars.",
+                )}
               </p>
             </div>
             <Button asChild size="sm">
               <a href={`/api/v1/people/imports/templates/${kind}`} download>
-                <Download aria-hidden /> Download template
+                <Download aria-hidden /> {translate("Download template")}
               </a>
             </Button>
           </div>
           <div className="flex flex-col gap-3 rounded-lg border border-dashed border-ink/30 bg-surface-50 p-6">
-            <h2 className={textStyle.group}>Upload the filled-in CSV</h2>
+            <h2 className={textStyle.group}>{translate("Upload the filled-in CSV")}</h2>
             <p className="text-ui text-primary-300">
-              UTF-8 CSV, at most 5 MB and 2,000 rows. In Excel: File → Save As → CSV UTF-8.
+              {translate("UTF-8 CSV, at most 5 MB and 2,000 rows. In Excel: File → Save As → CSV UTF-8.")}
             </p>
             <div>
               <input
@@ -154,7 +160,10 @@ function ImportPage() {
               />
               <Button asChild variant="primary" disabled={preview.isPending}>
                 <label htmlFor="import-file" className="cursor-pointer">
-                  <FileUp aria-hidden /> {preview.isPending ? `Checking ${fileName ?? "file"}…` : "Choose CSV file"}
+                  <FileUp aria-hidden />{" "}
+                  {preview.isPending
+                    ? translate("Checking {file}…", { file: fileName ?? translate("file") })
+                    : translate("Choose CSV file")}
                 </label>
               </Button>
             </div>
@@ -162,7 +171,7 @@ function ImportPage() {
               <Alert variant="danger">
                 <AlertTriangle aria-hidden />
                 <div>
-                  <AlertTitle>That file can't be read</AlertTitle>
+                  <AlertTitle>{translate("That file can't be read")}</AlertTitle>
                   <AlertDescription>{localError ?? errorMessage(preview.error)}</AlertDescription>
                 </div>
               </Alert>
@@ -177,19 +186,22 @@ function ImportPage() {
             <div>
               <p className="text-ui text-primary-300">{p.fileName}</p>
               <p className="text-lg font-semibold">
-                <span className="num">{p.validRows}</span> of <span className="num">{p.totalRows}</span> rows ready
+                {translate("{valid} of {total} rows ready", { valid: p.validRows, total: p.totalRows })}
                 {p.errors.length ? (
                   <>
-                    {" "}
-                    · <span className="num text-danger-300">{p.errors.length}</span>{" "}
-                    {p.errors.length === 1 ? "problem" : "problems"} to fix
+                    {" · "}
+                    <span className="text-danger-300">
+                      {translate(p.errors.length === 1 ? "{count} problem to fix" : "{count} problems to fix", {
+                        count: p.errors.length,
+                      })}
+                    </span>
                   </>
                 ) : null}
               </p>
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={reset}>
-                <RotateCcw aria-hidden /> Upload a fixed file
+                <RotateCcw aria-hidden /> {translate("Upload a fixed file")}
               </Button>
               <Button
                 variant="primary"
@@ -197,10 +209,12 @@ function ImportPage() {
                 onClick={() => commit.mutate(p.jobId)}
               >
                 {commit.isPending
-                  ? "Importing…"
+                  ? translate("Importing…")
                   : p.canCommit
-                    ? `Import ${p.validRows} ${p.validRows === 1 ? "row" : "rows"}`
-                    : "Import"}
+                    ? translate(p.validRows === 1 ? "Import {count} row" : "Import {count} rows", {
+                        count: p.validRows,
+                      })
+                    : translate("Import")}
               </Button>
             </div>
           </div>
@@ -208,9 +222,9 @@ function ImportPage() {
             <Alert variant="warning">
               <AlertTriangle aria-hidden />
               <div>
-                <AlertTitle>Fix these in the spreadsheet, then upload it again</AlertTitle>
+                <AlertTitle>{translate("Fix these in the spreadsheet, then upload it again")}</AlertTitle>
                 <AlertDescription>
-                  Nothing has been imported. Import is all or nothing, so every row must pass first.
+                  {translate("Nothing has been imported. Import is all or nothing, so every row must pass first.")}
                 </AlertDescription>
               </div>
             </Alert>
@@ -219,17 +233,20 @@ function ImportPage() {
             <Alert variant="danger">
               <AlertTriangle aria-hidden />
               <div>
-                <AlertTitle>Nothing was imported</AlertTitle>
+                <AlertTitle>{translate("Nothing was imported")}</AlertTitle>
                 <AlertDescription>{errorMessage(commit.error)}</AlertDescription>
               </div>
             </Alert>
           ) : null}
           {p.errors.length ? (
-            <ul className="divide-y divide-border rounded-lg border border-border sm:hidden" aria-label="Problems">
+            <ul
+              className="divide-y divide-border rounded-lg border border-border sm:hidden"
+              aria-label={translate("Problems")}
+            >
               {p.errors.map((e) => (
                 <li key={`m-${e.row}-${e.column}-${e.message}`} className="flex flex-col gap-0.5 px-3 py-2.5">
                   <span className="font-azeret text-2xs text-primary-200">
-                    Row <span className="num">{e.row}</span> · {e.column}
+                    {translate("Row")} <span className="num">{e.row}</span> · {e.column}
                     {e.value ? (
                       <>
                         {" "}
@@ -243,15 +260,15 @@ function ImportPage() {
             </ul>
           ) : null}
           {p.errors.length ? (
-            <Table aria-label="Problems in the file" containerClassName="hidden sm:block">
+            <Table aria-label={translate("Problems in the file")} containerClassName="hidden sm:block">
               <TableHeader>
                 <TableRow>
                   <TableHead numeric className="w-16">
-                    Row
+                    {translate("Row")}
                   </TableHead>
-                  <TableHead className="w-48">Column</TableHead>
-                  <TableHead className="w-40">Value</TableHead>
-                  <TableHead>How to fix</TableHead>
+                  <TableHead className="w-48">{translate("Column")}</TableHead>
+                  <TableHead className="w-40">{translate("Value")}</TableHead>
+                  <TableHead>{translate("How to fix")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -260,7 +277,7 @@ function ImportPage() {
                     <TableCell numeric>{e.row}</TableCell>
                     <TableCell className="font-azeret text-2xs">{e.column}</TableCell>
                     <TableCell className="num truncate">
-                      {e.value || <span className="text-primary-200">(empty)</span>}
+                      {e.value || <span className="text-primary-200">{translate("(empty)")}</span>}
                     </TableCell>
                     <TableCell>{e.message}</TableCell>
                   </TableRow>
@@ -268,14 +285,14 @@ function ImportPage() {
               </TableBody>
             </Table>
           ) : null}
-          <Table aria-label="Rows in the file">
+          <Table aria-label={translate("Rows in the file")}>
             <TableHeader>
               <TableRow>
                 <TableHead numeric className="w-16">
-                  Row
+                  {translate("Row")}
                 </TableHead>
-                <TableHead>Will create</TableHead>
-                <TableHead className="w-32">Check</TableHead>
+                <TableHead>{translate("Will create")}</TableHead>
+                <TableHead className="w-32">{translate("Check")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -286,16 +303,18 @@ function ImportPage() {
                   <TableCell>
                     {/* Ready is the normal state; only a row that needs a fix is marked. */}
                     {r.valid ? (
-                      <span className="text-primary-300">Ready</span>
+                      <span className="text-primary-300">{translate("Ready")}</span>
                     ) : (
-                      <StatusPill tone="danger">Needs a fix</StatusPill>
+                      <StatusPill tone="danger">{translate("Needs a fix")}</StatusPill>
                     )}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {p.rows.length > 200 ? <p className="text-2xs text-primary-200">Showing the first 200 rows.</p> : null}
+          {p.rows.length > 200 ? (
+            <p className="text-2xs text-primary-200">{translate("Showing the first 200 rows.")}</p>
+          ) : null}
         </div>
       ) : null}
 
@@ -304,20 +323,21 @@ function ImportPage() {
           <CheckCircle2 aria-hidden />
           <div className="flex flex-col gap-2">
             <AlertTitle>
-              Imported <span className="num">{commit.data.totalRows}</span>{" "}
-              {commit.data.totalRows === 1 ? "row" : "rows"}
+              {translate(commit.data.totalRows === 1 ? "Imported {count} row" : "Imported {count} rows", {
+                count: commit.data.totalRows,
+              })}
             </AlertTitle>
             <AlertDescription>
               {kind === "employees"
-                ? "Onboarding checklists were created and invitations queued for work emails."
-                : "The changes are in each employee's history."}
+                ? translate("Onboarding checklists were created and invitations queued for work emails.")
+                : translate("The changes are in each employee's history.")}
             </AlertDescription>
             <div className="flex gap-2">
               <Button asChild size="sm" variant="primary">
-                <Link to="/people">Go to People</Link>
+                <Link to="/people">{translate("Go to People")}</Link>
               </Button>
               <Button size="sm" variant="ghost" onClick={reset}>
-                Import another file
+                {translate("Import another file")}
               </Button>
             </div>
           </div>

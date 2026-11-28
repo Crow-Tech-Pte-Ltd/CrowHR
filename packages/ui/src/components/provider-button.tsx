@@ -26,6 +26,8 @@ export type IdentityProvider = "google" | "microsoft" | "singpass" | "oidc";
 
 export interface ProviderButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   provider: IdentityProvider;
+  /** Translated label for Google, Microsoft or generic OIDC. Singpass uses the provider-prescribed wording. */
+  label?: string;
   /** For generic OIDC: the organisation's display name for its IdP, e.g. "Okta". */
   oidcName?: string;
   /** URL of the official Singpass logo (white-background variant), supplied by the deployer. */
@@ -78,7 +80,7 @@ function MicrosoftMark() {
 }
 
 export const ProviderButton = React.forwardRef<HTMLButtonElement, ProviderButtonProps>(
-  ({ provider, oidcName, singpassLogoSrc, className, type = "button", ...props }, ref) => {
+  ({ provider, label, oidcName, singpassLogoSrc, className, type = "button", ...props }, ref) => {
     let content: React.ReactNode;
     let accessibleName: string | undefined;
     switch (provider) {
@@ -86,7 +88,7 @@ export const ProviderButton = React.forwardRef<HTMLButtonElement, ProviderButton
         content = (
           <>
             <GoogleMark />
-            <span>Sign in with Google</span>
+            <span>{label ?? "Sign in with Google"}</span>
           </>
         );
         break;
@@ -94,7 +96,7 @@ export const ProviderButton = React.forwardRef<HTMLButtonElement, ProviderButton
         content = (
           <>
             <MicrosoftMark />
-            <span>Sign in with Microsoft</span>
+            <span>{label ?? "Sign in with Microsoft"}</span>
           </>
         );
         break;
@@ -117,7 +119,7 @@ export const ProviderButton = React.forwardRef<HTMLButtonElement, ProviderButton
         content = (
           <>
             <KeyRound className="size-4" aria-hidden />
-            <span>{oidcName ? `Sign in with ${oidcName}` : "Single sign-on (SSO)"}</span>
+            <span>{label ?? (oidcName ? `Sign in with ${oidcName}` : "Single sign-on (SSO)")}</span>
           </>
         );
         break;

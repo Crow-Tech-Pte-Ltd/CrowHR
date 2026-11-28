@@ -1,11 +1,15 @@
 import { formatDate } from "@crowhr/ui";
 import { singaporeTodayIso } from "@crowhr/ui/clock";
+import { type Locale, type Translate, translate } from "../i18n/index.ts";
 import type { LeaveStatus, Policy, PolicyView, Session, Unit } from "./api.ts";
 
+const english: Translate = (message, values) => translate("en-SG", "workflows", message, values);
+
 /** "1 day", "0.5 day", "2.5 days", "4 hours". */
-export function qty(n: number, unit: Unit): string {
-  if (unit === "hours") return `${fmt(n)} ${n === 1 ? "hour" : "hours"}`;
-  return `${fmt(n)} ${n === 1 || n === 0.5 ? "day" : "days"}`;
+export function qty(n: number, unit: Unit, t: Translate = english): string {
+  const amount = fmt(n);
+  if (unit === "hours") return t(n === 1 ? "{amount} hour" : "{amount} hours", { amount });
+  return t(n === 1 || n === 0.5 ? "{amount} day" : "{amount} days", { amount });
 }
 
 /** Numbers without trailing zeros: 2, 2.5, 25.5. */
@@ -16,7 +20,25 @@ export function fmt(n: number): string {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** "4–6 Nov 2026", "30 Dec 2026 – 2 Jan 2027", "4 Nov 2026 (AM)". */
-export function dateRange(start: string, end: string, startSession: Session = "full", endSession: Session = "full") {
+export function dateRange(
+  start: string,
+  end: string,
+  startSession: Session = "full",
+  endSession: Session = "full",
+  locale: Locale = "en-SG",
+) {
+  if (locale !== "en-SG") {
+    const f = new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+    const from = new Date(`${start}T00:00:00Z`);
+    const to = new Date(`${end}T00:00:00Z`);
+    if (Number.isFinite(from.getTime()) && Number.isFinite(to.getTime()) && from <= to) {
+      const session = (s: Session) =>
+        s === "full" ? "" : ` (${translate(locale, "workflows", s === "am" ? "AM" : "PM")})`;
+      if (start === end) return f.format(from) + session(startSession);
+      if (startSession !== "pm" && endSession !== "am") return f.formatRange(from, to);
+      return `${f.format(from)}${startSession === "pm" ? session("pm") : ""} – ${f.format(to)}${endSession === "am" ? session("am") : ""}`;
+    }
+  }
   const half = (s: Session) => (s === "am" ? " (AM)" : s === "pm" ? " (PM)" : "");
   if (start === end) return `${formatDate(start)}${half(startSession)}`;
   const [ys, ms, ds] = start.split("-").map(Number) as [number, number, number];

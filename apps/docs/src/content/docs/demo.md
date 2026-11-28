@@ -7,6 +7,8 @@ Crow HR has an in-browser demo: the same web app and the same API code that a se
 
 ![The Qinghe Foods sign-in page with the demo controls and five one-click personas](../../assets/screens/demo-personas.webp)
 
+Use the language picker on the sign-in page, or open **Account menu → Language** after signing in. The web app and demo offer English, Simplified Chinese, Malay and Tamil. The browser remembers your choice, including after a demo reset.
+
 ## How it works
 
 - **No backend.** The site is static files. The Crow HR API runs in a Web Worker in your tab, against PostgreSQL compiled to WebAssembly (PGlite), saved in your browser's IndexedDB. Nothing you type reaches a server, and there are no analytics or third-party requests.

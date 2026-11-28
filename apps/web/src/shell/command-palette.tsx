@@ -12,6 +12,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { CircleHelp, LogOut, UserRound } from "lucide-react";
 import * as React from "react";
 import { useSignOut } from "../auth/sign-out.ts";
+import { useT } from "../i18n/index.ts";
 import { directoryQuery } from "../routes/_app/people/-lib/api.ts";
 import { MODULES, type ModuleId } from "./nav.ts";
 
@@ -32,6 +33,7 @@ const ORDER: ModuleId[] = [
 
 /** ⌘K / Ctrl+K: jump to a module or find a person. */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const t = useT("common");
   const navigate = useNavigate();
   const signOut = useSignOut();
   // People search: the directory is visible to every member; fetched when the palette opens.
@@ -75,9 +77,14 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   };
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("Command palette")}
+      description={t("Search for a page or a person and press Enter.")}
+    >
       <CommandInput
-        placeholder="Jump to a page or find a person…"
+        placeholder={t("Jump to a page or find a person…")}
         value={search}
         onValueChange={setSearch}
         onKeyDown={(e) => {
@@ -88,22 +95,22 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         }}
       />
       <CommandList>
-        <CommandEmpty>No matches. Try a module name like “payroll” or a person’s name.</CommandEmpty>
-        <CommandGroup heading="Go to">
+        <CommandEmpty>{t("No matches. Try a module name like “payroll” or a person’s name.")}</CommandEmpty>
+        <CommandGroup heading={t("Go to")}>
           {ORDER.map((id) => {
             const m = MODULES[id];
             const Icon = m.icon;
             return (
-              <CommandItem key={id} value={m.label} keywords={m.keywords} onSelect={() => go(m.to)}>
+              <CommandItem key={id} value={t(m.label)} keywords={[m.label, ...m.keywords]} onSelect={() => go(m.to)}>
                 <Icon />
-                <span>{m.label}</span>
-                <span className="truncate text-2xs text-primary-200">{m.summary}</span>
+                <span>{t(m.label)}</span>
+                <span className="truncate text-2xs text-primary-200">{t(m.summary)}</span>
               </CommandItem>
             );
           })}
         </CommandGroup>
         <CommandSeparator />
-        <CommandGroup heading="People">
+        <CommandGroup heading={t("People")}>
           {(people.data?.items ?? []).map((p) => (
             <CommandItem
               key={p.id}
@@ -122,20 +129,25 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           ))}
         </CommandGroup>
         <CommandSeparator />
-        <CommandGroup heading="Account">
-          <CommandItem value="Help" keywords={["support", "troubleshooting", "recovery"]} onSelect={() => go("/help")}>
+        <CommandGroup heading={t("Account")}>
+          <CommandItem
+            value={t("Help")}
+            keywords={["Help", "support", "troubleshooting", "recovery"]}
+            onSelect={() => go("/help")}
+          >
             <CircleHelp />
-            Help
+            {t("Help")}
           </CommandItem>
           <CommandItem
-            value="Sign out"
+            value={t("Sign out")}
+            keywords={["Sign out"]}
             onSelect={() => {
               onOpenChange(false);
               void signOut();
             }}
           >
             <LogOut />
-            Sign out
+            {t("Sign out")}
           </CommandItem>
         </CommandGroup>
       </CommandList>

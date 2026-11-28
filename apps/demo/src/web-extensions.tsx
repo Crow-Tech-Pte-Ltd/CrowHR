@@ -34,5 +34,5 @@ export function configureWebForDemo() {
   // Build-time: a Crow HR server's demo Singpass start URL (see the Singpass guide). Unset: disabled.
   const singpassStart = import.meta.env.VITE_DEMO_SINGPASS_START_URL;
   if (singpassStart) shellExtensions.demoSingpassStartUrl = singpassStart;
-  shellExtensions.demoSignInNote = `Prefer typing? Every demo account's password is ${DEMO_PASSWORD}. Emails the app would send appear in the Demo outbox.`;
+  shellExtensions.demoPassword = DEMO_PASSWORD;
 }

@@ -6,6 +6,7 @@ import * as React from "react";
 import { useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useLocale, useT } from "../../../i18n/index.ts";
 import { type CalendarEntry, type CalendarView, calendarQuery } from "../../../leave/api.ts";
 import { addDays, dateRange, mondayOf, todaySg, weekdayOf } from "../../../leave/format.ts";
 import { LeaveNav } from "../../../leave/leave-nav.tsx";
@@ -30,6 +31,8 @@ export const Route = createFileRoute("/_app/leave/team")({
 });
 
 function TeamCalendarPage() {
+  const locale = useLocale();
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/leave/team" });
@@ -43,33 +46,41 @@ function TeamCalendarPage() {
   return (
     <>
       <PageHeader
-        title="Leave"
+        title={tWorkflow("Leave")}
         description={
           view === "org"
-            ? "Who's away. Leave types stay private where they're sensitive, such as sick leave."
-            : "Your team's leave by half day. Pending requests show with a dashed outline."
+            ? tWorkflow("Who's away. Leave types stay private where they're sensitive, such as sick leave.")
+            : tWorkflow("Your team's leave by half day. Pending requests show with a dashed outline.")
         }
       />
       <LeaveNav current="team" />
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <Button size="icon-sm" aria-label="Previous two weeks" onClick={() => go({ from: addDays(from, -SPAN) })}>
+          <Button
+            size="icon-sm"
+            aria-label={tWorkflow("Previous two weeks")}
+            onClick={() => go({ from: addDays(from, -SPAN) })}
+          >
             <ChevronLeft />
           </Button>
-          <Button size="icon-sm" aria-label="Next two weeks" onClick={() => go({ from: addDays(from, SPAN) })}>
+          <Button
+            size="icon-sm"
+            aria-label={tWorkflow("Next two weeks")}
+            onClick={() => go({ from: addDays(from, SPAN) })}
+          >
             <ChevronRight />
           </Button>
           <Button size="sm" variant="ghost" onClick={() => go({ from: undefined })}>
-            This week
+            {tWorkflow("This week")}
           </Button>
           <span className="num ml-1 text-ui font-medium" data-testid="calendar-range">
-            {dateRange(from, to)}
+            {dateRange(from, to, "full", "full", locale)}
           </span>
         </div>
         {wide ? (
           // A view switch over the same calendar, so toggle buttons rather than tabs (no separate panels).
           <fieldset className="flex h-10 items-end gap-1 border-b border-border">
-            <legend className="sr-only">Calendar view</legend>
+            <legend className="sr-only">{tWorkflow("Calendar view")}</legend>
             {(
               [
                 ["team", scopes.includes("all") ? "Everyone" : "My team"],
@@ -102,8 +113,8 @@ function TeamCalendarPage() {
         </Card>
       ) : q.data.people.length === 0 ? (
         <EmptyState
-          title="Nobody is on leave in these two weeks."
-          description="Approved and pending leave shows here. Try the next two weeks, or another team."
+          title={tWorkflow("Nobody is on leave in these two weeks.")}
+          description={tWorkflow("Approved and pending leave shows here. Try the next two weeks, or another team.")}
         />
       ) : (
         <>
@@ -130,6 +141,7 @@ function days(data: CalendarView) {
 const isWeekend = (d: string) => ["Sat", "Sun"].includes(weekdayOf(d));
 
 function Grid({ data, onOpen }: { data: CalendarView; onOpen: (id: string) => void }) {
+  const tWorkflow = useT("workflows");
   const dates = days(data);
   const today = todaySg();
   const holiday = new Map(data.holidays.map((h) => [h.date, h.name]));
@@ -145,7 +157,7 @@ function Grid({ data, onOpen }: { data: CalendarView; onOpen: (id: string) => vo
     <Card className="overflow-x-auto">
       <table
         className="w-full min-w-[56rem] border-collapse text-ui"
-        aria-label="Leave calendar"
+        aria-label={tWorkflow("Leave calendar")}
         data-testid="leave-grid"
       >
         <thead className="sticky top-0 z-10 bg-background">
@@ -157,7 +169,7 @@ function Grid({ data, onOpen }: { data: CalendarView; onOpen: (id: string) => vo
                 textStyle.column,
               )}
             >
-              Name
+              {tWorkflow("Name")}
             </th>
             {dates.map((d) => (
               <th
@@ -170,11 +182,13 @@ function Grid({ data, onOpen }: { data: CalendarView; onOpen: (id: string) => vo
                   holiday.has(d) && "bg-oren-50/30 text-ink",
                 )}
               >
-                <span className="block">{weekdayOf(d)}</span>
+                <span className="block">{tWorkflow(weekdayOf(d))}</span>
                 <span className={cn("num block text-xs", d === today && "rounded-sm bg-ink text-surface-50")}>
                   {Number(d.slice(8))}
                 </span>
-                {holiday.has(d) ? <span className="block text-[10px] font-semibold leading-3">PH</span> : null}
+                {holiday.has(d) ? (
+                  <span className="block text-[10px] font-semibold leading-3">{tWorkflow("PH")}</span>
+                ) : null}
               </th>
             ))}
           </tr>
@@ -193,7 +207,7 @@ function Grid({ data, onOpen }: { data: CalendarView; onOpen: (id: string) => vo
                 className="sticky left-0 z-[1] h-10 max-w-48 truncate border-b border-border bg-background px-3 text-left font-normal group-hover:bg-surface-100"
               >
                 {p.name}
-                {p.self ? <span className="ml-1 text-2xs text-primary-200">(you)</span> : null}
+                {p.self ? <span className="ml-1 text-2xs text-primary-200">{tWorkflow("(you)")}</span> : null}
               </th>
               {dates.map((d) => {
                 const entries = p.entries.filter((e) => e.date === d);
@@ -229,13 +243,23 @@ function Cell({
   name: string;
   date: string;
 }) {
+  const tWorkflow = useT("workflows");
+  const locale = useLocale();
   if (!entries.length) return null;
   const full = entries.find((e) => e.session === "full");
   const am = full ?? entries.find((e) => e.session === "am");
   const pm = full ?? entries.find((e) => e.session === "pm");
   const block = (e: CalendarEntry | undefined, half: "am" | "pm" | "full") => {
     if (!e) return <span className="flex-1" />;
-    const label = `${name}: ${e.label}${half === "full" ? "" : half === "am" ? " (morning)" : " (afternoon)"}, ${dateRange(date, date)}${e.status === "pending" ? ", pending" : ""}`;
+    const session = half === "full" ? "" : ` (${tWorkflow(half === "am" ? "morning" : "afternoon")})`;
+    const pending = e.status === "pending" ? `, ${tWorkflow("pending")}` : "";
+    const label = tWorkflow("{name}: {leave}{session}, {date}{pending}", {
+      name,
+      leave: e.label,
+      session,
+      date: dateRange(date, date, "full", "full", locale),
+      pending,
+    });
     const text =
       half === "full" ? (
         <span aria-hidden className="truncate px-1 text-[10px] leading-none">
@@ -274,6 +298,8 @@ function Cell({
 }
 
 function DayList({ data, onOpen }: { data: CalendarView; onOpen: (id: string) => void }) {
+  const locale = useLocale();
+  const tWorkflow = useT("workflows");
   const holiday = new Map(data.holidays.map((h) => [h.date, h.name]));
   const byDay = days(data)
     .map((d) => ({
@@ -284,7 +310,7 @@ function DayList({ data, onOpen }: { data: CalendarView; onOpen: (id: string) =>
     }))
     .filter((x) => x.people.length || holiday.has(x.date));
   if (!byDay.length) {
-    return <p className="text-ui text-primary-300">Nobody is on leave in these two weeks.</p>;
+    return <p className="text-ui text-primary-300">{tWorkflow("Nobody is on leave in these two weeks.")}</p>;
   }
   return (
     <ol className="flex flex-col gap-3" data-testid="leave-day-list">
@@ -292,7 +318,7 @@ function DayList({ data, onOpen }: { data: CalendarView; onOpen: (id: string) =>
         <li key={date}>
           <h2 className={cn("mb-1 flex items-baseline gap-2", textStyle.group)}>
             <span className="num">
-              {weekdayOf(date)} {dateRange(date, date)}
+              {tWorkflow(weekdayOf(date))} {dateRange(date, date, "full", "full", locale)}
             </span>
             {holiday.has(date) ? (
               <span className="font-sans font-normal text-primary-300">{holiday.get(date)}</span>
@@ -310,7 +336,7 @@ function DayList({ data, onOpen }: { data: CalendarView; onOpen: (id: string) =>
                   >
                     <span className="min-w-0 truncate">
                       {name}
-                      {self ? <span className="text-primary-200"> (you)</span> : null}
+                      {self ? <span className="text-primary-200"> {tWorkflow("(you)")}</span> : null}
                     </span>
                     <span className="flex shrink-0 items-center gap-2 text-primary-300">
                       {e.label}
@@ -322,14 +348,14 @@ function DayList({ data, onOpen }: { data: CalendarView; onOpen: (id: string) =>
                           e.status === "approved" ? "border-ink/40 bg-kuning-200" : "border-dashed border-ink/60",
                         )}
                       />
-                      {e.status === "pending" ? <span className="sr-only">pending</span> : null}
+                      {e.status === "pending" ? <span className="sr-only">{tWorkflow("pending")}</span> : null}
                     </span>
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-ui text-primary-200">Public holiday</p>
+            <p className="text-ui text-primary-200">{tWorkflow("Public holiday")}</p>
           )}
         </li>
       ))}
@@ -338,19 +364,20 @@ function DayList({ data, onOpen }: { data: CalendarView; onOpen: (id: string) =>
 }
 
 function Legend() {
+  const tWorkflow = useT("workflows");
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-2xs text-primary-300" aria-hidden>
       <span className="flex items-center gap-1.5">
-        <span className="size-3 rounded-sm border border-ink/40 bg-kuning-200" /> Approved
+        <span className="size-3 rounded-sm border border-ink/40 bg-kuning-200" /> {tWorkflow("Approved")}
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="size-3 rounded-sm border border-dashed border-ink/60 bg-surface-50" /> Pending
+        <span className="size-3 rounded-sm border border-dashed border-ink/60 bg-surface-50" /> {tWorkflow("Pending")}
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="h-3 w-1.5 rounded-sm border border-ink/40 bg-kuning-200" /> Half day
+        <span className="h-3 w-1.5 rounded-sm border border-ink/40 bg-kuning-200" /> {tWorkflow("Half day")}
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="size-3 rounded-sm bg-oren-50/30 ring-1 ring-oren-200" /> Public holiday
+        <span className="size-3 rounded-sm bg-oren-50/30 ring-1 ring-oren-200" /> {tWorkflow("Public holiday")}
       </span>
     </div>
   );

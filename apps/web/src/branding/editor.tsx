@@ -1,6 +1,7 @@
 import { Button, cn, FormField, Input, textStyle } from "@crowhr/ui";
 import { useId, useState } from "react";
 import { Wordmark } from "../components/wordmark.tsx";
+import { useT } from "../i18n/index.ts";
 import { type AppearanceDraft, Brand } from "./appearance.tsx";
 
 export async function readPng(file: File): Promise<string> {
@@ -34,6 +35,7 @@ export function AppearanceEditor({
   error?: string | undefined;
   busy?: boolean;
 }) {
+  const t = useT("settings-account");
   const [fileError, setFileError] = useState<string>();
   const [reading, setReading] = useState(false);
   const fileId = useId();
@@ -46,11 +48,11 @@ export function AppearanceEditor({
         : customLogo;
   return (
     <fieldset disabled={busy} className="flex flex-col gap-4 rounded-lg border border-border bg-surface-50 p-4">
-      <legend className={cn("-ml-1 px-1", textStyle.group)}>Appearance</legend>
+      <legend className={cn("-ml-1 px-1", textStyle.group)}>{t("Appearance")}</legend>
       <p className="text-ui text-primary-300">
-        Brand the web app and sign-in page. The logo and accent are public on your company sign-in page.
+        {t("Brand the web app and sign-in page. The logo and accent are public on your company sign-in page.")}
       </p>
-      <FormField label="Accent colour" hint="Optional. Enter a hex colour like #165E85." error={error}>
+      <FormField label={t("Accent colour")} hint={t("Optional. Enter a hex colour like #165E85.")} error={error}>
         <Input
           placeholder="#165E85"
           value={value.accent ?? ""}
@@ -59,7 +61,11 @@ export function AppearanceEditor({
           spellCheck={false}
         />
       </FormField>
-      <FormField label="App logo" hint="Optional. PNG up to 256 KB and 2048 × 2048 pixels." error={fileError}>
+      <FormField
+        label={t("App logo")}
+        hint={t("Optional. PNG up to 256 KB and 2048 × 2048 pixels.")}
+        error={fileError ? t(fileError) : undefined}
+      >
         <Input
           id={fileId}
           type="file"
@@ -90,7 +96,7 @@ export function AppearanceEditor({
             variant="secondary"
             onClick={() => onChange({ ...value, useDocumentLogo: true })}
           >
-            Use letter logo
+            {t("Use letter logo")}
           </Button>
         ) : null}
         {logoUrl ? (
@@ -100,7 +106,7 @@ export function AppearanceEditor({
             variant="secondary"
             onClick={() => onChange({ ...value, useDocumentLogo: false, logoBase64: null })}
           >
-            Remove app logo
+            {t("Remove app logo")}
           </Button>
         ) : null}
       </div>
@@ -113,11 +119,11 @@ export function AppearanceEditor({
               "flex min-w-0 flex-col gap-3 rounded-md border border-border bg-surface-50 p-3 text-ink",
             )}
           >
-            <span className="text-2xs text-primary-300">{theme} preview</span>
+            <span className="text-2xs text-primary-300">{t(theme === "Light" ? "Light preview" : "Dark preview")}</span>
             <Brand name={name} appearance={{ accent: value.accent, logoUrl: logoUrl ?? null, logoSource: "none" }}>
               <Wordmark key={logoUrl} />
               <span className="self-start rounded border-2 border-ink bg-[var(--brand-action,hsl(var(--kuning-200)))] px-2 py-1 text-2xs font-semibold text-[color:var(--brand-action-text,hsl(var(--accent-foreground)))]">
-                Sign in
+                {t("Sign in")}
               </span>
             </Brand>
           </div>

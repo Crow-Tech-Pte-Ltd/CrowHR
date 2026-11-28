@@ -31,7 +31,11 @@ export default defineConfig({
   // packages/demo/src/worker-entry.ts). The timing and screenshot specs stay Chromium-only.
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "webkit", use: { ...devices["Desktop Safari"] }, testMatch: ["**/boot.demo.ts", "**/demo.demo.ts"] },
+    {
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+      testMatch: ["**/boot.demo.ts", "**/demo.demo.ts", "**/localisation.demo.ts"],
+    },
   ],
   webServer: {
     command: "node apps/demo/scripts/serve.ts apps/demo/dist",

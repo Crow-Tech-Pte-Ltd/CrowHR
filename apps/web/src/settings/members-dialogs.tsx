@@ -20,6 +20,7 @@ import * as React from "react";
 import type { AssignedRole, Member } from "../auth/types.ts";
 import { ROLE_LABEL } from "../auth/types.ts";
 import { CopyField } from "../components/copy-field.tsx";
+import { useT } from "../i18n/index.ts";
 import { ApiError, apiPost } from "../lib/api.ts";
 
 const ROLE_HELP: Record<AssignedRole, string> = {
@@ -37,9 +38,10 @@ export function RolePicker({
   onChange: (v: AssignedRole[]) => void;
   disabled?: boolean;
 }) {
+  const t = useT("settings-account");
   return (
     <fieldset className="flex flex-col gap-2" disabled={disabled}>
-      <legend className={cn("mb-1", textStyle.group)}>Roles (optional, combinable)</legend>
+      <legend className={cn("mb-1", textStyle.group)}>{t("Roles (optional, combinable)")}</legend>
       {(["owner", "hr_admin", "payroll_admin"] as const).map((r) => (
         <div key={r} className="flex items-start gap-2">
           <Checkbox
@@ -48,13 +50,13 @@ export function RolePicker({
             onCheckedChange={(c) => onChange(c ? [...value, r] : value.filter((x) => x !== r))}
           />
           <Label htmlFor={`role-${r}`} className="flex flex-col gap-0.5 font-sans text-ui font-normal">
-            <span className="font-medium">{ROLE_LABEL[r]}</span>
+            <span className="font-medium">{t(ROLE_LABEL[r] ?? r)}</span>
             <span className="text-2xs text-primary-300">{ROLE_HELP[r]}</span>
           </Label>
         </div>
       ))}
       <p className="text-2xs text-primary-200">
-        Everyone linked to an employee record is an employee; managers are worked out from reporting lines.
+        {t("Everyone linked to an employee record is an employee; managers are worked out from reporting lines.")}
       </p>
     </fieldset>
   );
@@ -71,6 +73,7 @@ export function InviteDialog({
   canGrantRoles: boolean;
   onInvited: () => void;
 }) {
+  const t = useT("settings-account");
   const [email, setEmail] = React.useState("");
   const [name, setName] = React.useState("");
   const [roles, setRoles] = React.useState<AssignedRole[]>([]);
@@ -116,9 +119,9 @@ export function InviteDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Invite someone</DialogTitle>
+          <DialogTitle>{t("Invite someone")}</DialogTitle>
           <DialogDescription>
-            They get a link to set a password or use your organisation's single sign-on. Links last 7 days.
+            {t("They get a link to set a password or use your organisation's single sign-on. Links last 7 days.")}
           </DialogDescription>
         </DialogHeader>
         {result ? (
@@ -127,12 +130,15 @@ export function InviteDialog({
               <CheckCircle2 aria-hidden />
               <AlertDescription>
                 {result.inviteUrl
-                  ? `Email isn't set up on this server, so send ${result.email} this link yourself (chat or email). It's shown once.`
-                  : `Invitation emailed to ${result.email}.`}
+                  ? t(
+                      "Email isn't set up on this server, so send {email} this link yourself (chat or email). It's shown once.",
+                      { email: result.email },
+                    )
+                  : t("Invitation emailed to {email}.", { email: result.email })}
               </AlertDescription>
             </Alert>
             {result.inviteUrl ? (
-              <CopyField value={result.inviteUrl} label="invitation link" testId="invite-link" />
+              <CopyField value={result.inviteUrl} label={t("invitation link")} testId="invite-link" />
             ) : null}
           </div>
         ) : (
@@ -142,28 +148,28 @@ export function InviteDialog({
                 {failure}
               </p>
             ) : null}
-            <FormField label="Work email" error={errors.email}>
+            <FormField label={t("Work email")} error={errors.email}>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
             </FormField>
-            <FormField label="Name" error={errors.displayName}>
+            <FormField label={t("Name")} error={errors.displayName}>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </FormField>
             {canGrantRoles ? (
               <RolePicker value={roles} onChange={setRoles} />
             ) : (
               <p className="text-2xs text-primary-300">
-                Only an owner can invite someone with a role. They'll join as a member.
+                {t("Only an owner can invite someone with a role. They'll join as a member.")}
               </p>
             )}
           </form>
         )}
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            {result ? "Done" : "Cancel"}
+            {result ? t("Done") : t("Cancel")}
           </Button>
           {result ? null : (
             <Button variant="primary" type="submit" form="invite-form" disabled={busy}>
-              {busy ? "Inviting…" : "Send invitation"}
+              {busy ? t("Inviting…") : t("Send invitation")}
             </Button>
           )}
         </DialogFooter>
@@ -181,6 +187,7 @@ export function RolesDialog({
   onOpenChange: (o: boolean) => void;
   onSave: (roles: AssignedRole[]) => Promise<void>;
 }) {
+  const t = useT("settings-account");
   const [roles, setRoles] = React.useState<AssignedRole[]>([]);
   const [failure, setFailure] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -192,9 +199,9 @@ export function RolesDialog({
     <Dialog open={!!member} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Roles for {member?.displayName}</DialogTitle>
+          <DialogTitle>{member ? t("Roles for {name}", { name: member.displayName }) : t("Roles")}</DialogTitle>
           <DialogDescription>
-            Changes apply on their next click. Every change is recorded in the audit log.
+            {t("Changes apply on their next click. Every change is recorded in the audit log.")}
           </DialogDescription>
         </DialogHeader>
         {failure ? (
@@ -205,7 +212,7 @@ export function RolesDialog({
         <RolePicker value={roles} onChange={setRoles} />
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button
             variant="primary"
@@ -224,7 +231,7 @@ export function RolesDialog({
               }
             }}
           >
-            {busy ? "Saving…" : "Save roles"}
+            {busy ? t("Saving…") : t("Save roles")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -239,6 +246,7 @@ export function LinkDialog({
   link: { title: string; body: string; url: string } | null;
   onOpenChange: (o: boolean) => void;
 }) {
+  const t = useT("settings-account");
   return (
     <Dialog open={!!link} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -246,10 +254,10 @@ export function LinkDialog({
           <DialogTitle>{link?.title}</DialogTitle>
           <DialogDescription>{link?.body}</DialogDescription>
         </DialogHeader>
-        {link ? <CopyField value={link.url} label="link" testId="one-time-link" /> : null}
+        {link ? <CopyField value={link.url} label={t("link")} testId="one-time-link" /> : null}
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            Done
+            {t("Done")}
           </Button>
         </DialogFooter>
       </DialogContent>

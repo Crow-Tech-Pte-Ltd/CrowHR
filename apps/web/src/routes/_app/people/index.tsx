@@ -18,6 +18,7 @@ import { Download, Search, Upload, UserPlus } from "lucide-react";
 import * as React from "react";
 import { canForAll, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
+import { type Translate, useT } from "../../../i18n/index.ts";
 import { directoryQuery, structureQuery } from "./-lib/api.ts";
 import { EmployeeStatus, ErrorPanel, PassPill } from "./-lib/ui.tsx";
 
@@ -50,87 +51,91 @@ const STATUS_OPTIONS = [
 const statusFilter = (s: string | undefined) =>
   s === "all" ? undefined : !s || s === "current" ? "active,leaving,not_started" : s;
 
-const columns: ColumnDef<DirectoryRowDto, unknown>[] = [
-  {
-    id: "name",
-    header: "Name",
-    accessorFn: (r) => r.name,
-    cell: ({ row }) => (
-      <div className="flex min-w-0 items-baseline gap-2 whitespace-nowrap">
-        <Link
-          to="/people/$employeeId"
-          params={{ employeeId: row.original.id }}
-          className="focus-ring truncate rounded-sm font-medium hover:underline"
-          tabIndex={-1}
-        >
-          {row.original.name}
-        </Link>
-        <span className="num shrink-0 text-2xs text-primary-200">{row.original.employeeNumber}</span>
-      </div>
-    ),
-  },
-  {
-    id: "jobTitle",
-    header: "Job title",
-    accessorFn: (r) => r.jobTitle ?? "",
-    cell: ({ getValue }) => (
-      <span className="block max-w-[14rem] truncate whitespace-nowrap">{(getValue() as string) || "—"}</span>
-    ),
-  },
-  {
-    id: "department",
-    header: "Department",
-    accessorFn: (r) => r.department?.name ?? "",
-    cell: ({ row }) => (
-      <span className="block max-w-[16rem] truncate whitespace-nowrap" title={row.original.team?.name}>
-        {row.original.department?.name ?? "—"}
-        {row.original.team ? <span className="text-primary-200"> · {row.original.team.name}</span> : null}
-      </span>
-    ),
-  },
-  {
-    id: "location",
-    header: "Location",
-    accessorFn: (r) => r.location?.name ?? "",
-    cell: ({ getValue }) => (
-      <span className="block max-w-[11rem] truncate whitespace-nowrap">{(getValue() as string) || "—"}</span>
-    ),
-    meta: { headerClassName: "hidden 2xl:table-cell", cellClassName: "hidden 2xl:table-cell" },
-  },
-  {
-    id: "manager",
-    header: "Manager",
-    accessorFn: (r) => r.manager?.name ?? "",
-    cell: ({ getValue }) => (
-      <span className="block max-w-[9rem] truncate whitespace-nowrap">{(getValue() as string) || "—"}</span>
-    ),
-    meta: { headerClassName: "hidden xl:table-cell", cellClassName: "hidden xl:table-cell" },
-  },
-  {
-    id: "status",
-    header: "Status",
-    accessorFn: (r) => r.status.code,
-    cell: ({ row }) => (
-      <div className="flex gap-1 whitespace-nowrap">
-        {row.original.status.code === "active" ? (
-          <span className="text-primary-300">Active</span>
-        ) : (
-          <EmployeeStatus status={row.original.status} />
-        )}
-        <PassPill state={row.original.workPassState} />
-      </div>
-    ),
-  },
-  {
-    id: "hireDate",
-    header: "Started",
-    accessorFn: (r) => r.hireDate ?? "",
-    cell: ({ getValue }) => (getValue() ? formatDate(getValue() as string) : "—"),
-    meta: { numeric: true, headerClassName: "hidden md:table-cell", cellClassName: "hidden md:table-cell" },
-  },
-];
+function translatedColumns(t: Translate): ColumnDef<DirectoryRowDto, unknown>[] {
+  return [
+    {
+      id: "name",
+      header: t("Name"),
+      accessorFn: (r) => r.name,
+      cell: ({ row }) => (
+        <div className="flex min-w-0 items-baseline gap-2 whitespace-nowrap">
+          <Link
+            to="/people/$employeeId"
+            params={{ employeeId: row.original.id }}
+            className="focus-ring truncate rounded-sm font-medium hover:underline"
+            tabIndex={-1}
+          >
+            {row.original.name}
+          </Link>
+          <span className="num shrink-0 text-2xs text-primary-200">{row.original.employeeNumber}</span>
+        </div>
+      ),
+    },
+    {
+      id: "jobTitle",
+      header: t("Job title"),
+      accessorFn: (r) => r.jobTitle ?? "",
+      cell: ({ getValue }) => (
+        <span className="block max-w-[14rem] truncate whitespace-nowrap">{(getValue() as string) || "—"}</span>
+      ),
+    },
+    {
+      id: "department",
+      header: t("Department"),
+      accessorFn: (r) => r.department?.name ?? "",
+      cell: ({ row }) => (
+        <span className="block max-w-[16rem] truncate whitespace-nowrap" title={row.original.team?.name}>
+          {row.original.department?.name ?? "—"}
+          {row.original.team ? <span className="text-primary-200"> · {row.original.team.name}</span> : null}
+        </span>
+      ),
+    },
+    {
+      id: "location",
+      header: t("Location"),
+      accessorFn: (r) => r.location?.name ?? "",
+      cell: ({ getValue }) => (
+        <span className="block max-w-[11rem] truncate whitespace-nowrap">{(getValue() as string) || "—"}</span>
+      ),
+      meta: { headerClassName: "hidden 2xl:table-cell", cellClassName: "hidden 2xl:table-cell" },
+    },
+    {
+      id: "manager",
+      header: t("Manager"),
+      accessorFn: (r) => r.manager?.name ?? "",
+      cell: ({ getValue }) => (
+        <span className="block max-w-[9rem] truncate whitespace-nowrap">{(getValue() as string) || "—"}</span>
+      ),
+      meta: { headerClassName: "hidden xl:table-cell", cellClassName: "hidden xl:table-cell" },
+    },
+    {
+      id: "status",
+      header: t("Status"),
+      accessorFn: (r) => r.status.code,
+      cell: ({ row }) => (
+        <div className="flex gap-1 whitespace-nowrap">
+          {row.original.status.code === "active" ? (
+            <span className="text-primary-300">{t("Active")}</span>
+          ) : (
+            <EmployeeStatus status={row.original.status} />
+          )}
+          <PassPill state={row.original.workPassState} />
+        </div>
+      ),
+    },
+    {
+      id: "hireDate",
+      header: t("Started"),
+      accessorFn: (r) => r.hireDate ?? "",
+      cell: ({ getValue }) => (getValue() ? formatDate(getValue() as string) : "—"),
+      meta: { numeric: true, headerClassName: "hidden md:table-cell", cellClassName: "hidden md:table-cell" },
+    },
+  ];
+}
 
 function PeoplePage() {
+  const t = useT("people-payroll");
+  const columns = React.useMemo(() => translatedColumns(t), [t]);
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const [q, setQ] = React.useState(search.q ?? "");
@@ -168,34 +173,38 @@ function PeoplePage() {
   return (
     <>
       <PageHeader
-        title="People"
+        title={t("People")}
         description={
-          query.data ? (
-            <>
-              <span className="num">{query.data.total}</span> {query.data.total === 1 ? "person" : "people"}
-              {filtered ? " match these filters" : ""}
-            </>
-          ) : (
-            "Employee records, work passes and job history."
-          )
+          query.data
+            ? t(
+                filtered
+                  ? query.data.total === 1
+                    ? "{count} person match these filters"
+                    : "{count} people match these filters"
+                  : query.data.total === 1
+                    ? "{count} person"
+                    : "{count} people",
+                { count: query.data.total },
+              )
+            : t("Employee records, work passes and job history.")
         }
         actions={
           <>
             <Button asChild variant="ghost" size="sm">
               <a href={exportHref} download>
-                <Download aria-hidden /> Export
+                <Download aria-hidden /> {t("Export")}
               </a>
             </Button>
             {canAdd ? (
               <>
                 <Button asChild size="sm">
                   <Link to="/people/import">
-                    <Upload aria-hidden /> Import
+                    <Upload aria-hidden /> {t("Import")}
                   </Link>
                 </Button>
                 <Button asChild variant="primary" size="sm">
                   <Link to="/people/new">
-                    <UserPlus aria-hidden /> Add employee
+                    <UserPlus aria-hidden /> {t("Add employee")}
                   </Link>
                 </Button>
               </>
@@ -210,21 +219,23 @@ function PeoplePage() {
             aria-hidden
           />
           <Input
-            aria-label="Search people"
-            placeholder="Search name, number, email…"
+            aria-label={t("Search people")}
+            placeholder={t("Search name, number, email…")}
             className="pl-9"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
         <FilterSelect
-          label="Department"
+          label={t("Department")}
+          anyLabel={t("All departments")}
           value={search.department}
           onChange={(v) => setFilter("department", v)}
           options={(departments.data?.items ?? []).map((d) => ({ value: d.id, label: d.name }))}
         />
         <FilterSelect
-          label="Location"
+          label={t("Location")}
+          anyLabel={t("All locations")}
           value={search.location}
           onChange={(v) => setFilter("location", v)}
           options={(locations.data?.items ?? []).map((d) => ({ value: d.id, label: d.name }))}
@@ -233,13 +244,13 @@ function PeoplePage() {
           value={search.status ?? "current"}
           onValueChange={(v) => setFilter("status", v === "current" ? undefined : v)}
         >
-          <SelectTrigger aria-label="Status" className="sm:w-44">
+          <SelectTrigger aria-label={t("Status")} className="sm:w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {STATUS_OPTIONS.map((o) => (
               <SelectItem key={o.value} value={o.value}>
-                {o.label}
+                {t(o.label)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -253,7 +264,7 @@ function PeoplePage() {
               void navigate({ search: {} });
             }}
           >
-            Clear filters
+            {t("Clear filters")}
           </Button>
         ) : null}
       </div>
@@ -264,7 +275,7 @@ function PeoplePage() {
           <MobileList rows={query.data?.items} loading={query.isPending} />
           <DataTable
             className={query.data?.items.length ? "hidden sm:block" : undefined}
-            label="People"
+            label={t("People")}
             columns={columns}
             data={query.data?.items ?? []}
             getRowId={(r) => r.id}
@@ -276,17 +287,17 @@ function PeoplePage() {
               filtered ? (
                 <EmptyState
                   variant="plain"
-                  title="No one matches these filters."
-                  description="Try another name or number, or clear the filters."
+                  title={t("No one matches these filters.")}
+                  description={t("Try another name or number, or clear the filters.")}
                 />
               ) : (
                 <EmptyState
                   variant="plain"
-                  title="No employees yet."
+                  title={t("No employees yet.")}
                   description={
                     canAdd
-                      ? "Add employee takes one person at a time; Import loads everyone from a spreadsheet."
-                      : "An owner or HR admin adds employees; they show here once added."
+                      ? t("Add employee takes one person at a time; Import loads everyone from a spreadsheet.")
+                      : t("An owner or HR admin adds employees; they show here once added.")
                   }
                 />
               )
@@ -300,11 +311,13 @@ function PeoplePage() {
 
 function FilterSelect({
   label,
+  anyLabel,
   value,
   onChange,
   options,
 }: {
   label: string;
+  anyLabel: string;
   value: string | undefined;
   onChange: (v: string | undefined) => void;
   options: { value: string; label: string }[];
@@ -315,7 +328,7 @@ function FilterSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="any">All {label.toLowerCase()}s</SelectItem>
+        <SelectItem value="any">{anyLabel}</SelectItem>
         {options.map((o) => (
           <SelectItem key={o.value} value={o.value}>
             {o.label}
@@ -328,9 +341,10 @@ function FilterSelect({
 
 /** Phones: a compact list instead of a wide table. */
 function MobileList({ rows, loading }: { rows: DirectoryRowDto[] | undefined; loading: boolean }) {
+  const t = useT("people-payroll");
   if (loading || !rows?.length) return null;
   return (
-    <ul className="divide-y divide-border rounded-lg border border-border sm:hidden" aria-label="People">
+    <ul className="divide-y divide-border rounded-lg border border-border sm:hidden" aria-label={t("People")}>
       {rows.map((r) => (
         <li key={r.id}>
           <Link

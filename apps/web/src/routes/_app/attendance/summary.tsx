@@ -21,6 +21,7 @@ import { AttendanceNav } from "../../../attendance/attendance-nav.tsx";
 import { can, useMe } from "../../../auth/session.ts";
 import { PageHeader } from "../../../components/page-header.tsx";
 import { ErrorNote } from "../../../components/section.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { todaySg } from "../../../leave/format.ts";
 
 export const Route = createFileRoute("/_app/attendance/summary")({
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/_app/attendance/summary")({
 });
 
 function SummaryPage() {
+  const tWorkflow = useT("workflows");
   const me = useMe();
   const today = todaySg();
   const [from, setFrom] = React.useState<string | null>(`${today.slice(0, 8)}01`);
@@ -38,15 +40,17 @@ function SummaryPage() {
   return (
     <>
       <PageHeader
-        title="Attendance"
-        description="Attendance per person for a period, up to 62 days. Export it for payroll or your records."
+        title={tWorkflow("Attendance")}
+        description={tWorkflow(
+          "Attendance per person for a period, up to 62 days. Export it for payroll or your records.",
+        )}
       />
       <AttendanceNav current="summary" />
       <div className="mb-4 flex flex-wrap items-end gap-2">
-        <FormField label="From">
+        <FormField label={tWorkflow("From")}>
           <DatePicker value={from} onChange={setFrom} className="w-40" />
         </FormField>
-        <FormField label="To">
+        <FormField label={tWorkflow("To")}>
           <DatePicker value={to} onChange={setTo} min={from} className="w-40" />
         </FormField>
         {can(me, "reports_attendance:export") ? (
@@ -59,7 +63,7 @@ function SummaryPage() {
       </div>
       <Card>
         {!ok ? (
-          <p className="p-4 text-ui text-danger-300">Pick a start date on or before the end date.</p>
+          <p className="p-4 text-ui text-danger-300">{tWorkflow("Pick a start date on or before the end date.")}</p>
         ) : q.isError ? (
           <ErrorNote error={q.error} retry={() => void q.refetch()} />
         ) : q.isPending ? (
@@ -69,23 +73,25 @@ function SummaryPage() {
         ) : items.length === 0 ? (
           <EmptyState
             variant="plain"
-            title="No one to report on for these dates."
-            description="The employees you can see show here with their days worked, hours, late arrivals and overtime."
+            title={tWorkflow("No one to report on for these dates.")}
+            description={tWorkflow(
+              "The employees you can see show here with their days worked, hours, late arrivals and overtime.",
+            )}
           />
         ) : (
           <div className="overflow-x-auto">
-            <Table aria-label="Attendance summary">
+            <Table aria-label={tWorkflow("Attendance summary")}>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="text-right">Days</TableHead>
-                  <TableHead className="text-right">Worked</TableHead>
-                  <TableHead className="hidden text-right sm:table-cell">Late</TableHead>
-                  <TableHead className="hidden text-right md:table-cell">Early out</TableHead>
-                  <TableHead className="hidden text-right md:table-cell">Missing</TableHead>
-                  <TableHead className="hidden text-right lg:table-cell">OT (clock)</TableHead>
-                  <TableHead className="text-right">OT approved</TableHead>
-                  <TableHead className="hidden text-right lg:table-cell">Leave days</TableHead>
+                  <TableHead>{tWorkflow("Name")}</TableHead>
+                  <TableHead className="text-right">{tWorkflow("Days")}</TableHead>
+                  <TableHead className="text-right">{tWorkflow("Worked")}</TableHead>
+                  <TableHead className="hidden text-right sm:table-cell">{tWorkflow("Late")}</TableHead>
+                  <TableHead className="hidden text-right md:table-cell">{tWorkflow("Early out")}</TableHead>
+                  <TableHead className="hidden text-right md:table-cell">{tWorkflow("Missing")}</TableHead>
+                  <TableHead className="hidden text-right lg:table-cell">{tWorkflow("OT (clock)")}</TableHead>
+                  <TableHead className="text-right">{tWorkflow("OT approved")}</TableHead>
+                  <TableHead className="hidden text-right lg:table-cell">{tWorkflow("Leave days")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

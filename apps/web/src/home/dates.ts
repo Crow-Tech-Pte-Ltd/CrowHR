@@ -1,4 +1,5 @@
 import { fromIsoDate } from "@crowhr/ui";
+import type { Locale } from "../i18n/index.ts";
 
 const DAY_MS = 86_400_000;
 
@@ -9,8 +10,12 @@ export function daysBetween(from: string, to: string): number {
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export function weekday(iso: string): string {
-  return WEEKDAYS[fromIsoDate(iso).getDay()] ?? "";
+export function weekday(iso: string, locale: Locale = "en-SG"): string {
+  const date = fromIsoDate(iso);
+  if (locale !== "en-SG" && Number.isFinite(date.getTime())) {
+    return new Intl.DateTimeFormat(locale, { weekday: "long" }).format(date);
+  }
+  return WEEKDAYS[date.getDay()] ?? "";
 }
 
 export function relativeDays(days: number): string {

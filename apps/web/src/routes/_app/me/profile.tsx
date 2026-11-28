@@ -22,6 +22,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Clock, Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 import { PageHeader } from "../../../components/page-header.tsx";
+import { useT } from "../../../i18n/index.ts";
 import { ApiError } from "../../../lib/api.ts";
 import { MobileAppSection } from "../../../me/mobile-app-section.tsx";
 import { api, errorMessage, fieldErrors, invalidatePeople, meQuery, referenceQuery } from "../people/-lib/api.ts";
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/_app/me/profile")({ component: MyProfileP
 type Contact = { name: string; relationship: string; phone: string };
 
 function MyProfilePage() {
+  const t = useT("settings-account");
   const q = useQuery(meQuery);
   const [editing, setEditing] = React.useState(false);
   const [requesting, setRequesting] = React.useState<null | "bank" | "personal">(null);
@@ -40,8 +42,8 @@ function MyProfilePage() {
   if (q.isError) {
     return q.error instanceof ApiError && q.error.status === 404 ? (
       <>
-        <PageHeader title="My profile" />
-        <EmptyState title="Your sign-in isn't linked to an employee record." description={errorMessage(q.error)} />
+        <PageHeader title={t("My profile")} />
+        <EmptyState title={t("Your sign-in isn't linked to an employee record.")} description={errorMessage(q.error)} />
         <div className="mt-6">
           <MobileAppSection />
         </div>
@@ -56,11 +58,13 @@ function MyProfilePage() {
   return (
     <>
       <PageHeader
-        title="My profile"
-        description="Keep your contact details current. Changes to your legal details or bank account are checked by HR or payroll first."
+        title={t("My profile")}
+        description={t(
+          "Keep your contact details current. Changes to your legal details or bank account are checked by HR or payroll first.",
+        )}
         actions={
           <Button size="sm" onClick={() => setEditing(true)}>
-            <Pencil aria-hidden /> Edit contact details
+            <Pencil aria-hidden /> {t("Edit contact details")}
           </Button>
         }
       />
@@ -68,7 +72,7 @@ function MyProfilePage() {
         <Alert variant="info" className="mb-4">
           <Clock aria-hidden />
           <div className="flex flex-col gap-1">
-            <AlertTitle>Awaiting approval</AlertTitle>
+            <AlertTitle>{t("Awaiting approval")}</AlertTitle>
             {pending.map((r) => (
               <PendingLine key={r.id} r={r} />
             ))}
@@ -76,7 +80,7 @@ function MyProfilePage() {
         </Alert>
       ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="Contact">
+        <Section title={t("Contact")}>
           <dl>
             <Field term="Preferred name">{e.preferredName}</Field>
             <Field term="Work email">{e.workEmail}</Field>
@@ -91,7 +95,7 @@ function MyProfilePage() {
             </Field>
           </dl>
         </Section>
-        <Section title="Emergency contacts">
+        <Section title={t("Emergency contacts")}>
           {e.emergencyContacts?.length ? (
             <dl>
               {e.emergencyContacts.map((c) => (
@@ -101,14 +105,16 @@ function MyProfilePage() {
               ))}
             </dl>
           ) : (
-            <p className="py-3 text-ui text-primary-300">None yet. Add up to 3 people we can call in an emergency.</p>
+            <p className="py-3 text-ui text-primary-300">
+              {t("None yet. Add up to 3 people we can call in an emergency.")}
+            </p>
           )}
         </Section>
         <Section
-          title="Legal details"
+          title={t("Legal details")}
           actions={
             <Button size="sm" variant="ghost" onClick={() => setRequesting("personal")}>
-              Request a change
+              {t("Request a change")}
             </Button>
           }
         >
@@ -125,10 +131,10 @@ function MyProfilePage() {
           </dl>
         </Section>
         <Section
-          title="Bank account"
+          title={t("Bank account")}
           actions={
             <Button size="sm" variant="ghost" onClick={() => setRequesting("bank")}>
-              Request a change
+              {t("Request a change")}
             </Button>
           }
         >
@@ -142,7 +148,7 @@ function MyProfilePage() {
             </dl>
           ) : (
             <p className="py-3 text-ui text-primary-300">
-              No bank account on record. Request one so salary can be paid by GIRO.
+              {t("No bank account on record. Request one so salary can be paid by GIRO.")}
             </p>
           )}
         </Section>
@@ -157,6 +163,7 @@ function MyProfilePage() {
 }
 
 function PendingLine({ r }: { r: ChangeRequestDto }) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const cancel = useMutation({
     mutationFn: () => api("POST", `/people/me/change-requests/${r.id}/cancel`),
@@ -164,20 +171,23 @@ function PendingLine({ r }: { r: ChangeRequestDto }) {
   });
   return (
     <AlertDescription className="flex flex-wrap items-center gap-2">
-      <StatusPill tone="info">Awaiting {r.routeToRole === "payroll_admin" ? "payroll" : "HR"} approval</StatusPill>
+      <StatusPill tone="info">
+        {r.routeToRole === "payroll_admin" ? t("Awaiting payroll approval") : t("Awaiting HR approval")}
+      </StatusPill>
       <span>
         {Object.entries(r.proposed)
           .map(([k, v]) => `${label(k.replace(/([A-Z])/g, "_$1").toLowerCase())}: ${v ?? "—"}`)
           .join(" · ")}
       </span>
       <Button size="sm" variant="link" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
-        Withdraw
+        {t("Withdraw")}
       </Button>
     </AlertDescription>
   );
 }
 
 function EditContactDialog({ e, onClose }: { e: NonNullable<ReturnType<typeof useMeData>>; onClose: () => void }) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const p = e.personal;
   const [preferredName, setPreferredName] = React.useState(e.preferredName ?? "");
@@ -199,7 +209,7 @@ function EditContactDialog({ e, onClose }: { e: NonNullable<ReturnType<typeof us
       }),
     onSuccess: async () => {
       await invalidatePeople(qc);
-      toast("Saved", { description: "Your contact details are updated." });
+      toast(t("Saved"), { description: t("Your contact details are updated.") });
       onClose();
     },
   });
@@ -208,8 +218,8 @@ function EditContactDialog({ e, onClose }: { e: NonNullable<ReturnType<typeof us
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit contact details</DialogTitle>
-          <DialogDescription>Saved straight away. Your employer can see who changed what.</DialogDescription>
+          <DialogTitle>{t("Edit contact details")}</DialogTitle>
+          <DialogDescription>{t("Saved straight away. Your employer can see who changed what.")}</DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-3"
@@ -219,31 +229,31 @@ function EditContactDialog({ e, onClose }: { e: NonNullable<ReturnType<typeof us
           }}
         >
           <TextInput
-            label="Preferred name"
+            label={t("Preferred name")}
             value={preferredName}
             onChange={setPreferredName}
             error={errs.preferredName}
-            hint="The name you go by. Leave empty to be called by your full name."
+            hint={t("The name you go by. Leave empty to be called by your full name.")}
           />
           <TextInput
-            label="Personal email"
+            label={t("Personal email")}
             type="email"
             value={personalEmail}
             onChange={setPersonalEmail}
             error={errs.personalEmail}
           />
           <TextInput
-            label="Mobile"
+            label={t("Mobile")}
             mono
             inputMode="tel"
             value={mobile}
             onChange={setMobile}
             error={errs.mobile}
-            hint="8-digit numbers are taken as +65."
+            hint={t("8-digit numbers are taken as +65.")}
           />
-          <TextInput label="Street address" value={street} onChange={setStreet} error={errs["address.street"]} />
+          <TextInput label={t("Street address")} value={street} onChange={setStreet} error={errs["address.street"]} />
           <TextInput
-            label="Postal code"
+            label={t("Postal code")}
             mono
             inputMode="numeric"
             value={postalCode}
@@ -251,25 +261,25 @@ function EditContactDialog({ e, onClose }: { e: NonNullable<ReturnType<typeof us
             error={errs["address.postalCode"]}
           />
           <fieldset className="flex flex-col gap-2">
-            <legend className={cn("mb-1", textStyle.group)}>Emergency contacts</legend>
+            <legend className={cn("mb-1", textStyle.group)}>{t("Emergency contacts")}</legend>
             {contacts.map((c, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: editable list without ids.
               <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2 sm:grid-cols-[1fr_8rem_9rem_auto]">
                 <TextInput
-                  label="Name"
+                  label={t("Name")}
                   value={c.name}
                   onChange={(v) => setContacts((cs) => cs.map((x, j) => (j === i ? { ...x, name: v } : x)))}
                   error={errs[`emergencyContacts.${i}.name`]}
                 />
                 <TextInput
-                  label="Relationship"
+                  label={t("Relationship")}
                   value={c.relationship}
                   onChange={(v) => setContacts((cs) => cs.map((x, j) => (j === i ? { ...x, relationship: v } : x)))}
                   error={errs[`emergencyContacts.${i}.relationship`]}
                   className="hidden sm:flex"
                 />
                 <TextInput
-                  label="Phone"
+                  label={t("Phone")}
                   mono
                   value={c.phone}
                   onChange={(v) => setContacts((cs) => cs.map((x, j) => (j === i ? { ...x, phone: v } : x)))}
@@ -279,7 +289,7 @@ function EditContactDialog({ e, onClose }: { e: NonNullable<ReturnType<typeof us
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  aria-label={`Remove ${c.name || "contact"}`}
+                  aria-label={t("Remove {value}", { value: c.name || "contact" })}
                   onClick={() => setContacts((cs) => cs.filter((_, j) => j !== i))}
                 >
                   <Trash2 aria-hidden />
@@ -294,10 +304,10 @@ function EditContactDialog({ e, onClose }: { e: NonNullable<ReturnType<typeof us
                 className="self-start"
                 onClick={() => setContacts((cs) => [...cs, { name: "", relationship: "", phone: "" }])}
               >
-                <Plus aria-hidden /> Add contact
+                <Plus aria-hidden /> {t("Add contact")}
               </Button>
             ) : (
-              <p className="text-2xs text-primary-200">At most 3 emergency contacts.</p>
+              <p className="text-2xs text-primary-200">{t("At most 3 emergency contacts.")}</p>
             )}
           </fieldset>
           {save.isError ? (
@@ -307,10 +317,10 @@ function EditContactDialog({ e, onClose }: { e: NonNullable<ReturnType<typeof us
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending}>
-              Save
+              {t("Save")}
             </Button>
           </DialogFooter>
         </form>
@@ -324,6 +334,7 @@ function useMeData() {
 }
 
 function RequestDialog({ kind, onClose }: { kind: "bank" | "personal"; onClose: () => void }) {
+  const t = useT("settings-account");
   const qc = useQueryClient();
   const ref = useQuery(referenceQuery);
   const [bankCode, setBankCode] = React.useState("");
@@ -339,11 +350,11 @@ function RequestDialog({ kind, onClose }: { kind: "bank" | "personal"; onClose: 
       ),
     onSuccess: async () => {
       await invalidatePeople(qc);
-      toast("Request sent", {
+      toast(t("Request sent"), {
         description:
           kind === "bank"
-            ? "Payroll will review it. Your current account stays in use until then."
-            : "HR will review it.",
+            ? t("Payroll will review it. Your current account stays in use until then.")
+            : t("HR will review it."),
       });
       onClose();
     },
@@ -353,11 +364,11 @@ function RequestDialog({ kind, onClose }: { kind: "bank" | "personal"; onClose: 
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{kind === "bank" ? "Change bank account" : "Change legal name"}</DialogTitle>
+          <DialogTitle>{kind === "bank" ? t("Change bank account") : t("Change legal name")}</DialogTitle>
           <DialogDescription>
             {kind === "bank"
-              ? "A payroll admin approves bank changes. Salary keeps going to your current account until then."
-              : "HR approves changes to legal details."}
+              ? t("A payroll admin approves bank changes. Salary keeps going to your current account until then.")
+              : t("HR approves changes to legal details.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -370,7 +381,7 @@ function RequestDialog({ kind, onClose }: { kind: "bank" | "personal"; onClose: 
           {kind === "bank" ? (
             <>
               <SelectInput
-                label="Bank"
+                label={t("Bank")}
                 required
                 value={bankCode}
                 onChange={setBankCode}
@@ -378,7 +389,7 @@ function RequestDialog({ kind, onClose }: { kind: "bank" | "personal"; onClose: 
                 error={errs["bank.bankCode"]}
               />
               <TextInput
-                label="Account number"
+                label={t("Account number")}
                 required
                 mono
                 inputMode="numeric"
@@ -388,7 +399,7 @@ function RequestDialog({ kind, onClose }: { kind: "bank" | "personal"; onClose: 
                 autoComplete="off"
               />
               <TextInput
-                label="Account holder name"
+                label={t("Account holder name")}
                 required
                 value={holderName}
                 onChange={setHolderName}
@@ -397,12 +408,12 @@ function RequestDialog({ kind, onClose }: { kind: "bank" | "personal"; onClose: 
             </>
           ) : (
             <TextInput
-              label="New legal name"
+              label={t("New legal name")}
               required
               value={legalName}
               onChange={setLegalName}
               error={errs["personal.legalName"]}
-              hint="As on your new NRIC or passport."
+              hint={t("As on your new NRIC or passport.")}
             />
           )}
           {save.isError && !Object.keys(errs).length ? (
@@ -412,10 +423,10 @@ function RequestDialog({ kind, onClose }: { kind: "bank" | "personal"; onClose: 
           ) : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={save.isPending}>
-              Send for approval
+              {t("Send for approval")}
             </Button>
           </DialogFooter>
         </form>
