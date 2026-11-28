@@ -9,11 +9,11 @@
 # server's TypeScript directly (type stripping, no transpile step), as a non-root user, with
 # the PostgreSQL 17 client for pg_dump/pg_restore/psql and tini as PID 1.
 
-ARG NODE_VERSION=24
+ARG NODE_IMAGE=node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
 ARG BUN_VERSION=1.3.9
 
 # ---------------------------------------------------------------------------------------------
-FROM node:${NODE_VERSION}-alpine AS build
+FROM ${NODE_IMAGE} AS build
 ARG BUN_VERSION
 RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}"
 WORKDIR /src
@@ -35,7 +35,7 @@ RUN bun run --cwd apps/web build
 
 # ---------------------------------------------------------------------------------------------
 # Production dependencies of the server only (no Vite, React, test tools).
-FROM node:${NODE_VERSION}-alpine AS deps
+FROM ${NODE_IMAGE} AS deps
 ARG BUN_VERSION
 RUN npm install --global --no-audit --no-fund "bun@${BUN_VERSION}"
 WORKDIR /app
@@ -73,7 +73,7 @@ RUN find apps packages -name '*.test.ts' -delete \
  && find apps/web/dist -name '*.map' -delete
 
 # ---------------------------------------------------------------------------------------------
-FROM node:${NODE_VERSION}-alpine AS runtime
+FROM ${NODE_IMAGE} AS runtime
 # postgresql17-client: pg_dump/pg_restore/psql matching the postgres:17-alpine server.
 # npm, npx, corepack and yarn are not needed at runtime: removing them saves ~20 MB.
 RUN apk add --no-cache postgresql17-client tini \
